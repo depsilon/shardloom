@@ -20,9 +20,13 @@ Audit fields explain scoped local evidence only; missing evidence blocks claims 
 
 ## How To Try It
 
-```powershell
+```text
 python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -51,10 +55,10 @@ A local benchmark smoke artifact with certificate, result-sink, materialization,
 
 ## Reference Files
 
-- `docs/getting-started/certified-local-workload.md` - What this proves: Scoped certified local workload path and expected evidence fields.
+- `docs/getting-started/certified-local-workload.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
-- `docs/architecture/operational-evidence-policy-hardening.md` - What this proves: Evidence policy rules that keep unsupported paths explicit and claim gates closed.
+- `docs/architecture/operational-evidence-policy-hardening.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 
 ## Related Use Cases
 

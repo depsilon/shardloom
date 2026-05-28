@@ -45,7 +45,7 @@ struct SqliteColumn {
     primary_key_position: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum SqliteCell {
     Null,
     Integer(i64),
@@ -77,7 +77,7 @@ impl SqliteCell {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct SqliteRow {
     cells: Vec<SqliteCell>,
 }
@@ -101,6 +101,7 @@ struct LocalSqliteImportExportReport {
     source_database_digest: String,
     export_jsonl_digest: String,
     roundtrip_database_digest: String,
+    roundtrip_replay_verified: bool,
     export_write_report: WorkspaceSafeLocalWriteReport,
     roundtrip_write_plan: WorkspaceSafeLocalWritePlan,
     order_by: Option<String>,
@@ -278,6 +279,12 @@ fn run_sqlite_local_import_export_smoke(
     write_roundtrip_database(&roundtrip_write_plan, &options.table, &columns, &rows)?;
     let roundtrip_row_count =
         count_roundtrip_rows(&roundtrip_write_plan.target_path, &options.table)?;
+    let roundtrip_rows = read_roundtrip_rows(
+        &roundtrip_write_plan.target_path,
+        &options.table,
+        &columns,
+        options.order_by.as_deref(),
+    )?;
     let roundtrip_bytes = fs::read(&roundtrip_write_plan.target_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read roundtrip SQLite fixture '{}': {error}; no fallback execution was attempted",
@@ -312,6 +319,7 @@ fn run_sqlite_local_import_export_smoke(
         source_database_digest,
         export_jsonl_digest: export_write_report.output_digest.clone(),
         roundtrip_database_digest: fnv64_digest_bytes(&roundtrip_bytes),
+        roundtrip_replay_verified: rows == roundtrip_rows,
         export_write_report,
         roundtrip_write_plan,
         order_by: options.order_by.clone(),
@@ -644,6 +652,20 @@ fn count_roundtrip_rows(path: &Path, table: &str) -> Result<usize, ShardLoomErro
     })
 }
 
+fn read_roundtrip_rows(
+    path: &Path,
+    table: &str,
+    columns: &[SqliteColumn],
+    order_by: Option<&str>,
+) -> Result<Vec<SqliteRow>, ShardLoomError> {
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(sqlite_error)?;
+    require_table(&conn, table)?;
+    let mut rows = read_rows(&conn, table, columns)?;
+    apply_fixture_order(&mut rows, columns, order_by)?;
+    Ok(rows)
+}
+
 fn sqlite_local_import_export_fields(
     report: &LocalSqliteImportExportReport,
 ) -> Vec<(String, String)> {
@@ -740,7 +762,7 @@ fn sqlite_local_artifact_fields(report: &LocalSqliteImportExportReport) -> Vec<(
         ),
         (
             "roundtrip_replay_verified".to_string(),
-            (report.source_row_count == report.roundtrip_row_count).to_string(),
+            report.roundtrip_replay_verified.to_string(),
         ),
         (
             "order_by".to_string(),

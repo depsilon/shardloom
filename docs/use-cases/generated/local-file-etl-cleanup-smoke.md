@@ -20,9 +20,13 @@ Scoped local technical-preview workflow only; not production ETL, broad SQL/Data
 
 ## How To Try It
 
-```powershell
+```text
 python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -49,11 +53,11 @@ A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, cover
 
 ## Reference Files
 
-- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
-- `docs/getting-started/certified-local-workload.md` - What this proves: Scoped certified local workload path and expected evidence fields.
+- `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/getting-started/certified-local-workload.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
-- `examples/local-vortex-benchmark/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
+- `examples/local-vortex-benchmark/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 
 ## Related Use Cases
 

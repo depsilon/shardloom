@@ -306,8 +306,9 @@ _LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY = (
     "Scoped local-source query-builder runtime only: local CSV, flat JSON/JSONL/NDJSON, and "
     "feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC lower through ShardLoom SQL "
     "local-source execution for admitted projection, filter, bounded limit, computed-column, "
-    "scalar/grouped aggregate, single-key top-N, inner/outer/semi/anti equi-join, and cross-join "
-    "workflows. No pandas/Polars "
+    "scalar/grouped aggregate, multi-key top-N, aggregate-output ordering, inner/outer/semi/anti "
+    "equi-join, cross-join, expression-condition join, join-aggregate, ranking-window, and local "
+    "output/fanout workflows. No pandas/Polars "
     "backend, object-store/table source, broad SQL/DataFrame runtime, external engine, fallback, "
     "or production claim."
 )
@@ -475,11 +476,15 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "source_free_generation",
         "unsupported_diagnostic_available",
         diagnostic_operation="dataframe-generated-with-column",
-        blocker_id="gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        blocker_id="gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
         required_evidence=(
-            "dataframe_with_column_expression_contract",
-            "generated_source_plan_contract",
+            "dataframe_plan_contract",
+            "expression_registry",
+            "type_coercion_contract",
             "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+            "no_fallback_evidence",
         ),
         claim_boundary=_UNSUPPORTED_BOUNDARY,
     ),
@@ -1105,11 +1110,25 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sql",
         "sql_frontend",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="sql",
-        blocker_id="cg21.workflow.sql.frontend_unsupported",
-        required_evidence=("sql_parser", "sql_binder", "sql_planner", "execution_certificate"),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "sql_frontend_runtime_ladder",
+            "sql_local_source_smoke",
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped ctx.sql local-source collect/write and source-free generated-output write "
+            "smokes only; broad parse/bind/plan/execute SQL, catalogs, object-store/table SQL, "
+            "external engine, fallback, production SQL/DataFrame, and performance claims remain "
+            "blocked."
+        ),
     ),
     _df_method(
         "profile",

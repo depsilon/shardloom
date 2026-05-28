@@ -1164,20 +1164,26 @@ print(join.required_evidence)
 print(join.claim_boundary)
 ```
 
-This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-projection/optional-filter/limit bridges marked as
+This matrix is still claim-safe, but it now distinguishes scoped runnable rows from broad
+unsupported rows. The scoped local CSV `collect` and `write` rows plus the flat
+JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
+projection/optional-filter/limit bridges are marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
 and scoped ranking-window shapes described above.
-It does not import DataFrame
-libraries, invoke external engines, or upgrade DataFrame/notebook support to
-claim-grade status. Other lazy source, `filter`, `select`, `limit`, and
-`group_by` helpers remain side-effect-free declarations unless an admitted
-terminal method is called. Joins, aggregations, and windows beyond admitted slices,
-schema/data-quality helpers, materialization to Python objects, and notebook
-display remain deterministic unsupported or fixture-scoped surfaces unless later
-evidence-backed slices promote them.
+`ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
+collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
+parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still
+return deterministic blockers. The `dataframe_generated_with_column` unsupported helper names the
+broad generated-expression blocker; scoped generated `with_column` execution remains available
+through concrete builders such as `ctx.from_rows(...).with_column(...)` and
+`ctx.range(...).with_column(...)`.
+It does not import DataFrame libraries, invoke external engines, or upgrade DataFrame/notebook
+support to claim-grade status. Other lazy source, `filter`, `select`, `limit`, and `group_by`
+helpers remain side-effect-free declarations unless an admitted terminal method is called. Joins,
+aggregations, windows, schema/data-quality helpers, and bounded Python-object materialization remain
+fixture-scoped; broad materialization and notebook display remain deterministic unsupported
+surfaces unless later evidence-backed slices promote them.
 
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or

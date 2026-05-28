@@ -20,9 +20,13 @@ Prepared/native smoke and structural evidence only; prepared_vortex starts from 
 
 ## How To Try It
 
-```powershell
+```text
 python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -61,7 +65,6 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `prepared_vortex_scale_split_manifest_digest`
 - `prepared_vortex_scale_split_runtime_status`
 - `prepared_vortex_scale_split_execution_certificate_status`
-- `prepared_vortex_scale_split_reader_digest`
 - `prepared_vortex_scale_split_operator_runtime_status`
 - `prepared_vortex_scale_split_operator_family`
 - `prepared_vortex_scale_split_operator_stateful`
@@ -90,6 +93,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `endopulse_persistent_state_used=false`
 - `proofbound_certificate_status`
 - `proofbound_claim_allowed`
+- `prepared_vortex_scale_split_reader_digest`
 - `prepared_vortex_scale_idempotency_key`
 - `data_decoded`
 - `data_materialized`
@@ -111,8 +115,8 @@ Warm prepared Vortex rows separate from single-process prepare/batch rows, with 
 
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
-- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
-- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `benchmarks/traditional_analytics/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 
 ## Related Use Cases
 

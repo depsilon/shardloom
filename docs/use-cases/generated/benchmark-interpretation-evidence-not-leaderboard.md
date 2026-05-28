@@ -20,9 +20,13 @@ Benchmarks are local evidence and attribution, not a speed leaderboard, performa
 
 ## How To Try It
 
-```powershell
+```text
 python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -56,8 +60,8 @@ Timing rows and coverage rows that keep ShardLoom runtime lanes separate from op
 
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
 - `docs/benchmarks/baseline-comparison-boundary.md` - What this proves: Benchmark comparison boundaries and external-baseline-only policy.
-- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
-- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `benchmarks/traditional_analytics/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 
 ## Related Use Cases
 

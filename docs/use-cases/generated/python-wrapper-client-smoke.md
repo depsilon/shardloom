@@ -24,6 +24,10 @@ Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, U
 $env:PYTHONPATH = "python\src"; python -c "from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)"
 ```
 
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
+
 ## Internal Flow
 
 `none -> no_dataset_smoke -> batch_status -> python_capability_view, typed_output_envelope -> evidence -> claim gate`
@@ -49,10 +53,10 @@ Python can import the package and invoke explicit status/capability commands thr
 
 ## Reference Files
 
-- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
-- `docs/getting-started/first-10-minutes.md` - What this proves: Shortest local orientation path for smoke checks and evidence inspection.
-- `examples/local-python-smoke/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
+- `docs/getting-started/first-10-minutes.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `examples/local-python-smoke/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

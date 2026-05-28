@@ -2212,7 +2212,8 @@ pub fn evaluate_vortex_capillary_preparation(
         .map(|task| task.estimated_memory_bytes)
         .sum::<u64>()
         .min(input.memory_budget_bytes);
-    let execution_certificate_status = if input.source_split_refs.trim().is_empty() {
+    let execution_certificate_status = if missing_capillary_task_manifest(&input.source_split_refs)
+    {
         "missing_capillary_task_manifest"
     } else {
         "certified"
@@ -2411,7 +2412,7 @@ fn capillary_status(
     tasks: &[VortexCapillaryPreparationTask],
     pulseweave_report: &PulseWeaveReport,
 ) -> &'static str {
-    if tasks.is_empty() || input.source_split_refs.trim().is_empty() {
+    if tasks.is_empty() || missing_capillary_task_manifest(&input.source_split_refs) {
         "blocked_missing_capillary_task_manifest"
     } else if input.native_io_certificate_status != "certified" {
         "report_only_blocked_missing_native_io_certificate"
@@ -2420,6 +2421,11 @@ fn capillary_status(
     } else {
         "report_only_blocked_pulseweave_control"
     }
+}
+
+fn missing_capillary_task_manifest(source_split_refs: &str) -> bool {
+    let source_split_refs = source_split_refs.trim();
+    source_split_refs.is_empty() || source_split_refs.eq_ignore_ascii_case("none")
 }
 
 fn join_task_values(
@@ -4184,6 +4190,30 @@ mod tests {
             "vortex_capillary_preparation_fallback_attempted".to_string(),
             "false".to_string()
         )));
+    }
+
+    #[test]
+    fn capillary_preparation_blocks_none_source_split_refs_as_missing_manifest() {
+        let mut input = capillary_input("certified");
+        input.source_split_refs = "none".to_string();
+
+        let report = evaluate_vortex_capillary_preparation(input).expect("capillary report");
+
+        assert_eq!(report.status, "blocked_missing_capillary_task_manifest");
+        assert_eq!(
+            report.execution_certificate_status,
+            "missing_capillary_task_manifest"
+        );
+        assert_eq!(report.pulseweave_report.status, "blocked");
+        assert!(!report.pulseweave_report.runtime_decision_applied);
+        assert!(
+            report
+                .pulseweave_report
+                .blocker
+                .contains("execution_certificate")
+        );
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-Object-store and cloud storage boundary has an explicit public no-credential fixture read smoke. It is runtime evidence for provider URI admission over caller-supplied local fixture bytes only; live provider reads and writes remain blocked.
+Object-store and cloud storage boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
@@ -20,7 +20,7 @@ S3/GCS/ADLS URI parsing plus an explicit public no-credential fixture read profi
 
 ## How To Try It
 
-```powershell
+```text
 target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --range 0:16 --format json
 ```
 
@@ -63,7 +63,7 @@ A public no-credential fixture smoke report with parsed provider/bucket/key fiel
 
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 - `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
-- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store request planning posture and blocked/runtime admission boundaries.
+- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store route admission, local-emulator evidence, and remote-provider blockers.
 - `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 
 ## Related Use Cases

@@ -232,13 +232,17 @@ fn current_runtime_registry_tracks_present_slots_and_unsupported_blocker_slots()
         registry.registry_id,
         "runtime.5g-f1-physical-operator-kernel-coverage.kernel-registry"
     );
-    assert_eq!(registry.required_slot_count(), 21);
-    assert_eq!(registry.present_slot_count(), 19);
+    assert_eq!(registry.required_slot_count(), 24);
+    assert_eq!(registry.present_slot_count(), 22);
     assert_eq!(registry.missing_slot_count(), 2);
     assert_eq!(registry.reference_only_rejected_count(), 0);
     assert!(!registry.all_required_slots_satisfied());
     assert!(registry.required_slots.iter().any(|slot| {
         slot.slot_id == "runtime.5g-f1.filter.kernel.encoded"
+            && slot.status == PhysicalKernelRequirementStatus::Present
+    }));
+    assert!(registry.required_slots.iter().any(|slot| {
+        slot.slot_id == "runtime.5g-f1.join.kernel.encoded"
             && slot.status == PhysicalKernelRequirementStatus::Present
     }));
     assert!(registry.required_slots.iter().any(|slot| {
@@ -580,6 +584,14 @@ fn current_runtime_kernel_selection_selects_ready_families_and_blocks_unsupporte
     assert_eq!(
         join_selection.status,
         PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert_eq!(
+        join_selection.required_kernel_kinds,
+        vec![
+            KernelKind::Metadata,
+            KernelKind::Encoded,
+            KernelKind::PartialDecode
+        ]
     );
     assert!(join_selection.can_select_kernel());
 

@@ -20,9 +20,13 @@ Local Foundry-style proof only; no Foundry production, package publication, Mark
 
 ## How To Try It
 
-```powershell
+```text
 python scripts\foundry_proof_of_use.py --rows 64 --iterations 1
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -53,9 +57,9 @@ A local proof report showing Foundry and external compute were not invoked.
 
 ## Reference Files
 
-- `docs/foundry/proof-of-use-certification.md` - What this proves: Foundry-style local proof boundary and no-production-Foundry claim posture.
-- `docs/foundry/integration-pack-readiness.md` - What this proves: Foundry integration-pack readiness posture and unresolved proof requirements.
-- `examples/foundry-lightweight-transform/README.md` - What this proves: Runnable or blocked example posture, expected local command path, and claim boundary.
+- `docs/foundry/proof-of-use-certification.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/foundry/integration-pack-readiness.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `examples/foundry-lightweight-transform/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 
 ## Related Use Cases

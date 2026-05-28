@@ -8153,6 +8153,7 @@ def vortex_preparation_spine_metadata(
         spine_status = "local_preparation_spine_reported"
     else:
         spine_status = "report_only"
+    spine_provider_active = spine_status == "local_preparation_spine_reported"
     if spine_status == "external_baseline_only":
         vortex_first_decision = "baseline_or_oracle_only"
     elif spine_status in {"blocked", "unsupported"}:
@@ -8171,9 +8172,9 @@ def vortex_preparation_spine_metadata(
         evidence.get("vortex_preparation_spine_provider_kind"),
         metrics.get("vortex_array_build_provider_kind"),
         "vortex_array_kernel"
-        if vortex_first_decision == "use_vortex_native_provider"
+        if spine_provider_active and vortex_first_decision == "use_vortex_native_provider"
         else "shardloom_kernel"
-        if vortex_first_decision == "implement_shardloom_kernel"
+        if spine_provider_active and vortex_first_decision == "implement_shardloom_kernel"
         else "none",
     )
     provider_surface = first_meaningful_field(
@@ -8181,14 +8182,22 @@ def vortex_preparation_spine_metadata(
         metrics.get("vortex_array_build_provider_surface"),
         "not_applicable",
     )
-    if provider_surface != "not_applicable" and "VortexSession::write_options()" not in provider_surface:
+    if (
+        spine_provider_active
+        and provider_surface != "not_applicable"
+        and "VortexSession::write_options()" not in provider_surface
+    ):
         provider_surface = (
             f"{provider_surface};VortexSession::write_options().write(ArrayStream);"
             "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
         )
     provider_crate = first_meaningful_field(
         evidence.get("vortex_preparation_spine_provider_crate"),
-        "vortex" if provider_kind == "vortex_array_kernel" else "shardloom-vortex,vortex",
+        "vortex"
+        if provider_kind == "vortex_array_kernel"
+        else "shardloom-vortex,vortex"
+        if provider_kind == "shardloom_kernel"
+        else "none",
     )
     return {
         "vortex_preparation_spine_schema_version": VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
@@ -8198,7 +8207,11 @@ def vortex_preparation_spine_metadata(
         "vortex_preparation_spine_provider_crate": provider_crate,
         "vortex_preparation_spine_provider_version": first_meaningful_field(
             evidence.get("vortex_preparation_spine_provider_version"),
-            "0.72" if provider_crate == "vortex" else "shardloom-vortex=0.1.0;vortex=0.72",
+            "0.72"
+            if provider_crate == "vortex"
+            else "shardloom-vortex=0.1.0;vortex=0.72"
+            if provider_crate == "shardloom-vortex,vortex"
+            else "not_applicable",
         ),
         "vortex_preparation_spine_feature_gate": first_meaningful_field(
             evidence.get("vortex_preparation_spine_feature_gate"),

@@ -283,6 +283,7 @@ rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
 closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control,
+`GAR-RUNTIME-IMPL-5C` Python workflow/method-matrix alignment,
 `GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission,
 `GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission,
 `GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout, and the parent
@@ -307,48 +308,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity
-  - Source: `GAR-RUNTIME-IMPL-4A`, `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4E`, Python README,
-    Use Case Atlas.
-  - Current state: Python wrapper and selected query-builder methods exist. The SQL frontend
-    runtime ladder is complete and now exposes scoped local-source/source-free admitted families
-    plus deterministic blockers for broad SQL, catalog/CTE/set-op/recursive, correlated/broad
-    subquery, object-store/table SQL, and fallback-engine SQL families. The local CSV/flat
-    JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
-    group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
-    expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
-    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)` over aggregate output
-    aliases or admitted unprojected aggregate functions, scoped
-    `.window(sl.row_number(...), sl.rank(...), sl.dense_rank(...))` projections,
-    composed UTF-8 string helper chains for predicates/projections, explicit-projection literal
-    `with_column(...)`, and `count()` workflows, but
-    complete end-to-end generated/local/Vortex workflows and
-    unsupported-method diagnostics are not yet ordinary user-grade coverage.
-  - Next slice outcome: make one import path support generated, local file, and prepared/native
-    Vortex workflows with select/filter/project/limit/preview/aggregate/group/order/write where
-    admitted.
-  - Runtime enablement: ordinary Python context/query-builder workflows that invoke ShardLoom
-    runtime instead of external Python engines.
-  - User-visible surface: `import shardloom`, context/session object, `LazyFrame`, typed reports,
-    getting-started docs, recipes, website use cases.
-  - Implementation scope: Python builders, method admission matrix, CLI lowering, typed report
-    accessors, examples, packaging smoke.
-  - Evidence required: method admission, execution mode, engine mode, source/generated/prepared refs,
-    output refs, correctness digest, certificate refs, no-fallback fields, claim gate.
-  - Acceptance: a non-expert can run documented Python workflows and inspect evidence without
-    architecture docs; unsupported methods are explicit and actionable.
-  - Verification: Python unit/integration tests, clean-venv smoke, example smoke, compileall,
-    use-case coverage, website readiness.
-  - Non-goals: no pandas/Polars backend, notebook production claim, broad DataFrame parity claim, or
-    public package upload.
-  - Claim boundary: scoped local Python workflow runtime only.
-  - Fallback boundary: Python orchestrates ShardLoom runtime and must not compute through external
-    engines.
-  - Dependencies/blockers: CLI runtime coverage, typed execution envelope, local outputs, generated
-    source builders, Vortex lifecycle.
-  - Ledger rule: ledger entry must include runnable Python snippets, admitted methods, and blocked
-    methods.
 
 - [ ] GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
   - Source: `GAR-COMMERCIAL-1E`, `GAR-IOREUSE-1G`, Foundry proof docs.
@@ -454,8 +413,7 @@ validators, docs/website parity, and a completed-ledger entry.
     CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines. The
     public broad-format timing-data refresh remains intentionally deferred until the remaining
     runtime/user-surface closeouts that can change benchmark interpretation are done, including
-    `GAR-RUNTIME-IMPL-5C`, `GAR-RUNTIME-IMPL-5P`, `GAR-RUNTIME-IMPL-4S`, and
-    `GAR-RUNTIME-IMPL-5Q`.
+    `GAR-RUNTIME-IMPL-5P`, `GAR-RUNTIME-IMPL-4S`, and `GAR-RUNTIME-IMPL-5Q`.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
     refresh should preserve `full_local_plus_spark` required PySpark/Spark lane enforcement,
@@ -500,10 +458,11 @@ This bundle is the explicit completion backstop for the desired end-user shape: 
 as simple to enter from Python as PySpark is to Spark, while remaining honest that ShardLoom is not a
 Spark API clone, Spark replacement, distributed runtime claim, production SQL/DataFrame claim, or
 external-engine fallback. Completed `GAR-RUNTIME-IMPL-5B` SQL ladder evidence supplies the scoped
-SQL footing; existing runtime items (`GAR-RUNTIME-IMPL-5C` and `GAR-RUNTIME-IMPL-5Q`) own much of
-the remaining implementation; completed `GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the
-scoped lifecycle footing. This section keeps the user-surface parity target visible until the full
-import/context/session/SQL/DataFrame path is runnable, documented, tested, and claim-safe.
+SQL footing; completed `GAR-RUNTIME-IMPL-5C` alignment supplies the scoped Python/DataFrame method
+map; existing runtime item `GAR-RUNTIME-IMPL-5Q` owns final usability proof; completed
+`GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the scoped lifecycle footing. This section
+keeps the user-surface parity target visible until the full import/context/session/SQL/DataFrame
+path is runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
@@ -532,10 +491,10 @@ import/context/session/SQL/DataFrame path is runnable, documented, tested, and c
     expression projection beyond admitted scoped families, broader data-quality rules,
     pandas/Arrow/NumPy materialization, richer outputs, and parity-like method coverage remain
     unsupported/report-only.
-  - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
-    runtime or deterministic blockers: pandas/Arrow materialization boundaries, broader
-    data-quality rules, broader expression projection, richer output writers, and collect/write
-    ergonomics.
+  - Next slice outcome: keep only user-surface polish that is not already owned by completed runtime
+    alignment: simpler examples, concise evidence accessors, install/import ergonomics, and
+    deterministic blockers for pandas/Arrow materialization, notebook display, object-store/table
+    sources, and broad DataFrame parity.
   - Runtime enablement: familiar DataFrame/query-builder workflows that execute through ShardLoom
     native runtime paths for admitted local inputs and outputs.
   - User-visible surface: `ctx.read`, `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,
@@ -552,8 +511,8 @@ import/context/session/SQL/DataFrame path is runnable, documented, tested, and c
     method silently routes to pandas/Polars/Spark/DataFusion.
   - Verification: Python query-builder tests per method, CLI/runtime smoke tests, capability matrix
     snapshots, use-case coverage, release readiness metadata.
-  - Dependencies/blockers: method-level runtime lowerings, expression IR completion, output writer
-    support, local join/runtime expansion, and broad SQL/DataFrame claim gates.
+  - Dependencies/blockers: concise evidence accessors, package/install workflow proof, and broad
+    SQL/DataFrame claim gates.
   - Non-goals: no pandas/Polars backend, Spark-compatible DataFrame API promise, notebook
     production claim, full SQL optimizer parity, or performance claim.
   - Claim boundary: method-by-method scoped local runtime support only until production evidence is complete.

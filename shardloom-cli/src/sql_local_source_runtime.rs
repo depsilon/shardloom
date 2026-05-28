@@ -2251,6 +2251,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
         Ok(report) => report,
         Err(error) => {
             if let Some(fields) = vortex_ingest_scout_blocked_fields(&request, &error) {
+                let blocked_source_path = vortex_ingest_scout_blocked_source_path(&request, &error);
                 emit(
                     VORTEX_INGEST_COMMAND,
                     format,
@@ -2258,7 +2259,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                     "vortex_ingest scout ingress blocked source before preparation".to_string(),
                     format!(
                         "local vortex_ingest scout ingress blocked source {} before Vortex write: {error}; fallback execution remains disabled",
-                        request.source_path.display()
+                        blocked_source_path.display()
                     ),
                     Vec::new(),
                     fields,
@@ -2361,25 +2362,26 @@ fn run_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let delta = request.delta.clone();
+    if let Some(delta) = delta.as_ref() {
+        preflight_vortex_ingest_differential_request(&request, delta)?;
+    }
     let mut base_report = run_vortex_ingest_prepare_once(VortexIngestRequest {
         delta: None,
         ..request
     })?;
     if let Some(delta) = delta {
-        if base_report.request.certification_level
-            != shardloom_vortex::VortexIngestCertificationLevel::IngestCertified
-        {
-            return Err(ShardLoomError::InvalidOperation(
-                "vortex_ingest differential preparation requires ingest_certified replay evidence; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        }
         let delta_report = run_vortex_ingest_prepare_once(VortexIngestRequest {
-            source_path: delta.source_path,
-            target_path: delta.target_path,
+            source_path: delta.source_path.clone(),
+            target_path: delta.target_path.clone(),
             allow_overwrite: base_report.request.allow_overwrite,
             certification_level: base_report.request.certification_level,
             delta: None,
+        })
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "vortex_ingest differential delta source '{}' failed preparation: {error}; no fallback execution was attempted",
+                delta.source_path.display()
+            ))
         })?;
         base_report.differential_preparation = Some(differential_preparation_report(
             &base_report,
@@ -2388,6 +2390,29 @@ fn run_vortex_ingest_smoke(
         ));
     }
     Ok(base_report)
+}
+
+fn preflight_vortex_ingest_differential_request(
+    request: &VortexIngestRequest,
+    delta: &VortexIngestDeltaRequest,
+) -> Result<(), ShardLoomError> {
+    if request.certification_level
+        != shardloom_vortex::VortexIngestCertificationLevel::IngestCertified
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "vortex_ingest differential preparation requires ingest_certified replay evidence before any base or delta write; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let base_target = canonical_output_path_key(&request.target_path)?;
+    let delta_target = canonical_output_path_key(&delta.target_path)?;
+    if base_target == delta_target {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "vortex_ingest differential preparation requires distinct base and delta targets; both resolved to {}; no fallback execution was attempted",
+            request.target_path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn run_vortex_ingest_prepare_once(
@@ -3799,13 +3824,15 @@ fn vortex_ingest_scout_blocked_fields(
 ) -> Option<Vec<(String, String)>> {
     let error_text = error.to_string();
     let classifier = classify_vortex_ingest_scout_error(&error_text)?;
-    let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path).ok();
+    let blocked_request = vortex_ingest_scout_blocked_request(request, &error_text);
+    let source_adapter =
+        LocalInputAdapterSelection::infer_from_path(&blocked_request.source_path).ok();
     let source_format = source_adapter
         .as_ref()
         .map_or("unknown".to_string(), |adapter| {
             adapter.source_format.as_str().to_string()
         });
-    let (source_bytes, source_digest) = fs::read(&request.source_path).map_or_else(
+    let (source_bytes, source_digest) = fs::read(&blocked_request.source_path).map_or_else(
         |_| (0, "not_available_source_read_failed".to_string()),
         |bytes| {
             (
@@ -3817,7 +3844,7 @@ fn vortex_ingest_scout_blocked_fields(
     let source_state_id = format!("local-{source_format}-{}", source_digest.replace(':', "-"));
     let source_state_digest = fnv64_digest(&format!(
         "{source_format}|{}|{}|{}",
-        request.source_path.display(),
+        blocked_request.source_path.display(),
         source_digest,
         classifier.diagnostic_code
     ));
@@ -3827,7 +3854,7 @@ fn vortex_ingest_scout_blocked_fields(
             source_state_id,
             source_state_digest,
             source_format,
-            source_path: request.source_path.display().to_string(),
+            source_path: blocked_request.source_path.display().to_string(),
             source_schema_digest,
             row_count: 0,
             source_byte_count: source_bytes,
@@ -3838,7 +3865,7 @@ fn vortex_ingest_scout_blocked_fields(
             } else {
                 format!(
                     "{}:bytes=0..{}",
-                    request.source_path.display(),
+                    blocked_request.source_path.display(),
                     source_bytes
                 )
             },
@@ -3877,11 +3904,11 @@ fn vortex_ingest_scout_blocked_fields(
         ("support_status".to_string(), "blocked".to_string()),
         (
             "source_path".to_string(),
-            request.source_path.display().to_string(),
+            blocked_request.source_path.display().to_string(),
         ),
         (
             "target_vortex_path".to_string(),
-            request.target_path.display().to_string(),
+            blocked_request.target_path.display().to_string(),
         ),
         ("source_io_performed".to_string(), "true".to_string()),
         ("ingress_route".to_string(), "vortex_ingest".to_string()),
@@ -3896,7 +3923,7 @@ fn vortex_ingest_scout_blocked_fields(
         ),
         (
             "certification_level".to_string(),
-            request.certification_level.as_str().to_string(),
+            blocked_request.certification_level.as_str().to_string(),
         ),
         (
             "certification_status".to_string(),
@@ -3936,6 +3963,39 @@ fn vortex_ingest_scout_blocked_fields(
         ("production_claim_allowed".to_string(), "false".to_string()),
     ]);
     Some(fields)
+}
+
+fn vortex_ingest_scout_blocked_source_path<'a>(
+    request: &'a VortexIngestRequest,
+    error: &ShardLoomError,
+) -> &'a Path {
+    if error
+        .to_string()
+        .contains("vortex_ingest differential delta source")
+    {
+        if let Some(delta) = request.delta.as_ref() {
+            return delta.source_path.as_path();
+        }
+    }
+    request.source_path.as_path()
+}
+
+fn vortex_ingest_scout_blocked_request(
+    request: &VortexIngestRequest,
+    error_text: &str,
+) -> VortexIngestRequest {
+    if error_text.contains("vortex_ingest differential delta source") {
+        if let Some(delta) = request.delta.as_ref() {
+            return VortexIngestRequest {
+                source_path: delta.source_path.clone(),
+                target_path: delta.target_path.clone(),
+                allow_overwrite: request.allow_overwrite,
+                certification_level: request.certification_level,
+                delta: None,
+            };
+        }
+    }
+    request.clone()
 }
 
 struct ScoutErrorClassifier {
@@ -17819,10 +17879,11 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
             "SQL COLLATE and locale-aware collation semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice",
         ));
     }
-    if contains_keyword_outside_quotes(statement, "regexp")
-        || contains_keyword_outside_quotes(statement, "regexp_like")
-        || contains_keyword_outside_quotes(statement, "regex")
-        || contains_keyword_outside_quotes(statement, "rlike")
+    if contains_function_call_outside_quotes(statement, "regexp_like")
+        || contains_function_call_outside_quotes(statement, "regexp")
+        || contains_function_call_outside_quotes(statement, "regex")
+        || contains_function_call_outside_quotes(statement, "rlike")
+        || contains_regex_pattern_operator_outside_quotes(statement)
     {
         return Err(unsupported_sql_error(
             "regex and regexp pattern semantics are not admitted; use scoped LIKE prefix, suffix, or contains predicates",
@@ -17995,6 +18056,124 @@ fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool
         search_start = name_index + function_name.len();
     }
     false
+}
+
+fn contains_regex_pattern_operator_outside_quotes(raw: &str) -> bool {
+    ["regexp", "rlike"]
+        .iter()
+        .any(|operator| contains_binary_operator_outside_quotes(raw, operator))
+}
+
+fn contains_binary_operator_outside_quotes(raw: &str, operator: &str) -> bool {
+    let mut search_start = 0;
+    while search_start < raw.len() {
+        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], operator)
+        else {
+            return false;
+        };
+        let operator_index = search_start + relative_index;
+        if has_sql_operand_before(raw, operator_index)
+            && has_sql_operand_after(raw, operator_index + operator.len())
+        {
+            return true;
+        }
+        search_start = operator_index + operator.len();
+    }
+    false
+}
+
+fn has_sql_operand_before(raw: &str, index: usize) -> bool {
+    let before = raw[..index].trim_end();
+    if before.is_empty() {
+        return false;
+    }
+    let Some(last) = before.chars().next_back() else {
+        return false;
+    };
+    if !(last == ')' || last == '\'' || is_identifier_char(last)) {
+        return false;
+    }
+    let token = trailing_identifier_token(before);
+    !matches!(
+        token.as_deref(),
+        Some(
+            "select"
+                | "where"
+                | "having"
+                | "on"
+                | "and"
+                | "or"
+                | "not"
+                | "as"
+                | "from"
+                | "join"
+                | "left"
+                | "right"
+                | "inner"
+                | "outer"
+                | "full"
+                | "cross"
+                | "case"
+                | "when"
+                | "then"
+                | "else"
+                | "in"
+                | "like"
+        )
+    )
+}
+
+fn has_sql_operand_after(raw: &str, index: usize) -> bool {
+    let after = raw[index..].trim_start();
+    if after.is_empty() {
+        return false;
+    }
+    let token = leading_identifier_token(after);
+    !matches!(
+        token.as_deref(),
+        Some(
+            "from"
+                | "where"
+                | "group"
+                | "order"
+                | "having"
+                | "limit"
+                | "as"
+                | "and"
+                | "or"
+                | "then"
+                | "else"
+                | "end"
+        )
+    )
+}
+
+fn trailing_identifier_token(raw: &str) -> Option<String> {
+    let token = raw
+        .chars()
+        .rev()
+        .take_while(|ch| is_identifier_char(*ch))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token.to_ascii_lowercase())
+    }
+}
+
+fn leading_identifier_token(raw: &str) -> Option<String> {
+    let token = raw
+        .chars()
+        .take_while(|ch| is_identifier_char(*ch))
+        .collect::<String>();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token.to_ascii_lowercase())
+    }
 }
 
 fn contains_keyword_followed_by_char_outside_quotes(
@@ -25842,6 +26021,36 @@ mod tests {
             assert!(
                 error.to_string().contains(expected),
                 "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn parser_allows_regex_named_columns_without_enabling_regex_semantics() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT regex, regexp FROM 'target/input.csv' WHERE regex = 'alpha' LIMIT 5",
+        )
+        .expect("regex-like identifiers are ordinary columns");
+
+        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(parsed.limit, 5);
+    }
+
+    #[test]
+    fn parser_blocks_regex_functions_and_pattern_operators_without_fallback() {
+        for statement in [
+            "SELECT id,REGEXP(label, '^a') AS matched FROM 'target/input.csv' LIMIT 5",
+            "SELECT id,label FROM 'target/input.csv' WHERE label RLIKE '^a' LIMIT 5",
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("regex pattern semantics remain blocked");
+
+            assert!(
+                error
+                    .to_string()
+                    .contains("regex and regexp pattern semantics are not admitted"),
+                "got {error}"
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }

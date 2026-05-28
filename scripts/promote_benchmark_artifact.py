@@ -812,6 +812,20 @@ def cold_lane_adjusted_claim_fields(
     return "not_claim_grade", False, current_missing
 
 
+def row_with_cold_lane_adjusted_claim_fields(
+    row: dict[str, Any], cold_lane: dict[str, Any]
+) -> dict[str, Any]:
+    claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
+        cold_lane_adjusted_claim_fields(row, cold_lane)
+    )
+    adjusted = dict(row)
+    adjusted.update(cold_lane)
+    adjusted["claim_gate_status"] = claim_gate_status
+    adjusted["claim_grade_requirements_met"] = claim_grade_requirements_met
+    adjusted["claim_grade_missing_evidence"] = claim_grade_missing_evidence
+    return adjusted
+
+
 def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     evidence = row.get("shardloom_evidence")
@@ -937,11 +951,12 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
             cold_lane_adjusted_claim_fields(row, cold_lane_fields)
         )
+        adjusted_row = row_with_cold_lane_adjusted_claim_fields(row, cold_lane_fields)
         runtime_fields.update(cold_lane_fields)
         runtime_fields["claim_gate_status"] = claim_gate_status
         runtime_fields["claim_grade_requirements_met"] = claim_grade_requirements_met
         runtime_fields["claim_grade_missing_evidence"] = claim_grade_missing_evidence
-        runtime_validation = runtime_validation_for_row(row)
+        runtime_validation = runtime_validation_for_row(adjusted_row)
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -1004,14 +1019,7 @@ def cold_lane_claim_adjusted_rows(rows: list[dict[str, Any]]) -> list[dict[str, 
     adjusted: list[dict[str, Any]] = []
     for row in rows:
         cold_lane_fields = cold_lane_attribution_for_row(row)
-        claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
-            cold_lane_adjusted_claim_fields(row, cold_lane_fields)
-        )
-        adjusted_row = dict(row)
-        adjusted_row["claim_gate_status"] = claim_gate_status
-        adjusted_row["claim_grade_requirements_met"] = claim_grade_requirements_met
-        adjusted_row["claim_grade_missing_evidence"] = claim_grade_missing_evidence
-        adjusted.append(adjusted_row)
+        adjusted.append(row_with_cold_lane_adjusted_claim_fields(row, cold_lane_fields))
     return adjusted
 
 
@@ -1039,7 +1047,7 @@ def comparative_summary(
         "engine_timing_overview": engine_timing_table(rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(claim_adjusted_rows),
-        "runtime_envelope_validation": runtime_validation_table(rows),
+        "runtime_envelope_validation": runtime_validation_table(claim_adjusted_rows),
         "cold_lane_attribution": cold_lane_attribution_table(rows),
         "profile_lane_availability": profile_lane_availability_table(
             artifact, rows, profile

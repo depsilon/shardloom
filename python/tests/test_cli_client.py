@@ -3408,7 +3408,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             ("sql_source_free_projection", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_planner,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_generate_series_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,scoped_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
-                            ("dataframe_generated_with_column", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented", "dataframe_with_column_expression_contract,generated_source_plan_contract,generated_source_certificate", "not_claim_grade"),
+                            ("dataframe_generated_with_column", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_generated_with_column_jsonl_csv_structured_smoke_only", "generated_row_literal_projection,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                         ]
                         fields.extend([
                             {"key": "generated_source_api_admission_schema_version", "value": "shardloom.generated_source_api_admission.v1"},
@@ -4169,7 +4169,23 @@ class ShardLoomClientTests(unittest.TestCase):
             capabilities.dataframe.generated_source_api_admission.row(
                 "dataframe_generated_with_column"
             ).claim_gate_status,
-            "not_claim_grade",
+            "fixture_smoke_only",
+        )
+        self.assertTrue(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_generated_with_column"
+            ).fixture_smoke_supported
+        )
+        self.assertTrue(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_generated_with_column"
+            ).runtime_execution
+        )
+        self.assertEqual(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_generated_with_column"
+            ).blocker_id,
+            "none_scoped_local_generated_with_column_jsonl_csv_structured_smoke_only",
         )
         self.assertTrue(
             capabilities.api_surfaces.generated_source_api_admission.row(
@@ -4240,6 +4256,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("agg", dataframe_methods.unsupported_methods)
         self.assertNotIn("window", dataframe_methods.unsupported_methods)
         self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
+        self.assertNotIn("sql", dataframe_methods.unsupported_methods)
         self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
@@ -4271,6 +4288,22 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "computed_projection_evidence",
             dataframe_methods.row("with_column").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("sql").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("sql").runtime_execution)
+        self.assertTrue(dataframe_methods.row("sql").data_read)
+        self.assertTrue(dataframe_methods.row("sql").write_io)
+        self.assertIsNone(dataframe_methods.row("sql").blocker_id)
+        self.assertIn(
+            "sql_frontend_runtime_ladder",
+            dataframe_methods.row("sql").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("dataframe_generated_with_column").blocker_id,
+            "gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
         )
         self.assertEqual(
             dataframe_methods.row("join").support_status,

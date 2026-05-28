@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `source_free_generated_output`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL value-column/int64 arithmetic range projection JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+- **Claim boundary:** Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL value-column/int64 arithmetic range projection JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC local sinks are admitted when shardloom-cli is built with --features universal-format-io, and feature-gated flat scalar local Vortex output is admitted when built with --features vortex-write. No broad Vortex writer claim, broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Source-free generated output boundary has a scoped local path. Treat it as techn
 
 ## Claim Boundary
 
-Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL value-column/int64 arithmetic range projection JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL value-column/int64 arithmetic range projection JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC local sinks are admitted when shardloom-cli is built with --features universal-format-io, and feature-gated flat scalar local Vortex output is admitted when built with --features vortex-write. No broad Vortex writer claim, broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=co
 
 ## Blocker
 
-The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES/generate_series/range and scoped range-projection subset, broad DataFrame source-free projection, expression-backed generated with_column, engine-native values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
+Default binaries support JSONL/CSV generated-output smokes and return deterministic blockers for Parquet, Arrow IPC, Avro, and ORC until built with --features universal-format-io and for Vortex until built with --features vortex-write. The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES/generate_series/range and scoped range-projection subset, broad DataFrame source-free projection, expression-backed generated with_column, engine-native values/synthetic profiles, broad Vortex writer behavior, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
 
 ## Internal Flow
 
-`none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, sql_generate_series_range_projection, ctx_sql_source_free -> source_free_generated_output -> batch -> local_jsonl_output_artifact, local_csv_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
+`none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, sql_generate_series_range_projection, ctx_sql_source_free -> source_free_generated_output -> batch -> local_jsonl_output_artifact, local_csv_output_artifact, feature_gated_local_parquet_output, feature_gated_local_arrow_ipc_output, feature_gated_local_avro_output, feature_gated_local_orc_output, feature_gated_local_vortex_output, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -46,29 +46,32 @@ The source-free API admission matrix and Python context unsupported helpers keep
 - `generated_source_api_admission_schema_version`
 - `support_status`
 - `blocker_id`
-- `sql_source_free_projection_runtime_execution=true`
-- `sql_source_free_projection_columns`
-- `sql_source_free_projection_expressions`
+- `vortex_output_runtime_execution`
+- `vortex_output_reopen_verified`
+- `vortex_artifact_digest`
+- `upstream_vortex_write_called`
+- `upstream_vortex_scan_called`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status`
 
 ## Expected Output Or Evidence
 
-A local JSONL/CSV output plus fields including generated_source_kind, generated_source_row_count, generated_source_range_* and generated_source_sql_generator_function for SQL generator rows, sql_source_free_projection_* fields for scoped range projections, generated_source_certificate_status=present, output_native_io_certificate_status=certified_local_file_sink, fallback_attempted=false, and external_engine_invoked=false.
+A local JSONL/CSV output, feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output, or feature-gated local .vortex output. Evidence includes generated_source_kind, generated_source_row_count, generated_source_range_* and generated_source_sql_generator_function for SQL generator rows, sql_source_free_projection_* fields for scoped range projections, generated_source_certificate_status=present, output_native_io_certificate_status, Vortex artifact/reopen fields when write_vortex is admitted, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 
 - `confusing_no_dataset_smoke_with_generated_output`
+- `expecting_structured_outputs_in_default_build`
 - `claiming_source_native_io_without_source_read`
 - `writing_to_s3`
 
 ## Reference Files
 
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
-- `docs/foundry/proof-of-use-certification.md` - What this proves: Foundry-style local proof boundary and no-production-Foundry claim posture.
-- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
-- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this source-free output smoke.
+- `docs/foundry/proof-of-use-certification.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
+- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this use case.
 
 ## Related Use Cases
 

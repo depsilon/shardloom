@@ -9,6 +9,7 @@ const dataRoot = path.join(root, "src", "data");
 const docsRoot = path.join(root, "src", "content", "docs");
 const useCaseRoot = path.join(root, "src", "content", "use-cases");
 const statusRoot = path.join(root, "src", "content", "status");
+const docsUseCaseGeneratedRoot = path.join(repoRoot, "docs", "use-cases", "generated");
 const legacyWebsiteDataRoot = path.join(repoRoot, "website", "assets", "data");
 const legacyWebsiteBenchmarkRoot = path.join(repoRoot, "website", "assets", "benchmarks", "latest");
 const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
@@ -137,6 +138,90 @@ ${rows.map((ref) => `<li><code>${ref}</code> - What this proves: ${referenceProo
 </ul>`;
 }
 
+function markdownList(values) {
+  return (values ?? []).map((value) => `- \`${String(value)}\``).join("\n") || "- Not reported.";
+}
+
+function runnableBlock(command) {
+  if (!command) return "No runnable example is published for this report-only or blocked path.";
+  const info = String(command).includes("python -c") || String(command).includes("New-Item")
+    ? "powershell"
+    : "text";
+  return `\`\`\`${info}\n${command}\n\`\`\``;
+}
+
+function canShardLoomDoThis(useCase) {
+  if (useCase.status === "ready_local" || useCase.status === "smoke_supported") {
+    return `${useCase.title} has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.`;
+  }
+  if (useCase.status === "report_only") {
+    return `${useCase.title} is inspectable as posture or diagnostics, but it is not broad runtime support.`;
+  }
+  return `${useCase.title} is not admitted runtime support yet. Use the blocker and evidence requirements to understand what remains.`;
+}
+
+function docsUseCasePage(useCase, fieldGuideTerms) {
+  const relatedTerms = fieldGuideTerms.filter((term) => (term.related_use_cases ?? []).includes(useCase.id));
+  return `<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# ${useCase.title}
+
+## Quick Answer
+
+- **Audience:** ${useCase.audience}
+- **Status:** \`${useCase.status}\`
+- **Execution mode:** \`${useCase.execution_mode}\`
+- **Engine mode:** \`${useCase.engine_mode}\`
+- **Claim boundary:** ${useCase.claim_boundary}
+
+## Can ShardLoom Do This?
+
+${canShardLoomDoThis(useCase)}
+
+## Claim Boundary
+
+${useCase.claim_boundary}
+
+## How To Try It
+
+${runnableBlock(useCase.runnable_example)}
+
+## Blocker
+
+${useCase.blocked_explanation ?? "No current blocker is attached to this supported local smoke path beyond the claim boundary above."}
+
+## Internal Flow
+
+\`${(useCase.inputs ?? []).join(", ")} -> ${useCase.execution_mode} -> ${useCase.engine_mode} -> ${(useCase.outputs ?? []).join(", ")} -> evidence -> claim gate\`
+
+## Evidence You Should See
+
+${markdownList(useCase.evidence_fields)}
+
+## Expected Output Or Evidence
+
+${useCase.expected_output_evidence}
+
+## Common Mistakes
+
+${markdownList(useCase.common_mistakes)}
+
+## Reference Files
+
+${(useCase.references ?? []).map((ref) => `- \`${ref}\` - What this proves: ${referenceProof(ref)}`).join("\n") || "- Reference not yet attached."}
+
+## Related Use Cases
+
+${markdownList(useCase.related_use_cases)}
+
+## Related Field Guide Terms
+
+${relatedTerms
+  .map((term) => `- \`website/field-guide/${term.slug}.html\` - ${term.title} (\`${term.category}\` / \`${term.status}\`)`)
+  .join("\n") || "- No related field-guide terms yet."}
+`;
+}
+
 function termPage(term) {
   return `${frontmatter({
     title: term.title,
@@ -218,6 +303,11 @@ syncSourceOfTruthData();
 const fieldGuide = readJson("field-guide.json");
 const useCaseIndex = readJson("use-case-index.json");
 const statusRows = readJson("status-rows.json");
+
+cleanGenerated(docsUseCaseGeneratedRoot);
+for (const useCase of useCaseIndex.use_cases ?? []) {
+  write(path.join(docsUseCaseGeneratedRoot, `${useCase.id}.md`), docsUseCasePage(useCase, fieldGuide));
+}
 
 cleanGenerated(path.join(docsRoot, "field-guide"));
 cleanGenerated(useCaseRoot);

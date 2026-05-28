@@ -68,8 +68,10 @@ claim.
 `editable_install_smoke` is `smoke_supported`. It means an editable/source-tree local smoke path can
 be discussed separately from public publication. It is not release-channel readiness.
 
-`dataframe_method_matrix` is `report_only`. It points users to the typed DataFrame method matrix and
-deterministic unsupported diagnostics. It does not make broad DataFrame runtime supported.
+`dataframe_method_matrix` is `report_only` as a readiness row. It points users to the typed
+DataFrame method matrix, where individual methods may be side-effect-free declarations,
+fixture-smoke-supported scoped local workflows, or deterministic unsupported diagnostics. It does
+not make broad DataFrame runtime supported.
 
 `notebook_display_surface` is `blocked`. Notebook rich display, decoded DataFrame materialization,
 and notebook runtime certification require future materialization-boundary, decode, and execution

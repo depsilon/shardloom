@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-ShardLoom can run the local SQLite import/export fixture and the built-in deterministic scalar UDF fixture. It can also inspect extension manifests without loading extension code. Effectful external paths remain blocked by the admission matrix.
+Local SQLite and deterministic UDF effect boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
@@ -23,6 +23,10 @@ Local fixture-smoke boundary only: SQLite support is a named local table scan to
 ```powershell
 python -c "import pathlib, sqlite3; pathlib.Path('target').mkdir(exist_ok=True); db='target/orders.sqlite'; con=sqlite3.connect(db); con.execute('drop table if exists orders'); con.execute('create table orders(id integer primary key, label text, amount integer)'); con.executemany('insert into orders(label, amount) values (?, ?)', [('alpha', 8), ('beta', 15)]); con.commit(); con.close()"; cargo run -q -p shardloom-cli -- sqlite-local-import-export-smoke target\orders.sqlite --table orders --export-jsonl target\orders-sqlite.jsonl --roundtrip-db target\orders-roundtrip.sqlite --order-by id --allow-overwrite --format json; cargo run -q -p shardloom-cli -- udf-local-scalar-fixture-smoke 1,null,3 --format json
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -64,8 +68,8 @@ SQLite smoke JSON exposes single-table-scan/no-query-pushdown fields, workspace-
 ## Reference Files
 
 - `docs/architecture/effectful-operation-admission-matrix.md` - What this proves: Effectful-operation admission rows for local SQLite, extension metadata, deterministic UDF fixture, and blocked external effects.
-- `docs/architecture/universal-ingress-route-taxonomy.md` - What this proves: UniversalIngress and Vortex-ingest route boundaries for non-Vortex inputs, including the SQLite no-standalone-lane posture.
-- `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries for SQLite, databases, and connectors.
+- `docs/architecture/universal-ingress-route-taxonomy.md` - What this proves: UniversalIngress, Vortex ingest, prepared-state, and route-timing contract boundaries.
+- `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 - `docs/architecture/extension-manifest-effect-capability-matrix.md` - What this proves: Extension manifest inspection posture and blockers for dynamic loading, plugin execution, and arbitrary UDF execution.
 - `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 

@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-ShardLoom can run an explicit local-manifest table append commit rehearsal over a ShardLoom-owned fixture. It writes a staged committed manifest plus sidecar table commit record to local paths and reports snapshot, idempotency, digest, rollback, Native I/O, and no-fallback evidence.
+Local table append commit rehearsal smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
@@ -20,13 +20,17 @@ Local-manifest fixture table append commit rehearsal only; no Iceberg/Delta/Hudi
 
 ## How To Try It
 
-```powershell
+```text
 target\debug\shardloom local-table-append-commit-rehearsal-smoke target\table-commit\metadata-v2.json --profile local-manifest --idempotency-key orders-table-commit-001 --rollback-after-commit --format json
 ```
 
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
+
 ## Internal Flow
 
-`local_manifest_fixture, append_delta_fixture -> local_table_append_commit_rehearsal_smoke -> batch -> committed_local_manifest, sidecar_table_commit_record, rollback_cleanup_evidence, native_io_certificate -> evidence -> claim gate`
+`local_manifest_fixture, append_delta_fixture, local_committed_manifest_path -> local_table_append_commit_rehearsal_smoke -> batch -> committed_local_manifest, sidecar_table_commit_record, rollback_cleanup_evidence, native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -76,10 +80,10 @@ A fixture-smoke report with base/append/committed snapshot ids, committed manife
 
 ## Reference Files
 
-- `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution matrix posture and local append commit rehearsal evidence boundaries.
-- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store and table/lakehouse operation ladders remain separated, with cloud/provider table commits still blocked.
-- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed-session provenance for the local table append rehearsal and its claim boundary.
-- `python/README.md` - What this proves: Python-facing command wrapper posture and local technical-preview scope.
+- `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution posture and lakehouse/table claim boundaries.
+- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store route admission, local-emulator evidence, and remote-provider blockers.
+- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this use case.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 
 ## Related Use Cases
 

@@ -20,9 +20,13 @@ Local fixture smoke coverage only; not a production data-quality, CDC/table-tran
 
 ## How To Try It
 
-```powershell
+```text
 python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,jsonl --scenario "malformed timestamp / dirty CSV" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\shardloom-dirty-csv-smoke.json --regenerate
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -51,10 +55,10 @@ Benchmark rows and fixture metadata for the selected messy-data scenario with no
 
 ## Reference Files
 
-- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
-- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `benchmarks/traditional_analytics/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
-- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
+- `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 
 ## Related Use Cases
 

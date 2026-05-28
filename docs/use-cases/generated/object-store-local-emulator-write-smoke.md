@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-ShardLoom can run an explicit local-emulator object-store write smoke from a local source file to a local object path. This is runtime write/commit proof for the declared emulator profile only.
+Object-store local-emulator write/commit smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
@@ -20,13 +20,17 @@ Local-emulator staged object write/commit smoke only; real S3/GCS/ADLS providers
 
 ## How To Try It
 
-```powershell
+```text
 target\debug\shardloom object-store-write-smoke target\source.bin target\object-store-fixture.bin --profile local-emulator --idempotency-key orders-batch-001 --rollback-after-commit --format json
 ```
 
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
+
 ## Internal Flow
 
-`local_source_file -> object_store_write_smoke -> batch -> committed_local_object, sidecar_commit_manifest, rollback_cleanup_evidence, native_io_certificate -> evidence -> claim gate`
+`local_source_file, local_emulator_object_path -> object_store_write_smoke -> batch -> committed_local_object, sidecar_commit_manifest, rollback_cleanup_evidence, native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -62,10 +66,10 @@ A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, 
 
 ## Reference Files
 
-- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store request planning posture and the local-emulator write/commit runtime boundary.
-- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Compute-flow support boundaries and no-fallback claim context for object-store smokes.
-- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed-session provenance for the local-emulator object write proof and its claim boundary.
-- `python/README.md` - What this proves: Python-facing command wrapper posture and local technical-preview scope.
+- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store route admission, local-emulator evidence, and remote-provider blockers.
+- `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this use case.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 
 ## Related Use Cases
 

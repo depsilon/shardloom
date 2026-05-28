@@ -514,14 +514,14 @@ fn current_runtime_residual_operator_contracts() -> Vec<PhysicalOperatorContract
         PhysicalOperatorContract::current_runtime_supported(
             PhysicalOperatorKind::Aggregate,
             PhysicalOperatorExecutionLevel::HybridNative,
-            partial_decode_kernel_requirements(),
+            hybrid_kernel_requirements(),
             residual_state_memory(),
             OperatorCertificationStatus::NativeDecoded,
         ),
         PhysicalOperatorContract::current_runtime_supported(
             PhysicalOperatorKind::Join,
             PhysicalOperatorExecutionLevel::HybridNative,
-            partial_decode_kernel_requirements(),
+            hybrid_kernel_requirements(),
             residual_state_memory(),
             OperatorCertificationStatus::NativeDecoded,
         ),
@@ -542,7 +542,7 @@ fn current_runtime_residual_operator_contracts() -> Vec<PhysicalOperatorContract
         PhysicalOperatorContract::current_runtime_supported(
             PhysicalOperatorKind::Window,
             PhysicalOperatorExecutionLevel::HybridNative,
-            partial_decode_kernel_requirements(),
+            hybrid_kernel_requirements(),
             residual_state_memory(),
             OperatorCertificationStatus::NativeDecoded,
         ),
@@ -563,6 +563,14 @@ fn encoded_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
 fn partial_decode_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
     vec![
         PhysicalKernelRequirement::present(KernelKind::Metadata),
+        PhysicalKernelRequirement::present(KernelKind::PartialDecode),
+    ]
+}
+
+fn hybrid_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
+    vec![
+        PhysicalKernelRequirement::present(KernelKind::Metadata),
+        PhysicalKernelRequirement::present(KernelKind::Encoded),
         PhysicalKernelRequirement::present(KernelKind::PartialDecode),
     ]
 }
@@ -1030,7 +1038,11 @@ impl PhysicalOperatorExecutionProfile {
                     PhysicalOperatorExecutionLevel::HybridNative,
                     PhysicalOperatorExecutionLevel::NativeDecoded,
                 ],
-                vec![KernelKind::Metadata, KernelKind::PartialDecode],
+                vec![
+                    KernelKind::Metadata,
+                    KernelKind::Encoded,
+                    KernelKind::PartialDecode,
+                ],
             ),
             PhysicalOperatorKind::Limit
             | PhysicalOperatorKind::TopK
