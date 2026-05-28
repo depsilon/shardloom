@@ -19,6 +19,17 @@ It is local technical-preview evidence only. It does not publish packages,
 create tags, add secrets, install fallback engines, make a performance claim, or
 turn local package proof into a public package release.
 
+When the related local release/security/package/website reports have been generated, the
+production-usability aggregate is:
+
+```powershell
+python scripts\check_production_usability_gate.py
+```
+
+That report is still local no-publication evidence. It is useful for checking that the install,
+smoke, benchmark-artifact, website learning path, and unsupported-claim rows agree without reading
+phase-plan internals.
+
 ## 1. Build The CLI
 
 ```powershell
@@ -102,3 +113,6 @@ When `mamba`, `conda`, or `micromamba` is available, the dry run also attempts a
 Conda-style install proof from the locally built wheel. If no Conda-compatible tool is available,
 the transcript records `clean_conda_env_install_status=skipped_tool_missing`; that remains blocked
 for public release but does not weaken the local source smoke.
+
+For the aggregate local usability gate and its no-publication claim boundary, see
+`docs/release/production-usability-gate.md`.

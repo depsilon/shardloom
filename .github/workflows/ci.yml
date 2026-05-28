@@ -162,6 +162,10 @@ jobs:
         run: python scripts/check_release_architecture_tracker.py --allow-blocked
       - name: Final release rehearsal
         run: python scripts/final_release_rehearsal.py --allow-blocked
+      - name: Website readiness
+        run: python scripts/check_website_readiness.py
+      - name: Production usability gate
+        run: python scripts/check_production_usability_gate.py
       - name: CI gate matrix contract
         run: python scripts/check_ci_gate_matrix.py
       - name: Hard release readiness gate
@@ -185,6 +189,8 @@ jobs:
             target/admitted-semantics-matrix
             target/release-architecture-tracker-report.json
             target/final-release-rehearsal
+            target/website-readiness-report.json
+            target/production-usability-gate.json
             target/ci-gate-matrix-report.json
             target/hard-release-readiness-gate.json
           if-no-files-found: ignore

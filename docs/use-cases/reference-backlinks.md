@@ -32,6 +32,7 @@ relationship auditable.
 | `docs/foundry/integration-pack-readiness.md` | `foundry-local-proof-boundary` |
 | `docs/foundry/proof-of-use-certification.md` | `source-free-generated-output-boundary`, `foundry-local-proof-boundary` |
 | `docs/getting-started/install.md` | `package-channel-readiness-boundary` |
+| `docs/release/production-usability-gate.md` | `package-channel-readiness-boundary` |
 | `docs/release/hard-release-readiness-gate.md` | `package-channel-readiness-boundary` |
 | `docs/architecture/adoption-commercial-readiness-friction-reduction.md` | `package-channel-readiness-boundary` |
 | `python/README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `python-local-csv-query-builder-smoke`, `sql-dataframe-capability-posture`, `source-free-generated-output-boundary`, `local-sqlite-udf-effectful-boundary`, `object-store-public-no-credential-fixture-read-smoke`, `object-store-local-emulator-read-smoke`, `object-store-local-emulator-write-smoke`, `local-table-append-commit-rehearsal-smoke` |

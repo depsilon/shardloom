@@ -8,7 +8,7 @@
 - **Status:** `report_only`
 - **Execution mode:** `local_release_dry_run`
 - **Engine mode:** `batch_status`
-- **Claim boundary:** Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.
+- **Claim boundary:** Local dry-run proof, production-usability rehearsal, and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, performance, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Package, release, and install channel boundary is inspectable as posture or diag
 
 ## Claim Boundary
 
-Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.
+Local dry-run proof, production-usability rehearsal, and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, performance, or package-publication claim.
 
 ## How To Try It
 
@@ -40,23 +40,26 @@ Public channels need trusted publishing, provenance, clean install proof, securi
 - `smoke_status`
 - `sbom_status`
 - `provenance_status`
+- `production_usability_gate_status`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 
 ## Expected Output Or Evidence
 
-target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status.
+target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status; target/production-usability-gate.json aggregates local install, docs/website, benchmark-artifact, and release-gate posture.
 
 ## Common Mistakes
 
 - `running_pip_install_shardloom_from_public_registry`
 - `assuming_release_dry_run_published_anything`
+- `treating_production_usability_as_public_release`
 - `installing_external_baselines_as_runtime_dependencies`
 
 ## Reference Files
 
 - `docs/getting-started/first-10-minutes.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/getting-started/install.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/release/production-usability-gate.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/release/hard-release-readiness-gate.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/adoption-commercial-readiness-friction-reduction.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.

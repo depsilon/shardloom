@@ -364,6 +364,11 @@ def validate_local_gate_evidence(
 
     smoke_fields = {
         "proof_status": None,
+        "clean_venv_install_status": None,
+        "wheel_import_and_client_smoke_performed": None,
+        "cli_status_smoke_performed": None,
+        "cli_capabilities_smoke_performed": None,
+        "local_python_example_smoke_performed": None,
         "generated_source_user_rows_smoke_performed": None,
         "generated_source_range_smoke_performed": None,
         "prepared_native_benchmark_smoke_performed": None,
@@ -380,7 +385,19 @@ def validate_local_gate_evidence(
                 f"release dry-run proof_status={release_dry_run_transcript.get('proof_status')}"
             )
         smoke_fields["proof_status"] = release_dry_run_transcript.get("proof_status")
+        smoke_fields["clean_venv_install_status"] = release_dry_run_transcript.get(
+            "clean_venv_install_status"
+        )
+        if release_dry_run_transcript.get("clean_venv_install_status") != "passed":
+            blockers.append(
+                "release dry-run clean_venv_install_status="
+                + str(release_dry_run_transcript.get("clean_venv_install_status", "missing"))
+            )
         for field in [
+            "wheel_import_and_client_smoke_performed",
+            "cli_status_smoke_performed",
+            "cli_capabilities_smoke_performed",
+            "local_python_example_smoke_performed",
             "generated_output_proof_distinct_from_no_dataset_smoke",
             "generated_source_user_rows_smoke_performed",
             "generated_source_range_smoke_performed",
@@ -399,6 +416,8 @@ def validate_local_gate_evidence(
                     *FALSE_SAFETY_FIELDS,
                     "external_runtime_dependencies_added",
                     "fallback_engine_dependency_added",
+                    "fallback_attempted",
+                    "external_engine_invoked",
                     "public_package_release_claim_allowed",
                 ],
             )

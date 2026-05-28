@@ -89,6 +89,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/final-release-rehearsal/final-release-rehearsal-report.json"),
     )
     parser.add_argument(
+        "--production-usability-report",
+        type=Path,
+        default=Path("target/production-usability-gate.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -130,6 +135,7 @@ def main() -> int:
     per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
     architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
+    production_usability_report_path = resolve(repo_root, args.production_usability_report)
 
     checks: list[dict[str, Any]] = []
 
@@ -752,6 +758,49 @@ def main() -> int:
         )
     )
 
+    production_usability = load_json(production_usability_report_path)
+    production_usability_blockers: list[str] = []
+    if production_usability is None:
+        production_usability_blockers.append("missing production usability gate report")
+    else:
+        if production_usability.get("schema_version") != "shardloom.production_usability_gate.v1":
+            production_usability_blockers.append(
+                "production usability schema_version="
+                + str(production_usability.get("schema_version", "missing"))
+            )
+        if production_usability.get("status") != "passed":
+            production_usability_blockers.extend(
+                production_usability.get("blockers", ["production usability gate blocked"])
+            )
+        for field in [
+            "production_claim_allowed",
+            "performance_claim_allowed",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if production_usability.get(field) is not False:
+                production_usability_blockers.append(
+                    f"production usability {field} must be false"
+                )
+        if production_usability.get("claim_gate_status") != "not_claim_grade":
+            production_usability_blockers.append(
+                "production usability claim_gate_status="
+                + str(production_usability.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "production_usability_gate",
+            str(args.production_usability_report).replace("\\", "/"),
+            production_usability_blockers,
+        )
+    )
+
     validation_commands = [
         "cargo fmt --all -- --check",
         "cargo clippy --workspace --all-targets -- -D warnings",
@@ -768,8 +817,11 @@ def main() -> int:
         "python scripts/check_golden_workflows.py",
         "python scripts/check_admitted_semantics_matrix.py",
         "python scripts/check_runtime_execution_envelopes.py",
+        "python scripts/check_website_readiness.py",
         "python scripts/check_benchmark_constitution.py",
+        "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json",
         "python scripts/final_release_rehearsal.py --allow-blocked",
+        "python scripts/check_production_usability_gate.py",
     ]
     validation_blockers = []
     if validation_evidence is None:
@@ -810,6 +862,7 @@ def main() -> int:
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
+        "production_usability_report_ref": str(args.production_usability_report).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,

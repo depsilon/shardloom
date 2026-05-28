@@ -91,10 +91,21 @@ REQUIRED_VALIDATION_COMMANDS = [
     ("golden_workflow_validator", [sys.executable, "scripts/check_golden_workflows.py"]),
     ("admitted_semantics_matrix", [sys.executable, "scripts/check_admitted_semantics_matrix.py"]),
     ("runtime_execution_envelopes", [sys.executable, "scripts/check_runtime_execution_envelopes.py"]),
+    ("website_readiness", [sys.executable, "scripts/check_website_readiness.py"]),
+    (
+        "benchmark_artifact_completeness",
+        [
+            sys.executable,
+            "scripts/check_benchmark_artifact_completeness.py",
+            "--manifest",
+            "website/assets/benchmarks/latest/manifest.json",
+        ],
+    ),
     (
         "final_release_rehearsal",
         [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
     ),
+    ("production_usability_gate", [sys.executable, "scripts/check_production_usability_gate.py"]),
 ]
 
 

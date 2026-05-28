@@ -310,71 +310,6 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate
-  - Source: public preview readiness, package-channel matrix, website
-    readiness, Use Case Atlas.
-  - Current state: runtime slices are being promoted incrementally; production usability still
-    requires complete runtime coverage, clean install proof, docs/website parity, examples, current
-    benchmark evidence, and claim gates. A preview posture is not the target state.
-  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout or
-    local package artifact through CLI/Python workflows, unsupported diagnostics, benchmarks,
-    website/status, security/legal, and release metadata.
-  - Runtime enablement: end-to-end usability validator proving admitted runtime paths from clean
-    install through evidence inspection.
-  - User-visible surface: README, docs/getting-started, website, package metadata, release report.
-  - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
-    benchmark artifact completeness, website build/readiness, security/legal checks.
-  - Evidence required: install/uninstall commands, smoke outputs, supported/blocked workflow
-    matrix, benchmark manifest, website readiness report, package metadata, no-fallback fields.
-  - Acceptance: a non-expert can install locally, run admitted workflows, inspect evidence, and see
-    unsupported paths without reading phase-plan internals.
-  - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
-    readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
-  - Non-goals: no public package upload or release tag without explicit human approval; no
-    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
-    gates pass; no hidden fast mode.
-  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
-    evidence. Do not substitute a technical-preview target for the production engine goal.
-  - Fallback boundary: release gates must fail if any supported workflow uses external fallback.
-  - Dependencies/blockers: completion of admitted runtime slices, clean install script, docs/website
-    parity, benchmark artifact policy, and security/legal checks.
-  - Ledger rule: ledger entry must include the exact usability matrix, release-gate evidence, and
-    remaining unsupported paths.
-
-- [ ] GAR-RUNTIME-IMPL-5Q final production usability and website learning gate
-  - Source: `GAR-RUNTIME-IMPL-4S`, `GAR-DOCS-1`, `GAR-WEB-ATLAS-1`, public-readiness,
-    package-channel matrix.
-  - Current state: repo, website, and docs are strong, but final usability requires clean install
-    proof, examples, website/status parity, benchmark interpretation, security/legal/release checks,
-    and a non-expert learning path after runtime slices land.
-  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout/local
-    artifact through CLI/Python workflows, unsupported diagnostics, benchmarks, website/status,
-    SECURITY/LICENSE/NOTICE checks, and release metadata.
-  - Runtime enablement: final production usability validator across install, examples,
-    runtime evidence, unsupported diagnostics, and website learning paths.
-  - User-visible surface: README, docs/getting-started, website Field Guide/Use Case Atlas/status,
-    package metadata, release report.
-  - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
-    benchmark artifact completeness, website build/readiness, security/legal checks, docs link
-    validation.
-  - Evidence required: install/uninstall commands, smoke outputs, supported/blocked workflow matrix,
-    benchmark manifest, website readiness report, package metadata, no-fallback fields.
-  - Acceptance: a non-expert can install locally, run admitted workflows, inspect evidence, and see
-    unsupported paths without reading phase-plan internals; website pages explain current runtime
-    state without overclaiming.
-  - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
-    readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
-  - Non-goals: no public package upload or release tag without explicit human approval; no
-    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
-    gates pass; no hidden fast mode.
-  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
-    evidence. Do not substitute a technical-preview target for the production engine goal.
-  - Fallback boundary: release gates fail if any supported workflow uses external fallback.
-  - Dependencies/blockers: completion of admitted runtime slices, docs/website parity, benchmark
-    artifact policy, security/legal checks.
-  - Ledger rule: ledger entry must include the exact usability matrix, website readiness evidence,
-    release-gate evidence, and remaining unsupported paths.
-
 - [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
   - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
   - Current state: benchmark publishing has a structured artifact model and the current public
@@ -386,9 +321,8 @@ validators, docs/website parity, and a completed-ledger entry.
     alias-only `native-vortex` lane from profile accounting, adds cold-lane attribution blocking,
     and keeps external lanes baseline-only. The benchmark runner now has smoke-proven support for
     CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines. The
-    public broad-format timing-data refresh remains intentionally deferred until the remaining
-    runtime/user-surface closeouts that can change benchmark interpretation are done, including
-    `GAR-RUNTIME-IMPL-4S` and `GAR-RUNTIME-IMPL-5Q`.
+    local production-usability closeout is complete, so the public broad-format timing-data refresh
+    is the next benchmark-publication closeout rather than being deferred on 4S/5Q work.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
     refresh should preserve `full_local_plus_spark` required PySpark/Spark lane enforcement,
@@ -434,10 +368,10 @@ as simple to enter from Python as PySpark is to Spark, while remaining honest th
 Spark API clone, Spark replacement, distributed runtime claim, production SQL/DataFrame claim, or
 external-engine fallback. Completed `GAR-RUNTIME-IMPL-5B` SQL ladder evidence supplies the scoped
 SQL footing; completed `GAR-RUNTIME-IMPL-5C` alignment supplies the scoped Python/DataFrame method
-map; existing runtime item `GAR-RUNTIME-IMPL-5Q` owns final usability proof; completed
-`GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the scoped lifecycle footing. This section
-keeps the user-surface parity target visible until the full import/context/session/SQL/DataFrame
-path is runnable, documented, tested, and claim-safe.
+map; completed `GAR-RUNTIME-IMPL-5Q` supplies the local production-usability and website learning
+gate; completed `GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the scoped lifecycle footing.
+This section keeps the user-surface parity target visible until the full import/context/session/
+SQL/DataFrame path is runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
@@ -496,11 +430,14 @@ path is runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1D one-command local install, import, and first workflow proof
   - Source: `GAR-COMMERCIAL-1A`, package channel matrix, `README.md`, `docs/getting-started/*`,
-    `GAR-RUNTIME-IMPL-5Q`.
-  - Current state: local source-tree and editable Python usage are documented, but public package
-    publication is not complete and a non-expert install/import/run path still needs final proof.
-  - Next slice outcome: provide a clean local path from install to import to first
-    SQL/DataFrame/generated-source workflow without reading architecture docs.
+    completed `GAR-RUNTIME-IMPL-5Q`.
+  - Current state: local clean-venv wheel install, CLI/Python smokes, generated-source examples, and
+    website learning proof are covered by the production-usability gate, but public package
+    publication is still blocked and the remaining user-surface closeout needs a tighter
+    one-command first workflow that exercises the user-facing Python/SQL/DataFrame front door.
+  - Next slice outcome: provide a clean local path from install to import to first SQL/DataFrame/
+    generated-source workflow without reading architecture docs, reusing the 5Q gate as upstream
+    evidence rather than duplicating release-readiness ownership.
   - Runtime enablement: local install/import proof that reaches admitted runtime workflows and
     returns evidence.
   - User-visible surface: README first screen, `docs/getting-started/first-10-minutes.md`,
@@ -554,8 +491,8 @@ path is runnable, documented, tested, and claim-safe.
   - Ledger rule: ledger entry must show before/after user examples and evidence accessors.
 
 - [ ] GAR-USER-SURFACE-1F PySpark-like surface completion validator
-  - Source: this `GAR-USER-SURFACE-1` bundle, `GAR-RUNTIME-IMPL-5Q`, Use Case Atlas, public
-    production-readiness posture, Python capability matrix.
+  - Source: this `GAR-USER-SURFACE-1` bundle, completed `GAR-RUNTIME-IMPL-5Q`, Use Case Atlas,
+    public production-readiness posture, Python capability matrix.
   - Current state: individual runtime slices can land without a single final validator answering
     whether the Python/SQL surface is simple and complete enough for production users.
   - Next slice outcome: add a completion gate that checks the import/context/session/SQL/DataFrame/

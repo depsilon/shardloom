@@ -483,36 +483,56 @@ def write_transcript(
     clean_conda_tool: Path | None,
     clean_conda_required: bool,
 ) -> int:
+    steps_by_name = {step["name"]: step for step in steps}
+
+    def step_attempted(name: str) -> bool:
+        return name in steps_by_name
+
+    def step_passed(name: str) -> bool:
+        return steps_by_name.get(name, {}).get("returncode") == 0
+
+    def step_status(name: str) -> str:
+        if not step_attempted(name):
+            return "not_run"
+        return "passed" if step_passed(name) else "failed"
+
     transcript = {
         "schema_version": "shardloom.release_dry_run_proof.v1",
         "proof_status": "passed" if passed else "failed",
         "repo_root": str(repo_root),
         "clean_venv": str(venv_dir),
+        "clean_venv_install_status": step_status("install_local_wheel_clean_venv"),
         "clean_conda_env": str(conda_env_dir),
         "clean_conda_env_install_status": clean_conda_status,
         "clean_conda_env_install_tool": str(clean_conda_tool) if clean_conda_tool else None,
         "clean_conda_env_install_required": clean_conda_required,
         "local_wheel": str(wheel) if wheel is not None else None,
         "local_cli_binary": str(binary),
+        "cli_binary_build_status": step_status("build_cli_binary"),
+        "python_artifact_build_status": step_status("build_python_artifacts"),
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,
         "external_runtime_dependencies_added": False,
         "fallback_engine_dependency_added": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
         "public_package_release_claim_allowed": False,
+        "wheel_import_and_client_smoke_performed": step_passed("wheel_import_and_client_smoke"),
+        "cli_status_smoke_performed": step_passed("cli_status_json"),
+        "cli_capabilities_smoke_performed": step_passed("cli_capabilities_json"),
+        "local_python_example_smoke_performed": step_passed("example_local_python_smoke"),
         "generated_output_proof_distinct_from_no_dataset_smoke": True,
-        "generated_source_user_rows_smoke_performed": any(
-            step["name"] == "generated_source_user_rows_local_output_smoke" for step in steps
+        "generated_source_user_rows_smoke_performed": step_passed(
+            "generated_source_user_rows_local_output_smoke"
         ),
-        "generated_source_range_smoke_performed": any(
-            step["name"] == "generated_source_range_local_output_smoke" for step in steps
+        "generated_source_range_smoke_performed": step_passed(
+            "generated_source_range_local_output_smoke"
         ),
-        "prepared_native_benchmark_smoke_performed": any(
-            step["name"] == "example_local_vortex_benchmark_smoke" for step in steps
+        "prepared_native_benchmark_smoke_performed": step_passed(
+            "example_local_vortex_benchmark_smoke"
         ),
-        "provenance_dry_run_performed": any(
-            step["name"] == "release_provenance_dry_run" for step in steps
-        ),
+        "provenance_dry_run_performed": step_passed("release_provenance_dry_run"),
         "sbom_checksum_manifest_generated": any(
             step["name"] == "release_provenance_dry_run" and step["returncode"] == 0
             for step in steps

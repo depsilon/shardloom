@@ -88,6 +88,7 @@ Typical local orientation:
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+python scripts\check_production_usability_gate.py
 $env:PYTHONPATH = "python\src"
 python examples\local-python-smoke\run.py --repo-root .
 ```
@@ -160,6 +161,9 @@ Completed implementation history lives in
 Release and package posture:
 
 - public packages are not yet released;
+- local production-usability rehearsal evidence is validated by
+  [`docs/release/production-usability-gate.md`](docs/release/production-usability-gate.md), while
+  `public_release_claim_allowed=false` and `public_package_claim_allowed=false` remain required;
 - package-channel evidence is still gated by
   [`docs/release/package-channel-readiness-matrix.md`](docs/release/package-channel-readiness-matrix.md);
 - Foundry docs describe local/dev-stack generated-output and staged-transform proof boundaries,

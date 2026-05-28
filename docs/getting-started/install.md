@@ -60,3 +60,17 @@ transcript under `target/`.
 If `mamba`, `conda`, or `micromamba` is available, the same proof attempts a clean Conda-style
 environment install from the local wheel. Public release readiness still requires
 `clean_conda_env_install_status=passed`.
+
+## Local Production-Usability Rehearsal
+
+After generating release dry-run, security, package-channel, website, and benchmark-completeness
+evidence, the local usability aggregate is:
+
+```powershell
+python scripts\check_production_usability_gate.py
+```
+
+It writes `target/production-usability-gate.json` and keeps
+`public_release_claim_allowed=false`, `public_package_claim_allowed=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`. This is a local no-publication
+learning-path gate, not a PyPI, Conda, Homebrew, GHCR, crates.io, production, or performance claim.

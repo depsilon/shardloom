@@ -60,6 +60,11 @@ fallback_engine_dependency_added
 The transcript must record these evidence fields:
 
 ```text
+clean_venv_install_status=passed
+wheel_import_and_client_smoke_performed=true
+cli_status_smoke_performed=true
+cli_capabilities_smoke_performed=true
+local_python_example_smoke_performed=true
 provenance_dry_run_performed=true
 sbom_checksum_manifest_generated=true
 clean_conda_env_install_status=passed | skipped_tool_missing | skipped_by_request | failed
@@ -117,6 +122,17 @@ That strict mode requires the generated-source smokes, prepared/native benchmark
 provenance dry run, SBOM/checksum manifest generation, and no-publication safety fields before the
 package-gate report can pass. Channel-specific package rows still remain blocked until real
 channel evidence is attached.
+
+The production-usability gate also consumes this transcript:
+
+```powershell
+python scripts\check_production_usability_gate.py
+```
+
+That gate requires the clean venv install, installed-wheel client smoke, CLI status/capabilities
+smokes, local Python example smoke, generated-source output smokes, benchmark smoke, provenance
+dry run, and no-publication/no-fallback fields before it can pass. It still keeps
+`public_release_claim_allowed=false` and `public_package_claim_allowed=false`.
 
 ## Relationship To First 10 Minutes
 
