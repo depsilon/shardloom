@@ -1,36 +1,36 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, join-computed-top-N, join-aggregate, and top-N smoke
+# Python local file query-builder projection, preview, literal-column, aggregate, group-by, join, join-computed-top-N, join-aggregate, and top-N smoke
 
 ## Quick Answer
 
-- **Audience:** Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet workflow with evidence
+- **Audience:** Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex workflow with evidence
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, scoped local-source inner/outer/semi/anti equi-joins and cross joins, computed projections and single-key numeric top-N over joined rows, and scalar/grouped join aggregates over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded literal/source-backed IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, broad ANSI subquery parity, production SQL, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python local-source smokes cover projection/filter/limit, preview/head/take, admitted with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source inner/outer/semi/anti equi-joins, cross/expression joins, and scalar/grouped join aggregates over local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support admitted comparisons, boolean truthiness including IS NOT TRUE/FALSE null-matches, between/not-between, cast, numeric arithmetic/ABS/rounding, date, UTC timestamp arithmetic/extracts, temporal differences, IN/NOT IN including bounded source-backed scalar subqueries, null/string/logical, LIKE/NOT LIKE, UTF-8 transforms, LENGTH, CONCAT/SUBSTR/REPLACE, and balanced-parentheses leaves. Local JSONL/CSV, feature-gated structured/Vortex writes, and fanout are admitted. No nested JSON/JSONPath, pandas/Polars backend, broad DataFrame runtime, broad expression trees beyond admitted numeric/temporal differences, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, join-computed-top-N, join-aggregate, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local file query-builder projection, preview, literal-column, aggregate, group-by, join, join-computed-top-N, join-aggregate, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, scoped local-source inner/outer/semi/anti equi-joins and cross joins, computed projections and single-key numeric top-N over joined rows, and scalar/grouped join aggregates over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded literal/source-backed IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, broad ANSI subquery parity, production SQL, object-store/table source, external fallback, or performance claim.
+Scoped Python local-source smokes cover projection/filter/limit, preview/head/take, admitted with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source inner/outer/semi/anti equi-joins, cross/expression joins, and scalar/grouped join aggregates over local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support admitted comparisons, boolean truthiness including IS NOT TRUE/FALSE null-matches, between/not-between, cast, numeric arithmetic/ABS/rounding, date, UTC timestamp arithmetic/extracts, temporal differences, IN/NOT IN including bounded source-backed scalar subqueries, null/string/logical, LIKE/NOT LIKE, UTF-8 transforms, LENGTH, CONCAT/SUBSTR/REPLACE, and balanced-parentheses leaves. Local JSONL/CSV, feature-gated structured/Vortex writes, and fanout are admitted. No nested JSON/JSONPath, pandas/Polars backend, broad DataFrame runtime, broad expression trees beyond admitted numeric/temporal differences, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); head=ctx.read_csv('target/sql-local-source-smoke.csv').head(limit=2); take=ctx.read_csv('target/sql-local-source-smoke.csv').take(2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').where(sl.col('amount').between(10, 30)).limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); c=workflow.write_csv('target/sql-local-source-result.csv', allow_overwrite=True); w=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').with_column('batch_id', 1).filter(sl.col('amount') >= 10).limit(10).collect(); n=ctx.read_csv('target/sql-local-source-smoke.csv').filter(sl.col('amount') >= 10).count(); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, head.output_row_count, take.output_row_count, r.output_path, r.output_native_io_certificate_status, c.output_path, c.output_format, c.output_native_io_certificate_status, w.envelope.field('literal_projection_columns'), n.aggregate_functions, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,-15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); head=ctx.read_csv('target/sql-local-source-smoke.csv').head(limit=2); take=ctx.read_csv('target/sql-local-source-smoke.csv').take(2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').where(sl.col('amount').between(-30, 30)).limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); c=workflow.write_csv('target/sql-local-source-result.csv', allow_overwrite=True); w=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').with_column('batch_id', 1).filter(sl.col('amount') >= 10).limit(10).collect(); p=ctx.read_csv('target/sql-local-source-smoke.csv').select('id').with_column('adjusted', sl.col('amount') + 5).filter(sl.col('amount') >= 10).limit(10).collect(); m=ctx.read_csv('target/sql-local-source-smoke.csv').select('id').with_column('magnitude', sl.abs(sl.col('amount'))).filter(sl.col('amount').abs() >= 10).limit(10).collect(); b=ctx.read_csv('target/sql-local-source-smoke.csv').select('id').with_column('amount_floor', sl.floor(sl.col('amount'))).filter(sl.col('amount').round() >= 10).limit(10).collect(); q=ctx.read_csv('target/sql-local-source-smoke.csv').select('id').with_column('size_band', sl.case_when(sl.col('amount') >= 10, 'large', 'small')).limit(10).collect(); n=ctx.read_csv('target/sql-local-source-smoke.csv').filter(sl.col('amount') >= 10).count(); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, head.output_row_count, take.output_row_count, r.output_path, r.output_native_io_certificate_status, c.output_path, c.output_format, c.output_native_io_certificate_status, w.envelope.field('literal_projection_columns'), p.numeric_arithmetic_projection_operator, p.numeric_arithmetic_projection_output_columns, m.numeric_abs_projection_runtime_execution, m.numeric_abs_projection_output_columns, b.numeric_rounding_projection_runtime_execution, b.numeric_rounding_projection_output_columns, q.conditional_projection_runtime_execution, n.aggregate_functions, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
 
-The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC through the SQL local-source smoke for projection/filter/limit, preview/head/take, admitted computed-column helpers, aggregate aliases, group-by, top-N, scoped local-source joins, joined computed projection/top-N, join aggregates, and local output/fanout. Default binaries block Parquet, Arrow IPC, Avro, and ORC until built with --features universal-format-io. Nested JSON, JSONPath, broader structured type/nesting coverage, generalized with_column expressions, timestamp/timezone completeness, row-value/correlated/joined/nested subqueries and arbitrary predicate-tree completeness, broader grouped aggregate generality, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC through the SQL local-source smoke for projection/filter/limit, preview/head/take, admitted computed-column helpers, aggregate aliases, group-by, top-N, scoped local-source joins, joined computed projection/top-N, join aggregates, ranking windows, bounded schema/data-quality helpers, and local output/fanout. Default binaries block Parquet, Arrow IPC, Avro, and ORC until built with --features universal-format-io and Vortex writes until built with --features vortex-write. Nested JSON, JSONPath, broader structured type/nesting coverage, broad expression with_column beyond admitted numeric/temporal differences, timezone completeness, broad ANSI subquery parity, arbitrary predicate-tree completeness, broader grouped aggregate generality, generalized ordering/null/collation support, broad window frames/functions, richer schema/data-quality rules, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
-`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, literal_projection_result, string_function_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, feature_gated_local_arrow_ipc_output, feature_gated_local_avro_output, feature_gated_local_orc_output, feature_gated_local_vortex_output, literal_projection_result, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -39,11 +39,16 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `sql_binder_executed=true`
 - `sql_planner_executed=true`
 - `source_format`
+- `source_adapter_id`
 - `source_io_performed=true`
 - `source_state_id`
 - `source_state_digest`
 - `filter_runtime_execution`
 - `predicate_operator_family`
+- `boolean_predicate_runtime_execution`
+- `boolean_predicate_operator`
+- `boolean_predicate_source_column`
+- `boolean_predicate_null_semantics`
 - `null_predicate_runtime_execution`
 - `null_predicate_operator`
 - `null_predicate_source_column`
@@ -51,16 +56,95 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `string_transform_runtime_execution`
 - `string_transform_operator`
 - `string_transform_source_column`
+- `string_length_runtime_execution`
+- `string_length_source_column`
+- `string_length_rhs_dtype`
 - `string_function_runtime_execution`
 - `string_function_operator`
 - `string_function_source_column`
 - `string_function_literal_count`
 - `string_function_rhs_dtype`
+- `cast_projection_runtime_execution`
+- `cast_projection_source_column`
+- `cast_projection_output_column`
+- `cast_projection_target_dtype`
+- `null_coalesce_projection_runtime_execution`
+- `null_coalesce_projection_source_column`
+- `null_coalesce_projection_output_column`
+- `null_coalesce_projection_fallback_dtype`
+- `nullif_projection_runtime_execution`
+- `nullif_projection_source_column`
+- `nullif_projection_output_column`
+- `nullif_projection_sentinel_dtype`
+- `conditional_projection_runtime_execution`
+- `conditional_projection_predicate_family`
+- `conditional_projection_source_column`
+- `conditional_projection_output_column`
+- `conditional_projection_then_dtype`
+- `conditional_projection_else_dtype`
+- `string_transform_projection_runtime_execution`
+- `string_transform_projection_operator`
+- `string_transform_projection_source_column`
+- `string_transform_projection_output_column`
+- `string_length_projection_runtime_execution`
+- `string_length_projection_source_column`
+- `string_length_projection_output_column`
 - `string_function_projection_runtime_execution`
 - `string_function_projection_operator`
 - `string_function_projection_source_column`
 - `string_function_projection_output_column`
 - `string_function_projection_literal_count`
+- `date_extract_projection_runtime_execution`
+- `date_extract_projection_operator`
+- `date_extract_projection_source_column`
+- `date_extract_projection_output_column`
+- `timestamp_extract_projection_runtime_execution`
+- `timestamp_extract_projection_operator`
+- `timestamp_extract_projection_source_column`
+- `timestamp_extract_projection_output_column`
+- `generic_expression_predicate_runtime_execution`
+- `generic_expression_predicate_source_column`
+- `generic_expression_predicate_operator_family`
+- `generic_expression_predicate_binary_operator_count`
+- `generic_expression_predicate_comparison_operator`
+- `generic_expression_projection_runtime_execution`
+- `generic_expression_projection_source_column`
+- `generic_expression_projection_output_column`
+- `generic_expression_projection_operator_family`
+- `generic_expression_projection_binary_operator_count`
+- `numeric_arithmetic_runtime_execution`
+- `numeric_arithmetic_operator`
+- `numeric_arithmetic_source_column`
+- `numeric_arithmetic_rhs_dtype`
+- `numeric_abs_runtime_execution`
+- `numeric_abs_source_column`
+- `numeric_abs_rhs_dtype`
+- `numeric_rounding_runtime_execution`
+- `numeric_rounding_operator`
+- `numeric_rounding_source_column`
+- `numeric_rounding_rhs_dtype`
+- `numeric_arithmetic_projection_runtime_execution`
+- `numeric_arithmetic_projection_operator`
+- `numeric_arithmetic_projection_source_column`
+- `numeric_arithmetic_projection_output_column`
+- `numeric_arithmetic_projection_rhs_dtype`
+- `numeric_abs_projection_runtime_execution`
+- `numeric_abs_projection_source_column`
+- `numeric_abs_projection_output_column`
+- `numeric_rounding_projection_runtime_execution`
+- `numeric_rounding_projection_operator`
+- `numeric_rounding_projection_source_column`
+- `numeric_rounding_projection_output_column`
+- `date_arithmetic_projection_runtime_execution`
+- `date_arithmetic_projection_operator`
+- `date_arithmetic_projection_days`
+- `date_arithmetic_projection_source_column`
+- `date_arithmetic_projection_output_column`
+- `timestamp_arithmetic_projection_runtime_execution`
+- `timestamp_arithmetic_projection_operator`
+- `timestamp_arithmetic_projection_seconds`
+- `timestamp_arithmetic_projection_source_column`
+- `timestamp_arithmetic_projection_output_column`
 - `date_extract_runtime_execution`
 - `date_extract_operator`
 - `date_extract_source_column`
@@ -72,16 +156,23 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `timestamp_arithmetic_operator`
 - `timestamp_arithmetic_seconds`
 - `timestamp_arithmetic_source_column`
-- `timestamp_arithmetic_projection_runtime_execution`
-- `timestamp_arithmetic_projection_operator`
-- `timestamp_arithmetic_projection_seconds`
-- `timestamp_arithmetic_projection_source_column`
-- `timestamp_arithmetic_projection_output_column`
 - `literal_projection_runtime_execution`
 - `literal_projection_columns`
 - `literal_projection_count`
 - `in_predicate_runtime_execution`
 - `in_list_value_count`
+- `in_list_null_value_count`
+- `in_predicate_null_semantics`
+- `in_subquery_runtime_execution`
+- `in_subquery_filter_runtime_execution`
+- `in_subquery_order_by_runtime_execution`
+- `in_subquery_limit_runtime_execution`
+- `in_subquery_input_row_count`
+- `in_subquery_filtered_row_count`
+- `in_subquery_materialization_bound`
+- `in_subquery_materialized_value_count`
+- `in_subquery_materialized_null_value_count`
+- `having_in_subquery_runtime_execution`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`
@@ -107,10 +198,22 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `join_aggregate_runtime_execution`
 - `join_aggregate_operator_family`
 - `join_aggregate_group_count`
+- `right_source_format`
+- `join_source_formats`
 - `output_format`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
 - `output_certificate_ref`
+- `result_replay_verified`
+- `output_replay_status`
+- `output_replay_millis`
+- `output_fidelity_report_status`
+- `output_fidelity_loss`
+- `vortex_output_runtime_execution`
+- `vortex_output_reopen_verified`
+- `vortex_artifact_digest`
+- `upstream_vortex_write_called`
+- `upstream_vortex_scan_called`
 - `evidence_summary`
 - `claim_summary`
 - `fallback_attempted=false`
@@ -119,7 +222,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform, timestamp arithmetic, and scoped string-function fields when requested, date extract/arithmetic and timestamp arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, admitted local source evidence, source/source-state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, predicate fields, including boolean, generic-expression, temporal-difference, timestamp-arithmetic, and string-function evidence when requested, cast/null-coalesce/nullif/conditional/numeric/date/timestamp/string projection fields when requested, literal-projection fields when requested, bounded IN and source-backed IN-subquery value/null/filter/order/limit evidence when requested, local output replay/fidelity and Vortex output fields when requested, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
@@ -127,16 +230,20 @@ A typed Python report over the SQL local-source JSON envelope with result_rows/f
 - `expecting_pandas_or_polars_execution`
 - `expecting_nested_json_or_jsonpath_runtime`
 - `expecting_parquet_default_build_support`
+- `expecting_arrow_ipc_default_build_support`
+- `expecting_avro_default_build_support`
+- `expecting_orc_default_build_support`
+- `expecting_vortex_default_build_support`
 - `treating_fixture_smoke_as_production_support`
 - `expecting_general_sort_or_null_ordering_support`
 - `expecting_broad_subquery_parity`
 
 ## Reference Files
 
-- `python/README.md` - What this proves: Python wrapper posture, local smoke usage, and Python API claim boundaries.
-- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
+- `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

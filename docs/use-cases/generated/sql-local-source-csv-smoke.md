@@ -1,22 +1,22 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
+# SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
 
 ## Quick Answer
 
-- **Audience:** user who wants to try one tiny SQL query over a local CSV from CLI or ctx.sql without fallback
+- **Audience:** user who wants to try one tiny SQL query over an admitted local file from CLI or ctx.sql without fallback
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded literal/source-backed IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform and CONCAT/SUBSTR/REPLACE predicates/projections, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; scoped local-source inner/outer/semi/anti equi-joins and cross joins; scoped computed projections and single-key numeric top-N over joined rows; and scoped scalar/grouped join aggregates. Bounded IN admits up to 32 scalar literal or source-backed values, uses SQL three-valued NULL filtering, and blocks empty, mixed DATE/non-DATE, oversized, row-value, and unsupported broad subquery shapes. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, row-value/correlated/joined/nested subqueries and arbitrary predicate-tree completeness, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, scalar aggregates with aliases, multi-key group-by aggregates, numeric top-N, ctx.sql collect/write, local JSONL/CSV and feature-gated structured/Vortex sinks, local fanout, local-source inner/outer/semi/anti equi-joins, cross joins, scoped expression-condition joins, and scalar/grouped join aggregates. Computed filters/projections admit only listed cast, null, conditional, numeric, Date32 arithmetic/extract, UTC timestamp arithmetic/extract, temporal-difference, bounded local scalar IN-subqueries with admitted WHERE/ORDER BY/LIMIT tails, and UTF-8 transform/length/CONCAT/SUBSTR/REPLACE helpers. Lossy coercion, division by zero, overflow/type errors, invalid date/time/count literals, NULL fallback/sentinel or CASE mismatches, unsupported row-value/correlated subquery shapes and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone or collation completeness, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded literal/source-backed IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform and CONCAT/SUBSTR/REPLACE predicates/projections, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; scoped local-source inner/outer/semi/anti equi-joins and cross joins; scoped computed projections and single-key numeric top-N over joined rows; and scoped scalar/grouped join aggregates. Bounded IN admits up to 32 scalar literal or source-backed values, uses SQL three-valued NULL filtering, and blocks empty, mixed DATE/non-DATE, oversized, row-value, and unsupported broad subquery shapes. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, row-value/correlated/joined/nested subqueries and arbitrary predicate-tree completeness, external fallback, or performance claim.
+Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, scalar aggregates with aliases, multi-key group-by aggregates, numeric top-N, ctx.sql collect/write, local JSONL/CSV and feature-gated structured/Vortex sinks, local fanout, local-source inner/outer/semi/anti equi-joins, cross joins, scoped expression-condition joins, and scalar/grouped join aggregates. Computed filters/projections admit only listed cast, null, conditional, numeric, Date32 arithmetic/extract, UTC timestamp arithmetic/extract, temporal-difference, bounded local scalar IN-subqueries with admitted WHERE/ORDER BY/LIMIT tails, and UTF-8 transform/length/CONCAT/SUBSTR/REPLACE helpers. Lossy coercion, division by zero, overflow/type errors, invalid date/time/count literals, NULL fallback/sentinel or CASE mismatches, unsupported row-value/correlated subquery shapes and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone or collation completeness, fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,am
 
 ## Blocker
 
-Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, expression joins, non-equi join predicates, aggregate join ordering beyond admitted output aliases/group keys, timestamp/timezone completeness, row-value/correlated/joined/nested subqueries, broader grouped aggregate generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, generalized string functions beyond scoped CONCAT/SUBSTR/REPLACE, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.
+Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, default-build Vortex writes without --features vortex-write, arbitrary join predicate trees beyond the admitted expression ON families, aggregate join ordering beyond admitted output aliases/group keys, timezone-database completeness, row-value/correlated/joined/grouped/nested/EXISTS/ANY/ALL subqueries, broader grouped aggregate generality, generalized ordering/null/collation support, generalized expression projections beyond admitted literal, null coalesce/nullif, single-branch CASE, numeric arithmetic, numeric ABS, numeric rounding, Date32 day arithmetic, UTC timestamp second arithmetic, temporal difference, UTF-8 transform/length/CONCAT/SUBSTR/REPLACE, and temporal extract computed columns, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, claim-grade or broad output/fanout replay, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, string_function_projection_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated, local_arrow_ipc_feature_gated, local_avro_feature_gated, local_orc_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, optional_feature_gated_local_arrow_ipc_output, optional_feature_gated_local_avro_output, optional_feature_gated_local_orc_output, optional_feature_gated_local_vortex_output, cast_projection_result, null_coalesce_projection_result, nullif_projection_result, conditional_projection_result, numeric_arithmetic_projection_result, numeric_abs_projection_result, numeric_rounding_projection_result, date_arithmetic_projection_result, timestamp_arithmetic_projection_result, temporal_difference_projection_result, string_transform_projection_result, string_length_projection_result, string_function_projection_result, date_extract_projection_result, timestamp_extract_projection_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -39,9 +39,14 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `sql_binder_executed=true`
 - `sql_planner_executed=true`
 - `source_io_performed=true`
-- `source_format=csv`
+- `source_format`
+- `source_adapter_id`
 - `filter_runtime_execution`
 - `predicate_operator_family`
+- `boolean_predicate_runtime_execution`
+- `boolean_predicate_operator`
+- `boolean_predicate_source_column`
+- `boolean_predicate_null_semantics`
 - `null_predicate_runtime_execution`
 - `null_predicate_operator`
 - `null_predicate_source_column`
@@ -49,16 +54,95 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `string_transform_runtime_execution`
 - `string_transform_operator`
 - `string_transform_source_column`
+- `string_length_runtime_execution`
+- `string_length_source_column`
+- `string_length_rhs_dtype`
 - `string_function_runtime_execution`
 - `string_function_operator`
 - `string_function_source_column`
 - `string_function_literal_count`
 - `string_function_rhs_dtype`
+- `cast_projection_runtime_execution`
+- `cast_projection_source_column`
+- `cast_projection_output_column`
+- `cast_projection_target_dtype`
+- `null_coalesce_projection_runtime_execution`
+- `null_coalesce_projection_source_column`
+- `null_coalesce_projection_output_column`
+- `null_coalesce_projection_fallback_dtype`
+- `nullif_projection_runtime_execution`
+- `nullif_projection_source_column`
+- `nullif_projection_output_column`
+- `nullif_projection_sentinel_dtype`
+- `conditional_projection_runtime_execution`
+- `conditional_projection_predicate_family`
+- `conditional_projection_source_column`
+- `conditional_projection_output_column`
+- `conditional_projection_then_dtype`
+- `conditional_projection_else_dtype`
+- `string_transform_projection_runtime_execution`
+- `string_transform_projection_operator`
+- `string_transform_projection_source_column`
+- `string_transform_projection_output_column`
+- `string_length_projection_runtime_execution`
+- `string_length_projection_source_column`
+- `string_length_projection_output_column`
 - `string_function_projection_runtime_execution`
 - `string_function_projection_operator`
 - `string_function_projection_source_column`
 - `string_function_projection_output_column`
 - `string_function_projection_literal_count`
+- `date_extract_projection_runtime_execution`
+- `date_extract_projection_operator`
+- `date_extract_projection_source_column`
+- `date_extract_projection_output_column`
+- `timestamp_extract_projection_runtime_execution`
+- `timestamp_extract_projection_operator`
+- `timestamp_extract_projection_source_column`
+- `timestamp_extract_projection_output_column`
+- `generic_expression_predicate_runtime_execution`
+- `generic_expression_predicate_source_column`
+- `generic_expression_predicate_operator_family`
+- `generic_expression_predicate_binary_operator_count`
+- `generic_expression_predicate_comparison_operator`
+- `generic_expression_projection_runtime_execution`
+- `generic_expression_projection_source_column`
+- `generic_expression_projection_output_column`
+- `generic_expression_projection_operator_family`
+- `generic_expression_projection_binary_operator_count`
+- `numeric_arithmetic_runtime_execution`
+- `numeric_arithmetic_operator`
+- `numeric_arithmetic_source_column`
+- `numeric_arithmetic_rhs_dtype`
+- `numeric_abs_runtime_execution`
+- `numeric_abs_source_column`
+- `numeric_abs_rhs_dtype`
+- `numeric_rounding_runtime_execution`
+- `numeric_rounding_operator`
+- `numeric_rounding_source_column`
+- `numeric_rounding_rhs_dtype`
+- `numeric_arithmetic_projection_runtime_execution`
+- `numeric_arithmetic_projection_operator`
+- `numeric_arithmetic_projection_source_column`
+- `numeric_arithmetic_projection_output_column`
+- `numeric_arithmetic_projection_rhs_dtype`
+- `numeric_abs_projection_runtime_execution`
+- `numeric_abs_projection_source_column`
+- `numeric_abs_projection_output_column`
+- `numeric_rounding_projection_runtime_execution`
+- `numeric_rounding_projection_operator`
+- `numeric_rounding_projection_source_column`
+- `numeric_rounding_projection_output_column`
+- `date_arithmetic_projection_runtime_execution`
+- `date_arithmetic_projection_operator`
+- `date_arithmetic_projection_days`
+- `date_arithmetic_projection_source_column`
+- `date_arithmetic_projection_output_column`
+- `timestamp_arithmetic_projection_runtime_execution`
+- `timestamp_arithmetic_projection_operator`
+- `timestamp_arithmetic_projection_seconds`
+- `timestamp_arithmetic_projection_source_column`
+- `timestamp_arithmetic_projection_output_column`
 - `date_extract_runtime_execution`
 - `date_extract_operator`
 - `date_extract_source_column`
@@ -70,13 +154,20 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `timestamp_arithmetic_operator`
 - `timestamp_arithmetic_seconds`
 - `timestamp_arithmetic_source_column`
-- `timestamp_arithmetic_projection_runtime_execution`
-- `timestamp_arithmetic_projection_operator`
-- `timestamp_arithmetic_projection_seconds`
-- `timestamp_arithmetic_projection_source_column`
-- `timestamp_arithmetic_projection_output_column`
 - `in_predicate_runtime_execution`
 - `in_list_value_count`
+- `in_list_null_value_count`
+- `in_predicate_null_semantics`
+- `in_subquery_runtime_execution`
+- `in_subquery_filter_runtime_execution`
+- `in_subquery_order_by_runtime_execution`
+- `in_subquery_limit_runtime_execution`
+- `in_subquery_input_row_count`
+- `in_subquery_filtered_row_count`
+- `in_subquery_materialization_bound`
+- `in_subquery_materialized_value_count`
+- `in_subquery_materialized_null_value_count`
+- `having_in_subquery_runtime_execution`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`
@@ -102,7 +193,12 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `join_aggregate_runtime_execution`
 - `join_aggregate_operator_family`
 - `join_aggregate_group_count`
+- `right_source_format`
+- `join_source_formats`
 - `join_matched_row_count`
+- `join_candidate_row_count`
+- `join_unmatched_left_row_count`
+- `join_unmatched_right_row_count`
 - `join_left_rows_scanned`
 - `join_right_rows_scanned`
 - `join_rows_output`
@@ -111,6 +207,16 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `output_io_performed`
 - `output_native_io_certificate_status`
 - `output_certificate_ref`
+- `result_replay_verified`
+- `output_replay_status`
+- `output_replay_millis`
+- `output_fidelity_report_status`
+- `output_fidelity_loss`
+- `vortex_output_runtime_execution`
+- `vortex_output_reopen_verified`
+- `vortex_artifact_digest`
+- `upstream_vortex_write_called`
+- `upstream_vortex_scan_called`
 - `materialization_boundary`
 - `evidence_summary`
 - `claim_summary`
@@ -120,7 +226,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, string transform, timestamp arithmetic, and scoped string-function fields when requested, date extract/arithmetic and timestamp arithmetic fields when requested, IN evidence when requested, scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, and string-function predicate/projection evidence; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
@@ -133,10 +239,10 @@ A JSON envelope and typed Python report with inline JSONL result, result_rows/fi
 
 ## Reference Files
 
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
-- `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
-- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this smoke.
+- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this use case.
 
 ## Related Use Cases
 

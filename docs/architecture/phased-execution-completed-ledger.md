@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity
+  - Date: 2026-05-28
+  - Branch/PR: `runtime-5c-python-workflow-parity` / PR #976.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - Completed `GAR-RUNTIME-IMPL-5B` SQL frontend runtime ladder.
+    - Python README, Use Case Atlas, DataFrame/notebook/package readiness matrix, and current
+      generated-source admission evidence.
+  - Scope:
+    - Closed 5C as a current-state alignment lane rather than a standalone runtime lane. The repo
+      already has a single Python context/session path for scoped generated-output, local file
+      query-builder, SQL, and prepared/reused Vortex workflows.
+    - Aligned the Python DataFrame method matrix with the completed SQL ladder: `ctx.sql(...)` is
+      fixture-smoke-supported only for scoped local-source collect/write and source-free
+      generated-output write smokes, while broad SQL parse/bind/plan/execute, catalogs,
+      object-store/table SQL, external engines, fallback, production SQL/DataFrame, and performance
+      claims remain blocked.
+    - Aligned broad generated DataFrame `with_column` diagnostics with the CLI unsupported report:
+      `ctx.dataframe_generated_with_column(...)` names
+      `gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked`, while scoped
+      generated-row literal columns and generated-range int64 expressions remain admitted through
+      concrete builders such as `ctx.from_rows(...).with_column(...)` and
+      `ctx.range(...).with_column(...)`.
+    - Expanded the local query-builder runtime boundary text to include currently admitted multi-key
+      top-N, aggregate-output ordering, inner/outer/semi/anti equi-joins, cross joins,
+      expression-condition joins, join aggregates, ranking windows, local output, and fanout.
+    - Refreshed Python README, DataFrame/notebook/package readiness docs, use-case source data,
+      generated use-case Markdown, website content JSON, static website pages, and website data
+      artifacts so user-facing surfaces all describe the same scoped runtime route map.
+    - Added `docs/use-cases/generated/*` generation to the website content sync so generated
+      use-case Markdown is rebuilt from `docs/use-cases/use-case-index.yml` instead of drifting from
+      the website JSON/data artifacts.
+    - Trimmed the live phase plan: `GAR-RUNTIME-IMPL-5C` moved out of the queue; `GAR-USER-SURFACE-1C`
+      now remains only as user-surface polish/backstop, not duplicate runtime/method-matrix work;
+      benchmark refresh remains deferred until remaining runtime/user-surface closeouts that affect
+      interpretation are complete.
+  - Admitted method/route examples:
+    - `ctx.from_rows(...)`, `ctx.literal_table(...)`, `ctx.calendar(...)`, `ctx.range(...)`,
+      `ctx.sequence(...)`, `ctx.sql_values(...)`, `ctx.sql_literal_select(...)`, and scoped
+      `ctx.sql("SELECT ... FROM range/generate_series(...)").write(...)`.
+    - `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, and feature-gated
+      `ctx.read_parquet(...)` / `ctx.read_arrow_ipc(...)` / `ctx.read_avro(...)` /
+      `ctx.read_orc(...)` for admitted local-source projection/filter/limit/preview/aggregate/
+      group/order/write/fanout/join/window/schema-quality shapes through ShardLoom runtime.
+    - `ctx.sql(...)` for scoped local-source collect/write and source-free generated-output writes.
+    - `ctx.prepare_vortex(...)` and `ctx.session().prepare_vortex(...)` for scoped prepared-state
+      creation/reuse.
+  - Blocked method/route examples:
+    - Broad SQL parse/bind/plan/execute, catalogs, object-store/table SQL, and fallback-engine SQL.
+    - Broad generated DataFrame expression `with_column` through the unsupported helper.
+    - pandas/Arrow/NumPy broad materialization, notebook rich display, object-store/table sources,
+      production DataFrame parity, performance claims, and Spark-replacement claims.
+    - `read_vortex(...)` remains a lazy declaration/report boundary unless a separate native
+      Vortex primitive/runtime surface admits the work.
+  - Claim boundary:
+    - Scoped local Python workflow runtime only. Python orchestrates ShardLoom runtime and must not
+      compute through pandas, Polars, Spark, DataFusion, DuckDB, or any external fallback engine.
+  - Verification:
+    - Focused Python capability matrix/unit tests, content sync, website build, and docs/website
+      validators recorded in the PR before merge.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Date: 2026-05-28
   - Branch/PR: `runtime-5b-sql-ladder` / PR #975.

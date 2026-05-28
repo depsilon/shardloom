@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-ShardLoom can run a public no-credential fixture read smoke for S3/GCS/ADLS-shaped URIs when the caller supplies the local fixture bytes explicitly with `--public-fixture-path`.
+Object-store public no-credential fixture read smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
@@ -20,9 +20,13 @@ Public no-credential fixture read smoke only. ShardLoom parses a supported S3/GC
 
 ## How To Try It
 
-```powershell
+```text
 target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --fixture-listing --range 0:16 --format json
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -72,10 +76,10 @@ A public fixture report with parsed provider/bucket/key fields, no credential/ne
 
 ## Reference Files
 
-- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store request planning posture and the public no-credential fixture read boundary.
-- `docs/architecture/universal-input-contract.md` - What this proves: Universal input adapter boundaries and no-fallback input contract for object-store-like sources.
-- `docs/architecture/vortex-public-api-inventory.md` - What this proves: Vortex I/O hooks are candidate inputs but not broad object-store admission by themselves.
-- `python/README.md` - What this proves: Python-facing command wrapper posture and local technical-preview scope.
+- `docs/architecture/object-store-request-planner.md` - What this proves: Object-store route admission, local-emulator evidence, and remote-provider blockers.
+- `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
+- `docs/architecture/vortex-public-api-inventory.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 
 ## Related Use Cases
 

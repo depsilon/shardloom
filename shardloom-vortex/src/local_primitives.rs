@@ -1932,9 +1932,15 @@ fn primitive_stat_values_from_primitive_array(
 fn utf8_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::VarBinViewArray;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
 
     let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
+    match utf8.varbinview_validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
     let mut values = Vec::with_capacity(utf8.len());
     for index in 0..utf8.len() {
         let bytes = utf8.bytes_at(index);
@@ -2990,7 +2996,11 @@ mod tests {
         .expect("kernel inputs");
 
         assert_eq!(inputs.len(), 1);
-        assert!(inputs.iter().all(|input| input.mapping_evidence_complete()));
+        assert!(
+            inputs
+                .iter()
+                .all(VortexReaderGeneratedEncodedKernelInput::mapping_evidence_complete)
+        );
         assert!(inputs.iter().all(|input| !input.has_forbidden_effects()));
         let columns = inputs
             .iter()
@@ -3262,6 +3272,33 @@ mod tests {
         let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
             &source_uri,
             "split-nullable-dict",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert!(inputs.is_empty());
+    }
+
+    #[test]
+    fn nullable_utf8_dictionary_values_stay_blocked_before_bytes_access() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
+
+        let codes = [0_u8, 1, 0]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = VarBinViewArray::from_iter_nullable_str([Some("alpha"), None, Some("gamma")])
+            .into_array();
+        let chunk = DictArray::try_new(codes, values)
+            .expect("nullable utf8 dictionary array")
+            .into_array();
+        let source_uri =
+            DatasetUri::new("file:///tmp/nullable-utf8-dictionary.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-nullable-utf8-dict",
             &chunk,
         )
         .expect("kernel inputs");

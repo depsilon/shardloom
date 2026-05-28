@@ -24,6 +24,11 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+#[cfg(feature = "vortex-write")]
+fn escaped_field(key: &str, value: &str) -> String {
+    field(key, &value.replace('\\', "\\\\"))
+}
+
 fn run_sql_local_source_smoke_json(statement: &str) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(["sql-local-source-smoke", statement, "--format", "json"])
@@ -747,6 +752,196 @@ fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
     if delta_target_path.exists() {
         fs::remove_file(delta_target_path).expect("remove delta vortex");
     }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_rejects_differential_minimal_certification_before_writes() {
+    let source_path = unique_path("vortex-ingest-delta-minimal-base", "csv");
+    let delta_source_path = unique_path("vortex-ingest-delta-minimal-change", "csv");
+    let target_path = unique_path("vortex-ingest-delta-minimal-base-target", "vortex");
+    let delta_target_path = unique_path("vortex-ingest-delta-minimal-change-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n").expect("write base source csv");
+    fs::write(&delta_source_path, "id,label,amount\n2,beta,15\n").expect("write delta source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &delta_target_path.display().to_string(),
+            "--certification-level",
+            "ingest_minimal",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains(
+        "vortex_ingest differential preparation requires ingest_certified replay evidence before any base or delta write"
+    ));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(
+        !target_path.exists(),
+        "minimal-cert blocker must not write base {}",
+        target_path.display()
+    );
+    assert!(
+        !delta_target_path.exists(),
+        "minimal-cert blocker must not write delta {}",
+        delta_target_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove base source csv");
+    fs::remove_file(delta_source_path).expect("remove delta source csv");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_rejects_shared_differential_target_before_writes() {
+    let source_path = unique_path("vortex-ingest-delta-shared-target-base", "csv");
+    let delta_source_path = unique_path("vortex-ingest-delta-shared-target-change", "csv");
+    let target_path = unique_path("vortex-ingest-delta-shared-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n").expect("write base source csv");
+    fs::write(&delta_source_path, "id,label,amount\n2,beta,15\n").expect("write delta source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains(
+        "vortex_ingest differential preparation requires distinct base and delta targets"
+    ));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(
+        !target_path.exists(),
+        "shared-target blocker must not write {}",
+        target_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove base source csv");
+    fs::remove_file(delta_source_path).expect("remove delta source csv");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_reports_delta_source_for_differential_scout_blocker() {
+    let source_path = unique_path("vortex-ingest-delta-scout-base", "csv");
+    let delta_source_path = unique_path("vortex-ingest-delta-scout-change", "jsonl");
+    let target_path = unique_path("vortex-ingest-delta-scout-base-target", "vortex");
+    let delta_target_path = unique_path("vortex-ingest-delta-scout-change-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n").expect("write base source csv");
+    fs::write(
+        &delta_source_path,
+        "{\"id\":2,\"payload\":{\"nested\":true}}\n",
+    )
+    .expect("write nested delta source jsonl");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &delta_target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains("differential delta source"));
+    assert!(stdout.contains(&escaped_field(
+        "source_path",
+        &delta_source_path.display().to_string()
+    )));
+    assert!(stdout.contains(&escaped_field(
+        "target_vortex_path",
+        &delta_target_path.display().to_string()
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_status", "blocked_scout_ingress")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_blocker_id",
+        "vortex_scout_ingress.unsupported_nested_shape"
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
+    assert!(stdout.contains(&field("prepared_state_created", "false")));
+    assert!(
+        target_path.exists(),
+        "delta scout blocker happens after base preparation {}",
+        target_path.display()
+    );
+    assert!(
+        !delta_target_path.exists(),
+        "delta scout blocker must not write delta {}",
+        delta_target_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove base source csv");
+    fs::remove_file(delta_source_path).expect("remove delta source jsonl");
+    fs::remove_file(target_path).expect("remove base vortex");
 }
 
 #[cfg(feature = "vortex-write")]

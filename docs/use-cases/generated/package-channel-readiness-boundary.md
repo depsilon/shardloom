@@ -20,7 +20,7 @@ Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, 
 
 ## How To Try It
 
-```powershell
+```text
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 ```
 
@@ -55,11 +55,11 @@ target/release-dry-run-proof/transcript.json records local source artifacts and 
 
 ## Reference Files
 
-- `docs/getting-started/first-10-minutes.md` - What this proves: Shortest local orientation path for smoke checks and evidence inspection.
-- `docs/getting-started/install.md` - What this proves: Installation posture and package-channel caveats for technical-preview users.
-- `docs/release/hard-release-readiness-gate.md` - What this proves: Release gate requirements for package publication and public claims.
-- `docs/architecture/adoption-commercial-readiness-friction-reduction.md` - What this proves: Commercial-readiness friction plan and package/channel adoption boundaries.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
+- `docs/getting-started/first-10-minutes.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/getting-started/install.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/release/hard-release-readiness-gate.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/architecture/adoption-commercial-readiness-friction-reduction.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

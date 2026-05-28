@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-Table and lakehouse boundary remains blocked for production table formats. ShardLoom can now show a local-manifest append commit rehearsal, but Iceberg, Delta, Hudi, catalogs, and object-store-backed table commits still require separate evidence.
+Table and lakehouse boundary is not admitted runtime support yet. Use the blocker and evidence requirements to understand what remains.
 
 ## Claim Boundary
 
@@ -20,7 +20,7 @@ Local table metadata/read and append commit rehearsal smokes are fixture-scoped 
 
 ## How To Try It
 
-```powershell
+```text
 target\debug\shardloom table-compat-plan aggregate --format json
 ```
 
@@ -46,7 +46,7 @@ Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, 
 
 ## Expected Output Or Evidence
 
-A report-only table compatibility plan or deterministic unsupported output, with local table append rehearsal evidence called out separately from production table-format support.
+A report-only table compatibility plan or deterministic unsupported output.
 
 ## Common Mistakes
 
@@ -58,10 +58,10 @@ A report-only table compatibility plan or deterministic unsupported output, with
 ## Reference Files
 
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
-- `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution matrix posture and local append commit rehearsal evidence boundaries.
+- `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution posture and lakehouse/table claim boundaries.
 - `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 - `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
+- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

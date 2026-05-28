@@ -1334,7 +1334,7 @@ pub fn plan_workspace_safe_local_output(
 ) -> Result<WorkspaceSafeLocalWritePlan> {
     let workspace_root = workspace_root.as_ref();
     let requested_output_path = requested_output_path.as_ref();
-    reject_workspace_safe_root_symlink(workspace_root)?;
+    let workspace_root_is_symlink = workspace_safe_root_is_symlink(workspace_root)?;
     let canonical_workspace_root = fs::canonicalize(workspace_root).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "workspace-safe local output root '{}' must already exist and be canonicalizable: {error}; no fallback execution was attempted",
@@ -1358,6 +1358,10 @@ pub fn plan_workspace_safe_local_output(
     report.canonical_workspace_root = canonical_workspace_root.display().to_string();
     report.requested_output_path = requested_output_path.display().to_string();
     report.canonical_output_path = target_path.display().to_string();
+    if workspace_root_is_symlink {
+        report.symlink_policy =
+            "canonical_workspace_root_symlink_allowed_output_symlinks_not_followed".to_string();
+    }
     let parent_traversal = path_has_parent_traversal(requested_output_path);
     report.within_workspace =
         !parent_traversal && target_path.starts_with(&canonical_workspace_root);
@@ -1609,26 +1613,20 @@ fn workspace_path_safety_error(report: &WorkspacePathSafetyReport) -> ShardLoomE
     ))
 }
 
-fn reject_workspace_safe_root_symlink(workspace_root: &Path) -> Result<()> {
+fn workspace_safe_root_is_symlink(workspace_root: &Path) -> Result<bool> {
     let metadata = fs::symlink_metadata(workspace_root).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "workspace-safe local output root '{}' must already exist and be inspectable before canonicalization: {error}; no fallback execution was attempted",
             workspace_root.display()
         ))
     })?;
-    if metadata.file_type().is_symlink() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "workspace-safe local output root '{}' is a symlink and will not be followed; no fallback execution was attempted",
-            workspace_root.display()
-        )));
-    }
-    if !metadata.is_dir() {
+    if !metadata.file_type().is_symlink() && !metadata.is_dir() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "workspace-safe local output root '{}' must be a directory; no fallback execution was attempted",
             workspace_root.display()
         )));
     }
-    Ok(())
+    Ok(metadata.file_type().is_symlink())
 }
 
 fn canonicalize_local_output_target_path(requested_absolute: &Path) -> Result<PathBuf> {
@@ -3177,7 +3175,7 @@ mod tests {
     }
 
     #[test]
-    fn workspace_safe_local_write_rejects_symlink_roots_when_supported() {
+    fn workspace_safe_local_write_allows_canonical_symlink_roots_when_supported() {
         let workspace = workspace_write_fixture_root("symlink_root");
         let real_root = workspace.join("real-root");
         let symlink_root = workspace.join("link-root");
@@ -3191,10 +3189,21 @@ mod tests {
         let symlink_result: std::io::Result<()> = Err(std::io::Error::other("unsupported"));
 
         if symlink_result.is_ok() {
-            let error = plan_workspace_safe_local_output(&symlink_root, "out.jsonl", true)
-                .expect_err("symlink workspace root is rejected before canonicalization");
-            assert!(error.message().contains("root"));
-            assert!(error.message().contains("symlink"));
+            let report = write_workspace_safe_bytes(
+                &symlink_root,
+                "out.jsonl",
+                true,
+                "test local output",
+                b"x\n",
+            )
+            .expect("canonical symlink workspace root is accepted");
+            assert_eq!(std::fs::read(real_root.join("out.jsonl")).unwrap(), b"x\n");
+            assert_eq!(
+                report.path_safety_report.symlink_policy,
+                "canonical_workspace_root_symlink_allowed_output_symlinks_not_followed"
+            );
+            assert!(report.path_safety_report.accepted());
+            assert!(report.no_fallback_invariant_holds());
         }
         let _ = std::fs::remove_file(&symlink_root);
         let _ = std::fs::remove_dir(&symlink_root);

@@ -20,9 +20,13 @@ Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataF
 
 ## How To Try It
 
-```powershell
+```text
 python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "group by aggregation" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-group-by-smoke.json --regenerate
 ```
+
+## Blocker
+
+No current blocker is attached to this supported local smoke path beyond the claim boundary above.
 
 ## Internal Flow
 
@@ -52,8 +56,8 @@ A benchmark artifact for one named scenario with no-fallback evidence and correc
 
 ## Reference Files
 
-- `benchmarks/traditional_analytics/README.md` - What this proves: Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.
-- `docs/architecture/benchmark-suite-catalog.md` - What this proves: Benchmark scenario families and evidence coverage expectations.
+- `benchmarks/traditional_analytics/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
+- `docs/architecture/benchmark-suite-catalog.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/benchmarks/local-taxonomy-benchmark.md` - What this proves: Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.
 - `docs/benchmarks/baseline-comparison-boundary.md` - What this proves: Benchmark comparison boundaries and external-baseline-only policy.
 
