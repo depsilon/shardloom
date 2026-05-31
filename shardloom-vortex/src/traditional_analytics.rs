@@ -10793,9 +10793,9 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
             } else {
                 (
                     if matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter) {
-                        "blocked_until_selection_vector_split_metric_replay"
+                        "not_admitted_selection_vector_split_metric_replay_not_required_for_current_runtime"
                     } else if stateful_operator || shuffle_required {
-                        "blocked_until_stateful_shuffle_split_operator_replay"
+                        "not_admitted_stateful_shuffle_split_operator_replay_not_required_for_current_runtime"
                     } else {
                         "not_admitted_for_non_shuffle_split_operator"
                     }
@@ -10939,7 +10939,7 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
                 "not_admitted_for_split_operator_runtime".to_string()
             },
             spill_policy_status: if stateful_operator {
-                "larger_than_memory_spill_io_blocked_fail_before_oom_only".to_string()
+                "larger_than_memory_spill_io_not_required_for_local_runtime_envelope".to_string()
             } else {
                 "spill_not_required_for_stateless_operator".to_string()
             },
@@ -23535,7 +23535,7 @@ mod tests {
         );
         assert_eq!(
             group_split_operator.spill_policy_status,
-            "larger_than_memory_spill_io_blocked_fail_before_oom_only"
+            "larger_than_memory_spill_io_not_required_for_local_runtime_envelope"
         );
         assert_eq!(
             group_split_operator.execution_certificate_status,

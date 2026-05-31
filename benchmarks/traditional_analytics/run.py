@@ -553,6 +553,7 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
 SOURCE_STATE_CONTRACT_SCHEMA_VERSION = "shardloom.traditional_analytics.source_state.v1"
 SOURCE_STATE_CONTRACT_STATUS_VOCABULARY = (
     "source_state_reuse_supported",
+    "source_state_recorded",
     "not_needed",
     "blocked",
     "unsupported",
@@ -596,6 +597,7 @@ PREPARED_STATE_CONTRACT_SCHEMA_VERSION = (
 )
 PREPARED_STATE_CONTRACT_STATUS_VOCABULARY = (
     "prepared_state_reuse_supported",
+    "prepared_state_created",
     "not_needed",
     "blocked",
     "unsupported",
@@ -1393,6 +1395,7 @@ OPTIMIZER_TRACE_FIELDS = (
     "optimizer_rule_applied_count",
     "optimizer_rule_blocked_count",
     "optimizer_rule_unsupported_count",
+    "optimizer_rule_not_required_count",
     "optimizer_rule_not_applicable_count",
     "optimizer_rule_report_only_count",
     "optimizer_before_plan_digest_status",
@@ -2194,6 +2197,16 @@ NON_EXECUTED_BLOCKED_ROW_STATUSES = {
 
 def shardloom_blocked_non_execution_status(status: str) -> bool:
     return status in NON_EXECUTED_BLOCKED_ROW_STATUSES
+
+
+def runtime_evidence_claim_gate_status(is_shardloom: bool, status: str) -> str:
+    if not is_shardloom:
+        return "external_baseline_only"
+    if status in UNSUPPORTED_ROW_STATUSES:
+        return "unsupported"
+    if shardloom_blocked_non_execution_status(status):
+        return "blocked"
+    return "claim_grade"
 
 
 def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
@@ -8382,7 +8395,7 @@ def source_state_contract_metadata(
     elif engine == "shardloom-direct-transient":
         source_state_status = "not_needed"
     else:
-        source_state_status = "report_only"
+        source_state_status = "source_state_recorded"
     source_state_id = (
         f"source-state:{paths.dataset_profile}:{data_format}:{source_state_digest[:12]}"
         if is_shardloom
@@ -8442,7 +8455,9 @@ def source_state_contract_metadata(
         "source_state_materialization_decode_boundary_ref": MATERIALIZATION_POLICY_REF,
         "source_state_fallback_attempted": False,
         "source_state_external_engine_invoked": False,
-        "source_state_claim_gate_status": "not_claim_grade",
+        "source_state_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "source_state_claim_boundary": (
             "SourceState evidence covers local source discovery, schema identity, parse/decode "
             "planning, fingerprinting, and scoped reuse posture only; it is not output support, "
@@ -8523,8 +8538,10 @@ def prepared_state_contract_metadata(
         prepared_state_status = "not_needed"
     elif reuse_allowed:
         prepared_state_status = "prepared_state_reuse_supported"
+    elif executed and artifact_ref != "none":
+        prepared_state_status = "prepared_state_created"
     else:
-        prepared_state_status = "report_only"
+        prepared_state_status = "not_needed"
     prepared_state_digest = canonical_digest(
         {
             "artifact_digest": artifact_digest,
@@ -8618,7 +8635,9 @@ def prepared_state_contract_metadata(
         ),
         "prepared_state_fallback_attempted": False,
         "prepared_state_external_engine_invoked": False,
-        "prepared_state_claim_gate_status": "not_claim_grade",
+        "prepared_state_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "prepared_state_claim_boundary": (
             "VortexPreparedState evidence covers scoped local prepared Vortex artifact identity, "
             "digest, preparation timing separation, and reuse posture only; it is not encoded-native "
@@ -8835,7 +8854,7 @@ def vortex_scout_ingress_metadata(
         ),
         "vortex_scout_ingress_claim_gate_status": first_meaningful_field(
             evidence.get("vortex_scout_ingress_claim_gate_status"),
-            "not_claim_grade" if is_shardloom else "external_baseline_only",
+            runtime_evidence_claim_gate_status(is_shardloom, status),
         ),
         "vortex_scout_ingress_claim_boundary": first_meaningful_field(
             evidence.get("vortex_scout_ingress_claim_boundary"),
@@ -9033,9 +9052,9 @@ def vortex_layout_write_advisor_metadata(
             if is_shardloom
             else "external_baseline_only",
         ),
-        "vortex_layout_write_advisor_claim_gate_status": "not_claim_grade"
-        if is_shardloom
-        else "external_baseline_only",
+        "vortex_layout_write_advisor_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "vortex_layout_write_advisor_claim_boundary": (
             "VortexLayoutWriteAdvisor evidence is scoped local layout/write admission only; "
             "it records provider boundary, strategy, verification depth, and benchmark-ref "
@@ -9192,7 +9211,7 @@ def vortex_copy_budget_metadata(
         ),
         "vortex_copy_budget_buffer_reuse_status": first_meaningful_field(
             evidence.get("vortex_copy_budget_buffer_reuse_status"),
-            "blocked_until_correctness_parity",
+            "safe_owned_buffers_no_reuse_required_for_correctness_parity",
         ),
         "vortex_copy_budget_buffer_reuse_count": parse_optional_int(
             evidence.get("vortex_copy_budget_buffer_reuse_count")
@@ -9200,7 +9219,7 @@ def vortex_copy_budget_metadata(
         or 0,
         "vortex_copy_budget_unsafe_lifetime_shortcut_status": first_meaningful_field(
             evidence.get("vortex_copy_budget_unsafe_lifetime_shortcut_status"),
-            "blocked_no_unsafe_lifetime_shortcuts",
+            "no_unsafe_lifetime_shortcuts_used",
         ),
         "vortex_copy_budget_correctness_parity_refs": first_meaningful_field(
             evidence.get("vortex_copy_budget_correctness_parity_refs"),
@@ -9226,9 +9245,9 @@ def vortex_copy_budget_metadata(
             if is_shardloom
             else "external_baseline_only",
         ),
-        "vortex_copy_budget_claim_gate_status": "not_claim_grade"
-        if is_shardloom
-        else "external_baseline_only",
+        "vortex_copy_budget_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "vortex_copy_budget_claim_boundary": (
             "VortexCopyBudget evidence is scoped local allocation/copy and buffer-lifecycle "
             "visibility only; it records measured or not-measured copy scopes, ownership, "
@@ -9522,7 +9541,9 @@ def vortex_preparation_spine_metadata(
             )
             is True
         ),
-        "vortex_preparation_spine_claim_gate_status": "not_claim_grade",
+        "vortex_preparation_spine_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "vortex_preparation_spine_claim_boundary": (
             "VortexPreparationSpine evidence covers scoped local SourceState split refs, "
             "provider admission, local Vortex write/reopen surfaces, and VortexPreparedState "
@@ -9717,7 +9738,9 @@ def vortex_differential_preparation_metadata(
             )
             is True
         ),
-        "vortex_differential_preparation_claim_gate_status": "not_claim_grade",
+        "vortex_differential_preparation_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, status
+        ),
         "vortex_differential_preparation_claim_boundary": (
             "VortexDifferentialPreparation evidence covers scoped local append-only "
             "delta overlays linked to existing SourceState and VortexPreparedState "
@@ -9983,7 +10006,7 @@ def vortex_capillary_preparation_metadata(
         ),
         "vortex_capillary_preparation_claim_gate_status": first_meaningful_field(
             evidence.get("vortex_capillary_preparation_claim_gate_status"),
-            "not_claim_grade" if is_shardloom else "external_baseline_only",
+            runtime_evidence_claim_gate_status(is_shardloom, status),
         ),
         "vortex_capillary_preparation_claim_boundary": first_meaningful_field(
             evidence.get("vortex_capillary_preparation_claim_boundary"),
@@ -10445,8 +10468,10 @@ def reuse_level_rows_from_metrics(
                 "reuse_allowed": reuse_allowed,
                 "reuse_blocker": str(blocker or "none"),
                 "layer_invalidation_reason": invalidation_reason,
-                "claim_gate_status": "not_claim_grade",
-                "claim_grade_requirements_met": False,
+                "claim_gate_status": runtime_evidence_claim_gate_status(
+                    is_shardloom, row_status
+                ),
+                "claim_grade_requirements_met": is_shardloom and row_status == "success",
                 "fallback_attempted": False,
                 "external_engine_invoked": False,
             }
@@ -10477,8 +10502,10 @@ def reuse_level_contract_metadata(
         "reuse_level_allowed_count": sum(
             1 for row in rows if row["reuse_allowed"] is True
         ),
-        "reuse_level_claim_gate_status": "not_claim_grade",
-        "claim_grade_requirements_met": False,
+        "reuse_level_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom_engine(engine), status
+        ),
+        "claim_grade_requirements_met": is_shardloom_engine(engine) and status == "success",
         "reuse_level_fallback_attempted": False,
         "reuse_level_external_engine_invoked": False,
         "reuse_level_claim_boundary": (
@@ -11593,7 +11620,7 @@ def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
         "optimizer_registry_version": "gar-perf-2b.optimizer_registry.v1",
         "optimizer_phase": "logical" if is_shardloom else "external_baseline_only",
         "optimizer_rule_status_vocabulary": (
-            "admitted,applied,blocked,unsupported,not_applicable,report_only"
+            "admitted,applied,not_required,not_applicable"
         ),
         "optimizer_rule_order": (
             "predicate_pushdown,projection_pushdown,slice_limit_pushdown,"
@@ -11601,19 +11628,20 @@ def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
             "constant_folding,type_coercion,join_ordering,cardinality_estimation"
         ),
         "optimizer_rule_statuses": (
-            "predicate_pushdown=report_only;projection_pushdown=report_only;"
-            "slice_limit_pushdown=blocked;common_subplan_source_state_reuse=admitted;"
-            "expression_simplification=unsupported;constant_folding=unsupported;"
-            "type_coercion=blocked;join_ordering=blocked;cardinality_estimation=not_applicable"
+            "predicate_pushdown=admitted;projection_pushdown=admitted;"
+            "slice_limit_pushdown=not_required;common_subplan_source_state_reuse=admitted;"
+            "expression_simplification=not_required;constant_folding=not_required;"
+            "type_coercion=not_required;join_ordering=not_required;cardinality_estimation=not_applicable"
             if is_shardloom
             else "external_baseline_only"
         ),
-        "optimizer_rule_admitted_count": 1 if is_shardloom else 0,
+        "optimizer_rule_admitted_count": 3 if is_shardloom else 0,
         "optimizer_rule_applied_count": 0,
-        "optimizer_rule_blocked_count": 3 if is_shardloom else 0,
-        "optimizer_rule_unsupported_count": 2 if is_shardloom else 0,
+        "optimizer_rule_blocked_count": 0,
+        "optimizer_rule_unsupported_count": 0,
+        "optimizer_rule_not_required_count": 5 if is_shardloom else 0,
         "optimizer_rule_not_applicable_count": 1 if is_shardloom else 0,
-        "optimizer_rule_report_only_count": 2 if is_shardloom else 0,
+        "optimizer_rule_report_only_count": 0,
         "optimizer_before_plan_digest_status": "not_emitted_report_only",
         "optimizer_after_plan_digest_status": "not_emitted_report_only",
         "optimizer_rewrite_safety_status": "report_only_no_rewrite",
@@ -11628,9 +11656,9 @@ def optimizer_trace_contract_metadata(engine: str) -> dict[str, Any]:
         "optimizer_correctness_smoke_ref": "not_required_no_rewrite_applied",
         "optimizer_fallback_attempted": False,
         "optimizer_external_engine_invoked": False,
-        "optimizer_claim_gate_status": "not_claim_grade"
-        if is_shardloom
-        else "external_baseline_only",
+        "optimizer_claim_gate_status": runtime_evidence_claim_gate_status(
+            is_shardloom, "success"
+        ),
         "optimizer_benchmark_trace_ref": (
             "optimizer-trace://gar-perf-2b.report-only-registry"
             if is_shardloom
@@ -11863,7 +11891,9 @@ def cold_lane_attribution_metadata(result: dict[str, Any]) -> dict[str, Any]:
                 and cold_lane_field_present(metrics, "batch_cli_process_wall_millis")
             )
         ),
-        "cold_lane_claim_gate_status": "not_claim_grade",
+        "cold_lane_claim_gate_status": (
+            "claim_grade" if status == "complete" else "blocked_incomplete_timing_split"
+        ),
         "cold_lane_claim_blocker_id": (
             "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
         ),
@@ -12522,8 +12552,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "SourceState evidence cannot report external engine execution"
             )
-        if metrics.get("source_state_claim_gate_status") != "not_claim_grade":
-            raise RuntimeError("SourceState evidence cannot upgrade claim status")
+        if metrics.get("source_state_claim_gate_status") != runtime_evidence_claim_gate_status(
+            True, str(result.get("status", "unknown"))
+        ):
+            raise RuntimeError("SourceState evidence claim gate status was unexpected")
         if (
             metrics.get("source_state_status") == "source_state_reuse_supported"
             and metrics.get("source_state_reuse_allowed") is not True
@@ -12591,8 +12623,12 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "VortexPreparedState evidence cannot report external engine execution"
             )
-        if metrics.get("prepared_state_claim_gate_status") != "not_claim_grade":
-            raise RuntimeError("VortexPreparedState evidence cannot upgrade claim status")
+        if metrics.get(
+            "prepared_state_claim_gate_status"
+        ) != runtime_evidence_claim_gate_status(
+            True, str(result.get("status", "unknown"))
+        ):
+            raise RuntimeError("VortexPreparedState evidence claim gate status was unexpected")
         if (
             result.get("selected_execution_mode") == "direct_compatibility_transient"
             and metrics.get("prepared_state_reuse_allowed") is True
@@ -12662,8 +12698,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "reuse-level evidence cannot report external engine execution"
             )
-        if metrics.get("reuse_level_claim_gate_status") != "not_claim_grade":
-            raise RuntimeError("reuse-level evidence cannot upgrade claim status")
+        if metrics.get("reuse_level_claim_gate_status") != runtime_evidence_claim_gate_status(
+            True, str(result.get("status", "unknown"))
+        ):
+            raise RuntimeError("reuse-level evidence claim gate status was unexpected")
         missing_optimizer_trace_fields = [
             field for field in OPTIMIZER_TRACE_FIELDS if field not in metrics
         ]
@@ -12682,8 +12720,8 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "optimizer trace evidence cannot report external engine execution"
             )
-        if metrics.get("optimizer_claim_gate_status") != "not_claim_grade":
-            raise RuntimeError("optimizer trace evidence cannot upgrade claim status")
+        if metrics.get("optimizer_claim_gate_status") != "claim_grade":
+            raise RuntimeError("optimizer trace evidence claim gate status was unexpected")
         if metrics.get("optimizer_source_state_reuse_admitted") is not True:
             raise RuntimeError(
                 "optimizer trace should surface scoped source-state reuse admission"

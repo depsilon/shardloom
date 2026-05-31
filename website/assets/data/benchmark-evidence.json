@@ -228,12 +228,12 @@
         {
           "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
           "row_count": 300,
-          "sha256": "a11c35c6191c6945ff2f399e408a250472da3de343a06dc7a2aa658ac3f160fd"
+          "sha256": "726a966995ffa01a7d8243bb20798c2f68eb29a26768c22ffb7b8caba7ed72a4"
         },
         {
           "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
           "row_count": 300,
-          "sha256": "a7136d98ea373adf837e61b658641981c88db82eb3eb1123c8fa542d7bfde93f"
+          "sha256": "d730d0f1278272bb4204665c33b669243503842102138d34d62d89e06ffc0d36"
         },
         {
           "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
@@ -280,7 +280,7 @@
     ],
     "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
     "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-    "benchmark_git_sha": "a8a31e4b1969f4ed2eec5a5b0b4ae233b7f4cdbd",
+    "benchmark_git_sha": "5458f38168ca6c247be25d24b51b7570fffd622d",
     "benchmark_profile": "full_local",
     "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
     "environment": {
@@ -838,7 +838,7 @@
       "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
     },
     "schema_version": "shardloom.website_benchmark_manifest.v1",
-    "shardloom_git_sha": "a8a31e4b1969f4ed2eec5a5b0b4ae233b7f4cdbd"
+    "shardloom_git_sha": "5458f38168ca6c247be25d24b51b7570fffd622d"
   },
   "benchmark_profile": "full_local",
   "claim_boundary": {
@@ -8008,12 +8008,12 @@
     {
       "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
       "row_count": 300,
-      "sha256": "a11c35c6191c6945ff2f399e408a250472da3de343a06dc7a2aa658ac3f160fd"
+      "sha256": "726a966995ffa01a7d8243bb20798c2f68eb29a26768c22ffb7b8caba7ed72a4"
     },
     {
       "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
       "row_count": 300,
-      "sha256": "a7136d98ea373adf837e61b658641981c88db82eb3eb1123c8fa542d7bfde93f"
+      "sha256": "d730d0f1278272bb4204665c33b669243503842102138d34d62d89e06ffc0d36"
     },
     {
       "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",

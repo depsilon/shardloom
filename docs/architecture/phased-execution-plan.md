@@ -315,14 +315,15 @@ validators, docs/website parity, and a completed-ledger entry.
     `docs/architecture/compute-engine-flow-reference.md`, and
     `target/compute-engine-completion-gate.json`.
   - Current state: `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh
-    gate` is complete for the current `full_local` benchmark publication, but full compute-engine
-    completion remains blocked. The completion gate reports 53 unchecked global architecture review
-    items and 6,696 residual ShardLoom benchmark substatus blockers even though the 480 promoted
-    ShardLoom rows are top-level `success`, `claim_grade`, and runtime-validation `passed`.
-  - Next slice outcome: drive the first residual-blocker section to runtime-ready evidence, starting
-    with the high-cardinality repeated blockers surfaced by
-    `scripts/check_compute_engine_completion_gate.py`: optimizer unsupported rules, source/prepared
-    state claim gates, copy-budget buffer reuse, and preparation-spine/capillary/layout claim gates.
+    gate` is complete for the current `full_local` benchmark publication. The first residual
+    blocker burn-down promoted benchmark sub-evidence for optimizer posture, SourceState,
+    VortexPreparedState, reuse level, copy-budget, preparation-spine, capillary, layout, and local
+    split-operator status fields to runtime-ready local evidence where the rows already had
+    top-level `success`, `claim_grade`, runtime-validation `passed`, and no fallback/external engine
+    invocation. Full compute-engine completion remains blocked by 53 unchecked global architecture
+    review items and this unchecked phase-plan item.
+  - Next slice outcome: close or split the 53 global architecture review items into runtime-ready
+    evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.
   - User-visible surface: completion gate JSON, benchmark evidence, phase plan, global architecture

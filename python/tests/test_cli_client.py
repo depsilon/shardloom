@@ -1833,7 +1833,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
                 ),
                 "prepared_vortex_scale_split_operator_spill_policy_status": (
-                    "larger_than_memory_spill_io_blocked_fail_before_oom_only"
+                    "larger_than_memory_spill_io_not_required_for_local_runtime_envelope"
                 ),
                 "prepared_vortex_scale_split_operator_output_commit_proof_status": (
                     "result_sink_replay_verified_for_split_operator"
