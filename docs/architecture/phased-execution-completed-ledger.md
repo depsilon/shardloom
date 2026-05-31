@@ -16,9 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Python runtime smoke user-surface freshness closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/local-table-metadata-python-surface` / #989.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Ergonomic runtime API row in `docs/architecture/global-architecture-review.md`.
+  - Scope:
+    - Added the missing `ShardLoomClient.local_table_metadata_read_smoke()` wrapper for the
+      already-existing `local-table-metadata-read-smoke` CLI/runtime command.
+    - Added `ShardLoomContext` pass-through helpers for scoped local object-store read/write,
+      local table metadata read, local table append-commit rehearsal, and local SQLite
+      import/export smokes so the high-level context no longer hides admitted runtime proofs behind
+      lower-level client calls.
+    - Updated Python README/PKG-INFO examples and the global review row to reflect the current
+      admitted ergonomic runtime surface without broadening claims.
+  - Evidence:
+    - Python tests lock the `local-table-metadata-read-smoke` client wrapper and the context helper
+      command delegation for object-store, table, and SQLite fixture runtime smokes.
+    - The new helpers route directly through existing ShardLoom CLI/runtime commands and preserve
+      existing output envelopes, fallback fields, external-engine fields, and claim-gate boundaries.
+  - Claim boundary:
+    - This is user-surface freshness for scoped local fixture smokes only. It is not broad
+      SQL/DataFrame/notebook runtime, production table/lakehouse/object-store runtime, public package
+      publication, Foundry runtime, performance, superiority, or Spark-displacement evidence.
+  - Fallback boundary:
+    - No external engine, pandas, Polars, DuckDB, DataFusion, Spark, or hidden fallback path is
+      added. Unsupported and broad production paths stay blocked by their owning rows and gates.
+
 - [x] Session label: scoped DataFrame generated with_column runtime helper
   - Date: 2026-05-31
-  - Branch/PR: `codex/dataframe-generated-with-column-runtime` / pending.
+  - Branch/PR: `codex/dataframe-generated-with-column-runtime` / #988.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.

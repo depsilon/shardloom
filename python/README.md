@@ -2200,6 +2200,20 @@ print(fixture_plan.field("runtime_kind"))
 print(python_plan.field("runtime_support_status"))
 ```
 
+For the scoped local table metadata read proof, use the local-manifest smoke.
+It emits a typed metadata summary and digest evidence from ShardLoom's local
+manifest fixture without reading data files, touching object stores, resolving
+credentials, invoking table-format dependencies, or using fallback engines.
+
+```python
+metadata = client.local_table_metadata_read_smoke()
+print(metadata.field("support_status"))
+print(metadata.field("claim_gate_status"))
+print(metadata.field_bool("table_metadata_read_performed"))
+print(metadata.field_bool("object_store_io_performed"))
+print(metadata.field_bool("fallback_attempted"))
+```
+
 For the first fixture-scoped table append commit rehearsal, use the local
 manifest smoke. It writes a staged committed manifest plus sidecar table commit
 record, reports base/append/committed snapshot ids and digest evidence, and can
@@ -2219,10 +2233,10 @@ print(table.field_bool("object_store_io"))
 print(table.field_bool("fallback_attempted"))
 ```
 
-The table rehearsal is a `local-manifest` fixture only. It is not an
-Iceberg/Delta/Hudi production commit, catalog transaction, object-store-backed
-table commit, merge/update/delete runtime, distributed runtime, or performance
-claim.
+The table metadata and append-commit smokes are `local-manifest` fixtures only.
+They are not Iceberg/Delta/Hudi production metadata/runtime support, catalog
+transactions, object-store-backed table commits, merge/update/delete runtime,
+distributed runtime, or performance claims.
 
 The same scoreboard exposes table-format boundaries:
 

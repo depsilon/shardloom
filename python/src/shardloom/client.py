@@ -9330,6 +9330,15 @@ class ShardLoomClient:
 
         return self.run(["cg9-catalog-metadata-gate"], check=check)
 
+    def local_table_metadata_read_smoke(
+        self,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the scoped local-manifest table metadata read smoke."""
+
+        return self.run(["local-table-metadata-read-smoke"], check=check)
+
     def object_store_runtime_gate(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CG-10 object-store/distributed runtime promotion gate."""
 
