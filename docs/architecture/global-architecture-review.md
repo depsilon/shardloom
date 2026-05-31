@@ -1527,10 +1527,12 @@ plan before coding.
   I/O, and managed-platform comparisons. Every row is `not_claim_grade`, managed-platform rows are
   comparison-only, device/object-store lanes cannot satisfy native claims without evidence, and
   benchmark/claim-gate metadata carries the boundary ref.
-- [ ] `GAR-PERF-2C` adds Vortex Scan API pushdown completion across prepared/native scenario
-  families. It should map supported filter/projection/limit intent into source-backed scan evidence,
-  keep unsupported expressions deterministic blockers, and preserve no-fallback/no-external-engine
-  fields.
+- [x] `GAR-PERF-2C` adds Vortex Scan API pushdown completion across prepared/native scenario
+  families. Prepared/native rows now map supported filter/projection/limit intent into
+  source-backed scan evidence, keep unsupported expressions and order-sensitive limits as
+  deterministic blockers or ShardLoom-native residuals, and preserve no-fallback/no-external-engine
+  fields through runtime rows, benchmark artifacts, CLI capability rows, Python accessors, and
+  contract tests.
 - [x] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through across scoped
   selective-filter Vortex array encodings. It classifies initial encoding/operator pairs as
   admitted/executed, blocked, unsupported, or not available while preserving canonicalization,
@@ -1733,9 +1735,10 @@ plan before coding.
   report-only before/after plan-digest placeholders, rewrite safety, evidence preservation,
   no-fallback fields, and claim gates visible without implying Polars/DataFusion parity or broad
   SQL/DataFrame runtime.
-- [ ] `GAR-PERF-2C` adds Vortex Scan API pushdown completion. The flow must keep scan filter,
+- [x] `GAR-PERF-2C` adds Vortex Scan API pushdown completion. The flow keeps scan filter,
   projection, and limit pushdown evidence independent from encoded-native operator claims, and every
-  prepared/native scenario family must report pushed-down fields or deterministic blockers.
+  prepared/native scenario family reports pushed-down fields or deterministic blockers through the
+  `scan_pushdown_*` and `prepared_vortex_scan_pushdown_*` evidence contracts.
 - [x] `GAR-PERF-2D` adds compressed/encoded kernel registry follow-through. The flow keeps
   encoding ID, operator family, admission/execution, canonicalization, decode, materialization,
   validity, no-fallback, and claim-gate evidence visible without treating registry admission as
