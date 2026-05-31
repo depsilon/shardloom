@@ -249,6 +249,118 @@ class DataFrameMethodCapabilityMatrix:
         raise KeyError(f"DataFrame method {method!r} is not in the capability matrix")
 
 
+@dataclass(frozen=True, slots=True)
+class FrontDoorParityRow:
+    """SQL/Python/DataFrame parity posture for one user-facing workflow family."""
+
+    row_id: str
+    workflow: str
+    support_status: str
+    sql_surface: str
+    python_surface: str
+    dataframe_surface: str
+    shared_runtime_path: str
+    parity_status: str
+    performance_equivalence_status: str
+    runtime_execution: bool
+    data_read: bool
+    write_io: bool
+    materialization_required: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_boundary: str
+
+    @property
+    def equivalent_admitted_scope(self) -> bool:
+        """Whether this row is admitted across front doors for its declared scope."""
+
+        return self.parity_status == "equivalent_admitted_scope"
+
+    @property
+    def broad_gap(self) -> bool:
+        """Whether this row names a remaining blocker for the broad user goal."""
+
+        return self.blocker_id is not None
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether parity inspection preserves the no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+
+@dataclass(frozen=True, slots=True)
+class FrontDoorParityMatrix:
+    """Report-only parity matrix for SQL, Python, and DataFrame front doors."""
+
+    rows: tuple[FrontDoorParityRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the parity matrix schema version."""
+
+        return "shardloom.front_door_parity_matrix.v1"
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return row ids in stable matrix order."""
+
+        return tuple(row.row_id for row in self.rows)
+
+    @property
+    def admitted_rows(self) -> tuple[FrontDoorParityRow, ...]:
+        """Return rows with scoped cross-front-door parity."""
+
+        return tuple(row for row in self.rows if row.equivalent_admitted_scope)
+
+    @property
+    def broad_gap_rows(self) -> tuple[FrontDoorParityRow, ...]:
+        """Return rows still blocking broad SQL/Python/DataFrame parity."""
+
+        return tuple(row for row in self.rows if row.broad_gap)
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves the no-fallback/no-external-engine boundary."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def scoped_local_front_door_parity_supported(self) -> bool:
+        """Whether the currently admitted local workflow families have parity."""
+
+        required = {
+            "local_file_filter_project_limit",
+            "local_file_join_aggregate_sort_window",
+            "generated_source_output",
+        }
+        admitted = {row.row_id for row in self.admitted_rows}
+        return required.issubset(admitted)
+
+    @property
+    def flexible_anything_claim_allowed(self) -> bool:
+        """Whether broad arbitrary SQL/Python/DataFrame parity can be claimed."""
+
+        return False
+
+    @property
+    def performance_equivalence_claim_allowed(self) -> bool:
+        """Whether cross-front-door performance equivalence can be claimed."""
+
+        return False
+
+    def row(self, row_id: str) -> FrontDoorParityRow:
+        """Return one parity row by id."""
+
+        normalized = row_id.strip()
+        for row in self.rows:
+            if row.row_id == normalized:
+                return row
+        raise KeyError(f"front-door parity row {row_id!r} is not in the matrix")
+
+
 def _df_method(
     method: str,
     family: str,
@@ -277,6 +389,47 @@ def _df_method(
         materialization_required=materialization_required,
         fallback_attempted=False,
         external_engine_invoked=False,
+        claim_boundary=claim_boundary,
+    )
+
+
+def _front_door_row(
+    row_id: str,
+    workflow: str,
+    support_status: str,
+    *,
+    sql_surface: str,
+    python_surface: str,
+    dataframe_surface: str,
+    shared_runtime_path: str,
+    parity_status: str,
+    performance_equivalence_status: str,
+    required_evidence: Sequence[str],
+    runtime_execution: bool = False,
+    data_read: bool = False,
+    write_io: bool = False,
+    materialization_required: bool = False,
+    blocker_id: str | None = None,
+    claim_boundary: str,
+) -> FrontDoorParityRow:
+    return FrontDoorParityRow(
+        row_id=row_id,
+        workflow=workflow,
+        support_status=support_status,
+        sql_surface=sql_surface,
+        python_surface=python_surface,
+        dataframe_surface=dataframe_surface,
+        shared_runtime_path=shared_runtime_path,
+        parity_status=parity_status,
+        performance_equivalence_status=performance_equivalence_status,
+        runtime_execution=runtime_execution,
+        data_read=data_read,
+        write_io=write_io,
+        materialization_required=materialization_required,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        blocker_id=blocker_id,
+        required_evidence=tuple(required_evidence),
         claim_boundary=claim_boundary,
     )
 
@@ -1141,6 +1294,241 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         blocker_id="cg21.workflow.profile.runtime_profile_unsupported",
         required_evidence=("profile_runtime", "observability_evidence"),
         claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+)
+
+
+FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
+    _front_door_row(
+        "local_file_filter_project_limit",
+        "local file read, filter, project, limit, collect, and local write",
+        "scoped_runtime_supported",
+        sql_surface="ctx.sql(\"SELECT ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()/write_*",
+        python_surface="ctx.sql(...), ctx.read(...), LazyFrame.collect(), LazyFrame.write_*",
+        dataframe_surface="ctx.read_csv(...).filter(...).select(...).limit(...).collect()/write_*",
+        shared_runtime_path="sql-local-source-smoke",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_path_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "sql_local_source_smoke",
+            "python_query_builder_tests",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "SQL, Python, and DataFrame-style local file filter/project/limit workflows lower to "
+            "the same ShardLoom local-source runtime surface. This does not claim arbitrary SQL, "
+            "remote/table sources, or benchmarked performance equivalence."
+        ),
+    ),
+    _front_door_row(
+        "local_file_join_aggregate_sort_window",
+        "local file joins, grouped/scalar aggregates, top-N, computed columns, and windows",
+        "scoped_runtime_supported",
+        sql_surface="ctx.sql(\"SELECT ... JOIN/GROUP BY/ORDER BY/window ... FROM 'local.csv'\")",
+        python_surface="ctx.sql(...), LazyFrame.join/group_by/agg/sort/window",
+        dataframe_surface="ctx.read(...).join(...).group_by(...).agg(...).sort(...).window(...)",
+        shared_runtime_path="sql-local-source-smoke",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_path_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "sql_local_source_smoke",
+            "join_operator",
+            "aggregate_operator",
+            "sort_operator",
+            "window_operator",
+            "python_query_builder_tests",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped local SQL and DataFrame-style expressions share ShardLoom's local-source "
+            "runtime for admitted join, aggregate, sort, computed-column, and window shapes. "
+            "Unsupported SQL grammar, arbitrary expressions, remote sources, and production "
+            "semantic completeness remain outside this row."
+        ),
+    ),
+    _front_door_row(
+        "generated_source_output",
+        "source-free generated rows, ranges, sequences, SQL VALUES, and literal projections",
+        "scoped_runtime_supported",
+        sql_surface="ctx.sql_values(...), ctx.sql_literal_select(...), ctx.sql(...).write_*",
+        python_surface="ctx.from_rows(...), ctx.range(...), ctx.sequence(...), ctx.calendar(...)",
+        dataframe_surface="ctx.dataframe_source_free_projection(...), ctx.dataframe_generated_with_column(...)",
+        shared_runtime_path="generated-source-* smoke family",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_family_no_benchmark_claim",
+        runtime_execution=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "generated_source_user_rows_smoke",
+            "generated_source_range_smoke",
+            "generated_source_sequence_smoke",
+            "generated_source_sql_smoke",
+            "output_native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Generated SQL, Python, and DataFrame-style source-free workflows are admitted for "
+            "local output smokes. This is generated-output parity, not broad SQL/DataFrame "
+            "runtime or remote sink support."
+        ),
+    ),
+    _front_door_row(
+        "schema_quality_preview",
+        "schema inspection, validation, data-quality summaries, preview/head/take",
+        "python_dataframe_scoped_only",
+        sql_surface="not yet exposed as equivalent SQL syntax",
+        python_surface="LazyFrame.schema/validate_schema/data_quality/preview/head/take",
+        dataframe_surface="DataFrame-style schema/data-quality/preview helpers",
+        shared_runtime_path="sql-local-source-smoke inline bounded result",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_applicable_until_sql_surface_exists",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
+        blocker_id="cg21.front_door.schema_quality_sql_surface_missing",
+        required_evidence=(
+            "sql_schema_quality_surface",
+            "schema_report_contract",
+            "data_quality_report_contract",
+            "front_door_equivalence_tests",
+        ),
+        claim_boundary=(
+            "Python/DataFrame bounded schema and data-quality helpers exist for admitted local "
+            "workflows, but equivalent SQL-facing ergonomics and parity tests are not complete."
+        ),
+    ),
+    _front_door_row(
+        "native_vortex_general_runtime",
+        "general Vortex-native read, transform, and write workflows",
+        "blocked_general_runtime_gap",
+        sql_surface="not complete for general Vortex SQL",
+        python_surface="ctx.read_vortex(...) declaration and lower-level Vortex primitive helpers",
+        dataframe_surface="read_vortex(...).filter/select/write_vortex broad workflow not complete",
+        shared_runtime_path="mixed Vortex primitive/planning surfaces",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_claim_grade",
+        blocker_id="cg19.cg21.general_vortex_front_door_runtime_missing",
+        required_evidence=(
+            "vortex_reader_runtime",
+            "vortex_writer_runtime",
+            "operator_kernel_coverage",
+            "execution_certificate",
+            "native_io_certificate",
+            "front_door_equivalence_benchmarks",
+        ),
+        claim_boundary=(
+            "Vortex primitives and planning surfaces exist, but a broad intuitive SQL/Python/"
+            "DataFrame Vortex workflow with equivalent runtime and performance evidence remains "
+            "a real engine gap."
+        ),
+    ),
+    _front_door_row(
+        "decoded_materialization_interop",
+        "pandas, Arrow table, Arrow IPC, NumPy, and notebook display materialization",
+        "blocked_materialization_gap",
+        sql_surface="not applicable as execution fallback",
+        python_surface="from_pandas/from_arrow_table/from_arrow_ipc/to_pandas/to_arrow/to_numpy diagnostics",
+        dataframe_surface="DataFrame materialization/display helpers return deterministic unsupported diagnostics",
+        shared_runtime_path="workflow-unsupported-plan",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_applicable_until_materialization_policy_exists",
+        materialization_required=True,
+        blocker_id="cg21.front_door.decoded_materialization_policy_missing",
+        required_evidence=(
+            "decoded_materialization_policy",
+            "arrow_interop_boundary",
+            "bounded_materialization_runtime",
+            "notebook_display_contract",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Decoded Python/Arrow/NumPy interop is intentionally diagnostic-only today; it must "
+            "not become a hidden pandas/Arrow fallback path."
+        ),
+    ),
+    _front_door_row(
+        "object_store_lakehouse_catalog",
+        "object-store, lakehouse/table, catalog, commit, and remote sink workflows",
+        "blocked_production_io_gap",
+        sql_surface="not complete for remote/table SQL",
+        python_surface="object-store/table helper smokes and plans only",
+        dataframe_surface="DataFrame remote/table read/write workflows blocked outside scoped smokes",
+        shared_runtime_path="object-store/table planning and scoped smoke surfaces",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_claim_grade",
+        blocker_id="cg9.cg10.cg21.production_io_front_door_missing",
+        required_evidence=(
+            "object_store_runtime",
+            "credential_policy",
+            "catalog_table_runtime",
+            "commit_protocol",
+            "retry_recovery_evidence",
+            "front_door_equivalence_tests",
+        ),
+        claim_boundary=(
+            "Local object-store/table smokes and plans do not certify broad remote/table SQL, "
+            "Python, or DataFrame workflows."
+        ),
+    ),
+    _front_door_row(
+        "arbitrary_sql_python_dataframe_breadth",
+        "arbitrary user SQL, Python expressions, DataFrame APIs, UDFs, and effects",
+        "blocked_broad_language_gap",
+        sql_surface="broad SQL parse/bind/plan/execute not complete",
+        python_surface="arbitrary Python function/UDF/effect execution blocked by policy",
+        dataframe_surface="full DataFrame API parity not complete",
+        shared_runtime_path="capability and unsupported diagnostic surfaces",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_claim_grade",
+        blocker_id="cg20.cg21.broad_language_surface_missing",
+        required_evidence=(
+            "sql_grammar_coverage",
+            "expression_kernel_registry",
+            "udf_effect_policy",
+            "semantic_conformance_suite",
+            "front_door_equivalence_tests",
+            "benchmark_evidence",
+        ),
+        claim_boundary=(
+            "The broad 'build anything' claim remains blocked until SQL, Python, DataFrame, "
+            "function/UDF, semantic conformance, and benchmark evidence converge on the same "
+            "ShardLoom-native execution plan."
+        ),
+    ),
+    _front_door_row(
+        "performance_equivalence",
+        "same-result and same-performance expectation across SQL, Python, and DataFrame front doors",
+        "blocked_benchmark_gap",
+        sql_surface="not benchmark-certified against equivalent Python/DataFrame workflows",
+        python_surface="not benchmark-certified against equivalent SQL/DataFrame workflows",
+        dataframe_surface="not benchmark-certified against equivalent SQL/Python workflows",
+        shared_runtime_path="benchmark and execution-certificate evidence required",
+        parity_status="front_door_gap",
+        performance_equivalence_status="not_claim_grade",
+        blocker_id="cg6.front_door_performance_equivalence_benchmark_missing",
+        required_evidence=(
+            "front_door_equivalent_workload_manifest",
+            "correctness_evidence",
+            "benchmark_manifest",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Shared runtime paths support a scoped expectation that overhead should converge, but "
+            "performance equivalence is not claim-grade until equivalent front-door benchmarks are "
+            "published and reproducible."
+        ),
     ),
 )
 
@@ -4907,6 +5295,16 @@ class ShardLoomContext:
         """Return the report-only DataFrame/query-builder method capability matrix."""
 
         return self._capability_view("dataframe", check=check).dataframe_method_matrix
+
+    def front_door_parity_matrix(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> FrontDoorParityMatrix:
+        """Return SQL/Python/DataFrame front-door parity and broad-gap posture."""
+
+        _ = check
+        return FrontDoorParityMatrix(rows=FRONT_DOOR_PARITY_ROWS)
 
     def dataframe_notebook_package_readiness(
         self,

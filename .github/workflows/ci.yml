@@ -168,6 +168,8 @@ jobs:
         run: python scripts/check_production_usability_gate.py
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
+      - name: SQL/Python/DataFrame parity gate
+        run: python scripts/check_sql_python_dataframe_parity.py
       - name: Pre-5J dependency freshness gate
         run: python scripts/check_pre_5j_dependency_freshness.py
       - name: Benchmark publication claim gate
@@ -199,6 +201,7 @@ jobs:
             target/website-readiness-report.json
             target/production-usability-gate.json
             target/python-user-surface-completion-gate.json
+            target/sql-python-dataframe-parity-gate.json
             target/pre-5j-dependency-freshness-gate.json
             target/benchmark-publication-claim-gate-report.json
             target/ci-gate-matrix-report.json

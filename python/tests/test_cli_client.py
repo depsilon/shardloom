@@ -29,6 +29,7 @@ from shardloom import (
     EvidenceSchemaRegistryReport,
     EvidenceAwareOptimizerTraceReport,
     ExecutionResultEnvelopeView,
+    FrontDoorParityMatrix,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
@@ -4613,6 +4614,46 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(telemetry.row("result_sink").report_only_no_export)
         self.assertTrue(telemetry.row("claim_gate").no_fallback_no_external_engine)
+
+    def test_context_front_door_parity_matrix_exposes_broad_gaps(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                raise AssertionError("front-door parity matrix must not invoke CLI")
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        matrix = ctx.front_door_parity_matrix()
+
+        self.assertIsInstance(matrix, FrontDoorParityMatrix)
+        self.assertEqual(matrix.schema_version, "shardloom.front_door_parity_matrix.v1")
+        self.assertTrue(matrix.scoped_local_front_door_parity_supported)
+        self.assertFalse(matrix.flexible_anything_claim_allowed)
+        self.assertFalse(matrix.performance_equivalence_claim_allowed)
+        self.assertTrue(matrix.all_no_fallback_no_external_engine)
+        self.assertIn("local_file_filter_project_limit", matrix.row_order)
+        self.assertIn("arbitrary_sql_python_dataframe_breadth", matrix.row_order)
+        local = matrix.row("local_file_filter_project_limit")
+        self.assertTrue(local.equivalent_admitted_scope)
+        self.assertEqual(local.shared_runtime_path, "sql-local-source-smoke")
+        self.assertIsNone(local.blocker_id)
+        self.assertIn("no_benchmark_claim", local.performance_equivalence_status)
+        generated = matrix.row("generated_source_output")
+        self.assertTrue(generated.equivalent_admitted_scope)
+        self.assertTrue(generated.write_io)
+        broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
+        self.assertTrue(broad.broad_gap)
+        self.assertEqual(broad.parity_status, "front_door_gap")
+        self.assertEqual(
+            broad.blocker_id,
+            "cg20.cg21.broad_language_surface_missing",
+        )
+        performance = matrix.row("performance_equivalence")
+        self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
+        self.assertEqual(len(matrix.admitted_rows), 3)
+        self.assertGreaterEqual(len(matrix.broad_gap_rows), 5)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
         binary = self.fake_cli(
