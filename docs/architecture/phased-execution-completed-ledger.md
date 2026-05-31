@@ -16,6 +16,35 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Extension/UDF context-surface freshness closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/extension-udf-context-surface` / #990.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Duplicate plugin/UDF sandbox row in `docs/architecture/global-architecture-review.md`.
+  - Scope:
+    - Added `ShardLoomContext` helpers for side-effect-free extension registry inspection,
+      extension manifest inspection, UDF runtime posture, and the scoped built-in deterministic
+      nullable-int64 scalar UDF fixture smoke.
+    - Refreshed Python README examples so client and context surfaces expose the same
+      extension/UDF evidence without suggesting arbitrary plugin or external-effect execution.
+    - Closed the duplicate plugin/UDF sandbox global-review row, leaving broad arbitrary UDF,
+      dynamic plugin ABI loading, sandboxed third-party code, LLM/API calls, embeddings, and
+      external effects in their owning modular-extensibility gates.
+  - Evidence:
+    - Python tests lock that the context helpers delegate to existing CLI commands and preserve
+      `extension_code_executed=false` for inspection, `udf_execution_performed=false` for posture,
+      scoped fixture execution only for the built-in scalar UDF smoke, and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is a user-surface and duplicate-blocker closeout for an existing scoped built-in fixture.
+      It is not dynamic plugin loading, arbitrary UDF support, sandbox runtime support, external
+      effect execution, production extensibility, performance, or Spark-displacement evidence.
+  - Fallback boundary:
+    - No external engine, Spark, DataFusion, DuckDB, Polars, Velox, or hidden fallback path is
+      added. Extension inspection remains non-executing and broad effectful paths remain blocked.
+
 - [x] Session label: Python runtime smoke user-surface freshness closeout
   - Date: 2026-05-31
   - Branch/PR: `codex/local-table-metadata-python-surface` / #989.

@@ -688,7 +688,15 @@ plan before coding.
   `udf_execution_performed=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false`.
 - [x] Plugin/UDF runtime admission remains a blocker contract, not runtime support.
-- [ ] Real plugin ABI loading, sandbox runtime, and UDF execution remain incomplete.
+- [x] `GAR-0023-B` closes the duplicate plugin/UDF sandbox row as a completed admission and
+  user-surface contract: `ShardLoomClient` and `ShardLoomContext` expose side-effect-free extension
+  registry/inspection helpers, UDF runtime posture helpers, and the scoped built-in deterministic
+  nullable-int64 scalar UDF fixture smoke. The fixture executes only ShardLoom's built-in
+  deterministic UDF path and preserves explicit effect, no-fallback, and external-engine evidence.
+  Real dynamic plugin ABI loading, sandboxed third-party code execution, arbitrary Python/WASM/Rust/
+  SQL/table-function UDF execution, LLM/API calls, embeddings, and external effects remain blocked
+  by the RFC 0011 modular-extensibility row, CG-20/CG-21 capability gates, and UDF external-effect
+  blocker matrices rather than duplicated here.
 
 ### RFC 0024 - Release Engineering, API Compatibility, and Packaging
 

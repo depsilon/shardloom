@@ -8545,16 +8545,35 @@ class ShardLoomClientTests(unittest.TestCase):
                 args = sys.argv[1:]
                 if args == ["extension-registry", "--format", "json"]:
                     command = "extension-registry"
-                    fields = [{"key": "effectful_operation_admission_matrix_schema_version", "value": "shardloom.effectful_operation_admission_matrix.v1"}]
+                    fields = [
+                        {"key": "effectful_operation_admission_matrix_schema_version", "value": "shardloom.effectful_operation_admission_matrix.v1"},
+                        {"key": "extension_code_executed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 elif args == ["extension-inspect", "example.fixture", "--format", "json"]:
                     command = "extension-inspect"
-                    fields = [{"key": "extension_code_executed", "value": "false"}]
+                    fields = [
+                        {"key": "extension_code_executed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 elif args == ["udf-runtime-plan", "fixture", "--format", "json"]:
                     command = "udf-runtime-plan"
-                    fields = [{"key": "udf_runtime_kind", "value": "builtin_deterministic_fixture"}]
+                    fields = [
+                        {"key": "udf_runtime_kind", "value": "builtin_deterministic_fixture"},
+                        {"key": "udf_execution_performed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 elif args == ["udf-local-scalar-fixture-smoke", "3,null,-4", "--format", "json"]:
                     command = "udf-local-scalar-fixture-smoke"
-                    fields = [{"key": "output_values", "value": "6,null,-8"}]
+                    fields = [
+                        {"key": "output_values", "value": "6,null,-8"},
+                        {"key": "udf_execution_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 elif args == [
                     "sqlite-local-import-export-smoke",
                     "target/orders.sqlite",
@@ -8613,6 +8632,21 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(sqlite.command, "sqlite-local-import-export-smoke")
         self.assertTrue(sqlite.field_bool("roundtrip_replay_verified"))
+
+        ctx = ShardLoomContext(client=client)
+        self.assertEqual(ctx.extension_registry().command, "extension-registry")
+        inspected = ctx.extension_inspect("example.fixture")
+        self.assertEqual(inspected.command, "extension-inspect")
+        self.assertFalse(inspected.field_bool("extension_code_executed"))
+        udf_plan = ctx.udf_runtime_plan("fixture")
+        self.assertEqual(udf_plan.field("udf_runtime_kind"), "builtin_deterministic_fixture")
+        self.assertFalse(udf_plan.field_bool("udf_execution_performed"))
+        udf_smoke = ctx.udf_local_scalar_fixture_smoke([3, None, -4])
+        self.assertEqual(udf_smoke.field("output_values"), "6,null,-8")
+        self.assertTrue(udf_smoke.field_bool("udf_execution_performed"))
+        for envelope in (inspected, udf_plan, udf_smoke):
+            self.assertFalse(envelope.field_bool("fallback_attempted"))
+            self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
     def test_plan_import_and_export_helpers_expose_substrait_contract(self) -> None:
         binary = self.fake_cli(

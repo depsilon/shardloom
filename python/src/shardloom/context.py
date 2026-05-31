@@ -4849,6 +4849,41 @@ class ShardLoomContext:
 
         return self.client.input_adapters(check=check)
 
+    def extension_registry(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the side-effect-free extension registry snapshot."""
+
+        return self.client.extension_registry(check=check)
+
+    def extension_inspect(
+        self,
+        extension_id: str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Inspect extension manifest metadata without loading extension code."""
+
+        return self.client.extension_inspect(extension_id, check=check)
+
+    def udf_runtime_plan(
+        self,
+        runtime: str = "unknown",
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return UDF runtime posture, including the admitted built-in fixture."""
+
+        return self.client.udf_runtime_plan(runtime, check=check)
+
+    def udf_local_scalar_fixture_smoke(
+        self,
+        values: Sequence[int | None] | str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the built-in deterministic nullable-int64 scalar UDF fixture."""
+
+        return self.client.udf_local_scalar_fixture_smoke(values, check=check)
+
     def functions(self, *, check: bool = True) -> CapabilityView:
         """Return function capability discovery."""
 
