@@ -9,6 +9,7 @@ publish packages, or authorize fallback engines.
 from __future__ import annotations
 
 import argparse
+import os
 import importlib.util
 import json
 import shutil
@@ -28,6 +29,19 @@ ROOT = Path(__file__).resolve().parents[1]
 REPORT_SCHEMA_VERSION = "shardloom.dependency_audit_report.v1"
 DEFAULT_REPORT_PATH = ROOT / "target" / "dependency-audit-report.json"
 PYTHON_PROJECT = ROOT / "python"
+PYTHON_RUNTIME_REQUIREMENTS = ROOT / "target" / "dependency-audit" / "python-runtime-requirements.txt"
+PIP_AUDIT_MODULE = "pip_audit"
+PIP_AUDIT_ENV_VARS = ("SHARDLOOM_PIP_AUDIT_PYTHON", "PIP_AUDIT_PYTHON")
+CODEX_BUNDLED_PYTHON = (
+    Path.home()
+    / ".cache"
+    / "codex-runtimes"
+    / "codex-primary-runtime"
+    / "dependencies"
+    / "python"
+    / "bin"
+    / "python3"
+)
 # Required release command: cargo deny check licenses advisories bans sources.
 FORBIDDEN_FALLBACK_DEPENDENCIES = {
     "bigquery",
@@ -152,7 +166,13 @@ def main() -> int:
         tool_results.append(
             ToolResult(
                 label="pip-audit",
-                command=[sys.executable, "-m", "pip_audit", str(PYTHON_PROJECT)],
+                command=[
+                    sys.executable,
+                    "-m",
+                    "pip_audit",
+                    "--requirement",
+                    str(PYTHON_RUNTIME_REQUIREMENTS),
+                ],
                 status="skipped_not_requested",
                 diagnostics=(
                     "pip-audit is packaging/dev evidence only; the Python runtime package has "
@@ -220,19 +240,38 @@ def run_external_tool(
 
 
 def run_pip_audit(*, strict_missing: bool) -> ToolResult:
-    command = [sys.executable, "-m", "pip_audit", str(PYTHON_PROJECT)]
-    if importlib.util.find_spec("pip_audit") is None:
+    runtime_requirements = read_python_runtime_requirement_specs(
+        PYTHON_PROJECT / "pyproject.toml"
+    )
+    write_python_runtime_requirements(PYTHON_RUNTIME_REQUIREMENTS, runtime_requirements)
+    pip_audit_prefix = resolve_pip_audit_command()
+    command = [
+        *(pip_audit_prefix or [sys.executable, "-m", PIP_AUDIT_MODULE]),
+        "--requirement",
+        str(PYTHON_RUNTIME_REQUIREMENTS),
+        "--progress-spinner",
+        "off",
+    ]
+    diagnostics = None
+    if not runtime_requirements:
+        command.extend(["--disable-pip", "--no-deps"])
+        diagnostics = (
+            "Python runtime declares no dependencies; pip-audit checked a generated empty "
+            "runtime requirements file without invoking pip dependency resolution."
+        )
+    if pip_audit_prefix is None:
         status = "missing" if strict_missing else "skipped_missing"
         print(
             f"{status.upper()} pip-audit: install in a packaging/dev env with "
-            "`python -m pip install pip-audit`"
+            "`python -m pip install pip-audit`, put `pip-audit` on PATH, or set "
+            "`SHARDLOOM_PIP_AUDIT_PYTHON` to a Python executable that has pip-audit"
         )
         return ToolResult(
             label="pip-audit",
             command=command,
             status=status,
             install_hint="python -m pip install pip-audit",
-            diagnostics="tool not installed in current Python environment",
+            diagnostics="tool not installed in current Python environment, PATH, or configured packaging Python",
         )
 
     print(f"RUN {' '.join(command)}")
@@ -242,7 +281,101 @@ def run_pip_audit(*, strict_missing: bool) -> ToolResult:
         command=command,
         status="passed" if completed.returncode == 0 else "failed",
         returncode=completed.returncode,
+        diagnostics=diagnostics,
     )
+
+
+def resolve_pip_audit_command(
+    *,
+    module_available: Any | None = None,
+    executable_lookup: Any | None = None,
+    home: Path | None = None,
+) -> list[str] | None:
+    """Return a command prefix for packaging/dev pip-audit evidence.
+
+    Release scripts may be launched with system Python while packaging tools live
+    in a managed dev runtime. Treat `pip-audit` as an external audit tool: prefer
+    explicit configured Python, then the invoking interpreter, then a PATH
+    executable, then common local/Codex packaging Python environments.
+    """
+
+    module_available = module_available or pip_audit_module_available
+    executable_lookup = executable_lookup or shutil.which
+    home = home or Path.home()
+
+    for env_var in PIP_AUDIT_ENV_VARS:
+        configured = os.environ.get(env_var)
+        if configured:
+            prefix = pip_audit_python_prefix(configured, module_available=module_available)
+            if prefix is not None:
+                return prefix
+
+    current = pip_audit_python_prefix(sys.executable, module_available=module_available)
+    if current is not None:
+        return current
+
+    pip_audit_executable = executable_lookup("pip-audit")
+    if pip_audit_executable:
+        return [pip_audit_executable]
+
+    for candidate in pip_audit_python_candidates(home):
+        prefix = pip_audit_python_prefix(candidate, module_available=module_available)
+        if prefix is not None:
+            return prefix
+    return None
+
+
+def pip_audit_python_candidates(home: Path) -> list[Path]:
+    return [
+        ROOT / ".venv" / "bin" / "python",
+        PYTHON_PROJECT / ".venv" / "bin" / "python",
+        home
+        / ".cache"
+        / "codex-runtimes"
+        / "codex-primary-runtime"
+        / "dependencies"
+        / "python"
+        / "bin"
+        / "python3",
+        CODEX_BUNDLED_PYTHON,
+    ]
+
+
+def pip_audit_python_prefix(
+    python_executable: str | Path,
+    *,
+    module_available: Any | None = None,
+) -> list[str] | None:
+    python_path = str(python_executable)
+    module_available = module_available or pip_audit_module_available
+    return [python_path, "-m", PIP_AUDIT_MODULE] if module_available(python_path) else None
+
+
+def pip_audit_module_available(python_executable: str) -> bool:
+    current = Path(sys.executable).resolve()
+    try:
+        candidate = Path(python_executable).resolve()
+    except OSError:
+        candidate = Path(python_executable)
+    if candidate == current:
+        return importlib.util.find_spec(PIP_AUDIT_MODULE) is not None
+    if not Path(python_executable).exists():
+        return False
+    completed = subprocess.run(
+        [
+            python_executable,
+            "-c",
+            (
+                "import importlib.util, sys; "
+                f"sys.exit(0 if importlib.util.find_spec({PIP_AUDIT_MODULE!r}) else 1)"
+            ),
+        ],
+        cwd=ROOT,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return completed.returncode == 0
 
 
 def check_runtime_dependency_scope() -> dict[str, Any]:
@@ -340,17 +473,31 @@ def read_cargo_dependency_names_text(path: Path) -> set[str]:
 
 
 def read_python_runtime_dependencies(path: Path) -> set[str]:
+    return {
+        dependency_name_from_requirement(spec)
+        for spec in read_python_runtime_requirement_specs(path)
+    }
+
+
+def read_python_runtime_requirement_specs(path: Path) -> set[str]:
     if tomllib is None:
-        return read_python_runtime_dependencies_text(path)
+        return read_python_runtime_requirement_specs_text(path)
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     project = data.get("project", {})
     dependencies = project.get("dependencies", [])
     if not isinstance(dependencies, list):
         return set()
-    return {dependency_name_from_requirement(str(dependency)) for dependency in dependencies}
+    return {str(dependency).strip() for dependency in dependencies if str(dependency).strip()}
 
 
 def read_python_runtime_dependencies_text(path: Path) -> set[str]:
+    return {
+        dependency_name_from_requirement(spec)
+        for spec in read_python_runtime_requirement_specs_text(path)
+    }
+
+
+def read_python_runtime_requirement_specs_text(path: Path) -> set[str]:
     dependencies: set[str] = set()
     collecting = False
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -363,23 +510,36 @@ def read_python_runtime_dependencies_text(path: Path) -> set[str]:
             if "]" in remainder:
                 collecting = False
                 remainder = remainder.split("]", 1)[0]
-            dependencies.update(extract_quoted_dependencies(remainder))
+            dependencies.update(extract_quoted_dependency_specs(remainder))
             continue
         if collecting:
             if "]" in line:
                 collecting = False
                 line = line.split("]", 1)[0]
-            dependencies.update(extract_quoted_dependencies(line))
+            dependencies.update(extract_quoted_dependency_specs(line))
     return dependencies
 
 
 def extract_quoted_dependencies(text: str) -> set[str]:
+    return {
+        dependency_name_from_requirement(spec)
+        for spec in extract_quoted_dependency_specs(text)
+    }
+
+
+def extract_quoted_dependency_specs(text: str) -> set[str]:
     dependencies: set[str] = set()
     for part in text.split(","):
         token = part.strip().strip('"').strip("'")
         if token:
-            dependencies.add(dependency_name_from_requirement(token))
+            dependencies.add(token)
     return dependencies
+
+
+def write_python_runtime_requirements(path: Path, requirements: set[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "".join(f"{requirement}\n" for requirement in sorted(requirements))
+    path.write_text(body, encoding="utf-8")
 
 
 def read_requirements(path: Path) -> set[str]:

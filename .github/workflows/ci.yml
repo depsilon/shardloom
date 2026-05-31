@@ -166,6 +166,13 @@ jobs:
         run: python scripts/check_website_readiness.py
       - name: Production usability gate
         run: python scripts/check_production_usability_gate.py
+      - name: Python user-surface completion gate
+        run: python scripts/check_python_user_surface_completion.py
+      - name: Pre-5J dependency freshness gate
+        run: python scripts/check_pre_5j_dependency_freshness.py
+      - name: Benchmark publication claim gate
+        continue-on-error: true
+        run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
       - name: CI gate matrix contract
         run: python scripts/check_ci_gate_matrix.py
       - name: Hard release readiness gate
@@ -191,6 +198,9 @@ jobs:
             target/final-release-rehearsal
             target/website-readiness-report.json
             target/production-usability-gate.json
+            target/python-user-surface-completion-gate.json
+            target/pre-5j-dependency-freshness-gate.json
+            target/benchmark-publication-claim-gate-report.json
             target/ci-gate-matrix-report.json
             target/hard-release-readiness-gate.json
           if-no-files-found: ignore

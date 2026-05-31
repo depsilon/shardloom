@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = __dirname;
 const repoRoot = path.resolve(root, "..");
+const cloudflareStaticAssetMaxBytes = 25 * 1024 * 1024;
 
 const requiredFiles = [
   "index.html",
@@ -96,6 +97,13 @@ function collectFiles(directory, prefix = "") {
 
 for (const file of requiredFiles) {
   assert(exists(file), `Missing required website file: ${file}`);
+}
+for (const file of collectFiles(root)) {
+  const size = fs.statSync(path.join(root, file)).size;
+  assert(
+    size <= cloudflareStaticAssetMaxBytes,
+    `Cloudflare Workers static asset exceeds 25 MiB: ${file} (${size} bytes)`,
+  );
 }
 
 const canonicalFlow = fs
@@ -206,9 +214,12 @@ for (const required of [
   "Certified cold ingest/stage route",
   "Prepared warm query route",
   "Artifact lane availability",
+  "full_local",
   "full_local_plus_spark",
   "pyspark",
   "spark-default",
+  "local non-Spark baselines",
+  "Spark lanes are explicit-only historical baselines",
   "Format coverage",
   "Claim-gate distribution",
   "Claim-grade closeout",
@@ -219,6 +230,35 @@ for (const required of [
   "Performance claim",
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);
+}
+assert(
+  !benchmarks.includes("Current artifact profile: <strong>full_local_plus_spark</strong>"),
+  "benchmarks page must not show full_local_plus_spark as the current published profile",
+);
+const benchmarkEvidence = JSON.parse(read("assets/benchmarks/latest/benchmark-results.json"));
+assert(
+  benchmarkEvidence.published_benchmark_rows_inlined === "summary_only",
+  "benchmark-results.json must inline only summary rows for deployable asset safety",
+);
+assert(
+  Array.isArray(benchmarkEvidence.published_benchmark_row_chunks) &&
+    benchmarkEvidence.published_benchmark_row_chunks.length > 0,
+  "benchmark-results.json must reference full benchmark row chunks",
+);
+const summaryRows = Array.isArray(benchmarkEvidence.published_benchmark_rows)
+  ? benchmarkEvidence.published_benchmark_rows
+  : [];
+const shardloomSummaryRows = summaryRows.filter((row) => String(row.engine ?? "").startsWith("shardloom"));
+for (const field of ["vortex_scan_millis", "operator_compute_millis", "result_sink_write_millis"]) {
+  assert(
+    shardloomSummaryRows.every((row) => Object.prototype.hasOwnProperty.call(row, field)),
+    `summary ShardLoom benchmark rows must retain ${field} for detailed timing tables`,
+  );
+}
+for (const chunk of benchmarkEvidence.published_benchmark_row_chunks) {
+  assert(chunk.path, "benchmark row chunk missing path");
+  const chunkPath = chunk.path.replace(/^website\//, "");
+  assert(exists(chunkPath), `Missing benchmark row chunk: ${chunkPath}`);
 }
 
 const flow = read("compute-engine-flow.html");

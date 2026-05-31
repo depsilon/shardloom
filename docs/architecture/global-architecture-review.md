@@ -946,7 +946,9 @@ plan before coding.
   (`GAR-IOREUSE-1I`), differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave
   control (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), layout/write advice
   (`GAR-PERF-2J`), and copy-budget/buffer-lifecycle evidence (`GAR-PERF-2K`) inside
-  `vortex_ingest`. Remaining `GAR-IOREUSE-1` work is broader sink artifact proof,
+  `vortex_ingest`. Scoped local SQL/Python and generated-output writes now emit first-class
+  `sink_artifact_*` refs/digests/counts/replay/commit evidence for primary and fanout local sinks.
+  Remaining `GAR-IOREUSE-1` work is object-store/table/real-Foundry sink artifact proof,
   benchmark-family fanout promotion, persistent cache/session promotion, and claim-grade gates so
   reuse cannot silently become production, cache-hit, or performance proof.
 - [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.

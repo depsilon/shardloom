@@ -39,6 +39,7 @@ benchmarks/**/results/*.md
 secrets/
 
 # Python package build output
+python/build/
 python/dist/
 python/src/*.egg-info/
 

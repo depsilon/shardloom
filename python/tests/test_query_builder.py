@@ -185,6 +185,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_workspace_path_safety_status", "value": "enforced"},
                         {"key": "output_commit_mode", "value": "atomic_rename_same_directory"},
                         {"key": "output_commit_status", "value": "committed"},
+                        {"key": "sink_artifact_count", "value": "1"},
+                        {"key": "sink_artifact_ref", "value": "target/generated.jsonl"},
+                        {"key": "sink_artifact_refs", "value": "jsonl:target/generated.jsonl"},
+                        {"key": "sink_artifact_digest", "value": "fnv64:generated"},
+                        {"key": "sink_artifact_digests", "value": "jsonl:fnv64:generated"},
+                        {"key": "sink_artifact_manifest_status", "value": "verified_local_sink_artifacts"},
                         {"key": "generated_source_certificate_status", "value": "present"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
                         {"key": "fallback_attempted", "value": "false"},
@@ -218,6 +224,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.workspace_path_safety_status, "enforced")
         self.assertEqual(report.output_commit_mode, "atomic_rename_same_directory")
         self.assertEqual(report.output_commit_status, "committed")
+        self.assertEqual(report.sink_artifact_count, 1)
+        self.assertEqual(report.sink_artifact_ref, "target/generated.jsonl")
+        self.assertEqual(report.sink_artifact_refs, ("jsonl:target/generated.jsonl",))
+        self.assertEqual(report.sink_artifact_digest, "fnv64:generated")
+        self.assertEqual(report.sink_artifact_digests, ("jsonl:fnv64:generated",))
+        self.assertEqual(
+            report.sink_artifact_manifest_status,
+            "verified_local_sink_artifacts",
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
@@ -6402,6 +6417,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_replay_millis", "value": "1"},
                         {"key": "output_fidelity_report_status", "value": "scoped_local_output_fidelity_reported"},
                         {"key": "output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"},
+                        {"key": "sink_artifact_count", "value": "1"},
+                        {"key": "sink_artifact_ref", "value": "target/out.csv"},
+                        {"key": "sink_artifact_refs", "value": "csv:target/out.csv"},
+                        {"key": "sink_artifact_digest", "value": "fnv64:out"},
+                        {"key": "sink_artifact_digests", "value": "csv:fnv64:out"},
+                        {"key": "sink_artifact_manifest_status", "value": "verified_local_sink_artifacts"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -6440,6 +6461,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.output_fidelity_loss,
             ("csv:csv_text_roundtrip_loses_static_type_metadata",),
+        )
+        self.assertEqual(report.sink_artifact_count, 1)
+        self.assertEqual(report.sink_artifact_ref, "target/out.csv")
+        self.assertEqual(report.sink_artifact_refs, ("csv:target/out.csv",))
+        self.assertEqual(report.sink_artifact_digest, "fnv64:out")
+        self.assertEqual(report.sink_artifact_digests, ("csv:fnv64:out",))
+        self.assertEqual(
+            report.sink_artifact_manifest_status,
+            "verified_local_sink_artifacts",
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -6489,6 +6519,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"},
                         {"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"},
                         {"key": "fanout_output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"},
+                        {"key": "sink_artifact_count", "value": "2"},
+                        {"key": "sink_artifact_ref", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
+                        {"key": "sink_artifact_refs", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
+                        {"key": "sink_artifact_digest", "value": "jsonl:abc,csv:def"},
+                        {"key": "sink_artifact_digests", "value": "jsonl:abc,csv:def"},
+                        {"key": "sink_artifact_manifest_status", "value": "verified_local_sink_artifacts"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_fanout_sinks"},
                         {"key": "result_replay_verified", "value": "true"},
                         {"key": "output_replay_status", "value": "verified_local_sink_artifacts"},
@@ -6523,6 +6559,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ("target/out.jsonl", "target/out.csv"),
         )
         self.assertEqual(report.fanout_output_digests, ("jsonl:abc", "csv:def"))
+        self.assertEqual(report.sink_artifact_count, 2)
+        self.assertEqual(
+            report.sink_artifact_refs,
+            ("jsonl:target/out.jsonl", "csv:target/out.csv"),
+        )
+        self.assertEqual(report.sink_artifact_digests, ("jsonl:abc", "csv:def"))
+        self.assertEqual(
+            report.sink_artifact_manifest_status,
+            "verified_local_sink_artifacts",
+        )
         self.assertEqual(
             report.fanout_output_workspace_path_safety_statuses,
             ("jsonl:true", "csv:true"),
@@ -7493,6 +7539,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "fanout_output_replay_statuses", "value": "csv:verified_local_file_digest"}},
                         {{"key": "fanout_output_fidelity_statuses", "value": "csv:logical_rows_replay_verified_type_metadata_not_preserved"}},
                         {{"key": "fanout_output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"}},
+                        {{"key": "sink_artifact_count", "value": "2"}},
+                        {{"key": "sink_artifact_ref", "value": "jsonl:target/range-query-topn.jsonl,csv:target/range-query-topn.csv"}},
+                        {{"key": "sink_artifact_refs", "value": "jsonl:target/range-query-topn.jsonl,csv:target/range-query-topn.csv"}},
+                        {{"key": "sink_artifact_digest", "value": "jsonl:fnv64:primary,csv:fnv64:abc"}},
+                        {{"key": "sink_artifact_digests", "value": "jsonl:fnv64:primary,csv:fnv64:abc"}},
+                        {{"key": "sink_artifact_manifest_status", "value": "verified_local_sink_artifacts"}},
                         {{"key": "fallback_attempted", "value": "false"}},
                         {{"key": "external_engine_invoked", "value": "false"}},
                         {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
@@ -7538,6 +7590,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.fanout_output_formats, ("csv",))
         self.assertEqual(report.fanout_output_paths, ("target/range-query-topn.csv",))
         self.assertEqual(report.fanout_output_digests, ("csv:fnv64:abc",))
+        self.assertEqual(report.sink_artifact_count, 2)
+        self.assertEqual(
+            report.sink_artifact_refs,
+            ("jsonl:target/range-query-topn.jsonl", "csv:target/range-query-topn.csv"),
+        )
+        self.assertEqual(
+            report.sink_artifact_digests,
+            ("jsonl:fnv64:primary", "csv:fnv64:abc"),
+        )
+        self.assertEqual(
+            report.sink_artifact_manifest_status,
+            "verified_local_sink_artifacts",
+        )
         self.assertEqual(
             report.fanout_output_workspace_path_safety_statuses,
             ("csv:true",),

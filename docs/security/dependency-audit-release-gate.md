@@ -28,7 +28,7 @@ python scripts\check_dependency_audit.py --release-gate
 - strict missing-tool behavior
 - `cargo deny check licenses advisories bans sources`
 - `cargo audit`
-- packaging/dev `pip-audit` against the ShardLoom Python project path
+- packaging/dev `pip-audit` against the generated ShardLoom Python runtime requirements file
 - runtime no-fallback dependency metadata check
 - benchmark-only dependency classification check
 - JSON `DependencyAuditReport` emission under `target/dependency-audit-report.json`
@@ -83,8 +83,12 @@ or classified as a forbidden fallback engine.
 cargo install cargo-deny --locked
 cargo install cargo-audit --locked
 python -m pip install pip-audit
-python -m pip_audit python
+python scripts\check_dependency_audit.py --include-python-packaging
 ```
+
+If `python scripts\check_dependency_audit.py --release-gate` is launched with a different Python
+than the packaging/dev environment, set `SHARDLOOM_PIP_AUDIT_PYTHON` to the Python executable that
+has `pip-audit` installed, or put a `pip-audit` executable on `PATH`.
 
 These are developer/release tooling installs. They are not ShardLoom runtime dependencies.
 

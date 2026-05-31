@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from datetime import date
 from typing import Mapping, Sequence
 
+from ._compat import dataclass
 from .client import (
     Binary,
     ClaimGateCloseoutReport,

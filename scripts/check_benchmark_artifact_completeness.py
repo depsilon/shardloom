@@ -72,7 +72,34 @@ def repo_path(path_text: str, manifest_path: Path) -> Path:
     return manifest_path.parent / path
 
 
+def chunked_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    chunks = payload.get("published_benchmark_row_chunks")
+    if not isinstance(chunks, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        path_text = chunk.get("path")
+        if not isinstance(path_text, str) or not path_text:
+            continue
+        path = repo_path(path_text, ROOT / "website/assets/benchmarks/latest/manifest.json")
+        if not path.exists():
+            continue
+        chunk_payload = load_json(path)
+        chunk_rows = (
+            chunk_payload.get("rows")
+            if isinstance(chunk_payload, dict)
+            else chunk_payload
+        )
+        if isinstance(chunk_rows, list):
+            rows.extend(row for row in chunk_rows if isinstance(row, dict))
+    return rows
+
+
 def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(payload.get("published_benchmark_row_chunks"), list):
+        return chunked_result_rows(payload)
     rows = payload.get("results")
     if isinstance(rows, list):
         return [row for row in rows if isinstance(row, dict)]

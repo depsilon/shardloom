@@ -122,6 +122,12 @@ fn sqlite_local_import_export_smoke_exports_jsonl_and_roundtrips_without_effects
     assert!(output.contains(&field("source_row_count", "2")));
     assert!(output.contains(&field("exported_row_count", "2")));
     assert!(output.contains(&field("roundtrip_row_count", "2")));
+    assert!(output.contains("\"source_roundtrip_content_digest\",\"value\":\"fnv64:"));
+    assert!(output.contains("\"roundtrip_content_digest\",\"value\":\"fnv64:"));
+    assert!(output.contains(&field(
+        "roundtrip_replay_verification_method",
+        "canonical_typed_row_digest"
+    )));
     assert!(output.contains(&field("roundtrip_replay_verified", "true")));
     assert!(output.contains(&field(
         "sqlite_sql_execution_scope",

@@ -6,12 +6,12 @@ import ast
 import builtins
 import math
 import os
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence, Union, cast
 from urllib.parse import quote
 
+from ._compat import dataclass
 from .client import (
     Binary,
     CommandPart,
@@ -1645,6 +1645,12 @@ class UnsupportedWorkflowOperationReport:
             self.envelope.fallback.attempted
             or self.envelope.field_bool("fallback_attempted", False) is True
         )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the unsupported-report path invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
 
     @property
     def runtime_execution(self) -> bool:
@@ -5637,20 +5643,30 @@ def _is_non_string_sequence(value: object) -> bool:
 
 
 def _optional_binary(value: object) -> Binary | None:
-    return cast(Binary | None, value)
+    if value is None:
+        return None
+    return cast(Binary, value)
 
 
 def _optional_env(value: object) -> Mapping[str, str] | None:
-    return cast(Mapping[str, str] | None, value)
+    if value is None:
+        return None
+    return cast(Mapping[str, str], value)
 
 
 def _optional_path(value: object) -> str | os.PathLike[str] | None:
-    return cast(str | os.PathLike[str] | None, value)
+    if value is None:
+        return None
+    return cast(Union[str, os.PathLike[str]], value)
 
 
 def _optional_profile_order(value: object) -> Sequence[str] | None:
-    return cast(Sequence[str] | None, value)
+    if value is None:
+        return None
+    return cast(Sequence[str], value)
 
 
 def _optional_timeout(value: object) -> float | None:
-    return cast(float | None, value)
+    if value is None:
+        return None
+    return cast(float, value)

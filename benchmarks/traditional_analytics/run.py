@@ -44,11 +44,13 @@ ENGINE_ORDER = (
     "polars-eager",
     "polars-lazy",
     "duckdb",
+    "datafusion",
+    "dask",
+)
+SPARK_OPTIONAL_ENGINE_ORDER = (
     "pyspark",
     "spark-default",
     "spark-local-tuned",
-    "datafusion",
-    "dask",
 )
 EXTENDED_OPTIONAL_ENGINE_ORDER = (
     "pyarrow-dataset",
@@ -61,7 +63,12 @@ EXTENDED_OPTIONAL_ENGINE_ORDER = (
     "ibis-polars",
     "cudf-gpu",
 )
-ENGINE_CHOICES = ENGINE_ORDER + ("shardloom-direct-transient",) + EXTENDED_OPTIONAL_ENGINE_ORDER
+ENGINE_CHOICES = (
+    ENGINE_ORDER
+    + SPARK_OPTIONAL_ENGINE_ORDER
+    + ("shardloom-direct-transient",)
+    + EXTENDED_OPTIONAL_ENGINE_ORDER
+)
 ENGINE_ALIASES = {
     "spark": ("spark-default", "spark-local-tuned"),
     "polars": ("polars-eager", "polars-lazy"),
@@ -93,6 +100,10 @@ VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF = (
 )
 VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
     "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
+)
+UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"
+SHARDLOOM_VORTEX_PROVIDER_VERSION = (
+    f"shardloom-vortex=0.1.0;vortex={UPSTREAM_VORTEX_PROVIDER_VERSION}"
 )
 NATIVE_MICROBENCHMARK_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.native_microbenchmark.v1"
@@ -1265,10 +1276,11 @@ PULSEWEAVE_RUNTIME_INTEGER_FIELDS = (
     "endopulse_next_wip_limit",
 )
 VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION = (
-    "shardloom.traditional_analytics.vortex_capillary_preparation.v1"
+    "shardloom.vortex_capillary_preparation.v1"
 )
 VORTEX_CAPILLARY_PREPARATION_STATUS_VOCABULARY = (
     "applied_capillary_pulseweave_control",
+    "not_requested_below_threshold",
     "report_only_blocked_missing_native_io_certificate",
     "blocked_missing_capillary_task_manifest",
     "report_only_blocked_pulseweave_control",
@@ -1286,6 +1298,22 @@ VORTEX_CAPILLARY_PREPARATION_FIELDS = (
     "vortex_capillary_preparation_schema_version",
     "vortex_capillary_preparation_status",
     "vortex_capillary_preparation_route",
+    "vortex_capillary_preparation_activation_policy",
+    "vortex_capillary_preparation_activation_result",
+    "vortex_capillary_preparation_activation_reason",
+    "vortex_capillary_preparation_activation_threshold_bytes",
+    "vortex_capillary_preparation_activation_threshold_rows",
+    "vortex_capillary_preparation_activation_threshold_splits",
+    "vortex_capillary_preparation_activation_threshold_columns",
+    "vortex_capillary_preparation_activation_observed_bytes",
+    "vortex_capillary_preparation_activation_observed_rows",
+    "vortex_capillary_preparation_activation_observed_columns",
+    "vortex_capillary_preparation_activation_observed_split_count",
+    "vortex_capillary_preparation_activation_estimated_peak_memory_bytes",
+    "vortex_capillary_preparation_activation_format_family",
+    "vortex_capillary_preparation_activation_operation_class",
+    "vortex_capillary_preparation_activation_certification_depth",
+    "vortex_capillary_preparation_activation_result_sink_replay_requested",
     "vortex_capillary_preparation_source_surface",
     "vortex_capillary_preparation_sink_surface",
     "vortex_capillary_preparation_source_state_id",
@@ -1325,6 +1353,7 @@ VORTEX_CAPILLARY_PREPARATION_FIELDS = (
     *VORTEX_CAPILLARY_PREPARATION_PULSEWEAVE_FIELDS,
 )
 VORTEX_CAPILLARY_PREPARATION_BOOLEAN_FIELDS = (
+    "vortex_capillary_preparation_activation_result_sink_replay_requested",
     "vortex_capillary_preparation_fallback_attempted",
     "vortex_capillary_preparation_external_engine_invoked",
     *(
@@ -1333,6 +1362,15 @@ VORTEX_CAPILLARY_PREPARATION_BOOLEAN_FIELDS = (
     ),
 )
 VORTEX_CAPILLARY_PREPARATION_INTEGER_FIELDS = (
+    "vortex_capillary_preparation_activation_threshold_bytes",
+    "vortex_capillary_preparation_activation_threshold_rows",
+    "vortex_capillary_preparation_activation_threshold_splits",
+    "vortex_capillary_preparation_activation_threshold_columns",
+    "vortex_capillary_preparation_activation_observed_bytes",
+    "vortex_capillary_preparation_activation_observed_rows",
+    "vortex_capillary_preparation_activation_observed_columns",
+    "vortex_capillary_preparation_activation_observed_split_count",
+    "vortex_capillary_preparation_activation_estimated_peak_memory_bytes",
     "vortex_capillary_preparation_task_count",
     "vortex_capillary_preparation_memory_budget_bytes",
     "vortex_capillary_preparation_max_parallelism",
@@ -1878,6 +1916,7 @@ TAXONOMY_EXTRA_SCENARIO_ORDER = (
 )
 FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 DEFAULT_FORMAT_ORDER = ("csv", "parquet")
+DEFAULT_DATA_DIR = Path(__file__).resolve().parent / ".generated" / "data"
 SHARDLOOM_VORTEX_FORMAT = "vortex"
 SHARDLOOM_BUILD_TIMINGS: dict[str, float] = {}
 SHARDLOOM_BUILD_PROFILE_EVIDENCE_CACHE: dict[str, dict[str, Any]] = {}
@@ -1951,8 +1990,9 @@ CLAIM_READINESS_RERUN_ENGINES = (
     "polars-lazy",
     "duckdb",
     "datafusion",
+    "dask",
 )
-CLAIM_READINESS_RERUN_FORMATS = ("csv", "parquet")
+CLAIM_READINESS_RERUN_FORMATS = FORMAT_ORDER
 SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE = (
     ("workload_scorecard_status", "workload_certified"),
     ("native_io_certificate_status", "certified"),
@@ -1966,6 +2006,19 @@ SHARDLOOM_CLAIM_GRADE_REQUIRED_EVIDENCE = (
     ("layout_advisor_external_engine_invoked", "false"),
     ("materialization_boundary_report_emitted", "true"),
     ("native_io_materializing_transitions_have_boundaries", "true"),
+)
+SHARDLOOM_PREPARED_RUNTIME_RELEASE_REQUIRED_EVIDENCE = (
+    ("native_io_certificate_status", "certified"),
+    ("computed_result_sink_requested", "true"),
+    ("computed_result_sink_written", "true"),
+    ("computed_result_sink_replay_verified", "true"),
+    ("computed_result_sink_native_io_certificate_status", "certified"),
+    ("runtime_execution_certificate_status", "certified"),
+    ("runtime_fallback_attempted", "false"),
+    ("runtime_external_query_engine_invoked", "false"),
+    ("materialization_boundary_report_emitted", "true"),
+    ("native_io_materializing_transitions_have_boundaries", "true"),
+    ("result_sink_claim_gate_status", "result_sink_replay_certified"),
 )
 ROW_CLASSIFICATIONS = (
     "claim_grade",
@@ -2000,6 +2053,10 @@ class DatasetPaths:
     fact_extra_columns: tuple[str, ...] = ()
     fact_csv_parts_dir: Path | None = None
     fact_jsonl_parts_dir: Path | None = None
+    fact_parquet_parts_dir: Path | None = None
+    fact_arrow_ipc_parts_dir: Path | None = None
+    fact_avro_parts_dir: Path | None = None
+    fact_orc_parts_dir: Path | None = None
     cdc_delta_csv: Path | None = None
     nested_jsonl: Path | None = None
 
@@ -2099,6 +2156,8 @@ def taxonomy_default_scenarios(include_extra: bool, include_stress: bool) -> tup
 
 def scenario_dataset_profile_block_reason(scenario: str, dataset_profile: str) -> str | None:
     metadata = scenario_metadata(scenario)
+    if dataset_profile_supports_all_executable_scenarios(dataset_profile):
+        return None
     if metadata.dataset_profiles and dataset_profile not in metadata.dataset_profiles:
         allowed = ",".join(metadata.dataset_profiles)
         return (
@@ -2116,6 +2175,10 @@ def engine_role(engine: str) -> str:
 
 def is_shardloom_engine(engine: str) -> bool:
     return engine.startswith("shardloom")
+
+
+def dataset_profile_supports_all_executable_scenarios(dataset_profile: str) -> bool:
+    return dataset_profile == "tiny_smoke"
 
 
 UNSUPPORTED_ROW_STATUSES = {"unsupported", "unsupported_format"}
@@ -2196,7 +2259,7 @@ class MemorySampler:
         self.peak_bytes = rss if self.peak_bytes is None else max(self.peak_bytes, rss)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--rows", type=int, default=100_000)
     parser.add_argument("--dim-rows", type=int, default=1_000)
@@ -2208,11 +2271,12 @@ def parse_args() -> argparse.Namespace:
             "Comma-separated engines: shardloom,shardloom-vortex,"
             "shardloom-prepared-vortex,shardloom-prepare-batch,"
             "shardloom-direct-transient,pandas,"
-            "polars-eager,polars-lazy,duckdb,spark-default,spark-local-tuned,"
-            "datafusion,dask, plus optional extended lanes pyarrow-dataset,"
-            "pyarrow-acero,clickhouse-local,daft,ray-data,ibis-duckdb,"
-            "ibis-datafusion,ibis-polars,cudf-gpu. Aliases: polars expands to "
-            "polars-eager and polars-lazy; spark expands to both Spark profiles; "
+            "polars-eager,polars-lazy,duckdb,datafusion,dask, plus explicit "
+            "optional Spark lanes pyspark,spark-default,spark-local-tuned and "
+            "extended lanes pyarrow-dataset,pyarrow-acero,clickhouse-local,daft,"
+            "ray-data,ibis-duckdb,ibis-datafusion,ibis-polars,cudf-gpu. Aliases: "
+            "polars expands to polars-eager and polars-lazy; spark expands to "
+            "both Spark profiles; "
             "prepare-batch expands to the single-process ShardLoom prepare/batch lane; "
             "extended-local expands to CPU optional extended lanes."
         ),
@@ -2247,12 +2311,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--claim-readiness-rerun",
         action="store_true",
-        help="Use the P7.4.4 selected local comparative rerun preset: ShardLoom plus local optional baselines, csv/parquet, taxonomy extras, result-sink evidence, no managed platforms, and at least three iterations.",
+        help="Use the 5J full-local claim-readiness preset: ShardLoom plus local non-Spark baselines, CSV/JSONL/Parquet/Arrow IPC/Avro/ORC, taxonomy extras, result-sink evidence, no managed platforms, and at least three iterations.",
     )
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path(__file__).resolve().parent / ".generated" / "data",
+        default=None,
+        help=(
+            "Generated data directory. With --regenerate and no explicit value, this defaults "
+            "to an isolated sibling of the output artifact instead of the shared benchmark "
+            "generated-data directory."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -2327,8 +2396,8 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Return nonzero after writing artifacts if any selected engine dependency is missing.",
     )
-    argv = sys.argv[1:]
-    args = parser.parse_args()
+    argv = sys.argv[1:] if argv is None else argv
+    args = parser.parse_args(argv)
     if args.rows <= 0:
         parser.error("--rows must be greater than zero")
     if args.dim_rows <= 0:
@@ -2338,6 +2407,8 @@ def parse_args() -> argparse.Namespace:
     explicit_engines = option_was_provided("--engines", argv)
     explicit_formats = option_was_provided("--formats", argv)
     explicit_scenario = option_was_provided("--scenario", argv)
+    explicit_data_dir = option_was_provided("--data-dir", argv)
+    explicit_output = option_was_provided("--output", argv)
     explicit_skip_native = option_was_provided("--skip-shardloom-native", argv)
     if args.claim_readiness_rerun and args.iterations < MIN_CLAIM_GRADE_ITERATIONS:
         parser.error(
@@ -2396,10 +2467,70 @@ def parse_args() -> argparse.Namespace:
         args.scenario_list = taxonomy_default_scenarios(
             args.include_taxonomy_extra, args.include_stress
         )
+    if args.output is None:
+        args.output = default_output_path()
+    if args.regenerate and not explicit_data_dir:
+        args.data_dir = isolated_data_dir_for_output(args.output)
+    elif args.data_dir is None:
+        args.data_dir = DEFAULT_DATA_DIR
+    args.data_dir_was_explicit = explicit_data_dir
+    args.output_was_explicit = explicit_output
+    args.full_harness_default_selected = not explicit_engines and not args.claim_readiness_rerun
     args.shardloom_native_iterations = args.shardloom_native_iterations or args.iterations
     if args.shardloom_native_iterations <= 0:
         parser.error("--shardloom-native-iterations must be greater than zero")
     return args
+
+
+def isolated_data_dir_for_output(output_path: Path) -> Path:
+    name = output_path.name
+    stem = name[: -len(output_path.suffix)] if output_path.suffix else name
+    return output_path.parent / f"{stem}-data"
+
+
+class DatasetRegenerationLock:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        resolved = root.resolve()
+        self.lock_path = resolved.parent / f".{resolved.name}.regenerate.lock"
+        self.fd: int | None = None
+
+    def __enter__(self) -> "DatasetRegenerationLock":
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as exc:
+            raise RuntimeError(
+                "benchmark regenerate path is already locked: "
+                f"{self.lock_path}. Use a unique --data-dir/--output or remove the lock "
+                "after confirming no benchmark process is still running."
+            ) from exc
+        os.write(self.fd, f"pid={os.getpid()}\nroot={self.root}\n".encode("utf-8"))
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+        try:
+            self.lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def print_benchmark_safety_notice(args: argparse.Namespace) -> None:
+    if args.full_harness_default_selected:
+        print(
+            "benchmark safety: no --engines supplied; selecting the full main engine roster "
+            f"({','.join(args.engine_list)}). Use examples/local-vortex-benchmark/run.py or "
+            "pass --engines shardloom for a laptop-focused ShardLoom-only smoke.",
+            file=sys.stderr,
+        )
+    if args.regenerate:
+        print(
+            f"benchmark safety: --regenerate will rebuild generated data under {args.data_dir}",
+            file=sys.stderr,
+        )
 
 
 def ensure_dataset(
@@ -2424,6 +2555,10 @@ def ensure_dataset(
     dim_orc = root / "dim.orc"
     fact_csv_parts_dir = root / "fact_csv_parts"
     fact_jsonl_parts_dir = root / "fact_jsonl_parts"
+    fact_parquet_parts_dir = root / "fact_parquet_parts"
+    fact_arrow_ipc_parts_dir = root / "fact_arrow_ipc_parts"
+    fact_avro_parts_dir = root / "fact_avro_parts"
+    fact_orc_parts_dir = root / "fact_orc_parts"
     cdc_delta_csv = root / "cdc_delta.csv"
     nested_jsonl = root / "nested_fact.jsonl"
     metadata_json = root / "dataset.json"
@@ -2434,7 +2569,7 @@ def ensure_dataset(
     expected_metadata = {
         "rows": rows,
         "dim_rows": dim_rows,
-        "schema_version": 6,
+        "schema_version": 7,
         "dataset_profile": dataset_profile,
         "dataset_file_shape": dataset_file_shape(dataset_profile),
         "fact_extra_columns": list(fact_extra_columns),
@@ -2456,9 +2591,17 @@ def ensure_dataset(
         required_paths.append(fact_csv_parts_dir)
         if "jsonl" in requested_formats:
             required_paths.append(fact_jsonl_parts_dir)
-    if dataset_profile == "cdc_delta_overlay":
+        if "parquet" in requested_formats:
+            required_paths.append(fact_parquet_parts_dir)
+        if "arrow-ipc" in requested_formats:
+            required_paths.append(fact_arrow_ipc_parts_dir)
+        if "avro" in requested_formats:
+            required_paths.append(fact_avro_parts_dir)
+        if "orc" in requested_formats:
+            required_paths.append(fact_orc_parts_dir)
+    if dataset_profile_has_cdc_overlay(dataset_profile):
         required_paths.append(cdc_delta_csv)
-    if dataset_profile == "nested_json":
+    if dataset_profile_has_nested_json_fixture(dataset_profile):
         required_paths.append(nested_jsonl)
     if (
         all(path.exists() for path in required_paths)
@@ -2486,6 +2629,10 @@ def ensure_dataset(
                     fact_extra_columns,
                     fact_csv_parts_dir,
                     fact_jsonl_parts_dir,
+                    fact_parquet_parts_dir,
+                    fact_arrow_ipc_parts_dir,
+                    fact_avro_parts_dir,
+                    fact_orc_parts_dir,
                     cdc_delta_csv,
                     nested_jsonl,
                 )
@@ -2549,6 +2696,10 @@ def ensure_dataset(
         requested_formats,
         fact_csv_parts_dir,
         fact_jsonl_parts_dir,
+        fact_parquet_parts_dir,
+        fact_arrow_ipc_parts_dir,
+        fact_avro_parts_dir,
+        fact_orc_parts_dir,
         cdc_delta_csv,
         nested_jsonl,
     )
@@ -2591,12 +2742,18 @@ def ensure_dataset(
         fact_extra_columns,
         fact_csv_parts_dir,
         fact_jsonl_parts_dir,
+        fact_parquet_parts_dir,
+        fact_arrow_ipc_parts_dir,
+        fact_avro_parts_dir,
+        fact_orc_parts_dir,
         cdc_delta_csv,
         nested_jsonl,
     )
 
 
 def dataset_file_shape(dataset_profile: str) -> str:
+    if dataset_profile_supports_all_executable_scenarios(dataset_profile):
+        return "complete_local_smoke_fixture"
     if dataset_profile == "many_small_files":
         return "many_small_csv_parts"
     if dataset_profile == "few_large_files":
@@ -2609,11 +2766,25 @@ def dataset_file_shape(dataset_profile: str) -> str:
 
 
 def fact_file_part_count(dataset_profile: str, rows: int) -> int:
+    if dataset_profile_supports_all_executable_scenarios(dataset_profile):
+        return max(4, min(rows, 8))
     if dataset_profile == "many_small_files":
         return max(4, min(rows, 32))
     if dataset_profile == "few_large_files":
         return max(1, min(rows, 2))
     return 0
+
+
+def dataset_profile_has_cdc_overlay(dataset_profile: str) -> bool:
+    return dataset_profile in {"cdc_delta_overlay"} or (
+        dataset_profile_supports_all_executable_scenarios(dataset_profile)
+    )
+
+
+def dataset_profile_has_nested_json_fixture(dataset_profile: str) -> bool:
+    return dataset_profile in {"nested_json"} or (
+        dataset_profile_supports_all_executable_scenarios(dataset_profile)
+    )
 
 
 def write_profile_sidecars(
@@ -2623,6 +2794,10 @@ def write_profile_sidecars(
     requested_formats: tuple[str, ...],
     fact_csv_parts_dir: Path,
     fact_jsonl_parts_dir: Path,
+    fact_parquet_parts_dir: Path,
+    fact_arrow_ipc_parts_dir: Path,
+    fact_avro_parts_dir: Path,
+    fact_orc_parts_dir: Path,
     cdc_delta_csv: Path,
     nested_jsonl: Path,
 ) -> None:
@@ -2631,9 +2806,18 @@ def write_profile_sidecars(
         write_csv_parts(fact_csv, fact_csv_parts_dir, part_count)
         if "jsonl" in requested_formats:
             write_jsonl_part_copies(fact_csv_parts_dir, fact_jsonl_parts_dir)
-    if dataset_profile == "cdc_delta_overlay":
+        if {"parquet", "arrow-ipc", "orc"} & set(requested_formats):
+            write_arrow_fact_part_copies(
+                fact_csv_parts_dir,
+                fact_parquet_parts_dir if "parquet" in requested_formats else None,
+                fact_arrow_ipc_parts_dir if "arrow-ipc" in requested_formats else None,
+                fact_orc_parts_dir if "orc" in requested_formats else None,
+            )
+        if "avro" in requested_formats:
+            write_avro_fact_part_copies(fact_csv_parts_dir, fact_avro_parts_dir)
+    if dataset_profile_has_cdc_overlay(dataset_profile):
         write_cdc_delta_overlay(fact_csv, cdc_delta_csv)
-    if dataset_profile == "nested_json":
+    if dataset_profile_has_nested_json_fixture(dataset_profile):
         write_nested_json_fixture(fact_csv, nested_jsonl)
 
 
@@ -2677,6 +2861,62 @@ def write_jsonl_part_copies(source_dir: Path, target_dir: Path) -> None:
                 "flag": int,
                 "category": str,
             },
+        )
+
+
+def write_arrow_fact_part_copies(
+    source_dir: Path,
+    parquet_dir: Path | None,
+    arrow_ipc_dir: Path | None,
+    orc_dir: Path | None,
+) -> None:
+    try:
+        import pyarrow as pa  # type: ignore
+        import pyarrow.csv as arrow_csv  # type: ignore
+        import pyarrow.ipc as ipc  # type: ignore
+        import pyarrow.orc as orc  # type: ignore
+        import pyarrow.parquet as pq  # type: ignore
+    except ImportError as exc:
+        raise BenchmarkUnsupported(
+            "pyarrow is required to generate split Arrow-family benchmark inputs"
+        ) from exc
+
+    for target_dir in (parquet_dir, arrow_ipc_dir, orc_dir):
+        if target_dir is None:
+            continue
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for source_csv in sorted(source_dir.glob("part-*.csv")):
+        table = arrow_table_without_null_type_columns(pa, arrow_csv.read_csv(source_csv))
+        if parquet_dir is not None:
+            pq.write_table(table, parquet_dir / f"{source_csv.stem}.parquet")
+        if arrow_ipc_dir is not None:
+            write_arrow_ipc_table(ipc, table, arrow_ipc_dir / f"{source_csv.stem}.arrow")
+        if orc_dir is not None:
+            orc.write_table(table, orc_dir / f"{source_csv.stem}.orc")
+
+
+def write_avro_fact_part_copies(source_dir: Path, target_dir: Path) -> None:
+    try:
+        import fastavro  # type: ignore
+    except ImportError as exc:
+        raise BenchmarkUnsupported(
+            "fastavro is required to generate split Avro benchmark inputs"
+        ) from exc
+
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    schema = fastavro.parse_schema(fact_avro_schema())
+    for source_csv in sorted(source_dir.glob("part-*.csv")):
+        write_avro_copy(
+            fastavro,
+            source_csv,
+            target_dir / f"{source_csv.stem}.avro",
+            schema,
+            fact_avro_converters(),
         )
 
 
@@ -2751,7 +2991,9 @@ def generated_dim_key(idx: int, dim_rows: int, dataset_profile: str) -> int:
 
 
 def generated_category(idx: int, group_key: int, dataset_profile: str) -> str:
-    if dataset_profile == "high_cardinality_strings":
+    if dataset_profile == "high_cardinality_strings" or (
+        dataset_profile_supports_all_executable_scenarios(dataset_profile)
+    ):
         return f"c{idx % 10_000}"
     if dataset_profile == "schema_drift":
         return f"c{group_key % 10}_v{1 + (idx % 3)}"
@@ -2759,6 +3001,31 @@ def generated_category(idx: int, group_key: int, dataset_profile: str) -> str:
 
 
 def generated_fact_extra_columns(dataset_profile: str) -> tuple[str, ...]:
+    if dataset_profile_supports_all_executable_scenarios(dataset_profile):
+        return (
+            tuple(f"nullable_metric_{index:02d}" for index in range(16))
+            + tuple(f"nullable_category_{index:02d}" for index in range(4))
+            + (
+                "event_date",
+                "partition_year",
+                "partition_month",
+                "cluster_bucket",
+                "file_bucket",
+                "schema_version_tag",
+                "optional_metric_v2",
+                "renamed_metric_candidate",
+                "raw_event_time",
+                "dirty_numeric",
+                "dirty_flag",
+                "nested_payload",
+                "nested_group",
+                "nested_score",
+                "cdc_op",
+                "cdc_sequence",
+                "effective_ts",
+                "is_deleted",
+            )
+        )
     if dataset_profile == "wide_table":
         return tuple(f"extra_metric_{index:02d}" for index in range(16))
     if dataset_profile == "very_wide_table":
@@ -2819,7 +3086,11 @@ def generated_extra_fact_values(
             cluster_source = group_key if dataset_profile == "well_clustered" else dim_key
             values.append(str(cluster_source % 16))
         elif column == "file_bucket":
-            values.append(str(idx % (32 if dataset_profile == "many_small_files" else 2)))
+            if dataset_profile_supports_all_executable_scenarios(dataset_profile):
+                bucket_count = 8
+            else:
+                bucket_count = 32 if dataset_profile == "many_small_files" else 2
+            values.append(str(idx % bucket_count))
         elif column == "schema_version_tag":
             values.append(f"schema_v{1 + (idx % 3)}")
         elif column == "optional_metric_v2":
@@ -2930,8 +3201,8 @@ def write_arrow_family_copies(
             "pyarrow is required to generate Arrow-family benchmark inputs"
         ) from exc
 
-    fact_table = arrow_csv.read_csv(fact_csv)
-    dim_table = arrow_csv.read_csv(dim_csv)
+    fact_table = arrow_table_without_null_type_columns(pa, arrow_csv.read_csv(fact_csv))
+    dim_table = arrow_table_without_null_type_columns(pa, arrow_csv.read_csv(dim_csv))
     if fact_parquet is not None and dim_parquet is not None:
         pq.write_table(fact_table, fact_parquet)
         pq.write_table(dim_table, dim_parquet)
@@ -2942,6 +3213,32 @@ def write_arrow_family_copies(
         orc.write_table(fact_table, fact_orc)
         orc.write_table(dim_table, dim_orc)
     _ = pa
+
+
+ARROW_STRING_FIXTURE_COLUMNS = {
+    "event_date",
+    "nullable_metric_00",
+    "nested_payload",
+    "raw_event_time",
+    "dirty_numeric",
+    "dirty_flag",
+    "effective_ts",
+}
+
+
+def arrow_table_without_null_type_columns(pa: Any, table: Any) -> Any:
+    arrays = []
+    changed = False
+    for field in table.schema:
+        column = table[field.name]
+        if field.name in ARROW_STRING_FIXTURE_COLUMNS or pa.types.is_null(field.type):
+            arrays.append(column.cast(pa.string()))
+            changed = True
+        else:
+            arrays.append(column)
+    if not changed:
+        return table
+    return pa.Table.from_arrays(arrays, names=table.schema.names)
 
 
 def write_arrow_ipc_table(ipc: Any, table: Any, path: Path) -> None:
@@ -2958,21 +3255,7 @@ def write_avro_copies(fact_csv: Path, dim_csv: Path, fact_avro: Path, dim_avro: 
             "fastavro is required to generate Avro benchmark inputs"
         ) from exc
 
-    fact_schema = fastavro.parse_schema(
-        {
-            "type": "record",
-            "name": "fact",
-            "fields": [
-                {"name": "id", "type": "long"},
-                {"name": "group_key", "type": "int"},
-                {"name": "dim_key", "type": "int"},
-                {"name": "value", "type": "int"},
-                {"name": "metric", "type": "double"},
-                {"name": "flag", "type": "int"},
-                {"name": "category", "type": "string"},
-            ],
-        }
-    )
+    fact_schema = fastavro.parse_schema(fact_avro_schema())
     dim_schema = fastavro.parse_schema(
         {
             "type": "record",
@@ -2989,15 +3272,7 @@ def write_avro_copies(fact_csv: Path, dim_csv: Path, fact_avro: Path, dim_avro: 
         fact_csv,
         fact_avro,
         fact_schema,
-        {
-            "id": int,
-            "group_key": int,
-            "dim_key": int,
-            "value": int,
-            "metric": float,
-            "flag": int,
-            "category": str,
-        },
+        fact_avro_converters(),
     )
     write_avro_copy(
         fastavro,
@@ -3008,6 +3283,52 @@ def write_avro_copies(fact_csv: Path, dim_csv: Path, fact_avro: Path, dim_avro: 
     )
 
 
+def fact_avro_schema() -> dict[str, Any]:
+    optional_string_fields = [
+        "event_date",
+        "nullable_metric_00",
+        "nested_payload",
+        "raw_event_time",
+        "dirty_numeric",
+        "dirty_flag",
+    ]
+    return {
+        "type": "record",
+        "name": "fact",
+        "fields": [
+            {"name": "id", "type": "long"},
+            {"name": "group_key", "type": "int"},
+            {"name": "dim_key", "type": "int"},
+            {"name": "value", "type": "int"},
+            {"name": "metric", "type": "double"},
+            {"name": "flag", "type": "int"},
+            {"name": "category", "type": "string"},
+            *[
+                {"name": field, "type": ["null", "string"], "default": None}
+                for field in optional_string_fields
+            ],
+        ],
+    }
+
+
+def fact_avro_converters() -> dict[str, Callable[[str], Any]]:
+    return {
+        "id": int,
+        "group_key": int,
+        "dim_key": int,
+        "value": int,
+        "metric": float,
+        "flag": int,
+        "category": str,
+        "event_date": str,
+        "nullable_metric_00": str,
+        "nested_payload": str,
+        "raw_event_time": str,
+        "dirty_numeric": str,
+        "dirty_flag": str,
+    }
+
+
 def write_avro_copy(
     fastavro: Any,
     source_csv: Path,
@@ -3015,16 +3336,26 @@ def write_avro_copy(
     schema: dict[str, Any],
     converters: dict[str, Callable[[str], Any]],
 ) -> None:
-    schema_fields = {field["name"] for field in schema["fields"]}
+    schema_fields = [field["name"] for field in schema["fields"]]
+    nullable_fields = {
+        field["name"]
+        for field in schema["fields"]
+        if isinstance(field.get("type"), list) and "null" in field["type"]
+    }
     with source_csv.open("r", newline="", encoding="utf-8") as source:
-        records = [
-            {
-                key: converters[key](value)
-                for key, value in row.items()
-                if key in schema_fields and value is not None
-            }
-            for row in csv.DictReader(source)
-        ]
+        records = []
+        for row in csv.DictReader(source):
+            record = {}
+            for key in schema_fields:
+                if key not in row:
+                    continue
+                value = row[key]
+                if value == "" and key in nullable_fields:
+                    record[key] = None
+                    continue
+                converter = converters.get(key, str)
+                record[key] = converter(value)
+            records.append(record)
     with target_avro.open("wb") as target:
         fastavro.writer(target, schema, records)
 
@@ -3034,6 +3365,14 @@ def module_version(name: str) -> str:
     return str(getattr(module, "__version__", "unknown"))
 
 
+def cargo_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    explicit_toolchain = env.get("SHARDLOOM_BENCHMARK_RUSTUP_TOOLCHAIN")
+    if explicit_toolchain and "RUSTUP_TOOLCHAIN" not in env:
+        env["RUSTUP_TOOLCHAIN"] = explicit_toolchain
+    return env
+
+
 def shardloom_runner() -> EngineRunner:
     root = workspace_root()
     binary = build_shardloom_cli(
@@ -3041,8 +3380,7 @@ def shardloom_runner() -> EngineRunner:
         "vortex-traditional-analytics-benchmark",
         SHARDLOOM_BUILD_PROFILE,
     )
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
 
     def shardloom_fact_source_path(
         paths: DatasetPaths, scenario: str, data_format: str
@@ -3051,17 +3389,9 @@ def shardloom_runner() -> EngineRunner:
             parts = fact_part_paths(paths, data_format)
             if not parts:
                 raise BenchmarkUnsupported(
-                    "many-small-files scan requires split CSV or JSONL fact parts"
+                    "many-small-files scan requires split fact parts for the requested input format"
                 )
             return parts[0].parent
-        if scenario == "nested JSON field scan" and data_format not in {
-            "jsonl",
-            "parquet",
-            "arrow-ipc",
-        }:
-            raise BenchmarkUnsupported(
-                "nested JSON field scan requires JSONL or Arrow-family fixture input for ShardLoom"
-            )
         return fact_path(paths, data_format)
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
@@ -3249,8 +3579,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
         "vortex-traditional-analytics-benchmark",
         SHARDLOOM_BUILD_PROFILE,
     )
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
         if scenario not in {"selective filter", "filter + projection + limit"}:
@@ -3433,8 +3762,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         "vortex-traditional-analytics-benchmark",
         SHARDLOOM_BUILD_PROFILE,
     )
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
     prepared_paths: dict[str, dict[str, Path | float | str]] = {}
     single_process_prepare_batch = engine_name == "shardloom-prepare-batch"
     vortex_execution_mode = (
@@ -3445,6 +3773,20 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         if vortex_execution_mode == "native_vortex"
         else "compatibility input was prepared into Vortex once before scenario timing"
     )
+
+    def capillary_preparation_fields(fields: dict[str, str]) -> dict[str, str]:
+        return {
+            key: value
+            for key, value in fields.items()
+            if key.startswith("vortex_capillary_preparation_")
+        }
+
+    def attach_prepared_capillary_fields(
+        fields: dict[str, str], prepared: dict[str, Path | float | str]
+    ) -> None:
+        for key, value in prepared.items():
+            if key.startswith("vortex_capillary_preparation_"):
+                fields.setdefault(key, str(value))
 
     def prepare_format(paths: DatasetPaths, data_format: str) -> None:
         if data_format in prepared_paths:
@@ -3500,6 +3842,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "source_native_io_certificate_id": fields.get(
                 "native_io_certificate_id", ""
             ),
+            **capillary_preparation_fields(fields),
         }
 
     def prepare_cdc_delta_format(paths: DatasetPaths, data_format: str) -> None:
@@ -3559,6 +3902,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "cdc_delta_preparation_cli_process_wall_millis": completed.get(
                     "process_wall_millis", cdc_preparation_millis
                 ),
+                **capillary_preparation_fields(fields),
             }
         )
 
@@ -3803,6 +4147,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "persistent_runner_status": PERSISTENT_RUNNER_STATUS,
             }
         )
+        attach_prepared_capillary_fields(fields, prepared)
         return {
             "__benchmark_result": json.loads(result_json),
             "__shardloom_evidence": fields,
@@ -3842,6 +4187,13 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "prepare_batch_source_native_io_certificate_id", ""
             ),
         }
+        prepare_batch_prefix = "prepare_batch_vortex_capillary_preparation_"
+        for key, value in fields.items():
+            if key.startswith(prepare_batch_prefix):
+                prepared[
+                    "vortex_capillary_preparation_"
+                    + key[len(prepare_batch_prefix) :]
+                ] = value
         cdc_delta = fields.get("prepare_batch_cdc_delta_vortex_path", "")
         if cdc_delta:
             cdc_delta_vortex = Path(cdc_delta)
@@ -4527,6 +4879,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
             }
         )
+        attach_prepared_capillary_fields(fields, prepared)
         for prepare_key, value in batch_fields.items():
             if prepare_key.startswith("prepare_batch_"):
                 fields.setdefault(prepare_key, value)
@@ -5085,8 +5438,7 @@ def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
         build_command.append("--release")
     elif profile != "debug":
         build_command.extend(["--profile", profile])
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
     if profile == "release-native-benchmark":
         env["RUSTFLAGS"] = append_rustflag(env.get("RUSTFLAGS"), "-Ctarget-cpu=native")
     if profile == "release-pgo" and env.get("SHARDLOOM_PGO_PROFILE"):
@@ -5259,6 +5611,14 @@ def fact_part_paths(paths: DatasetPaths, data_format: str) -> tuple[Path, ...]:
         return tuple(sorted(paths.fact_csv_parts_dir.glob("part-*.csv")))
     if data_format == "jsonl" and paths.fact_jsonl_parts_dir is not None:
         return tuple(sorted(paths.fact_jsonl_parts_dir.glob("part-*.jsonl")))
+    if data_format == "parquet" and paths.fact_parquet_parts_dir is not None:
+        return tuple(sorted(paths.fact_parquet_parts_dir.glob("part-*.parquet")))
+    if data_format == "arrow-ipc" and paths.fact_arrow_ipc_parts_dir is not None:
+        return tuple(sorted(paths.fact_arrow_ipc_parts_dir.glob("part-*.arrow")))
+    if data_format == "avro" and paths.fact_avro_parts_dir is not None:
+        return tuple(sorted(paths.fact_avro_parts_dir.glob("part-*.avro")))
+    if data_format == "orc" and paths.fact_orc_parts_dir is not None:
+        return tuple(sorted(paths.fact_orc_parts_dir.glob("part-*.orc")))
     return ()
 
 
@@ -5268,6 +5628,14 @@ def scenario_output_path(
     output_dir = paths.root / "scenario_outputs" / engine / data_format / scenario_slug(scenario)
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir / f"part-00000.{extension}"
+
+
+def write_rows_as_csv(path: Path, rows: list[dict[str, Any]], fieldnames: tuple[str, ...]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def scenario_display_name(data_format: str, scenario: str) -> str:
@@ -5389,10 +5757,7 @@ def pandas_runner() -> EngineRunner:
             )
         frames = []
         for part in parts:
-            if data_format == "jsonl":
-                frames.append(pd.read_json(part, lines=True))
-            else:
-                frames.append(pd.read_csv(part))
+            frames.append(pandas_frame_for_format(part, data_format))
         return pd.concat(frames, ignore_index=True)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
@@ -5659,8 +6024,7 @@ def pandas_runner() -> EngineRunner:
 def polars_eager_runner() -> EngineRunner:
     import polars as pl  # type: ignore
 
-    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
-        path = fact_path(paths, data_format)
+    def read_frame(path: Path, data_format: str) -> Any:
         if data_format == "parquet":
             return pl.read_parquet(path)
         if data_format == "jsonl":
@@ -5673,19 +6037,22 @@ def polars_eager_runner() -> EngineRunner:
             return pl.from_arrow(pyarrow_table_for_format(path, data_format))
         return pl.read_csv(path)
 
+    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
+        return read_frame(fact_path(paths, data_format), data_format)
+
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
-        path = dim_path(paths, data_format)
-        if data_format == "parquet":
-            return pl.read_parquet(path)
-        if data_format == "jsonl":
-            return pl.read_ndjson(path)
-        if data_format == "arrow-ipc":
-            return pl.read_ipc(path)
-        if data_format == "avro":
-            return pl.read_avro(path)
-        if data_format == "orc":
-            return pl.from_arrow(pyarrow_table_for_format(path, data_format))
-        return pl.read_csv(path)
+        return read_frame(dim_path(paths, data_format), data_format)
+
+    def read_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        return pl.concat(
+            [read_frame(part, data_format) for part in parts],
+            how="vertical_relaxed",
+        )
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
@@ -5797,6 +6164,54 @@ def polars_eager_runner() -> EngineRunner:
         )
         return normalize_rank_rows(rows)
 
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "event_date" not in frame.columns:
+            raise BenchmarkUnsupported("partition pruning requires an event_date fixture column")
+        filtered = frame.filter(
+            (pl.col("event_date") >= "2024-03-01")
+            & (pl.col("event_date") < "2024-06-01")
+        )
+        return normalize_scalar_result(filtered.height, filtered["metric"].sum())
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact_parts(paths, data_format)
+        return normalize_scalar_result(frame.height, frame["metric"].sum())
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "nullable_metric_00" not in frame.columns:
+            raise BenchmarkUnsupported("null-heavy aggregate requires nullable_metric_00")
+        result = frame.select(
+            pl.col("nullable_metric_00")
+            .cast(pl.Float64, strict=False)
+            .drop_nulls()
+            .count()
+            .alias("row_count"),
+            pl.col("nullable_metric_00")
+            .cast(pl.Float64, strict=False)
+            .sum()
+            .alias("metric_sum"),
+        ).to_dicts()[0]
+        return normalize_scalar_result(result["row_count"], result["metric_sum"])
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        rows = (
+            frame.group_by("category")
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .to_dicts()
+        )
+        return {
+            "distinct_category_count": int(frame["category"].n_unique()),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
     def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
         rows = (
@@ -5807,6 +6222,109 @@ def polars_eager_runner() -> EngineRunner:
             .to_dicts()
         )
         return normalize_top_group_rows(rows)
+
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        required = {"raw_event_time", "dirty_numeric", "dirty_flag"}
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise BenchmarkUnsupported(
+                "clean/cast/filter/write requires dirty fixture columns: "
+                + ",".join(missing)
+            )
+        filtered = (
+            frame.with_columns(
+                [
+                    pl.col("raw_event_time")
+                    .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ", strict=False)
+                    .alias("parsed_event_time"),
+                    pl.col("dirty_numeric")
+                    .cast(pl.Float64, strict=False)
+                    .alias("clean_numeric"),
+                ]
+            )
+            .filter(
+                pl.col("parsed_event_time").is_not_null()
+                & pl.col("clean_numeric").is_not_null()
+                & (pl.col("dirty_flag").cast(pl.Utf8) == "Y")
+                & (pl.col("clean_numeric") >= 500)
+            )
+        )
+        output_path = scenario_output_path(
+            paths, "polars-eager", data_format, "clean/cast/filter/write", "csv"
+        )
+        filtered.select(["id", "raw_event_time", "clean_numeric", "category"]).write_csv(
+            output_path
+        )
+        return normalize_scalar_result(filtered.height, filtered["clean_numeric"].sum())
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        required = {"raw_event_time", "dirty_numeric"}
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise BenchmarkUnsupported(
+                "dirty CSV scenario requires fixture columns: " + ",".join(missing)
+            )
+        filtered = (
+            frame.with_columns(
+                [
+                    pl.col("raw_event_time")
+                    .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ", strict=False)
+                    .alias("parsed_event_time"),
+                    pl.col("dirty_numeric")
+                    .cast(pl.Float64, strict=False)
+                    .alias("clean_numeric"),
+                ]
+            )
+            .filter(
+                pl.col("parsed_event_time").is_not_null()
+                & pl.col("clean_numeric").is_not_null()
+            )
+        )
+        return normalize_scalar_result(filtered.height, filtered["clean_numeric"].sum())
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        frame = read_fact(paths, data_format)
+        overlay = pl.read_csv(paths.cdc_delta_csv).with_columns(
+            [
+                pl.col("id").cast(pl.Int64),
+                pl.col("metric").cast(pl.Float64, strict=False),
+            ]
+        )
+        changed_ids = overlay.select("id")
+        base_kept = frame.join(changed_ids, on="id", how="anti")
+        delta_rows = overlay.filter(pl.col("op") != "delete")
+        metric_sum = (base_kept["metric"].sum() or 0.0) + (
+            delta_rows["metric"].sum() or 0.0
+        )
+        return normalize_scalar_result(base_kept.height + delta_rows.height, metric_sum)
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "nested_payload" not in frame.columns:
+            raise BenchmarkUnsupported("nested JSON scenario requires nested_payload")
+        result = frame.select(
+            pl.len().alias("row_count"),
+            pl.col("nested_payload")
+            .str.json_path_match("$.metrics.score")
+            .cast(pl.Float64, strict=False)
+            .sum()
+            .alias("metric_sum"),
+            (
+                pl.col("nested_payload").str.json_path_match("$.event.flag") == "true"
+            )
+            .cast(pl.Int64)
+            .sum()
+            .alias("flagged"),
+        ).to_dicts()[0]
+        return {
+            "row_count": int(result["row_count"]),
+            "metric_sum": round_float(result["metric_sum"]),
+            "flagged": int(result["flagged"]),
+        }
 
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         fact = read_fact(paths, data_format)
@@ -5866,7 +6384,15 @@ def polars_eager_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -5908,6 +6434,35 @@ def polars_lazy_runner() -> EngineRunner:
         if data_format == "csv":
             return pl.scan_csv(path)
         raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} in this harness")
+
+    def scan_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        if data_format == "parquet":
+            return pl.scan_parquet(list(parts))
+        if data_format == "jsonl":
+            return pl.scan_ndjson(list(parts))
+        if data_format == "arrow-ipc":
+            return pl.scan_ipc(list(parts))
+        if data_format == "avro":
+            return pl.concat(
+                [pl.read_avro(part) for part in parts],
+                how="vertical_relaxed",
+            ).lazy()
+        if data_format == "orc":
+            return pl.concat(
+                [
+                    pl.from_arrow(pyarrow_table_for_format(part, data_format))
+                    for part in parts
+                ],
+                how="vertical_relaxed",
+            ).lazy()
+        if data_format == "csv":
+            return pl.scan_csv(list(parts))
+        raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} fact parts")
 
     def collect_one(query: Any) -> dict[str, Any]:
         rows = query.collect().to_dicts()
@@ -6042,6 +6597,77 @@ def polars_lazy_runner() -> EngineRunner:
         )
         return normalize_multi_group_rows(rows, ("dim_label", "category"))
 
+    def row_number_window(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .sort(["group_key", "metric", "id"], descending=[False, True, False])
+            .with_columns((pl.col("id").cum_count().over("group_key")).alias("rank"))
+            .filter(pl.col("rank") == 1)
+            .select(["group_key", "id", "metric", "rank"])
+            .collect()
+            .to_dicts()
+        )
+        return normalize_rank_rows(rows)
+
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format)
+            .filter(
+                (pl.col("event_date") >= "2024-03-01")
+                & (pl.col("event_date") < "2024-06-01")
+            )
+            .select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact_parts(paths, data_format).select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format).select(
+                pl.col("nullable_metric_00")
+                .cast(pl.Float64, strict=False)
+                .drop_nulls()
+                .count()
+                .alias("row_count"),
+                pl.col("nullable_metric_00")
+                .cast(pl.Float64, strict=False)
+                .sum()
+                .alias("metric_sum"),
+            )
+        )
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        frame = scan_fact(paths, data_format)
+        rows = (
+            frame.group_by("category")
+            .agg(
+                [
+                    pl.len().alias("row_count"),
+                    pl.col("metric").sum().alias("metric_sum"),
+                ]
+            )
+            .collect()
+            .to_dicts()
+        )
+        distinct_row = collect_one(
+            scan_fact(paths, data_format).select(
+                pl.col("category").n_unique().alias("distinct_category_count")
+            )
+        )
+        return {
+            "distinct_category_count": int(distinct_row["distinct_category_count"]),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
     def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
         rows = (
             scan_fact(paths, data_format)
@@ -6053,6 +6679,110 @@ def polars_lazy_runner() -> EngineRunner:
             .to_dicts()
         )
         return normalize_top_group_rows(rows)
+
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        filtered = (
+            scan_fact(paths, data_format)
+            .with_columns(
+                [
+                    pl.col("raw_event_time")
+                    .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ", strict=False)
+                    .alias("parsed_event_time"),
+                    pl.col("dirty_numeric")
+                    .cast(pl.Float64, strict=False)
+                    .alias("clean_numeric"),
+                ]
+            )
+            .filter(
+                pl.col("parsed_event_time").is_not_null()
+                & pl.col("clean_numeric").is_not_null()
+                & (pl.col("dirty_flag").cast(pl.Utf8) == "Y")
+                & (pl.col("clean_numeric") >= 500)
+            )
+        )
+        output = filtered.collect()
+        output_path = scenario_output_path(
+            paths, "polars-lazy", data_format, "clean/cast/filter/write", "csv"
+        )
+        output.select(["id", "raw_event_time", "clean_numeric", "category"]).write_csv(
+            output_path
+        )
+        return normalize_scalar_result(output.height, output["clean_numeric"].sum())
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        return scalar_from_lazy(
+            scan_fact(paths, data_format)
+            .with_columns(
+                [
+                    pl.col("raw_event_time")
+                    .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ", strict=False)
+                    .alias("parsed_event_time"),
+                    pl.col("dirty_numeric")
+                    .cast(pl.Float64, strict=False)
+                    .alias("clean_numeric"),
+                ]
+            )
+            .filter(
+                pl.col("parsed_event_time").is_not_null()
+                & pl.col("clean_numeric").is_not_null()
+            )
+            .select(
+                pl.len().alias("row_count"),
+                pl.col("clean_numeric").sum().alias("metric_sum"),
+            )
+        )
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        overlay = pl.scan_csv(paths.cdc_delta_csv).with_columns(
+            [
+                pl.col("id").cast(pl.Int64),
+                pl.col("metric").cast(pl.Float64, strict=False),
+            ]
+        )
+        base_kept = scan_fact(paths, data_format).join(
+            overlay.select("id"), on="id", how="anti"
+        )
+        base_row = collect_one(
+            base_kept.select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+        delta_row = collect_one(
+            overlay.filter(pl.col("op") != "delete").select(
+                pl.len().alias("row_count"),
+                pl.col("metric").sum().alias("metric_sum"),
+            )
+        )
+        return normalize_scalar_result(
+            int(base_row["row_count"]) + int(delta_row["row_count"]),
+            round_float(base_row["metric_sum"]) + round_float(delta_row["metric_sum"]),
+        )
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        row = collect_one(
+            scan_fact(paths, data_format).select(
+                pl.len().alias("row_count"),
+                pl.col("nested_payload")
+                .str.json_path_match("$.metrics.score")
+                .cast(pl.Float64, strict=False)
+                .sum()
+                .alias("metric_sum"),
+                (
+                    pl.col("nested_payload").str.json_path_match("$.event.flag") == "true"
+                )
+                .cast(pl.Int64)
+                .sum()
+                .alias("flagged"),
+            )
+        )
+        return {
+            "row_count": int(row["row_count"]),
+            "metric_sum": round_float(row["metric_sum"]),
+            "flagged": int(row["flagged"]),
+        }
 
     return EngineRunner(
         "polars-lazy",
@@ -6068,7 +6798,16 @@ def polars_lazy_runner() -> EngineRunner:
             "filter + projection + limit": filter_projection_limit,
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
+            "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
         },
         formats=FORMAT_ORDER,
     )
@@ -6096,16 +6835,54 @@ def duckdb_runner() -> EngineRunner:
             function = "read_csv_auto"
         return f"{function}({sql_literal(path)})"
 
+    def list_sql_literal(paths: tuple[Path, ...]) -> str:
+        return "[" + ", ".join(sql_literal(path) for path in paths) + "]"
+
+    def register_arrow_table(name: str, path: Path, data_format: str) -> None:
+        try:
+            con.unregister(name)
+        except Exception:
+            pass
+        con.register(name, pyarrow_table_for_format(path, data_format))
+
+    def register_arrow_parts_table(
+        name: str, part_paths: tuple[Path, ...], data_format: str
+    ) -> None:
+        import pyarrow as pa  # type: ignore
+
+        try:
+            con.unregister(name)
+        except Exception:
+            pass
+        con.register(
+            name,
+            pa.concat_tables(
+                [pyarrow_table_for_format(path, data_format) for path in part_paths],
+                promote_options="default",
+            ),
+        )
+
+    def fact_parts_expr(paths: DatasetPaths, data_format: str) -> str:
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        if data_format == "parquet":
+            return f"read_parquet({list_sql_literal(parts)})"
+        if data_format == "jsonl":
+            return f"read_json_auto({list_sql_literal(parts)})"
+        if data_format in arrow_backed_formats:
+            register_arrow_parts_table("fact_parts", parts, data_format)
+            return "fact_parts"
+        return f"read_csv_auto({list_sql_literal(parts)})"
+
     def register_arrow_backed_tables(paths: DatasetPaths, data_format: str) -> None:
         for name, path in (
             ("fact", fact_path(paths, data_format)),
             ("dim", dim_path(paths, data_format)),
         ):
-            try:
-                con.unregister(name)
-            except Exception:
-                pass
-            con.register(name, pyarrow_table_for_format(path, data_format))
+            register_arrow_table(name, path, data_format)
 
     def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
         if data_format in arrow_backed_formats:
@@ -6115,6 +6892,14 @@ def duckdb_runner() -> EngineRunner:
         )
         columns = [column[0] for column in con.execute(sql).description]
         return [dict(zip(columns, row)) for row in con.fetchall()]
+
+    def execute(paths: DatasetPaths, data_format: str, sql: str) -> None:
+        if data_format in arrow_backed_formats:
+            register_arrow_backed_tables(paths, data_format)
+        sql = sql.replace("{fact}", table_expr(paths, "fact", data_format)).replace(
+            "{dim}", table_expr(paths, "dim", data_format)
+        )
+        con.execute(sql)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
@@ -6228,6 +7013,50 @@ def duckdb_runner() -> EngineRunner:
             )
         )
 
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(metric) as metric_sum "
+            "from {fact} where event_date >= '2024-03-01' and event_date < '2024-06-01'",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(metric) as metric_sum "
+            f"from {fact_parts_expr(paths, data_format)}",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(try_cast(nullable_metric_00 as double)) as row_count, "
+            "sum(try_cast(nullable_metric_00 as double)) as metric_sum from {fact}",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select category, count(*) as row_count, sum(metric) as metric_sum "
+            "from {fact} group by category",
+        )
+        distinct = query(
+            paths,
+            data_format,
+            "select count(distinct category) as distinct_category_count from {fact}",
+        )
+        return {
+            "distinct_category_count": int(distinct[0]["distinct_category_count"]),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
     def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_top_group_rows(
             query(
@@ -6239,6 +7068,76 @@ def duckdb_runner() -> EngineRunner:
                 "from {fact}) where rank <= 3",
             )
         )
+
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        filtered_sql = (
+            "select id, raw_event_time, try_cast(dirty_numeric as double) as clean_numeric, "
+            "category from {fact} "
+            "where try_strptime(raw_event_time, '%Y-%m-%dT%H:%M:%SZ') is not null "
+            "and try_cast(dirty_numeric as double) is not null "
+            "and cast(dirty_flag as varchar) = 'Y' "
+            "and try_cast(dirty_numeric as double) >= 500"
+        )
+        output_path = scenario_output_path(
+            paths, "duckdb", data_format, "clean/cast/filter/write", "csv"
+        )
+        execute(
+            paths,
+            data_format,
+            f"COPY ({filtered_sql}) TO {sql_literal(output_path)} (HEADER, DELIMITER ',')",
+        )
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(clean_numeric) as metric_sum "
+            f"from ({filtered_sql})",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(try_cast(dirty_numeric as double)) as metric_sum "
+            "from {fact} "
+            "where try_strptime(raw_event_time, '%Y-%m-%dT%H:%M:%SZ') is not null "
+            "and try_cast(dirty_numeric as double) is not null",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        cdc_delta_expr = f"read_csv_auto({sql_literal(paths.cdc_delta_csv)})"
+        rows = query(
+            paths,
+            data_format,
+            "with overlay as ("
+            f"select id, op, try_cast(metric as double) as metric from {cdc_delta_expr}"
+            "), base_kept as ("
+            "select f.id, f.metric from {fact} f left join overlay o on f.id = o.id "
+            "where o.id is null"
+            "), merged as ("
+            "select id, metric from base_kept "
+            "union all select id, metric from overlay where op <> 'delete'"
+            ") select count(*) as row_count, sum(metric) as metric_sum from merged",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, "
+            "sum(cast(json_extract(nested_payload, '$.metrics.score') as double)) as metric_sum, "
+            "sum(case when cast(json_extract(nested_payload, '$.event.flag') as boolean) "
+            "then 1 else 0 end) as flagged from {fact}",
+        )
+        return {
+            "row_count": int(rows[0]["row_count"]),
+            "metric_sum": round_float(rows[0]["metric_sum"]),
+            "flagged": int(rows[0]["flagged"]),
+        }
 
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
@@ -6281,7 +7180,15 @@ def duckdb_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -6575,6 +7482,21 @@ def spark_local_tuned_runner() -> EngineRunner:
 def datafusion_runner() -> EngineRunner:
     import datafusion  # type: ignore
 
+    def register_arrow_table(ctx: Any, name: str, path: Path, data_format: str) -> None:
+        table = pyarrow_table_for_format(path, data_format)
+        ctx.register_record_batches(name, [table.to_batches()])
+
+    def register_arrow_parts_table(
+        ctx: Any, name: str, part_paths: tuple[Path, ...], data_format: str
+    ) -> None:
+        import pyarrow as pa  # type: ignore
+
+        table = pa.concat_tables(
+            [pyarrow_table_for_format(path, data_format) for path in part_paths],
+            promote_options="default",
+        )
+        ctx.register_record_batches(name, [table.to_batches()])
+
     def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
         ctx = datafusion.SessionContext()
         if data_format == "parquet":
@@ -6584,19 +7506,48 @@ def datafusion_runner() -> EngineRunner:
             ctx.register_json("fact", paths.fact_jsonl, file_extension=".jsonl")
             ctx.register_json("dim", paths.dim_jsonl, file_extension=".jsonl")
         elif data_format == "arrow-ipc":
-            ctx.register_arrow("fact", paths.fact_arrow_ipc, file_extension=".arrow")
-            ctx.register_arrow("dim", paths.dim_arrow_ipc, file_extension=".arrow")
+            register_arrow_table(ctx, "fact", paths.fact_arrow_ipc, data_format)
+            register_arrow_table(ctx, "dim", paths.dim_arrow_ipc, data_format)
         elif data_format == "avro":
             ctx.register_avro("fact", paths.fact_avro)
             ctx.register_avro("dim", paths.dim_avro)
         elif data_format == "orc":
-            fact_table = pyarrow_table_for_format(paths.fact_orc, data_format)
-            dim_table = pyarrow_table_for_format(paths.dim_orc, data_format)
-            ctx.register_record_batches("fact", [fact_table.to_batches()])
-            ctx.register_record_batches("dim", [dim_table.to_batches()])
+            register_arrow_table(ctx, "fact", paths.fact_orc, data_format)
+            register_arrow_table(ctx, "dim", paths.dim_orc, data_format)
         else:
             ctx.register_csv("fact", paths.fact_csv, has_header=True)
             ctx.register_csv("dim", paths.dim_csv, has_header=True)
+        return pyarrow_rows(ctx.sql(sql).collect())
+
+    def query_fact_parts(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
+        ctx = datafusion.SessionContext()
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        register_arrow_parts_table(ctx, "fact", parts, data_format)
+        return pyarrow_rows(ctx.sql(sql).collect())
+
+    def query_with_cdc_delta(
+        paths: DatasetPaths, data_format: str, sql: str
+    ) -> list[dict[str, Any]]:
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        ctx = datafusion.SessionContext()
+        if data_format == "parquet":
+            ctx.register_parquet("fact", paths.fact_parquet)
+        elif data_format == "jsonl":
+            ctx.register_json("fact", paths.fact_jsonl, file_extension=".jsonl")
+        elif data_format == "arrow-ipc":
+            register_arrow_table(ctx, "fact", paths.fact_arrow_ipc, data_format)
+        elif data_format == "avro":
+            ctx.register_avro("fact", paths.fact_avro)
+        elif data_format == "orc":
+            register_arrow_table(ctx, "fact", paths.fact_orc, data_format)
+        else:
+            ctx.register_csv("fact", paths.fact_csv, has_header=True)
+        ctx.register_csv("cdc_delta", paths.cdc_delta_csv, has_header=True)
         return pyarrow_rows(ctx.sql(sql).collect())
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
@@ -6697,6 +7648,49 @@ def datafusion_runner() -> EngineRunner:
             )
         )
 
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(metric) as metric_sum "
+            "from fact where event_date >= '2024-03-01' and event_date < '2024-06-01'",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query_fact_parts(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(metric) as metric_sum from fact",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(try_cast(nullable_metric_00 as double)) as row_count, "
+            "sum(try_cast(nullable_metric_00 as double)) as metric_sum from fact",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select category, count(*) as row_count, sum(metric) as metric_sum "
+            "from fact group by category",
+        )
+        distinct = query(
+            paths,
+            data_format,
+            "select count(distinct category) as distinct_category_count from fact",
+        )
+        return {
+            "distinct_category_count": int(distinct[0]["distinct_category_count"]),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
     def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_top_group_rows(
             query(
@@ -6707,6 +7701,59 @@ def datafusion_runner() -> EngineRunner:
                 "row_number() over (partition by group_key order by metric desc, id asc) as rank "
                 "from fact) where rank <= 3",
             )
+        )
+
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select id, raw_event_time, try_cast(dirty_numeric as double) as clean_numeric, "
+            "category from fact "
+            "where regexp_like(raw_event_time, '^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$') "
+            "and try_cast(dirty_numeric as double) is not null "
+            "and cast(dirty_flag as varchar) = 'Y' "
+            "and try_cast(dirty_numeric as double) >= 500",
+        )
+        output_path = scenario_output_path(
+            paths, "datafusion", data_format, "clean/cast/filter/write", "csv"
+        )
+        write_rows_as_csv(output_path, rows, ("id", "raw_event_time", "clean_numeric", "category"))
+        return normalize_scalar_result(
+            len(rows),
+            sum(float(row["clean_numeric"] or 0.0) for row in rows),
+        )
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(
+            paths,
+            data_format,
+            "select count(*) as row_count, sum(try_cast(dirty_numeric as double)) as metric_sum "
+            "from fact "
+            "where regexp_like(raw_event_time, '^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$') "
+            "and try_cast(dirty_numeric as double) is not null",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query_with_cdc_delta(
+            paths,
+            data_format,
+            "with overlay as ("
+            "select id, op, try_cast(metric as double) as metric from cdc_delta"
+            "), base_kept as ("
+            "select f.id, f.metric from fact f left join overlay o on f.id = o.id "
+            "where o.id is null"
+            "), merged as ("
+            "select id, metric from base_kept "
+            "union all select id, metric from overlay where op <> 'delete'"
+            ") select count(*) as row_count, sum(metric) as metric_sum from merged",
+        )
+        return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        raise BenchmarkUnsupported(
+            "DataFusion 50.1.0 Python SQL function registry exposes no JSON extraction "
+            "functions in this benchmark profile"
         )
 
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
@@ -6748,7 +7795,15 @@ def datafusion_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -6785,6 +7840,22 @@ def dask_runner() -> EngineRunner:
                 npartitions=1,
             )
         return dd.read_csv(paths.dim_csv, blocksize=blocksize)
+
+    def read_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        import pandas as pd  # type: ignore
+
+        return dd.from_pandas(
+            pd.concat(
+                [pandas_frame_for_format(path, data_format) for path in parts],
+                ignore_index=True,
+            ),
+            npartitions=max(1, min(len(parts), 8)),
+        )
 
     def compute_one(*values: Any) -> tuple[Any, ...]:
         return dask.compute(*values, scheduler=DASK_SCHEDULER)
@@ -6872,6 +7943,37 @@ def dask_runner() -> EngineRunner:
         )
         return normalize_rank_rows(rows)
 
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        filtered = frame[(frame.event_date >= "2024-03-01") & (frame.event_date < "2024-06-01")]
+        row_count, metric_sum = compute_one(filtered.id.count(), filtered.metric.sum())
+        return normalize_scalar_result(row_count, metric_sum)
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact_parts(paths, data_format)
+        row_count, metric_sum = compute_one(frame.id.count(), frame.metric.sum())
+        return normalize_scalar_result(row_count, metric_sum)
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        import dask.dataframe as dd  # type: ignore
+
+        frame = read_fact(paths, data_format)
+        numeric = dd.to_numeric(frame.nullable_metric_00, errors="coerce")
+        row_count, metric_sum = compute_one(numeric.count(), numeric.sum())
+        return normalize_scalar_result(row_count, metric_sum)
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        groups = frame.groupby("category")
+        counts = groups.id.count().rename("row_count")
+        sums = groups.metric.sum().rename("metric_sum")
+        rows = compute_frame(dd.concat([counts, sums], axis=1).reset_index()).to_dict("records")
+        distinct = compute_frame(frame.category.nunique())
+        return {
+            "distinct_category_count": int(distinct),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
     def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
         frame = compute_frame(read_fact(paths, data_format))
         ranked = frame.sort_values(["group_key", "metric", "id"], ascending=[True, False, True])
@@ -6880,6 +7982,74 @@ def dask_runner() -> EngineRunner:
             "records"
         )
         return normalize_top_group_rows(rows)
+
+    def clean_cast_filter_write(paths: DatasetPaths, data_format: str) -> Any:
+        import pandas as pd  # type: ignore
+
+        frame = compute_frame(read_fact(paths, data_format)).reset_index(drop=True)
+        parsed = pd.to_datetime(
+            frame["raw_event_time"],
+            format="%Y-%m-%dT%H:%M:%SZ",
+            errors="coerce",
+            utc=True,
+        )
+        numeric = pd.to_numeric(frame["dirty_numeric"], errors="coerce")
+        valid = parsed.notna() & numeric.notna() & (frame["dirty_flag"].astype(str) == "Y")
+        filtered = frame[valid & (numeric >= 500)].copy()
+        filtered["clean_numeric"] = numeric.loc[filtered.index].to_numpy()
+        output_path = scenario_output_path(
+            paths, "dask", data_format, "clean/cast/filter/write", "csv"
+        )
+        filtered[["id", "raw_event_time", "clean_numeric", "category"]].to_csv(
+            output_path, index=False
+        )
+        return normalize_scalar_result(len(filtered), filtered["clean_numeric"].sum())
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        import pandas as pd  # type: ignore
+
+        frame = compute_frame(read_fact(paths, data_format)).reset_index(drop=True)
+        parsed = pd.to_datetime(
+            frame["raw_event_time"],
+            format="%Y-%m-%dT%H:%M:%SZ",
+            errors="coerce",
+            utc=True,
+        )
+        numeric = pd.to_numeric(frame["dirty_numeric"], errors="coerce")
+        valid = parsed.notna() & numeric.notna()
+        return normalize_scalar_result(int(valid.sum()), numeric[valid].sum())
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        import pandas as pd  # type: ignore
+
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        frame = compute_frame(read_fact(paths, data_format)).set_index("id", drop=False)
+        overlay = pd.read_csv(paths.cdc_delta_csv)
+        for row in overlay.to_dict("records"):
+            row_id = int(row["id"])
+            op = str(row["op"])
+            if op == "delete":
+                frame = frame.drop(index=row_id, errors="ignore")
+            else:
+                frame.loc[row_id, "id"] = row_id
+                frame.loc[row_id, "value"] = int(row["value"])
+                frame.loc[row_id, "metric"] = float(row["metric"])
+                frame.loc[row_id, "flag"] = 1
+                frame.loc[row_id, "category"] = f"cdc_{op}"
+        return normalize_scalar_result(len(frame), frame["metric"].sum())
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = compute_frame(read_fact(paths, data_format))
+        if "nested_payload" not in frame.columns:
+            raise BenchmarkUnsupported("nested JSON scenario requires nested_payload")
+        scores = []
+        flagged = 0
+        for value in frame["nested_payload"]:
+            payload = json.loads(value) if isinstance(value, str) else value
+            scores.append(float(payload["metrics"]["score"]))
+            flagged += 1 if payload["event"]["flag"] else 0
+        return {"row_count": len(scores), "metric_sum": round_float(sum(scores)), "flagged": flagged}
 
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         fact = read_fact(paths, data_format)
@@ -6926,7 +8096,15 @@ def dask_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
             "top-N per group": top_n_per_group,
+            "clean/cast/filter/write": clean_cast_filter_write,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -7798,7 +8976,7 @@ def vortex_layout_write_advisor_metadata(
         ),
         "vortex_layout_write_advisor_writer_provider_version": first_meaningful_field(
             evidence.get("vortex_layout_write_advisor_writer_provider_version"),
-            "0.72" if admitted else "not_applicable",
+            UPSTREAM_VORTEX_PROVIDER_VERSION if admitted else "not_applicable",
         ),
         "vortex_layout_write_advisor_writer_provider_surface": first_meaningful_field(
             evidence.get("vortex_layout_write_advisor_writer_provider_surface"),
@@ -8207,9 +9385,9 @@ def vortex_preparation_spine_metadata(
         "vortex_preparation_spine_provider_crate": provider_crate,
         "vortex_preparation_spine_provider_version": first_meaningful_field(
             evidence.get("vortex_preparation_spine_provider_version"),
-            "0.72"
+            UPSTREAM_VORTEX_PROVIDER_VERSION
             if provider_crate == "vortex"
-            else "shardloom-vortex=0.1.0;vortex=0.72"
+            else SHARDLOOM_VORTEX_PROVIDER_VERSION
             if provider_crate == "shardloom-vortex,vortex"
             else "not_applicable",
         ),
@@ -8597,6 +9775,74 @@ def vortex_capillary_preparation_metadata(
             "vortex_ingest_source_state_to_prepared_state"
             if is_shardloom
             else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_policy": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_policy"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_result": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_result"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_reason": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_reason"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_threshold_bytes": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_threshold_bytes")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_threshold_rows": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_threshold_rows")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_threshold_splits": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_threshold_splits")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_threshold_columns": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_threshold_columns")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_observed_bytes": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_observed_bytes")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_observed_rows": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_observed_rows")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_observed_columns": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_observed_columns")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_observed_split_count": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_observed_split_count")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_estimated_peak_memory_bytes": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_activation_estimated_peak_memory_bytes")
+        )
+        or 0,
+        "vortex_capillary_preparation_activation_format_family": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_format_family"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_operation_class": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_operation_class"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_certification_depth": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_activation_certification_depth"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_activation_result_sink_replay_requested": (
+            parse_optional_bool(
+                evidence.get(
+                    "vortex_capillary_preparation_activation_result_sink_replay_requested"
+                )
+            )
+            is True
         ),
         "vortex_capillary_preparation_source_surface": first_meaningful_field(
             evidence.get("vortex_capillary_preparation_source_surface"),
@@ -9249,8 +10495,7 @@ def tool_version_text(binary_name: str, args: tuple[str, ...] = ("--version",)) 
     binary = shutil.which(binary_name)
     if binary is None:
         return "missing"
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
     completed = subprocess_run([binary, *args], workspace_root(), env)
     if completed["returncode"] != 0:
         return "unavailable"
@@ -9261,8 +10506,7 @@ def rustc_target_triple() -> str:
     rustc = shutil.which("rustc")
     if rustc is None:
         return "missing"
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
     completed = subprocess_run([rustc, "-vV"], workspace_root(), env)
     if completed["returncode"] != 0:
         return "unavailable"
@@ -10519,8 +11763,14 @@ def cold_lane_secondary_classifications(
         classifications.append("sink_replay_heavy")
     if cold_lane_field_present(metrics, "evidence_render_millis"):
         classifications.append("evidence_heavy")
-    if cold_lane_field_present(metrics, "cli_process_wall_millis") and cold_lane_field_present(
-        metrics, "python_harness_overhead_millis"
+    batch_process_wall_present = (
+        metrics.get("persistent_runner_status") == BATCH_RUNNER_STATUS
+        and metrics.get("batch_process_wall_shared") is True
+        and cold_lane_field_present(metrics, "batch_cli_process_wall_millis")
+    )
+    if cold_lane_field_present(metrics, "cli_process_wall_millis") and (
+        cold_lane_field_present(metrics, "python_harness_overhead_millis")
+        or batch_process_wall_present
     ):
         classifications.append("process_harness_heavy")
     return classifications or ["none"]
@@ -10552,6 +11802,14 @@ def cold_lane_attribution_metadata(result: dict[str, Any]) -> dict[str, Any]:
             "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
         }
     required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
+    batch_row = metrics.get("persistent_runner_status") == BATCH_RUNNER_STATUS
+    if batch_row:
+        required = [
+            field for field in required if field != "python_harness_overhead_millis"
+        ]
+        for field in ("batch_cli_process_wall_millis", "batch_process_wall_shared"):
+            if field not in required:
+                required.append(field)
     if "sink_replay_heavy" in secondary and "result_sink_write_millis" not in required:
         required.append("result_sink_write_millis")
     missing = [field for field in required if not cold_lane_field_present(metrics, field)]
@@ -10597,7 +11855,14 @@ def cold_lane_attribution_metadata(result: dict[str, Any]) -> dict[str, Any]:
         "cold_lane_process_harness_timing_present": cold_lane_field_present(
             metrics, "cli_process_wall_millis"
         )
-        and cold_lane_field_present(metrics, "python_harness_overhead_millis"),
+        and (
+            cold_lane_field_present(metrics, "python_harness_overhead_millis")
+            or (
+                batch_row
+                and metrics.get("batch_process_wall_shared") is True
+                and cold_lane_field_present(metrics, "batch_cli_process_wall_millis")
+            )
+        ),
         "cold_lane_claim_gate_status": "not_claim_grade",
         "cold_lane_claim_blocker_id": (
             "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
@@ -10667,6 +11932,38 @@ def shardloom_claim_grade_missing_evidence(result: dict[str, Any]) -> list[str]:
     return missing
 
 
+def shardloom_prepared_runtime_release_missing_evidence(
+    result: dict[str, Any],
+) -> list[str]:
+    evidence = result.get("shardloom_evidence", {})
+    missing: list[str] = []
+    for field, expected in SHARDLOOM_PREPARED_RUNTIME_RELEASE_REQUIRED_EVIDENCE:
+        actual = str(evidence.get(field, "missing")).lower()
+        if actual != expected:
+            missing.append(f"{field}!={expected} (actual={actual})")
+    if str(evidence.get("evidence_level", "")).lower() == "full_replay":
+        actual = str(
+            evidence.get("evidence_level_result_sink_replay_verified", "missing")
+        ).lower()
+        if actual != "true":
+            missing.append(
+                "evidence_level_result_sink_replay_verified!=true "
+                f"(actual={actual})"
+            )
+    if result.get("fallback_attempted", False):
+        missing.append("result fallback_attempted was true")
+    if result.get("iterations", 0) < MIN_CLAIM_GRADE_ITERATIONS:
+        missing.append(
+            f"iterations<{MIN_CLAIM_GRADE_ITERATIONS} "
+            f"(actual={result.get('iterations', 'missing')})"
+        )
+    if result.get("correctness_digest_stable") is not True:
+        missing.append("correctness_digest_stable!=true")
+    if result["metrics"].get("query_runtime_millis") is None:
+        missing.append("timing row missing")
+    return missing
+
+
 def reproducible_benchmark_row(result: dict[str, Any]) -> bool:
     return (
         result["status"] == "success"
@@ -10711,12 +12008,12 @@ def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
         "shardloom-prepared-vortex",
         "shardloom-prepare-batch",
     ):
+        missing = shardloom_prepared_runtime_release_missing_evidence(result)
+        claim_grade = not missing
         return {
-            "claim_gate_status": "fixture_smoke_only",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": [
-                "native or prepare/batch Vortex lane lacks workload scorecard/result-sink replay evidence"
-            ],
+            "claim_gate_status": "claim_grade" if claim_grade else "not_claim_grade",
+            "claim_grade_requirements_met": claim_grade,
+            "claim_grade_missing_evidence": missing,
         }
     missing = shardloom_claim_grade_missing_evidence(result)
     claim_grade = not missing
@@ -11367,10 +12664,6 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             )
         if metrics.get("reuse_level_claim_gate_status") != "not_claim_grade":
             raise RuntimeError("reuse-level evidence cannot upgrade claim status")
-        if metrics.get("claim_grade_requirements_met") is not False:
-            raise RuntimeError(
-                "reuse-level evidence cannot mark claim-grade requirements met"
-            )
         missing_optimizer_trace_fields = [
             field for field in OPTIMIZER_TRACE_FIELDS if field not in metrics
         ]
@@ -11953,6 +13246,19 @@ def annotate_result(
     result["claim_gate_status"] = readiness["claim_gate_status"]
     result["claim_grade_requirements_met"] = readiness["claim_grade_requirements_met"]
     result["claim_grade_missing_evidence"] = readiness["claim_grade_missing_evidence"]
+    result["reproducibility_min_iterations"] = MIN_CLAIM_GRADE_ITERATIONS
+    result["reproducibility_iterations_met"] = (
+        result.get("iterations", 0) >= MIN_CLAIM_GRADE_ITERATIONS
+    )
+    result["reproducible_benchmark_row"] = reproducible_benchmark_row(result)
+    result["timing_row_present"] = (
+        isinstance(result.get("metrics"), dict)
+        and result["metrics"].get("query_runtime_millis") is not None
+    )
+    result["timing_row_claim_grade"] = (
+        result["reproducible_benchmark_row"]
+        and result["claim_grade_requirements_met"]
+    )
     metrics = result.get("metrics")
     if isinstance(metrics, dict):
         metrics["dataset_profile"] = dataset_profile
@@ -11963,6 +13269,17 @@ def annotate_result(
         metrics["claim_grade_missing_evidence"] = result[
             "claim_grade_missing_evidence"
         ]
+        metrics["reproducibility_min_iterations"] = result[
+            "reproducibility_min_iterations"
+        ]
+        metrics["reproducibility_iterations_met"] = result[
+            "reproducibility_iterations_met"
+        ]
+        metrics["reproducible_benchmark_row"] = result[
+            "reproducible_benchmark_row"
+        ]
+        metrics["timing_row_present"] = result["timing_row_present"]
+        metrics["timing_row_claim_grade"] = result["timing_row_claim_grade"]
         metrics.update(
             scale_claim_contract_metadata(
                 str(result["engine"]),
@@ -11990,6 +13307,11 @@ def annotate_result(
         metrics["claim_grade_missing_evidence"] = result[
             "claim_grade_missing_evidence"
         ]
+        result["timing_row_claim_grade"] = (
+            result["reproducible_benchmark_row"]
+            and result["claim_grade_requirements_met"]
+        )
+        metrics["timing_row_claim_grade"] = result["timing_row_claim_grade"]
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
@@ -12622,8 +13944,9 @@ def vortex_capillary_preparation_contract() -> dict[str, Any]:
         ),
         "current_scope": (
             "scoped local source split, read chunk, columnarize/encode, "
-            "Vortex segment write, reopen verification, sink evidence, "
-            "bounded memory/sink pressure posture, and PulseWeave cold-lane control"
+            "Vortex segment write, reopen verification, sink evidence, dynamic "
+            "size/complexity activation, bounded memory/sink pressure posture, "
+            "and PulseWeave cold-lane control when activated"
         ),
         "non_goals": [
             "standalone capillary benchmark lane",
@@ -12640,9 +13963,10 @@ def vortex_capillary_preparation_contract() -> dict[str, Any]:
         ),
         "claim_boundary": (
             "VortexCapillaryPreparation evidence is scoped local cold-preparation evidence only. "
-            "It links SourceState split/read tasks, local Vortex write/reopen proof, and "
-            "PulseWeave admission inside vortex_ingest without proving object-store, "
-            "distributed, production, performance, SQL/DataFrame, or Spark-replacement readiness."
+            "It links SourceState split/read tasks, local Vortex write/reopen proof, dynamic "
+            "activation/skipped evidence, and PulseWeave admission inside vortex_ingest when "
+            "activated without proving object-store, distributed, production, performance, "
+            "SQL/DataFrame, or Spark-replacement readiness."
         ),
     }
 
@@ -13534,6 +14858,21 @@ def vortex_capillary_preparation_matrix(
                 or result.get("execution_mode"),
                 "vortex_capillary_preparation_status": metrics.get(
                     "vortex_capillary_preparation_status"
+                ),
+                "vortex_capillary_preparation_activation_result": metrics.get(
+                    "vortex_capillary_preparation_activation_result"
+                ),
+                "vortex_capillary_preparation_activation_reason": metrics.get(
+                    "vortex_capillary_preparation_activation_reason"
+                ),
+                "vortex_capillary_preparation_activation_observed_bytes": metrics.get(
+                    "vortex_capillary_preparation_activation_observed_bytes"
+                ),
+                "vortex_capillary_preparation_activation_observed_rows": metrics.get(
+                    "vortex_capillary_preparation_activation_observed_rows"
+                ),
+                "vortex_capillary_preparation_activation_observed_split_count": metrics.get(
+                    "vortex_capillary_preparation_activation_observed_split_count"
                 ),
                 "vortex_capillary_preparation_task_count": metrics.get(
                     "vortex_capillary_preparation_task_count"
@@ -16286,8 +17625,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
         )
     except BenchmarkUnsupported as exc:
         return native_microbenchmark_suite_unavailable_rows("build_error", str(exc))
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    env = cargo_subprocess_env()
     rows = [
         run_shardloom_count_microbenchmark(root, env, binary, fixture, iterations),
         run_shardloom_vortex_run_microbenchmark(
@@ -16863,6 +18201,9 @@ def environment_report() -> dict[str, Any]:
 
 def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[str, Any]:
     build_evidence = build_profile_toolchain_evidence(args.shardloom_build_profile)
+    spark_lanes_included = any(
+        engine in SPARK_OPTIONAL_ENGINE_ORDER for engine in args.engine_list
+    )
     return {
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
@@ -16906,8 +18247,15 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "claim_grade_min_iterations": MIN_CLAIM_GRADE_ITERATIONS,
         "dask_blocksize": args.dask_blocksize,
         "dask_scheduler": args.dask_scheduler,
-        "spark_requires_java": True,
-        "spark_profiles": "spark-default local[*] with Spark defaults; spark-local-tuned local[*] with shuffle/default parallelism capped to local CPU count and AQE enabled",
+        "spark_lanes_included": spark_lanes_included,
+        "spark_requires_java": spark_lanes_included,
+        "spark_profiles": (
+            "pyspark local defaults; spark-default local[*] with Spark defaults; "
+            "spark-local-tuned local[*] with shuffle/default parallelism capped to local "
+            "CPU count and AQE enabled"
+            if spark_lanes_included
+            else "not_requested_by_current_full_local_profile"
+        ),
         "java_on_path": shutil.which("java") is not None,
         "java_home_set": bool(os.environ.get("JAVA_HOME")),
         "object_store_included": False,
@@ -17757,8 +19105,13 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ["Timing scope", str(params["timing_scope"])],
         ["Dask mode", f"blocksize={params['dask_blocksize']}, scheduler={params['dask_scheduler']}"],
         [
-            "Spark prerequisite",
-            f"requires Java; java_on_path={params['java_on_path']}, JAVA_HOME={params['java_home_set']}",
+            "Spark lanes included",
+            (
+                f"{params.get('spark_lanes_included', False)}; "
+                f"requires_java={params['spark_requires_java']}, "
+                f"java_on_path={params['java_on_path']}, "
+                f"JAVA_HOME={params['java_home_set']}"
+            ),
         ],
         ["Spark profiles", str(params["spark_profiles"])],
         ["Object store included", str(params["object_store_included"])],
@@ -18463,8 +19816,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "Work-avoidance evidence uses measured/not_available/unsupported/not_applicable statuses; missing rows skipped, segments pruned, bytes avoided, encoded-vector reuse, or pushdown proof values are never interpreted as zero.",
         "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
-        "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
-        "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
+        "Spark rows are not part of the current full-local publishing profile. If explicitly requested, pyspark, spark-default, and spark-local-tuned rows remain external-baseline-only and require a local Java/JDK setup.",
         "Stress rows are opt-in; they become meaningful Spark-style scale tests only with larger-than-memory data, stable cache policy, and explicit hardware/runtime settings.",
         "ShardLoom benchmark build time is excluded from per-scenario timing. Rows expose execution_mode, preparation_millis, total_runtime_millis, operator_compute_millis, source/import/write/reopen/scan fields, and whether preparation is included in timing.",
     ]
@@ -20003,6 +21355,14 @@ def render_vortex_capillary_preparation_matrix(artifact: dict[str, Any]) -> str:
                 row.get("status", "unknown"),
                 str(row.get("execution_mode", "unknown")),
                 str(row.get("vortex_capillary_preparation_status", "unknown")),
+                str(row.get("vortex_capillary_preparation_activation_result", "unknown")),
+                str(row.get("vortex_capillary_preparation_activation_reason", "unknown")).replace("|", "\\|"),
+                format_metric(
+                    row.get("vortex_capillary_preparation_activation_observed_bytes"),
+                    " B",
+                ),
+                str(row.get("vortex_capillary_preparation_activation_observed_rows", 0)),
+                str(row.get("vortex_capillary_preparation_activation_observed_split_count", 0)),
                 str(row.get("vortex_capillary_preparation_task_count", 0)),
                 str(row.get("vortex_capillary_preparation_task_roles", "none")).replace("|", "\\|"),
                 str(row.get("vortex_capillary_preparation_source_split_refs", "none")).replace("|", "\\|"),
@@ -20041,6 +21401,11 @@ def render_vortex_capillary_preparation_matrix(artifact: dict[str, Any]) -> str:
                 "missing",
                 "none",
                 "report_only",
+                "unknown",
+                "unknown",
+                "n/a",
+                "0",
+                "0",
                 "0",
                 "none",
                 "none",
@@ -20067,6 +21432,11 @@ def render_vortex_capillary_preparation_matrix(artifact: dict[str, Any]) -> str:
             "Status",
             "Mode",
             "Capillary status",
+            "Activation",
+            "Activation reason",
+            "Observed bytes",
+            "Observed rows",
+            "Observed splits",
             "Tasks",
             "Roles",
             "Source splits",
@@ -21384,20 +22754,32 @@ def main() -> int:
     global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE, SHARDLOOM_RESULT_SINK
     global SHARDLOOM_EVIDENCE_LEVEL
     args = parse_args()
+    print_benchmark_safety_notice(args)
     DASK_BLOCKSIZE = args.dask_blocksize
     DASK_SCHEDULER = args.dask_scheduler
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
     SHARDLOOM_RESULT_SINK = args.shardloom_result_sink
     SHARDLOOM_EVIDENCE_LEVEL = args.shardloom_evidence_level
     configure_java_home()
-    paths = ensure_dataset(
-        args.data_dir,
-        args.rows,
-        args.dim_rows,
-        args.regenerate,
-        args.format_list,
-        args.dataset_profile,
-    )
+    if args.regenerate:
+        with DatasetRegenerationLock(args.data_dir):
+            paths = ensure_dataset(
+                args.data_dir,
+                args.rows,
+                args.dim_rows,
+                args.regenerate,
+                args.format_list,
+                args.dataset_profile,
+            )
+    else:
+        paths = ensure_dataset(
+            args.data_dir,
+            args.rows,
+            args.dim_rows,
+            args.regenerate,
+            args.format_list,
+            args.dataset_profile,
+        )
     report_formats = report_format_order(args)
     scenario_order = expanded_scenario_order(report_formats, args.scenario_list)
     runners, missing = available_runners(args.engine_list)
@@ -21581,8 +22963,24 @@ def main() -> int:
             "fact_jsonl_parts_dir": str(paths.fact_jsonl_parts_dir)
             if paths.fact_jsonl_parts_dir is not None
             else None,
+            "fact_parquet_parts_dir": str(paths.fact_parquet_parts_dir)
+            if paths.fact_parquet_parts_dir is not None
+            else None,
+            "fact_arrow_ipc_parts_dir": str(paths.fact_arrow_ipc_parts_dir)
+            if paths.fact_arrow_ipc_parts_dir is not None
+            else None,
+            "fact_avro_parts_dir": str(paths.fact_avro_parts_dir)
+            if paths.fact_avro_parts_dir is not None
+            else None,
+            "fact_orc_parts_dir": str(paths.fact_orc_parts_dir)
+            if paths.fact_orc_parts_dir is not None
+            else None,
             "fact_csv_part_count": len(fact_part_paths(paths, "csv")),
             "fact_jsonl_part_count": len(fact_part_paths(paths, "jsonl")),
+            "fact_parquet_part_count": len(fact_part_paths(paths, "parquet")),
+            "fact_arrow_ipc_part_count": len(fact_part_paths(paths, "arrow-ipc")),
+            "fact_avro_part_count": len(fact_part_paths(paths, "avro")),
+            "fact_orc_part_count": len(fact_part_paths(paths, "orc")),
             "cdc_delta_csv": str(paths.cdc_delta_csv)
             if paths.cdc_delta_csv is not None and paths.cdc_delta_csv.exists()
             else None,
@@ -21685,14 +23083,14 @@ def main() -> int:
             "ShardLoom direct-transient rows currently cover scoped local CSV/JSONL plus feature-gated Parquet/Arrow IPC/Avro/ORC selective-filter and filter + projection + limit smoke paths and do not permit Vortex-native, SQL/DataFrame, or performance-superiority claims.",
             "ShardLoom native microbenchmark rows separately expose local Vortex scan filter/projection pushdown evidence; those rows are not a mature SQL/DataFrame/API benchmark surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
-            "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",
+            "Engine startup/warmup time is recorded separately from per-scenario timing. Spark lanes are not part of the current full-local publishing profile; when explicitly requested, they warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",
             "Peak memory is sampled process RSS when psutil is available and may miss short-lived spikes.",
             "ShardLoom traditional rows use the native Rust benchmark command, not the future SQL parser/dataframe API.",
             "This artifact is benchmark evidence only and does not permit performance or superiority claims by itself.",
         ],
     }
 
-    output_path = args.output or default_output_path()
+    output_path = args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(artifact, handle, indent=2, sort_keys=True)

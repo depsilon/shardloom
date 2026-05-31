@@ -39,7 +39,8 @@ The dry run performs these checks in order:
 - runs a scoped `ctx.range(...).write(local_jsonl)` engine-native generated-source output smoke from
   the clean installed wheel
 - runs `examples/local-vortex-benchmark/run.py` with the default compatibility-import plus
-  `shardloom-prepared-vortex` lanes
+  `shardloom-prepared-vortex` lanes under
+  `target/release-dry-run-proof/local-vortex-benchmark/<run-id>/`
 - runs `scripts/release_provenance_dry_run.py --skip-build`
 
 The transcript records command return codes, bounded stdout/stderr excerpts,
@@ -65,6 +66,9 @@ wheel_import_and_client_smoke_performed=true
 cli_status_smoke_performed=true
 cli_capabilities_smoke_performed=true
 local_python_example_smoke_performed=true
+local_python_user_surface_quickstart_performed=true
+local_python_result_and_evidence_printed=true
+local_python_unsupported_path_evidence_printed=true
 provenance_dry_run_performed=true
 sbom_checksum_manifest_generated=true
 clean_conda_env_install_status=passed | skipped_tool_missing | skipped_by_request | failed
@@ -95,6 +99,12 @@ The clean venv proof installs only the exact ShardLoom wheel built during the cu
 Benchmark comparison engines remain optional benchmark/dev dependencies and are not installed by
 this proof. The local benchmark smoke is launched through the clean venv interpreter so wrapper
 import behavior is checked from the installed artifact, not the host Python environment.
+
+The local Python smoke is no longer only import/status evidence. It creates a tiny local CSV,
+runs the first user-facing `ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow,
+prints one result row plus compact evidence/claim fields, runs a scoped generated-source write, and
+prints a deterministic unsupported materialization blocker with
+`fallback_attempted=false` and `external_engine_invoked=false`.
 
 The generated-source output smokes are deliberately distinct from no-dataset smoke. They write
 local JSONL files under `target/release-dry-run-proof/`, emit

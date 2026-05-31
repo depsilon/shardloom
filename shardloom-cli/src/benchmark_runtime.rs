@@ -25,6 +25,46 @@ use crate::{
     vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
 };
 
+fn upsert_report_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    if let Some((_, existing)) = fields.iter_mut().find(|(field, _)| field == key) {
+        *existing = value.to_string();
+    } else {
+        fields.push((key.to_string(), value.to_string()));
+    }
+}
+
+fn record_evidence_render_timing(fields: &mut Vec<(String, String)>, elapsed: Duration) {
+    let micros = duration_micros(elapsed).to_string();
+    let status = "rust_cli_report_fields_and_human_text_measured";
+    let mut status_keys = Vec::new();
+    let mut saw_top_level = false;
+    for (key, value) in fields.iter_mut() {
+        if key == "evidence_render_micros" || key.ends_with("_evidence_render_micros") {
+            if key == "evidence_render_micros" {
+                saw_top_level = true;
+            }
+            value.clone_from(&micros);
+            let status_key = if key == "evidence_render_micros" {
+                "evidence_render_timing_status".to_string()
+            } else {
+                format!(
+                    "{}evidence_render_timing_status",
+                    key.strip_suffix("evidence_render_micros")
+                        .unwrap_or_default()
+                )
+            };
+            status_keys.push(status_key);
+        }
+    }
+    if !saw_top_level {
+        fields.push(("evidence_render_micros".to_string(), micros));
+        status_keys.push("evidence_render_timing_status".to_string());
+    }
+    for key in status_keys {
+        upsert_report_field(fields, &key, status);
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_traditional_analytics_run(
     mut args: std::vec::IntoIter<String>,
@@ -279,14 +319,18 @@ pub(crate) fn handle_traditional_analytics_run(
                     );
                 }
             };
+        let evidence_render_start = Instant::now();
+        let human_text = report.to_human_text();
+        let mut fields = report.fields();
+        record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
         emit(
             "traditional-analytics-run",
             format,
             CommandStatus::Success,
             "direct compatibility transient local-input smoke".to_string(),
-            report.to_human_text(),
+            human_text,
             report.diagnostics.clone(),
-            report.fields(),
+            fields,
         );
         return ExitCode::SUCCESS;
     }
@@ -301,14 +345,18 @@ pub(crate) fn handle_traditional_analytics_run(
             );
         }
     };
+    let evidence_render_start = Instant::now();
+    let human_text = report.to_human_text();
+    let mut fields = report.fields();
+    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
     emit(
         "traditional-analytics-run",
         format,
         CommandStatus::Success,
         "traditional analytics universal I/O smoke".to_string(),
-        report.to_human_text(),
+        human_text,
         report.diagnostics.clone(),
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -532,14 +580,18 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
             );
         }
     };
+    let evidence_render_start = Instant::now();
+    let human_text = report.to_human_text();
+    let mut fields = report.fields();
+    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
     emit(
         "traditional-analytics-vortex-run",
         format,
         CommandStatus::Success,
         "traditional analytics native Vortex smoke".to_string(),
-        report.to_human_text(),
+        human_text,
         report.diagnostics.clone(),
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -691,14 +743,18 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
             );
         }
     };
+    let evidence_render_start = Instant::now();
+    let human_text = report.to_human_text();
+    let mut fields = report.fields();
+    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
     emit(
         "traditional-analytics-vortex-batch-run",
         format,
         CommandStatus::Success,
         "traditional analytics native Vortex batch smoke".to_string(),
-        report.to_human_text(),
+        human_text,
         report.diagnostics.clone(),
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -897,14 +953,18 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
             );
         }
     };
+    let evidence_render_start = Instant::now();
+    let human_text = report.to_human_text();
+    let mut fields = report.fields();
+    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
     emit(
         "traditional-analytics-prepare-batch-run",
         format,
         CommandStatus::Success,
         "traditional analytics prepare-once batch smoke".to_string(),
-        report.to_human_text(),
+        human_text,
         report.diagnostics(),
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }

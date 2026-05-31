@@ -7,8 +7,8 @@ Spark, DataFusion, DuckDB, Polars, pandas, Foundry, object stores, or network
 services. The fastest complete path is the local release dry run below: it
 builds source artifacts, installs the exact local wheel in a clean virtual
 environment, runs smoke checks, writes scoped generated-source local outputs,
-runs a tiny compatibility/prepared-Vortex benchmark smoke, and records the
-evidence transcript.
+runs a tiny compatibility/prepared-Vortex benchmark smoke under an isolated
+per-run benchmark directory, and records the evidence transcript.
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
@@ -51,7 +51,13 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The script imports the Python wrapper, runs status, smoke, and capability
-checks, and exits nonzero if fallback is attempted.
+checks, creates `target/local-python-smoke/orders.csv`, runs a scoped
+`ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow, runs a
+scoped generated-source write, and prints result plus evidence markers such as
+`quickstart_result_row_id`, `quickstart_output_row_count`,
+`quickstart_claim_gate_status`, and `quickstart_unsupported_blocker_id`. It
+exits nonzero if fallback or external-engine execution is attempted, if the
+admitted workflow emits no row, or if the unsupported path lacks a blocker.
 
 ## 4. Inspect The Current Certified Slice
 

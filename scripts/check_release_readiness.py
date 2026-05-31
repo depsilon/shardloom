@@ -11,11 +11,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 from check_benchmark_artifact_completeness import (
     validate_manifest as validate_benchmark_artifact_completeness,
+)
+from check_benchmark_publication_claim_gate import (
+    validate_publication_claim_gate as validate_benchmark_publication_claim_gate,
 )
 from check_runtime_execution_envelopes import (
     validate_repo as validate_runtime_execution_envelope_surfaces,
@@ -94,6 +102,16 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/production-usability-gate.json"),
     )
     parser.add_argument(
+        "--python-user-surface-report",
+        type=Path,
+        default=Path("target/python-user-surface-completion-gate.json"),
+    )
+    parser.add_argument(
+        "--pre-5j-dependency-report",
+        type=Path,
+        default=Path("target/pre-5j-dependency-freshness-gate.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -136,6 +154,8 @@ def main() -> int:
     architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
     production_usability_report_path = resolve(repo_root, args.production_usability_report)
+    python_user_surface_report_path = resolve(repo_root, args.python_user_surface_report)
+    pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
 
     checks: list[dict[str, Any]] = []
 
@@ -709,6 +729,14 @@ def main() -> int:
             benchmark_constitution_blockers.append(
                 f"benchmark artifact completeness: {blocker}"
             )
+        publication_claim_gate = validate_benchmark_publication_claim_gate(
+            benchmark_manifest_path,
+            repo_root=repo_root,
+        )
+        for blocker in publication_claim_gate.get("blockers", []):
+            benchmark_constitution_blockers.append(
+                f"benchmark publication claim gate: {blocker}"
+            )
         for required in [
             "benchmark_constitution_schema_version",
             "benchmark_constitution_validator",
@@ -801,6 +829,95 @@ def main() -> int:
         )
     )
 
+    python_user_surface = load_json(python_user_surface_report_path)
+    python_user_surface_blockers: list[str] = []
+    if python_user_surface is None:
+        python_user_surface_blockers.append("missing Python user-surface completion gate report")
+    else:
+        if (
+            python_user_surface.get("schema_version")
+            != "shardloom.python_user_surface_completion_gate.v1"
+        ):
+            python_user_surface_blockers.append(
+                "Python user-surface schema_version="
+                + str(python_user_surface.get("schema_version", "missing"))
+            )
+        if python_user_surface.get("status") != "passed":
+            python_user_surface_blockers.extend(
+                python_user_surface.get(
+                    "blockers", ["Python user-surface completion gate blocked"]
+                )
+            )
+        if python_user_surface.get("scoped_python_front_door_claim_allowed") is not True:
+            python_user_surface_blockers.append(
+                "Python user-surface scoped_python_front_door_claim_allowed must be true"
+            )
+        for field in [
+            "production_sql_dataframe_claim_allowed",
+            "spark_compatibility_claim_allowed",
+            "package_publication_claim_allowed",
+            "performance_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if python_user_surface.get(field) is not False:
+                python_user_surface_blockers.append(
+                    f"Python user-surface {field} must be false"
+                )
+        if python_user_surface.get("claim_gate_status") != "not_claim_grade":
+            python_user_surface_blockers.append(
+                "Python user-surface claim_gate_status="
+                + str(python_user_surface.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "python_user_surface_completion_gate",
+            str(args.python_user_surface_report).replace("\\", "/"),
+            python_user_surface_blockers,
+        )
+    )
+
+    pre_5j_dependency = load_json(pre_5j_dependency_report_path)
+    pre_5j_dependency_blockers: list[str] = []
+    if pre_5j_dependency is None:
+        pre_5j_dependency_blockers.append("missing pre-5J dependency freshness gate report")
+    else:
+        if (
+            pre_5j_dependency.get("schema_version")
+            != "shardloom.pre_5j_dependency_freshness_gate.v1"
+        ):
+            pre_5j_dependency_blockers.append(
+                "pre-5J dependency schema_version="
+                + str(pre_5j_dependency.get("schema_version", "missing"))
+            )
+        if pre_5j_dependency.get("status") != "passed":
+            pre_5j_dependency_blockers.extend(
+                pre_5j_dependency.get("blockers", ["pre-5J dependency freshness gate blocked"])
+            )
+        if pre_5j_dependency.get("benchmark_run_performed") is not False:
+            pre_5j_dependency_blockers.append(
+                "pre-5J dependency benchmark_run_performed must be false"
+            )
+        for field in [
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if pre_5j_dependency.get(field) is not False:
+                pre_5j_dependency_blockers.append(f"pre-5J dependency {field} must be false")
+    checks.append(
+        check(
+            "pre_5j_dependency_freshness_gate",
+            str(args.pre_5j_dependency_report).replace("\\", "/"),
+            pre_5j_dependency_blockers,
+        )
+    )
+
     validation_commands = [
         "cargo fmt --all -- --check",
         "cargo clippy --workspace --all-targets -- -D warnings",
@@ -820,8 +937,11 @@ def main() -> int:
         "python scripts/check_website_readiness.py",
         "python scripts/check_benchmark_constitution.py",
         "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json",
+        "python scripts/check_pre_5j_dependency_freshness.py",
+        "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
         "python scripts/final_release_rehearsal.py --allow-blocked",
         "python scripts/check_production_usability_gate.py",
+        "python scripts/check_python_user_surface_completion.py",
     ]
     validation_blockers = []
     if validation_evidence is None:

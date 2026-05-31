@@ -349,7 +349,7 @@ pub fn local_primitive_execution_certificate(
     let mut input = ExecutionCertificateInput::new(certificate_id, execution_kind)?;
     input.execution_provider_kind = ExecutionProviderKind::VortexScan;
     input.provider_crate = Some("vortex".to_string());
-    input.provider_version = Some("0.72".to_string());
+    input.provider_version = Some("0.73".to_string());
     input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
     input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some(format!("vortex-run:{}", report.primitive_kind.as_str()));

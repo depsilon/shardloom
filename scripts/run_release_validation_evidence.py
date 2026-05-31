@@ -102,10 +102,27 @@ REQUIRED_VALIDATION_COMMANDS = [
         ],
     ),
     (
+        "pre_5j_dependency_freshness_gate",
+        [sys.executable, "scripts/check_pre_5j_dependency_freshness.py"],
+    ),
+    (
+        "benchmark_publication_claim_gate",
+        [
+            sys.executable,
+            "scripts/check_benchmark_publication_claim_gate.py",
+            "--manifest",
+            "website/assets/benchmarks/latest/manifest.json",
+        ],
+    ),
+    (
         "final_release_rehearsal",
         [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
     ),
     ("production_usability_gate", [sys.executable, "scripts/check_production_usability_gate.py"]),
+    (
+        "python_user_surface_completion_gate",
+        [sys.executable, "scripts/check_python_user_surface_completion.py"],
+    ),
 ]
 
 

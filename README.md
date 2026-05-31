@@ -108,6 +108,9 @@ result = (
 )
 
 print(result.output_row_count)
+print(result.first_result_row)
+print(result.evidence_summary.output_path)
+print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
@@ -122,6 +125,15 @@ manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, ce
 no-fallback evidence internally. Lower-level helpers such as explicit `prepare_vortex(...)`,
 runtime-envelope inspection, and session evidence are engine-development and diagnostic surfaces,
 not the normal path for using ShardLoom.
+
+Unsupported convenience materializations also return deterministic evidence instead of delegating
+to pandas, Polars, Spark, DataFusion, DuckDB, or another engine:
+
+```python
+unsupported = ctx.read("target/orders.csv").select("id").to_pandas()
+print(unsupported.blocker_id)
+print(unsupported.fallback_attempted, unsupported.external_engine_invoked)
+```
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.

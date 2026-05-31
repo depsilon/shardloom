@@ -24,7 +24,7 @@
   ],
   "claim_boundary": "Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.",
   "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
-  "expected_output_evidence": "A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.",
+  "expected_output_evidence": "A per-run target/local-vortex-benchmark/<run-id>/smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.",
   "common_mistakes": [
     "reading_compatibility_import_as_pure_query_speed",
     "expecting_s3_io",

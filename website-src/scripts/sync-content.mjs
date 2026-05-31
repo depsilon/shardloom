@@ -36,6 +36,23 @@ function cleanGenerated(directory) {
   fs.mkdirSync(directory, { recursive: true });
 }
 
+function syncBenchmarkRowChunks() {
+  fs.mkdirSync(legacyWebsiteBenchmarkRoot, { recursive: true });
+  for (const entry of fs.readdirSync(legacyWebsiteBenchmarkRoot, { withFileTypes: true })) {
+    if (entry.isFile() && /^published-benchmark-rows-\d+\.json$/.test(entry.name)) {
+      fs.rmSync(path.join(legacyWebsiteBenchmarkRoot, entry.name), { force: true });
+    }
+  }
+  for (const entry of fs.readdirSync(publicBenchmarkRoot, { withFileTypes: true })) {
+    if (entry.isFile() && /^published-benchmark-rows-\d+\.json$/.test(entry.name)) {
+      fs.copyFileSync(
+        path.join(publicBenchmarkRoot, entry.name),
+        path.join(legacyWebsiteBenchmarkRoot, entry.name),
+      );
+    }
+  }
+}
+
 function syncSourceOfTruthData() {
   const canonicalFlow = fs.readFileSync(
     path.join(repoRoot, "docs", "architecture", "compute-engine-flow-reference.md"),
@@ -77,6 +94,7 @@ function syncSourceOfTruthData() {
   );
   write(path.join(dataRoot, "benchmark-manifest.json"), benchmarkManifest);
   write(path.join(legacyWebsiteBenchmarkRoot, "manifest.json"), benchmarkManifest);
+  syncBenchmarkRowChunks();
 }
 
 function yamlStringList(values) {

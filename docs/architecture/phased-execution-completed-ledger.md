@@ -16,6 +16,144 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5J full-local benchmark publication refresh and completion
+      gate baseline
+  - Date: 2026-05-31
+  - Branch/PR: local main working tree / no new PR opened.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate`.
+    - Static benchmark publishing runbook.
+    - Pre-5J dependency freshness, runtime-promotion, benchmark constitution, website readiness,
+      and publication claim gates.
+  - Scope:
+    - Refreshed the current public benchmark profile to `full_local` with the non-Spark local
+      comparative roster: `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`,
+      `shardloom-prepare-batch`, pandas, Polars eager/lazy, DuckDB, DataFusion, and Dask.
+    - Kept Spark/PySpark lanes explicit-only historical baselines through
+      `requirements-spark.txt` and `full_local_plus_spark`, not part of the current published
+      `full_local` profile.
+    - Ran the isolated full-local benchmark refresh with CSV, JSONL, Parquet, Arrow IPC, Avro, and
+      ORC across the required local lanes and promoted the resulting artifact into the website and
+      website-public benchmark data.
+    - Closed the prior external-lane harness omissions for Polars eager/lazy, DuckDB, DataFusion,
+      and Dask across partition pruning, many-small-files, null-heavy, high-cardinality, clean/cast,
+      malformed timestamp/dirty CSV, CDC/small-change, and nested JSON scenarios. The only remaining
+      unsupported external rows are DataFusion nested JSON field scan rows across six formats, with
+      the explicit engine-profile reason that DataFusion 50.1.0 Python SQL exposes no JSON
+      extraction function in this benchmark profile.
+    - Updated publication/runtime validators and contract tests so `full_local` no longer requires
+      Spark lanes and so explicit Spark support remains gated to `full_local_plus_spark`.
+    - Added `scripts/check_compute_engine_completion_gate.py` and focused tests to make the broader
+      "no gaps / no blockers / no unsupported anywhere" objective measurable after 5J. The gate is
+      intentionally blocked against current evidence and becomes the next runtime burn-down driver.
+  - Artifact refs:
+    - Full benchmark run:
+      `target/benchmark-artifacts/codex-5j-full-local-external-fix-20260531T152911Z/traditional-full-local-broad.json`
+    - Published manifest: `website/assets/benchmarks/latest/manifest.json`
+    - Published results: `website/assets/benchmarks/latest/benchmark-results.json`
+    - Publication claim-gate report: `target/benchmark-publication-claim-gate-report-full-local.json`
+    - Completion gate report: `target/compute-engine-completion-gate.json`
+  - Evidence:
+    - `full_local` publication gate passed with 480 ShardLoom rows, 480 successful ShardLoom rows,
+      480 `claim_grade` ShardLoom rows, and 480 runtime-validation `passed` rows.
+    - External baselines were 120 rows each for pandas, Polars eager, Polars lazy, DuckDB,
+      DataFusion, and Dask. DataFusion had 114 success rows and 6 explicit unsupported nested JSON
+      rows; all other non-Spark external rows succeeded.
+    - Pre-5J dependency freshness passed with two open Dependabot PRs noted by the live GitHub
+      check.
+    - The completion gate baseline reported the remaining full-engine blockers: 53 unchecked global
+      architecture review items and 6,696 residual ShardLoom benchmark substatus blockers, while
+      top-level ShardLoom benchmark rows had zero status/claim/runtime blockers and zero
+      fallback/external-invocation blockers.
+  - Claim boundary:
+    - Local workload-scoped benchmark publication evidence only. This does not authorize public
+      package publication, production-readiness, performance/superiority, Spark replacement,
+      object-store/lakehouse, Foundry production, REST/server, or "entire engine complete" claims.
+      The new completion gate explicitly keeps the whole-engine completion claim blocked until all
+      residual evidence gaps are closed.
+  - Verification:
+    - `target/bench-venv/bin/python -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py scripts/check_benchmark_publication_claim_gate.py scripts/check_runtime_promotion_evidence.py scripts/check_compute_engine_completion_gate.py python/tests/test_release_scripts.py python/tests/test_compute_engine_completion_gate.py`
+    - `target/bench-venv/bin/python -m unittest python.tests.test_release_scripts`
+    - `target/bench-venv/bin/python -m unittest python.tests.test_compute_engine_completion_gate`
+    - `target/bench-venv/bin/python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `target/bench-venv/bin/python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree --output target/benchmark-publication-claim-gate-report-full-local.json`
+    - `target/bench-venv/bin/python scripts/check_benchmark_constitution.py`
+    - `target/bench-venv/bin/python scripts/check_pre_5j_dependency_freshness.py --require-live-github`
+    - `target/bench-venv/bin/python scripts/check_runtime_promotion_evidence.py`
+    - `target/bench-venv/bin/python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+
+- [x] Session label: PR-964-plus review-comment closeout and pre-5J benchmark-safety confirmation
+  - Date: 2026-05-31
+  - Branch/PR: local pre-5J working tree / no new PR opened.
+  - Source:
+    - PR #964 and later Codex review comments.
+    - `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate`.
+    - Pre-5J benchmark-safety, capillary activation, Dependabot intake, and Python user-surface
+      closeouts.
+  - Scope:
+    - Audited PR #964 through #980 comments against the current tree before resuming phase work.
+      Existing local fixes already covered UDF overflow evidence, regex identifier parsing,
+      encoded/partial-decode hybrid profile requirements, benchmark promoter cold-lane demotion,
+      preparation-spine inactive-row defaults, differential ingest preflight ordering, capillary
+      `none` manifest refs, delta scout failure attribution, Foundry stale part cleanup, and
+      website start-page prerequisite ordering.
+    - Strengthened the local SQLite import/export smoke so `roundtrip_replay_verified` is backed by
+      canonical typed row-content digests, explicit source/roundtrip content digest fields, and a
+      `canonical_typed_row_digest` verification method instead of relying on row-count evidence.
+    - Removed explicit Dependabot labels from `.github/dependabot.yml` so open dependency update PRs
+      are not blocked by missing repository labels.
+    - Reconfirmed the pre-5J dependency freshness gate against live GitHub state. Dependabot PRs
+      #979 and #980 are incorporated by the current dependency intake; benchmark refresh remains
+      allowed by dependency state but still requires separate user benchmark authorization.
+    - Hardened `scripts/check_benchmark_publication_claim_gate.py` so the 5J publication gate now
+      requires row-backed CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC coverage for each required
+      ShardLoom publication lane. `format_order` declarations and external baseline rows can no
+      longer satisfy ShardLoom broad-format coverage. External rows must remain
+      `external_baseline_only=true` and cannot satisfy ShardLoom claim-grade requirements.
+      Runtime execution-envelope validation is recomputed from each published ShardLoom row rather
+      than trusted from cached artifact fields, and claim-grade rows must recompute to
+      `runtime_claim_allowed=true`. The promoter now preserves claim-grade reproducibility and
+      correctness proof fields in public rows (`iterations`, minimum iterations, stable correctness
+      digest, reproducibility status, timing-row status, and timing claim status), and the
+      publication gate independently requires those fields plus complete cold-lane attribution and
+      result-sink replay proof before a successful ShardLoom row can satisfy publication. The
+      promoter also converts local artifact paths to portable `local-artifact-ref:sha256:*` tokens,
+      and the publication gate blocks public JSON that still exposes workstation-local paths.
+    - Clarified the active 5J phase plan so benchmark safety, dynamic capillary activation,
+      Dependabot intake, Python user-surface completion, and PR #964+ review-comment audit are
+      completed prerequisites, not recurring blockers to revisit before the next authorized
+      benchmark refresh.
+  - Claim boundary:
+    - Review-comment and benchmark-safety closeout only. No benchmark workload was run, no benchmark
+      artifact was refreshed, no package/release was published, no public performance or
+      Spark-replacement claim was made, and no external engine was invoked as ShardLoom fallback.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-vortex --features vortex-write capillary_preparation_blocks_none_source_split_refs_as_missing_manifest`
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_foundry_style_dataset_rewrite_removes_stale_parts python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_preserves_claim_grade_readiness python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_accepts_current_dependabot_prs`
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-gate-live.json`
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion.json`
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --pre-5j-dependency-report target/pre-5j-dependency-freshness-gate-live.json --output target/benchmark-publication-claim-gate-static.json --allow-dirty-worktree --allow-stale-git` returned the expected blocked status for the stale committed benchmark bundle: missing broad-format public coverage, blocked/non-claim-grade ShardLoom rows, missing claim-grade requirements, and missing capillary activation evidence.
+    - Focused benchmark-publication claim-gate tests prove that claim-grade rows must be row-backed
+      across every required ShardLoom engine/format cell and that external rows cannot stand in for
+      ShardLoom broad-format coverage.
+    - Focused runtime revalidation coverage proves that a hand-edited row with cached
+      `runtime_execution_validation_status=passed` is blocked when its published fields do not
+      satisfy the runtime envelope validator.
+    - Focused independent claim-proof coverage proves that a runtime-envelope-valid row with
+      `claim_grade_requirements_met=true` is still blocked when the published row omits iterations,
+      stable correctness digest, cold-lane completion, timing, or replay proof.
+    - Focused portable-artifact-ref coverage proves that local paths are redacted by the promoter
+      and blocked by the publication gate if they appear in public rows.
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q clean install production usability
       and website learning gate
   - Date: 2026-05-28
@@ -31462,6 +31600,157 @@ the current queue; promote any actionable unfinished work into Planned before im
 - [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro,
       and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing while
       production adapter certification remains deferred.
+- [x] GAR-BENCH-SAFETY-1 benchmark/release smoke concurrency and laptop-safe preflight closes the
+      pre-5J benchmark-safety blocker without running benchmarks. `examples/local-vortex-benchmark`
+      now defaults to per-run output/data directories under `target/local-vortex-benchmark/<run-id>`
+      and holds a per-run lock; the release dry-run routes its local Vortex smoke under
+      `target/release-dry-run-proof/local-vortex-benchmark/<run-id>`. Direct
+      `benchmarks/traditional_analytics/run.py --regenerate` runs derive an isolated generated-data
+      directory from the output artifact unless `--data-dir` is explicit, hold an adjacent
+      regeneration lock around destructive dataset rebuilds, and print a safety notice when the
+      full default engine roster is selected. Unsafe cases covered: fixed wrapper output path,
+      shared generated-data regeneration, overlapping same-data-dir regeneration, and accidental
+      direct full-roster invocation. Safe examples are documented in
+      `examples/local-vortex-benchmark/README.md`,
+      `docs/benchmarks/local-taxonomy-benchmark.md`,
+      `benchmarks/traditional_analytics/README.md`, and release/getting-started docs. Verification
+      used command-construction and lock tests plus Python syntax/static checks only; no benchmark
+      workload was run and no external baseline engine was invoked.
+- [x] GAR-CAPILLARY-ACTIVATION-1 dynamic capillary activation and evidence continuity closes the
+      pre-5J capillary-overhead blocker without running benchmarks. Vortex ingest capillary reports
+      now emit `dynamic_size_complexity_gate.v1` activation fields for policy, result, reason,
+      thresholds, observed bytes/rows/columns/splits, estimated memory pressure, format family,
+      operation class, certification depth, and result-sink/replay status. Tiny local fixture rows
+      can record `not_requested_below_threshold`, `activation_result=skipped`, `task_count=0`,
+      `task_manifest_id=none`, `pulseweave_status=not_requested`, and no-fallback/no-external-engine
+      evidence without building the six-task graph. Large/complex/claim rows activate on
+      `source_byte_count >= 64MiB`, `row_count >= 1_000_000`, `source_split_count >= 8`,
+      `column_count >= 64`, row-column product >= 32,000,000, estimated memory pressure at or above
+      25% of the budget, result-sink/replay evidence, claim-evidence requests, or complex operation
+      classes such as prepare-batch, many-small-files, CDC, group/join/window/stress, wide-table,
+      null-heavy, or high-cardinality. Verification covered feature-gated Rust capillary unit tests,
+      feature-gated CLI Vortex ingest smoke evidence, Python syntax checks, and use-case/doc source
+      cleanup only; no benchmark workload was run and no external baseline engine was invoked.
+- [x] GAR-DEPENDENCY-INTAKE-1 Dependabot dependency intake before benchmark-publication refresh
+      closes the pre-5J stale-dependency blocker without running benchmarks. Dependabot PR #979
+      was admitted by updating the optional `shardloom-vortex` upstream dependency to
+      `vortex = "0.73"` with `Cargo.lock` resolving the Vortex crate family to `0.73.0`.
+      `cargo info vortex@0.73.0` records license `Apache-2.0`, Rust version `1.91.0`, versioned
+      docs, crates.io, and upstream repository refs. Current ShardLoom Vortex provider-version
+      evidence was refreshed from `0.72` to `0.73` across compatibility, compute-provider,
+      source/split, source-backed, local primitive, runtime-utilization, and preparation-spine
+      rows without admitting new Vortex runtime APIs, object-store/table execution, package
+      publication, performance claims, or fallback execution. Dependabot PR #980 was admitted by
+      updating `shardloom-cli` to `rusqlite 0.40.0` and `libsqlite3-sys 0.38.0`; ShardLoom tightens
+      the manifest to `default-features = false, features = ["bundled"]` because the local SQLite
+      fixture uses only basic local-file APIs, not `prepare_cached` or wasm SQLite support. The
+      host-target normal dependency tree therefore excludes `hashlink`, `sqlite-wasm-rs`,
+      `rsqlite-vfs`, `wasm-bindgen`, and `js-sys`. License/provenance posture is Apache-2.0 for
+      Vortex and MIT for rusqlite/libsqlite3-sys, both compatible with current policy. Verification
+      covered `cargo fmt --all -- --check`, default and `vortex-write` CLI checks,
+      `shardloom-vortex --features vortex-traditional-analytics-benchmark` check-only validation,
+      default and `vortex-write` clippy for affected crates, SQLite fixture snapshot tests, Vortex
+      compatibility/provider/source-backed/capillary focused tests, feature-gated Vortex ingest
+      smokes, non-release dependency audit report, release architecture tracker, and
+      `git diff --check`. No benchmark workload was run, no package/release was published, and no
+      Spark/DataFusion/DuckDB/Polars/Velox/vortex-datafusion runtime fallback dependency was added.
+- [x] GAR-RUNTIME-IMPL-5J-A static benchmark publication claim gate validator advances the 5J
+      benchmark-publishing closeout without running benchmarks. Added
+      `scripts/check_benchmark_publication_claim_gate.py` with schema
+      `shardloom.benchmark_publication_claim_gate.v1` to read the committed website benchmark
+      manifest/result bundle and fail closed when artifact Git SHAs do not match current HEAD, the
+      worktree is dirty, generated-at timestamps are stale or invalid, CSV/Parquet/JSONL/Arrow
+      IPC/Avro/ORC publication coverage is missing, required ShardLoom/Spark profile lanes are not
+      visible, ShardLoom rows are blocked or non-claim-grade, claim-grade requirements are missing,
+      no-fallback/no-external-engine fields are absent, or capillary activation evidence is absent.
+      The hard release-readiness aggregator, release validation evidence runner, CI matrix contract,
+      release-readiness workflow artifact upload, static benchmark publishing runbook, hard release
+      gate docs, and CI gate matrix docs now include the claim gate. Current local execution of the
+      gate correctly reports `status=blocked` for the stale `full_local_plus_spark` website bundle:
+      old benchmark Git SHA, dirty worktree, missing JSONL/Arrow IPC/Avro/ORC coverage, 64 blocked
+      ShardLoom rows, non-claim-grade ShardLoom rows, missing claim-grade requirements, and 160
+      ShardLoom rows missing capillary activation evidence. This is a validator/evidence slice only;
+      no benchmark workload was run, no benchmark artifact was refreshed, no performance claim was
+      made, no package/release was published, and no external engine was invoked as ShardLoom
+      fallback.
+- [x] GAR-USER-SURFACE-1C local Python/SQL/DataFrame quickstart and evidence ergonomics closeout
+      closes the first-run user-surface gap without running benchmarks. The local Python smoke now
+      creates `target/local-python-smoke/orders.csv`, runs the normal `ctx.read(...).filter(...)
+      .select(...).write_jsonl(...)` path, prints `quickstart_result_row_id`,
+      `quickstart_output_row_count`, compact evidence/claim fields, and no-fallback/
+      no-external-engine markers, then runs a scoped `ctx.from_rows(...).with_column(...)
+      .write_jsonl(...)` generated-source path. Unsupported materialization now exposes
+      `UnsupportedWorkflowOperationReport.external_engine_invoked`, and the smoke prints
+      `quickstart_unsupported_blocker_id` plus runtime/data/write/fallback/external-engine false
+      markers instead of silently routing to pandas or another engine. The release dry-run
+      transcript records `local_python_user_surface_quickstart_performed`,
+      `local_python_result_and_evidence_printed`, and
+      `local_python_unsupported_path_evidence_printed`; package-channel and production-usability
+      gates require those fields. README, Python README, first-10-minutes, release dry-run, and
+      production-usability docs now show the first workflow, evidence accessors, and unsupported
+      blocker shape. Verification covered Python syntax checks, local Python smoke fake-CLI proof,
+      release dry-run transcript marker proof, production usability metadata tests, and no-fallback
+      unsupported-path assertions; no benchmark workload was run, no package/release was published,
+      and no pandas/Polars/Spark/DataFusion/DuckDB fallback was added.
+- [x] GAR-USER-SURFACE-1D PySpark-like surface completion validator closes the scoped Python
+      front-door claim backstop without running benchmarks. Added
+      `scripts/check_python_user_surface_completion.py` with schema
+      `shardloom.python_user_surface_completion_gate.v1` to fail closed unless the release dry-run
+      transcript proves import/context plus the local Python quickstart, result/evidence markers,
+      generated-source user/range smokes, deterministic unsupported-path evidence, and
+      no-fallback/no-external-engine fields. The validator imports the typed DataFrame method
+      matrix and checks the scoped local query-builder methods, `ctx.sql`, source-free generated
+      output methods, and unsupported materialization/input/display rows for blocker IDs, required
+      evidence, claim boundaries, and `claim_gate_status=not_claim_grade`. It also checks
+      README/Python README/first-10-minutes/website claim language, source/test anchors, runs-today
+      public-claim blockers, and any attached production-usability report for overclaim drift. The
+      release-readiness aggregator, release validation evidence runner, CI matrix contract,
+      release-readiness workflow artifact upload, CI gate matrix docs, hard release-readiness docs,
+      website start page, and phase plan now include the gate. The completion matrix records
+      install/import/context, DataFrame/query-builder, generated output, `ctx.sql`, unsupported
+      paths, session, docs/website, source/tests, runs-today, and production-usability overclaim
+      guard rows. The scoped Python front-door claim is allowed only when the gate passes; Spark
+      compatibility, broad production SQL/DataFrame, package publication, performance, fallback,
+      and external-engine claims remain false. Current default local execution correctly blocks
+      when `target/release-dry-run-proof/transcript.json` is absent, while focused tests prove the
+      scoped pass path and missing unsupported-proof block. This is a release/usability evidence
+      validator only; no benchmark workload was run, no package/release was published, and no
+      pandas/Polars/Spark/DataFusion/DuckDB fallback was added.
+- [x] GAR-RUNTIME-IMPL-5J-B pre-5J dependency freshness gate closes the remaining dependency-state
+      ambiguity before benchmark-publication refresh without running benchmarks. Added
+      `scripts/check_pre_5j_dependency_freshness.py` with schema
+      `shardloom.pre_5j_dependency_freshness_gate.v1`. The default CI-safe mode verifies that the
+      admitted Dependabot PRs are reflected in `shardloom-vortex/Cargo.toml`,
+      `shardloom-cli/Cargo.toml`, `Cargo.lock`, and dependency review docs, and that runtime
+      manifests still contain no forbidden fallback-engine dependencies. The live mode
+      `--require-live-github` queries open Dependabot PRs for `depsilon/shardloom`, blocks unknown
+      or unincorporated dependency PRs, and is now required by the benchmark publication claim gate
+      before `benchmark_refresh_allowed=true`. The current admitted set is PR #979 for
+      `vortex = 0.73` / Vortex `0.73.0` and PR #980 for `rusqlite = 0.40.0` plus
+      `libsqlite3-sys = 0.38.0`, with SQLite `default-features = false` and
+      `features = ["bundled"]`. The release-readiness aggregator, release validation evidence
+      runner, CI matrix contract, release-readiness workflow artifact upload, CI gate matrix docs,
+      hard release-readiness docs, static benchmark publishing runbook, and phase-plan 5J
+      dependencies now include the preflight. The gate reports `benchmark_run_performed=false`,
+      `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`; no benchmark workload was
+      run, no benchmark artifact was refreshed, no package/release was published, and no fallback
+      dependency or external-engine execution path was added.
+- [x] GAR-IOREUSE-1M scoped local SinkArtifact evidence normalization strengthens the local
+      output/fanout proof before any later benchmark refresh. Scoped local SQL/Python and
+      source-free generated-output writes now emit first-class `sink_artifact_count`,
+      `sink_artifact_ref`, `sink_artifact_refs`, `sink_artifact_digest`,
+      `sink_artifact_digests`, format, byte, replay, Native I/O certificate, workspace-safety,
+      commit-mode, and manifest-status fields across primary and fanout local sinks, and the typed
+      output envelope now attaches individual `artifact_refs` with `kind=sink_artifact` for each
+      local sink artifact instead of leaving sink artifacts only in the legacy flat field mirror.
+      Python typed reports expose the same SinkArtifact accessors for query-builder and
+      generated-source workflows. This closes the stale local documentation/code gap around
+      `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
+      SinkArtifact` evidence while keeping object-store/table/real-Foundry sink artifacts,
+      persistent cache promotion, package publication, benchmark execution, performance claims, and
+      production claims gated. No new dependency, fallback engine, external engine invocation, or
+      benchmark workload was added.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

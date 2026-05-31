@@ -2626,6 +2626,7 @@ fn layout_verification_depth(
 fn capillary_preparation_report(
     source: &VortexIngestSourceData,
     vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+    certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     source_state_id: &str,
     source_state_digest: &str,
     prepared_state_id: &str,
@@ -2660,6 +2661,9 @@ fn capillary_preparation_report(
             prepared_state_digest: prepared_state_digest.to_string(),
             source_surface: vortex_report.preparation_spine.source_surface.clone(),
             sink_surface: vortex_report.preparation_spine.sink_surface.clone(),
+            format_family: source.source_format.as_str().to_string(),
+            operation_class: "vortex_ingest_prepare_once".to_string(),
+            certification_depth: certification_level.as_str().to_string(),
             row_count: vortex_report.row_count,
             source_byte_count: source.source_bytes,
             column_count: source.header.len(),
@@ -2691,6 +2695,7 @@ fn capillary_preparation_report(
             max_parallelism: 2,
             result_sink_requested: false,
             result_sink_replay_verified: false,
+            capillary_claim_evidence_requested: false,
             fallback_attempted: false,
             external_engine_invoked: false,
         },
@@ -2866,6 +2871,7 @@ fn run_scalar_vortex_ingest_smoke(
     let capillary_preparation = capillary_preparation_report(
         &source_evidence,
         &vortex_report,
+        request.certification_level,
         &source_state_id,
         &source_state_digest,
         &prepared_state_id,
@@ -2982,6 +2988,7 @@ fn run_columnar_vortex_ingest_smoke(
     let capillary_preparation = capillary_preparation_report(
         &source,
         &vortex_report,
+        request.certification_level,
         &source_state_id,
         &source_state_digest,
         &prepared_state_id,
@@ -4318,6 +4325,18 @@ fn vortex_ingest_feature_blocked_capillary_fields() -> Vec<(String, String)> {
         (
             "vortex_capillary_preparation_status".to_string(),
             "blocked_feature_gate".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_activation_policy".to_string(),
+            "not_applicable_feature_gate_blocked".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_activation_result".to_string(),
+            "blocked".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_activation_reason".to_string(),
+            "vortex_write_feature_gate_disabled".to_string(),
         ),
         (
             "vortex_capillary_preparation_no_standalone_lane_status".to_string(),
@@ -16147,6 +16166,48 @@ impl SqlLocalSourceReport {
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (
+                "sink_artifact_count".to_string(),
+                self.sink_artifact_count().to_string(),
+            ),
+            ("sink_artifact_ref".to_string(), self.sink_artifact_ref()),
+            ("sink_artifact_refs".to_string(), self.sink_artifact_refs()),
+            (
+                "sink_artifact_digest".to_string(),
+                self.sink_artifact_digest(),
+            ),
+            (
+                "sink_artifact_digests".to_string(),
+                self.sink_artifact_digests(),
+            ),
+            (
+                "sink_artifact_formats".to_string(),
+                self.sink_artifact_formats(),
+            ),
+            (
+                "sink_artifact_bytes".to_string(),
+                self.sink_artifact_bytes(),
+            ),
+            (
+                "sink_artifact_replay_statuses".to_string(),
+                self.sink_artifact_replay_statuses(),
+            ),
+            (
+                "sink_artifact_native_io_certificate_statuses".to_string(),
+                self.sink_artifact_certificate_statuses(),
+            ),
+            (
+                "sink_artifact_workspace_path_safety_statuses".to_string(),
+                self.sink_artifact_workspace_safety_statuses(),
+            ),
+            (
+                "sink_artifact_commit_modes".to_string(),
+                self.sink_artifact_commit_modes(),
+            ),
+            (
+                "sink_artifact_manifest_status".to_string(),
+                self.sink_artifact_manifest_status(),
+            ),
+            (
                 "output_fanout_performed".to_string(),
                 self.output_fanout_performed().to_string(),
             ),
@@ -16517,6 +16578,111 @@ impl SqlLocalSourceReport {
                 output.replay.fidelity_loss
             )
         }))
+    }
+
+    fn sink_artifact_count(&self) -> usize {
+        self.written_outputs.len()
+    }
+
+    fn sink_artifact_ref(&self) -> String {
+        if self.written_outputs.is_empty() {
+            return "not_requested".to_string();
+        }
+        if self.written_outputs.len() == 1 {
+            return self.written_outputs[0].path.display().to_string();
+        }
+        self.sink_artifact_refs()
+    }
+
+    fn sink_artifact_refs(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.path.display())),
+        )
+    }
+
+    fn sink_artifact_digest(&self) -> String {
+        if self.written_outputs.is_empty() {
+            return "not_requested".to_string();
+        }
+        if self.written_outputs.len() == 1 {
+            return self.written_outputs[0].digest.clone();
+        }
+        self.sink_artifact_digests()
+    }
+
+    fn sink_artifact_digests(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.digest)),
+        )
+    }
+
+    fn sink_artifact_formats(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| output.format.sink_format().to_string()),
+        )
+    }
+
+    fn sink_artifact_bytes(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.bytes)),
+        )
+    }
+
+    fn sink_artifact_replay_statuses(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.replay.status)),
+        )
+    }
+
+    fn sink_artifact_certificate_statuses(&self) -> String {
+        csv_or_not_applicable(self.written_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.format.certificate_status()
+            )
+        }))
+    }
+
+    fn sink_artifact_workspace_safety_statuses(&self) -> String {
+        csv_or_not_applicable(self.written_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.workspace_write_report.path_safety_report.accepted()
+            )
+        }))
+    }
+
+    fn sink_artifact_commit_modes(&self) -> String {
+        csv_or_not_applicable(self.written_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.workspace_write_report.commit_mode.as_str()
+            )
+        }))
+    }
+
+    fn sink_artifact_manifest_status(&self) -> String {
+        if !self.output_io_performed() {
+            return "not_applicable_inline_result".to_string();
+        }
+        if self.result_replay_verified() {
+            "verified_local_sink_artifacts".to_string()
+        } else {
+            "blocked_unverified_local_sink_artifact".to_string()
+        }
     }
 
     fn output_fanout_performed(&self) -> bool {

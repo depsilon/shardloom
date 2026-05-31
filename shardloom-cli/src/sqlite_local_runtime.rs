@@ -101,6 +101,9 @@ struct LocalSqliteImportExportReport {
     source_database_digest: String,
     export_jsonl_digest: String,
     roundtrip_database_digest: String,
+    source_roundtrip_content_digest: String,
+    roundtrip_content_digest: String,
+    roundtrip_replay_verification_method: &'static str,
     roundtrip_replay_verified: bool,
     export_write_report: WorkspaceSafeLocalWriteReport,
     roundtrip_write_plan: WorkspaceSafeLocalWritePlan,
@@ -118,6 +121,13 @@ struct LocalSqliteImportExportReport {
     external_engine_invoked: bool,
     claim_gate_status: &'static str,
     claim_boundary: &'static str,
+}
+
+struct SqliteRoundtripEvidence {
+    roundtrip_database_digest: String,
+    source_content_digest: String,
+    roundtrip_content_digest: String,
+    replay_verified: bool,
 }
 
 impl LocalSqliteImportExportReport {
@@ -245,13 +255,7 @@ fn run_sqlite_local_import_export_smoke(
     options: &SqliteSmokeOptions,
 ) -> Result<LocalSqliteImportExportReport, ShardLoomError> {
     let source_db = canonical_existing_file(&options.source_db)?;
-    let source_bytes = fs::read(&source_db).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read local SQLite fixture '{}': {error}; no fallback execution was attempted",
-            source_db.display()
-        ))
-    })?;
-    let source_database_digest = fnv64_digest_bytes(&source_bytes);
+    let source_database_digest = read_file_digest(&source_db, "local SQLite fixture")?;
     let source = Connection::open_with_flags(&source_db, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(sqlite_error)?;
     require_table(&source, &options.table)?;
@@ -285,12 +289,13 @@ fn run_sqlite_local_import_export_smoke(
         &columns,
         options.order_by.as_deref(),
     )?;
-    let roundtrip_bytes = fs::read(&roundtrip_write_plan.target_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read roundtrip SQLite fixture '{}': {error}; no fallback execution was attempted",
-            roundtrip_write_plan.target_path.display()
-        ))
-    })?;
+    let roundtrip_evidence = sqlite_roundtrip_evidence(
+        &columns,
+        &rows,
+        &roundtrip_rows,
+        roundtrip_row_count,
+        &roundtrip_write_plan.target_path,
+    )?;
     Ok(LocalSqliteImportExportReport {
         schema_version: "shardloom.local_sqlite_import_export_smoke.v1",
         adapter_id: "local_sqlite_file_adapter",
@@ -318,8 +323,11 @@ fn run_sqlite_local_import_export_smoke(
         roundtrip_row_count,
         source_database_digest,
         export_jsonl_digest: export_write_report.output_digest.clone(),
-        roundtrip_database_digest: fnv64_digest_bytes(&roundtrip_bytes),
-        roundtrip_replay_verified: rows == roundtrip_rows,
+        roundtrip_database_digest: roundtrip_evidence.roundtrip_database_digest,
+        source_roundtrip_content_digest: roundtrip_evidence.source_content_digest,
+        roundtrip_content_digest: roundtrip_evidence.roundtrip_content_digest,
+        roundtrip_replay_verification_method: "canonical_typed_row_digest",
+        roundtrip_replay_verified: roundtrip_evidence.replay_verified,
         export_write_report,
         roundtrip_write_plan,
         order_by: options.order_by.clone(),
@@ -341,6 +349,35 @@ fn run_sqlite_local_import_export_smoke(
         claim_gate_status: "fixture_smoke_only",
         claim_boundary: "Local SQLite import/export fixture smoke only; no arbitrary SQL, query pushdown, network database connector, credentials, extension loading, production connector, fallback, performance, or warehouse claim is added.",
     })
+}
+
+fn sqlite_roundtrip_evidence(
+    columns: &[SqliteColumn],
+    source_rows: &[SqliteRow],
+    roundtrip_rows: &[SqliteRow],
+    roundtrip_row_count: usize,
+    roundtrip_path: &Path,
+) -> Result<SqliteRoundtripEvidence, ShardLoomError> {
+    let source_content_digest = sqlite_typed_content_digest(columns, source_rows)?;
+    let roundtrip_content_digest = sqlite_typed_content_digest(columns, roundtrip_rows)?;
+    Ok(SqliteRoundtripEvidence {
+        roundtrip_database_digest: read_file_digest(roundtrip_path, "roundtrip SQLite fixture")?,
+        replay_verified: source_rows.len() == roundtrip_rows.len()
+            && source_rows.len() == roundtrip_row_count
+            && source_content_digest == roundtrip_content_digest,
+        source_content_digest,
+        roundtrip_content_digest,
+    })
+}
+
+fn read_file_digest(path: &Path, label: &str) -> Result<String, ShardLoomError> {
+    let bytes = fs::read(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} '{}': {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    Ok(fnv64_digest_bytes(&bytes))
 }
 
 fn validate_sqlite_fixture_shape(
@@ -561,6 +598,68 @@ fn render_jsonl(columns: &[SqliteColumn], rows: &[SqliteRow]) -> Result<String, 
     Ok(out)
 }
 
+fn sqlite_typed_content_digest(
+    columns: &[SqliteColumn],
+    rows: &[SqliteRow],
+) -> Result<String, ShardLoomError> {
+    let mut canonical = String::new();
+    let _ = write!(canonical, "columns:{}=", columns.len());
+    for (index, column) in columns.iter().enumerate() {
+        if index > 0 {
+            canonical.push('|');
+        }
+        let safe_declared_type = safe_sqlite_declared_type(&column.declared_type);
+        let _ = write!(
+            canonical,
+            "name:{}:{}:type:{}:{}:not_null:{}:primary_key_position:{}",
+            column.name.len(),
+            column.name,
+            safe_declared_type.len(),
+            safe_declared_type,
+            column.not_null,
+            column.primary_key_position
+        );
+    }
+    let _ = write!(canonical, "\nrows:{}=", rows.len());
+    for row in rows {
+        canonical.push('\n');
+        let _ = write!(canonical, "cells:{}:", row.cells.len());
+        for (index, cell) in row.cells.iter().enumerate() {
+            if index > 0 {
+                canonical.push('|');
+            }
+            sqlite_typed_cell_digest_fragment(&mut canonical, cell)?;
+        }
+    }
+    Ok(fnv64_digest_text(&canonical))
+}
+
+fn sqlite_typed_cell_digest_fragment(
+    out: &mut String,
+    cell: &SqliteCell,
+) -> Result<(), ShardLoomError> {
+    match cell {
+        SqliteCell::Null => out.push_str("null:"),
+        SqliteCell::Integer(value) => {
+            let _ = write!(out, "integer:{value}");
+        }
+        SqliteCell::Real(value) if value.is_finite() => {
+            let _ = write!(out, "real:{value:?}");
+        }
+        SqliteCell::Real(_) => {
+            return Err(ShardLoomError::InvalidOperation(
+                "SQLite REAL NaN/Infinity values are not admitted by the typed roundtrip replay digest; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        SqliteCell::Text(value) => {
+            let _ = write!(out, "text:{}:", value.len());
+            out.push_str(value);
+        }
+    }
+    Ok(())
+}
+
 fn write_roundtrip_database(
     plan: &WorkspaceSafeLocalWritePlan,
     table: &str,
@@ -761,6 +860,18 @@ fn sqlite_local_artifact_fields(report: &LocalSqliteImportExportReport) -> Vec<(
             report.roundtrip_database_digest.clone(),
         ),
         (
+            "source_roundtrip_content_digest".to_string(),
+            report.source_roundtrip_content_digest.clone(),
+        ),
+        (
+            "roundtrip_content_digest".to_string(),
+            report.roundtrip_content_digest.clone(),
+        ),
+        (
+            "roundtrip_replay_verification_method".to_string(),
+            report.roundtrip_replay_verification_method.to_string(),
+        ),
+        (
             "roundtrip_replay_verified".to_string(),
             report.roundtrip_replay_verified.to_string(),
         ),
@@ -937,4 +1048,38 @@ fn sqlite_error(error: rusqlite::Error) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "SQLite local adapter smoke failed: {error}; no fallback execution was attempted"
     ))
+}
+
+fn fnv64_digest_text(text: &str) -> String {
+    fnv64_digest_bytes(text.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn column(name: &str, declared_type: &str) -> SqliteColumn {
+        SqliteColumn {
+            name: name.to_string(),
+            declared_type: declared_type.to_string(),
+            not_null: false,
+            primary_key_position: 0,
+        }
+    }
+
+    #[test]
+    fn typed_content_digest_distinguishes_equal_json_values_with_different_sqlite_types() {
+        let columns = vec![column("amount", "NUMERIC")];
+        let integer_rows = vec![SqliteRow {
+            cells: vec![SqliteCell::Integer(1)],
+        }];
+        let real_rows = vec![SqliteRow {
+            cells: vec![SqliteCell::Real(1.0)],
+        }];
+
+        assert_ne!(
+            sqlite_typed_content_digest(&columns, &integer_rows).expect("integer digest"),
+            sqlite_typed_content_digest(&columns, &real_rows).expect("real digest")
+        );
+    }
 }

@@ -57,6 +57,7 @@ The gate requires:
 
 - `target/release-dry-run-proof/transcript.json` with a clean venv local-wheel install,
   installed-wheel Python client smoke, CLI status/capabilities smokes, local Python example smoke,
+  first user-surface result/evidence markers, deterministic unsupported-path evidence,
   generated-source local output smokes, benchmark smoke, SBOM/checksum/provenance dry run, and
   no-publication/no-fallback fields.
 - `target/package-channel-readiness-report.json` generated with `--require-local-evidence`, while

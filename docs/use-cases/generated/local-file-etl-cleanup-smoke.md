@@ -43,7 +43,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.
+A per-run target/local-vortex-benchmark/<run-id>/smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.
 
 ## Common Mistakes
 

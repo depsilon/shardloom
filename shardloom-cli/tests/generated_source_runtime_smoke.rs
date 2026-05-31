@@ -25,6 +25,7 @@ fn field(key: &str, value: &str) -> String {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     let output_path = unique_output_path("generated-user-rows");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -104,6 +105,22 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field(
         "output_native_io_certificate_status",
         "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field("sink_artifact_count", "1")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_ref",
+        &output_path.display().to_string()
+    )));
+    assert!(stdout.contains("\"sink_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("sink_artifact_formats", "jsonl")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_manifest_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"jsonl:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        output_path.display(),
+        output_path.display()
     )));
     assert!(stdout.contains(&field("execution_certificate_status", "certified")));
     assert!(stdout.contains(&field("data_materialized", "true")));
@@ -1248,6 +1265,7 @@ fn sql_smoke_writes_generate_series_projection_order_by_topn_jsonl() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
     let output_path = unique_output_path("generated-sql-range-fanout-primary");
     let fanout_path = unique_output_path_with_extension("generated-sql-range-fanout-csv", "csv");
@@ -1301,6 +1319,32 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
         "scoped_local_output_fidelity_reported"
     )));
     assert!(stdout.contains(&field("output_fanout_performed", "true")));
+    assert!(stdout.contains(&field("sink_artifact_count", "2")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_refs",
+        &format!(
+            "jsonl:{},csv:{}",
+            output_path.display(),
+            fanout_path.display()
+        )
+    )));
+    assert!(stdout.contains("\"sink_artifact_digests\",\"value\":\"jsonl:fnv64:"));
+    assert!(stdout.contains("csv:fnv64:"));
+    assert!(stdout.contains(&field("sink_artifact_formats", "jsonl,csv")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_manifest_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"jsonl:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        output_path.display(),
+        output_path.display()
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"csv:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        fanout_path.display(),
+        fanout_path.display()
+    )));
     assert!(stdout.contains(&field("fanout_output_count", "1")));
     assert!(stdout.contains(&field("fanout_output_formats", "csv")));
     assert!(stdout.contains("\"fanout_output_paths\",\"value\":\""));

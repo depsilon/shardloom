@@ -355,6 +355,7 @@ pub struct DeterministicScalarUdfFixtureReport {
     pub input_digest: String,
     pub output_digest: String,
     pub output_values: Vec<Option<i64>>,
+    pub overflow_policy_enforced: bool,
     pub overflow_blocked: bool,
     pub sandbox_required: bool,
     pub network_allowed: bool,
@@ -443,7 +444,8 @@ pub fn run_deterministic_scalar_udf_fixture(
         input_digest: fnv64_digest_text(&input_summary),
         output_digest: fnv64_digest_text(&output_summary),
         output_values,
-        overflow_blocked: true,
+        overflow_policy_enforced: true,
+        overflow_blocked: false,
         sandbox_required: false,
         network_allowed: false,
         credential_resolution_performed: false,
@@ -2065,7 +2067,8 @@ mod tests {
         );
         assert_eq!(report.output_values, vec![Some(6), None, Some(-8)]);
         assert_eq!(report.output_values_summary(), "6,null,-8");
-        assert!(report.overflow_blocked);
+        assert!(report.overflow_policy_enforced);
+        assert!(!report.overflow_blocked);
         assert_eq!(report.claim_gate_status, "fixture_smoke_only");
         assert!(report.no_fallback_invariant_holds());
     }

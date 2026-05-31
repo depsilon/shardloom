@@ -54,8 +54,8 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 
 The proof installs the exact wheel built during the dry run with `pip --no-index`, resolves the
 local CLI through `SHARDLOOM_BIN`, runs CLI/Python smoke checks, writes scoped generated-source
-local JSONL/CSV outputs, runs a tiny compatibility/prepared-Vortex benchmark smoke, and writes a
-transcript under `target/`.
+local JSONL/CSV outputs, runs a tiny compatibility/prepared-Vortex benchmark smoke under an
+isolated per-run benchmark directory, and writes a transcript under `target/`.
 
 If `mamba`, `conda`, or `micromamba` is available, the same proof attempts a clean Conda-style
 environment install from the local wheel. Public release readiness still requires

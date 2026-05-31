@@ -592,6 +592,79 @@ pub struct PulseWeaveReport {
 }
 
 impl PulseWeaveReport {
+    /// Return a stable report for callers that intentionally did not request `PulseWeave` planning.
+    #[must_use]
+    pub fn not_requested(
+        application_scope: impl Into<String>,
+        reason: impl Into<String>,
+        fallback_attempted: bool,
+        external_engine_invoked: bool,
+    ) -> Self {
+        let reason = reason.into();
+        Self {
+            schema_version: PULSEWEAVE_SCHEMA_VERSION,
+            status: "not_requested".to_string(),
+            application_scope: application_scope.into(),
+            runtime_decision_applied: false,
+            policy_mutated: false,
+            decision_digest: "none".to_string(),
+            blocker: reason.clone(),
+            claim_gate_status: "not_pulseweave_claim_grade".to_string(),
+            fallback_attempted,
+            external_engine_invoked,
+            flow_inventory: FlowInventoryReport {
+                schema_version: FLOW_INVENTORY_SCHEMA_VERSION,
+                wip_limit: 0,
+                peak_in_flight: 0,
+                ready_task_count: 0,
+                held_for_memory_count: 0,
+                held_for_downstream_count: 0,
+                completed_task_count: 0,
+                failed_task_count: 0,
+                backpressure_event_count: 0,
+                existing_scheduler_preserved: true,
+            },
+            scarcity_ledger: ScarcityLedgerDecision {
+                schema_version: SCARCITY_LEDGER_SCHEMA_VERSION,
+                memory_price_bps: 0,
+                queue_price_bps: 0,
+                decode_price_bps: 0,
+                sink_price_bps: 0,
+                spill_price_bps: 0,
+                total_price_bps: 0,
+                selected_action: ScarcityLedgerAction::BlockedByPolicy,
+                decision_reason: reason.clone(),
+                decision_digest: "none".to_string(),
+            },
+            endopulse: EndoPulseDecision {
+                schema_version: ENDOPULSE_SCHEMA_VERSION,
+                signal_set: "not_requested".to_string(),
+                previous_target_task_bytes: 0,
+                next_target_task_bytes: 0,
+                previous_wip_limit: 0,
+                next_wip_limit: 0,
+                adjustment_applied: false,
+                hysteresis_state: "not_requested".to_string(),
+                persistent_state_used: false,
+            },
+            proofbound: ProofBoundAutoGate {
+                schema_version: PROOFBOUND_SCHEMA_VERSION,
+                pre_application_status: "not_requested".to_string(),
+                post_application_status: "not_requested".to_string(),
+                required_evidence: "not_requested".to_string(),
+                missing_evidence: reason,
+                certificate_status: "not_requested".to_string(),
+                no_fallback_status: if fallback_attempted || external_engine_invoked {
+                    "blocked_fallback_or_external_engine"
+                } else {
+                    "no_fallback_policy_preserved"
+                }
+                .to_string(),
+                claim_allowed: false,
+            },
+        }
+    }
+
     #[must_use]
     pub fn batch_window_size(&self, fallback_max_parallelism: usize) -> usize {
         if self.runtime_decision_applied {

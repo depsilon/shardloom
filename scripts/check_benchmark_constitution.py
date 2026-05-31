@@ -5,8 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from check_benchmark_artifact_completeness import result_rows as benchmark_result_rows
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,12 +174,7 @@ def row_reports_claim_grade(fields: dict[str, Any]) -> bool:
 
 
 def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for key in ("published_benchmark_rows", "results", "rows"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            rows.extend(row for row in value if isinstance(row, dict))
-    return rows
+    return benchmark_result_rows(payload)
 
 
 def artifact_environment(payload: dict[str, Any], manifest: dict[str, Any] | None) -> dict[str, Any]:

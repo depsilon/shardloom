@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from html.parser import HTMLParser
@@ -17,6 +18,7 @@ from check_runtime_promotion_evidence import validate_runtime_promotion_evidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CLOUDFLARE_STATIC_ASSET_MAX_BYTES = 25 * 1024 * 1024
 EXPECTED_PAGES = [
     "index.html",
     "start.html",
@@ -229,6 +231,17 @@ def runtime_files(website: Path) -> list[Path]:
     return files
 
 
+def check_cloudflare_asset_sizes(website: Path, repo_root: Path, blockers: list[str]) -> None:
+    for path in website.rglob("*"):
+        if path.is_file() and path.name != "validate_static_assets.js":
+            size = path.stat().st_size
+            if size > CLOUDFLARE_STATIC_ASSET_MAX_BYTES:
+                blockers.append(
+                    "Cloudflare Workers static asset exceeds 25 MiB: "
+                    f"{rel(path, repo_root)} ({size} bytes)"
+                )
+
+
 def check_claim_phrases(text: str, label: str, blockers: list[str]) -> None:
     for pattern in [*CLAIM_PHRASES, *PACKAGE_CLAIM_PHRASES]:
         if re.search(pattern, text, re.IGNORECASE):
@@ -382,6 +395,7 @@ def main() -> int:
     for asset in EXPECTED_ASSETS:
         if not (website / asset).exists():
             blockers.append(f"missing expected asset: {asset}")
+    check_cloudflare_asset_sizes(website, repo_root, blockers)
 
     for removed in REMOVED_WEBSITE_SURFACES:
         if (website / removed).exists():
@@ -423,6 +437,33 @@ def main() -> int:
             repo_root=repo_root,
             blockers=blockers,
         )
+    if canonical_benchmark_results.exists():
+        benchmark_payload = json.loads(canonical_benchmark_results.read_text(encoding="utf-8"))
+        if benchmark_payload.get("published_benchmark_rows_inlined") != "summary_only":
+            blockers.append("benchmark results must inline only summary rows for deployable asset safety")
+        chunks = benchmark_payload.get("published_benchmark_row_chunks")
+        if not isinstance(chunks, list) or not chunks:
+            blockers.append("benchmark results missing published_benchmark_row_chunks")
+        else:
+            for chunk in chunks:
+                if not isinstance(chunk, dict) or not chunk.get("path"):
+                    blockers.append("benchmark row chunk entry missing path")
+                    continue
+                chunk_path = repo_root / str(chunk["path"])
+                if not chunk_path.exists():
+                    blockers.append(f"missing benchmark row chunk: {rel(chunk_path, repo_root)}")
+                elif chunk_path.stat().st_size > CLOUDFLARE_STATIC_ASSET_MAX_BYTES:
+                    blockers.append(
+                        "benchmark row chunk exceeds Cloudflare asset limit: "
+                        f"{rel(chunk_path, repo_root)}"
+                    )
+                elif chunk.get("sha256"):
+                    digest = hashlib.sha256(chunk_path.read_bytes()).hexdigest()
+                    if digest != chunk.get("sha256"):
+                        blockers.append(
+                            "benchmark row chunk sha256 mismatch: "
+                            f"{rel(chunk_path, repo_root)}"
+                        )
     check_mirrored_file(
         source=canonical_benchmark_results,
         mirror=canonical_benchmark_data,

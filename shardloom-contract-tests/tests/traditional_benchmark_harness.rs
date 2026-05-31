@@ -21,9 +21,11 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(registry.contains("\"spark-default\": Lane("));
     assert!(registry.contains("\"spark-local-tuned\": Lane("));
     assert!(registry.contains("module=\"pyspark\""));
+    assert!(registry.contains("name=\"full_local\""));
     assert!(registry.contains("name=\"full_local_plus_spark\""));
     assert!(registry.contains("optional_lanes=(),"));
-    assert!(environment_check.contains("default=\"full_local_plus_spark\""));
+    assert!(environment_check.contains("default=\"full_local\""));
+    assert!(environment_check.contains("choices=tuple(PROFILES)"));
     assert!(script.contains("def render_markdown_report("));
     assert!(script.contains("def render_fairness_parameters("));
     assert!(script.contains("def render_read_this_first("));

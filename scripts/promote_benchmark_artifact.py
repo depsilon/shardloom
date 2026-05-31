@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -41,7 +43,30 @@ DEFAULT_PUBLIC_WEBSITE_DATA = (
 DEFAULT_WEBSITE_SRC_DATA = ROOT / "website-src" / "src" / "data" / "benchmark-evidence.json"
 DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmark-manifest.json"
 DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
-BENCHMARK_PROFILE_ROSTER = ("full_local", "full_local_plus_spark")
+BENCHMARK_PROFILE_ROSTER = ("full_local",)
+PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
+PUBLISHED_ROW_CHUNK_SIZE = 300
+WEBSITE_ROW_KEYS = (
+    "engine",
+    "scenario_name",
+    "storage_format",
+    "status",
+    "selected_execution_mode",
+    "total_runtime_millis",
+    "vortex_scan_millis",
+    "operator_compute_millis",
+    "result_sink_write_millis",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_gate_status",
+    "row_classification",
+    "external_baseline_only",
+)
+LOCAL_PATH_RE = re.compile(
+    r"(?P<win>[A-Za-z]:\\[^|,;\"'\s]+)|"
+    r"(?P<posix>(?:/Users|/home|/tmp|/var/folders|/private/var|/workspace|/mnt|/Volumes)"
+    r"[^|,;\"'\s]*)"
+)
 EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "source_state",
     "prepared_state",
@@ -223,6 +248,19 @@ PUBLISHED_METRIC_KEYS = (
     "proofbound_claim_allowed",
     "compatibility_import_included",
     "preparation_included_in_timing",
+    "persistent_runner_status",
+    "process_startup_attribution",
+    "cli_process_wall_millis",
+    "python_harness_overhead_millis",
+    "batch_process_wall_shared",
+    "batch_cli_process_wall_millis",
+    "preparation_millis",
+    "preparation_cli_process_wall_millis",
+    "prepare_batch_preparation_millis",
+    "prepare_batch_source_to_columnar_millis",
+    "prepare_batch_vortex_array_build_millis",
+    "prepare_batch_vortex_write_millis",
+    "prepare_batch_vortex_reopen_verify_millis",
     "runtime_execution_validation_schema_version",
     "runtime_execution_validation_status",
     "runtime_execution_validation_blocker_count",
@@ -230,6 +268,14 @@ PUBLISHED_METRIC_KEYS = (
     "runtime_execution_validation_invalid_fields",
     "claim_grade_requirements_met",
     "claim_grade_missing_evidence",
+    "iterations",
+    "reproducibility_min_iterations",
+    "reproducibility_iterations_met",
+    "reproducible_benchmark_row",
+    "timing_row_present",
+    "timing_row_claim_grade",
+    "correctness_digest",
+    "correctness_digest_stable",
 )
 
 
@@ -272,6 +318,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def portable_public_ref(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        path = match.group(0)
+        digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+        return f"local-artifact-ref:sha256:{digest}"
+
+    return LOCAL_PATH_RE.sub(replace, value)
+
+
+def portable_public_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return portable_public_ref(value)
+    if isinstance(value, list):
+        return [portable_public_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: portable_public_value(item) for key, item in value.items()}
+    return value
+
+
 def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -290,6 +355,52 @@ def write_json_once(paths: list[Path], payload: Any) -> None:
             continue
         seen.add(resolved)
         write_json(path, payload)
+
+
+def clear_row_chunks(directory: Path) -> None:
+    if not directory.exists():
+        return
+    for path in directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json"):
+        path.unlink()
+
+
+def write_row_chunks(directory: Path, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    directory.mkdir(parents=True, exist_ok=True)
+    clear_row_chunks(directory)
+    chunks: list[dict[str, Any]] = []
+    for index in range(0, len(rows), PUBLISHED_ROW_CHUNK_SIZE):
+        chunk_rows = rows[index : index + PUBLISHED_ROW_CHUNK_SIZE]
+        chunk_index = index // PUBLISHED_ROW_CHUNK_SIZE
+        path = directory / f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}.json"
+        payload = {
+            "schema_version": "shardloom.website.benchmark_row_chunk.v1",
+            "chunk_index": chunk_index,
+            "row_count": len(chunk_rows),
+            "rows": chunk_rows,
+        }
+        text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+        path.write_text(text, encoding="utf-8")
+        chunks.append(
+            {
+                "path": repo_relative(path),
+                "row_count": len(chunk_rows),
+                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            }
+        )
+    return chunks
+
+
+def website_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rendered: list[dict[str, Any]] = []
+    for row in rows:
+        rendered.append(
+            {
+                key: row[key]
+                for key in WEBSITE_ROW_KEYS
+                if key in row
+            }
+        )
+    return rendered
 
 
 def repo_relative(path: Path) -> str:
@@ -722,6 +833,17 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
             "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
         }
     required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
+    batch_row = (
+        fields.get("persistent_runner_status") == "single_process_batch_runner_supported"
+        or fields.get("batch_process_wall_shared") is True
+    )
+    if batch_row:
+        required = [
+            field for field in required if field != "python_harness_overhead_millis"
+        ]
+        for field in ("batch_cli_process_wall_millis", "batch_process_wall_shared"):
+            if field not in required:
+                required.append(field)
     if "sink_replay_heavy" in secondary and "result_sink_write_millis" not in required:
         required.append("result_sink_write_millis")
     missing = [field for field in required if not cold_lane_field_present(fields, field)]
@@ -760,7 +882,14 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "cold_lane_process_harness_timing_present": cold_lane_field_present(
             fields, "cli_process_wall_millis"
         )
-        and cold_lane_field_present(fields, "python_harness_overhead_millis"),
+        and (
+            cold_lane_field_present(fields, "python_harness_overhead_millis")
+            or (
+                batch_row
+                and fields.get("batch_process_wall_shared") is True
+                and cold_lane_field_present(fields, "batch_cli_process_wall_millis")
+            )
+        ),
         "cold_lane_claim_gate_status": "not_claim_grade",
         "cold_lane_claim_blocker_id": (
             "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
@@ -1011,7 +1140,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
                 rendered_row[key] = value
-        rendered.append(rendered_row)
+        rendered.append(portable_public_value(rendered_row))
     return rendered
 
 
@@ -1158,6 +1287,9 @@ def main() -> int:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results_path = args.output_dir / "benchmark-results.json"
+    full_published_rows = published_rows(rows)
+    row_chunks = write_row_chunks(args.output_dir, full_published_rows)
+    write_row_chunks(args.public_output_dir, full_published_rows)
 
     manifest = manifest_for_artifact(
         artifact,
@@ -1165,7 +1297,9 @@ def main() -> int:
         args.profile,
         results_path,
     )
-    summary = {
+    manifest["artifact_paths"]["row_chunks"] = row_chunks
+    manifest["published_benchmark_row_count"] = len(full_published_rows)
+    summary = portable_public_value({
         **base,
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "benchmark_profile": args.profile,
@@ -1177,7 +1311,10 @@ def main() -> int:
             "format_order": artifact.get("format_order", []),
             "scenario_order": artifact.get("scenario_order", []),
         },
-        "published_benchmark_rows": published_rows(rows),
+        "published_benchmark_rows": website_rows(full_published_rows),
+        "published_benchmark_rows_inlined": "summary_only",
+        "published_benchmark_row_chunks": row_chunks,
+        "published_benchmark_row_count": len(full_published_rows),
         "comparative_dashboard": comparative_summary(artifact, rows, source_path, args.profile),
         "benchmark_manifest": manifest,
         "claim_boundary": {
@@ -1187,7 +1324,7 @@ def main() -> int:
             "production_object_store_lakehouse_foundry_claim_allowed": False,
             "scope": "promoted local benchmark artifact evidence only",
         },
-    }
+    })
     write_json_once(
         [
             results_path,

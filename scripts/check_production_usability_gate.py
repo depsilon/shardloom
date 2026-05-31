@@ -13,8 +13,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_benchmark_artifact_completeness import validate_manifest as validate_benchmark_manifest
 
@@ -35,6 +40,9 @@ DRY_RUN_REQUIRED_TRUE_FIELDS = [
     "cli_status_smoke_performed",
     "cli_capabilities_smoke_performed",
     "local_python_example_smoke_performed",
+    "local_python_user_surface_quickstart_performed",
+    "local_python_result_and_evidence_printed",
+    "local_python_unsupported_path_evidence_printed",
     "generated_output_proof_distinct_from_no_dataset_smoke",
     "generated_source_user_rows_smoke_performed",
     "generated_source_range_smoke_performed",
@@ -73,11 +81,14 @@ REQUIRED_DOC_MARKERS = {
     "docs/getting-started/first-10-minutes.md": [
         "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",
         "ctx.from_rows",
+        "ctx.read",
+        "quickstart_result_row_id",
         "ctx.range",
         "public package release",
     ],
     "docs/release/release-dry-run-proof.md": [
         "clean virtual environment",
+        "local_python_user_surface_quickstart_performed=true",
         "generated_source_user_rows_smoke_performed=true",
         "prepared_native_benchmark_smoke_performed=true",
     ],

@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ._compat import dataclass
 from .client import (
     FanoutOutputs,
     GeneratedSourceWriteReport,
