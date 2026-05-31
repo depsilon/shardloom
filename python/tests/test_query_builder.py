@@ -685,6 +685,89 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(by_check["unique:label"].passed)
         self.assertEqual(by_check["unique:label"].failing_row_count, 1)
 
+    def test_context_sql_schema_quality_helpers_invoke_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[3:] == [
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                base = "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10"
+                if sys.argv[2] == base + " LIMIT 100":
+                    result_jsonl = "{\\"id\\":1,\\"label\\":\\"alpha\\",\\"amount\\":10}\\n{\\"id\\":2,\\"label\\":null,\\"amount\\":15}\\n{\\"id\\":3,\\"label\\":\\"alpha\\",\\"amount\\":21}\\n"
+                    row_count = "3"
+                elif sys.argv[2] == base + " LIMIT 2":
+                    result_jsonl = "{\\"id\\":1,\\"label\\":\\"alpha\\",\\"amount\\":10}\\n{\\"id\\":2,\\"label\\":null,\\"amount\\":15}\\n"
+                    row_count = "2"
+                else:
+                    raise AssertionError(sys.argv)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": result_jsonl},
+                        {"key": "output_row_count", "value": row_count},
+                        {"key": "selected_row_count", "value": row_count},
+                        {"key": "user_surface_runtime_scope", "value": "format_neutral_sql_frontend"},
+                        {"key": "format_specific_boundary_scope", "value": "read_adapter_and_write_sink_only"},
+                        {"key": "format_specific_compute_path", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = ctx.sql(
+            "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10"
+        )
+
+        schema = workflow.schema()
+        described = workflow.describe_schema()
+        validation = workflow.validate_schema(
+            {"id": "int64", "label": "string", "amount": "int64"}
+        )
+        quality_summary = workflow.data_quality_summary()
+        quality_checks = workflow.data_quality_check(
+            "not_null:id",
+            "not_null:label",
+            "unique:id",
+            "unique:label",
+        )
+        preview = workflow.preview(limit=2)
+        head = workflow.head(limit=2)
+        take = workflow.take(2)
+
+        self.assertIsInstance(schema, sl.WorkflowSchemaReport)
+        self.assertEqual(schema.schema_map, {"id": "int64", "label": "utf8", "amount": "int64"})
+        self.assertFalse(schema.fallback_attempted)
+        self.assertFalse(schema.external_engine_invoked)
+        self.assertEqual(described.field_names, ("id", "label", "amount"))
+        self.assertTrue(validation.valid)
+        self.assertEqual(quality_summary.null_counts, {"id": 0, "label": 1, "amount": 0})
+        self.assertFalse(quality_checks.passed)
+        by_check = {result.check: result for result in quality_checks.checks}
+        self.assertFalse(by_check["not_null:label"].passed)
+        self.assertFalse(by_check["unique:label"].passed)
+        for preview_report in (preview, head, take):
+            self.assertEqual(preview_report.envelope.command, "sql-local-source-smoke")
+            self.assertEqual(preview_report.output_row_count, 2)
+            self.assertFalse(preview_report.fallback_attempted)
+            self.assertFalse(preview_report.external_engine_invoked)
+
     def test_local_parquet_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -9532,6 +9615,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
             ctx.sql_execute("select * from events"),
+            ctx.sql("SELECT * FROM remote_table").schema(),
+            ctx.sql("SELECT * FROM remote_table").preview(limit=5),
             workflow.join(
                 sl.read_csv("dim.csv", client=ShardLoomClient(binary=binary)).filter("id > 0"),
                 on=("id", "other_id"),
@@ -9550,7 +9635,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 32)
+        self.assertEqual(len(reports), 34)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -9570,8 +9655,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 self.assertTrue(
                     report.envelope.field("workflow_summary", "").startswith("source_free(")
                 )
+            elif report.operation == "schema":
+                summary = report.envelope.field("workflow_summary") or ""
+                self.assertTrue(
+                    summary.startswith("read_sql(statement)")
+                    or summary.startswith("sql(statement)")
+                )
             elif report.operation == "preview":
-                self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
+                summary = report.envelope.field("workflow_summary")
+                self.assertTrue(
+                    summary == "read_csv(events.data)"
+                    or (summary or "").startswith("read_sql(statement)")
+                    or (summary or "").startswith("sql(statement)")
+                )
             elif report.operation in {"head", "take"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
             else:

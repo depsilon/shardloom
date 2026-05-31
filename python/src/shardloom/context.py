@@ -335,6 +335,7 @@ class FrontDoorParityMatrix:
             "local_file_filter_project_limit",
             "local_file_join_aggregate_sort_window",
             "generated_source_output",
+            "schema_quality_preview",
         }
         admitted = {row.row_id for row in self.admitted_rows}
         return required.issubset(admitted)
@@ -1386,17 +1387,16 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "schema_quality_preview",
         "schema inspection, validation, data-quality summaries, preview/head/take",
-        "python_dataframe_scoped_only",
-        sql_surface="not yet exposed as equivalent SQL syntax",
+        "scoped_runtime_supported",
+        sql_surface="ctx.sql(...).schema/validate_schema/data_quality/preview/head/take",
         python_surface="LazyFrame.schema/validate_schema/data_quality/preview/head/take",
         dataframe_surface="DataFrame-style schema/data-quality/preview helpers",
         shared_runtime_path="sql-local-source-smoke inline bounded result",
-        parity_status="front_door_gap",
-        performance_equivalence_status="not_applicable_until_sql_surface_exists",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_path_no_benchmark_claim",
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
-        blocker_id="cg21.front_door.schema_quality_sql_surface_missing",
         required_evidence=(
             "sql_schema_quality_surface",
             "schema_report_contract",
@@ -1404,8 +1404,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "front_door_equivalence_tests",
         ),
         claim_boundary=(
-            "Python/DataFrame bounded schema and data-quality helpers exist for admitted local "
-            "workflows, but equivalent SQL-facing ergonomics and parity tests are not complete."
+            "Scoped local SQL, Python, and DataFrame-style schema/data-quality/preview helpers "
+            "share the sql-local-source-smoke inline bounded-result path. This is not broad SQL "
+            "grammar, object-store/table schema discovery, notebook display, or benchmark-backed "
+            "performance equivalence."
         ),
     ),
     _front_door_row(

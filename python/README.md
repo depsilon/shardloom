@@ -461,10 +461,12 @@ executable through the same typed CLI bridge. A workflow shaped as
 to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
 projection/optional-filter/limit semantics, and returns a typed evidence
 report. `preview(limit=n)`, `head(limit=n)`, and `take(n)` use the same bounded
-local path with `SELECT *`. The same projection/optional-filter/limit
-shape is admitted for `read_json(...)` when the source path is a local flat
-`.json`, `.jsonl`, or `.ndjson` file; nested JSON expansion and JSONPath remain
-deterministic unsupported surfaces. The same shape is admitted for
+local path with `SELECT *`. `ctx.sql("SELECT ... FROM 'local.csv' ...")` exposes
+the same bounded schema, validation, data-quality, preview, head, and take
+helpers over admitted local-source SQL statements. The same
+projection/optional-filter/limit shape is admitted for `read_json(...)` when the
+source path is a local flat `.json`, `.jsonl`, or `.ndjson` file; nested JSON
+expansion and JSONPath remain deterministic unsupported surfaces. The same shape is admitted for
 `read_parquet(...)` over local flat scalar `.parquet` files when the CLI is built
 with `--features universal-format-io`; default binaries return an explicit
 Parquet adapter blocker. `read_arrow_ipc(...)` admits the same scoped shape for
@@ -749,6 +751,10 @@ python_objects = workflow.to_python_objects()
 schema_report = workflow.schema()
 schema_validation = workflow.validate_schema({"id": "int64", "label": "string"})
 quality_report = workflow.data_quality_check("not_null:id", "unique:id")
+sql_workflow = ctx.sql("SELECT id,label,amount FROM 'target/sql-local-source-smoke.csv'")
+sql_schema = sql_workflow.schema()
+sql_quality = sql_workflow.data_quality_summary()
+sql_preview = sql_workflow.preview(limit=2)
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
 fanout_written = workflow.fanout(
@@ -806,6 +812,9 @@ print(python_objects)
 print(schema_report.schema_map)
 print(schema_validation.valid)
 print(quality_report.passed)
+print(sql_schema.schema_map)
+print(sql_quality.null_counts)
+print(sql_preview.result_rows)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(csv_written.output_path)
@@ -1213,10 +1222,11 @@ print(parity.row("local_file_filter_project_limit").shared_runtime_path)
 print(parity.row("arbitrary_sql_python_dataframe_breadth").blocker_id)
 ```
 
-The scoped local file and generated-output rows are admitted. General Vortex workflows, decoded
-pandas/Arrow/NumPy materialization, object-store/lakehouse/table I/O, arbitrary SQL/Python/DataFrame
-breadth, and cross-front-door performance equivalence remain explicit gap rows until correctness,
-Native I/O, execution-certificate, no-fallback, and benchmark evidence closes them.
+The scoped local file, generated-output, and bounded schema/data-quality/preview rows are admitted.
+General Vortex workflows, decoded pandas/Arrow/NumPy materialization,
+object-store/lakehouse/table I/O, arbitrary SQL/Python/DataFrame breadth, and cross-front-door
+performance equivalence remain explicit gap rows until correctness, Native I/O,
+execution-certificate, no-fallback, and benchmark evidence closes them.
 
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or
