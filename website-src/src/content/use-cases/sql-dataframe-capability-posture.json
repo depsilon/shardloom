@@ -20,7 +20,7 @@
     "planner_readiness_non_executing",
     "scoped_sql_runtime_execution=true",
     "dataframe_method_matrix_sql_support_status=fixture_smoke_supported",
-    "dataframe_method_matrix_broad_generated_with_column_blocker=gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
+    "workflow_unsupported_broad_generated_with_column_blocker=gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
     "broad_sql_claim_allowed=false",
     "claim_gate_status=not_claim_grade",
     "fallback_attempted=false",

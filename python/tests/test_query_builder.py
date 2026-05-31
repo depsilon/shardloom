@@ -378,6 +378,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             binary=binary,
         )
         self.assertIsInstance(source, sl.GeneratedRowsSource)
+
+    def test_dataframe_generated_with_column_writes_literal_generated_column(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    "target/dataframe-generated-with-column.jsonl",
+                    "value:int64",
+                    "value=1",
+                    "--source-kind",
+                    "dataframe_generated_with_column",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "dataframe generated with column",
+                    "human_text": "dataframe generated with column",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/dataframe-generated-with-column.jsonl"},
+                        {"key": "generated_source_kind", "value": "dataframe_generated_with_column"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "materialization_boundary", "value": "python_dataframe_generated_with_column_to_local_jsonl_sink"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "performance_claim_allowed", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.dataframe_generated_with_column("value", "lit(1)").write(
+            "target/dataframe-generated-with-column.jsonl"
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(report.generated_source_kind, "dataframe_generated_with_column")
+        self.assertEqual(report.generated_source_row_count, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+        source = sl.dataframe_generated_with_column("value", 1, binary=binary)
+        self.assertIsInstance(source, sl.GeneratedRowsSource)
         with self.assertRaisesRegex(ValueError, "aliases must be unique"):
             ctx.dataframe_source_free_projection(
                 "lit(1).alias('value')",
@@ -9485,12 +9546,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).head(limit=5),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).take(5),
             workflow.display(),
-            ctx.dataframe_generated_with_column("value", "lit(1)"),
             ctx.generated_output_to_object_store("s3://bucket/out.jsonl"),
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 33)
+        self.assertEqual(len(reports), 32)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -9504,7 +9564,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             elif report.operation in {"sql-parse", "sql-bind", "sql-plan", "sql-execute"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "sql(statement)")
             elif report.operation in {
-                "dataframe-generated-with-column",
                 "object-store-generated-output",
                 "foundry-generated-output",
             }:
@@ -9567,10 +9626,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(by_operation["take"].envelope.field_bool("materialization_required"))
         self.assertEqual(by_operation["take"].envelope.field("target_ref"), "5")
         self.assertEqual(by_operation["display"].envelope.field("workflow_operation"), "display")
-        self.assertEqual(
-            by_operation["dataframe-generated-with-column"].envelope.field("target_ref"),
-            "value=lit(1)",
-        )
         self.assertTrue(
             by_operation["object-store-generated-output"].envelope.field_bool("write_required")
         )

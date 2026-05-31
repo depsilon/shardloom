@@ -938,19 +938,19 @@ local user-row, literal-table, calendar/date-dimension, range, sequence, SQL `VA
 smokes; joins, aggregations, broad expression-backed SQL/DataFrame source-free projection,
 non-local output, and other source-free builders require future admission evidence.
 
-`ctx.dataframe_source_free_projection(&quot;lit(...).alias(&#39;name&#39;)&quot;).write(...)` is now an admitted scoped
-literal-projection generated-output path. It creates a one-row generated source, writes through the
-same generated-source local-output command, and emits generated-source, output Native I/O,
-execution, sink-artifact, and no-fallback evidence. Python context helpers still expose
-deterministic unsupported reports for the remaining broad source-free runtime candidates:
-`ctx.dataframe_generated_with_column(...)`, `ctx.generated_output_to_object_store(...)`, and
-`ctx.foundry_generated_output(...)`. The broad diagnostic helpers return `workflow-unsupported-plan`
-envelopes with source-free blocker IDs and required evidence; they do not execute DataFrame plans,
-generate rows, write outputs, probe object stores, invoke Foundry, invoke external engines, or
-attempt fallback. Scoped generated `with_column` execution remains available through the concrete
-generated builders, for example
+`ctx.dataframe_source_free_projection(&quot;lit(...).alias(&#39;name&#39;)&quot;).write(...)` is an admitted scoped
+literal-projection generated-output path. `ctx.dataframe_generated_with_column(&quot;name&quot;,
+&quot;lit(...)&quot;).write(...)` is likewise admitted for a one-row literal generated-column smoke. Both
+helpers write through the same generated-source local-output command and emit generated-source,
+output Native I/O, execution, sink-artifact, and no-fallback evidence. Scoped generated
+`with_column` execution over concrete generated sources remains available through
 `ctx.from_rows(...).with_column(literal).write(...)` and
-`ctx.range(...).with_column(int64_expression).write(...)`.
+`ctx.range(...).with_column(int64_expression).write(...)`. Python context helpers still expose
+deterministic unsupported reports for the remaining non-local source-free runtime candidates:
+`ctx.generated_output_to_object_store(...)` and `ctx.foundry_generated_output(...)`. The broad
+diagnostic helpers return `workflow-unsupported-plan` envelopes with source-free blocker IDs and
+required evidence; they do not execute DataFrame plans, generate rows, write outputs, probe object
+stores, invoke Foundry, invoke external engines, or attempt fallback.
 
 ### Source-Free API Admission Matrix
 

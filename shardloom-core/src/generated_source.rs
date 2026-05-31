@@ -919,6 +919,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn api_admission_matrix_classifies_supported_and_report_only_source_free_forms() {
         let matrix = GeneratedSourceApiAdmissionMatrix::report_only();
         assert_eq!(
@@ -1014,6 +1015,21 @@ mod tests {
         assert_eq!(
             dataframe_projection.blocker_id,
             "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only"
+        );
+
+        let dataframe_generated_with_column = matrix
+            .row_for("dataframe_generated_with_column")
+            .expect("dataframe generated with_column row");
+        assert_eq!(
+            dataframe_generated_with_column.support_status.as_str(),
+            "fixture_smoke_supported"
+        );
+        assert!(dataframe_generated_with_column.runtime_execution);
+        assert!(dataframe_generated_with_column.write_io);
+        assert!(dataframe_generated_with_column.generated_source_created);
+        assert_eq!(
+            dataframe_generated_with_column.blocker_id,
+            "none_scoped_local_generated_with_column_jsonl_csv_smoke_only"
         );
     }
 

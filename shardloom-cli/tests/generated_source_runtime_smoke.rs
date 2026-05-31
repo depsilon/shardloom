@@ -624,6 +624,62 @@ fn user_rows_smoke_supports_dataframe_source_free_projection_source_kind() {
 }
 
 #[test]
+fn user_rows_smoke_supports_dataframe_generated_with_column_source_kind() {
+    let output_path = unique_output_path("generated-dataframe-with-column");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "value:int64",
+            "value=1",
+            "--source-kind",
+            "dataframe_generated_with_column",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"value\":1}\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "generated_source_kind",
+        "dataframe_generated_with_column"
+    )));
+    assert!(stdout.contains(&field("generated_source_row_count", "1")));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "python_dataframe_generated_with_column_to_local_jsonl_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_dataframe_generated_with_column_generated_output_smoke"
+    )));
+    assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn user_rows_smoke_blocks_remote_object_store_outputs() {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
