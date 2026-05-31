@@ -323,9 +323,9 @@ validators, docs/website parity, and a completed-ledger entry.
     invocation. Follow-up freshness passes closed stale `GAR-PERF-2C`, `GAR-SCALE-1`,
     `GAR-COMPAT-1`, and `GAR-NOVEL-1` global architecture review rows against already-landed
     scan-pushdown, scale-readiness, compatibility-scoreboard, and evidence-native report-lane
-    evidence. Full compute-engine completion remains blocked by 46 unchecked global architecture
+    evidence. Full compute-engine completion remains blocked by 45 unchecked global architecture
     review items and this unchecked phase-plan item.
-  - Next slice outcome: close or split the 46 global architecture review items into runtime-ready
+  - Next slice outcome: close or split the 45 global architecture review items into runtime-ready
     evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.

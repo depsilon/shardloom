@@ -16,6 +16,39 @@ use shardloom_core::{
 
 use crate::cli_output::{emit, emit_error};
 
+const REST_API_SURFACE_PARITY_SCHEMA_VERSION: &str = "shardloom.rest_api_surface_parity.v1";
+const REST_API_POLICY_PARITY_FIELDS: &[&str] = &[
+    "requested_execution_mode",
+    "engine_mode",
+    "fallback_policy",
+    "materialization_policy",
+    "result_policy",
+    "evidence_policy",
+    "effect_policy",
+    "network_policy",
+    "security_governance_policy",
+];
+const REST_API_EVIDENCE_PARITY_FIELDS: &[&str] = &[
+    "execution_certificate_ref",
+    "native_io_certificate_ref",
+    "materialization_boundary_report_ref",
+    "profile_artifact_ref",
+    "lineage_artifact_ref",
+    "no_fallback_evidence_artifact_ref",
+    "problem_details_diagnostic_code",
+    "stage_diagnostics",
+    "certificate_ref_summary",
+    "benchmark_event_ref",
+    "audit_evidence_ref",
+];
+const REST_API_NO_FALLBACK_PARITY_FIELDS: &[&str] = &[
+    "fallback_attempted",
+    "fallback_execution_allowed",
+    "external_engine_invoked",
+    "execution_delegated",
+    "no_fallback",
+];
+
 pub(crate) fn handle_api_compat_plan(format: OutputFormat) -> ExitCode {
     let plan = ReleasePlan::default_foundation_plan();
     let protocol = CliApiJsonProtocolReport::contract_only();
@@ -628,6 +661,18 @@ fn rest_api_contract_fields(
         report.fallback_execution_allowed,
     );
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    append_rest_api_surface_parity_fields(
+        &mut fields,
+        mode,
+        "available_contract",
+        "not_claim_grade",
+        "OpenAPI and REST discovery parity fields are contract-only; no HTTP listener, remote execution, production API, package, or performance claim is allowed.",
+        "openapi_contract_path,rest_runtime_unsupported_report_id",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        false,
+    );
     append_rest_no_effect_parity_fields(
         &mut fields,
         report.runtime_execution,
@@ -960,6 +1005,22 @@ fn append_plan_preview_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_api_surface_parity_fields(
+        fields,
+        "rest_api_plan_preview",
+        report.preview_status.as_str(),
+        if report.problem_details_emitted() {
+            "blocked_or_unsupported_preview"
+        } else {
+            "certification_preview_only"
+        },
+        "Plan preview emits support, blocker, and certification-preview fields without remote execution; it is not a production REST runtime or performance claim.",
+        "stage_diagnostics,problem_details_diagnostic_code",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.execution_delegated,
+    );
     append_rest_no_effect_parity_fields(
         fields,
         report.runtime_execution,
@@ -1208,6 +1269,22 @@ fn append_local_lifecycle_effect_fields(
         fields,
         "effect_policy_violated",
         report.effect_policy_violated(),
+    );
+    append_rest_api_surface_parity_fields(
+        fields,
+        "rest_api_local_lifecycle",
+        report.lifecycle_status.as_str(),
+        if report.local_execution_performed {
+            "local_runtime_certified_not_remote_api_grade"
+        } else {
+            "blocked_or_control_only_not_claim_grade"
+        },
+        "The local lifecycle surface can expose certified local handles, but no HTTP listener, remote worker, distributed runtime, production API, package, or performance claim is allowed.",
+        "execution_certificate_ref,native_io_certificate_ref,materialization_boundary_report_ref,profile_artifact_ref,lineage_artifact_ref,no_fallback_evidence_artifact_ref",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.execution_delegated,
     );
     append_rest_no_effect_parity_fields(
         fields,
@@ -1490,6 +1567,22 @@ fn append_event_stream_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_api_surface_parity_fields(
+        fields,
+        "rest_api_event_stream",
+        report.event_stream_status.as_str(),
+        if report.workload_certified {
+            "fixture_certified_not_production_claim_grade"
+        } else {
+            "blocked_or_unsupported_not_claim_grade"
+        },
+        "Event stream parity exposes certified fixture evidence and blockers only; no listener, broker runtime, production live/hybrid API, package, or performance claim is allowed.",
+        "certificate_ref_summary,no_fallback_evidence_artifact_ref,benchmark_event_ref",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.execution_delegated,
+    );
     append_rest_no_effect_parity_fields(
         fields,
         report.runtime_execution,
@@ -1732,6 +1825,18 @@ fn append_security_governance_effect_fields(
         fields,
         "effect_policy_violated",
         report.effect_policy_violated(),
+    );
+    append_rest_api_surface_parity_fields(
+        fields,
+        "rest_api_security_governance",
+        report.governance_status.as_str(),
+        "governance_contract_available_not_runtime_claim_grade",
+        "Security and governance parity exposes policy, scope, redaction, audit, and agent evidence fields without resolving credentials, executing tools, writing audit logs, or promoting production API claims.",
+        "audit_evidence_ref,evidence_model_signals,problem_details_diagnostic_code",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.execution_delegated,
     );
     append_rest_no_effect_parity_fields(
         fields,
@@ -1985,6 +2090,18 @@ fn append_data_plane_effect_fields(
         "effect_policy_violated",
         report.effect_policy_violated(),
     );
+    append_rest_api_surface_parity_fields(
+        fields,
+        "rest_api_data_plane",
+        report.data_plane_status.as_str(),
+        "data_plane_contract_available_not_transport_runtime_grade",
+        "Data-plane parity exposes transfer, materialization, standards, and no-fallback boundaries without starting Flight/ADBC, broker, object-store, production API, package, or performance claims.",
+        "no_fallback_evidence_artifact_ref,security_governance_policy_ref,transfer_modes,standards",
+        report.runtime_execution,
+        report.fallback_attempted,
+        report.external_engine_invoked,
+        report.execution_delegated,
+    );
     append_rest_no_effect_parity_fields(
         fields,
         report.runtime_execution,
@@ -2071,6 +2188,80 @@ fn append_rest_no_effect_parity_fields(
     );
 }
 
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+fn append_rest_api_surface_parity_fields(
+    fields: &mut Vec<(String, String)>,
+    surface_id: &'static str,
+    surface_status: &'static str,
+    claim_gate_status: &'static str,
+    claim_gate_reason: &'static str,
+    evidence_refs: &'static str,
+    runtime_execution: bool,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+    execution_delegated: bool,
+) {
+    let mode_selection_contract = RestApiContractReport::contract_only();
+    push_field(
+        fields,
+        "rest_api_surface_parity_schema_version",
+        REST_API_SURFACE_PARITY_SCHEMA_VERSION,
+    );
+    push_field(fields, "rest_api_surface_parity_surface_id", surface_id);
+    push_field(fields, "rest_api_surface_parity_status", surface_status);
+    push_bool_field(fields, "rest_api_cli_python_field_parity", true);
+    push_bool_field(fields, "rest_api_runtime_execution", runtime_execution);
+    push_bool_field(
+        fields,
+        "rest_api_runtime_equivalent_api_claim_allowed",
+        false,
+    );
+    push_field(
+        fields,
+        "rest_api_policy_fields",
+        &REST_API_POLICY_PARITY_FIELDS.join(","),
+    );
+    push_field(
+        fields,
+        "rest_api_mode_selection_schema_version",
+        mode_selection_contract.execution_mode_selection_schema_version,
+    );
+    push_field(
+        fields,
+        "rest_api_mode_selection_fields",
+        &mode_selection_contract
+            .execution_mode_selection_fields
+            .join(","),
+    );
+    push_field(
+        fields,
+        "rest_api_evidence_fields",
+        &REST_API_EVIDENCE_PARITY_FIELDS.join(","),
+    );
+    push_field(fields, "rest_api_evidence_refs", evidence_refs);
+    push_field(fields, "rest_api_claim_gate_status", claim_gate_status);
+    push_field(fields, "rest_api_claim_gate_reason", claim_gate_reason);
+    push_field(fields, "claim_gate_status", claim_gate_status);
+    push_field(fields, "claim_gate_reason", claim_gate_reason);
+    push_field(
+        fields,
+        "rest_api_no_fallback_fields",
+        &REST_API_NO_FALLBACK_PARITY_FIELDS.join(","),
+    );
+    push_bool_field(fields, "rest_api_fallback_attempted", fallback_attempted);
+    push_bool_field(
+        fields,
+        "rest_api_external_engine_invoked",
+        external_engine_invoked,
+    );
+    push_bool_field(fields, "rest_api_execution_delegated", execution_delegated);
+    push_bool_field(
+        fields,
+        "rest_api_no_fallback_no_external_engine",
+        !fallback_attempted && !external_engine_invoked && !execution_delegated,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2101,6 +2292,69 @@ mod tests {
             field_value(&fields, "discovery_report_id"),
             report.report_id
         );
+    }
+
+    #[test]
+    fn rest_api_surfaces_emit_cli_python_parity_fields() {
+        let cases = [
+            rest_api_contract_fields(
+                &RestApiContractReport::contract_only(),
+                "rest_api_contract_plan",
+            ),
+            rest_api_discovery_fields(&RestApiDiscoveryModeReport::contract_only("127.0.0.1:8787")),
+            rest_api_plan_preview_fields(&RestApiPlanPreviewReport::for_scenario(
+                RestApiPlanPreviewScenario::UnsupportedOperator,
+            )),
+            rest_api_local_lifecycle_fields(&RestApiLocalLifecycleReport::for_scenario(
+                RestApiLocalLifecycleScenario::CertifiedLocalBatch,
+            )),
+            rest_api_event_stream_fields(&RestApiEventStreamReport::for_scenario(
+                RestApiEventStreamScenario::CertifiedLiveFixture,
+            )),
+            rest_api_security_governance_fields(&RestApiSecurityGovernanceReport::for_scenario(
+                RestApiSecurityGovernanceScenario::SafeLocalDefault,
+            )),
+            rest_api_data_plane_fields(&RestApiDataPlaneReport::for_scenario(
+                RestApiDataPlaneScenario::StandardsMatrix,
+            )),
+        ];
+
+        for fields in cases {
+            assert_eq!(
+                field_value(&fields, "rest_api_surface_parity_schema_version"),
+                REST_API_SURFACE_PARITY_SCHEMA_VERSION
+            );
+            assert_eq!(
+                field_value(&fields, "rest_api_cli_python_field_parity"),
+                "true"
+            );
+            assert_eq!(
+                field_value(&fields, "rest_api_runtime_equivalent_api_claim_allowed"),
+                "false"
+            );
+            assert!(field_value(&fields, "rest_api_policy_fields").contains("fallback_policy"));
+            assert!(
+                field_value(&fields, "rest_api_mode_selection_fields")
+                    .contains("claim_gate_status")
+            );
+            assert!(
+                field_value(&fields, "rest_api_evidence_fields")
+                    .contains("execution_certificate_ref")
+            );
+            assert_ne!(field_value(&fields, "rest_api_claim_gate_status"), "");
+            assert_eq!(
+                field_value(&fields, "claim_gate_status"),
+                field_value(&fields, "rest_api_claim_gate_status")
+            );
+            assert!(
+                field_value(&fields, "rest_api_no_fallback_fields")
+                    .contains("external_engine_invoked")
+            );
+            assert_eq!(
+                field_value(&fields, "rest_api_no_fallback_no_external_engine"),
+                "true"
+            );
+        }
     }
 
     fn field_value<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {

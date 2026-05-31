@@ -5615,6 +5615,63 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.network_listener_opened)
         self.assertFalse(result.fallback_attempted)
 
+    def test_rest_api_views_expose_common_surface_parity_fields(self) -> None:
+        envelope = OutputEnvelope.from_field_mapping(
+            {
+                "rest_api_surface_parity_schema_version": "shardloom.rest_api_surface_parity.v1",
+                "rest_api_surface_parity_surface_id": "rest_api_contract_plan",
+                "rest_api_surface_parity_status": "available_contract",
+                "rest_api_cli_python_field_parity": "true",
+                "rest_api_runtime_execution": "false",
+                "rest_api_runtime_equivalent_api_claim_allowed": "false",
+                "rest_api_policy_fields": "requested_execution_mode,engine_mode,fallback_policy,materialization_policy,result_policy,evidence_policy,effect_policy,network_policy,security_governance_policy",
+                "rest_api_mode_selection_fields": "requested_execution_mode,selected_execution_mode,mode_selection_reason,claim_gate_status,fallback_attempted,external_engine_invoked",
+                "rest_api_evidence_fields": "execution_certificate_ref,native_io_certificate_ref,no_fallback_evidence_artifact_ref,problem_details_diagnostic_code",
+                "rest_api_evidence_refs": "openapi_contract_path,rest_runtime_unsupported_report_id",
+                "rest_api_claim_gate_status": "not_claim_grade",
+                "rest_api_claim_gate_reason": "contract-only surface",
+                "rest_api_no_fallback_fields": "fallback_attempted,fallback_execution_allowed,external_engine_invoked,execution_delegated,no_fallback",
+                "rest_api_fallback_attempted": "false",
+                "rest_api_external_engine_invoked": "false",
+                "rest_api_execution_delegated": "false",
+                "rest_api_no_fallback_no_external_engine": "true",
+            }
+        )
+
+        views = (
+            RestApiContractPlan(envelope),
+            RestApiDiscoveryContract(envelope),
+            RestApiPlanPreview(envelope),
+            RestApiLocalLifecycle(envelope),
+            RestApiEventStream(envelope),
+            RestApiSecurityGovernance(envelope),
+            RestApiDataPlane(envelope),
+        )
+
+        for view in views:
+            self.assertEqual(
+                view.rest_api_surface_parity_schema_version,
+                "shardloom.rest_api_surface_parity.v1",
+            )
+            self.assertEqual(
+                view.rest_api_surface_parity_surface_id,
+                "rest_api_contract_plan",
+            )
+            self.assertEqual(view.rest_api_surface_parity_status, "available_contract")
+            self.assertTrue(view.rest_api_cli_python_field_parity)
+            self.assertFalse(view.rest_api_runtime_execution)
+            self.assertFalse(view.rest_api_runtime_equivalent_api_claim_allowed)
+            self.assertIn("fallback_policy", view.rest_api_policy_fields)
+            self.assertIn("claim_gate_status", view.rest_api_mode_selection_fields)
+            self.assertIn("execution_certificate_ref", view.rest_api_evidence_fields)
+            self.assertIn("rest_runtime_unsupported_report_id", view.rest_api_evidence_refs)
+            self.assertEqual(view.rest_api_claim_gate_status, "not_claim_grade")
+            self.assertIn("external_engine_invoked", view.rest_api_no_fallback_fields)
+            self.assertFalse(view.rest_api_fallback_attempted)
+            self.assertFalse(view.rest_api_external_engine_invoked)
+            self.assertFalse(view.rest_api_execution_delegated)
+            self.assertTrue(view.rest_api_no_fallback_no_external_engine)
+
     def test_serve_discovery_contract_view(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

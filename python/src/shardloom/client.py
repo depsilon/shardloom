@@ -6611,8 +6611,147 @@ class ExecutionResultEnvelopeView:
         return _envelope_external_engine_invoked(self.envelope)
 
 
+class _RestApiSurfaceParityMixin:
+    """Common REST parity fields shared by contract, lifecycle, and event views."""
+
+    __slots__ = ()
+
+    @property
+    def rest_api_surface_parity_schema_version(self) -> str | None:
+        """Return the REST surface parity schema version."""
+
+        return self.envelope.field("rest_api_surface_parity_schema_version")
+
+    @property
+    def rest_api_surface_parity_surface_id(self) -> str | None:
+        """Return the REST surface identifier used by parity checks."""
+
+        return self.envelope.field("rest_api_surface_parity_surface_id")
+
+    @property
+    def rest_api_surface_parity_status(self) -> str | None:
+        """Return the REST parity status for this surface."""
+
+        return self.envelope.field("rest_api_surface_parity_status")
+
+    @property
+    def rest_api_cli_python_field_parity(self) -> bool:
+        """Whether the CLI output exposes the common Python-readable REST fields."""
+
+        return self.envelope.field_bool("rest_api_cli_python_field_parity", False) is True
+
+    @property
+    def rest_api_runtime_execution(self) -> bool:
+        """Whether the REST parity contract reports runtime execution."""
+
+        return self.envelope.field_bool(
+            "rest_api_runtime_execution",
+            self.envelope.field_bool("runtime_execution", False),
+        ) is True
+
+    @property
+    def rest_api_runtime_equivalent_api_claim_allowed(self) -> bool:
+        """Whether this surface permits a broad runtime-equivalent REST API claim."""
+
+        return (
+            self.envelope.field_bool(
+                "rest_api_runtime_equivalent_api_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def rest_api_policy_fields(self) -> tuple[str, ...]:
+        """Return policy fields every REST surface projects for CLI/Python parity."""
+
+        return _csv_values(self.envelope.field("rest_api_policy_fields"))
+
+    @property
+    def rest_api_mode_selection_fields(self) -> tuple[str, ...]:
+        """Return execution-mode selection fields every REST surface projects."""
+
+        return _csv_values(self.envelope.field("rest_api_mode_selection_fields"))
+
+    @property
+    def rest_api_evidence_fields(self) -> tuple[str, ...]:
+        """Return evidence fields every REST surface projects."""
+
+        return _csv_values(self.envelope.field("rest_api_evidence_fields"))
+
+    @property
+    def rest_api_evidence_refs(self) -> tuple[str, ...]:
+        """Return surface-specific evidence references carried by the REST view."""
+
+        return _csv_values(self.envelope.field("rest_api_evidence_refs"))
+
+    @property
+    def rest_api_claim_gate_status(self) -> str | None:
+        """Return the REST claim-gate status for this surface."""
+
+        return self.envelope.field("rest_api_claim_gate_status")
+
+    @property
+    def rest_api_claim_gate_reason(self) -> str | None:
+        """Return the reason behind the REST claim-gate status."""
+
+        return self.envelope.field("rest_api_claim_gate_reason")
+
+    @property
+    def rest_api_no_fallback_fields(self) -> tuple[str, ...]:
+        """Return no-fallback fields every REST surface projects."""
+
+        return _csv_values(self.envelope.field("rest_api_no_fallback_fields"))
+
+    @property
+    def rest_api_fallback_attempted(self) -> bool:
+        """Whether REST handling attempted fallback execution."""
+
+        return self.envelope.fallback.attempted or (
+            self.envelope.field_bool(
+                "rest_api_fallback_attempted",
+                self.envelope.field_bool("fallback_attempted", False),
+            )
+            is True
+        )
+
+    @property
+    def rest_api_external_engine_invoked(self) -> bool:
+        """Whether REST handling invoked an external engine."""
+
+        return (
+            self.envelope.field_bool("rest_api_external_engine_invoked", False) is True
+            or _envelope_external_engine_invoked(self.envelope)
+        )
+
+    @property
+    def rest_api_execution_delegated(self) -> bool:
+        """Whether REST handling delegated execution."""
+
+        return (
+            self.envelope.field_bool(
+                "rest_api_execution_delegated",
+                self.envelope.field_bool("execution_delegated", False),
+            )
+            is True
+        )
+
+    @property
+    def rest_api_no_fallback_no_external_engine(self) -> bool:
+        """Whether REST parity proves no fallback, no external engine, and no delegation."""
+
+        explicit = self.envelope.field_bool("rest_api_no_fallback_no_external_engine")
+        if explicit is not None:
+            return explicit is True
+        return not (
+            self.rest_api_fallback_attempted
+            or self.rest_api_external_engine_invoked
+            or self.rest_api_execution_delegated
+        )
+
+
 @dataclass(frozen=True, slots=True)
-class RestApiContractPlan:
+class RestApiContractPlan(_RestApiSurfaceParityMixin):
     """Typed convenience view over the CG-23 REST/OpenAPI contract report."""
 
     envelope: OutputEnvelope
@@ -6828,7 +6967,7 @@ class RestApiDiscoveryContract(RestApiContractPlan):
 
 
 @dataclass(frozen=True, slots=True)
-class RestApiPlanPreview:
+class RestApiPlanPreview(_RestApiSurfaceParityMixin):
     """Typed view over the CG-23 plan/explain/validate/certification preview."""
 
     envelope: OutputEnvelope
@@ -6947,7 +7086,7 @@ class RestApiPlanPreview:
 
 
 @dataclass(frozen=True, slots=True)
-class RestApiLocalLifecycle:
+class RestApiLocalLifecycle(_RestApiSurfaceParityMixin):
     """Typed view over the CG-23 certified local lifecycle and result delivery bundle."""
 
     envelope: OutputEnvelope
@@ -7152,7 +7291,7 @@ class RestApiLocalLifecycle:
 
 
 @dataclass(frozen=True, slots=True)
-class RestApiEventStream:
+class RestApiEventStream(_RestApiSurfaceParityMixin):
     """Typed view over the CG-23 live/hybrid event stream contract."""
 
     envelope: OutputEnvelope
@@ -7284,7 +7423,7 @@ class RestApiEventStream:
 
 
 @dataclass(frozen=True, slots=True)
-class RestApiSecurityGovernance:
+class RestApiSecurityGovernance(_RestApiSurfaceParityMixin):
     """Typed view over the CG-23 security/governance/agent API contract."""
 
     envelope: OutputEnvelope
@@ -7442,7 +7581,7 @@ class RestApiSecurityGovernance:
 
 
 @dataclass(frozen=True, slots=True)
-class RestApiDataPlane:
+class RestApiDataPlane(_RestApiSurfaceParityMixin):
     """Typed view over the CG-23 data-plane and standards boundary contract."""
 
     envelope: OutputEnvelope
