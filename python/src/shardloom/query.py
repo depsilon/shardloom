@@ -1374,8 +1374,14 @@ class SqlWorkflow:
         self,
         *,
         check: bool = False,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows when the statement is admitted by the local-source SQL smoke."""
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> (
+        SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Collect rows or run admitted local Vortex SQL primitives."""
 
         if _is_source_free_sql_statement(self.statement):
             return self._unsupported_operation(
@@ -1383,6 +1389,12 @@ class SqlWorkflow:
                 "source_free_sql_collect_requires_write_output",
                 check=check,
             )
+        if report := self._vortex_sql_primitive_collect_report(
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        ):
+            return report
         if _is_local_source_sql_statement(self.statement):
             return self.client.sql_local_source_smoke(self.statement, check=check)
         return self._unsupported_operation("sql", self.statement, check=check)
@@ -1899,6 +1911,75 @@ class SqlWorkflow:
             return None
         return f"{normalized} LIMIT {default_limit}"
 
+    def _vortex_sql_primitive_collect_report(
+        self,
+        *,
+        check: bool,
+        memory_gb: int,
+        max_parallelism: int,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = _vortex_sql_primitive_shape(self.statement)
+        if shape is None:
+            return None
+        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+        if shape.count:
+            if shape.predicate:
+                envelope = self.client.vortex_count_where(
+                    shape.uri,
+                    shape.predicate,
+                    execute_local_primitive=True,
+                    memory_gb=memory_gb,
+                    max_parallelism=max_parallelism,
+                    check=check,
+                )
+            else:
+                envelope = self.client.vortex_run(
+                    shape.uri,
+                    "count",
+                    memory_gb=memory_gb,
+                    max_parallelism=max_parallelism,
+                    check=check,
+                )
+        elif shape.predicate and shape.columns:
+            envelope = self.client.vortex_filter_project(
+                shape.uri,
+                shape.predicate,
+                shape.columns,
+                source_order_limit=shape.limit,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.predicate and shape.columns is None:
+            envelope = self.client.vortex_filter(
+                shape.uri,
+                shape.predicate,
+                source_order_limit=shape.limit,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.columns and shape.predicate is None:
+            envelope = self.client.vortex_project(
+                shape.uri,
+                shape.columns,
+                source_order_limit=shape.limit,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        else:
+            return None
+        return VortexWorkflowExecutionReport(
+            workflow=self._report_workflow(),
+            operation="collect",
+            envelope=envelope,
+        )
+
     def _report_workflow(self) -> "LazyFrame":
         return LazyFrame(
             source=WorkflowSource("sql", self.statement),
@@ -2201,6 +2282,17 @@ class _VortexPrimitiveWorkflowShape:
     predicate: str | None = None
     columns: tuple[str, ...] | None = None
     limit: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _VortexSqlPrimitiveWorkflowShape:
+    """Parsed SQL subset admitted by local Vortex primitive commands."""
+
+    uri: str
+    predicate: str | None = None
+    columns: tuple[str, ...] | None = None
+    limit: int | None = None
+    count: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -3362,19 +3454,21 @@ class LazyFrame:
                 max_parallelism=max_parallelism,
                 check=check,
             )
-        elif shape.predicate and shape.limit is None:
+        elif shape.predicate:
             envelope = self.client.vortex_filter(
                 self.source.uri,
                 shape.predicate,
+                source_order_limit=shape.limit,
                 execute_local_primitive=True,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
             )
-        elif shape.columns and shape.limit is None:
+        elif shape.columns:
             envelope = self.client.vortex_project(
                 self.source.uri,
                 shape.columns,
+                source_order_limit=shape.limit,
                 execute_local_primitive=True,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
@@ -6169,6 +6263,201 @@ def _is_local_source_sql_ref(value: str) -> bool:
             ".orc",
         )
     )
+
+
+def _is_local_vortex_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return False
+    return lower.endswith(".vortex")
+
+
+def _vortex_sql_primitive_shape(
+    statement: str,
+) -> _VortexSqlPrimitiveWorkflowShape | None:
+    normalized = statement.strip().rstrip(";").strip()
+    if not _starts_with_sql_keyword(normalized, "select"):
+        return None
+    refs = _sql_source_refs(normalized)
+    if len(refs) != 1 or not _is_local_vortex_source_ref(refs[0]):
+        return None
+    select_body = normalized[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return None
+    projection = select_body[:from_position].strip()
+    from_tail = select_body[from_position + len("from") :].strip()
+    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
+    if parsed_ref is None:
+        return None
+    source_ref, tail = parsed_ref
+    if source_ref != refs[0] or not _is_local_vortex_source_ref(source_ref):
+        return None
+    parsed_tail = _parse_vortex_sql_tail(tail)
+    if parsed_tail is None:
+        return None
+    predicate_sql, limit = parsed_tail
+    predicate = None
+    if predicate_sql is not None:
+        predicate = _vortex_sql_predicate_to_tiny(predicate_sql)
+        if predicate is None:
+            return None
+    count = _is_sql_count_star_projection(projection)
+    if count:
+        if limit is not None:
+            return None
+        return _VortexSqlPrimitiveWorkflowShape(
+            uri=source_ref,
+            predicate=predicate,
+            count=True,
+        )
+    columns: tuple[str, ...] | None
+    if projection == "*":
+        columns = ("*",)
+    else:
+        try:
+            columns = tuple(
+                _normalize_output_column_name(column)
+                for column in _split_projection_function_args(projection)
+            )
+        except ValueError:
+            return None
+        if not columns:
+            return None
+    if predicate is None:
+        return _VortexSqlPrimitiveWorkflowShape(
+            uri=source_ref,
+            columns=columns,
+            limit=limit,
+        )
+    return _VortexSqlPrimitiveWorkflowShape(
+        uri=source_ref,
+        predicate=predicate,
+        columns=columns,
+        limit=limit,
+    )
+
+
+def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:
+    if not value.startswith("'"):
+        return None
+    current: list[str] = []
+    index = 1
+    while index < len(value):
+        char = value[index]
+        if char == "'":
+            if index + 1 < len(value) and value[index + 1] == "'":
+                current.append("'")
+                index += 2
+                continue
+            return "".join(current), value[index + 1 :].strip()
+        current.append(char)
+        index += 1
+    return None
+
+
+def _parse_vortex_sql_tail(value: str) -> tuple[str | None, int | None] | None:
+    tail = value.strip()
+    if not tail:
+        return None, None
+    where_position = _find_sql_keyword_outside_quotes(tail, "where")
+    limit_position = _find_sql_keyword_outside_quotes(tail, "limit")
+    positions = tuple(
+        position
+        for position in (where_position, limit_position)
+        if position is not None
+    )
+    if not positions:
+        return None
+    if where_position is not None and limit_position is not None and limit_position < where_position:
+        return None
+    if tail[: min(positions)].strip():
+        return None
+    predicate: str | None = None
+    if where_position is not None:
+        predicate_end = limit_position if limit_position is not None else len(tail)
+        predicate = tail[where_position + len("where") : predicate_end].strip()
+        if not predicate:
+            return None
+    limit: int | None = None
+    if limit_position is not None:
+        limit_text = tail[limit_position + len("limit") :].strip()
+        if not limit_text or not limit_text.isdecimal():
+            return None
+        limit = _normalize_positive_int("SQL Vortex LIMIT", int(limit_text))
+    return predicate, limit
+
+
+def _is_sql_count_star_projection(value: str) -> bool:
+    return "".join(value.split()).lower() == "count(*)"
+
+
+def _vortex_sql_predicate_to_tiny(value: str) -> str | None:
+    predicate = value.strip()
+    lower = predicate.lower()
+    for suffix, primitive in (
+        (" is not null", "is_not_null"),
+        (" is null", "is_null"),
+    ):
+        if lower.endswith(suffix):
+            column = predicate[: -len(suffix)].strip()
+            try:
+                return f"{primitive}:{_normalize_output_column_name(column)}"
+            except ValueError:
+                return None
+    if "!=" in predicate or "<>" in predicate:
+        return None
+    for operator, primitive in (
+        (">=", "gte"),
+        ("<=", "lte"),
+        ("=", "eq"),
+        (">", "gt"),
+        ("<", "lt"),
+    ):
+        position = _find_unquoted_token(predicate, operator)
+        if position is None:
+            continue
+        left = predicate[:position].strip()
+        right = predicate[position + len(operator) :].strip()
+        try:
+            column = _normalize_output_column_name(left)
+        except ValueError:
+            return None
+        literal = _parse_sql_int_literal(right)
+        if literal is None:
+            return None
+        return f"{primitive}:{column}:{literal}"
+    return None
+
+
+def _find_unquoted_token(value: str, token: str) -> int | None:
+    in_quote = False
+    index = 0
+    while index <= len(value) - len(token):
+        char = value[index]
+        if char == "'":
+            if in_quote and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and value.startswith(token, index):
+            return index
+        index += 1
+    return None
+
+
+def _parse_sql_int_literal(value: str) -> str | None:
+    text = value.strip()
+    if not text or text in {"+", "-"}:
+        return None
+    if not all(
+        char.isdigit() or (index == 0 and char in {"+", "-"})
+        for index, char in enumerate(text)
+    ):
+        return None
+    return str(int(text))
 
 
 def _is_local_csv_source_ref(value: str) -> bool:

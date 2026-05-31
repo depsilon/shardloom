@@ -794,16 +794,23 @@ class SessionSqlWorkflow:
         *,
         reuse: bool = True,
         check: bool = False,
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
     ) -> (
         SessionSqlResult
         | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
         | UnsupportedWorkflowOperationReport
     ):
         """Collect local-source SQL rows through this session when admitted."""
 
         self.session._ensure_open()
         if not _is_local_source_sql_statement(self.statement):
-            return self.workflow.collect(check=check)
+            return self.workflow.collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         return self.session._sql_result(
             operation="collect",
             statement=self.statement,

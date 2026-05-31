@@ -10962,6 +10962,79 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "not_claim_grade")
 
+    def test_sql_vortex_collect_uses_local_filter_project_primitive(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args == [
+                    "vortex-filter-project",
+                    "orders.vortex",
+                    "gte:value:3",
+                    "metric,value",
+                    "--limit",
+                    "5",
+                    "--execute-local-primitive",
+                    "6",
+                    "3",
+                    "--format",
+                    "json",
+                ], args
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-filter-project",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "mode", "value": "vortex_filter_project"},
+                        {"key": "primitive", "value": "filter_and_project"},
+                        {"key": "execution", "value": "local_vortex_filter_project_primitive_performed"},
+                        {"key": "result_known", "value": "true"},
+                        {"key": "data_read", "value": "true"},
+                        {"key": "data_decoded", "value": "false"},
+                        {"key": "data_materialized", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "filter_project_local_execution_rows_scanned", "value": "10"},
+                        {"key": "filter_project_local_execution_rows_selected", "value": "3"},
+                        {"key": "filter_project_local_execution_rows_projected", "value": "3"},
+                        {"key": "filter_project_local_execution_projected_columns", "value": "metric,value"},
+                        {"key": "filter_project_local_execution_claim_gate_status", "value": "not_claim_grade"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        report = sl.sql(
+            "SELECT metric, value FROM 'orders.vortex' WHERE value >= 3 LIMIT 5",
+            client=ShardLoomClient(binary=binary),
+        ).collect(memory_gb=6, max_parallelism=3)
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(report.command, "vortex-filter-project")
+        self.assertEqual(report.mode, "vortex_filter_project")
+        self.assertEqual(report.primitive, "filter_and_project")
+        self.assertEqual(report.rows_scanned, 10)
+        self.assertEqual(report.rows_selected, 3)
+        self.assertEqual(report.rows_projected, 3)
+        self.assertEqual(report.projected_columns, ("metric", "value"))
+        self.assertTrue(report.result_known)
+        self.assertTrue(report.runtime_execution)
+        self.assertTrue(report.data_read)
+        self.assertFalse(report.data_decoded)
+        self.assertFalse(report.data_materialized)
+        self.assertFalse(report.write_io)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "not_claim_grade")
+
     def test_vortex_query_builder_count_and_single_primitives_use_local_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -11074,6 +11147,116 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
+    def test_sql_vortex_count_project_and_filter_primitives_use_local_runtime(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == ["vortex-run", "orders.vortex", "count", "4", "2", "--format", "json"]:
+                    command = "vortex-run"
+                    fields = [
+                        {"key": "mode", "value": "vortex_run"},
+                        {"key": "primitive", "value": "count"},
+                        {"key": "execution", "value": "local_vortex_primitive_performed"},
+                        {"key": "data_read", "value": "true"},
+                        {"key": "result_known", "value": "true"},
+                        {"key": "local_primitive_report_present", "value": "true"},
+                        {"key": "local_primitive_rows_scanned", "value": "10"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ]
+                elif args == ["vortex-count-where", "orders.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    command = "vortex-count-where"
+                    fields = [
+                        {"key": "mode", "value": "vortex_count_where"},
+                        {"key": "primitive", "value": "count_where"},
+                        {"key": "filtered_count_local_execution_data_read", "value": "true"},
+                        {"key": "filtered_count_local_execution_result_known", "value": "true"},
+                        {"key": "filtered_count_local_execution_rows_scanned", "value": "10"},
+                        {"key": "filtered_count_local_execution_rows_selected", "value": "3"},
+                        {"key": "filtered_count_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ]
+                elif args == ["vortex-project", "orders.vortex", "metric", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    command = "vortex-project"
+                    fields = [
+                        {"key": "mode", "value": "vortex_project"},
+                        {"key": "primitive", "value": "project_columns"},
+                        {"key": "project_local_execution_data_read", "value": "true"},
+                        {"key": "project_local_execution_result_known", "value": "true"},
+                        {"key": "project_local_execution_rows_scanned", "value": "10"},
+                        {"key": "project_local_execution_rows_projected", "value": "10"},
+                        {"key": "project_local_execution_projected_columns", "value": "metric"},
+                        {"key": "project_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ]
+                elif args == ["vortex-filter-project", "orders.vortex", "gte:value:3", "*", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    command = "vortex-filter-project"
+                    fields = [
+                        {"key": "mode", "value": "vortex_filter_project"},
+                        {"key": "primitive", "value": "filter_and_project"},
+                        {"key": "filter_project_local_execution_data_read", "value": "true"},
+                        {"key": "filter_project_local_execution_result_known", "value": "true"},
+                        {"key": "filter_project_local_execution_rows_scanned", "value": "10"},
+                        {"key": "filter_project_local_execution_rows_selected", "value": "3"},
+                        {"key": "filter_project_local_execution_rows_projected", "value": "3"},
+                        {"key": "filter_project_local_execution_projected_columns", "value": "*"},
+                        {"key": "filter_project_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ]
+                else:
+                    raise AssertionError(args)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        count = sl.sql("SELECT COUNT(*) FROM 'orders.vortex'", client=client).collect(
+            memory_gb=4,
+            max_parallelism=2,
+        )
+        count_where = sl.sql(
+            "SELECT COUNT(*) FROM 'orders.vortex' WHERE value >= 3",
+            client=client,
+        ).collect(memory_gb=4, max_parallelism=2)
+        project = sl.sql("SELECT metric FROM 'orders.vortex'", client=client).collect(
+            memory_gb=4,
+            max_parallelism=2,
+        )
+        filtered = sl.sql(
+            "SELECT * FROM 'orders.vortex' WHERE value >= 3",
+            client=client,
+        ).collect(memory_gb=4, max_parallelism=2)
+
+        self.assertEqual(count.command, "vortex-run")
+        self.assertEqual(count.rows_scanned, 10)
+        self.assertEqual(count_where.command, "vortex-count-where")
+        self.assertEqual(count_where.rows_selected, 3)
+        self.assertEqual(project.command, "vortex-project")
+        self.assertEqual(project.rows_projected, 10)
+        self.assertEqual(project.projected_columns, ("metric",))
+        self.assertEqual(filtered.command, "vortex-filter-project")
+        self.assertEqual(filtered.rows_selected, 3)
+        for report in (count, count_where, project, filtered):
+            self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+            self.assertTrue(report.runtime_execution)
+            self.assertTrue(report.data_read)
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
     def test_session_vortex_terminals_use_local_primitive_runtime(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -11144,39 +11327,96 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(count.fallback_attempted)
         self.assertFalse(project.fallback_attempted)
 
-    def test_vortex_query_builder_unsupported_shapes_remain_explicit(self) -> None:
-        expected_workflow = "read_vortex(orders.vortex) -> filter(gte:value:3) -> limit(5)"
+    def test_session_sql_vortex_collect_passes_resource_args(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
-                f"""
+                """
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "workflow-unsupported-plan",
-                    "collect",
-                    {expected_workflow!r},
+                    "vortex-project",
+                    "orders.vortex",
+                    "metric",
+                    "--execute-local-primitive",
+                    "7",
+                    "2",
                     "--format",
                     "json",
                 ], sys.argv
-                print(json.dumps({{
+                print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "workflow-unsupported-plan",
+                    "command": "vortex-project",
                     "status": "success",
-                    "summary": "unsupported workflow report",
-                    "human_text": "unsupported",
-                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
-                        {{"key": "operation", "value": "collect"}},
-                        {{"key": "blocker_id", "value": "cg21.workflow.collect.unsupported"}},
-                        {{"key": "required_evidence", "value": "runtime,correctness_certificate"}},
-                        {{"key": "fallback_attempted", "value": "false"}},
-                        {{"key": "external_engine_invoked", "value": "false"}},
-                        {{"key": "runtime_execution", "value": "false"}},
-                        {{"key": "data_read", "value": "false"}},
-                        {{"key": "write_io", "value": "false"}}
+                        {"key": "mode", "value": "vortex_project"},
+                        {"key": "primitive", "value": "project_columns"},
+                        {"key": "project_local_execution_data_read", "value": "true"},
+                        {"key": "project_local_execution_result_known", "value": "true"},
+                        {"key": "project_local_execution_rows_projected", "value": "10"},
+                        {"key": "project_local_execution_projected_columns", "value": "metric"},
+                        {"key": "project_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
                     ],
-                }}))
+                }))
+                """
+            )
+        )
+        session = sl.ShardLoomSession(
+            ShardLoomClient(binary=binary),
+            session_id="sql-vortex-session",
+        )
+
+        report = session.sql("SELECT metric FROM 'orders.vortex'").collect(
+            memory_gb=7,
+            max_parallelism=2,
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(report.command, "vortex-project")
+        self.assertEqual(report.projected_columns, ("metric",))
+        self.assertFalse(report.fallback_attempted)
+
+    def test_vortex_query_builder_filter_limit_uses_local_primitive_runtime(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "vortex-filter",
+                    "orders.vortex",
+                    "gte:value:3",
+                    "--limit",
+                    "5",
+                    "--execute-local-primitive",
+                    "4",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-filter",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "mode", "value": "vortex_filter"},
+                        {"key": "primitive", "value": "filter_predicate"},
+                        {"key": "filter_local_execution_data_read", "value": "true"},
+                        {"key": "filter_local_execution_result_known", "value": "true"},
+                        {"key": "filter_local_execution_rows_scanned", "value": "10"},
+                        {"key": "filter_local_execution_rows_selected", "value": "5"},
+                        {"key": "filter_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
                 """
             )
         )
@@ -11188,11 +11428,62 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertIsInstance(report, sl.UnsupportedWorkflowOperationReport)
-        self.assertEqual(report.blocker_id, "cg21.workflow.collect.unsupported")
-        self.assertFalse(report.runtime_execution)
-        self.assertFalse(report.data_read)
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(report.command, "vortex-filter")
+        self.assertEqual(report.rows_selected, 5)
+        self.assertTrue(report.runtime_execution)
+        self.assertTrue(report.data_read)
         self.assertFalse(report.fallback_attempted)
+
+    def test_sql_vortex_project_and_star_limits_use_local_primitive_runtime(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == ["vortex-project", "orders.vortex", "metric", "--limit", "5", "--execute-local-primitive", "4", "1", "--format", "json"]:
+                    columns = "metric"
+                elif args == ["vortex-project", "orders.vortex", "*", "--limit", "5", "--execute-local-primitive", "4", "1", "--format", "json"]:
+                    columns = "*"
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-project",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "mode", "value": "vortex_project"},
+                        {"key": "primitive", "value": "project_columns"},
+                        {"key": "project_local_execution_data_read", "value": "true"},
+                        {"key": "project_local_execution_result_known", "value": "true"},
+                        {"key": "project_local_execution_rows_projected", "value": "5"},
+                        {"key": "project_local_execution_projected_columns", "value": columns},
+                        {"key": "project_local_execution_fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        project = sl.sql("SELECT metric FROM 'orders.vortex' LIMIT 5", client=client).collect()
+        star = sl.sql("SELECT * FROM 'orders.vortex' LIMIT 5", client=client).collect()
+
+        self.assertIsInstance(project, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(project.command, "vortex-project")
+        self.assertEqual(project.rows_projected, 5)
+        self.assertEqual(project.projected_columns, ("metric",))
+        self.assertIsInstance(star, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(star.command, "vortex-project")
+        self.assertEqual(star.projected_columns, ("*",))
+        self.assertFalse(project.fallback_attempted)
+        self.assertFalse(star.fallback_attempted)
 
 
 if __name__ == "__main__":

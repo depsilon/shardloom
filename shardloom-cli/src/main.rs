@@ -7123,6 +7123,48 @@ mod tests {
     }
 
     #[test]
+    fn vortex_project_and_filter_source_order_limits_bridge_when_feature_enabled() {
+        if !vortex_encoded_read_spike_feature_enabled() {
+            return;
+        }
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+
+        let project = run(vec![
+            "vortex-project".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "metric".to_string(),
+            "--limit".to_string(),
+            "2".to_string(),
+            "--execute-local-primitive".to_string(),
+            "1".to_string(),
+            "2".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        let filter = run(vec![
+            "vortex-filter".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "gte:value:3".to_string(),
+            "--limit".to_string(),
+            "2".to_string(),
+            "--execute-local-primitive".to_string(),
+            "1".to_string(),
+            "2".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+
+        assert_eq!(project, ExitCode::SUCCESS);
+        assert_eq!(filter, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_metadata_physical_kernel_plan_ready_count_succeeds() {
         let code = run(vec![
             "vortex-metadata-physical-kernel-plan".to_string(),

@@ -4673,6 +4673,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(materialization.materialization_required)
         self.assertIsNone(materialization.blocker_id)
         self.assertIn("to_pandas", materialization.sql_surface)
+        vortex = matrix.row("local_vortex_primitive_runtime")
+        self.assertTrue(vortex.equivalent_admitted_scope)
+        self.assertEqual(
+            vortex.shared_runtime_path,
+            "vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project",
+        )
+        self.assertIn("local.vortex", vortex.sql_surface)
+        self.assertFalse(vortex.materialization_required)
+        self.assertIsNone(vortex.blocker_id)
+        self.assertIn("Vortex-normalized", vortex.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -4682,7 +4692,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         performance = matrix.row("performance_equivalence")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 5)
+        self.assertEqual(len(matrix.admitted_rows), 6)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:

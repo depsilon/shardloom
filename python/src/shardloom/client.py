@@ -8618,6 +8618,7 @@ class ShardLoomClient:
         dataset_uri: str | os.PathLike[str],
         predicate: str,
         *,
+        source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
@@ -8626,6 +8627,13 @@ class ShardLoomClient:
         """Run `vortex-filter` with optional explicit local execution."""
 
         args = ["vortex-filter", str(dataset_uri), predicate]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
         _append_resource_execution_args(
             args,
             option="--execute-local-primitive",
@@ -8640,6 +8648,7 @@ class ShardLoomClient:
         dataset_uri: str | os.PathLike[str],
         columns: str | Sequence[str],
         *,
+        source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
@@ -8648,6 +8657,13 @@ class ShardLoomClient:
         """Run `vortex-project` with optional explicit local execution."""
 
         args = ["vortex-project", str(dataset_uri), _columns_arg(columns)]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
         _append_resource_execution_args(
             args,
             option="--execute-local-primitive",
