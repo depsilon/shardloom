@@ -327,9 +327,12 @@ validators, docs/website parity, and a completed-ledger entry.
     The Python/runtime user-surface freshness pass added explicit context/client helpers for the
     already-admitted local object-store, table metadata/append, and SQLite fixture smokes, closing
     the stale ergonomic API row while keeping broad runtime/package claims in their owning rows.
-    Full compute-engine completion remains blocked by 39 unchecked global architecture review
-    items and this unchecked phase-plan item.
-  - Next slice outcome: close or split the 39 global architecture review items into runtime-ready
+    The extension/UDF context-surface pass closed the duplicate plugin/UDF sandbox row by exposing
+    the existing non-executing extension inspection and built-in deterministic scalar UDF fixture
+    helpers through the high-level context while leaving arbitrary plugin/UDF/effect execution in
+    the owning modular-extensibility gates. Full compute-engine completion remains blocked by 38
+    unchecked global architecture review items and this unchecked phase-plan item.
+  - Next slice outcome: close or split the 38 global architecture review items into runtime-ready
     evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.
