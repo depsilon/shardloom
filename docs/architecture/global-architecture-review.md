@@ -927,30 +927,16 @@ plan before coding.
   count/byte/peak-RSS `not_available` statuses, `buffer_pool_enabled=false`,
   `buffer_reuse_count=0`, deterministic reuse blockers, correctness/evidence posture, no unsafe
   lifetime shortcuts, and no-fallback/no-external-engine fields.
-- [ ] `GAR-IOREUSE-1` adds planned I/O reuse and cross-format fanout evidence. `GAR-IOREUSE-1A`,
-  `GAR-IOREUSE-1B`, and `GAR-IOREUSE-1C` now establish SourceState, VortexPreparedState, and
-  OutputPlan benchmark/report contracts for local source discovery/schema/parse posture, prepared
-  artifact identity/digest/reuse posture, and scoped local Vortex result-sink output posture.
-  `GAR-IOREUSE-1D` now adds a report-only fanout benchmark matrix for the required cross-format
-  cases. `GAR-IOREUSE-1E` now adds a cache invalidation/fingerprint benchmark contract for current
-  local source/prepared/plan/output posture. `GAR-IOREUSE-1F` now adds evidence-safe reuse-level
-  rows so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and
-  result-replay reuse stay separate from execution mode, evidence level, output format, and claim
-  gate. Scoped local-source and generated-output runtime fanout now write admitted local sinks with
-  OutputPlan digests, per-output certificates, replay/fidelity evidence, and no-fallback fields;
-  Python `ShardLoomSession` reuses matching local output/fanout reports only when fingerprints
-  still match. `GAR-IOREUSE-1H` now adds cold-lane attribution with dedicated benchmark
-  constitution blocking for full certified cold ingest, preparation-only, warm prepared query,
-  sink/replay-heavy, evidence-heavy, process/harness-heavy, and external-baseline-only rows.
-  Cold-lane follow-through now keeps Vortex-native source/sink/split preparation
-  (`GAR-IOREUSE-1I`), differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave
-  control (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), layout/write advice
-  (`GAR-PERF-2J`), and copy-budget/buffer-lifecycle evidence (`GAR-PERF-2K`) inside
-  `vortex_ingest`. Scoped local SQL/Python and generated-output writes now emit first-class
-  `sink_artifact_*` refs/digests/counts/replay/commit evidence for primary and fanout local sinks.
-  Remaining `GAR-IOREUSE-1` work is object-store/table/real-Foundry sink artifact proof,
-  benchmark-family fanout promotion, persistent cache/session promotion, and claim-grade gates so
-  reuse cannot silently become production, cache-hit, or performance proof.
+- [x] `GAR-IOREUSE-1A` through `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` now close the
+  scoped local I/O-reuse evidence family for SourceState, VortexPreparedState, OutputPlan, local
+  fanout, cache invalidation/fingerprint, evidence-safe reuse levels, session fingerprint reuse,
+  cold-lane attribution, Vortex-native preparation, differential preparation, capillary I/O,
+  scout ingress/triage, layout/write advice, and copy-budget/buffer-lifecycle evidence. Scoped
+  local SQL/Python and generated-output writes emit first-class `sink_artifact_*`
+  refs/digests/counts/replay/commit evidence for primary and fanout local sinks. Remaining
+  object-store/table/real-Foundry sink artifact proof, benchmark-family fanout promotion,
+  persistent cache/session promotion, and claim-grade gates are carried by the canonical
+  compute-flow `GAR-IOREUSE-1` row below instead of this duplicate blocker.
 - [x] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
   ShardLoom does not claim literal "any volume" support; current scale evidence classifies rows as
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,
@@ -1141,16 +1127,13 @@ plan before coding.
   best-default language is allowed. It keeps `claim_gate_status=not_claim_grade`,
   `best_default_language_allowed=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false`; best-default certification evidence remains incomplete.
-- [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
-  add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
-  `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
-  adds one scoped local user-row JSONL smoke path with generated-source and output evidence, and
-  `GAR-GEN-1D` adds one scoped local engine-native range JSONL smoke path. `GAR-GEN-1E` adds
-  `shardloom.generated_source_api_admission.v1` rows for Python, SQL, DataFrame, and API
-  source-free forms without parsing SQL, executing broad DataFrame runtime, writing output for
-  report-only rows, or invoking external engines. Remaining GAR-GEN work is other engine-native
-  generators plus broader output/API proof without promoting broad SQL/DataFrame runtime,
-  object-store/Foundry runtime, performance, production, or package claims before evidence exists.
+- [x] `GAR-GEN-1A` through `GAR-GEN-1E` now close the generated-source contract/API-admission
+  surface: `GeneratedSourceCertificate` rows separate `no_dataset_smoke`, `user_generated_source`,
+  and `engine_native_generated_source`; scoped local user-row, literal-table, calendar, range,
+  sequence, SQL literal/VALUES, SQL generator/range-projection, and generated `with_column` paths
+  carry generated-source and output evidence without broad SQL/DataFrame runtime, object-store or
+  Foundry execution, external engines, or fallback. Remaining broader generated-output runtime work
+  is carried by the canonical compute-flow `GAR-GEN-1` row below.
 - [x] `GAR-NOVEL-1A` keeps `GeneratedSourceCertificate` aligned with Python/API docs,
   SQL/DataFrame capability rows, Foundry proof docs, and future lineage/telemetry/confidence refs
   through `shardloom.generated_source_evidence_alignment.v1`. The rows cover
@@ -1192,7 +1175,7 @@ plan before coding.
 - [x] `GAR-0032-B` exposes method-level support status and claim boundaries for Python
   DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
   invoking external engines, or upgrading support to claim-grade runtime.
-- [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
+- [x] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
   `ctx.from_rows(...).with_column(literal).write(...)`,
   `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
   `ctx.range(...).write(...)`/`ctx.range(...).with_column(int64_expression).write(...)`/
@@ -1201,12 +1184,12 @@ plan before coding.
   SQL literal `SELECT`, SQL `VALUES`, scoped SQL source-free range projection, SQL
   `generate_series`/`range`, DataFrame source-free projection blockers, and scoped generated
   `with_column`. `GAR-COMPAT-1B` projects the same posture into the universal compatibility
-  scoreboard and website/status rows without broadening runtime. Broad SQL execution beyond the
-  scoped source-free literal/VALUES/range-generator smokes, broad DataFrame generation,
-  engine-native values/synthetic generators, object-store output, and Foundry
-  generated-output runtime remain report-only/planned
-  under `GAR-GEN-1` and `GAR-RUNTIME-COMPLETE-1A`. No-input smoke does not count as
-  generated-output execution.
+  scoreboard and website/status rows without broadening runtime. This closes the duplicated
+  user-workflow generated-output blocker; broad SQL execution beyond the scoped source-free
+  literal/VALUES/range-generator smokes, broad DataFrame generation, engine-native values/synthetic
+  generators, object-store output, and Foundry generated-output runtime remain guarded by the
+  canonical compute-flow `GAR-GEN-1` row and the broad SQL/DataFrame/object-store/Foundry rows.
+  No-input smoke does not count as generated-output execution.
 - [x] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.
@@ -1554,16 +1537,14 @@ plan before coding.
 - [x] `GAR-PERF-2H` adds optimized build-profile and PGO benchmark follow-through. It keeps Cargo
   custom profiles, rustc PGO flags, host-native codegen, benchmark evidence, and release portability
   boundaries explicit so optimized builds do not become hidden performance or release claims.
-- [ ] `GAR-IOREUSE-1` adds planned I/O reuse and fanout follow-through across Vortex-adjacent
-  source/sink boundaries. It must check Vortex Source/Sink/Split, file I/O, prepared artifact, and
-  output concepts before inventing parallel abstractions; any wrapper must preserve Native I/O,
-  materialization/decode, no-fallback, output metadata, and claim-gate evidence. Scoped local
-  SQL/Python and generated-output fanout has landed; remaining follow-through is persistent
-  session/cache reuse, benchmark-family fanout promotion, broader sink metadata proof, cold-lane
-  attribution, Vortex-native preparation, differential preparation, capillary I/O, scout ingress/
-  triage, and object-store/table/Foundry sink boundaries. The adjacent cold-lane performance
-  follow-through is layout/write advice and copy-budget/buffer-lifecycle evidence, both blocked
-  from performance claims until benchmark evidence exists.
+- [x] The Vortex-adjacent `GAR-IOREUSE-1` source/sink concept check is complete for the scoped
+  SourceState, VortexPreparedState, OutputPlan, local fanout, cache invalidation, cold-lane,
+  capillary, scout-ingress, layout/write-advice, and copy-budget evidence surfaces. Current wrappers
+  preserve Native I/O, materialization/decode, no-fallback, output metadata, and claim-gate evidence
+  without inventing a hidden fallback path. Remaining generalized Source/Split, broader sink,
+  object-store/table/Foundry, benchmark-family fanout, and persistent-cache work is carried by the
+  canonical compute-flow `GAR-IOREUSE-1` row and the generalized Source/Split row below instead of
+  this duplicate RFC-local blocker.
 - [ ] Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
   runtime evidence, object-store runtime I/O, GPU/device execution, and managed-platform benchmark
   lanes remain incomplete.

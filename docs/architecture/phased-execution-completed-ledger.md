@@ -16,9 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: duplicated GAR-GEN/GAR-IOREUSE blocker consolidation
+  - Date: 2026-05-31
+  - Branch/PR: `codex/gar-duplicate-blocker-consolidation` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Duplicate `GAR-GEN-1` and `GAR-IOREUSE-1` unchecked rows in
+      `docs/architecture/global-architecture-review.md`.
+  - Scope:
+    - Closed duplicate generated-source contract/API-admission and user-workflow generated-output
+      blockers whose scoped local evidence already exists through generated-source CLI smokes,
+      Python helper surfaces, SQL source-free smokes, capability rows, compatibility rows, and
+      website/status evidence.
+    - Closed duplicate I/O-reuse/source-sink concept blockers whose scoped local SourceState,
+      VortexPreparedState, OutputPlan, fanout, cache invalidation, session reuse, cold-lane,
+      capillary, scout-ingress, layout/write-advice, and copy-budget evidence already exists.
+    - Kept the canonical unchecked compute-flow `GAR-GEN-1` and `GAR-IOREUSE-1` rows for the real
+      remaining broad runtime gaps: broad SQL/DataFrame generation, engine-native values/synthetic
+      generators, object-store/table/Foundry sinks, benchmark-family fanout, persistent cache, and
+      production/performance claims.
+    - Updated the active phase-plan blocker count from 45 to 41 unchecked global architecture review
+      items.
+  - Evidence:
+    - `shardloom-cli/src/generated_source_runtime.rs` implements scoped local user-row,
+      literal-table, calendar, range, sequence, and SQL source-free generated-output writes with
+      generated-source, output, replay, and no-fallback evidence.
+    - `shardloom-cli/src/status_capabilities.rs`,
+      `shardloom-cli/tests/capability_discovery_snapshots.rs`, `python/src/shardloom/context.py`,
+      and `python/tests/test_cli_client.py` expose and test generated-source admission rows.
+    - `shardloom-cli/src/generated_source_runtime.rs`, `python/tests/test_cli_client.py`, and the
+      benchmark/status artifacts expose scoped local fanout, sink artifact, cache/reuse, capillary,
+      cold-lane, layout/write-advice, and copy-budget evidence.
+  - Claim boundary:
+    - This is a duplicate-blocker consolidation only. Broad SQL/DataFrame runtime, object-store
+      runtime, table/lakehouse runtime, real Foundry runtime, package, production, public
+      performance, superiority, and Spark-displacement claims remain blocked.
+  - Fallback boundary:
+    - No runtime behavior is changed. The consolidated rows preserve `fallback_attempted=false`,
+      `external_engine_invoked=false`, and no external query-engine fallback.
+
 - [x] Session label: REST API surface parity closeout
   - Date: 2026-05-31
-  - Branch/PR: `codex/rest-api-surface-parity` / pending.
+  - Branch/PR: `codex/rest-api-surface-parity` / #985.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
