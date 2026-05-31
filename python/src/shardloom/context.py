@@ -471,6 +471,14 @@ _LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY = (
     "backend, object-store/table source, broad SQL/DataFrame runtime, external engine, fallback, "
     "or production claim."
 )
+_LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY = (
+    "Scoped local Vortex primitive runtime only: read_vortex(...).count(), "
+    "filter(...).count(), select(...).collect(), filter(...).collect(), and "
+    "filter(...).select(...).limit(...).collect() lower to ShardLoom's explicit "
+    "Vortex local primitive commands backed by upstream Vortex scan/read APIs. This is not "
+    "decoded row materialization, broad SQL Vortex parity, read-transform-write parity, "
+    "object-store/table runtime, external engine fallback, or a performance-equivalence claim."
+)
 _LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY = (
     "Scoped bounded Python object materialization from ShardLoom-emitted inline JSONL for admitted "
     "local-source query-builder workflows only; object-store/table source, external engine, "
@@ -888,8 +896,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fixture_smoke_supported",
         required_evidence=(
             "sql_local_source_smoke",
+            "vortex_local_primitive_runtime",
             "materialization_boundary",
             "execution_certificate",
+            "native_io_certificate",
         ),
         runtime_execution=True,
         data_read=True,
@@ -897,9 +907,31 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, multi-key group-by aggregate, single-key top-N, "
-            "and scoped local-source join collect smoke only; no broad "
-            "DataFrame runtime, object-store/table source, external engine, fallback, "
+            "and scoped local-source join collect smoke only. For Vortex sources, collect "
+            "is admitted only for scoped local primitive reports for filter, project, and "
+            "filter-project with optional source-order limit, not decoded row materialization. "
+            "No broad DataFrame runtime, object-store/table source, external engine, fallback, "
             "or production claim."
+        ),
+    ),
+    _df_method(
+        "count",
+        "aggregation",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "vortex_local_primitive_runtime",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=(
+            "Scoped local-source count runtime for admitted SQL local-source query-builder "
+            "shapes plus scoped local Vortex count/count-where primitive runtime. Vortex count "
+            "uses ShardLoom's explicit Vortex primitive commands backed by upstream Vortex "
+            "scan/read APIs. No broad SQL/DataFrame runtime, decoded row materialization, "
+            "object-store/table source, external engine, fallback, or production performance claim."
         ),
     ),
     _df_method(
@@ -1465,9 +1497,9 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "general Vortex-native read, transform, and write workflows",
         "blocked_general_runtime_gap",
         sql_surface="not complete for general Vortex SQL",
-        python_surface="ctx.read_vortex(...) declaration and lower-level Vortex primitive helpers",
-        dataframe_surface="read_vortex(...).filter/select/write_vortex broad workflow not complete",
-        shared_runtime_path="mixed Vortex primitive/planning surfaces",
+        python_surface="ctx.read_vortex(...).count/filter/select scoped local primitive reports; broad workflow not complete",
+        dataframe_surface="read_vortex(...).filter/select/count/collect scoped primitive reports; write_vortex broad workflow not complete",
+        shared_runtime_path="scoped Vortex local primitive runtime plus Vortex planning surfaces",
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg19.cg21.general_vortex_front_door_runtime_missing",
@@ -1480,9 +1512,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "front_door_equivalence_benchmarks",
         ),
         claim_boundary=(
-            "Vortex primitives and planning surfaces exist, but a broad intuitive SQL/Python/"
-            "DataFrame Vortex workflow with equivalent runtime and performance evidence remains "
-            "a real engine gap."
+            "Scoped Python/DataFrame-style local Vortex count/filter/project/filter-project "
+            "primitive reports execute through ShardLoom's Vortex primitive runtime, but broad "
+            "intuitive SQL/Python/DataFrame Vortex read-transform-write parity with equivalent "
+            "runtime and performance evidence remains a real engine gap."
         ),
     ),
     _front_door_row(

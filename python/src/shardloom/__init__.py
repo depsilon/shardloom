@@ -171,6 +171,7 @@ from .query import (
     WorkflowSchemaMismatch,
     WorkflowSchemaReport,
     WorkflowSchemaValidationReport,
+    VortexWorkflowExecutionReport,
 )
 from .session import (
     LocalFileFingerprint,
@@ -303,6 +304,7 @@ __all__ = [
     "WorkflowSchemaReport",
     "WorkflowSchemaValidationReport",
     "WorkflowSource",
+    "VortexWorkflowExecutionReport",
     "abs",
     "calendar",
     "case_when",

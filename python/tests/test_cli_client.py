@@ -4891,6 +4891,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     ("vortex-filter", "file.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter",
                     ("vortex-project", "file.vortex", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-project",
                     ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter-project",
+                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--limit", "5", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter-project",
                 }
                 command = expected.get(tuple(args))
                 if command is None:
@@ -4939,11 +4940,21 @@ class ShardLoomClientTests(unittest.TestCase):
             memory_gb=4,
             max_parallelism=2,
         )
+        filter_project_limited = client.vortex_filter_project(
+            "file.vortex",
+            "gte:value:3",
+            ("metric", "value"),
+            source_order_limit=5,
+            execute_local_primitive=True,
+            memory_gb=4,
+            max_parallelism=2,
+        )
 
         self.assertEqual(count_where.command, "vortex-count-where")
         self.assertEqual(filtered.command, "vortex-filter")
         self.assertEqual(projected.command, "vortex-project")
         self.assertEqual(filter_project.command, "vortex-filter-project")
+        self.assertEqual(filter_project_limited.command, "vortex-filter-project")
 
     def test_local_vortex_primitive_smoke_dispatches_certified_fixture_workflow(self) -> None:
         binary = self.fake_cli(
@@ -5125,6 +5136,13 @@ class ShardLoomClientTests(unittest.TestCase):
                 execute_local_primitive=True,
                 memory_gb=0,
                 max_parallelism=2,
+            )
+        with self.assertRaises(ValueError):
+            client.vortex_filter_project(
+                "file.vortex",
+                "gte:value:3",
+                "metric",
+                source_order_limit=0,
             )
         with self.assertRaises(ValueError):
             client.vortex_write_intent_plan("file.vortex", [])

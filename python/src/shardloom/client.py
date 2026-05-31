@@ -8663,6 +8663,7 @@ class ShardLoomClient:
         predicate: str,
         columns: str | Sequence[str],
         *,
+        source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
@@ -8676,6 +8677,13 @@ class ShardLoomClient:
             predicate,
             _columns_arg(columns),
         ]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
         _append_resource_execution_args(
             args,
             option="--execute-local-primitive",

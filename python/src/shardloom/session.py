@@ -22,6 +22,7 @@ from .query import (
     LazyFrame,
     SqlWorkflow,
     UnsupportedWorkflowOperationReport,
+    VortexWorkflowExecutionReport,
     _is_local_source_sql_statement,
     _normalize_fanout_outputs,
     _normalize_local_output_format,
@@ -478,19 +479,35 @@ class SessionLazyFrame:
         *,
         reuse: bool = True,
         check: bool = False,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows through this session's scoped local-source reuse cache."""
 
-        return self.session.collect(self.frame, reuse=reuse, check=check)
+        return self.session.collect(
+            self.frame,
+            reuse=reuse,
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
 
     def count(
         self,
         *,
         reuse: bool = True,
         check: bool = False,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a scoped row-count report through the session cache when admitted."""
 
+        if self.frame.source_format == "vortex":
+            return self.frame.count(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         result = self.aggregate("count(*)", check=check)
         if isinstance(result, SessionLazyFrame):
             return result.limit(1).collect(reuse=reuse, check=check)
@@ -1369,13 +1386,19 @@ class ShardLoomSession:
         *,
         reuse: bool = True,
         check: bool = False,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows for an admitted local query-builder workflow with session reuse."""
 
         self._ensure_open()
         statement = frame._sql_local_source_statement()
         if statement is None:
-            return frame.collect(check=check)
+            return frame.collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         return self._sql_result(
             operation="collect",
             statement=statement,
