@@ -245,6 +245,16 @@ assert(
     benchmarkEvidence.published_benchmark_row_chunks.length > 0,
   "benchmark-results.json must reference full benchmark row chunks",
 );
+const summaryRows = Array.isArray(benchmarkEvidence.published_benchmark_rows)
+  ? benchmarkEvidence.published_benchmark_rows
+  : [];
+const shardloomSummaryRows = summaryRows.filter((row) => String(row.engine ?? "").startsWith("shardloom"));
+for (const field of ["vortex_scan_millis", "operator_compute_millis", "result_sink_write_millis"]) {
+  assert(
+    shardloomSummaryRows.every((row) => Object.prototype.hasOwnProperty.call(row, field)),
+    `summary ShardLoom benchmark rows must retain ${field} for detailed timing tables`,
+  );
+}
 for (const chunk of benchmarkEvidence.published_benchmark_row_chunks) {
   assert(chunk.path, "benchmark row chunk missing path");
   const chunkPath = chunk.path.replace(/^website\//, "");

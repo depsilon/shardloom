@@ -59,7 +59,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "b58b0bcc32ecf5350bad82edaa2c35227d856d4c",
+  "benchmark_git_sha": "a8a31e4b1969f4ed2eec5a5b0b4ae233b7f4cdbd",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -617,5 +617,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "b58b0bcc32ecf5350bad82edaa2c35227d856d4c"
+  "shardloom_git_sha": "a8a31e4b1969f4ed2eec5a5b0b4ae233b7f4cdbd"
 }

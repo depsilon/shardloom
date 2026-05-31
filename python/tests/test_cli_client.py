@@ -1949,6 +1949,44 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
 
+    def test_sql_local_source_report_hides_absent_sink_artifact_refs(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "sink_artifact_ref", "value": "not_applicable"},
+                    {"key": "sink_artifact_refs", "value": "not_applicable,not_requested,none"},
+                    {"key": "sink_artifact_digest", "value": "not_requested"},
+                    {"key": "sink_artifact_digests", "value": "not_applicable,not_requested"},
+                ],
+            }
+        )
+        report = SqlLocalSourceSmokeReport(envelope)
+
+        self.assertIsNone(report.sink_artifact_ref)
+        self.assertEqual(report.sink_artifact_refs, ())
+        self.assertIsNone(report.sink_artifact_digest)
+        self.assertEqual(report.sink_artifact_digests, ())
+
     def test_sql_local_source_report_window_evidence_accessors(self) -> None:
         envelope = OutputEnvelope.from_json(
             {

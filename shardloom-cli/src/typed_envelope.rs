@@ -1310,7 +1310,15 @@ fn field_value_is_reference(value: &str) -> bool {
     !normalized.is_empty()
         && !matches!(
             normalized.as_str(),
-            "false" | "true" | "0" | "none" | "null" | "not_performed" | "not_available"
+            "false"
+                | "true"
+                | "0"
+                | "none"
+                | "null"
+                | "not_performed"
+                | "not_available"
+                | "not_applicable"
+                | "not_requested"
         )
 }
 
@@ -1606,6 +1614,26 @@ mod tests {
                 && reference.status == "available"
                 && reference.uri.as_deref() == Some("target/out.csv")
         }));
+    }
+
+    #[test]
+    fn sink_artifact_refs_skip_absent_sentinels() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("test", "ok", "ok"),
+            "test",
+            vec![
+                (
+                    "sink_artifact_refs".to_string(),
+                    "not_applicable,not_requested,none,null".to_string(),
+                ),
+                (
+                    "materialization_boundary_report_ref".to_string(),
+                    "not_applicable".to_string(),
+                ),
+            ],
+        );
+
+        assert!(envelope.artifact_refs.is_empty());
     }
 
     #[test]

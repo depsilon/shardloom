@@ -1314,7 +1314,7 @@ class GeneratedSourceWriteReport:
     def sink_artifact_refs(self) -> tuple[str, ...]:
         """Return `format:path` refs for generated local sink artifacts."""
 
-        return _csv_values(self.envelope.field("sink_artifact_refs"))
+        return _csv_reference_values(self.envelope.field("sink_artifact_refs"))
 
     @property
     def sink_artifact_digest(self) -> str | None:
@@ -1329,7 +1329,7 @@ class GeneratedSourceWriteReport:
     def sink_artifact_digests(self) -> tuple[str, ...]:
         """Return `format:digest` entries for generated local sink artifacts."""
 
-        return _csv_values(self.envelope.field("sink_artifact_digests"))
+        return _csv_reference_values(self.envelope.field("sink_artifact_digests"))
 
     @property
     def sink_artifact_manifest_status(self) -> str | None:
@@ -3309,7 +3309,7 @@ class SqlLocalSourceSmokeReport:
     def sink_artifact_refs(self) -> tuple[str, ...]:
         """Return `format:path` refs for local SQL sink artifacts."""
 
-        return _csv_values(self.envelope.field("sink_artifact_refs"))
+        return _csv_reference_values(self.envelope.field("sink_artifact_refs"))
 
     @property
     def sink_artifact_digest(self) -> str | None:
@@ -3324,7 +3324,7 @@ class SqlLocalSourceSmokeReport:
     def sink_artifact_digests(self) -> tuple[str, ...]:
         """Return `format:digest` entries for local SQL sink artifacts."""
 
-        return _csv_values(self.envelope.field("sink_artifact_digests"))
+        return _csv_reference_values(self.envelope.field("sink_artifact_digests"))
 
     @property
     def sink_artifact_manifest_status(self) -> str | None:
@@ -9833,6 +9833,17 @@ def _csv_values(value: str | None) -> tuple[str, ...]:
     if value is None or value == "" or value == "none":
         return ()
     return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+ABSENT_REFERENCE_VALUES = {"none", "null", "not_requested", "not_applicable", "not_available"}
+
+
+def _csv_reference_values(value: str | None) -> tuple[str, ...]:
+    return tuple(
+        part
+        for part in _csv_values(value)
+        if part.strip().lower() not in ABSENT_REFERENCE_VALUES
+    )
 
 
 def _csv_key_value_map(value: str | None) -> dict[str, str]:
