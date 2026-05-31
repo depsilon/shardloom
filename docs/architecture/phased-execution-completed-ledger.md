@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Repo readiness and user-surface audit baseline
+  - Date: 2026-05-31
+  - Branch/PR: `codex/repo-readiness-user-surface-audit` / #991.
+  - Source:
+    - Active compute-engine completion goal.
+    - User request for comprehensive repo freshness, unsupported/blocker, and user-surface review.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+  - Scope:
+    - Added `docs/architecture/repo-readiness-user-surface-audit.md` as the current audit baseline
+      for readiness and coding-surface quality.
+    - Added standard CLI help aliases: `shardloom --help`, `shardloom -h`, and
+      `shardloom <command> --help` now route through the existing registry-backed help surface.
+    - Exposed help aliases in the command registry/status metadata.
+    - Replaced stale completed-ledger `pending` references for already-merged PRs #983 and #984.
+    - Split concrete follow-through plan items for user-surface graduation and true runtime gap
+      burn-down.
+  - Evidence:
+    - Audit inventory records 194 registered commands, 40 executable command surfaces,
+      12 feature-gated command surfaces, 8 diagnostic-only command surfaces, 134 report-only command
+      surfaces, 99 public `ShardLoomClient` methods, and 73 public `ShardLoomContext` methods.
+    - Completion evidence remains explicit: benchmark blockers are zero, while broad compute-engine
+      completion remains blocked by global review and phase-plan follow-through items.
+  - Claim boundary:
+    - This is a repo audit and ergonomics cleanup. It does not claim that all runtime gaps are
+      closed, that packages can be published, that production readiness is achieved, or that broad
+      performance/Spark-displacement claims are authorized.
+  - Fallback boundary:
+    - Help rendering and audit cleanup are side-effect-free and do not invoke Spark, DataFusion,
+      DuckDB, Polars, Velox, external engines, or fallback execution.
+
 - [x] Session label: Extension/UDF context-surface freshness closeout
   - Date: 2026-05-31
   - Branch/PR: `codex/extension-udf-context-surface` / #990.
@@ -228,7 +258,7 @@ phase plan first.
 
 - [x] Session label: completed report-lane global architecture review freshness closeout
   - Date: 2026-05-31
-  - Branch/PR: `codex/gar-completed-lane-review-freshness` / pending.
+  - Branch/PR: `codex/gar-completed-lane-review-freshness` / #984.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
@@ -264,7 +294,7 @@ phase plan first.
 
 - [x] Session label: GAR-PERF-2C global architecture review freshness closeout
   - Date: 2026-05-31
-  - Branch/PR: `codex/gar-perf-2c-review-freshness` / pending.
+  - Branch/PR: `codex/gar-perf-2c-review-freshness` / #983.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.

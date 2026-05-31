@@ -14,6 +14,8 @@ Agent metadata command: `shardloom command-metadata [command] --format json`
 
 Command-specific help command: `shardloom help [command] --format json`
 
+Help aliases: shardloom --help; shardloom -h; shardloom <command> --help
+
 Capability surface: `shardloom capabilities api-surfaces --format json`
 
 Evidence fields: command, family, support_state, side_effect_level, usage_fragment,

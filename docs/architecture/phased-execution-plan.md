@@ -330,10 +330,17 @@ validators, docs/website parity, and a completed-ledger entry.
     The extension/UDF context-surface pass closed the duplicate plugin/UDF sandbox row by exposing
     the existing non-executing extension inspection and built-in deterministic scalar UDF fixture
     helpers through the high-level context while leaving arbitrary plugin/UDF/effect execution in
-    the owning modular-extensibility gates. Full compute-engine completion remains blocked by 38
-    unchecked global architecture review items and this unchecked phase-plan item.
+    the owning modular-extensibility gates. The repo-wide readiness/user-surface audit baseline
+    found no benchmark blockers, 38 global architecture review blockers, one active phase-plan
+    blocker, 194 registered CLI commands, 40 executable commands, 12 feature-gated commands,
+    8 diagnostic-only commands, 134 report-only commands, 99 public `ShardLoomClient` methods,
+    73 public `ShardLoomContext` methods, two stale completed-ledger PR references, and one
+    concrete CLI discovery ergonomics bug around standard `--help` aliases. Full compute-engine
+    completion remains blocked by 38 unchecked global architecture review items plus the phase-plan
+    follow-through queue below.
   - Next slice outcome: close or split the 38 global architecture review items into runtime-ready
-    evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
+    evidence slices, and graduate the user-surface matrix so every report-only/feature-gated
+    surface has a deliberate high-level, low-level, diagnostic, or blocked posture.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.
   - User-visible surface: completion gate JSON, benchmark evidence, phase plan, global architecture
@@ -370,6 +377,100 @@ validators, docs/website parity, and a completed-ledger entry.
     required for every ShardLoom row and completion artifact.
   - Ledger rule: when this item closes, add the gate report, residual blocker deltas, and validation
     commands to `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [x] GAR-RUNTIME-IMPL-6B repo-wide readiness and user-surface audit baseline
+  - Source: active user objective, `docs/architecture/repo-readiness-user-surface-audit.md`,
+    `shardloom-cli/src/command_registry.rs`, Python client/context method inventories, and
+    `scripts/check_compute_engine_completion_gate.py`.
+  - Completed state: the audit establishes that the repo is not ready for a full "no gaps"
+    completion claim, classifies remaining blocker families as true runtime gaps versus stale
+    cleanup, records the command/Python user-surface inventory, and fixes the first concrete
+    ergonomics defect by making `shardloom --help`, `shardloom -h`, and
+    `shardloom <command> --help` route through the registry-backed help surface.
+  - Cleanup state: stale completed-ledger `pending` PR references for
+    `codex/gar-perf-2c-review-freshness` and `codex/gar-completed-lane-review-freshness` are
+    replaced with #983 and #984.
+  - Claim boundary: this is an audit and user-surface cleanup slice, not evidence that the engine is
+    complete, package-ready, production-ready, or free of true runtime blockers.
+  - Evidence required: standard help aliases pass through the real CLI, command registry/status
+    surfaces expose the aliases, completion-gate counts remain explicit, and stale ledger references
+    no longer use `pending`.
+  - Acceptance: focused CLI tests cover the help aliases, command registry docs/tests cover the
+    alias metadata, and release/readiness validators continue to report the remaining blockers
+    explicitly.
+
+- [ ] GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion
+  - Source: `docs/architecture/repo-readiness-user-surface-audit.md`,
+    `shardloom-cli/src/command_registry.rs`, `python/src/shardloom/client.py`,
+    `python/src/shardloom/context.py`, `python/README.md`, and current use-case/website surfaces.
+  - Current state: the repo exposes broad CLI and Python surfaces, but only part of that surface is
+    ergonomic high-level user workflow API; many report-only, feature-gated, and effectful rows are
+    intentionally present but not yet separated into a single source-of-truth graduation matrix.
+  - Next slice outcome: every registered CLI command family and Python user workflow is assigned one
+    of `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
+    `not_user_facing`, with deterministic criteria for promotion and no implied runtime support.
+  - User-visible surface: `shardloom help`, `command-metadata`, Python `ShardLoomClient`,
+    `ShardLoomContext`, README examples, use-case index entries, and website readiness narratives.
+  - Implementation scope: add the graduation matrix, wire a validator for CLI/Python/doc posture,
+    and promote only surfaces with real ShardLoom CLI/runtime evidence into high-level context
+    helpers; keep report-only or unsafe/effectful families diagnostic-only until evidence lands.
+  - Evidence required: matrix artifact, Python tests for promoted helpers, docs/examples for
+    admitted user workflows, and no-fallback/external-engine fields preserved.
+  - Acceptance: a validator fails if an executable or feature-gated user-facing command lacks a
+    deliberate Python/context posture or if docs imply support beyond the matrix.
+  - Verification:
+    ```bash
+    python3 scripts/check_use_case_index.py
+    python3 scripts/check_website_readiness.py
+    cargo test -p shardloom-cli --all-targets
+    cargo test -p shardloom-contract-tests --test release_readiness_metadata
+    ```
+  - Non-goals: no promotion of report-only planners to runtime execution, no hidden external engine
+    delegation, no package publication, and no broad performance or production-readiness claim.
+  - Dependencies/blockers: depends on the 6B audit inventory, current command registry metadata,
+    Python client/context inventories, and stable no-fallback diagnostics for unsupported surfaces.
+  - Claim boundary: graduation means the user surface is deliberately classified and validated; it
+    does not mean all classified surfaces are supported runtime capabilities.
+  - Fallback boundary: every promoted surface must preserve explicit no-fallback and
+    external-engine-not-invoked evidence where execution or certification is involved.
+
+- [ ] GAR-RUNTIME-IMPL-6D true runtime gap family burn-down plan
+  - Source: the 38 unchecked global architecture review rows and the runtime gap families listed in
+    `docs/architecture/repo-readiness-user-surface-audit.md`.
+  - Current state: the global review still has 38 unchecked rows; the completion gate is explicitly
+    blocked because broad architectural items have not all been converted into runtime evidence,
+    deterministic unsupported diagnostics, or reclassified out-of-scope surfaces with validators.
+  - Next slice outcome: split each broad global blocker into family-owned runtime implementation
+    slices with acceptance criteria for supported behavior, deterministic blockers, validators,
+    docs/website parity, and benchmark/release evidence when relevant.
+  - User-visible surface: capability discovery, diagnostics, Python/context workflows, CLI runtime
+    commands, release/readiness gates, benchmark/readiness docs, and website/use-case claims.
+  - Implementation scope: prioritize SQL/DataFrame runtime breadth, Vortex source/sink/operator
+    coverage, object-store/lakehouse execution, table/catalog commits, streaming/spill/retry
+    runtime, and package/deploy readiness according to current claim risk and user value.
+  - Evidence required: each split item names the owning module, public surface, no-fallback
+    invariant, validator, and completion-gate field it is expected to reduce.
+  - Acceptance: global review blocker count decreases only when a family has implementation,
+    deterministic admission evidence, or a documented reclassification with validator coverage.
+  - Verification:
+    ```bash
+    python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate.json
+    python3 scripts/check_release_architecture_tracker.py --allow-blocked
+    python3 scripts/final_release_rehearsal.py --allow-blocked
+    cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+    cargo test -p shardloom-contract-tests --test release_readiness_metadata
+    ```
+  - Non-goals: no unsupported work hidden as supported, no superiority/performance claims without
+    CG-5/CG-6 evidence, no fallback engines, no release publication, and no bundling every runtime
+    family into one oversized implementation PR.
+  - Dependencies/blockers: depends on the 6B audit, the 6C graduation matrix, the active global
+    architecture review inventory, and family-specific RFC/skill routing before runtime promotion.
+  - Claim boundary: blocker burn-down is claimable only for families with concrete implementation
+    evidence or validated unsupported diagnostics; placeholder artifacts do not satisfy runtime
+    support.
+  - Fallback boundary: runtime gap closure must keep ShardLoom execution native and explicit; DuckDB,
+    Polars, Spark, DataFusion, Velox, and Vortex query-engine integrations remain comparison or
+    external-boundary surfaces only, never fallback execution.
 
 ## Completed
 
