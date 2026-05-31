@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REST API surface parity closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/rest-api-surface-parity` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - `docs/rfcs/0035-rest-event-remote-api-surface.md`.
+    - REST parity row in `docs/architecture/global-architecture-review.md`.
+  - Scope:
+    - Added `shardloom.rest_api_surface_parity.v1` fields to every REST planning/contract CLI
+      surface so policy, execution-mode selection, evidence refs, claim-gate status/reason, and
+      no-fallback/no-external-engine status are present under the same field family.
+    - Added Python REST typed-view accessors for the common parity fields across contract,
+      discovery, plan-preview, local-lifecycle, event-stream, security/governance, and data-plane
+      views.
+    - Locked the REST parity fields in CLI typed-envelope and Python client tests.
+    - Closed the REST parity global-review row and updated the active phase-plan blocker count from
+      46 to 45 unchecked global architecture review items.
+  - Evidence:
+    - `shardloom-cli/src/rest_api_planning.rs` emits `rest_api_policy_fields`,
+      `rest_api_mode_selection_fields`, `rest_api_evidence_fields`,
+      `rest_api_claim_gate_status`, `rest_api_claim_gate_reason`,
+      `rest_api_no_fallback_fields`, and `rest_api_no_fallback_no_external_engine` for every REST
+      command family.
+    - `python/src/shardloom/client.py` exposes the same fields through `_RestApiSurfaceParityMixin`.
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs` and
+      `python/tests/test_cli_client.py` lock CLI/Python parity.
+  - Claim boundary:
+    - This closes REST contract-field parity only. HTTP listener runtime, remote execution,
+      Flight/ADBC transport, external broker integration, dependency-expanded server packaging,
+      production API, public package, performance, superiority, and Spark-displacement claims remain
+      blocked.
+  - Fallback boundary:
+    - REST parity keeps `fallback_attempted=false`, `fallback_execution_allowed=false`,
+      `external_engine_invoked=false`, `execution_delegated=false`, and
+      `rest_api_runtime_equivalent_api_claim_allowed=false`.
+
 - [x] Session label: completed report-lane global architecture review freshness closeout
   - Date: 2026-05-31
   - Branch/PR: `codex/gar-completed-lane-review-freshness` / pending.

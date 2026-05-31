@@ -1808,8 +1808,12 @@ plan before coding.
   engine-native generator nodes, plus scoped user-row, literal-table, calendar, and range local
   JSONL smoke paths. It still requires generated-source plus output-sink evidence before any
   broader generated-output runtime claim.
-- [ ] REST parity must emit the same policy, mode-selection, evidence, claim-gate, and
-  no-fallback fields as CLI/Python surfaces before it can be treated as an equivalent API.
+- [x] REST parity now emits the same policy, mode-selection, evidence, claim-gate, and
+  no-fallback field families as CLI/Python surfaces through
+  `shardloom.rest_api_surface_parity.v1` fields on every REST contract command. Python typed REST
+  views expose the same common parity accessors, while
+  `rest_api_runtime_equivalent_api_claim_allowed=false` keeps HTTP listener, remote execution,
+  Flight/ADBC, broker, production API, package, and performance claims blocked.
 
 ## Follow-Up Rule
 

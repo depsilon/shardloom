@@ -197,6 +197,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_contract_plan"),
                 ("openapi_version", "3.2.0"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_contract_plan",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("fallback_attempted", "false"),
                 ("network_listener_opened", "false"),
             ],
@@ -221,6 +228,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_discovery_mode"),
                 ("server_mode", "discovery"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_discovery_mode",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("server_started", "false"),
                 ("fallback_attempted", "false"),
             ],
@@ -242,6 +256,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_plan_preview"),
                 ("preview_status", "unsupported"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_plan_preview",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("native_logical_stage_status", "unsupported"),
                 ("problem_details_diagnostic_code", "SL_UNSUPPORTED_SQL"),
                 ("runtime_execution", "false"),
@@ -266,6 +287,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_local_lifecycle"),
                 ("lifecycle_status", "succeeded"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_local_lifecycle",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("runtime_execution", "true"),
                 ("local_execution_performed", "true"),
                 ("data_read", "false"),
@@ -293,6 +321,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_event_stream"),
                 ("event_stream_status", "certified_fixture"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_event_stream",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("sse_first", "true"),
                 ("asyncapi_version", "3.0.0"),
                 ("workload_certified", "true"),
@@ -322,6 +357,13 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_security_governance"),
                 ("governance_status", "available_contract"),
+                (
+                    "rest_api_surface_parity_surface_id",
+                    "rest_api_security_governance",
+                ),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("credential_references_only", "true"),
                 ("raw_secret_values_present", "false"),
                 ("secrets_redacted", "true"),
@@ -349,6 +391,10 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("mode", "rest_api_data_plane"),
                 ("data_plane_status", "standards_matrix_available"),
+                ("rest_api_surface_parity_surface_id", "rest_api_data_plane"),
+                ("rest_api_cli_python_field_parity", "true"),
+                ("rest_api_runtime_equivalent_api_claim_allowed", "false"),
+                ("rest_api_no_fallback_no_external_engine", "true"),
                 ("rest_control_plane_sufficient_for_local_use", "true"),
                 ("flight_adbc_required_for_basic_local_use", "false"),
                 ("standards_matrix_count", "11"),
