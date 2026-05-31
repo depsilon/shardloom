@@ -40,6 +40,7 @@ from .query import (
     UnsupportedWorkflowOperationReport,
     WorkflowSource,
     calendar as generated_calendar,
+    dataframe_source_free_projection as generated_dataframe_source_free_projection,
     from_arrow_ipc,
     from_arrow_table,
     from_pandas,
@@ -461,15 +462,17 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dataframe_source_free_projection",
         "source_free_generation",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="dataframe-source-free-projection",
-        blocker_id="gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
         required_evidence=(
-            "dataframe_plan_contract",
-            "expression_registry",
+            "dataframe_literal_projection_contract",
             "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+            "no_fallback_evidence",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "dataframe_generated_with_column",
@@ -5092,16 +5095,14 @@ class ShardLoomContext:
     def dataframe_source_free_projection(
         self,
         *expressions: object,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame source-free projection."""
+        check: bool | None = None,
+    ) -> GeneratedRowsSource:
+        """Create a scoped source-free literal projection for local output smokes."""
 
-        target = _join_non_empty_text("DataFrame projection expression", expressions)
-        return self._source_free_unsupported(
-            "dataframe-source-free-projection",
-            "dataframe_source_free_projection",
-            target,
-            check=check,
+        _ = check
+        return generated_dataframe_source_free_projection(
+            *expressions,
+            client=self.client,
         )
 
     def dataframe_generated_with_column(

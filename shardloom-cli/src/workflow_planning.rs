@@ -1385,12 +1385,12 @@ fn workflow_unsupported_sql_source_free_projection() -> WorkflowUnsupportedOpera
 fn workflow_unsupported_dataframe_source_free_projection() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "dataframe_source_free_projection",
-        label: "DataFrame source-free projection",
+        label: "Broad DataFrame source-free projection",
         surface: "dataframe_generated_source",
         feature: "gar_gen_1.dataframe_source_free_projection",
-        blocker_id: "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
-        required_evidence: "dataframe_plan_contract,expression_registry,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use ctx.from_rows(...).write(...), ctx.literal_table(...).write(...), ctx.range(...).write(...), or ctx.calendar(...).write(...) for scoped local generated-output smokes.",
+        blocker_id: "gar-gen-1.dataframe_source_free_projection_broad_expression_blocked",
+        required_evidence: "dataframe_plan_contract,expression_registry,broad_literal_and_expression_projection_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use ctx.dataframe_source_free_projection(\"lit(...).alias('name')\").write(...), ctx.from_rows(...).write(...), ctx.literal_table(...).write(...), ctx.range(...).write(...), or ctx.calendar(...).write(...) for scoped local generated-output smokes.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,

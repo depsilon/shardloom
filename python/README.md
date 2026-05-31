@@ -1625,8 +1625,11 @@ source-free API admission rows classify:
   as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
   Parquet/Arrow IPC/Avro/ORC/Vortex source-free generated-output smokes with generated-source and output
   evidence.
-- SQL source-free projection, broad DataFrame source-free projection, and expression-backed
-  generated `with_column` forms as `report_only` with deterministic blocker IDs.
+- SQL source-free projection and scoped DataFrame literal projection
+  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
+  structured/Vortex generated-output smokes with generated-source and output evidence.
+- Broad expression-backed DataFrame projection and expression-backed generated `with_column` forms
+  remain blocked/report-only with deterministic blocker IDs.
 
 Admission capability discovery separates scoped runtime rows from report-only or blocked rows.
 Scoped SQL `VALUES`, literal `SELECT`, `generate_series`/`range`, and local-source SQL ladder rows
@@ -1645,7 +1648,8 @@ Generated-output runtime must report
 `output_native_io_certificate_status`, `generated_source_certificate_status`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
-sequence, SQL `VALUES`, SQL literal `SELECT`, and SQL `generate_series`/`range` paths report
+sequence, SQL `VALUES`, SQL literal `SELECT`, SQL `generate_series`/`range`, scoped SQL range
+projection, and scoped DataFrame literal projection paths report
 `claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes and feature-gated flat
 scalar Parquet/Arrow IPC/Avro/ORC/Vortex lanes. Default binaries return deterministic blockers for
 structured sinks until built with `--features universal-format-io`, and for Vortex until built with
@@ -1655,13 +1659,20 @@ structured sinks until built with `--features universal-format-io`, and for Vort
 report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs rather
 than direct S3 paths.
 
-The Python context also exposes deterministic unsupported report helpers for the
-remaining source-free forms. These helpers do not execute a DataFrame plan, generate rows, write
-outputs, probe object stores, invoke Foundry, or call an external engine; they return the same
+The scoped DataFrame source-free projection helper lowers literal aliases to the generated-source
+local-output command and returns the same `GeneratedSourceWriteReport` as other generated-output
+paths:
+
+```python
+ctx.dataframe_source_free_projection("lit(1).alias('value')").write("target/generated-df.jsonl")
+```
+
+The Python context still exposes deterministic unsupported report helpers for remaining broad
+source-free forms. These helpers do not execute a DataFrame plan, generate rows, write outputs,
+probe object stores, invoke Foundry, or call an external engine; they return the same
 `workflow-unsupported-plan` envelope with source-free blocker IDs and required evidence:
 
 ```python
-ctx.dataframe_source_free_projection("lit(1).alias('value')")
 ctx.dataframe_generated_with_column("value", "lit(1)")
 ctx.generated_output_to_object_store("s3://bucket/out.jsonl")
 ctx.foundry_generated_output("foundry://dataset/output")

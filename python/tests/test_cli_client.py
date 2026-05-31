@@ -3460,7 +3460,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             ("sql_values", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_values_jsonl_csv_smoke_only", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_source_free_projection", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_planner,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_generate_series_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,scoped_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
+                            ("dataframe_source_free_projection", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only", "dataframe_literal_projection_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("dataframe_generated_with_column", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_generated_with_column_jsonl_csv_structured_smoke_only", "generated_row_literal_projection,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                         ]
                         fields.extend([
@@ -4228,6 +4228,22 @@ class ShardLoomClientTests(unittest.TestCase):
             capabilities.dataframe.generated_source_api_admission.row(
                 "dataframe_generated_with_column"
             ).fixture_smoke_supported
+        )
+        self.assertTrue(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_source_free_projection"
+            ).fixture_smoke_supported
+        )
+        self.assertTrue(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_source_free_projection"
+            ).runtime_execution
+        )
+        self.assertEqual(
+            capabilities.dataframe.generated_source_api_admission.row(
+                "dataframe_source_free_projection"
+            ).blocker_id,
+            "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only",
         )
         self.assertTrue(
             capabilities.dataframe.generated_source_api_admission.row(

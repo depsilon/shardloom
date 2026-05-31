@@ -1182,14 +1182,14 @@ plan before coding.
   `ctx.sequence(...).write(...)` now have scoped local JSONL/CSV smoke paths, and
   `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
   SQL literal `SELECT`, SQL `VALUES`, scoped SQL source-free range projection, SQL
-  `generate_series`/`range`, DataFrame source-free projection blockers, and scoped generated
+  `generate_series`/`range`, scoped DataFrame literal projection, and scoped generated
   `with_column`. `GAR-COMPAT-1B` projects the same posture into the universal compatibility
   scoreboard and website/status rows without broadening runtime. This closes the duplicated
   user-workflow generated-output blocker; broad SQL execution beyond the scoped source-free
-  literal/VALUES/range-generator smokes, broad DataFrame generation, engine-native values/synthetic
-  generators, object-store output, and Foundry generated-output runtime remain guarded by the
-  canonical compute-flow `GAR-GEN-1` row and the broad SQL/DataFrame/object-store/Foundry rows.
-  No-input smoke does not count as generated-output execution.
+  literal/VALUES/range-generator smokes, broad expression-backed DataFrame generation,
+  engine-native values/synthetic generators, object-store output, and Foundry generated-output
+  runtime remain guarded by their broad SQL/DataFrame/object-store/Foundry rows. No-input smoke
+  does not count as generated-output execution.
 - [x] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.
@@ -1784,11 +1784,15 @@ plan before coding.
   compatibility coverage. The flow must keep compatibility coverage status distinct from runtime
   support for local files, Vortex, generated outputs, Python/DataFrame, SQL, databases, object
   stores, table formats, REST/Flight/ADBC, and Foundry.
-- [ ] `GAR-GEN-1` is now the compute-flow follow-up for source-free generated-output execution.
-  The flow now has contract rows that distinguish no-dataset smoke from user-generated rows and
-  engine-native generator nodes, plus scoped user-row, literal-table, calendar, and range local
-  JSONL smoke paths. It still requires generated-source plus output-sink evidence before any
-  broader generated-output runtime claim.
+- [x] `GAR-GEN-1` closes the scoped source-free generated-output execution follow-up. The flow now
+  distinguishes no-dataset smoke from generated-output execution and admits scoped local user-row,
+  literal-table, calendar/date-dimension, range, sequence, SQL `VALUES`, SQL literal `SELECT`, SQL
+  `generate_series`/`range`, scoped SQL range projection, scoped generated `with_column`, and
+  scoped DataFrame literal projection JSONL/CSV paths with generated-source, output-sink,
+  execution, sink-artifact, and no-fallback evidence. Broader SQL/DataFrame expression runtime,
+  object-store/lakehouse output, Foundry production output, broad Vortex writer behavior,
+  package/production claims, and performance/Spark-displacement claims remain blocked by their
+  owning broad rows rather than by this scoped generated-output row.
 - [x] REST parity now emits the same policy, mode-selection, evidence, claim-gate, and
   no-fallback field families as CLI/Python surfaces through
   `shardloom.rest_api_surface_parity.v1` fields on every REST contract command. Python typed REST
