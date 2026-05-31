@@ -29,6 +29,7 @@ const CLAIM_BOUNDARY: &str = "command metadata only; runtime support and public 
 const FALLBACK_BOUNDARY: &str =
     "metadata rendering is side-effect-free and never invokes fallback or external engines";
 const COMMAND_EVIDENCE_FIELDS: &str = "command|family|support_state|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked";
+const HELP_ALIAS_HINT: &str = "shardloom --help; shardloom -h; shardloom <command> --help";
 
 pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "help",
@@ -520,6 +521,10 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
             "shardloom help [command] --format json".to_string(),
         ),
         (
+            "command_registry_help_aliases".to_string(),
+            HELP_ALIAS_HINT.to_string(),
+        ),
+        (
             "command_registry_metadata_command".to_string(),
             "shardloom command-metadata [command] --format json".to_string(),
         ),
@@ -639,6 +644,10 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
         (
             "command_registry_help_command".to_string(),
             "shardloom help [command] --format json".to_string(),
+        ),
+        (
+            "command_registry_help_aliases".to_string(),
+            HELP_ALIAS_HINT.to_string(),
         ),
         (
             "command_registry_registered_command_count".to_string(),
@@ -1156,7 +1165,7 @@ fn command_help_text_for_selection(
     selected.map_or_else(
         || {
             format!(
-                "{}\n\nUse '{command_name} help <command>' for command-specific metadata. Use '{command_name} command-metadata [command] --format json' for agent-readable registry output.",
+                "{}\n\nUse '{command_name} help <command>' or '{command_name} <command> --help' for command-specific metadata. Use '{command_name} command-metadata [command] --format json' for agent-readable registry output.",
                 usage_line(command_name)
             )
         },
@@ -1305,6 +1314,7 @@ mod tests {
         assert!(docs.contains(REGISTRY_SOURCE));
         assert!(docs.contains("shardloom command-metadata [command] --format json"));
         assert!(docs.contains("shardloom help [command] --format json"));
+        assert!(docs.contains(HELP_ALIAS_HINT));
         assert!(docs.contains(&format!(
             "Registered command count: {}",
             REGISTERED_COMMANDS.len()

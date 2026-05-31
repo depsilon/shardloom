@@ -223,13 +223,14 @@ const WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS: [&str; 17] = [
     "wrapper_connector_registry_claim_gate_status",
 ];
 
-const COMMAND_REGISTRY_FIELD_KEYS: [&str; 24] = [
+const COMMAND_REGISTRY_FIELD_KEYS: [&str; 25] = [
     "command_registry_schema_version",
     "command_registry_report_id",
     "command_registry_docs_ref",
     "command_registry_source",
     "command_registry_metadata_command",
     "command_registry_help_command",
+    "command_registry_help_aliases",
     "command_registry_registered_command_count",
     "command_registry_support_state_vocabulary",
     "command_registry_row_order",
@@ -3764,6 +3765,10 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     assert!(output.contains(&string_field_pair(
         "command_registry_help_command",
         "shardloom help [command] --format json"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_help_aliases",
+        "shardloom --help; shardloom -h; shardloom <command> --help"
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_registered_command_count",

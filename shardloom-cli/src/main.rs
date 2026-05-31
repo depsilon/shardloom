@@ -818,6 +818,29 @@ fn detect_requested_output_format(args: &[String]) -> OutputFormat {
     format
 }
 
+fn normalize_help_aliases(args: Vec<String>) -> Vec<String> {
+    let Some(command) = args.first() else {
+        return args;
+    };
+    if command == "--help" || command == "-h" {
+        let mut normalized = Vec::with_capacity(args.len());
+        normalized.push("help".to_string());
+        normalized.extend(args.into_iter().skip(1));
+        return normalized;
+    }
+    if command == "help" {
+        return args;
+    }
+    if args
+        .iter()
+        .skip(1)
+        .any(|arg| arg == "--help" || arg == "-h")
+    {
+        return vec!["help".to_string(), command.clone()];
+    }
+    args
+}
+
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
@@ -832,6 +855,7 @@ fn run(args: Vec<String>) -> ExitCode {
             );
         }
     };
+    let args = normalize_help_aliases(args);
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
@@ -1659,6 +1683,21 @@ mod tests {
     fn command_help_dispatch_returns_success() {
         let code = run(vec!["help".to_string(), "vortex-ingest-smoke".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn command_help_flag_aliases_return_success() {
+        let code = run(vec!["--help".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+
+        let short_code = run(vec!["-h".to_string()]);
+        assert_eq!(short_code, ExitCode::SUCCESS);
+
+        let command_code = run(vec![
+            "vortex-ingest-smoke".to_string(),
+            "--help".to_string(),
+        ]);
+        assert_eq!(command_code, ExitCode::SUCCESS);
     }
 
     #[test]

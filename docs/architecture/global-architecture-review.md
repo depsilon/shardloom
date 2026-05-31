@@ -281,6 +281,12 @@ plan before coding.
   evidence. Broad DataFrame/notebook runtime, production REST listener/runtime, public package
   publication, object-store/lakehouse production runtime, Foundry runtime, performance, and
   Spark-displacement claims remain carried by their owning broad rows and claim gates.
+- [x] `GAR-0010-D` records the repo-wide readiness and user-surface audit baseline. The audit
+  confirms that the current command registry is classified and side-effect explicit, adds standard
+  CLI help aliases (`shardloom --help`, `shardloom -h`, and `shardloom <command> --help`), fixes
+  stale completed-ledger PR references, and splits follow-through items for user-surface graduation
+  and true runtime gap burn-down. This does not close broad SQL/DataFrame, object-store/lakehouse,
+  dynamic UDF/plugin/effect, package/deploy, performance, or production runtime blockers.
 
 ### RFC 0011 - Modular Extensibility for SQL, UDFs, Unstructured Data, LLM Calls, API Calls, and Embeddings
 
