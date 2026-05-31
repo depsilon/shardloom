@@ -1385,6 +1385,125 @@ class SqlWorkflow:
             return self.client.sql_local_source_smoke(self.statement, check=check)
         return self._unsupported_operation("sql", self.statement, check=check)
 
+    def schema(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded schema report for admitted local-source SQL."""
+
+        if report := self._bounded_schema_report(check=check):
+            return report
+        return self._unsupported_operation("schema", self.statement, check=check)
+
+    def describe_schema(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        """Return detailed bounded schema evidence for admitted local-source SQL."""
+
+        if report := self._bounded_schema_report(check=check):
+            return report
+        return self._unsupported_operation("describe-schema", self.statement, check=check)
+
+    def validate_schema(
+        self,
+        schema: Mapping[str, object],
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
+        """Validate an expected schema against admitted local-source SQL rows."""
+
+        normalized = _normalize_schema(schema)
+        if not normalized:
+            raise ValueError("schema validation contract must not be empty")
+        if report := self._bounded_schema_report(check=check):
+            return _validate_workflow_schema(report, normalized)
+        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
+        return self._unsupported_operation("validate-schema", target, check=check)
+
+    def data_quality_check(
+        self,
+        *checks: object,
+        check: bool = False,
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Run bounded data-quality checks for admitted local-source SQL."""
+
+        normalized_checks = _normalize_columns(checks)
+        parsed_checks = _parse_data_quality_checks(normalized_checks)
+        if parsed_checks is not None:
+            if report := self._bounded_schema_report(check=check):
+                return _workflow_data_quality_report(report, parsed_checks)
+        return self._unsupported_operation(
+            "data-quality",
+            ",".join(normalized_checks),
+            check=check,
+        )
+
+    def data_quality(
+        self,
+        *checks: object,
+        check: bool = False,
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Alias for bounded SQL data-quality checks."""
+
+        return self.data_quality_check(*checks, check=check)
+
+    def data_quality_summary(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Return bounded null-count and schema summary for admitted SQL."""
+
+        if report := self._bounded_schema_report(check=check):
+            return WorkflowDataQualityReport(schema_report=report)
+        return self._unsupported_operation(
+            "data-quality-summary",
+            self.statement,
+            check=check,
+        )
+
+    def preview(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded local preview for admitted local-source SQL."""
+
+        _validate_positive_row_count("preview limit", limit)
+        if statement := self._bounded_local_source_statement(default_limit=limit):
+            return self.client.sql_local_source_smoke(statement, check=check)
+        return self._unsupported_operation("preview", str(limit), check=check)
+
+    def head(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded SQL preview using familiar DataFrame naming."""
+
+        _validate_positive_row_count("head limit", limit)
+        if statement := self._bounded_local_source_statement(default_limit=limit):
+            return self.client.sql_local_source_smoke(statement, check=check)
+        return self._unsupported_operation("head", str(limit), check=check)
+
+    def take(
+        self,
+        count: int,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded SQL preview for the requested row count."""
+
+        _validate_positive_row_count("take count", count)
+        if statement := self._bounded_local_source_statement(default_limit=count):
+            return self.client.sql_local_source_smoke(statement, check=check)
+        return self._unsupported_operation("take", str(count), check=check)
+
     def write(
         self,
         target_uri: str | os.PathLike[str],
@@ -1607,6 +1726,30 @@ class SqlWorkflow:
             workflow=workflow,
             operation=operation,
             envelope=envelope,
+        )
+
+    def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
+        statement = self._bounded_local_source_statement(default_limit=100)
+        if statement is None:
+            return None
+        smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+        if smoke_report.envelope.status != "success":
+            return None
+        return _workflow_schema_report(self._report_workflow(), smoke_report)
+
+    def _bounded_local_source_statement(self, *, default_limit: int) -> str | None:
+        normalized = self.statement.strip().rstrip(";").strip()
+        if not _is_local_source_sql_statement(normalized):
+            return None
+        if _contains_sql_keyword_outside_quotes(normalized, "limit"):
+            return normalized
+        return f"{normalized} LIMIT {default_limit}"
+
+    def _report_workflow(self) -> "LazyFrame":
+        return LazyFrame(
+            source=WorkflowSource("sql", self.statement),
+            client=self.client,
+            operations=(WorkflowOperation("sql", (self.statement,)),),
         )
 
 

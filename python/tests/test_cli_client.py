@@ -4643,6 +4643,10 @@ class ShardLoomClientTests(unittest.TestCase):
         generated = matrix.row("generated_source_output")
         self.assertTrue(generated.equivalent_admitted_scope)
         self.assertTrue(generated.write_io)
+        schema_quality = matrix.row("schema_quality_preview")
+        self.assertTrue(schema_quality.equivalent_admitted_scope)
+        self.assertIn("ctx.sql", schema_quality.sql_surface)
+        self.assertIsNone(schema_quality.blocker_id)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -4652,7 +4656,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         performance = matrix.row("performance_equivalence")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 3)
+        self.assertEqual(len(matrix.admitted_rows), 4)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 5)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:

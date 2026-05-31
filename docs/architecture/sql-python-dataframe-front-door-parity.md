@@ -23,6 +23,9 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   and window workflows lower to `sql-local-source-smoke`.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
   lower through the generated-source smoke family.
+- `schema_quality_preview`: `ctx.sql(...)`, Python `LazyFrame`, and DataFrame-style helpers expose
+  bounded schema, validation, data-quality, preview, head, and take methods over
+  `sql-local-source-smoke` inline results.
 
 These rows allow scoped local parity, not broad production claims.
 
@@ -30,7 +33,6 @@ These rows allow scoped local parity, not broad production claims.
 
 Rows with `parity_status=front_door_gap` are real blockers for the user goal:
 
-- SQL-facing schema/data-quality parity.
 - General Vortex-native SQL/Python/DataFrame read-transform-write workflows.
 - Decoded pandas, Arrow, NumPy, and notebook-display materialization.
 - Object-store, lakehouse/table, catalog, commit, and remote sink workflows.
