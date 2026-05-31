@@ -208,6 +208,8 @@ for (const required of [
   "Artifact lane availability",
   "full_local",
   "full_local_plus_spark",
+  "pyspark",
+  "spark-default",
   "local non-Spark baselines",
   "Spark lanes are explicit-only historical baselines",
   "Format coverage",
