@@ -3,8 +3,9 @@
 """Validate SQL/Python/DataFrame front-door parity posture.
 
 This gate does not claim broad parity. It fails when the repo cannot clearly
-say which front-door workflows share a ShardLoom-native runtime path and which
-ones still block the user's "build anything, same behavior/performance" goal.
+say which front-door workflows share a Vortex-normalized ShardLoom-native
+runtime path and which ones still block the user's "build anything, same
+behavior/performance" goal.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ REQUIRED_ROWS = {
     "local_file_join_aggregate_sort_window",
     "generated_source_output",
     "schema_quality_preview",
+    "local_vortex_primitive_runtime",
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
     "object_store_lakehouse_catalog",
@@ -37,6 +39,7 @@ REQUIRED_ADMITTED_ROWS = {
     "local_file_join_aggregate_sort_window",
     "generated_source_output",
     "schema_quality_preview",
+    "local_vortex_primitive_runtime",
     "decoded_materialization_interop",
 }
 
@@ -57,12 +60,14 @@ REQUIRED_SOURCE_MARKERS = {
         "def write_vortex(",
         "def to_pandas(",
         "def sql(",
+        "def _vortex_sql_primitive_shape(",
     ],
     "python/tests/test_query_builder.py": [
         "test_local_csv_query_builder_join_invokes_sql_smoke",
         "test_local_csv_query_builder_group_by_aggregate_invokes_sql_smoke",
         "test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke",
         "test_context_sql_schema_quality_helpers_invoke_sql_smoke",
+        "test_sql_vortex_collect_uses_local_filter_project_primitive",
         "test_local_csv_query_builder_decoded_materialization_helpers",
         "test_materialized_input_boundaries_create_generated_rows",
         "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
@@ -211,11 +216,18 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "remaining_gap_count": len(remaining_gaps),
         "remaining_gap_row_ids": [str(row["row_id"]) for row in remaining_gaps],
         "rows": rows,
+        "vortex_normalization_contract": (
+            "User inputs are front doors into ShardLoom's Vortex-backed runtime path: native "
+            ".vortex sources start at the Vortex boundary, while compatibility files, generated "
+            "rows, and materialized Python/Arrow snapshots must expose their adapter-to-Vortex "
+            "normalization or preparation boundary before broad runtime-ready claims."
+        ),
         "claim_boundary": (
             "ShardLoom has scoped local SQL/Python/DataFrame parity where rows declare "
             "equivalent_admitted_scope and a shared ShardLoom runtime path. Broad arbitrary "
-            "SQL/Python/DataFrame flexibility and performance equivalence remain blocked until "
-            "the gap rows are closed with correctness, execution-certificate, native-I/O, and "
+            "SQL/Python/DataFrame flexibility and performance equivalence remain not-claim-grade "
+            "until the GAR-RUNTIME-IMPL-6D runtime-expansion checklist rows are closed with "
+            "explicit Vortex-normalization, correctness, execution-certificate, native-I/O, and "
             "benchmark evidence."
         ),
         "blockers": blockers,

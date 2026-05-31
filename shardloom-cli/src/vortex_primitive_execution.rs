@@ -1088,6 +1088,26 @@ fn append_vortex_project_local_execution_absent_fields(fields: &mut Vec<(String,
     push_bool_field(fields, "project_local_execution_result_known", false);
     push_field(fields, "project_local_execution_rows_projected", "unknown");
     push_field(fields, "project_local_execution_projected_columns", "");
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_requested",
+        "none",
+    );
+    push_bool_field(
+        fields,
+        "project_local_execution_source_order_limit_applied",
+        false,
+    );
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_input_rows",
+        "unknown",
+    );
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_rows_output",
+        "unknown",
+    );
     append_vortex_project_local_execution_absent_effect_fields(fields);
     append_vortex_project_local_execution_claim_fields(fields, false, false, false);
     append_vortex_local_primitive_native_io_certificate_fields(fields, None);
@@ -1131,6 +1151,7 @@ fn append_vortex_project_local_execution_present_fields(
         "project_local_execution_projected_columns",
         &local.report.projected_columns.join(","),
     );
+    append_vortex_project_source_order_limit_fields(fields, &local.report);
     push_u64_field(
         fields,
         "project_local_execution_rows_scanned",
@@ -1188,6 +1209,38 @@ fn append_vortex_project_local_execution_present_fields(
     append_vortex_local_primitive_execution_certificate_fields(
         fields,
         local.execution_certificate.as_ref(),
+    );
+}
+
+fn append_vortex_project_source_order_limit_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexLocalPrimitiveExecutionReport,
+) {
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_requested",
+        &report
+            .source_order_limit_requested
+            .map_or_else(|| "none".to_string(), |value| value.to_string()),
+    );
+    push_bool_field(
+        fields,
+        "project_local_execution_source_order_limit_applied",
+        report.source_order_limit_applied,
+    );
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_input_rows",
+        &report
+            .source_order_limit_input_rows
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "project_local_execution_source_order_limit_rows_output",
+        &report
+            .source_order_limit_rows_output
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
     );
 }
 
@@ -1951,6 +2004,26 @@ fn append_vortex_filter_local_execution_absent_fields(fields: &mut Vec<(String, 
     push_count_field(fields, "filter_local_execution_max_parallelism", 0);
     push_bool_field(fields, "filter_local_execution_result_known", false);
     push_field(fields, "filter_local_execution_rows_selected", "unknown");
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_requested",
+        "none",
+    );
+    push_bool_field(
+        fields,
+        "filter_local_execution_source_order_limit_applied",
+        false,
+    );
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_input_rows",
+        "unknown",
+    );
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_rows_output",
+        "unknown",
+    );
     append_vortex_filter_local_execution_absent_effect_fields(fields);
     append_vortex_filter_local_execution_claim_fields(fields, false, false, false);
     append_vortex_local_primitive_native_io_certificate_fields(fields, None);
@@ -1989,6 +2062,7 @@ fn append_vortex_filter_local_execution_present_fields(
             .selected_rows()
             .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
     );
+    append_vortex_filter_source_order_limit_fields(fields, &local.report);
     push_u64_field(
         fields,
         "filter_local_execution_rows_scanned",
@@ -2046,6 +2120,38 @@ fn append_vortex_filter_local_execution_present_fields(
     append_vortex_local_primitive_execution_certificate_fields(
         fields,
         local.execution_certificate.as_ref(),
+    );
+}
+
+fn append_vortex_filter_source_order_limit_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexLocalPrimitiveExecutionReport,
+) {
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_requested",
+        &report
+            .source_order_limit_requested
+            .map_or_else(|| "none".to_string(), |value| value.to_string()),
+    );
+    push_bool_field(
+        fields,
+        "filter_local_execution_source_order_limit_applied",
+        report.source_order_limit_applied,
+    );
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_input_rows",
+        &report
+            .source_order_limit_input_rows
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "filter_local_execution_source_order_limit_rows_output",
+        &report
+            .source_order_limit_rows_output
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
     );
 }
 
@@ -5012,13 +5118,13 @@ pub(crate) fn handle_vortex_project(
 ) -> ExitCode {
     let Some(uri_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-project <dataset_uri> <columns> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return ExitCode::from(2);
     };
     let Some(columns_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-project <dataset_uri> <columns> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return ExitCode::from(2);
     };
@@ -5034,13 +5140,16 @@ pub(crate) fn handle_vortex_project(
             return emit_error("vortex-project", format, "vortex project failed", &error);
         }
     };
-    let local_execution_request = match parse_vortex_local_primitive_cli_execution_args(&mut args) {
-        Ok(request) => request,
+    let options = match parse_vortex_filter_project_options(&mut args) {
+        Ok(options) => options,
         Err(error) => {
             return emit_error("vortex-project", format, "vortex project failed", &error);
         }
     };
-    let request = VortexQueryPrimitiveRequest::project(uri.clone(), projection);
+    let mut request = VortexQueryPrimitiveRequest::project(uri.clone(), projection);
+    if let Some(limit) = options.source_order_limit {
+        request = request.with_source_order_limit(limit);
+    }
     let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
         .ok()
         .and_then(|report| report.metadata_summary)
@@ -5053,7 +5162,7 @@ pub(crate) fn handle_vortex_project(
             return emit_error("vortex-project", format, "vortex project failed", &error);
         }
     };
-    let local_execution = match local_execution_request.as_ref() {
+    let local_execution = match options.local_execution_request.as_ref() {
         Some(local_request) => {
             match vortex_local_primitive_cli_execution_evidence(&request, local_request) {
                 Ok(evidence) => Some(evidence),
@@ -5115,6 +5224,7 @@ struct VortexFilterArgs {
     uri: DatasetUri,
     predicate_arg: String,
     predicate: PredicateExpr,
+    source_order_limit: Option<usize>,
     local_execution_request: Option<VortexLocalPrimitiveCliExecutionRequest>,
 }
 
@@ -5222,9 +5332,13 @@ pub(crate) fn handle_vortex_filter(
         uri,
         predicate_arg,
         predicate,
+        source_order_limit,
         local_execution_request,
     } = parsed;
-    let request = VortexQueryPrimitiveRequest::filter(uri.clone(), predicate);
+    let mut request = VortexQueryPrimitiveRequest::filter(uri.clone(), predicate);
+    if let Some(limit) = source_order_limit {
+        request = request.with_source_order_limit(limit);
+    }
     let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
         .ok()
         .and_then(|report| report.metadata_summary)
@@ -6109,13 +6223,13 @@ fn parse_vortex_filter_args(
 ) -> std::result::Result<VortexFilterArgs, ExitCode> {
     let Some(uri_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-filter <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-filter <dataset_uri> <predicate> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return Err(ExitCode::from(2));
     };
     let Some(predicate_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-filter <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-filter <dataset_uri> <predicate> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return Err(ExitCode::from(2));
     };
@@ -6123,13 +6237,14 @@ fn parse_vortex_filter_args(
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
     let predicate = parse_tiny_predicate(&predicate_arg)
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
-    let local_execution_request = parse_vortex_local_primitive_cli_execution_args(&mut args)
+    let options = parse_vortex_filter_project_options(&mut args)
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
     Ok(VortexFilterArgs {
         uri,
         predicate_arg,
         predicate,
-        local_execution_request,
+        source_order_limit: options.source_order_limit,
+        local_execution_request: options.local_execution_request,
     })
 }
 

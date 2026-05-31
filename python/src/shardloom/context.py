@@ -336,6 +336,7 @@ class FrontDoorParityMatrix:
             "local_file_join_aggregate_sort_window",
             "generated_source_output",
             "schema_quality_preview",
+            "local_vortex_primitive_runtime",
             "decoded_materialization_interop",
         }
         admitted = {row.row_id for row in self.admitted_rows}
@@ -472,12 +473,13 @@ _LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY = (
     "or production claim."
 )
 _LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY = (
-    "Scoped local Vortex primitive runtime only: read_vortex(...).count(), "
-    "filter(...).count(), select(...).collect(), filter(...).collect(), and "
-    "filter(...).select(...).limit(...).collect() lower to ShardLoom's explicit "
-    "Vortex local primitive commands backed by upstream Vortex scan/read APIs. This is not "
-    "decoded row materialization, broad SQL Vortex parity, read-transform-write parity, "
-    "object-store/table runtime, external engine fallback, or a performance-equivalence claim."
+    "Scoped local Vortex primitive runtime only: SQL COUNT/project/filter/filter-project forms "
+    "over a single local .vortex source and read_vortex(...).count(), filter(...).count(), "
+    "select(...).collect(), filter(...).collect(), and filter(...).select(...).limit(...).collect() "
+    "lower to ShardLoom's explicit Vortex local primitive commands backed by upstream Vortex "
+    "scan/read APIs. This is not decoded row materialization, broad SQL Vortex parity, "
+    "read-transform-write parity, object-store/table runtime, external engine fallback, or a "
+    "performance-equivalence claim."
 )
 _LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY = (
     "Scoped bounded Python object materialization from ShardLoom-emitted inline JSONL for admitted "
@@ -1405,8 +1407,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "SQL, Python, and DataFrame-style local file filter/project/limit workflows lower to "
-            "the same ShardLoom local-source runtime surface. This does not claim arbitrary SQL, "
-            "remote/table sources, or benchmarked performance equivalence."
+            "the same ShardLoom local-source runtime surface. Local compatibility inputs are "
+            "adapters that must expose their adapter-to-Vortex normalization boundary before "
+            "broad runtime-ready claims. This does not claim arbitrary SQL, remote/table sources, "
+            "or benchmarked performance equivalence."
         ),
     ),
     _front_door_row(
@@ -1435,8 +1439,9 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Scoped local SQL and DataFrame-style expressions share ShardLoom's local-source "
             "runtime for admitted join, aggregate, sort, computed-column, and window shapes. "
-            "Unsupported SQL grammar, arbitrary expressions, remote sources, and production "
-            "semantic completeness remain outside this row."
+            "The route must become explicit about its Vortex-normalized execution boundary before "
+            "broader runtime claims. Unsupported SQL grammar, arbitrary expressions, remote "
+            "sources, and production semantic completeness remain outside this row."
         ),
     ),
     _front_door_row(
@@ -1462,8 +1467,9 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Generated SQL, Python, and DataFrame-style source-free workflows are admitted for "
-            "local output smokes. This is generated-output parity, not broad SQL/DataFrame "
-            "runtime or remote sink support."
+            "local output smokes. Generated rows are an input adapter and must re-enter through a "
+            "Vortex-preparable route for runtime-ready claims. This is generated-output parity, "
+            "not broad SQL/DataFrame runtime or remote sink support."
         ),
     ),
     _front_door_row(
@@ -1493,17 +1499,52 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
     ),
     _front_door_row(
+        "local_vortex_primitive_runtime",
+        "local Vortex count, count-where, filter, project, and filter-project primitive reports",
+        "scoped_runtime_supported",
+        sql_surface=(
+            "ctx.sql(\"SELECT COUNT(*)/columns FROM 'local.vortex' WHERE ... LIMIT ...\").collect()"
+        ),
+        python_surface="ctx.read_vortex(...).count/filter/select/collect scoped primitive reports",
+        dataframe_surface="read_vortex(...).filter/select/count/collect scoped primitive reports",
+        shared_runtime_path=(
+            "vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project"
+        ),
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_family_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        required_evidence=(
+            "vortex_local_primitive_runtime",
+            "sql_vortex_primitive_tests",
+            "python_query_builder_tests",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped SQL, Python, and DataFrame-style local Vortex primitive report workflows "
+            "share ShardLoom's explicit Vortex primitive command family for count, count-where, "
+            "filter, project, and filter-project with optional source-order limit. Native "
+            "`.vortex` input is already at the Vortex boundary, so this row is the direct "
+            "Vortex-normalized case. This is not decoded row materialization, broad Vortex "
+            "read-transform-write parity, object-store runtime, or benchmark-backed performance "
+            "equivalence."
+        ),
+    ),
+    _front_door_row(
         "native_vortex_general_runtime",
         "general Vortex-native read, transform, and write workflows",
-        "blocked_general_runtime_gap",
-        sql_surface="not complete for general Vortex SQL",
-        python_surface="ctx.read_vortex(...).count/filter/select scoped local primitive reports; broad workflow not complete",
-        dataframe_surface="read_vortex(...).filter/select/count/collect scoped primitive reports; write_vortex broad workflow not complete",
-        shared_runtime_path="scoped Vortex local primitive runtime plus Vortex planning surfaces",
+        "broad_runtime_expansion_pending",
+        sql_surface="scoped SQL local Vortex primitive reports supported; broad Vortex SQL is tracked in GAR-RUNTIME-IMPL-6D",
+        python_surface="ctx.read_vortex(...).count/filter/select/limit scoped local primitive reports; broad workflow expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        dataframe_surface="read_vortex(...).filter/select/count/limit/collect scoped primitive reports; broader read-transform-write expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        shared_runtime_path="scoped Vortex local primitive runtime plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg19.cg21.general_vortex_front_door_runtime_missing",
         required_evidence=(
+            "vortex_input_normalization_boundary",
             "vortex_reader_runtime",
             "vortex_writer_runtime",
             "operator_kernel_coverage",
@@ -1512,10 +1553,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "front_door_equivalence_benchmarks",
         ),
         claim_boundary=(
-            "Scoped Python/DataFrame-style local Vortex count/filter/project/filter-project "
+            "Scoped SQL/Python/DataFrame-style local Vortex count/filter/project/filter-project "
             "primitive reports execute through ShardLoom's Vortex primitive runtime, but broad "
             "intuitive SQL/Python/DataFrame Vortex read-transform-write parity with equivalent "
-            "runtime and performance evidence remains a real engine gap."
+            "runtime and performance evidence is tracked as a runtime expansion checklist item."
         ),
     ),
     _front_door_row(
@@ -1545,23 +1586,25 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Decoded Python/Arrow/NumPy interop is admitted only for bounded local-source "
             "ShardLoom results and explicit materialized input snapshots. Optional packages are "
-            "containers or compatibility encoders, not execution engines, and this row does not "
-            "claim object-store/table materialization, arbitrary SQL/DataFrame breadth, or "
+            "containers or compatibility encoders, not execution engines; materialized snapshots "
+            "must re-enter a Vortex-preparable route before runtime-ready claims. This row does "
+            "not claim object-store/table materialization, arbitrary SQL/DataFrame breadth, or "
             "benchmark-backed performance equivalence."
         ),
     ),
     _front_door_row(
         "object_store_lakehouse_catalog",
         "object-store, lakehouse/table, catalog, commit, and remote sink workflows",
-        "blocked_production_io_gap",
-        sql_surface="not complete for remote/table SQL",
+        "production_io_runtime_expansion_pending",
+        sql_surface="remote/table SQL runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
         python_surface="object-store/table helper smokes and plans only",
-        dataframe_surface="DataFrame remote/table read/write workflows blocked outside scoped smokes",
-        shared_runtime_path="object-store/table planning and scoped smoke surfaces",
+        dataframe_surface="DataFrame remote/table read/write runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        shared_runtime_path="object-store/table planning surfaces plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg9.cg10.cg21.production_io_front_door_missing",
         required_evidence=(
+            "vortex_input_normalization_boundary",
             "object_store_runtime",
             "credential_policy",
             "catalog_table_runtime",
@@ -1570,22 +1613,25 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "front_door_equivalence_tests",
         ),
         claim_boundary=(
-            "Local object-store/table smokes and plans do not certify broad remote/table SQL, "
-            "Python, or DataFrame workflows."
+            "Local object-store/table smokes and plans do not yet certify broad remote/table SQL, "
+            "Python, or DataFrame workflows; each route must identify its object-source to "
+            "Vortex-normalized execution boundary, and that runtime expansion is explicitly "
+            "queued in GAR-RUNTIME-IMPL-6D."
         ),
     ),
     _front_door_row(
         "arbitrary_sql_python_dataframe_breadth",
         "arbitrary user SQL, Python expressions, DataFrame APIs, UDFs, and effects",
-        "blocked_broad_language_gap",
-        sql_surface="broad SQL parse/bind/plan/execute not complete",
-        python_surface="arbitrary Python function/UDF/effect execution blocked by policy",
-        dataframe_surface="full DataFrame API parity not complete",
-        shared_runtime_path="capability and unsupported diagnostic surfaces",
+        "broad_language_runtime_expansion_pending",
+        sql_surface="broad SQL parse/bind/plan/execute expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        python_surface="arbitrary Python function/UDF/effect runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        dataframe_surface="full DataFrame API parity expansion is tracked in GAR-RUNTIME-IMPL-6D",
+        shared_runtime_path="capability reports plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg20.cg21.broad_language_surface_missing",
         required_evidence=(
+            "vortex_input_normalization_boundary",
             "sql_grammar_coverage",
             "expression_kernel_registry",
             "udf_effect_policy",
@@ -1594,23 +1640,25 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "benchmark_evidence",
         ),
         claim_boundary=(
-            "The broad 'build anything' claim remains blocked until SQL, Python, DataFrame, "
-            "function/UDF, semantic conformance, and benchmark evidence converge on the same "
-            "ShardLoom-native execution plan."
+            "The broad 'build anything' claim remains not-claim-grade until SQL, Python, "
+            "DataFrame, function/UDF, semantic conformance, and benchmark evidence converge on "
+            "the same Vortex-normalized ShardLoom-native execution plan through "
+            "GAR-RUNTIME-IMPL-6D."
         ),
     ),
     _front_door_row(
         "performance_equivalence",
         "same-result and same-performance expectation across SQL, Python, and DataFrame front doors",
-        "blocked_benchmark_gap",
+        "benchmark_claim_evidence_pending",
         sql_surface="not benchmark-certified against equivalent Python/DataFrame workflows",
         python_surface="not benchmark-certified against equivalent SQL/DataFrame workflows",
         dataframe_surface="not benchmark-certified against equivalent SQL/Python workflows",
-        shared_runtime_path="benchmark and execution-certificate evidence required",
+        shared_runtime_path="GAR-RUNTIME-IMPL-6D benchmark publication and execution-certificate evidence required",
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg6.front_door_performance_equivalence_benchmark_missing",
         required_evidence=(
+            "vortex_input_normalization_boundary",
             "front_door_equivalent_workload_manifest",
             "correctness_evidence",
             "benchmark_manifest",
@@ -1619,8 +1667,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Shared runtime paths support a scoped expectation that overhead should converge, but "
-            "performance equivalence is not claim-grade until equivalent front-door benchmarks are "
-            "published and reproducible."
+            "performance equivalence is not claim-grade until equivalent front-door benchmarks "
+            "show the same Vortex-normalized runtime boundary and are published and reproducible."
         ),
     ),
 )

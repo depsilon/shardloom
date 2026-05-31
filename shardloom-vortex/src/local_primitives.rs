@@ -1179,17 +1179,23 @@ fn execute_vortex_local_primitive_enabled(
                 ));
             };
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
-                Ok(LocalVortexScanPlan::filter(predicate_to_vortex_expr(
+                let mut plan = LocalVortexScanPlan::filter(predicate_to_vortex_expr(
                     predicate,
                     dtype,
                     request.kind,
-                )?))
+                )?);
+                if request.kind == VortexQueryPrimitiveKind::FilterPredicate {
+                    plan.source_order_limit = request.source_order_limit;
+                }
+                Ok(plan)
             })?;
             predicate_report(request.kind, &scan, predicate)
         }
         VortexQueryPrimitiveKind::ProjectColumns => {
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
-                projection_scan_plan(dtype, &request.projection, request.kind)
+                let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
+                plan.source_order_limit = request.source_order_limit;
+                Ok(plan)
             })?;
             projection_report(request.kind, &scan)
         }
@@ -3613,6 +3619,55 @@ mod tests {
         assert!(!report.data_materialized);
         assert!(!report.materialization_boundary_reported);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn project_and_filter_apply_source_order_limit() {
+        let path = unique_vortex_path("project-filter-limit");
+        write_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let project_request = VortexQueryPrimitiveRequest::project(
+            uri.clone(),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        )
+        .with_source_order_limit(2);
+        let filter_request = VortexQueryPrimitiveRequest::filter(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+        )
+        .with_source_order_limit(2);
+
+        let project = execute_vortex_local_primitive(&project_request).expect("project report");
+        let filter = execute_vortex_local_primitive(&filter_request).expect("filter report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            project.status,
+            VortexLocalPrimitiveExecutionStatus::Executed
+        );
+        assert_eq!(project.rows_projected, Some(2));
+        assert_eq!(project.source_order_limit_requested, Some(2));
+        assert!(project.source_order_limit_applied);
+        assert_eq!(project.source_order_limit_rows_output, Some(2));
+        assert!(project.projection_pushdown_applied);
+        assert!(!project.filter_pushdown_applied);
+        assert!(!project.data_decoded);
+        assert!(!project.data_materialized);
+
+        assert_eq!(filter.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(filter.rows_selected, Some(2));
+        assert_eq!(filter.source_order_limit_requested, Some(2));
+        assert!(filter.source_order_limit_applied);
+        assert_eq!(filter.source_order_limit_input_rows, Some(3));
+        assert_eq!(filter.source_order_limit_rows_output, Some(2));
+        assert!(filter.filter_pushdown_applied);
+        assert!(!filter.projection_pushdown_applied);
+        assert!(!filter.data_decoded);
+        assert!(!filter.data_materialized);
     }
 
     #[test]

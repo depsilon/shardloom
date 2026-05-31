@@ -37,8 +37,12 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 5)
+        self.assertEqual(report["admitted_row_count"], 6)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
+        self.assertIn(
+            "Vortex-backed runtime path",
+            report["vortex_normalization_contract"],
+        )
         self.assertIn(
             "arbitrary_sql_python_dataframe_breadth",
             report["remaining_gap_row_ids"],
@@ -67,6 +71,13 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(materialization["parity_status"], "equivalent_admitted_scope")
         self.assertIn("to_pandas", materialization["sql_surface"])
         self.assertIsNone(materialization["blocker_id"])
+        vortex = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "local_vortex_primitive_runtime"
+        )
+        self.assertEqual(vortex["parity_status"], "equivalent_admitted_scope")
+        self.assertIn("Vortex-normalized", vortex["claim_boundary"])
 
     def test_parity_validator_rejects_overclaimed_or_fallback_rows(self) -> None:
         module = load_parity_module()

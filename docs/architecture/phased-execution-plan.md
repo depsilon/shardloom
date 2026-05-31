@@ -275,6 +275,191 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
+#### GAR-RUNTIME-IMPL-6D - Runtime-Ready User Surface And Benchmark-Range Completion
+
+Source: user runtime-go request on 2026-05-31; `docs/rfcs/0033-user-data-workflow-etl-surface.md`;
+`docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`;
+`docs/architecture/sql-python-dataframe-front-door-parity.md`;
+`docs/architecture/benchmark-suite-catalog.md`; `benchmarks/common/scenario_catalog.json`; and
+`benchmarks/traditional_analytics/run.py`.
+
+User reprioritization: the user explicitly moved runtime readiness ahead of the remaining
+non-runtime closeout queue. Work this item before more docs-only closeout when it removes misleading
+unsupported user-surface posture or connects an already-proven benchmark/runtime path to SQL,
+Python, DataFrame, context, session, CLI, diagnostics, or docs.
+
+Current state:
+
+- ShardLoom has runnable local-source SQL/Python/DataFrame paths for scoped local file workflows,
+  generated-output workflows, bounded decoded interop, and local Vortex primitive report paths.
+- These front doors are not separate execution engines. Native `.vortex` inputs start at the
+  Vortex-native boundary, while CSV/JSONL/Parquet/Arrow/Avro/ORC, generated rows, and materialized
+  Python/Arrow inputs must be treated as adapters into an explicit Vortex-normalized ShardLoom
+  runtime path before the route is runtime-ready or claim-grade.
+- The benchmark harness exercises broader ShardLoom runtime families through
+  `direct_compatibility_transient`, `compatibility_import_certified`, `prepared_vortex`,
+  `native_vortex`, and `shardloom-prepare-batch` lanes.
+- Some user-facing capability/parity surfaces still say `unsupported`, `blocked`, or `not complete`
+  where the accurate problem is front-door connection, output ergonomics, claim-grade evidence, or
+  benchmark publication rather than engine impossibility.
+- The user target is runtime-go: for any capability in the local benchmark range, users should have
+  a clear SQL/Python/DataFrame/context/session/CLI route that runs ShardLoom, emits structured
+  evidence, preserves `fallback_attempted=false`, and makes input/output boundaries obvious.
+
+Runtime enablement: this item enables the end-to-end user route:
+
+```text
+user expression
+  -> ShardLoom front door: SQL, Python, DataFrame, context/session helper, or CLI
+  -> declared input: local file, local .vortex, prepared Vortex artifact, generated rows, or
+     explicit materialized input snapshot
+  -> input normalization: already-native Vortex, compatibility import to prepared Vortex,
+     generated rows to Vortex-preparable batches, or materialized snapshot to Vortex-preparable rows
+  -> ShardLoom runtime mode: direct compatibility transient, compatibility import certified,
+     prepared Vortex, native Vortex, or generated-source smoke
+  -> output: report rows, bounded decoded preview, local compatibility output, native Vortex
+     artifact/result sink, fanout, or deterministic runtime-expansion checklist item
+  -> evidence: runtime execution, Native I/O, execution certificate where available,
+     materialization/decode boundary, no-fallback/no-external-engine fields
+```
+
+Next slice outcome: remove misleading unsupported posture from engine-capable benchmark-range
+workflows by wiring the missing user-facing routes or reclassifying them as concrete
+runtime-expansion checklist items with file/module ownership and verification. Do not weaken
+claim-gates; `not_claim_grade` remains valid until benchmark/correctness/certificate evidence is
+attached.
+
+Implementation checklist, in required order:
+
+- [ ] Inventory every user-facing `unsupported`, `blocked`, `not complete`, and `front_door_gap`
+  status in Python context/capability matrices, SQL/Python/DataFrame parity docs, benchmark coverage
+  rows, CLI diagnostics, examples, and README quickstart material. Classify each as
+  `runtime_available_needs_front_door`, `runtime_available_needs_output_route`,
+  `runtime_available_needs_claim_evidence`, `true_runtime_expansion_item`, or
+  `policy_rejected`.
+- [ ] For every SQL/Python/DataFrame/context/session input route, name the Vortex normalization
+  point in user-facing evidence: native `.vortex` input uses the existing Vortex boundary;
+  compatibility local files import or prepare into Vortex; generated rows become Vortex-preparable
+  batches; decoded pandas/Arrow/NumPy snapshots are explicit materialized inputs that must be
+  re-entered through a Vortex-preparable route before runtime-ready claims.
+- [ ] For local `.vortex` input, make SQL/Python/DataFrame front doors cover the primitive range
+  already exposed by ShardLoom/Vortex commands: count, count-where, filter, project, filter-project,
+  select-star reports, and source-order limit where the engine path supports it.
+- [ ] For local file input, confirm SQL/Python/DataFrame routes cover the local benchmark scenario
+  families with a clear user path: selective filter, filter/projection/limit, group aggregate,
+  multi-key aggregate, join aggregate, sort/top-k, row-number window, top-N per group, dirty
+  clean/cast/filter/write, partition-pruning fixture, many-small-files fixture, null-heavy
+  aggregate, high-cardinality string group/distinct, nested JSON field scan, and CDC overlay where
+  the benchmark lane executes ShardLoom runtime evidence. Each route must identify whether it is
+  still transient compatibility execution or has crossed into prepared/native Vortex execution.
+- [ ] For compatibility imports, expose an intuitive user route for
+  `compatibility_import_certified -> prepared_vortex` and `shardloom-prepare-batch` so users can
+  start from CSV/JSONL/Parquet/Arrow IPC/Avro/ORC, prepare once, run benchmark-range scenarios from
+  prepared Vortex artifacts, and understand whether timing includes preparation. This is the primary
+  non-Vortex input-to-Vortex transition and should be visible in reports instead of hidden behind a
+  generic read helper.
+- [ ] For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
+  runtime family used by benchmark rows, not piecemeal artificial helpers. The surface must make
+  source, selected execution mode, scenario/operator, memory/parallelism, and result-sink choice
+  explicit.
+- [ ] For outputs, ensure every admitted benchmark-range route has at least one clear output option:
+  machine-readable report, bounded preview, local compatibility output, native Vortex output,
+  result-sink replay proof, or fanout. Missing output wiring is a runtime-output checklist item, not
+  a vague unsupported user surface.
+- [ ] Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
+  in the Python context matrices, parity validator payload, benchmark coverage table, and docs.
+  Use precise labels such as `front_door_connection_pending`, `output_route_pending`,
+  `claim_evidence_pending`, or `benchmark_publication_pending`.
+- [ ] Add regression tests that fail if any benchmark-range local ShardLoom route reports
+  `unsupported` merely because SQL/Python/DataFrame/context/session wiring is missing.
+- [ ] Add an agent/user-facing checklist or capability report that can answer: "Given input X and
+  desired output Y, which ShardLoom route should I use, where does it normalize to Vortex, what will
+  execute, what will be materialized or decoded, and what evidence will be emitted?"
+- [ ] Keep claim boundaries strict: performance equivalence, production support, Spark
+  displacement, object-store/table runtime, and broad arbitrary language support remain
+  `not_claim_grade` until their correctness, Native I/O, execution-certificate, no-fallback, and
+  benchmark evidence exists.
+
+Last-order runtime expansion checklist, not to be left as vague unsupported prose:
+
+- [ ] Broad SQL grammar over Vortex-normalized runtime paths: arbitrary `ORDER BY`, grouped
+  aggregates, joins, windows, expressions, casts, functions, subqueries, aliases, and planner/binder
+  coverage routed to ShardLoom-native execution instead of external engines.
+- [ ] Full Python/DataFrame API breadth: expression registry parity, computed columns, multi-stage
+  pipelines, joins, aggregations, windows, sorting, UDF-safe policy, and predictable method aliases
+  across supported input/output families.
+- [ ] Object-store, lakehouse/table, catalog, partition discovery, commit, rollback, recovery, and
+  remote result delivery runtime.
+- [ ] Effectful operations: UDFs, LLM/API calls, embeddings, vector search, external writes,
+  credentials, sandboxing, and deterministic effect budgets.
+- [ ] Live/hybrid runtime state, incremental processing, CDC beyond scoped overlay fixtures,
+  freshness/snapshot contracts, state cleanup, cancellation, retry, and recovery.
+- [ ] Distributed/shuffle/spill/OOM production runtime, including resource governance and
+  deterministic pre-OOM diagnostics.
+- [ ] Claim-grade performance-equivalence benchmark publication across equivalent SQL, Python, and
+  DataFrame workloads, including reproducibility floors and laptop-safe sequential execution.
+
+User-visible surface: `shardloom` Python package (`context`, `session`, `sql`, `read_*`,
+`read_vortex`, output helpers), ShardLoom CLI Vortex/local-source/runtime commands, benchmark
+coverage rows, front-door parity matrix, docs, and examples.
+
+Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/client.py`,
+`python/src/shardloom/context.py`, `python/src/shardloom/session.py`, `python/tests/*`,
+`shardloom-cli/src/*`, `shardloom-vortex/src/*`, `benchmarks/traditional_analytics/run.py`,
+`benchmarks/common/scenario_catalog.json`, `scripts/check_sql_python_dataframe_parity.py`,
+`scripts/check_release_readiness.py`, `docs/architecture/sql-python-dataframe-front-door-parity.md`,
+`docs/architecture/benchmark-suite-catalog.md`, examples, and README/quickstart docs as touched by
+the changed route.
+
+Evidence required: focused Python tests for each user route, Rust CLI/Vortex tests when command
+behavior changes, parity validator output, release-readiness validator output when statuses move,
+runtime envelope/no-fallback evidence, Native I/O and execution certificate fields where available,
+and benchmark-harness coverage-table validation for any benchmark-range claim.
+
+Acceptance:
+
+- Every local benchmark-range ShardLoom capability has a documented user route and deterministic
+  evidence output.
+- Every non-Vortex input route names the adapter-to-Vortex normalization/preparation boundary before
+  it is treated as runtime-ready.
+- No user-facing surface calls an engine-capable benchmark-range path `unsupported` merely because
+  the front door or output route was missing.
+- True runtime-expansion items appear only in the last-order checklist above or in more detailed
+  child items derived from it.
+- `fallback_attempted=false` and `external_engine_invoked=false` remain explicit for ShardLoom
+  runtime rows.
+- Performance and production claims remain blocked unless the required evidence is attached.
+
+Verification:
+
+```bash
+python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
+python3 -m unittest python/tests/test_query_builder.py python/tests/test_cli_client.py python/tests/test_sql_python_dataframe_parity.py
+python -m compileall -q python/src python/tests scripts examples
+cargo fmt --all -- --check
+cargo test -p shardloom-cli vortex_
+cargo test -p shardloom-vortex local_primitive --features vortex-local-primitives
+cargo test --workspace --all-targets
+git diff --check
+```
+
+Non-goals: do not add Spark/DataFusion/DuckDB/Polars/Velox fallback; do not claim broad arbitrary
+language support before the checklist is closed; do not publish packages/releases; do not run broad
+benchmarks unless the current slice explicitly needs benchmark evidence and uses the laptop-safe
+sequential controls.
+
+Claim boundary: this item can claim runtime-ready user paths only for explicitly wired
+benchmark-range workflows with passing validation. It cannot claim broad SQL/Python/DataFrame
+flexibility, object-store/table production readiness, live/hybrid production readiness, or
+performance equivalence until the last-order checklist items are implemented and validated.
+
+Fallback boundary: every admitted route must report `fallback_attempted=false` and
+`external_engine_invoked=false`; external engines remain benchmark baselines or test oracles only.
+
+Ledger rule: when a child slice is completed and merged, move the completed details to
+`docs/architecture/phased-execution-completed-ledger.md`, then keep only remaining unchecked work
+here.
+
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 Current runtime ordering note (2026-05-26): prioritize engine-internal completion first. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
