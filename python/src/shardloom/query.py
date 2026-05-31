@@ -1981,6 +1981,229 @@ class UnsupportedWorkflowOperationReport:
 
 
 @dataclass(frozen=True, slots=True)
+class VortexWorkflowExecutionReport:
+    """Report for an admitted local Vortex primitive query-builder execution."""
+
+    workflow: "LazyFrame"
+    operation: str
+    envelope: OutputEnvelope
+
+    @property
+    def command(self) -> str:
+        """Return the CLI command used for the admitted Vortex primitive."""
+
+        return self.envelope.command
+
+    @property
+    def status(self) -> str:
+        """Return the CLI command status."""
+
+        return self.envelope.status
+
+    @property
+    def mode(self) -> str | None:
+        """Return the reported Vortex primitive mode."""
+
+        return self.envelope.field("mode")
+
+    @property
+    def primitive(self) -> str | None:
+        """Return the reported Vortex primitive name."""
+
+        return self.envelope.field("primitive")
+
+    @property
+    def execution(self) -> str | None:
+        """Return the reported execution path label."""
+
+        return self.envelope.field("execution")
+
+    @property
+    def result_known(self) -> bool:
+        """Whether the primitive emitted a known result cardinality."""
+
+        return self.envelope.field_bool("result_known", False) is True or _any_true_field(
+            self.envelope,
+            (
+                "filtered_count_local_execution_result_known",
+                "project_local_execution_result_known",
+                "filter_project_local_execution_result_known",
+                "filter_local_execution_result_known",
+            ),
+        )
+
+    @property
+    def rows_scanned(self) -> int | None:
+        """Return the reported local Vortex rows scanned, when present."""
+
+        return _first_int_field(
+            self.envelope,
+            (
+                "local_primitive_rows_scanned",
+                "filtered_count_local_execution_rows_scanned",
+                "filter_local_execution_rows_scanned",
+                "project_local_execution_rows_scanned",
+                "filter_project_local_execution_rows_scanned",
+            ),
+        )
+
+    @property
+    def rows_selected(self) -> int | None:
+        """Return the reported selected row count, when present."""
+
+        return _first_int_field(
+            self.envelope,
+            (
+                "rows_selected",
+                "local_primitive_rows_selected",
+                "filtered_count_local_execution_rows_selected",
+                "filter_local_execution_rows_selected",
+                "filter_project_local_execution_rows_selected",
+            ),
+        )
+
+    @property
+    def rows_projected(self) -> int | None:
+        """Return the reported projected row count, when present."""
+
+        return _first_int_field(
+            self.envelope,
+            (
+                "rows_projected",
+                "project_local_execution_rows_projected",
+                "filter_project_local_execution_rows_projected",
+            ),
+        )
+
+    @property
+    def projected_columns(self) -> tuple[str, ...]:
+        """Return projected columns reported by the primitive."""
+
+        value = _first_string_field(
+            self.envelope,
+            (
+                "local_primitive_projected_columns",
+                "project_local_execution_projected_columns",
+                "filter_project_local_execution_projected_columns",
+                "columns",
+            ),
+        )
+        if not value:
+            return ()
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether this primitive path attempted fallback execution."""
+
+        if self.envelope.fallback.attempted:
+            return True
+        return _any_true_field(
+            self.envelope,
+            (
+                "fallback_attempted",
+                "local_primitive_native_io_fallback_attempted",
+                "local_primitive_execution_certificate_fallback_attempted",
+                "filtered_count_local_execution_fallback_attempted",
+                "filter_local_execution_fallback_attempted",
+                "project_local_execution_fallback_attempted",
+                "filter_project_local_execution_fallback_attempted",
+            ),
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether this primitive path invoked an external execution engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the report represents actual local Vortex runtime execution."""
+
+        return self.data_read or _any_true_field(
+            self.envelope,
+            (
+                "local_primitive_report_present",
+                "filtered_count_local_execution_result_known",
+                "project_local_execution_result_known",
+                "filter_project_local_execution_result_known",
+                "filter_local_execution_result_known",
+            ),
+        )
+
+    @property
+    def data_read(self) -> bool:
+        """Whether the primitive read Vortex data."""
+
+        return _any_true_field(
+            self.envelope,
+            (
+                "data_read",
+                "data_io_performed",
+                "filtered_count_local_execution_data_read",
+                "filter_local_execution_data_read",
+                "project_local_execution_data_read",
+                "filter_project_local_execution_data_read",
+            ),
+        )
+
+    @property
+    def data_decoded(self) -> bool:
+        """Whether the primitive reported decoded-data work."""
+
+        return self.envelope.field_bool("data_decoded", False) is True
+
+    @property
+    def data_materialized(self) -> bool:
+        """Whether the primitive reported materialized-data work."""
+
+        return self.envelope.field_bool("data_materialized", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the primitive wrote data."""
+
+        return self.envelope.field_bool("write_io", False) is True
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the most specific claim gate status reported by the primitive."""
+
+        return _first_string_field(
+            self.envelope,
+            (
+                "filter_project_local_execution_claim_gate_status",
+                "filter_local_execution_claim_gate_status",
+                "project_local_execution_claim_gate_status",
+                "why_claim_gate_status",
+                "claim_gate_status",
+            ),
+        )
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return compact evidence from the backing Vortex primitive."""
+
+        return self.envelope.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return compact claim posture from the backing Vortex primitive."""
+
+        return self.envelope.claim_summary
+
+
+@dataclass(frozen=True, slots=True)
+class _VortexPrimitiveWorkflowShape:
+    """Parsed subset of lazy operations admitted by local Vortex primitives."""
+
+    predicate: str | None = None
+    columns: tuple[str, ...] | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowSchemaField:
     """Observed schema field for a bounded ShardLoom local-source workflow."""
 
@@ -2390,9 +2613,21 @@ class LazyFrame:
         self,
         *,
         check: bool = False,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows for admitted local file SQL smoke shapes."""
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> (
+        SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Collect admitted local file rows or run admitted local Vortex primitives."""
 
+        if report := self._vortex_local_primitive_collect_report(
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        ):
+            return report
         if statement := self._sql_local_source_statement():
             return self.client.sql_local_source_smoke(statement, check=check)
         return self._unsupported_operation("collect", check=check)
@@ -2401,9 +2636,21 @@ class LazyFrame:
         self,
         *,
         check: bool = False,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        memory_gb: int = 4,
+        max_parallelism: int = 1,
+    ) -> (
+        SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Return a scoped row-count report for admitted local workflows."""
 
+        if report := self._vortex_local_primitive_count_report(
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        ):
+            return report
         if self._can_append_scalar_aggregate():
             return (
                 self._append(WorkflowOperation("aggregate", ("count(*)",)))
@@ -3089,6 +3336,121 @@ class LazyFrame:
             workflow=self,
             operation=operation,
             envelope=envelope,
+        )
+
+    def _vortex_local_primitive_collect_report(
+        self,
+        *,
+        check: bool,
+        memory_gb: int,
+        max_parallelism: int,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = self._vortex_primitive_shape()
+        if shape is None:
+            return None
+        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+        envelope: OutputEnvelope | None = None
+        if shape.predicate and shape.columns:
+            envelope = self.client.vortex_filter_project(
+                self.source.uri,
+                shape.predicate,
+                shape.columns,
+                source_order_limit=shape.limit,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.predicate and shape.limit is None:
+            envelope = self.client.vortex_filter(
+                self.source.uri,
+                shape.predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.columns and shape.limit is None:
+            envelope = self.client.vortex_project(
+                self.source.uri,
+                shape.columns,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        if envelope is None:
+            return None
+        return VortexWorkflowExecutionReport(
+            workflow=self,
+            operation="collect",
+            envelope=envelope,
+        )
+
+    def _vortex_local_primitive_count_report(
+        self,
+        *,
+        check: bool,
+        memory_gb: int,
+        max_parallelism: int,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = self._vortex_primitive_shape()
+        if shape is None or shape.columns is not None or shape.limit is not None:
+            return None
+        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+        if shape.predicate:
+            envelope = self.client.vortex_count_where(
+                self.source.uri,
+                shape.predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        else:
+            envelope = self.client.vortex_run(
+                self.source.uri,
+                "count",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        return VortexWorkflowExecutionReport(
+            workflow=self,
+            operation="count",
+            envelope=envelope,
+        )
+
+    def _vortex_primitive_shape(self) -> _VortexPrimitiveWorkflowShape | None:
+        if self.source.source_format != "vortex":
+            return None
+        predicate: str | None = None
+        columns: tuple[str, ...] | None = None
+        limit: int | None = None
+        for operation in self.operations:
+            if operation.kind == "filter":
+                if predicate is not None or limit is not None:
+                    return None
+                predicate = operation.values[0]
+            elif operation.kind == "select":
+                if columns is not None or limit is not None:
+                    return None
+                columns = operation.values
+            elif operation.kind == "limit":
+                if limit is not None:
+                    return None
+                parsed_limit = int(operation.values[0])
+                if parsed_limit <= 0:
+                    return None
+                limit = parsed_limit
+            else:
+                return None
+        return _VortexPrimitiveWorkflowShape(
+            predicate=predicate,
+            columns=columns,
+            limit=limit,
         )
 
     def _can_append_scalar_aggregate(self) -> bool:
@@ -4592,6 +4954,41 @@ def _normalize_positive_int(name: str, value: object) -> int:
     if value <= 0:
         raise ValueError(f"{name} must be positive")
     return value
+
+
+def _first_string_field(envelope: OutputEnvelope, keys: Sequence[str]) -> str | None:
+    for key in keys:
+        value = envelope.field(key)
+        if value is None:
+            continue
+        normalized = value.strip()
+        if not normalized or normalized.lower() in {"none", "unknown"}:
+            continue
+        return normalized
+    return None
+
+
+def _first_int_field(envelope: OutputEnvelope, keys: Sequence[str]) -> int | None:
+    for key in keys:
+        value = envelope.field(key)
+        if value is None:
+            continue
+        normalized = value.strip().lower()
+        if not normalized or normalized in {"none", "unknown"}:
+            continue
+        try:
+            return int(normalized)
+        except ValueError:
+            continue
+    return None
+
+
+def _any_true_field(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
+    for key in keys:
+        value = envelope.field(key)
+        if value is not None and value.strip().lower() == "true":
+            return True
+    return False
 
 
 def _range_row_count(start: int, end: int, step: int) -> int:

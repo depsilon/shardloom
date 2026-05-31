@@ -33,11 +33,29 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
 
 These rows allow scoped local parity, not broad production claims.
 
+## Scoped Vortex Primitive Runtime
+
+The Python/DataFrame-style Vortex front door now admits a narrow local primitive slice:
+
+- `read_vortex(...).count()` lowers to `vortex-run ... count`.
+- `read_vortex(...).filter(...).count()` lowers to `vortex-count-where`.
+- `read_vortex(...).select(...).collect()` lowers to `vortex-project`.
+- `read_vortex(...).filter(...).collect()` lowers to `vortex-filter`.
+- `read_vortex(...).filter(...).select(...).limit(...).collect()` lowers to
+  `vortex-filter-project --limit`.
+
+All admitted Vortex primitive terminal paths use explicit local primitive execution flags and emit
+no-fallback ShardLoom/Vortex evidence. This is intentionally not a new full front-door parity row:
+general Vortex SQL, broad read-transform-write workflows, decoded row materialization, object-store
+sources, and benchmark-backed performance equivalence remain blocked until the required evidence
+lands.
+
 ## Blocking Gap Families
 
 Rows with `parity_status=front_door_gap` are real blockers for the user goal:
 
-- General Vortex-native SQL/Python/DataFrame read-transform-write workflows.
+- General Vortex-native SQL/Python/DataFrame read-transform-write workflows beyond the scoped
+  local primitive runtime above.
 - Broad unbounded decoded pandas, Arrow, NumPy, and notebook-display materialization outside the
   admitted local-source/materialized-input scope.
 - Object-store, lakehouse/table, catalog, commit, and remote sink workflows.
