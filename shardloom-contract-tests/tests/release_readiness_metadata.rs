@@ -61,6 +61,34 @@ fn yaml_top_level_section_item_count(content: &str, section: &str) -> usize {
 }
 
 #[test]
+fn completed_report_lanes_are_not_left_unchecked_in_global_review() {
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    for lane in ["GAR-PERF-2C", "GAR-SCALE-1", "GAR-COMPAT-1", "GAR-NOVEL-1"] {
+        assert!(
+            !gar.contains(&format!("- [ ] `{lane}`")),
+            "completed report/evidence lane {lane} must not remain unchecked in global architecture review"
+        );
+        assert!(
+            gar.contains(&format!("- [x] `{lane}`")),
+            "missing checked global architecture review marker for {lane}"
+        );
+    }
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    for required in [
+        "Completed scale-readiness contract lane",
+        "Completed compatibility coverage lane",
+        "Completed cross-surface report-only lane",
+        "Vortex Scan API filter/projection/limit pushdown completion",
+    ] {
+        assert!(
+            traceability.contains(required),
+            "missing completed-lane traceability marker {required}"
+        );
+    }
+}
+
+#[test]
 fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
     assert!(pyproject.contains("name = \"shardloom\""));

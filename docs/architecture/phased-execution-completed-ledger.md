@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: completed report-lane global architecture review freshness closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/gar-completed-lane-review-freshness` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Existing completed `GAR-SCALE-1`, `GAR-COMPAT-1`, and `GAR-NOVEL-1` traceability and ledger
+      evidence.
+  - Scope:
+    - Closed one stale unchecked `GAR-SCALE-1` row, three stale unchecked `GAR-COMPAT-1` rows, and
+      one stale unchecked `GAR-NOVEL-1` row in
+      `docs/architecture/global-architecture-review.md`.
+    - Preserved the claim boundary that these are completed report/contract/scoreboard lanes, not
+      runtime-completeness claims.
+    - Updated the active completion-gate phase item so the remaining global review blocker count
+      drops from 51 to 46.
+  - Evidence:
+    - `GAR-SCALE-1A` through `GAR-SCALE-1H` are recorded in the completed ledger and traceability
+      as scale taxonomy, split, memory/spill, shuffle, object/table ladder, distributed protocol,
+      scale benchmark profile, and Foundry scale proof-boundary contracts.
+    - `GAR-COMPAT-1A` through `GAR-COMPAT-1E` are recorded as the universal compatibility
+      scoreboard, generated-output contract, object-store admission ladder, table-format boundary
+      matrix, and database/warehouse boundary matrix.
+    - `GAR-NOVEL-1A` through `GAR-NOVEL-1D` are recorded as generated-source evidence alignment,
+      OpenLineage facet mapping, OpenTelemetry trace-export contract, and Bayesian claim-confidence
+      report lanes.
+  - Claim boundary:
+    - This does not authorize literal any-volume support, larger-than-memory execution,
+      split-parallel runtime, object-store/table runtime, distributed runtime, broad SQL/DataFrame
+      runtime, production adapters, Foundry production, lineage/telemetry export, package
+      publication, performance, superiority, Spark replacement, or broad production readiness.
+  - Fallback boundary:
+    - All closed lanes preserve no-fallback and no-external-engine posture; external engines,
+      external databases, object stores, table systems, managed platforms, and telemetry backends
+      remain baselines, report rows, or future endpoints only.
+
 - [x] Session label: GAR-PERF-2C global architecture review freshness closeout
   - Date: 2026-05-31
   - Branch/PR: `codex/gar-perf-2c-review-freshness` / pending.
