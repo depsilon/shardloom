@@ -5,6 +5,14 @@ const metrics = routeMetrics();
 const dashboard = (benchmark as any).comparative_dashboard ?? {};
 const claimDistribution = dashboard.claim_gate_distribution ?? {};
 const claimRows = Array.isArray(claimDistribution.rows) ? claimDistribution.rows : [];
+const routeLaneTable = dashboard.route_lane_comparison ?? {};
+const routeLaneRows = Array.isArray(routeLaneTable.rows) ? routeLaneTable.rows : [];
+const routeLaneHeaders = Array.isArray(routeLaneTable.headers) ? routeLaneTable.headers : [];
+const stageAttributionTable = dashboard.stage_attribution ?? {};
+const stageAttributionRows = Array.isArray(stageAttributionTable.rows) ? stageAttributionTable.rows : [];
+const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? stageAttributionTable.headers : [];
+const routeRuntimeTable = dashboard.route_runtime_status ?? {};
+const routeRuntimeRows = Array.isArray(routeRuntimeTable.rows) ? routeRuntimeTable.rows : [];
 const engineOverview = dashboard.engine_timing_overview ?? {};
 const engineHeaders = Array.isArray(engineOverview.headers) ? engineOverview.headers : ["Engine", "Available", "Success / total", "Geomean", "CSV/Parquet geomean", "Local fastest count"];
 const engineRows = Array.isArray(engineOverview.rows) ? engineOverview.rows : [];
@@ -56,13 +64,22 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
 
 <section>
   <p class="eyebrow">Route timing dashboard</p>
-  <h2>Route timing dashboard</h2>
-  <div class="route-dashboard">
-    <article class="route-dashboard-card"><span class="badge">Certified cold ingest/stage route</span><p>Includes source read, parse, Vortex import, write/reopen, compute, sink, and evidence timing.</p></article>
-    <article class="route-dashboard-card"><span class="badge">Prepared warm query route</span><p>Starts after VortexPreparedState exists unless preparation is explicitly included.</p></article>
-    <article class="route-dashboard-card"><span class="badge">Native Vortex route</span><p>Starts from an existing Vortex input and keeps no-fallback evidence visible.</p></article>
-    <article class="route-dashboard-card"><span class="badge">Direct transient route</span><p>One-shot local compatibility route, not a Vortex-native claim.</p></article>
-    <article class="route-dashboard-card"><span class="badge">External baseline context</span><p>External engines are baseline-only and never ShardLoom fallback execution.</p></article>
+  <h2>Route lanes are the comparison surface.</h2>
+  <p class="narrow">
+    Stage pieces explain a ShardLoom route; they are not competing product lanes. Warm prepared and native Vortex rows stay labeled by start state.
+  </p>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{routeLaneHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {routeLaneRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {routeLaneTable.schema_version ?? "not reported"}. Boundary: {routeLaneTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 
@@ -71,7 +88,10 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
     <div class="metric"><strong>{manifestAny.benchmark_profile}</strong><span>benchmark profile</span></div>
     <div class="metric"><strong>{manifestAny.artifact_status}</strong><span>artifact completeness</span></div>
     <div class="metric"><strong>{metrics.availableLanes}/{metrics.expectedLanes}</strong><span>available lanes</span></div>
-    <div class="metric"><strong>{metrics.claimGrade}</strong><span>claim-grade ShardLoom rows</span></div>
+    <div class="metric"><strong>{metrics.scopedRuntimeSupported}</strong><span>scoped runtime rows</span></div>
+    <div class="metric"><strong>{metrics.shardloomUnsupported}</strong><span>ShardLoom unsupported rows</span></div>
+    <div class="metric"><strong>{metrics.externalUnsupported}</strong><span>external unsupported rows</span></div>
+    <div class="metric"><strong>{metrics.claimGrade}</strong><span>evidence claim-grade rows</span></div>
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
     <div class="metric"><strong>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</strong><span>constitution gate</span></div>
   </div>
@@ -128,6 +148,27 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
 
 <section class="section-grid">
   <div>
+    <p class="eyebrow">Stage attribution</p>
+    <h2>ShardLoom stage pieces explain route cost.</h2>
+    <p class="narrow">The attribution view keeps source admission, parse/decode, source-to-Vortex work, Vortex write/reopen, scan, operator compute, sink, and evidence rendering separate from route-level comparisons.</p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{stageAttributionHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {stageAttributionRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
     <p class="eyebrow">Cold-lane attribution</p>
     <h2>Cold ingest, warm query, sink, evidence, and harness timing stay separate.</h2>
     <p class="narrow">The promoter classifies each row before publication. Missing stage splits block claim-grade interpretation instead of letting cold preparation or harness overhead hide inside a single timing number.</p>
@@ -169,9 +210,30 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
 
 <section class="section-grid">
   <div>
+    <p class="eyebrow">Runtime status</p>
+    <h2>Runtime support is separate from claim readiness.</h2>
+    <p class="narrow">A row can be scoped-runtime-supported without authorizing performance, production, or Spark-replacement claims. External unsupported rows are baseline limitations, not ShardLoom runtime gaps.</p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Scope</th><th>Rows</th><th>Interpretation</th></tr></thead>
+        <tbody>
+          {routeRuntimeRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Status vocabulary: {Array.isArray(routeRuntimeTable.status_vocabulary) ? routeRuntimeTable.status_vocabulary.join(", ") : "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
     <p class="eyebrow">Claim-gate distribution</p>
-    <h2>Route-level evidence before timing interpretation.</h2>
-    <p class="narrow">Timing rows remain local context, not superiority proof. Compatibility cold timing is not pure query speed. The target state is claim-grade ShardLoom rows for the admitted comparative roster; external rows remain baseline-only.</p>
+    <h2>Evidence quality is not the same as runtime support.</h2>
+    <p class="narrow">Timing rows remain local context, not superiority proof. Compatibility cold timing is not pure query speed. Runtime support, evidence quality, and claim authorization are shown as separate layers.</p>
   </div>
   <div class="benchmark-preview">
     {claimRows.map((row: unknown[]) => (
@@ -185,8 +247,8 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
 <section class="section-grid">
   <div>
     <p class="eyebrow">Claim-grade closeout</p>
-    <h2>Blocked and unsupported rows are implementation work.</h2>
-    <p class="narrow">This page keeps gaps visible while the phased plan closes them. The goal is not to hide unsupported rows; it is to remove them from the main comparative roster by implementing the runtime path or moving the gap to an explicit non-comparative appendix.</p>
+    <h2>ShardLoom gaps and external baseline limits are counted separately.</h2>
+    <p class="narrow">This page keeps runtime status, evidence quality, and claim authorization separate. External baseline unsupported rows do not imply a ShardLoom route gap.</p>
   </div>
   <div class="artifact-panel">
     <div class="table-wrap compact-table">
@@ -251,11 +313,11 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
     <summary>Published comparative roster ({publishedRows.length} rows)</summary>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Engine</th><th>Scenario</th><th>Format</th><th>Status</th><th>Mode</th><th>Total ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
+        <thead><tr><th>Route</th><th>Internal lane</th><th>Scenario</th><th>Format</th><th>Status</th><th>Runtime</th><th>Mode</th><th>Total ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
         <tbody>
           {publishedRows.map((row: any) => (
             <tr>
-              <td>{row.engine}</td><td>{row.scenario_name}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.selected_execution_mode}</td>
+              <td>{row.route_display_name ?? row.engine}</td><td>{row.engine}</td><td>{row.scenario_name}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.route_runtime_status}</td><td>{row.selected_execution_mode}</td>
               <td>{row.total_runtime_millis}</td><td>{String(row.fallback_attempted)}</td><td>{String(row.external_engine_invoked)}</td><td>{row.claim_gate_status}</td>
             </tr>
           ))}
@@ -267,12 +329,12 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
     <summary>ShardLoom detailed evidence rows ({shardloomRows.length} rows)</summary>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Scenario</th><th>Mode</th><th>Format</th><th>Status</th><th>Total ms</th><th>Scan ms</th><th>Compute ms</th><th>Sink ms</th><th>Claim gate</th></tr></thead>
+        <thead><tr><th>Route</th><th>Scenario</th><th>Mode</th><th>Format</th><th>Status</th><th>Runtime</th><th>Total route ms</th><th>Scan ms</th><th>Compute ms</th><th>Sink ms</th><th>Claim gate</th></tr></thead>
         <tbody>
           {shardloomRows.map((row: any) => (
             <tr>
-              <td>{row.scenario_name}</td><td>{row.selected_execution_mode}</td><td>{row.storage_format}</td><td>{row.status}</td>
-              <td>{row.total_runtime_millis}</td><td>{row.vortex_scan_millis}</td><td>{row.operator_compute_millis}</td><td>{row.result_sink_write_millis}</td><td>{row.claim_gate_status}</td>
+              <td>{row.route_display_name ?? row.engine}</td><td>{row.scenario_name}</td><td>{row.selected_execution_mode}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.route_runtime_status}</td>
+              <td>{row.total_route_ms}</td><td>{row.vortex_scan_millis}</td><td>{row.operator_compute_millis}</td><td>{row.result_sink_write_millis}</td><td>{row.claim_gate_status}</td>
             </tr>
           ))}
         </tbody>

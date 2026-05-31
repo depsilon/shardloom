@@ -26,10 +26,13 @@ CLAIM_READY_STATUSES = {
 }
 REQUIRED_FIELD_ORDER = (
     "benchmark_result_row",
+    "route_identity",
+    "route_runtime_status",
     "dataset_source_admission",
     "preparation_route",
     "execution_route",
     "output_route",
+    "claim_readiness_boundary",
     "correctness_proof",
     "hardware_profile",
     "build_profile",
@@ -217,6 +220,16 @@ def row_missing_fields(
         "benchmark_result_row": first_present(
             fields, ("engine", "scenario", "scenario_name", "scenario_id")
         ),
+        "route_identity": first_present(
+            fields,
+            (
+                "route_lane_id",
+                "route_display_name",
+                "start_state",
+                "end_state",
+            ),
+        ),
+        "route_runtime_status": first_present(fields, ("route_runtime_status",)),
         "dataset_source_admission": first_present(
             fields,
             (
@@ -255,6 +268,11 @@ def row_missing_fields(
                 "result_sink_write_millis",
                 "rows_materialized",
             ),
+        ),
+        "claim_readiness_boundary": (
+            boolish(fields.get("performance_claim_allowed")) is False
+            and boolish(fields.get("production_claim_allowed")) is False
+            and boolish(fields.get("spark_replacement_claim_allowed")) is False
         ),
         "correctness_proof": first_present(
             fields,
