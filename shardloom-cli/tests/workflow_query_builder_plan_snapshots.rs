@@ -486,7 +486,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     )));
     assert!(dataframe_source_free_projection.contains(&field(
         "blocker_id",
-        "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"
+        "gar-gen-1.dataframe_source_free_projection_broad_expression_blocked"
     )));
     assert!(dataframe_generated_with_column.contains(&field(
         "workflow_operation",

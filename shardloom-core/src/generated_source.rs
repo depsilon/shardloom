@@ -474,16 +474,16 @@ impl GeneratedSourceApiAdmissionRow {
         Self {
             row_id: "dataframe_source_free_projection",
             user_visible_surface: "DataFrame source-free projection",
-            support_status: GeneratedSourceSupportStatus::ReportOnly,
-            runtime_execution: false,
+            support_status: GeneratedSourceSupportStatus::FixtureSmokeSupported,
+            runtime_execution: true,
             data_read: false,
-            write_io: false,
+            write_io: true,
             source_io_performed: false,
-            generated_source_created: false,
-            blocker_id: "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
-            required_evidence: "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "DataFrame source-free projection is report-only outside the scoped local user_rows and range write smokes.",
+            generated_source_created: true,
+            blocker_id: "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only",
+            required_evidence: "dataframe_literal_projection_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+            claim_gate_status: "fixture_smoke_only",
+            claim_boundary: "DataFrame source-free projection is admitted only for scoped literal projection rows to local JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output; broad expression-backed DataFrame generation remains blocked.",
             fallback_attempted: false,
             external_engine_invoked: false,
             fallback_execution_allowed: false,
@@ -999,6 +999,21 @@ mod tests {
         assert_eq!(
             sql_values.blocker_id,
             "none_scoped_local_sql_values_jsonl_csv_smoke_only"
+        );
+
+        let dataframe_projection = matrix
+            .row_for("dataframe_source_free_projection")
+            .expect("dataframe source-free projection row");
+        assert_eq!(
+            dataframe_projection.support_status.as_str(),
+            "fixture_smoke_supported"
+        );
+        assert!(dataframe_projection.runtime_execution);
+        assert!(dataframe_projection.write_io);
+        assert!(dataframe_projection.generated_source_created);
+        assert_eq!(
+            dataframe_projection.blocker_id,
+            "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only"
         );
     }
 

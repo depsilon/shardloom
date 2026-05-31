@@ -321,11 +321,12 @@ validators, docs/website parity, and a completed-ledger entry.
     split-operator status fields to runtime-ready local evidence where the rows already had
     top-level `success`, `claim_grade`, runtime-validation `passed`, and no fallback/external engine
     invocation. Follow-up freshness passes closed stale `GAR-PERF-2C`, `GAR-SCALE-1`,
-    `GAR-COMPAT-1`, and `GAR-NOVEL-1` global architecture review rows against already-landed
-    scan-pushdown, scale-readiness, compatibility-scoreboard, and evidence-native report-lane
-    evidence. Full compute-engine completion remains blocked by 41 unchecked global architecture
-    review items and this unchecked phase-plan item.
-  - Next slice outcome: close or split the 41 global architecture review items into runtime-ready
+    `GAR-COMPAT-1`, `GAR-NOVEL-1`, and scoped `GAR-GEN-1` generated-output rows against
+    already-landed scan-pushdown, scale-readiness, compatibility-scoreboard, evidence-native
+    report-lane, and DataFrame literal projection generated-output evidence. Full compute-engine
+    completion remains blocked by 40 unchecked global architecture review items and this unchecked
+    phase-plan item.
+  - Next slice outcome: close or split the 40 global architecture review items into runtime-ready
     evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.

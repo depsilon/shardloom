@@ -16,9 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: scoped DataFrame source-free projection generated-output closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/dataframe-source-free-projection-closeout` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Canonical compute-flow `GAR-GEN-1` row in
+      `docs/architecture/global-architecture-review.md`.
+  - Scope:
+    - Added an admitted scoped `ctx.dataframe_source_free_projection("lit(...).alias('name')").write(...)`
+      Python helper that lowers literal projection rows through the real generated-source
+      local-output command.
+    - Extended `generated-source-user-rows-smoke --source-kind` to classify the sink as
+      `dataframe_source_free_projection`, preserving generated-source, output Native I/O,
+      execution, sink-artifact, workspace-safe write, replay, and no-fallback/no-external-engine
+      evidence.
+    - Promoted DataFrame source-free literal projection capability rows from report-only to
+      fixture-smoke-supported across generated-source API admission, compatibility, Python method,
+      and status/documentation surfaces.
+    - Closed the scoped `GAR-GEN-1` generated-output flow row while keeping broad expression-backed
+      SQL/DataFrame generation, object-store/lakehouse output, Foundry output, package/production,
+      performance, and Spark-displacement claims blocked by their owning broad rows.
+  - Evidence:
+    - `shardloom-cli/src/generated_source_runtime.rs` emits
+      `generated_source_kind=dataframe_source_free_projection`,
+      `materialization_boundary=python_dataframe_source_free_projection_to_local_*_sink`,
+      sink artifact fields, and no-fallback fields for the scoped helper.
+    - `python/src/shardloom/query.py` and `python/src/shardloom/context.py` expose the scoped
+      literal projection helper without pandas, Polars, DuckDB, DataFusion, or hidden fallback.
+    - `shardloom-core/src/generated_source.rs`,
+      `shardloom-cli/src/status_capabilities.rs`, and compatibility/status docs classify the
+      scoped path as fixture-smoke-supported.
+  - Claim boundary:
+    - This is scoped local generated-output evidence only. It is not broad DataFrame runtime,
+      arbitrary expression generation, object-store/lakehouse output, Foundry output, production,
+      package, performance, superiority, or Spark-displacement evidence.
+  - Fallback boundary:
+    - The path preserves `input_dataset_count=0`, `source_io_performed=false`,
+      `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false`.
+
 - [x] Session label: duplicated GAR-GEN/GAR-IOREUSE blocker consolidation
   - Date: 2026-05-31
-  - Branch/PR: `codex/gar-duplicate-blocker-consolidation` / pending.
+  - Branch/PR: `codex/gar-duplicate-blocker-consolidation` / #986.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.

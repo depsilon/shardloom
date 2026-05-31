@@ -932,18 +932,21 @@ DataFrame-style builder methods should classify source-free builders and local w
 implying broad DataFrame runtime. The runtime-supported generated-output builders today are scoped
 local user-row, literal-table, calendar/date-dimension, range, sequence, SQL `VALUES`, SQL literal
 `SELECT`, SQL `generate_series`/`range`, scoped range projection, generated-row literal
-`with_column`, and generated-range int64 `with_column` JSONL smokes; joins, aggregations, broad
-SQL/DataFrame source-free projection, non-local output, and other source-free builders require
-future admission evidence.
+`with_column`, generated-range int64 `with_column`, and scoped DataFrame literal projection JSONL
+smokes; joins, aggregations, broad expression-backed SQL/DataFrame source-free projection,
+non-local output, and other source-free builders require future admission evidence.
 
-Python context helpers now expose deterministic unsupported reports for the remaining broad
-source-free runtime candidates: `ctx.dataframe_source_free_projection(...)`,
+`ctx.dataframe_source_free_projection("lit(...).alias('name')").write(...)` is now an admitted scoped
+literal-projection generated-output path. It creates a one-row generated source, writes through the
+same generated-source local-output command, and emits generated-source, output Native I/O,
+execution, sink-artifact, and no-fallback evidence. Python context helpers still expose
+deterministic unsupported reports for the remaining broad source-free runtime candidates:
 `ctx.dataframe_generated_with_column(...)`, `ctx.generated_output_to_object_store(...)`, and
-`ctx.foundry_generated_output(...)`. The broad diagnostic helpers return
-`workflow-unsupported-plan` envelopes with source-free blocker IDs and required evidence; they do
-not execute DataFrame plans, generate rows, write outputs, probe object stores, invoke Foundry,
-invoke external engines, or attempt fallback. Scoped generated `with_column` execution remains
-available through the concrete generated builders, for example
+`ctx.foundry_generated_output(...)`. The broad diagnostic helpers return `workflow-unsupported-plan`
+envelopes with source-free blocker IDs and required evidence; they do not execute DataFrame plans,
+generate rows, write outputs, probe object stores, invoke Foundry, invoke external engines, or
+attempt fallback. Scoped generated `with_column` execution remains available through the concrete
+generated builders, for example
 `ctx.from_rows(...).with_column(literal).write(...)` and
 `ctx.range(...).with_column(int64_expression).write(...)`.
 
@@ -965,7 +968,7 @@ planner, runtime, or write operation.
 | `sql_values` | `fixture_smoke_supported` | Admits only scoped source-free `VALUES` local JSONL/CSV writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
 | `sql_source_free_projection` | `fixture_smoke_supported` | Admits scoped range-generator projections over the generated `value` column with admitted int64 expressions, local JSONL/CSV writes, generated-source evidence, output evidence, and no-fallback evidence; arbitrary source-free SQL projection remains blocked. |
 | `sql_generate_series_range` | `fixture_smoke_supported` | Admits `SELECT * FROM generate_series/range(...)` plus scoped range projections over the generated `value` column with int64 arithmetic, local JSONL/CSV writes, generated-source evidence, output evidence, and no-fallback evidence. |
-| `dataframe_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.dataframe_source_free_projection_runtime_not_implemented`; no broad DataFrame runtime. |
+| `dataframe_source_free_projection` | `fixture_smoke_supported` | Admits scoped literal projection rows to local JSONL/CSV writes with generated-source, output, execution, sink-artifact, and no-fallback evidence; broad expression-backed DataFrame projection remains blocked. |
 | `dataframe_generated_with_column` | `fixture_smoke_supported` | Admits scoped generated-row literal columns and generated-range int64 expression columns before local output; broad expression-backed generation remains blocked. |
 
 Every row reports `support_status`, `runtime_execution`, `data_read`, `write_io`,

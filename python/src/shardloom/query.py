@@ -3439,6 +3439,26 @@ def literal_table(
     )
 
 
+def dataframe_source_free_projection(
+    *expressions: object,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRowsSource:
+    """Create a scoped one-row DataFrame-style literal projection.
+
+    This is source-free generated output, not broad DataFrame execution. The
+    admitted expression surface is deliberately literal-only and lowers to the
+    generated-source local-output command so the CLI emits generated-source,
+    output-sink, and no-fallback evidence.
+    """
+
+    return _generated_rows_source(
+        [_dataframe_source_free_projection_row(expressions)],
+        client=_client_from_config(client, client_config),
+        source_kind="dataframe_source_free_projection",
+    )
+
+
 def range(
     start: int,
     end: int,
@@ -3750,11 +3770,101 @@ def _generated_value(value_type: str, value: object) -> str:
 
 def _normalize_generated_source_kind(value: str) -> str:
     normalized = value.strip().lower().replace("-", "_")
-    if normalized not in {"user_rows", "literal_table", "calendar"}:
+    if normalized not in {
+        "user_rows",
+        "literal_table",
+        "calendar",
+        "dataframe_source_free_projection",
+    }:
         raise ValueError(
-            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar')"
+            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar', 'dataframe_source_free_projection')"
         )
     return normalized
+
+
+def _dataframe_source_free_projection_row(
+    expressions: tuple[object, ...],
+) -> dict[str, object]:
+    if not expressions:
+        raise ValueError("DataFrame source-free projection must include at least one expression")
+    if len(expressions) == 1 and isinstance(expressions[0], Mapping):
+        row: dict[str, object] = {}
+        for raw_name, raw_value in expressions[0].items():
+            name = _normalize_output_column_name(raw_name)
+            if name in row:
+                raise ValueError("DataFrame source-free projection aliases must be unique")
+            _generated_value_type(raw_value)
+            row[name] = raw_value
+        if not row:
+            raise ValueError("DataFrame source-free projection mapping must not be empty")
+        return row
+
+    row = {}
+    for expression in expressions:
+        name, value = _dataframe_source_free_projection_item(expression)
+        if name in row:
+            raise ValueError("DataFrame source-free projection aliases must be unique")
+        row[name] = value
+    return row
+
+
+def _dataframe_source_free_projection_item(expression: object) -> tuple[str, object]:
+    if (
+        isinstance(expression, Sequence)
+        and not isinstance(expression, (str, bytes, bytearray))
+        and len(expression) == 2
+    ):
+        name = _normalize_output_column_name(expression[0])
+        value = expression[1]
+        if isinstance(value, str) and value.strip().startswith("lit("):
+            value = _generated_literal_expression(value)
+        else:
+            _generated_value_type(value)
+        return name, value
+    if isinstance(expression, str):
+        return _parse_dataframe_literal_alias_expression(expression)
+    raise TypeError(
+        "DataFrame source-free projection expressions must be mappings, "
+        "(alias, literal) pairs, or lit(...).alias(...) strings"
+    )
+
+
+def _parse_dataframe_literal_alias_expression(expression: str) -> tuple[str, object]:
+    text = expression.strip()
+    if not text:
+        raise ValueError("DataFrame source-free projection expression must not be empty")
+    try:
+        parsed = ast.parse(text, mode="eval").body
+    except SyntaxError as exc:
+        raise ValueError(
+            "DataFrame source-free projection strings must use lit(...).alias('name')"
+        ) from exc
+    if not (
+        isinstance(parsed, ast.Call)
+        and isinstance(parsed.func, ast.Attribute)
+        and parsed.func.attr == "alias"
+        and isinstance(parsed.func.value, ast.Call)
+        and isinstance(parsed.func.value.func, ast.Name)
+        and parsed.func.value.func.id == "lit"
+        and len(parsed.func.value.args) == 1
+        and not parsed.func.value.keywords
+        and len(parsed.args) == 1
+        and not parsed.keywords
+    ):
+        raise ValueError(
+            "DataFrame source-free projection strings must use lit(...).alias('name')"
+        )
+    alias_node = parsed.args[0]
+    if not isinstance(alias_node, ast.Constant) or not isinstance(alias_node.value, str):
+        raise ValueError("DataFrame source-free projection alias must be a string literal")
+    try:
+        value = ast.literal_eval(parsed.func.value.args[0])
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(
+            "DataFrame source-free projection lit(...) must contain a bool, int, float, or string literal"
+        ) from exc
+    _generated_value_type(value)
+    return _normalize_output_column_name(alias_node.value), value
 
 
 def _normalize_generated_select_columns(columns: tuple[object, ...]) -> tuple[str, ...]:

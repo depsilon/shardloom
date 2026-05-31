@@ -65,6 +65,7 @@ enum UserRowsGeneratedSourceKind {
     UserRows,
     LiteralTable,
     Calendar,
+    DataFrameProjection,
 }
 
 impl UserRowsGeneratedSourceKind {
@@ -73,8 +74,11 @@ impl UserRowsGeneratedSourceKind {
             "user_rows" | "rows" => Ok(Self::UserRows),
             "literal_table" | "literal" => Ok(Self::LiteralTable),
             "calendar" | "date_dimension" => Ok(Self::Calendar),
+            "dataframe_projection" | "dataframe_source_free_projection" => {
+                Ok(Self::DataFrameProjection)
+            }
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source user rows source kind {other:?}; supported kinds are user_rows,literal_table,calendar"
+                "unsupported generated-source user rows source kind {other:?}; supported kinds are user_rows,literal_table,calendar,dataframe_source_free_projection"
             ))),
         }
     }
@@ -84,6 +88,7 @@ impl UserRowsGeneratedSourceKind {
             Self::UserRows => "user_rows",
             Self::LiteralTable => "literal_table",
             Self::Calendar => "calendar",
+            Self::DataFrameProjection => "dataframe_source_free_projection",
         }
     }
 
@@ -92,6 +97,7 @@ impl UserRowsGeneratedSourceKind {
             Self::UserRows => "python_user_rows",
             Self::LiteralTable => "python_literal_table",
             Self::Calendar => "python_calendar_generator",
+            Self::DataFrameProjection => "python_dataframe_source_free_projection",
         };
         format!("{source}_to_local_{}_sink", output_format.sink_label())
     }
@@ -101,6 +107,9 @@ impl UserRowsGeneratedSourceKind {
             Self::UserRows => "one_scoped_local_user_rows_generated_output_smoke",
             Self::LiteralTable => "one_scoped_local_literal_table_generated_output_smoke",
             Self::Calendar => "one_scoped_local_calendar_generated_output_smoke",
+            Self::DataFrameProjection => {
+                "one_scoped_local_dataframe_source_free_projection_generated_output_smoke"
+            }
         }
     }
 }
@@ -598,7 +607,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar|dataframe_source_free_projection] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
