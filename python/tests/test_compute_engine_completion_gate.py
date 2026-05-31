@@ -20,10 +20,14 @@ def load_completion_gate_module():
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    script_dir = str(module_path.parent)
+    original_path = list(sys.path)
+    sys.path[:] = [entry for entry in sys.path if entry != script_dir]
     sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
     finally:
+        sys.path[:] = original_path
         sys.modules.pop(spec.name, None)
     return module
 
