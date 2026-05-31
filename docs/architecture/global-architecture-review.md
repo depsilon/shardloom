@@ -951,8 +951,8 @@ plan before coding.
   Remaining `GAR-IOREUSE-1` work is object-store/table/real-Foundry sink artifact proof,
   benchmark-family fanout promotion, persistent cache/session promotion, and claim-grade gates so
   reuse cannot silently become production, cache-hit, or performance proof.
-- [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
-  ShardLoom must not claim literal "any volume" support; future scale work must classify rows as
+- [x] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
+  ShardLoom does not claim literal "any volume" support; current scale evidence classifies rows as
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,
   `object_store_read_report_only`, `object_store_runtime`, `table_metadata_report_only`,
   `table_runtime`, `distributed_report_only`, `distributed_runtime`, `foundry_dev_stack_proof`, or
@@ -1050,7 +1050,7 @@ plan before coding.
   compatibility import, object-store/range-read, table/catalog, streaming, unstructured/media, and
   external-adapter source/sink families with support status, certificate refs, deterministic
   unsupported diagnostics, blockers, future evidence, no-fallback fields, and claim boundaries.
-- [ ] `GAR-COMPAT-1` adds the universal compatibility completion follow-through. `GAR-COMPAT-1A`
+- [x] `GAR-COMPAT-1` adds the universal compatibility completion follow-through. `GAR-COMPAT-1A`
   now projects the scoreboard into `shardloom.universal_compatibility_coverage_scoreboard.v1`, CLI
   `capabilities compatibility --format json`, Python `ctx.compatibility_scoreboard()`, website
   status rendering, and release-readiness checks. The matrix classifies CSV, JSONL/JSON, Parquet,
@@ -1170,7 +1170,7 @@ plan before coding.
   stage-timing fields to span placeholders without adding an OTel dependency, configuring OTLP,
   configuring a collector/backend, emitting telemetry, making network calls, or changing runtime
   support.
-- [ ] `GAR-COMPAT-1` keeps broad adapter and user-surface compatibility separate from runtime
+- [x] `GAR-COMPAT-1` keeps broad adapter and user-surface compatibility separate from runtime
   support. Python rows/DataFrame, SQL VALUES/literals, REST/Flight/ADBC, external databases, and
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
   slice upgrades the row.
@@ -1207,7 +1207,7 @@ plan before coding.
   generated-output runtime remain report-only/planned
   under `GAR-GEN-1` and `GAR-RUNTIME-COMPLETE-1A`. No-input smoke does not count as
   generated-output execution.
-- [ ] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
+- [x] `GAR-COMPAT-1` is the user-workflow compatibility scoreboard for source/sink/adapters. It
   separates plan/report coverage from runtime coverage for local files, Vortex, generated-output
   APIs, external databases, object stores, table formats, REST/Flight/ADBC, and Foundry.
 - [x] `GAR-COMMERCIAL-1C` adds a generated buyer-facing website/status matrix so users can quickly
@@ -1788,7 +1788,7 @@ plan before coding.
   phase plan now splits that cold work into attribution, Vortex-native preparation, differential
   preparation, capillary I/O, scout ingress/triage, layout/write advice, and copy-budget/buffer
   evidence slices.
-- [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
+- [x] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
   OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but
   cannot upgrade claim status by itself.
