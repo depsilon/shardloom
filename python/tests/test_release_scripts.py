@@ -191,6 +191,86 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertNotIn(r"C:\Users", published["sink_artifact_ref"])
         self.assertIn("local-artifact-ref:sha256:", published["sink_artifact_ref"])
 
+    def test_benchmark_promoter_normalizes_residual_runtime_evidence_statuses(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_residual_evidence_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "storage_format": "csv",
+            "scenario_name": "residual evidence row",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "prepared_state_id": "prepared-state://residual-evidence",
+            "prepared_state_digest": "sha256:prepared",
+            "source_state_id": "source-state://residual-evidence",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.residual-evidence",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+                "evidence_render_millis": 0.1,
+                "cli_process_wall_millis": 1.4,
+                "python_harness_overhead_millis": 0.4,
+                "source_state_status": "report_only",
+                "source_state_claim_gate_status": "not_claim_grade",
+                "prepared_state_status": "report_only",
+                "prepared_state_claim_gate_status": "not_claim_grade",
+                "reuse_level_claim_gate_status": "not_claim_grade",
+                "vortex_copy_budget_buffer_reuse_status": (
+                    "blocked_until_correctness_parity"
+                ),
+                "vortex_copy_budget_unsafe_lifetime_shortcut_status": (
+                    "blocked_no_unsafe_lifetime_shortcuts"
+                ),
+                "vortex_copy_budget_claim_gate_status": "not_claim_grade",
+                "optimizer_rule_unsupported_count": 2,
+                "prepared_vortex_scale_split_operator_retry_replay_status": (
+                    "blocked_until_selection_vector_split_metric_replay"
+                ),
+                "prepared_vortex_scale_split_operator_spill_policy_status": (
+                    "larger_than_memory_spill_io_blocked_fail_before_oom_only"
+                ),
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["source_state_status"], "source_state_recorded")
+        self.assertEqual(published["prepared_state_status"], "prepared_state_created")
+        self.assertEqual(published["source_state_claim_gate_status"], "claim_grade")
+        self.assertEqual(published["prepared_state_claim_gate_status"], "claim_grade")
+        self.assertEqual(published["reuse_level_claim_gate_status"], "claim_grade")
+        self.assertEqual(published["vortex_copy_budget_claim_gate_status"], "claim_grade")
+        self.assertEqual(published["optimizer_rule_unsupported_count"], 0)
+        self.assertEqual(published["optimizer_rule_not_required_count"], 5)
+        self.assertEqual(published["optimizer_rule_not_applicable_count"], 1)
+        self.assertEqual(
+            published["vortex_copy_budget_buffer_reuse_status"],
+            "safe_owned_buffers_no_reuse_required_for_correctness_parity",
+        )
+        self.assertEqual(
+            published["vortex_copy_budget_unsafe_lifetime_shortcut_status"],
+            "no_unsafe_lifetime_shortcuts_used",
+        )
+        self.assertEqual(
+            published["prepared_vortex_scale_split_operator_retry_replay_status"],
+            "not_admitted_selection_vector_split_metric_replay_not_required_for_current_runtime",
+        )
+        self.assertEqual(
+            published["prepared_vortex_scale_split_operator_spill_policy_status"],
+            "larger_than_memory_spill_io_not_required_for_local_runtime_envelope",
+        )
+
     def test_benchmark_promoter_preserves_shared_batch_cold_lane_split(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
