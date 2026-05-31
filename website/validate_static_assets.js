@@ -207,6 +207,7 @@ for (const required of [
   "Prepared warm query route",
   "Artifact lane availability",
   "full_local",
+  "full_local_plus_spark",
   "local non-Spark baselines",
   "Spark lanes are explicit-only historical baselines",
   "Format coverage",
@@ -221,7 +222,7 @@ for (const required of [
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);
 }
 assert(
-  !benchmarks.includes("full_local_plus_spark"),
+  !benchmarks.includes("Current artifact profile: <strong>full_local_plus_spark</strong>"),
   "benchmarks page must not show full_local_plus_spark as the current published profile",
 );
 
