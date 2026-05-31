@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-PERF-2C global architecture review freshness closeout
+  - Date: 2026-05-31
+  - Branch/PR: `codex/gar-perf-2c-review-freshness` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Existing completed `GAR-RUNTIME-IMPL-4I` / `GAR-PERF-2C` scan-pushdown evidence.
+  - Scope:
+    - Closed the two stale unchecked `GAR-PERF-2C` rows in
+      `docs/architecture/global-architecture-review.md` without changing runtime behavior.
+    - Preserved the claim boundary: this is scoped local prepared/native Vortex Scan/source-backed
+      pushdown classification, not encoded-native operator completeness, SQL/DataFrame runtime,
+      object-store/lakehouse runtime, production readiness, package publication, performance,
+      superiority, or Spark-displacement evidence.
+    - Updated the active completion-gate phase item so the remaining global review blocker count
+      drops from 53 to 51.
+  - Evidence:
+    - Existing runtime and benchmark contracts emit `scan_pushdown_*` fields, deterministic
+      blocker IDs/reasons, no-fallback/no-external-engine fields, and the
+      `scan_pushdown_matrix` artifact section.
+    - `compute-capability-matrix` projects
+      `shardloom.prepared_vortex.scan_pushdown_matrix.v1` with supported, partially supported, and
+      unsupported rows for the current local prepared/native runtime families.
+    - Python client accessors expose `PreparedVortexScanPushdownRow` and typed summary fields.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs` keeps the scan-pushdown
+      completion evidence projected across runtime, benchmark, CLI, Python, docs, and ledger
+      surfaces.
+  - Fallback boundary:
+    - `scan_pushdown_fallback_attempted=false` and
+      `scan_pushdown_external_engine_invoked=false` remain required.
+    - External engines remain baseline-only and are not used for pushdown or residual execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5J full-local benchmark publication refresh and completion
       gate baseline
   - Date: 2026-05-31

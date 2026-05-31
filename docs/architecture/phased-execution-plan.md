@@ -320,9 +320,11 @@ validators, docs/website parity, and a completed-ledger entry.
     VortexPreparedState, reuse level, copy-budget, preparation-spine, capillary, layout, and local
     split-operator status fields to runtime-ready local evidence where the rows already had
     top-level `success`, `claim_grade`, runtime-validation `passed`, and no fallback/external engine
-    invocation. Full compute-engine completion remains blocked by 53 unchecked global architecture
-    review items and this unchecked phase-plan item.
-  - Next slice outcome: close or split the 53 global architecture review items into runtime-ready
+    invocation. A follow-up freshness pass closed the two stale `GAR-PERF-2C` global architecture
+    review rows against the already-landed scan-pushdown completion evidence. Full compute-engine
+    completion remains blocked by 51 unchecked global architecture review items and this unchecked
+    phase-plan item.
+  - Next slice outcome: close or split the 51 global architecture review items into runtime-ready
     evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.

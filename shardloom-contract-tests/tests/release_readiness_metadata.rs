@@ -6006,6 +6006,20 @@ fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
         );
     }
 
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        !gar.contains("- [ ] `GAR-PERF-2C`"),
+        "GAR-PERF-2C must remain closed in the global architecture review once scan-pushdown evidence is projected"
+    );
+    assert!(
+        gar.contains("- [x] `GAR-PERF-2C` adds Vortex Scan API pushdown completion"),
+        "missing closed GAR-PERF-2C global architecture review marker"
+    );
+    assert!(
+        gar.contains("`scan_pushdown_*` and `prepared_vortex_scan_pushdown_*` evidence contracts"),
+        "missing GAR-PERF-2C evidence-contract wording in the compute-flow review"
+    );
+
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4I"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4J"));
