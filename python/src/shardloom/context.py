@@ -40,6 +40,7 @@ from .query import (
     UnsupportedWorkflowOperationReport,
     WorkflowSource,
     calendar as generated_calendar,
+    dataframe_generated_with_column as generated_dataframe_generated_with_column,
     dataframe_source_free_projection as generated_dataframe_source_free_projection,
     from_arrow_ipc,
     from_arrow_table,
@@ -477,19 +478,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dataframe_generated_with_column",
         "source_free_generation",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="dataframe-generated-with-column",
-        blocker_id="gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
         required_evidence=(
-            "dataframe_plan_contract",
-            "expression_registry",
-            "type_coercion_contract",
+            "generated_row_literal_projection",
+            "range_projection_expression_semantics",
             "generated_source_certificate",
             "output_native_io_certificate",
             "execution_certificate",
             "no_fallback_evidence",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "object_store_generated_output",
@@ -5110,21 +5110,21 @@ class ShardLoomContext:
         name: str,
         expression: object,
         *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for broad generated DataFrame with_column.
+        check: bool | None = None,
+    ) -> GeneratedRowsSource:
+        """Create a scoped source-free generated DataFrame with one literal column.
 
-        Scoped generated-row literal columns use `ctx.from_rows(...).with_column(...)`.
-        Scoped generated-range int64 expressions use `ctx.range(...).with_column(...)`.
+        This is the executable helper for the admitted generated-output row. It
+        does not execute broad DataFrame expressions; source-backed generated
+        rows and range expressions stay on `ctx.from_rows(...).with_column(...)`
+        and `ctx.range(...).with_column(...)`.
         """
 
-        column_name = _require_non_empty_text("column name", name)
-        expression_text = _require_non_empty_text("column expression", expression)
-        return self._source_free_unsupported(
-            "dataframe-generated-with-column",
-            "dataframe_generated_with_column",
-            f"{column_name}={expression_text}",
-            check=check,
+        _ = check
+        return generated_dataframe_generated_with_column(
+            name,
+            expression,
+            client=self.client,
         )
 
     def generated_output_to_object_store(

@@ -160,12 +160,12 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
   Capability discovery also exposes
   `generated_source_api_admission_schema_version` plus per-form `support_status`, `blocker_id`,
   and no-fallback/no-external-engine fields.
-- **Claim boundary:** scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL
-  literal `SELECT`, SQL `VALUES`, SQL `generate_series`/`range`, and scoped SQL range projection JSONL/CSV fixture smokes only;
-  broad SQL runtime, SQL source-free
-  projection over expressions beyond the admitted literals, DataFrame source-free projection,
-  object-store writes, and Foundry generated-output runtime remain
-  report-only/planned/blocked.
+- **Claim boundary:** scoped local user-row, literal-table, calendar/date-dimension, range,
+  sequence, SQL literal `SELECT`, SQL `VALUES`, SQL `generate_series`/`range`, scoped SQL range
+  projection, scoped DataFrame literal projection, and scoped generated DataFrame `with_column`
+  JSONL/CSV fixture smokes only; broad SQL runtime, SQL source-free projection over expressions
+  beyond the admitted literals, broad expression-backed DataFrame generation, object-store writes,
+  and Foundry generated-output runtime remain report-only/planned/blocked.
 - **References:** `docs/foundry/proof-of-use-certification.md`,
   `docs/architecture/compute-engine-flow-reference.md`.
 

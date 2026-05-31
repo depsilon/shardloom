@@ -3459,6 +3459,30 @@ def dataframe_source_free_projection(
     )
 
 
+def dataframe_generated_with_column(
+    name: object,
+    expression: object,
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedRowsSource:
+    """Create a scoped one-row generated DataFrame with one literal column.
+
+    This admits the narrow source-free `with_column` helper advertised by the
+    generated-output capability matrix. It is not broad DataFrame expression
+    execution; source-backed generated rows and range expressions still use
+    `from_rows(...).with_column(...)` and `range(...).with_column(...)`.
+    """
+
+    column = _require_non_empty("generated DataFrame column name", name)
+    literal = _generated_literal_expression(expression)
+    return _generated_rows_source(
+        [{column: literal}],
+        client=_client_from_config(client, client_config),
+        source_kind="dataframe_generated_with_column",
+    )
+
+
 def range(
     start: int,
     end: int,
@@ -3775,9 +3799,10 @@ def _normalize_generated_source_kind(value: str) -> str:
         "literal_table",
         "calendar",
         "dataframe_source_free_projection",
+        "dataframe_generated_with_column",
     }:
         raise ValueError(
-            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar', 'dataframe_source_free_projection')"
+            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar', 'dataframe_source_free_projection', 'dataframe_generated_with_column')"
         )
     return normalized
 

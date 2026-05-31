@@ -1187,10 +1187,10 @@ and scoped ranking-window shapes described above.
 `ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
 collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
 parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still
-return deterministic blockers. The `dataframe_generated_with_column` unsupported helper names the
-broad generated-expression blocker; scoped generated `with_column` execution remains available
-through concrete builders such as `ctx.from_rows(...).with_column(...)` and
-`ctx.range(...).with_column(...)`.
+return deterministic blockers. The `dataframe_generated_with_column` row is fixture-smoke-supported
+for the scoped literal helper and for concrete generated builders such as
+`ctx.from_rows(...).with_column(...)` and `ctx.range(...).with_column(...)`; broad generated
+DataFrame expression runtime still uses deterministic unsupported diagnostics.
 It does not import DataFrame libraries, invoke external engines, or upgrade DataFrame/notebook
 support to claim-grade status. Other lazy source, `filter`, `select`, `limit`, and `group_by`
 helpers remain side-effect-free declarations unless an admitted terminal method is called. Joins,
@@ -1649,7 +1649,8 @@ Generated-output runtime must report
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
 sequence, SQL `VALUES`, SQL literal `SELECT`, SQL `generate_series`/`range`, scoped SQL range
-projection, and scoped DataFrame literal projection paths report
+projection, scoped DataFrame literal projection, and scoped generated DataFrame `with_column` paths
+report
 `claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes and feature-gated flat
 scalar Parquet/Arrow IPC/Avro/ORC/Vortex lanes. Default binaries return deterministic blockers for
 structured sinks until built with `--features universal-format-io`, and for Vortex until built with
@@ -1667,13 +1668,22 @@ paths:
 ctx.dataframe_source_free_projection("lit(1).alias('value')").write("target/generated-df.jsonl")
 ```
 
-The Python context still exposes deterministic unsupported report helpers for remaining broad
+The scoped generated DataFrame `with_column` helper admits a one-row literal column and writes
+through the same generated-source local-output command:
+
+```python
+(
+    ctx.dataframe_generated_with_column("value", "lit(1)")
+    .write("target/generated-df-column.jsonl")
+)
+```
+
+The Python context still exposes deterministic unsupported report helpers for remaining non-local
 source-free forms. These helpers do not execute a DataFrame plan, generate rows, write outputs,
 probe object stores, invoke Foundry, or call an external engine; they return the same
 `workflow-unsupported-plan` envelope with source-free blocker IDs and required evidence:
 
 ```python
-ctx.dataframe_generated_with_column("value", "lit(1)")
 ctx.generated_output_to_object_store("s3://bucket/out.jsonl")
 ctx.foundry_generated_output("foundry://dataset/output")
 ```

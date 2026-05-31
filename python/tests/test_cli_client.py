@@ -4371,8 +4371,15 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("sql").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("dataframe_generated_with_column").blocker_id,
-            "gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
+            dataframe_methods.row("dataframe_generated_with_column").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("dataframe_generated_with_column").runtime_execution)
+        self.assertTrue(dataframe_methods.row("dataframe_generated_with_column").write_io)
+        self.assertIsNone(dataframe_methods.row("dataframe_generated_with_column").blocker_id)
+        self.assertIn(
+            "generated_row_literal_projection",
+            dataframe_methods.row("dataframe_generated_with_column").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("join").support_status,

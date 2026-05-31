@@ -16,9 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: scoped DataFrame generated with_column runtime helper
+  - Date: 2026-05-31
+  - Branch/PR: `codex/dataframe-generated-with-column-runtime` / pending.
+  - Source:
+    - Active compute-engine completion goal.
+    - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
+    - Generated-source API admission and compatibility rows for `dataframe_generated_with_column`.
+  - Scope:
+    - Promoted `ctx.dataframe_generated_with_column("name", "lit(...)").write(...)` from a
+      contradictory unsupported context helper into a scoped one-row generated-source runtime path.
+    - Extended `generated-source-user-rows-smoke --source-kind` to classify
+      `dataframe_generated_with_column`, preserving generated-source, output Native I/O,
+      materialization-boundary, sink-artifact, replay, and no-fallback/no-external-engine evidence.
+    - Aligned Python method-matrix, README, compute-flow, use-case, compatibility, website, and
+      generated content surfaces so the supported scoped helper remains distinct from broad
+      expression-backed DataFrame generation.
+  - Evidence:
+    - `python/src/shardloom/query.py` and `python/src/shardloom/context.py` expose the scoped helper
+      without pandas, Polars, DuckDB, DataFusion, or hidden fallback.
+    - `shardloom-cli/src/generated_source_runtime.rs` emits
+      `generated_source_kind=dataframe_generated_with_column`,
+      `materialization_boundary=python_dataframe_generated_with_column_to_local_*_sink`, and
+      `claim_gate_reason=one_scoped_local_dataframe_generated_with_column_generated_output_smoke`.
+    - Python and Rust tests cover the helper, source kind, method matrix, and generated-source API
+      admission row.
+  - Claim boundary:
+    - This is scoped local generated-output evidence only. It is not broad DataFrame expression
+      runtime, source-backed DataFrame generation, object-store/lakehouse output, Foundry output,
+      production, package, performance, superiority, or Spark-displacement evidence.
+  - Fallback boundary:
+    - The path preserves `input_dataset_count=0`, `source_io_performed=false`,
+      `fallback_attempted=false`, `fallback_execution_allowed=false`, and
+      `external_engine_invoked=false`.
+
 - [x] Session label: scoped DataFrame source-free projection generated-output closeout
   - Date: 2026-05-31
-  - Branch/PR: `codex/dataframe-source-free-projection-closeout` / pending.
+  - Branch/PR: `codex/dataframe-source-free-projection-closeout` / #987.
   - Source:
     - Active compute-engine completion goal.
     - `GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down`.
