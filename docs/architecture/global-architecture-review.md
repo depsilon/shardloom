@@ -271,8 +271,16 @@ plan before coding.
   metadata, editable install smoke, DataFrame method posture, notebook display blockers, public
   package publication blockers, and deterministic unsupported diagnostics are inspectable without
   claiming runtime or publication support.
-- [ ] Mature ergonomic runtime APIs, broad DataFrame/notebook runtime, REST runtime, and user-facing
-  package publication remain incomplete.
+- [x] `GAR-0010-C` closes the ergonomic runtime API freshness row for the currently admitted
+  surfaces: `ShardLoomClient` and `ShardLoomContext` expose explicit helpers for local Vortex
+  prepare, scoped local object-store read/write smokes, scoped local table metadata read and append
+  commit rehearsal smokes, local SQLite import/export smoke, source-free generated-output writes,
+  scoped local SQL/DataFrame query-builder collect/write, live/hybrid fixture runs, REST planning
+  contracts, capability matrices, and deterministic unsupported diagnostics. Each executable helper
+  routes through a ShardLoom CLI/runtime command and preserves no-fallback/no-external-engine
+  evidence. Broad DataFrame/notebook runtime, production REST listener/runtime, public package
+  publication, object-store/lakehouse production runtime, Foundry runtime, performance, and
+  Spark-displacement claims remain carried by their owning broad rows and claim gates.
 
 ### RFC 0011 - Modular Extensibility for SQL, UDFs, Unstructured Data, LLM Calls, API Calls, and Embeddings
 

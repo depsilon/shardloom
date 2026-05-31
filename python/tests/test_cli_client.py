@@ -5274,6 +5274,51 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
+    def test_local_table_metadata_read_smoke_wrapper_calls_scoped_runtime(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "local-table-metadata-read-smoke",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "local-table-metadata-read-smoke",
+                    "status": "success",
+                    "summary": "local table metadata read smoke",
+                    "human_text": "local table metadata read smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "mode", "value": "local_table_metadata_read_smoke"},
+                        {"key": "support_status", "value": "runtime_supported"},
+                        {"key": "claim_gate_status", "value": "scoped_local_metadata_smoke_only"},
+                        {"key": "table_metadata_read_performed", "value": "true"},
+                        {"key": "object_store_io_performed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).local_table_metadata_read_smoke()
+
+        self.assertEqual(envelope.command, "local-table-metadata-read-smoke")
+        self.assertEqual(envelope.field("support_status"), "runtime_supported")
+        self.assertEqual(
+            envelope.field("claim_gate_status"),
+            "scoped_local_metadata_smoke_only",
+        )
+        self.assertTrue(envelope.field_bool("table_metadata_read_performed"))
+        self.assertFalse(envelope.field_bool("object_store_io_performed"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_object_store_read_smoke_wrapper_calls_public_fixture_profile(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -5458,6 +5503,148 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("object_store_io"))
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
+    def test_context_runtime_smoke_helpers_delegate_to_client_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == [
+                    "object-store-read-smoke",
+                    "target/object.bin",
+                    "--profile",
+                    "local-emulator",
+                    "--range",
+                    "2:4",
+                    "--format",
+                    "json",
+                ]:
+                    command = "object-store-read-smoke"
+                    fields = [
+                        {"key": "object_store_read_status", "value": "succeeded"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == [
+                    "object-store-write-smoke",
+                    "source/object.bin",
+                    "target/object.bin",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "orders-batch-001",
+                    "--rollback-after-commit",
+                    "--format",
+                    "json",
+                ]:
+                    command = "object-store-write-smoke"
+                    fields = [
+                        {"key": "object_store_write_status", "value": "rolled_back"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == ["local-table-metadata-read-smoke", "--format", "json"]:
+                    command = "local-table-metadata-read-smoke"
+                    fields = [
+                        {"key": "table_metadata_read_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == [
+                    "local-table-append-commit-rehearsal-smoke",
+                    "target/table/metadata/v2.json",
+                    "--profile",
+                    "local-manifest",
+                    "--idempotency-key",
+                    "orders-table-commit-001",
+                    "--rollback-after-commit",
+                    "--format",
+                    "json",
+                ]:
+                    command = "local-table-append-commit-rehearsal-smoke"
+                    fields = [
+                        {"key": "table_append_commit_status", "value": "rolled_back"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == [
+                    "sqlite-local-import-export-smoke",
+                    "target/orders.sqlite",
+                    "--table",
+                    "orders",
+                    "--export-jsonl",
+                    "target/orders.jsonl",
+                    "--roundtrip-db",
+                    "target/orders-roundtrip.sqlite",
+                    "--order-by",
+                    "id",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ]:
+                    command = "sqlite-local-import-export-smoke"
+                    fields = [
+                        {"key": "roundtrip_replay_verified", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        read = ctx.object_store_read_smoke("target/object.bin", byte_range=(2, 4))
+        write = ctx.object_store_write_smoke(
+            "source/object.bin",
+            "target/object.bin",
+            idempotency_key="orders-batch-001",
+            rollback_after_commit=True,
+        )
+        metadata = ctx.local_table_metadata_read_smoke()
+        append = ctx.local_table_append_commit_rehearsal_smoke(
+            "target/table/metadata/v2.json",
+            idempotency_key="orders-table-commit-001",
+            rollback_after_commit=True,
+        )
+        sqlite = ctx.sqlite_local_import_export_smoke(
+            "target/orders.sqlite",
+            table="orders",
+            export_jsonl="target/orders.jsonl",
+            roundtrip_db="target/orders-roundtrip.sqlite",
+            order_by="id",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(read.command, "object-store-read-smoke")
+        self.assertEqual(write.command, "object-store-write-smoke")
+        self.assertEqual(metadata.command, "local-table-metadata-read-smoke")
+        self.assertEqual(append.command, "local-table-append-commit-rehearsal-smoke")
+        self.assertEqual(sqlite.command, "sqlite-local-import-export-smoke")
+        self.assertFalse(read.field_bool("fallback_attempted"))
+        self.assertFalse(write.field_bool("fallback_attempted"))
+        self.assertFalse(metadata.field_bool("fallback_attempted"))
+        self.assertFalse(append.field_bool("fallback_attempted"))
+        self.assertFalse(sqlite.field_bool("fallback_attempted"))
+        self.assertFalse(read.field_bool("external_engine_invoked"))
+        self.assertFalse(write.field_bool("external_engine_invoked"))
+        self.assertFalse(metadata.field_bool("external_engine_invoked"))
+        self.assertFalse(append.field_bool("external_engine_invoked"))
+        self.assertFalse(sqlite.field_bool("external_engine_invoked"))
 
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")

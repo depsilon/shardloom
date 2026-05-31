@@ -323,10 +323,13 @@ validators, docs/website parity, and a completed-ledger entry.
     invocation. Follow-up freshness passes closed stale `GAR-PERF-2C`, `GAR-SCALE-1`,
     `GAR-COMPAT-1`, `GAR-NOVEL-1`, and scoped `GAR-GEN-1` generated-output rows against
     already-landed scan-pushdown, scale-readiness, compatibility-scoreboard, evidence-native
-    report-lane, and DataFrame literal projection generated-output evidence. Full compute-engine
-    completion remains blocked by 40 unchecked global architecture review items and this unchecked
-    phase-plan item.
-  - Next slice outcome: close or split the 40 global architecture review items into runtime-ready
+    report-lane, and DataFrame literal projection/generated-with-column generated-output evidence.
+    The Python/runtime user-surface freshness pass added explicit context/client helpers for the
+    already-admitted local object-store, table metadata/append, and SQLite fixture smokes, closing
+    the stale ergonomic API row while keeping broad runtime/package claims in their owning rows.
+    Full compute-engine completion remains blocked by 39 unchecked global architecture review
+    items and this unchecked phase-plan item.
+  - Next slice outcome: close or split the 39 global architecture review items into runtime-ready
     evidence slices until the completion gate no longer has unchecked review/phase-plan blockers.
   - Runtime enablement: strict whole-engine completion validator plus the next runtime section that
     removes blocker rows from the validator instead of merely documenting them.

@@ -5343,6 +5343,103 @@ class ShardLoomContext:
             check=check,
         )
 
+    def object_store_read_smoke(
+        self,
+        local_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        byte_range: tuple[int, int] | None = None,
+        public_fixture_path: str | os.PathLike[str] | None = None,
+        fixture_listing: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run an explicit object-store read smoke for an admitted fixture profile."""
+
+        return self.client.object_store_read_smoke(
+            local_object_path,
+            profile=profile,
+            byte_range=byte_range,
+            public_fixture_path=public_fixture_path,
+            fixture_listing=fixture_listing,
+            check=check,
+        )
+
+    def object_store_write_smoke(
+        self,
+        source_path: str | os.PathLike[str],
+        target_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the explicit local-emulator staged object-store write smoke."""
+
+        return self.client.object_store_write_smoke(
+            source_path,
+            target_object_path,
+            profile=profile,
+            idempotency_key=idempotency_key,
+            allow_overwrite=allow_overwrite,
+            rollback_after_commit=rollback_after_commit,
+            check=check,
+        )
+
+    def local_table_metadata_read_smoke(
+        self,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the scoped local-manifest table metadata read smoke."""
+
+        return self.client.local_table_metadata_read_smoke(check=check)
+
+    def local_table_append_commit_rehearsal_smoke(
+        self,
+        target_manifest_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-manifest",
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local-manifest table append commit rehearsal smoke."""
+
+        return self.client.local_table_append_commit_rehearsal_smoke(
+            target_manifest_path,
+            profile=profile,
+            idempotency_key=idempotency_key,
+            allow_overwrite=allow_overwrite,
+            rollback_after_commit=rollback_after_commit,
+            check=check,
+        )
+
+    def sqlite_local_import_export_smoke(
+        self,
+        database_path: str | os.PathLike[str],
+        *,
+        table: str,
+        export_jsonl: str | os.PathLike[str],
+        roundtrip_db: str | os.PathLike[str],
+        order_by: str | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local SQLite file import/export fixture smoke."""
+
+        return self.client.sqlite_local_import_export_smoke(
+            database_path,
+            table=table,
+            export_jsonl=export_jsonl,
+            roundtrip_db=roundtrip_db,
+            order_by=order_by,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def session(self, *, session_id: str | None = None) -> ShardLoomSession:
         """Create a caller-owned local session for scoped prepared-state reuse."""
 
