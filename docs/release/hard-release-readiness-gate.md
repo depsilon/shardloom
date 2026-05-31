@@ -155,7 +155,7 @@ target/sql-python-dataframe-parity-gate.json
 
 The gate checks `ShardLoomContext.front_door_parity_matrix()` and requires scoped local
 SQL/Python/DataFrame rows to name their shared ShardLoom runtime path while broad language,
-Vortex, object-store/lakehouse, decoded materialization, and performance-equivalence gaps remain
+Vortex, object-store/lakehouse, unbounded materialization, and performance-equivalence gaps remain
 explicit. It intentionally reports:
 
 ```text

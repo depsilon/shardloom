@@ -77,7 +77,7 @@ REQUIRED_GENERATED_METHODS = [
     "sql_literal_select",
 ]
 
-REQUIRED_UNSUPPORTED_METHODS = [
+REQUIRED_MATERIALIZATION_METHODS = [
     "to_pandas",
     "to_arrow",
     "to_arrow_table",
@@ -87,6 +87,12 @@ REQUIRED_UNSUPPORTED_METHODS = [
     "from_arrow_table",
     "from_arrow_ipc",
     "display",
+]
+
+REQUIRED_UNSUPPORTED_METHODS = [
+    "schema_contract",
+    "quarantine",
+    "profile",
 ]
 
 REQUIRED_DOC_MARKERS = {
@@ -421,6 +427,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_QUERY_BUILDER_METHODS,
         *REQUIRED_GENERATED_METHODS,
         "sql",
+        *REQUIRED_MATERIALIZATION_METHODS,
         *REQUIRED_UNSUPPORTED_METHODS,
     ]:
         if method not in by_method:
@@ -446,6 +453,20 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             blockers.append(f"{method}: must not be an unsupported row")
         if support_status == "fixture_smoke_supported" and not row.get("required_evidence"):
             blockers.append(f"{method}: fixture support requires evidence names")
+
+    for method in REQUIRED_MATERIALIZATION_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        support_status = str(row.get("support_status", ""))
+        if "unsupported" in support_status:
+            blockers.append(f"{method}: scoped materialization row must not be unsupported")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped materialization row must not carry blocker_id")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: materialization_required must be true")
+        if not row.get("required_evidence"):
+            blockers.append(f"{method}: missing materialization evidence")
 
     for method in REQUIRED_UNSUPPORTED_METHODS:
         row = by_method.get(method)
@@ -494,8 +515,19 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             status_when_passed="scoped_runtime_row_present",
         ),
         _row(
+            "materialization_interop",
+            "bounded materialization and materialized input boundaries",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_MATERIALIZATION_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_materialization_rows_present",
+        ),
+        _row(
             "unsupported_paths",
-            "deterministic unsupported materialization/input paths",
+            "deterministic unsupported broad/unsafe paths",
             [
                 blocker
                 for blocker in blockers

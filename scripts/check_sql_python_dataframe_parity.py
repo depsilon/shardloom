@@ -37,6 +37,7 @@ REQUIRED_ADMITTED_ROWS = {
     "local_file_join_aggregate_sort_window",
     "generated_source_output",
     "schema_quality_preview",
+    "decoded_materialization_interop",
 }
 
 REQUIRED_GAP_ROWS = REQUIRED_ROWS - REQUIRED_ADMITTED_ROWS
@@ -62,6 +63,8 @@ REQUIRED_SOURCE_MARKERS = {
         "test_local_csv_query_builder_group_by_aggregate_invokes_sql_smoke",
         "test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke",
         "test_context_sql_schema_quality_helpers_invoke_sql_smoke",
+        "test_local_csv_query_builder_decoded_materialization_helpers",
+        "test_materialized_input_boundaries_create_generated_rows",
         "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
     ],
 }

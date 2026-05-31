@@ -4327,7 +4327,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("window", dataframe_methods.unsupported_methods)
         self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
         self.assertNotIn("sql", dataframe_methods.unsupported_methods)
-        self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
+        self.assertNotIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
             "source_declaration_supported",
@@ -4493,8 +4493,29 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(dataframe_methods.row("join").blocker_id)
         self.assertTrue(dataframe_methods.row("to_pandas").materialization_required)
         self.assertEqual(
-            dataframe_methods.row("display").blocker_id,
-            "cg21.workflow.display.rich_display_unsupported",
+            dataframe_methods.row("to_pandas").support_status,
+            "optional_dependency_runtime_supported",
+        )
+        self.assertTrue(dataframe_methods.row("to_pandas").runtime_execution)
+        self.assertTrue(dataframe_methods.row("to_arrow_ipc").data_read)
+        self.assertEqual(
+            dataframe_methods.row("from_pandas").support_status,
+            "materialized_input_boundary_supported",
+        )
+        self.assertIsNone(dataframe_methods.row("from_pandas").blocker_id)
+        self.assertEqual(
+            dataframe_methods.row("display").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("display").runtime_execution)
+        self.assertEqual(
+            dataframe_methods.row("display").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "bounded_inline_jsonl_result",
+                "notebook_display_contract",
+                "no_fallback_evidence",
+            ),
         )
         self.assertEqual(dataframe_methods.claim_gate_statuses, ("not_claim_grade",))
         self.assertTrue(dataframe_methods.all_no_fallback_no_external_engine)
@@ -4647,6 +4668,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(schema_quality.equivalent_admitted_scope)
         self.assertIn("ctx.sql", schema_quality.sql_surface)
         self.assertIsNone(schema_quality.blocker_id)
+        materialization = matrix.row("decoded_materialization_interop")
+        self.assertTrue(materialization.equivalent_admitted_scope)
+        self.assertTrue(materialization.materialization_required)
+        self.assertIsNone(materialization.blocker_id)
+        self.assertIn("to_pandas", materialization.sql_surface)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -4656,8 +4682,8 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         performance = matrix.row("performance_equivalence")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 4)
-        self.assertGreaterEqual(len(matrix.broad_gap_rows), 5)
+        self.assertEqual(len(matrix.admitted_rows), 5)
+        self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
         binary = self.fake_cli(
