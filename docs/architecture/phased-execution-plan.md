@@ -406,6 +406,8 @@ validators, docs/website parity, and a completed-ledger entry.
   - Current state: the repo exposes broad CLI and Python surfaces, but only part of that surface is
     ergonomic high-level user workflow API; many report-only, feature-gated, and effectful rows are
     intentionally present but not yet separated into a single source-of-truth graduation matrix.
+    The first 6C artifact is the SQL/Python/DataFrame front-door parity matrix, which makes scoped
+    local parity versus broad language/runtime/performance gaps explicit.
   - Next slice outcome: every registered CLI command family and Python user workflow is assigned one
     of `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
     `not_user_facing`, with deterministic criteria for promotion and no implied runtime support.
@@ -420,6 +422,7 @@ validators, docs/website parity, and a completed-ledger entry.
     deliberate Python/context posture or if docs imply support beyond the matrix.
   - Verification:
     ```bash
+    python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
     python3 scripts/check_use_case_index.py
     python3 scripts/check_website_readiness.py
     cargo test -p shardloom-cli --all-targets

@@ -42,6 +42,8 @@ The gate aggregates:
   attestation-plan, package-channel, and human-approval blockers
 - Python user-surface completion report for import/context/session/SQL/DataFrame/generated-output
   proof, deterministic unsupported-path blockers, and no-fallback/no-external-engine fields
+- SQL/Python/DataFrame front-door parity report for scoped shared-runtime rows, broad parity gap
+  rows, and performance-equivalence claim blockers
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -65,6 +67,7 @@ python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_python_user_surface_completion.py
+python scripts\check_sql_python_dataframe_parity.py
 python scripts\check_pre_5j_dependency_freshness.py
 python scripts\check_golden_workflows.py
 python scripts\check_admitted_semantics_matrix.py
@@ -136,6 +139,34 @@ external_engine_invoked=false
 This is a scoped admitted-local-runtime front-door claim only. It does not authorize PySpark API
 parity, broad SQL/DataFrame production support, decoded pandas/Arrow/NumPy materialization,
 object-store/lakehouse/table production I/O, package publication, or performance claims.
+
+The SQL/Python/DataFrame parity gate uses schema
+`shardloom.sql_python_dataframe_parity_gate.v1`:
+
+```powershell
+python scripts\check_sql_python_dataframe_parity.py
+```
+
+It writes:
+
+```text
+target/sql-python-dataframe-parity-gate.json
+```
+
+The gate checks `ShardLoomContext.front_door_parity_matrix()` and requires scoped local
+SQL/Python/DataFrame rows to name their shared ShardLoom runtime path while broad language,
+Vortex, object-store/lakehouse, decoded materialization, and performance-equivalence gaps remain
+explicit. It intentionally reports:
+
+```text
+scoped_local_front_door_parity_supported=true
+flexible_anything_claim_allowed=false
+performance_equivalence_claim_allowed=false
+all_no_fallback_no_external_engine=true
+```
+
+Passing this gate means the repo is honest about front-door parity. It is not a broad
+SQL/Python/DataFrame completion claim.
 
 The pre-5J dependency freshness gate uses schema
 `shardloom.pre_5j_dependency_freshness_gate.v1`:

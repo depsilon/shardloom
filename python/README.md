@@ -1198,6 +1198,26 @@ aggregations, windows, schema/data-quality helpers, and bounded Python-object ma
 fixture-scoped; broad materialization and notebook display remain deterministic unsupported
 surfaces unless later evidence-backed slices promote them.
 
+When the question is broader than one DataFrame method, use the front-door parity matrix. It
+separates workflows that already lower SQL, Python, and DataFrame-style code to the same ShardLoom
+runtime path from the gaps that still block arbitrary SQL/Python/DataFrame flexibility and
+performance-equivalence claims:
+
+```python
+parity = ctx.front_door_parity_matrix()
+
+print(parity.scoped_local_front_door_parity_supported)
+print(parity.flexible_anything_claim_allowed)
+print(parity.performance_equivalence_claim_allowed)
+print(parity.row("local_file_filter_project_limit").shared_runtime_path)
+print(parity.row("arbitrary_sql_python_dataframe_breadth").blocker_id)
+```
+
+The scoped local file and generated-output rows are admitted. General Vortex workflows, decoded
+pandas/Arrow/NumPy materialization, object-store/lakehouse/table I/O, arbitrary SQL/Python/DataFrame
+breadth, and cross-front-door performance equivalence remain explicit gap rows until correctness,
+Native I/O, execution-certificate, no-fallback, and benchmark evidence closes them.
+
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or
 broad runtime support:

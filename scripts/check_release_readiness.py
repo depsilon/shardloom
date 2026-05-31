@@ -107,6 +107,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/python-user-surface-completion-gate.json"),
     )
     parser.add_argument(
+        "--sql-python-dataframe-parity-report",
+        type=Path,
+        default=Path("target/sql-python-dataframe-parity-gate.json"),
+    )
+    parser.add_argument(
         "--pre-5j-dependency-report",
         type=Path,
         default=Path("target/pre-5j-dependency-freshness-gate.json"),
@@ -155,6 +160,10 @@ def main() -> int:
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
     production_usability_report_path = resolve(repo_root, args.production_usability_report)
     python_user_surface_report_path = resolve(repo_root, args.python_user_surface_report)
+    sql_python_dataframe_parity_report_path = resolve(
+        repo_root,
+        args.sql_python_dataframe_parity_report,
+    )
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
 
     checks: list[dict[str, Any]] = []
@@ -877,6 +886,59 @@ def main() -> int:
             "python_user_surface_completion_gate",
             str(args.python_user_surface_report).replace("\\", "/"),
             python_user_surface_blockers,
+        )
+    )
+
+    sql_python_dataframe_parity = load_json(sql_python_dataframe_parity_report_path)
+    parity_blockers: list[str] = []
+    if sql_python_dataframe_parity is None:
+        parity_blockers.append("missing SQL/Python/DataFrame parity gate report")
+    else:
+        if (
+            sql_python_dataframe_parity.get("schema_version")
+            != "shardloom.sql_python_dataframe_parity_gate.v1"
+        ):
+            parity_blockers.append(
+                "SQL/Python/DataFrame parity schema_version="
+                + str(sql_python_dataframe_parity.get("schema_version", "missing"))
+            )
+        if sql_python_dataframe_parity.get("status") != "passed":
+            parity_blockers.extend(
+                sql_python_dataframe_parity.get(
+                    "blockers", ["SQL/Python/DataFrame parity gate blocked"]
+                )
+            )
+        if (
+            sql_python_dataframe_parity.get("scoped_local_front_door_parity_supported")
+            is not True
+        ):
+            parity_blockers.append(
+                "SQL/Python/DataFrame scoped_local_front_door_parity_supported must be true"
+            )
+        if sql_python_dataframe_parity.get("all_no_fallback_no_external_engine") is not True:
+            parity_blockers.append(
+                "SQL/Python/DataFrame all_no_fallback_no_external_engine must be true"
+            )
+        for field in [
+            "flexible_anything_claim_allowed",
+            "performance_equivalence_claim_allowed",
+        ]:
+            if sql_python_dataframe_parity.get(field) is not False:
+                parity_blockers.append(f"SQL/Python/DataFrame {field} must be false")
+        if sql_python_dataframe_parity.get("claim_gate_status") != "not_claim_grade":
+            parity_blockers.append(
+                "SQL/Python/DataFrame claim_gate_status="
+                + str(sql_python_dataframe_parity.get("claim_gate_status", "missing"))
+            )
+        if int(sql_python_dataframe_parity.get("remaining_gap_count", 0) or 0) < 1:
+            parity_blockers.append(
+                "SQL/Python/DataFrame parity report must keep remaining broad gaps visible"
+            )
+    checks.append(
+        check(
+            "sql_python_dataframe_parity_gate",
+            str(args.sql_python_dataframe_parity_report).replace("\\", "/"),
+            parity_blockers,
         )
     )
 
