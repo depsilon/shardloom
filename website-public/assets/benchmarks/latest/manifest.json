@@ -2,7 +2,29 @@
   "artifact_paths": {
     "html": null,
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
-    "markdown": null
+    "markdown": null,
+    "row_chunks": [
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
+        "row_count": 300,
+        "sha256": "a11c35c6191c6945ff2f399e408a250472da3de343a06dc7a2aa658ac3f160fd"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
+        "row_count": 300,
+        "sha256": "a7136d98ea373adf837e61b658641981c88db82eb3eb1123c8fa542d7bfde93f"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
+        "row_count": 300,
+        "sha256": "02dfb994c61948da29624e573469e6708626dcc64294d4e40b3e3dc9dba5b584"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
+        "row_count": 300,
+        "sha256": "2b0def5ad0e6cee16156e7fc158a62f091611fb48dfdc9e786f2498a589ef861"
+      }
+    ]
   },
   "artifact_status": "complete",
   "available_lanes": [
@@ -37,7 +59,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "fa0ce1276f0f3ac589c59d3b1399e1dab7f25147",
+  "benchmark_git_sha": "b58b0bcc32ecf5350bad82edaa2c35227d856d4c",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -94,6 +116,7 @@
   "missing_lanes": [],
   "missing_required_lanes": [],
   "performance_claim_allowed": false,
+  "published_benchmark_row_count": 1200,
   "runtime_envelope_validation": {
     "headers": [
       "Status",
@@ -594,5 +617,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "fa0ce1276f0f3ac589c59d3b1399e1dab7f25147"
+  "shardloom_git_sha": "b58b0bcc32ecf5350bad82edaa2c35227d856d4c"
 }

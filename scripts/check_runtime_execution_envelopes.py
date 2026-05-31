@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "python" / "src"))
 
+from check_benchmark_artifact_completeness import result_rows as benchmark_result_rows  # noqa: E402
 from shardloom import OutputEnvelope, validate_runtime_execution_fields  # noqa: E402
 
 SCHEMA_VERSION = "shardloom.runtime_execution_envelope_validation_report.v1"
@@ -487,11 +489,7 @@ def fixture_rows() -> list[dict[str, Any]]:
 
 
 def benchmark_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    for key in ("published_benchmark_rows", "results", "rows"):
-        rows = payload.get(key)
-        if isinstance(rows, list):
-            return [row for row in rows if isinstance(row, dict)]
-    return []
+    return benchmark_result_rows(payload)
 
 
 def benchmark_field_map(row: dict[str, Any]) -> dict[str, Any]:

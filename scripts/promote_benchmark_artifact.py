@@ -44,6 +44,21 @@ DEFAULT_WEBSITE_SRC_DATA = ROOT / "website-src" / "src" / "data" / "benchmark-ev
 DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmark-manifest.json"
 DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
 BENCHMARK_PROFILE_ROSTER = ("full_local",)
+PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
+PUBLISHED_ROW_CHUNK_SIZE = 300
+WEBSITE_ROW_KEYS = (
+    "engine",
+    "scenario_name",
+    "storage_format",
+    "status",
+    "selected_execution_mode",
+    "total_runtime_millis",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_gate_status",
+    "row_classification",
+    "external_baseline_only",
+)
 LOCAL_PATH_RE = re.compile(
     r"(?P<win>[A-Za-z]:\\[^|,;\"'\s]+)|"
     r"(?P<posix>(?:/Users|/home|/tmp|/var/folders|/private/var|/workspace|/mnt|/Volumes)"
@@ -337,6 +352,52 @@ def write_json_once(paths: list[Path], payload: Any) -> None:
             continue
         seen.add(resolved)
         write_json(path, payload)
+
+
+def clear_row_chunks(directory: Path) -> None:
+    if not directory.exists():
+        return
+    for path in directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json"):
+        path.unlink()
+
+
+def write_row_chunks(directory: Path, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    directory.mkdir(parents=True, exist_ok=True)
+    clear_row_chunks(directory)
+    chunks: list[dict[str, Any]] = []
+    for index in range(0, len(rows), PUBLISHED_ROW_CHUNK_SIZE):
+        chunk_rows = rows[index : index + PUBLISHED_ROW_CHUNK_SIZE]
+        chunk_index = index // PUBLISHED_ROW_CHUNK_SIZE
+        path = directory / f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}.json"
+        payload = {
+            "schema_version": "shardloom.website.benchmark_row_chunk.v1",
+            "chunk_index": chunk_index,
+            "row_count": len(chunk_rows),
+            "rows": chunk_rows,
+        }
+        text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+        path.write_text(text, encoding="utf-8")
+        chunks.append(
+            {
+                "path": repo_relative(path),
+                "row_count": len(chunk_rows),
+                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            }
+        )
+    return chunks
+
+
+def website_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rendered: list[dict[str, Any]] = []
+    for row in rows:
+        rendered.append(
+            {
+                key: row[key]
+                for key in WEBSITE_ROW_KEYS
+                if key in row
+            }
+        )
+    return rendered
 
 
 def repo_relative(path: Path) -> str:
@@ -1223,6 +1284,9 @@ def main() -> int:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results_path = args.output_dir / "benchmark-results.json"
+    full_published_rows = published_rows(rows)
+    row_chunks = write_row_chunks(args.output_dir, full_published_rows)
+    write_row_chunks(args.public_output_dir, full_published_rows)
 
     manifest = manifest_for_artifact(
         artifact,
@@ -1230,6 +1294,8 @@ def main() -> int:
         args.profile,
         results_path,
     )
+    manifest["artifact_paths"]["row_chunks"] = row_chunks
+    manifest["published_benchmark_row_count"] = len(full_published_rows)
     summary = portable_public_value({
         **base,
         "schema_version": SUMMARY_SCHEMA_VERSION,
@@ -1242,7 +1308,10 @@ def main() -> int:
             "format_order": artifact.get("format_order", []),
             "scenario_order": artifact.get("scenario_order", []),
         },
-        "published_benchmark_rows": published_rows(rows),
+        "published_benchmark_rows": website_rows(full_published_rows),
+        "published_benchmark_rows_inlined": "summary_only",
+        "published_benchmark_row_chunks": row_chunks,
+        "published_benchmark_row_count": len(full_published_rows),
         "comparative_dashboard": comparative_summary(artifact, rows, source_path, args.profile),
         "benchmark_manifest": manifest,
         "claim_boundary": {

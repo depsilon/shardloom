@@ -11,6 +11,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from check_benchmark_artifact_completeness import result_rows as benchmark_result_rows
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.compute_engine_completion_gate.v1"
@@ -79,11 +81,7 @@ def read_text(path: Path) -> str:
 
 
 def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    for key in ("published_benchmark_rows", "results", "rows"):
-        rows = payload.get(key)
-        if isinstance(rows, list):
-            return [row for row in rows if isinstance(row, dict)]
-    return []
+    return benchmark_result_rows(payload)
 
 
 def unchecked_markdown_items(text: str) -> list[dict[str, Any]]:
