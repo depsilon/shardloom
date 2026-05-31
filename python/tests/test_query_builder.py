@@ -5,6 +5,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -553,6 +554,222 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(rows, ({"id": 2, "label": "beta"},))
+
+    def test_local_csv_query_builder_decoded_materialization_helpers(self) -> None:
+        class FakeDataFrame:
+            def __init__(self, rows: object) -> None:
+                self.rows = tuple(rows)  # type: ignore[arg-type]
+
+        class FakePandasModule:
+            DataFrame = FakeDataFrame
+
+        class FakeArrowTable:
+            def __init__(self, rows: object) -> None:
+                self.rows = tuple(rows)  # type: ignore[arg-type]
+                self.schema = "fake-schema"
+
+            @classmethod
+            def from_pylist(cls, rows: object) -> "FakeArrowTable":
+                return cls(rows)
+
+            def to_pylist(self) -> list[object]:
+                return list(self.rows)
+
+        class FakeArrowBuffer:
+            def __init__(self, table: FakeArrowTable | None) -> None:
+                self.table = table
+
+            def to_pybytes(self) -> bytes:
+                row_count = len(self.table.rows) if self.table is not None else 0
+                return f"fake-arrow-ipc:{row_count}".encode()
+
+        class FakeArrowSink:
+            def __init__(self) -> None:
+                self.table: FakeArrowTable | None = None
+
+            def getvalue(self) -> FakeArrowBuffer:
+                return FakeArrowBuffer(self.table)
+
+        class FakeArrowWriter:
+            def __init__(self, sink: FakeArrowSink, schema: str) -> None:
+                self.sink = sink
+                self.schema = schema
+
+            def __enter__(self) -> "FakeArrowWriter":
+                return self
+
+            def __exit__(self, *_exc: object) -> None:
+                return None
+
+            def write_table(self, table: FakeArrowTable) -> None:
+                self.sink.table = table
+
+        class FakeArrowIpc:
+            @staticmethod
+            def new_stream(sink: FakeArrowSink, schema: str) -> FakeArrowWriter:
+                return FakeArrowWriter(sink, schema)
+
+        class FakePyArrowModule:
+            Table = FakeArrowTable
+            BufferOutputStream = FakeArrowSink
+            ipc = FakeArrowIpc
+
+        class FakeNumpyModule:
+            @staticmethod
+            def asarray(values: object) -> tuple[str, tuple[tuple[object, ...], ...]]:
+                return ("fake-ndarray", tuple(tuple(row) for row in values))  # type: ignore[arg-type]
+
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                assert sys.argv[2] == "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2", sys.argv
+                assert sys.argv[3:] == [
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\",\\"amount\\":10}\\n{\\"id\\":2,\\"label\\":null,\\"amount\\":15}\\n"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label", "amount")
+            .filter(sl.col("amount") >= 10)
+            .limit(2)
+        )
+        sql_workflow = ctx.sql(
+            "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10"
+        )
+
+        with mock.patch.dict(
+            sys.modules,
+            {
+                "pandas": FakePandasModule,
+                "pyarrow": FakePyArrowModule,
+                "numpy": FakeNumpyModule,
+            },
+        ):
+            pandas_result = workflow.to_pandas()
+            arrow_result = workflow.to_arrow_table()
+            arrow_alias = workflow.to_arrow()
+            arrow_ipc = workflow.to_arrow_ipc()
+            numpy_result = workflow.to_numpy()
+            preview = workflow.display()
+            sql_rows = sql_workflow.to_python_objects(limit=2)
+            sql_pandas = sql_workflow.to_pandas(limit=2)
+
+        expected_rows = (
+            {"id": 1, "label": "alpha", "amount": 10},
+            {"id": 2, "label": None, "amount": 15},
+        )
+        self.assertIsInstance(pandas_result, FakeDataFrame)
+        self.assertEqual(pandas_result.rows, expected_rows)
+        self.assertIsInstance(arrow_result, FakeArrowTable)
+        self.assertEqual(arrow_result.rows, expected_rows)
+        self.assertIsInstance(arrow_alias, FakeArrowTable)
+        self.assertEqual(arrow_alias.rows, expected_rows)
+        self.assertEqual(arrow_ipc, b"fake-arrow-ipc:2")
+        self.assertEqual(
+            numpy_result,
+            (
+                "fake-ndarray",
+                ((1, "alpha", 10), (2, None, 15)),
+            ),
+        )
+        self.assertIsInstance(preview, sl.WorkflowNotebookPreview)
+        self.assertEqual(preview.rows, expected_rows)
+        self.assertEqual(preview.row_count, 2)
+        self.assertEqual(preview.materialization_boundary, "bounded_inline_jsonl_to_notebook_display")
+        self.assertFalse(preview.fallback_attempted)
+        self.assertFalse(preview.external_engine_invoked)
+        self.assertIn("<th>amount</th>", preview.to_html())
+        self.assertIn("<td></td>", preview.to_html())
+        self.assertEqual(sql_rows, expected_rows)
+        self.assertIsInstance(sql_pandas, FakeDataFrame)
+        self.assertEqual(sql_pandas.rows, expected_rows)
+
+    def test_materialized_input_boundaries_create_generated_rows(self) -> None:
+        class FakeDataFrame:
+            def to_dict(self, orient: str = "dict") -> list[dict[str, object]]:
+                if orient != "records":
+                    raise AssertionError(orient)
+                return [
+                    {"id": 1, "label": "alpha"},
+                    {"id": 2, "label": "beta"},
+                ]
+
+        class FakeArrowTable:
+            def __init__(self, rows: list[dict[str, object]]) -> None:
+                self._rows = rows
+
+            def to_pylist(self) -> list[dict[str, object]]:
+                return self._rows
+
+        class FakeArrowReader:
+            def read_all(self) -> FakeArrowTable:
+                return FakeArrowTable(
+                    [
+                        {"id": 3, "label": "gamma"},
+                        {"id": 4, "label": "delta"},
+                    ]
+                )
+
+        class FakeArrowIpc:
+            @staticmethod
+            def open_stream(_source: object) -> FakeArrowReader:
+                return FakeArrowReader()
+
+        class FakePyArrowModule:
+            BufferReader = bytes
+            ipc = FakeArrowIpc
+
+        client = ShardLoomClient(binary=["definitely-missing-shardloom"])
+
+        pandas_source = sl.from_pandas(FakeDataFrame(), client=client)
+        arrow_source = sl.from_arrow_table(
+            FakeArrowTable(
+                [
+                    {"id": 1, "label": "alpha"},
+                    {"id": 2, "label": "beta"},
+                ]
+            ),
+            client=client,
+        )
+        with mock.patch.dict(sys.modules, {"pyarrow": FakePyArrowModule}):
+            ipc_source = sl.from_arrow_ipc(b"fake-ipc", client=client)
+
+        for source in (pandas_source, arrow_source):
+            self.assertIsInstance(source, sl.GeneratedRowsSource)
+            self.assertEqual(source.source_kind, "user_rows")
+            self.assertEqual(source.schema_arg, "id:int64,label:utf8")
+            self.assertEqual(source.rows_arg, "id=1,label=alpha;id=2,label=beta")
+            self.assertFalse(source.client is None)
+
+        self.assertIsInstance(ipc_source, sl.GeneratedRowsSource)
+        self.assertEqual(ipc_source.schema_arg, "id:int64,label:utf8")
+        self.assertEqual(ipc_source.rows_arg, "id=3,label=gamma;id=4,label=delta")
 
     def test_local_csv_query_builder_helpers_return_unsupported_on_non_success_smoke(self) -> None:
         binary = self.fake_cli(
@@ -9630,7 +9847,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).preview(limit=5),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).head(limit=5),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).take(5),
-            workflow.display(),
+            sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).display(),
             ctx.generated_output_to_object_store("s3://bucket/out.jsonl"),
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
@@ -9670,6 +9887,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
             elif report.operation in {"head", "take"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
+            elif report.operation == "display":
+                self.assertEqual(report.envelope.field("workflow_summary"), "read_csv(events.data)")
             else:
                 summary = report.envelope.field("workflow_summary")
                 self.assertTrue(summary and summary.startswith("read_csv(events.csv)"))
@@ -9686,6 +9905,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.data_read)
             self.assertFalse(report.write_io)
         by_operation = {report.operation: report for report in reports}
+        self.assertIn("to-arrow", by_operation)
+        self.assertIn("to-arrow-table", by_operation)
         self.assertEqual(
             by_operation["with-column"].envelope.field("target_ref"),
             "date=to_date(ts)",

@@ -59,7 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         .with_column("batch_id", 1)
         .write_jsonl(generated_output_path, allow_overwrite=True)
     )
-    unsupported = workflow.to_pandas()
+    unsupported = ctx.read(source_path).select("id").to_pandas()
     first_row = result.first_result_row or {}
     result_evidence = result.evidence_summary
     result_claim = result.claim_summary

@@ -1928,8 +1928,10 @@ jobs:
         self.assertEqual(by_method["from_rows"]["support_status"], "fixture_smoke_supported")
         self.assertEqual(
             by_method["to_pandas"]["support_status"],
-            "unsupported_materialization_diagnostic",
+            "optional_dependency_runtime_supported",
         )
+        self.assertTrue(by_method["to_pandas"]["materialization_required"])
+        self.assertIsNone(by_method["to_pandas"]["blocker_id"])
         self.assertFalse(any(row["fallback_attempted"] for row in rows))
         self.assertFalse(any(row["external_engine_invoked"] for row in rows))
 

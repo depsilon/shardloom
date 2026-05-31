@@ -3,20 +3,24 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(feature = "universal-format-io")]
 use std::{fs::File, sync::Arc};
 
+static UNIQUE_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 fn unique_path(name: &str, extension: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock after unix epoch")
         .as_nanos();
+    let counter = UNIQUE_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "shardloom-{name}-{}-{nanos}.{extension}",
-        std::process::id()
+        "shardloom-{name}-{}-{counter}-{nanos}.{extension}",
+        std::process::id(),
     ))
 }
 

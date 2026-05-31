@@ -73,9 +73,10 @@ DataFrame method matrix, where individual methods may be side-effect-free declar
 fixture-smoke-supported scoped local workflows, or deterministic unsupported diagnostics. It does
 not make broad DataFrame runtime supported.
 
-`notebook_display_surface` is `blocked`. Notebook rich display, decoded DataFrame materialization,
-and notebook runtime certification require future materialization-boundary, decode, and execution
-evidence.
+`notebook_display_surface` remains `blocked` for broad notebook runtime certification. The Python
+front door now has a scoped `WorkflowNotebookPreview` for admitted bounded local-source rows, but
+general rich display, unbounded decoded DataFrame materialization, and production notebook
+certification still require broader materialization-boundary, decode, and execution evidence.
 
 `public_package_publication` is `blocked`. TestPyPI, PyPI, Conda, Homebrew, and other installer
 channels require the package-channel release gates and provenance evidence before any public

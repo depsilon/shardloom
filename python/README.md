@@ -159,8 +159,33 @@ The same query shape can read other admitted local formats through `read_json(..
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
 
-Unsupported materialization conveniences expose blockers and no-fallback evidence rather than
-silently invoking another Python or query engine:
+Bounded materialization is explicit. Local-source workflows that already carry a `limit(...)`, or
+SQL workflows that pass a `limit=...`, can decode ShardLoom's inline JSONL result into Python
+objects, a notebook preview, or optional pandas/Arrow/NumPy containers. Those optional packages are
+not execution engines:
+
+```python
+preview = (
+    ctx.read("target/orders.csv")
+    .select("id", "amount")
+    .limit(20)
+    .display()
+)
+print(preview.row_count)
+print(preview.to_python_objects())
+
+df = (
+    ctx.read("target/orders.csv")
+    .select("id", "amount")
+    .limit(20)
+    .to_pandas()
+)
+```
+
+Install the optional conversion containers with `shardloom[materialization]` when pandas, PyArrow,
+or NumPy objects are needed. Without the optional package, the corresponding conversion returns a
+deterministic unsupported report. Unbounded materialization conveniences still expose blockers and
+no-fallback evidence rather than silently invoking another Python or query engine:
 
 ```python
 blocked = ctx.read("target/orders.csv").select("id").to_pandas()
@@ -1114,9 +1139,9 @@ invalidation, reuse levels, persistent OutputPlan reuse, and claim-grade replay/
 Input and output formats remain decoupled, and reuse evidence will not imply performance,
 production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
-Unsupported workflow affordances are explicit report surfaces too. These calls
-show how familiar pandas/Arrow/DataFrame/notebook methods fail closed when they
-are outside the admitted bounded local-source shapes:
+Unsupported workflow affordances are explicit report surfaces too. These calls show how familiar
+pandas/Arrow/DataFrame/notebook methods fail closed when they are outside the admitted bounded
+local-source or materialized-input shapes:
 
 ```python
 import shardloom as sl
@@ -1140,8 +1165,7 @@ reports = [
     workflow.sort("event_date"),
     workflow.data_quality_check("regex:id"),
     workflow.quarantine("bad-events.vortex"),
-    workflow.preview(limit=20),
-    workflow.display(),
+    sl.read_csv("events.data").display(),
     ctx.sql_parse("select * from events"),
     ctx.sql_bind("select * from events"),
     ctx.sql_plan("select * from events"),
@@ -1158,10 +1182,10 @@ for report in reports:
 
 Every report above is generated through `workflow-unsupported-plan` and returns
 `status="unsupported"` with `fallback_attempted=false`. The methods do not
-import pandas or pyarrow, inspect the passed Python object, materialize pandas/Arrow/NumPy objects,
-write quarantine outputs, parse SQL, execute unsupported DataFrame expressions, render
-notebook display output, invoke Foundry/model services, or use another engine
-as fallback.
+use pandas, pyarrow, or numpy as execution engines, write quarantine outputs, parse SQL, execute
+unsupported DataFrame expressions, render broad notebook runtime output, invoke Foundry/model
+services, or use another engine as fallback. Valid pandas/Arrow inputs are treated as explicit
+materialized snapshots that lower to generated-source user rows, not as hidden external execution.
 
 The DataFrame-style surface also has a typed method capability matrix. Use it
 when a wrapper, notebook, or agent needs to know which familiar method names are
@@ -1200,11 +1224,12 @@ return deterministic blockers. The `dataframe_generated_with_column` row is fixt
 for the scoped literal helper and for concrete generated builders such as
 `ctx.from_rows(...).with_column(...)` and `ctx.range(...).with_column(...)`; broad generated
 DataFrame expression runtime still uses deterministic unsupported diagnostics.
-It does not import DataFrame libraries, invoke external engines, or upgrade DataFrame/notebook
-support to claim-grade status. Other lazy source, `filter`, `select`, `limit`, and `group_by`
-helpers remain side-effect-free declarations unless an admitted terminal method is called. Joins,
-aggregations, windows, schema/data-quality helpers, and bounded Python-object materialization remain
-fixture-scoped; broad materialization and notebook display remain deterministic unsupported
+It does not use DataFrame libraries as execution engines, invoke external engines, or upgrade
+DataFrame/notebook support to claim-grade status. Other lazy source, `filter`, `select`, `limit`,
+and `group_by` helpers remain side-effect-free declarations unless an admitted terminal method is
+called. Joins, aggregations, windows, schema/data-quality helpers, bounded Python-object
+materialization, optional pandas/Arrow/NumPy conversion, and notebook preview remain fixture-scoped;
+broad unbounded materialization and production notebook display remain deterministic unsupported
 surfaces unless later evidence-backed slices promote them.
 
 When the question is broader than one DataFrame method, use the front-door parity matrix. It
@@ -1222,11 +1247,12 @@ print(parity.row("local_file_filter_project_limit").shared_runtime_path)
 print(parity.row("arbitrary_sql_python_dataframe_breadth").blocker_id)
 ```
 
-The scoped local file, generated-output, and bounded schema/data-quality/preview rows are admitted.
-General Vortex workflows, decoded pandas/Arrow/NumPy materialization,
-object-store/lakehouse/table I/O, arbitrary SQL/Python/DataFrame breadth, and cross-front-door
-performance equivalence remain explicit gap rows until correctness, Native I/O,
-execution-certificate, no-fallback, and benchmark evidence closes them.
+The scoped local file, generated-output, bounded schema/data-quality/preview, and bounded decoded
+materialization rows are admitted. General Vortex workflows, broad unbounded decoded
+pandas/Arrow/NumPy materialization, object-store/lakehouse/table I/O, arbitrary
+SQL/Python/DataFrame breadth, and cross-front-door performance equivalence remain explicit gap rows
+until correctness, Native I/O, execution-certificate, no-fallback, and benchmark evidence closes
+them.
 
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or

@@ -336,6 +336,7 @@ class FrontDoorParityMatrix:
             "local_file_join_aggregate_sort_window",
             "generated_source_output",
             "schema_quality_preview",
+            "decoded_materialization_interop",
         }
         admitted = {row.row_id for row in self.admitted_rows}
         return required.issubset(admitted)
@@ -444,8 +445,10 @@ _UNSUPPORTED_BOUNDARY = (
     "write I/O, external engine, fallback, or production claim."
 )
 _MATERIALIZATION_BOUNDARY = (
-    "Materialization boundary diagnostic only; no row materialization, decode, "
-    "external engine, fallback, or production notebook/DataFrame claim."
+    "Scoped bounded decoded materialization only for admitted local-source ShardLoom rows and "
+    "explicit materialized input snapshots. Optional pandas/Arrow/NumPy packages are containers "
+    "or compatibility encoders, not execution engines; no object-store/table source, external "
+    "engine, fallback, broad notebook runtime, or production performance claim."
 )
 _WRITE_BOUNDARY = (
     "Write/export diagnostic only; no file write, sink commit, external engine, "
@@ -470,8 +473,8 @@ _LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY = (
 )
 _LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY = (
     "Scoped bounded Python object materialization from ShardLoom-emitted inline JSONL for admitted "
-    "local-source query-builder workflows only; no pandas/Arrow/NumPy conversion, object-store/table "
-    "source, external engine, fallback, or production notebook/DataFrame claim."
+    "local-source query-builder workflows only; object-store/table source, external engine, "
+    "fallback, or production notebook/DataFrame claim."
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -991,50 +994,80 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "to_pandas",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="to-pandas",
-        blocker_id="cg21.workflow.to_pandas.decoded_dataframe_unsupported",
-        required_evidence=("materialization_boundary", "decode_evidence"),
+        "optional_dependency_runtime_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "decoded_materialization_policy",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "to_arrow",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="to-arrow",
-        blocker_id="cg21.workflow.to_arrow.decoded_columnar_unsupported",
-        required_evidence=("materialization_boundary", "decode_evidence"),
+        "optional_dependency_runtime_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "arrow_interop_boundary",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "to_arrow_table",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="to-arrow-table",
-        blocker_id="cg21.workflow.to_arrow_table.decoded_table_unsupported",
-        required_evidence=("materialization_boundary", "decode_evidence"),
+        "optional_dependency_runtime_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "arrow_interop_boundary",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "to_arrow_ipc",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="to-arrow-ipc",
-        blocker_id="cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported",
-        required_evidence=("materialization_boundary", "decode_evidence"),
+        "optional_dependency_runtime_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "arrow_interop_boundary",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "to_numpy",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="to-numpy",
-        blocker_id="cg21.workflow.to_numpy.python_array_unsupported",
-        required_evidence=("materialization_boundary", "decode_evidence"),
+        "optional_dependency_runtime_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "decoded_materialization_policy",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
@@ -1110,10 +1143,15 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "display",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="display",
-        blocker_id="cg21.workflow.display.rich_display_unsupported",
-        required_evidence=("materialization_boundary", "notebook_evidence"),
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "notebook_display_contract",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
@@ -1237,30 +1275,42 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "from_pandas",
         "input_boundary",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="from-pandas",
-        blocker_id="cg21.workflow.from_pandas.materialized_input_unsupported",
-        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        "materialized_input_boundary_supported",
+        required_evidence=(
+            "materialized_input_boundary",
+            "generated_source_user_rows",
+            "input_fidelity_boundary",
+            "no_fallback_evidence",
+        ),
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "from_arrow_table",
         "input_boundary",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="from-arrow-table",
-        blocker_id="cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported",
-        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        "materialized_input_boundary_supported",
+        required_evidence=(
+            "materialized_input_boundary",
+            "generated_source_user_rows",
+            "arrow_interop_boundary",
+            "input_fidelity_boundary",
+            "no_fallback_evidence",
+        ),
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
         "from_arrow_ipc",
         "input_boundary",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="from-arrow-ipc",
-        blocker_id="cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported",
-        required_evidence=("materialization_boundary", "input_fidelity_evidence"),
+        "optional_dependency_input_boundary_supported",
+        required_evidence=(
+            "materialized_input_boundary",
+            "generated_source_user_rows",
+            "arrow_interop_boundary",
+            "optional_dependency_policy",
+            "input_fidelity_boundary",
+            "no_fallback_evidence",
+        ),
         materialization_required=True,
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
@@ -1438,25 +1488,33 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "decoded_materialization_interop",
         "pandas, Arrow table, Arrow IPC, NumPy, and notebook display materialization",
-        "blocked_materialization_gap",
-        sql_surface="not applicable as execution fallback",
-        python_surface="from_pandas/from_arrow_table/from_arrow_ipc/to_pandas/to_arrow/to_numpy diagnostics",
-        dataframe_surface="DataFrame materialization/display helpers return deterministic unsupported diagnostics",
-        shared_runtime_path="workflow-unsupported-plan",
-        parity_status="front_door_gap",
-        performance_equivalence_status="not_applicable_until_materialization_policy_exists",
+        "scoped_runtime_supported",
+        sql_surface="ctx.sql(...).to_python_objects/to_pandas/to_arrow/to_numpy/display",
+        python_surface="from_pandas/from_arrow_table/from_arrow_ipc and LazyFrame to_* helpers",
+        dataframe_surface="DataFrame-style bounded materialization and notebook preview helpers",
+        shared_runtime_path=(
+            "sql-local-source-smoke inline bounded result; generated-source user rows for "
+            "materialized inputs"
+        ),
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_path_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
-        blocker_id="cg21.front_door.decoded_materialization_policy_missing",
         required_evidence=(
             "decoded_materialization_policy",
             "arrow_interop_boundary",
             "bounded_materialization_runtime",
             "notebook_display_contract",
             "no_fallback_evidence",
+            "optional_dependency_policy",
         ),
         claim_boundary=(
-            "Decoded Python/Arrow/NumPy interop is intentionally diagnostic-only today; it must "
-            "not become a hidden pandas/Arrow fallback path."
+            "Decoded Python/Arrow/NumPy interop is admitted only for bounded local-source "
+            "ShardLoom results and explicit materialized input snapshots. Optional packages are "
+            "containers or compatibility encoders, not execution engines, and this row does not "
+            "claim object-store/table materialization, arbitrary SQL/DataFrame breadth, or "
+            "benchmark-backed performance equivalence."
         ),
     ),
     _front_door_row(

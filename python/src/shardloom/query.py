@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import builtins
+import html
+import importlib
 import math
 import os
 from datetime import date, datetime, timedelta, timezone
@@ -1504,6 +1506,140 @@ class SqlWorkflow:
             return self.client.sql_local_source_smoke(statement, check=check)
         return self._unsupported_operation("take", str(count), check=check)
 
+    def to_python_objects(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
+        """Return bounded Python row objects for admitted local-source SQL."""
+
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return report.result_rows
+        return self._unsupported_operation("to-python-objects", self.statement, check=check)
+
+    def to_pandas(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a pandas DataFrame at an explicit bounded materialization boundary."""
+
+        if self._bounded_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-pandas", self.statement, check=check)
+        pandas = _optional_module("pandas")
+        if pandas is None:
+            return self._unsupported_operation(
+                "to-pandas",
+                "missing optional dependency: pandas",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_pandas(report.result_rows, pandas)
+        return self._unsupported_operation("to-pandas", self.statement, check=check)
+
+    def to_arrow(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a PyArrow table at an explicit bounded materialization boundary."""
+
+        if self._bounded_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow", self.statement, check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_table(report.result_rows, pyarrow)
+        return self._unsupported_operation("to-arrow", self.statement, check=check)
+
+    def to_arrow_table(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a PyArrow table for admitted bounded local-source SQL."""
+
+        if self._bounded_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow-table", self.statement, check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-table",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_table(report.result_rows, pyarrow)
+        return self._unsupported_operation("to-arrow-table", self.statement, check=check)
+
+    def to_arrow_ipc(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> bytes | UnsupportedWorkflowOperationReport:
+        """Return Arrow IPC stream bytes for admitted bounded local-source SQL."""
+
+        if self._bounded_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow-ipc", self.statement, check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-ipc",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_ipc(report.result_rows, pyarrow)
+        return self._unsupported_operation("to-arrow-ipc", self.statement, check=check)
+
+    def to_numpy(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a NumPy array for admitted bounded local-source SQL rows."""
+
+        if self._bounded_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-numpy", self.statement, check=check)
+        numpy = _optional_module("numpy")
+        if numpy is None:
+            return self._unsupported_operation(
+                "to-numpy",
+                "missing optional dependency: numpy",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_numpy(report.result_rows, numpy)
+        return self._unsupported_operation("to-numpy", self.statement, check=check)
+
+    def display(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> WorkflowNotebookPreview | UnsupportedWorkflowOperationReport:
+        """Return a bounded notebook/display preview for admitted local-source SQL."""
+
+        _validate_positive_row_count("display limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return WorkflowNotebookPreview(
+                workflow=self._report_workflow(),
+                smoke_report=report,
+                limit=limit,
+            )
+        return self._unsupported_operation("display", str(limit), check=check)
+
     def write(
         self,
         target_uri: str | os.PathLike[str],
@@ -1737,12 +1873,30 @@ class SqlWorkflow:
             return None
         return _workflow_schema_report(self._report_workflow(), smoke_report)
 
-    def _bounded_local_source_statement(self, *, default_limit: int) -> str | None:
+    def _bounded_materialization_report(
+        self,
+        *,
+        limit: int | None,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | None:
+        statement = self._bounded_local_source_statement(default_limit=limit)
+        if statement is None:
+            return None
+        smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+        if smoke_report.envelope.status != "success":
+            return None
+        return smoke_report
+
+    def _bounded_local_source_statement(self, *, default_limit: int | None) -> str | None:
+        if default_limit is not None:
+            _validate_positive_row_count("materialization limit", default_limit)
         normalized = self.statement.strip().rstrip(";").strip()
         if not _is_local_source_sql_statement(normalized):
             return None
         if _contains_sql_keyword_outside_quotes(normalized, "limit"):
             return normalized
+        if default_limit is None:
+            return None
         return f"{normalized} LIMIT {default_limit}"
 
     def _report_workflow(self) -> "LazyFrame":
@@ -2012,6 +2166,78 @@ class WorkflowDataQualityReport:
         """Return the claim-gate status of the backing runtime smoke."""
 
         return self.schema_report.claim_gate_status
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowNotebookPreview:
+    """Bounded notebook/display preview with explicit materialization evidence."""
+
+    workflow: "LazyFrame"
+    smoke_report: SqlLocalSourceSmokeReport
+    limit: int
+
+    @property
+    def rows(self) -> tuple[Mapping[str, Any], ...]:
+        """Return decoded preview rows from ShardLoom's bounded inline result."""
+
+        return self.smoke_report.result_rows
+
+    @property
+    def row_count(self) -> int:
+        """Return the number of decoded preview rows."""
+
+        return len(self.rows)
+
+    @property
+    def schema_report(self) -> WorkflowSchemaReport:
+        """Return schema evidence inferred from the same bounded rows."""
+
+        return _workflow_schema_report(self.workflow, self.smoke_report)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether preview materialization attempted fallback execution."""
+
+        return self.smoke_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether preview materialization invoked an external execution engine."""
+
+        return self.smoke_report.external_engine_invoked
+
+    @property
+    def materialization_boundary(self) -> str:
+        """Return the explicit decoded display boundary label."""
+
+        return "bounded_inline_jsonl_to_notebook_display"
+
+    def to_python_objects(self) -> tuple[Mapping[str, Any], ...]:
+        """Return decoded rows for callers that want the display payload."""
+
+        return self.rows
+
+    def to_html(self) -> str:
+        """Render a small HTML table for notebook frontends."""
+
+        columns = _row_field_order(self.rows)
+        if not columns:
+            return "<table><tbody></tbody></table>"
+        header = "".join(f"<th>{html.escape(column)}</th>" for column in columns)
+        body_rows = []
+        for row in self.rows:
+            cells = "".join(
+                f"<td>{html.escape(_display_cell(row.get(column)))}</td>"
+                for column in columns
+            )
+            body_rows.append(f"<tr>{cells}</tr>")
+        body = "".join(body_rows)
+        return f"<table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table>"
+
+    def _repr_html_(self) -> str:
+        """Notebook HTML representation."""
+
+        return self.to_html()
 
 
 @dataclass(frozen=True, slots=True)
@@ -2356,29 +2582,109 @@ class LazyFrame:
             check=check,
         )
 
-    def to_pandas(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for pandas materialization."""
+    def to_pandas(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a pandas DataFrame at an explicit bounded materialization boundary."""
 
+        if self._sql_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-pandas", check=check)
+        pandas = _optional_module("pandas")
+        if pandas is None:
+            return self._unsupported_operation(
+                "to-pandas",
+                "missing optional dependency: pandas",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_pandas(report.result_rows, pandas)
         return self._unsupported_operation("to-pandas", check=check)
 
-    def to_arrow(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Arrow materialization."""
+    def to_arrow(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a PyArrow table at an explicit bounded materialization boundary."""
 
+        if self._sql_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow", check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_table(report.result_rows, pyarrow)
         return self._unsupported_operation("to-arrow", check=check)
 
-    def to_arrow_table(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Arrow table materialization."""
+    def to_arrow_table(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a PyArrow table for admitted bounded local-source workflows."""
 
+        if self._sql_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow-table", check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-table",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_table(report.result_rows, pyarrow)
         return self._unsupported_operation("to-arrow-table", check=check)
 
-    def to_arrow_ipc(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Arrow IPC materialization."""
+    def to_arrow_ipc(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> bytes | UnsupportedWorkflowOperationReport:
+        """Return Arrow IPC stream bytes for admitted bounded local-source workflows."""
 
+        if self._sql_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-arrow-ipc", check=check)
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-ipc",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_arrow_ipc(report.result_rows, pyarrow)
         return self._unsupported_operation("to-arrow-ipc", check=check)
 
-    def to_numpy(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for NumPy materialization."""
+    def to_numpy(
+        self,
+        *,
+        limit: int | None = None,
+        check: bool = False,
+    ) -> object | UnsupportedWorkflowOperationReport:
+        """Return a NumPy array for admitted bounded local-source workflow rows."""
 
+        if self._sql_local_source_statement(default_limit=limit) is None:
+            return self._unsupported_operation("to-numpy", check=check)
+        numpy = _optional_module("numpy")
+        if numpy is None:
+            return self._unsupported_operation(
+                "to-numpy",
+                "missing optional dependency: numpy",
+                check=check,
+            )
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return _rows_to_numpy(report.result_rows, numpy)
         return self._unsupported_operation("to-numpy", check=check)
 
     def to_python_objects(
@@ -2388,11 +2694,8 @@ class LazyFrame:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
 
-        if statement := self._sql_local_source_statement():
-            smoke_report = self.client.sql_local_source_smoke(statement, check=check)
-            if smoke_report.envelope.status != "success":
-                return self._unsupported_operation("to-python-objects", check=check)
-            return smoke_report.result_rows
+        if report := self._bounded_materialization_report(limit=None, check=check):
+            return report.result_rows
         return self._unsupported_operation("to-python-objects", check=check)
 
     def write_vortex(
@@ -2705,10 +3008,22 @@ class LazyFrame:
             return self.limit(count).collect(check=check)
         return self._unsupported_operation("take", str(count), check=check)
 
-    def display(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for rich notebook display."""
+    def display(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> WorkflowNotebookPreview | UnsupportedWorkflowOperationReport:
+        """Return a bounded notebook/display preview for admitted workflows."""
 
-        return self._unsupported_operation("display", check=check)
+        _validate_positive_row_count("display limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return WorkflowNotebookPreview(
+                workflow=self,
+                smoke_report=report,
+                limit=limit,
+            )
+        return self._unsupported_operation("display", str(limit), check=check)
 
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
         """Return report-only certificate surfaces for this workflow."""
@@ -2857,6 +3172,22 @@ class LazyFrame:
         if smoke_report.envelope.status != "success":
             return None
         return _workflow_schema_report(self, smoke_report)
+
+    def _bounded_materialization_report(
+        self,
+        *,
+        limit: int | None,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | None:
+        if limit is not None:
+            _validate_positive_row_count("materialization limit", limit)
+        statement = self._sql_local_source_statement(default_limit=limit)
+        if statement is None:
+            return None
+        smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+        if smoke_report.envelope.status != "success":
+            return None
+        return smoke_report
 
     def _append_group_by_aggregate(
         self,
@@ -3775,17 +4106,27 @@ def from_pandas(
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> UnsupportedWorkflowOperationReport:
-    """Return the unsupported report for a pandas in-memory input boundary."""
+) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+    """Create a scoped generated-row source from a pandas DataFrame-like object."""
 
+    resolved_client = _client_from_config(client, client_config)
     workflow = _materialized_boundary_workflow(
         "pandas",
         _python_object_boundary_ref("pandas", dataframe),
-        client=client,
+        client=resolved_client,
         engine_mode=engine_mode,
-        **client_config,
     )
-    return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
+    rows = _pandas_like_records(dataframe)
+    if rows is None:
+        return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
+    try:
+        return _generated_rows_source(
+            rows,
+            client=resolved_client,
+            source_kind="user_rows",
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
 
 
 def from_arrow_table(
@@ -3795,17 +4136,27 @@ def from_arrow_table(
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> UnsupportedWorkflowOperationReport:
-    """Return the unsupported report for an Arrow table input boundary."""
+) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+    """Create a scoped generated-row source from an Arrow table-like object."""
 
+    resolved_client = _client_from_config(client, client_config)
     workflow = _materialized_boundary_workflow(
         "arrow_table",
         _python_object_boundary_ref("arrow_table", table),
-        client=client,
+        client=resolved_client,
         engine_mode=engine_mode,
-        **client_config,
     )
-    return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
+    rows = _arrow_table_like_records(table)
+    if rows is None:
+        return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
+    try:
+        return _generated_rows_source(
+            rows,
+            client=resolved_client,
+            source_kind="user_rows",
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
 
 
 def from_arrow_ipc(
@@ -3815,9 +4166,10 @@ def from_arrow_ipc(
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> UnsupportedWorkflowOperationReport:
-    """Return the unsupported report for an Arrow IPC input boundary."""
+) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+    """Create a scoped generated-row source from an Arrow IPC stream/file."""
 
+    resolved_client = _client_from_config(client, client_config)
     target = (
         str(source)
         if isinstance(source, (str, os.PathLike))
@@ -3826,11 +4178,30 @@ def from_arrow_ipc(
     workflow = _materialized_boundary_workflow(
         "arrow_ipc",
         target,
-        client=client,
+        client=resolved_client,
         engine_mode=engine_mode,
-        **client_config,
     )
-    return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
+    pyarrow = _optional_module("pyarrow")
+    if pyarrow is None:
+        return workflow._unsupported_operation(
+            "from-arrow-ipc",
+            "missing optional dependency: pyarrow",
+            check=check,
+        )
+    try:
+        rows = _arrow_table_like_records(_read_arrow_ipc_table(source, pyarrow))
+    except Exception:
+        rows = None
+    if rows is None:
+        return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
+    try:
+        return _generated_rows_source(
+            rows,
+            client=resolved_client,
+            source_kind="user_rows",
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
 
 
 def _generated_rows_args(
@@ -5850,6 +6221,94 @@ def _workflow_data_quality_report(
         schema_report=schema_report,
         checks=tuple(results),
     )
+
+
+def _optional_module(module_name: str) -> object | None:
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError:
+        return None
+
+
+def _rows_as_dicts(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    return [dict(row) for row in rows]
+
+
+def _row_field_order(rows: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    fields: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fields:
+                fields.append(str(key))
+    return tuple(fields)
+
+
+def _rows_to_pandas(rows: Sequence[Mapping[str, Any]], pandas: object) -> object:
+    return getattr(pandas, "DataFrame")(_rows_as_dicts(rows))
+
+
+def _rows_to_arrow_table(rows: Sequence[Mapping[str, Any]], pyarrow: object) -> object:
+    table_type = getattr(pyarrow, "Table")
+    return table_type.from_pylist(_rows_as_dicts(rows))
+
+
+def _rows_to_arrow_ipc(rows: Sequence[Mapping[str, Any]], pyarrow: object) -> bytes:
+    table = _rows_to_arrow_table(rows, pyarrow)
+    sink = getattr(pyarrow, "BufferOutputStream")()
+    with pyarrow.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    buffer = sink.getvalue()
+    return buffer.to_pybytes()
+
+
+def _rows_to_numpy(rows: Sequence[Mapping[str, Any]], numpy: object) -> object:
+    columns = _row_field_order(rows)
+    values = [[row.get(column) for column in columns] for row in rows]
+    return getattr(numpy, "asarray")(values)
+
+
+def _pandas_like_records(dataframe: object) -> Sequence[Mapping[str, object]] | None:
+    to_dict = getattr(dataframe, "to_dict", None)
+    if not callable(to_dict):
+        return None
+    try:
+        rows = to_dict(orient="records")
+    except TypeError:
+        rows = to_dict("records")
+    return rows if _is_mapping_sequence(rows) else None
+
+
+def _arrow_table_like_records(table: object) -> Sequence[Mapping[str, object]] | None:
+    to_pylist = getattr(table, "to_pylist", None)
+    if not callable(to_pylist):
+        return None
+    rows = to_pylist()
+    return rows if _is_mapping_sequence(rows) else None
+
+
+def _read_arrow_ipc_table(source: object, pyarrow: object) -> object:
+    ipc = pyarrow.ipc
+    if isinstance(source, (str, os.PathLike)):
+        with open(source, "rb") as handle:
+            return ipc.open_stream(handle).read_all()
+    if isinstance(source, (bytes, bytearray, memoryview)):
+        reader = pyarrow.BufferReader(bytes(source))
+        return ipc.open_stream(reader).read_all()
+    return ipc.open_stream(source).read_all()
+
+
+def _is_mapping_sequence(value: object) -> bool:
+    return (
+        isinstance(value, Sequence)
+        and not isinstance(value, (str, bytes, bytearray))
+        and all(isinstance(row, Mapping) for row in value)
+    )
+
+
+def _display_cell(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value)
 
 
 def _stable_quality_value_key(value: object) -> str:

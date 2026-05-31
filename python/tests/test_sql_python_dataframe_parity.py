@@ -37,8 +37,8 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 4)
-        self.assertGreaterEqual(report["remaining_gap_count"], 5)
+        self.assertEqual(report["admitted_row_count"], 5)
+        self.assertGreaterEqual(report["remaining_gap_count"], 4)
         self.assertIn(
             "arbitrary_sql_python_dataframe_breadth",
             report["remaining_gap_row_ids"],
@@ -59,6 +59,14 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(schema_quality["parity_status"], "equivalent_admitted_scope")
         self.assertIn("ctx.sql", schema_quality["sql_surface"])
         self.assertIsNone(schema_quality["blocker_id"])
+        materialization = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "decoded_materialization_interop"
+        )
+        self.assertEqual(materialization["parity_status"], "equivalent_admitted_scope")
+        self.assertIn("to_pandas", materialization["sql_surface"])
+        self.assertIsNone(materialization["blocker_id"])
 
     def test_parity_validator_rejects_overclaimed_or_fallback_rows(self) -> None:
         module = load_parity_module()

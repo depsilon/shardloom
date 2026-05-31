@@ -31,6 +31,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.optional-dependencies]
+materialization = ["numpy", "pandas", "pyarrow"]
+
 [project.urls]
 Homepage = "https://shardloom.io"
 Repository = "https://github.com/depsilon/shardloom"

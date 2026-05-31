@@ -26,6 +26,10 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
 - `schema_quality_preview`: `ctx.sql(...)`, Python `LazyFrame`, and DataFrame-style helpers expose
   bounded schema, validation, data-quality, preview, head, and take methods over
   `sql-local-source-smoke` inline results.
+- `decoded_materialization_interop`: bounded local-source ShardLoom results can materialize to
+  Python objects, optional pandas DataFrames, optional PyArrow tables/IPC bytes, optional NumPy
+  arrays, and notebook preview HTML from the same inline result path; pandas/Arrow materialized
+  input snapshots lower to generated-source user rows.
 
 These rows allow scoped local parity, not broad production claims.
 
@@ -34,7 +38,8 @@ These rows allow scoped local parity, not broad production claims.
 Rows with `parity_status=front_door_gap` are real blockers for the user goal:
 
 - General Vortex-native SQL/Python/DataFrame read-transform-write workflows.
-- Decoded pandas, Arrow, NumPy, and notebook-display materialization.
+- Broad unbounded decoded pandas, Arrow, NumPy, and notebook-display materialization outside the
+  admitted local-source/materialized-input scope.
 - Object-store, lakehouse/table, catalog, commit, and remote sink workflows.
 - Arbitrary SQL grammar, Python expressions, DataFrame API parity, UDFs, and effectful operations.
 - Benchmark-backed performance equivalence across front doors.

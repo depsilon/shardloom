@@ -126,8 +126,9 @@ no-fallback evidence internally. Lower-level helpers such as explicit `prepare_v
 runtime-envelope inspection, and session evidence are engine-development and diagnostic surfaces,
 not the normal path for using ShardLoom.
 
-Unsupported convenience materializations also return deterministic evidence instead of delegating
-to pandas, Polars, Spark, DataFusion, DuckDB, or another engine:
+Unbounded convenience materializations return deterministic evidence instead of delegating to
+pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can
+opt into explicit decoded containers through the Python materialization helpers:
 
 ```python
 unsupported = ctx.read("target/orders.csv").select("id").to_pandas()
