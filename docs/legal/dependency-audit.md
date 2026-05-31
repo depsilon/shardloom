@@ -81,12 +81,18 @@ cargo audit
 
 ```powershell
 python -m pip install pip-audit
-python -m pip_audit python
+python scripts\check_dependency_audit.py --include-python-packaging
 ```
 
-The Python package currently has no runtime dependencies, so pip-audit output
-must not be treated as evidence that ShardLoom has Python runtime dependency
-requirements.
+The audit script first tries the invoking Python, then a `pip-audit` executable on `PATH`, then
+known local packaging runtimes. Set `SHARDLOOM_PIP_AUDIT_PYTHON` to a Python executable that has
+`pip-audit` installed when the release command is launched from a different interpreter.
+
+The audit script writes `target/dependency-audit/python-runtime-requirements.txt` from
+`python/pyproject.toml` and points `pip-audit` at that generated runtime requirements file. The
+Python package currently has no runtime dependencies, so the generated file is empty and the script
+uses `--disable-pip --no-deps` to avoid creating a temporary virtual environment. That output must
+not be treated as evidence that ShardLoom has Python runtime dependency requirements.
 
 See `docs/security/dependency-audit-release-gate.md` for the release-gate command, required report
 fields, and no-fallback dependency rule.

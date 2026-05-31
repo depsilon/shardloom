@@ -40,6 +40,8 @@ The gate aggregates:
   traceability, unsupported-path, security, provenance, and per-claim evidence blockers
 - final no-publication release rehearsal report for local artifact, checksum, SBOM, provenance,
   attestation-plan, package-channel, and human-approval blockers
+- Python user-surface completion report for import/context/session/SQL/DataFrame/generated-output
+  proof, deterministic unsupported-path blockers, and no-fallback/no-external-engine fields
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -62,6 +64,8 @@ python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
+python scripts\check_python_user_surface_completion.py
+python scripts\check_pre_5j_dependency_freshness.py
 python scripts\check_golden_workflows.py
 python scripts\check_admitted_semantics_matrix.py
 python scripts\final_release_rehearsal.py --allow-blocked
@@ -100,6 +104,74 @@ The global architecture gate uses schema
 `runtime_claim_allowed=false`, `public_claim_allowed=false`, `fallback_attempted=false`, and
 `external_engine_invoked=false` unless distributed, object-store, and lakehouse claims have their
 own workload-scoped evidence.
+
+The Python user-surface completion gate uses schema
+`shardloom.python_user_surface_completion_gate.v1`:
+
+```powershell
+python scripts\check_python_user_surface_completion.py
+```
+
+It writes:
+
+```text
+target/python-user-surface-completion-gate.json
+```
+
+The gate checks the local import/context/session surface, scoped `ctx.sql(...)` bridge,
+DataFrame/query-builder method matrix, source-free generated output rows, local Python smoke
+transcript markers, unsupported materialization/input blockers, docs/website claim language, and
+status-matrix public-claim blockers. It intentionally reports:
+
+```text
+scoped_python_front_door_claim_allowed=true
+production_sql_dataframe_claim_allowed=false
+spark_compatibility_claim_allowed=false
+package_publication_claim_allowed=false
+performance_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This is a scoped admitted-local-runtime front-door claim only. It does not authorize PySpark API
+parity, broad SQL/DataFrame production support, decoded pandas/Arrow/NumPy materialization,
+object-store/lakehouse/table production I/O, package publication, or performance claims.
+
+The pre-5J dependency freshness gate uses schema
+`shardloom.pre_5j_dependency_freshness_gate.v1`:
+
+```powershell
+python scripts\check_pre_5j_dependency_freshness.py
+```
+
+It writes:
+
+```text
+target/pre-5j-dependency-freshness-gate.json
+```
+
+The default CI-safe mode verifies that the currently admitted Dependabot dependency updates are
+present in manifests, `Cargo.lock`, and dependency-review docs, while keeping
+`benchmark_refresh_allowed=false` until a live open-Dependabot check is performed. Immediately
+before any `GAR-RUNTIME-IMPL-5J` benchmark-publication refresh, run:
+
+```powershell
+python scripts\check_pre_5j_dependency_freshness.py --require-live-github
+```
+
+That live mode checks the open Dependabot PR set for `depsilon/shardloom`, blocks unknown or
+unincorporated dependency PRs, and is required by the benchmark publication claim gate before
+benchmark data can be treated as current publication evidence. The gate never runs benchmarks and
+reports:
+
+```text
+benchmark_run_performed=false
+publication_attempted=false
+tag_created=false
+secrets_required=false
+fallback_attempted=false
+external_engine_invoked=false
+```
 
 The broader release process must also attach clean Conda proof, benchmark smoke evidence,
 package metadata/license proof, package-channel proof, SBOM/checksum/provenance evidence, runtime
@@ -247,7 +319,14 @@ artifacts hides a real runtime path and keeps the benchmark/release evidence inc
 
 The hard release gate reuses `scripts/check_benchmark_artifact_completeness.py` so missing
 profile-required formats, scenarios, and published row evidence block release readiness through the
-same canonical benchmark artifact validator that protects the website/public bundle.
+same canonical benchmark artifact validator that protects the website/public bundle. It also runs
+`scripts/check_benchmark_publication_claim_gate.py` against the latest website benchmark manifest so
+stale Git SHAs, dirty-worktree artifacts, missing broad-format row coverage, missing ShardLoom
+engine/format cells, external-baseline rows masquerading as ShardLoom coverage, missing capillary
+activation evidence, stale or invalid runtime-envelope proof, blocked ShardLoom rows,
+non-claim-grade ShardLoom rows, missing independent reproducibility/correctness/timing/replay
+proof, local workstation artifact paths in public JSON, and missing no-fallback/no-external-engine
+proof block public benchmark publication claims without rerunning benchmarks.
 
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 

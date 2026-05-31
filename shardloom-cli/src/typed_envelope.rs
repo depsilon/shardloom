@@ -1355,6 +1355,14 @@ fn typed_ref_uri(value: &str) -> Option<String> {
 }
 
 fn add_typed_ref_if_present(envelope: OutputEnvelope, key: &str, value: &str) -> OutputEnvelope {
+    let normalized_key = key.to_ascii_lowercase();
+    if normalized_key == "sink_artifact_ref" {
+        return envelope;
+    }
+    if normalized_key == "sink_artifact_refs" {
+        return add_sink_artifact_refs(envelope, value);
+    }
+
     let Some((slot, kind)) = typed_envelope_ref_slot(key) else {
         return envelope;
     };
@@ -1372,6 +1380,37 @@ fn add_typed_ref_if_present(envelope: OutputEnvelope, key: &str, value: &str) ->
         TypedEnvelopeRefSlot::ResultRef => envelope.with_result_ref(reference),
         TypedEnvelopeRefSlot::ArtifactRef => envelope.with_artifact_ref(reference),
         TypedEnvelopeRefSlot::Certificate => envelope.with_certificate(reference),
+    }
+}
+
+fn add_sink_artifact_refs(mut envelope: OutputEnvelope, value: &str) -> OutputEnvelope {
+    if !field_value_is_reference(value) {
+        return envelope;
+    }
+    for token in value
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        let uri = sink_artifact_ref_uri(token);
+        if !field_value_is_reference(uri) {
+            continue;
+        }
+        envelope = envelope.with_artifact_ref(
+            OutputTypedRef::new(token, "sink_artifact", typed_ref_status(uri)).with_uri(uri),
+        );
+    }
+    envelope
+}
+
+fn sink_artifact_ref_uri(token: &str) -> &str {
+    let Some((label, uri)) = token.split_once(':') else {
+        return token;
+    };
+    if uri.starts_with("//") || label.is_empty() {
+        token
+    } else {
+        uri
     }
 }
 
@@ -1534,6 +1573,38 @@ mod tests {
         assert!(envelope.artifact_refs.iter().any(|reference| {
             reference.kind == "adapter_fidelity_report"
                 && reference.uri.as_deref() == Some("artifacts/adapter-fidelity.json")
+        }));
+    }
+
+    #[test]
+    fn sink_artifact_refs_attach_individual_typed_artifact_refs() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("test", "ok", "ok"),
+            "test",
+            vec![
+                (
+                    "sink_artifact_ref".to_string(),
+                    "jsonl:target/out.jsonl,csv:target/out.csv".to_string(),
+                ),
+                (
+                    "sink_artifact_refs".to_string(),
+                    "jsonl:target/out.jsonl,csv:target/out.csv".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.artifact_refs.len(), 2);
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.id == "jsonl:target/out.jsonl"
+                && reference.kind == "sink_artifact"
+                && reference.status == "available"
+                && reference.uri.as_deref() == Some("target/out.jsonl")
+        }));
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.id == "csv:target/out.csv"
+                && reference.kind == "sink_artifact"
+                && reference.status == "available"
+                && reference.uri.as_deref() == Some("target/out.csv")
         }));
     }
 

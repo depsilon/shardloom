@@ -27,9 +27,15 @@ python benchmarks\traditional_analytics\run.py `
   --shardloom-result-sink `
   --skip-shardloom-native `
   --no-markdown `
+  --data-dir target\shardloom-local-taxonomy-smoke-data `
   --output target\shardloom-local-taxonomy-smoke.json `
   --regenerate
 ```
+
+When `--regenerate` is used without an explicit `--data-dir`, the harness now
+derives an isolated generated-data directory from the output artifact path and
+holds a regeneration lock. Supplying `--data-dir` in documented commands keeps
+the artifact/data relationship obvious.
 
 ## Comparative Local Baselines
 
@@ -44,6 +50,7 @@ python benchmarks\traditional_analytics\run.py `
   --rows 100000 `
   --iterations 3 `
   --shardloom-result-sink `
+  --data-dir target\shardloom-local-taxonomy-comparative-data `
   --output target\shardloom-local-taxonomy-comparative.json `
   --regenerate
 ```
@@ -65,6 +72,7 @@ python benchmarks\traditional_analytics\run.py `
   --dataset-profile narrow_fact_dim `
   --rows 100000 `
   --iterations 3 `
+  --data-dir target\shardloom-claim-readiness-rerun-data `
   --output target\shardloom-claim-readiness-rerun.json `
   --regenerate
 ```
@@ -253,13 +261,16 @@ append-only differential-preparation evidence only; it does not claim broad CDC/
 support.
 
 `GAR-IOREUSE-1K` extends the harness schema with
-`vortex_capillary_preparation_schema_version=shardloom.traditional_analytics.vortex_capillary_preparation.v1`.
-The next full data refresh will expose source split discovery, read chunk, columnarize/encode,
-Vortex segment write, reopen verification, and sink evidence capillary tasks through the existing
-`vortex_ingest` route. Rows carry task manifest IDs/digests, byte/row range refs, Vortex segment
-refs, writer sink refs, memory/sink pressure posture, Native I/O and execution certificates,
-prefixed PulseWeave evidence, no-standalone-lane status, and no-fallback fields. Benchmark
-measurement refresh remains tabled until the directly related cold-lane bundle is merged.
+`vortex_capillary_preparation_schema_version=shardloom.vortex_capillary_preparation.v1`.
+The next full data refresh will expose the `dynamic_size_complexity_gate.v1` activation policy plus
+the source split discovery, read chunk, columnarize/encode, Vortex segment write, reopen
+verification, and sink evidence capillary tasks through the existing `vortex_ingest` route. Small
+local rows can explicitly carry `not_requested_below_threshold`, `activation_result=skipped`,
+`task_count=0`, and `pulseweave_status=not_requested`; larger/complex rows carry activated task
+manifest IDs/digests, byte/row range refs, Vortex segment refs, writer sink refs,
+memory/sink pressure posture, Native I/O and execution certificates, prefixed PulseWeave evidence,
+no-standalone-lane status, and no-fallback fields. Benchmark measurement refresh remains tabled
+until the directly related cold-lane bundle is merged.
 
 `GAR-IOREUSE-1L` extends the harness schema with
 `vortex_scout_ingress_schema_version=shardloom.traditional_analytics.vortex_scout_ingress.v1`.

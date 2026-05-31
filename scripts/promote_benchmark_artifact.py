@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -41,7 +43,12 @@ DEFAULT_PUBLIC_WEBSITE_DATA = (
 DEFAULT_WEBSITE_SRC_DATA = ROOT / "website-src" / "src" / "data" / "benchmark-evidence.json"
 DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmark-manifest.json"
 DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
-BENCHMARK_PROFILE_ROSTER = ("full_local", "full_local_plus_spark")
+BENCHMARK_PROFILE_ROSTER = ("full_local",)
+LOCAL_PATH_RE = re.compile(
+    r"(?P<win>[A-Za-z]:\\[^|,;\"'\s]+)|"
+    r"(?P<posix>(?:/Users|/home|/tmp|/var/folders|/private/var|/workspace|/mnt|/Volumes)"
+    r"[^|,;\"'\s]*)"
+)
 EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "source_state",
     "prepared_state",
@@ -223,6 +230,19 @@ PUBLISHED_METRIC_KEYS = (
     "proofbound_claim_allowed",
     "compatibility_import_included",
     "preparation_included_in_timing",
+    "persistent_runner_status",
+    "process_startup_attribution",
+    "cli_process_wall_millis",
+    "python_harness_overhead_millis",
+    "batch_process_wall_shared",
+    "batch_cli_process_wall_millis",
+    "preparation_millis",
+    "preparation_cli_process_wall_millis",
+    "prepare_batch_preparation_millis",
+    "prepare_batch_source_to_columnar_millis",
+    "prepare_batch_vortex_array_build_millis",
+    "prepare_batch_vortex_write_millis",
+    "prepare_batch_vortex_reopen_verify_millis",
     "runtime_execution_validation_schema_version",
     "runtime_execution_validation_status",
     "runtime_execution_validation_blocker_count",
@@ -230,6 +250,14 @@ PUBLISHED_METRIC_KEYS = (
     "runtime_execution_validation_invalid_fields",
     "claim_grade_requirements_met",
     "claim_grade_missing_evidence",
+    "iterations",
+    "reproducibility_min_iterations",
+    "reproducibility_iterations_met",
+    "reproducible_benchmark_row",
+    "timing_row_present",
+    "timing_row_claim_grade",
+    "correctness_digest",
+    "correctness_digest_stable",
 )
 
 
@@ -270,6 +298,25 @@ def parse_args() -> argparse.Namespace:
         help="Existing website summary to preserve prepared/native batch evidence from.",
     )
     return parser.parse_args()
+
+
+def portable_public_ref(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        path = match.group(0)
+        digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
+        return f"local-artifact-ref:sha256:{digest}"
+
+    return LOCAL_PATH_RE.sub(replace, value)
+
+
+def portable_public_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return portable_public_ref(value)
+    if isinstance(value, list):
+        return [portable_public_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: portable_public_value(item) for key, item in value.items()}
+    return value
 
 
 def load_json(path: Path) -> Any:
@@ -722,6 +769,17 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
             "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
         }
     required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
+    batch_row = (
+        fields.get("persistent_runner_status") == "single_process_batch_runner_supported"
+        or fields.get("batch_process_wall_shared") is True
+    )
+    if batch_row:
+        required = [
+            field for field in required if field != "python_harness_overhead_millis"
+        ]
+        for field in ("batch_cli_process_wall_millis", "batch_process_wall_shared"):
+            if field not in required:
+                required.append(field)
     if "sink_replay_heavy" in secondary and "result_sink_write_millis" not in required:
         required.append("result_sink_write_millis")
     missing = [field for field in required if not cold_lane_field_present(fields, field)]
@@ -760,7 +818,14 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "cold_lane_process_harness_timing_present": cold_lane_field_present(
             fields, "cli_process_wall_millis"
         )
-        and cold_lane_field_present(fields, "python_harness_overhead_millis"),
+        and (
+            cold_lane_field_present(fields, "python_harness_overhead_millis")
+            or (
+                batch_row
+                and fields.get("batch_process_wall_shared") is True
+                and cold_lane_field_present(fields, "batch_cli_process_wall_millis")
+            )
+        ),
         "cold_lane_claim_gate_status": "not_claim_grade",
         "cold_lane_claim_blocker_id": (
             "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
@@ -1011,7 +1076,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
                 rendered_row[key] = value
-        rendered.append(rendered_row)
+        rendered.append(portable_public_value(rendered_row))
     return rendered
 
 
@@ -1165,7 +1230,7 @@ def main() -> int:
         args.profile,
         results_path,
     )
-    summary = {
+    summary = portable_public_value({
         **base,
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "benchmark_profile": args.profile,
@@ -1187,7 +1252,7 @@ def main() -> int:
             "production_object_store_lakehouse_foundry_claim_allowed": False,
             "scope": "promoted local benchmark artifact evidence only",
         },
-    }
+    })
     write_json_once(
         [
             results_path,

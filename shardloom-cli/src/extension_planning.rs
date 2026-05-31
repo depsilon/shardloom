@@ -251,6 +251,10 @@ fn udf_local_scalar_fixture_fields(
         ("output_digest".to_string(), report.output_digest.clone()),
         ("output_values".to_string(), report.output_values_summary()),
         (
+            "overflow_policy_enforced".to_string(),
+            report.overflow_policy_enforced.to_string(),
+        ),
+        (
             "overflow_blocked".to_string(),
             report.overflow_blocked.to_string(),
         ),

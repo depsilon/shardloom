@@ -3,7 +3,6 @@ polars
 duckdb
 datafusion
 dask[dataframe]
-pyspark
 pyarrow
 psutil
 fastavro

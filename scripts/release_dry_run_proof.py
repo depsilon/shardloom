@@ -168,6 +168,48 @@ def newest_wheel(dist_dir: Path) -> Path:
     return wheels[-1]
 
 
+def clean_python_dist(dist_dir: Path) -> None:
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    for pattern in ("shardloom-*.whl", "shardloom-*.tar.gz"):
+        for artifact in dist_dir.glob(pattern):
+            artifact.unlink()
+
+
+def build_python_artifacts(repo_root: Path, dist_dir: Path) -> dict[str, Any]:
+    clean_python_dist(dist_dir)
+    build_step = run_step(
+        name="build_python_artifacts",
+        command=[sys.executable, "-m", "build", "python"],
+        cwd=repo_root,
+    )
+    if build_step["returncode"] == 0:
+        build_step["build_backend"] = "python_build_frontend"
+        return build_step
+    if "No module named build" not in build_step.get("stderr", ""):
+        build_step["build_backend"] = "python_build_frontend"
+        return build_step
+
+    fallback_step = run_step(
+        name="build_python_artifacts",
+        command=[
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--no-build-isolation",
+            "--no-deps",
+            "--wheel-dir",
+            str(dist_dir),
+            str(repo_root / "python"),
+        ],
+        cwd=repo_root,
+    )
+    fallback_step["build_backend"] = "pip_wheel_no_build_isolation"
+    fallback_step["fallback_reason"] = "python_build_frontend_missing"
+    fallback_step["frontend_stderr"] = build_step.get("stderr", "")
+    return fallback_step
+
+
 def generated_user_rows_smoke_script(output_path: Path) -> str:
     output_arg = json.dumps(str(output_path))
     return (
@@ -239,13 +281,7 @@ def main() -> int:
             cwd=repo_root,
         )
     )
-    steps.append(
-        run_step(
-            name="build_python_artifacts",
-            command=[sys.executable, "-m", "build", "python"],
-            cwd=repo_root,
-        )
-    )
+    steps.append(build_python_artifacts(repo_root, dist_dir))
     steps.append(
         run_step(
             name="create_clean_venv",
@@ -430,6 +466,8 @@ def main() -> int:
                     "examples/local-vortex-benchmark/run.py",
                     "--repo-root",
                     str(repo_root),
+                    "--run-root",
+                    "target/release-dry-run-proof/local-vortex-benchmark",
                     "--rows",
                     str(args.rows),
                     "--iterations",
@@ -496,6 +534,36 @@ def write_transcript(
             return "not_run"
         return "passed" if step_passed(name) else "failed"
 
+    def step_stdout_contains(name: str, marker: str) -> bool:
+        return marker in steps_by_name.get(name, {}).get("stdout", "")
+
+    local_python_user_surface_quickstart_performed = step_passed(
+        "example_local_python_smoke"
+    ) and step_stdout_contains(
+        "example_local_python_smoke",
+        "quickstart_user_surface_status=passed",
+    )
+    local_python_result_and_evidence_printed = all(
+        step_stdout_contains("example_local_python_smoke", marker)
+        for marker in [
+            "quickstart_result_row_id=",
+            "quickstart_output_row_count=",
+            "quickstart_evidence_fallback_attempted=false",
+            "quickstart_claim_gate_status=",
+            "quickstart_generated_source_row_count=",
+            "quickstart_generated_claim_gate_status=",
+        ]
+    )
+    local_python_unsupported_path_evidence_printed = all(
+        step_stdout_contains("example_local_python_smoke", marker)
+        for marker in [
+            "quickstart_unsupported_blocker_id=",
+            "quickstart_unsupported_runtime_execution=false",
+            "quickstart_unsupported_fallback_attempted=false",
+            "quickstart_unsupported_external_engine_invoked=false",
+        ]
+    )
+
     transcript = {
         "schema_version": "shardloom.release_dry_run_proof.v1",
         "proof_status": "passed" if passed else "failed",
@@ -522,6 +590,9 @@ def write_transcript(
         "cli_status_smoke_performed": step_passed("cli_status_json"),
         "cli_capabilities_smoke_performed": step_passed("cli_capabilities_json"),
         "local_python_example_smoke_performed": step_passed("example_local_python_smoke"),
+        "local_python_user_surface_quickstart_performed": local_python_user_surface_quickstart_performed,
+        "local_python_result_and_evidence_printed": local_python_result_and_evidence_printed,
+        "local_python_unsupported_path_evidence_printed": local_python_unsupported_path_evidence_printed,
         "generated_output_proof_distinct_from_no_dataset_smoke": True,
         "generated_source_user_rows_smoke_performed": step_passed(
             "generated_source_user_rows_local_output_smoke"
@@ -539,6 +610,7 @@ def write_transcript(
         ),
         "steps": steps,
     }
+    output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(transcript, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(output)
     return 0 if passed else 1

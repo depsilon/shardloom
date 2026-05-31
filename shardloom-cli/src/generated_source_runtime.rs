@@ -231,6 +231,16 @@ struct GeneratedOutputReplayEvidence {
     fidelity_loss: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct GeneratedPrimarySinkArtifact<'a> {
+    output_format: GeneratedOutputFormat,
+    output_path: &'a Path,
+    output_bytes: u64,
+    output_digest: &'a str,
+    workspace_write_report: &'a WorkspaceSafeLocalWriteReport,
+    replay: &'a GeneratedOutputReplayEvidence,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GeneratedValueType {
     Int64,
@@ -1270,6 +1280,17 @@ impl GeneratedUserRowsSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(generated_output_sink_artifact_fields(
+            GeneratedPrimarySinkArtifact {
+                output_format: self.output_format,
+                output_path: &self.output_path,
+                output_bytes: self.output_bytes,
+                output_digest: &self.output_digest,
+                workspace_write_report: &self.workspace_write_report,
+                replay: &self.primary_replay,
+            },
+            &self.fanout_outputs,
+        ));
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         fields.extend(generated_output_fanout_fields(
@@ -1486,6 +1507,17 @@ impl GeneratedRangeSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(generated_output_sink_artifact_fields(
+            GeneratedPrimarySinkArtifact {
+                output_format: self.output_format,
+                output_path: &self.output_path,
+                output_bytes: self.output_bytes,
+                output_digest: &self.output_digest,
+                workspace_write_report: &self.workspace_write_report,
+                replay: &self.primary_replay,
+            },
+            &self.fanout_outputs,
+        ));
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         fields.extend(generated_output_fanout_fields(
@@ -1692,6 +1724,17 @@ impl GeneratedSqlSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(generated_output_sink_artifact_fields(
+            GeneratedPrimarySinkArtifact {
+                output_format: self.output_format,
+                output_path: &self.output_path,
+                output_bytes: self.output_bytes,
+                output_digest: &self.output_digest,
+                workspace_write_report: &self.workspace_write_report,
+                replay: &self.primary_replay,
+            },
+            &self.fanout_outputs,
+        ));
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         fields.extend(generated_output_fanout_fields(
@@ -2411,6 +2454,258 @@ fn vortex_output_success_fields(
             report.upstream_vortex_scan_called.to_string(),
         ),
     ]
+}
+
+fn generated_output_sink_artifact_fields(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "sink_artifact_count".to_string(),
+            (fanout_outputs.len() + 1).to_string(),
+        ),
+        (
+            "sink_artifact_ref".to_string(),
+            generated_sink_artifact_ref(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_refs".to_string(),
+            generated_sink_artifact_refs(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_digest".to_string(),
+            generated_sink_artifact_digest(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_digests".to_string(),
+            generated_sink_artifact_digests(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_formats".to_string(),
+            generated_sink_artifact_formats(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_bytes".to_string(),
+            generated_sink_artifact_bytes(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_replay_statuses".to_string(),
+            generated_sink_artifact_replay_statuses(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_native_io_certificate_statuses".to_string(),
+            generated_sink_artifact_certificate_statuses(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_workspace_path_safety_statuses".to_string(),
+            generated_sink_artifact_workspace_safety_statuses(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_commit_modes".to_string(),
+            generated_sink_artifact_commit_modes(primary, fanout_outputs),
+        ),
+        (
+            "sink_artifact_manifest_status".to_string(),
+            generated_sink_artifact_manifest_status(primary, fanout_outputs),
+        ),
+    ]
+}
+
+fn generated_sink_artifact_ref(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    if fanout_outputs.is_empty() {
+        primary.output_path.display().to_string()
+    } else {
+        generated_sink_artifact_refs(primary, fanout_outputs)
+    }
+}
+
+fn generated_sink_artifact_refs(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.output_path.display()
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output.target.output_path.display()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_digest(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    if fanout_outputs.is_empty() {
+        primary.output_digest.to_string()
+    } else {
+        generated_sink_artifact_digests(primary, fanout_outputs)
+    }
+}
+
+fn generated_sink_artifact_digests(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.output_digest
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output.write_report.output_digest.as_str()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_formats(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(primary.output_format.sink_label().to_string()).chain(
+            fanout_outputs
+                .iter()
+                .map(|output| output.target.output_format.sink_label().to_string()),
+        ),
+    )
+}
+
+fn generated_sink_artifact_bytes(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.output_bytes
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output.write_report.output_bytes
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_replay_statuses(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.replay.status.as_str()
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output.replay.status.as_str()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_certificate_statuses(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.output_format.certificate_status()
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output.target.output_format.certificate_status()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_workspace_safety_statuses(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.workspace_write_report.path_safety_report.accepted()
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output
+                    .write_report
+                    .workspace_write_report
+                    .path_safety_report
+                    .accepted()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_commit_modes(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    generated_fanout_csv_or_not_applicable(
+        std::iter::once(format!(
+            "{}:{}",
+            primary.output_format.sink_label(),
+            primary.workspace_write_report.commit_mode.as_str()
+        ))
+        .chain(fanout_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.target.output_format.sink_label(),
+                output
+                    .write_report
+                    .workspace_write_report
+                    .commit_mode
+                    .as_str()
+            )
+        })),
+    )
+}
+
+fn generated_sink_artifact_manifest_status(
+    primary: GeneratedPrimarySinkArtifact<'_>,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> String {
+    let all_replayed =
+        primary.replay.verified && fanout_outputs.iter().all(|output| output.replay.verified);
+    if all_replayed {
+        "verified_local_sink_artifacts".to_string()
+    } else {
+        "blocked_unverified_local_sink_artifact".to_string()
+    }
 }
 
 fn generated_output_fanout_fields(

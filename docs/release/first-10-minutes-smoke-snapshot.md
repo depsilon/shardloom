@@ -14,6 +14,9 @@ secrets_required: false
 external_runtime_dependencies_added: false
 fallback_engine_dependency_added: false
 public_package_release_claim_allowed: false
+local_python_user_surface_quickstart_performed: true
+local_python_result_and_evidence_printed: true
+local_python_unsupported_path_evidence_printed: true
 generated_output_proof_distinct_from_no_dataset_smoke: true
 generated_source_user_rows_smoke_performed: true
 generated_source_range_smoke_performed: true

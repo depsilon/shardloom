@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Sequence
 
+from ._compat import dataclass
 from .models import (
     OUTPUT_ENVELOPE_SCHEMA_VERSION,
     Diagnostic,

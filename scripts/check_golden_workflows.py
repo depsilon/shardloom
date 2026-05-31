@@ -579,14 +579,40 @@ def workflow_local_csv_to_prepared_and_fanout(
                     "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
                 ),
                 "vortex_capillary_preparation_status": (
-                    "applied_capillary_pulseweave_control"
+                    "not_requested_below_threshold"
                 ),
-                "vortex_capillary_preparation_task_count": "6",
+                "vortex_capillary_preparation_activation_policy": (
+                    "dynamic_size_complexity_gate.v1"
+                ),
+                "vortex_capillary_preparation_activation_result": "skipped",
+                "vortex_capillary_preparation_activation_reason": (
+                    "below_threshold_small_local_fixture"
+                ),
+                "vortex_capillary_preparation_activation_observed_rows": "3",
+                "vortex_capillary_preparation_activation_observed_columns": "3",
+                "vortex_capillary_preparation_activation_observed_split_count": "1",
+                "vortex_capillary_preparation_activation_format_family": "csv",
+                "vortex_capillary_preparation_activation_operation_class": (
+                    "vortex_ingest_prepare_once"
+                ),
+                "vortex_capillary_preparation_activation_certification_depth": (
+                    "ingest_certified"
+                ),
+                "vortex_capillary_preparation_task_count": "0",
+                "vortex_capillary_preparation_task_manifest_id": "none",
+                "vortex_capillary_preparation_task_roles": "none",
+                "vortex_capillary_preparation_read_chunk_byte_range_refs": "none",
+                "vortex_capillary_preparation_vortex_segment_refs": "none",
                 "vortex_capillary_preparation_native_io_certificate_status": "certified",
-                "vortex_capillary_preparation_pulseweave_status": "applied",
-                "vortex_capillary_preparation_pulseweave_runtime_decision_applied": "true",
+                "vortex_capillary_preparation_execution_certificate_status": "not_requested",
+                "vortex_capillary_preparation_pulseweave_status": "not_requested",
+                "vortex_capillary_preparation_pulseweave_runtime_decision_applied": "false",
+                "vortex_capillary_preparation_pulseweave_decision_digest": "none",
+                "vortex_capillary_preparation_pulseweave_blocker": (
+                    "below_threshold_small_local_fixture"
+                ),
                 "vortex_capillary_preparation_no_standalone_lane_status": (
-                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                    "not_requested_below_threshold_no_standalone_lane"
                 ),
                 "vortex_copy_budget_status": (
                     "reported_copy_budget_with_unmeasured_segments"
@@ -609,7 +635,6 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_scout_ingress_metadata_range_refs": "local-csv-",
                 "vortex_layout_write_advisor_source_state_id": "local-csv-",
                 "vortex_preparation_spine_source_split_refs": "local-csv-",
-                "vortex_capillary_preparation_pulseweave_decision_digest": "fnv1a64:",
                 "vortex_copy_budget_source_state_id": "local-csv-",
                 "vortex_copy_budget_prepared_state_id": "vortex-prepared-state-",
             },

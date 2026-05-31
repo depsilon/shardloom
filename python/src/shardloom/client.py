@@ -7,10 +7,10 @@ import os
 import platform
 import shutil
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Union
 
+from ._compat import dataclass
 from ._version import __version__
 from .errors import (
     ShardLoomBinaryNotFoundError,
@@ -19,9 +19,9 @@ from .errors import (
 )
 from .models import ClaimSummary, EvidenceSummary, OutputEnvelope
 
-CommandPart = str | os.PathLike[str]
-Binary = CommandPart | Sequence[CommandPart]
-FanoutOutputs = Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]]
+CommandPart = Union[str, os.PathLike[str]]
+Binary = Union[CommandPart, Sequence[CommandPart]]
+FanoutOutputs = Union[Mapping[str, CommandPart], Sequence[tuple[str, CommandPart]]]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset(
     {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
@@ -956,6 +956,29 @@ class VortexIngestSmokeReport:
         return self.envelope.field("vortex_capillary_preparation_status")
 
     @property
+    def vortex_capillary_preparation_activation_result(self) -> str | None:
+        """Return whether capillary task planning was activated or skipped."""
+
+        return self.envelope.field("vortex_capillary_preparation_activation_result")
+
+    @property
+    def vortex_capillary_preparation_activation_reason(self) -> str | None:
+        """Return the deterministic capillary activation or skip reason."""
+
+        return self.envelope.field("vortex_capillary_preparation_activation_reason")
+
+    @property
+    def vortex_capillary_preparation_activation_observed_split_count(self) -> int:
+        """Return the split count observed by the capillary activation gate."""
+
+        return (
+            self.envelope.field_int(
+                "vortex_capillary_preparation_activation_observed_split_count", 0
+            )
+            or 0
+        )
+
+    @property
     def vortex_capillary_preparation_task_count(self) -> int:
         """Return the number of cold-preparation capillary tasks."""
 
@@ -1271,6 +1294,48 @@ class GeneratedSourceWriteReport:
         """Return `format:loss` entries for generated output fidelity limits."""
 
         return _csv_values(self.envelope.field("output_fidelity_loss"))
+
+    @property
+    def sink_artifact_count(self) -> int:
+        """Return the number of generated local sink artifacts."""
+
+        return self.envelope.field_int("sink_artifact_count", 0) or 0
+
+    @property
+    def sink_artifact_ref(self) -> str | None:
+        """Return the primary or labeled generated local sink artifact ref."""
+
+        value = self.envelope.field("sink_artifact_ref")
+        if value in {None, "", "not_requested", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def sink_artifact_refs(self) -> tuple[str, ...]:
+        """Return `format:path` refs for generated local sink artifacts."""
+
+        return _csv_values(self.envelope.field("sink_artifact_refs"))
+
+    @property
+    def sink_artifact_digest(self) -> str | None:
+        """Return the primary or labeled generated local sink artifact digest."""
+
+        value = self.envelope.field("sink_artifact_digest")
+        if value in {None, "", "not_requested", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def sink_artifact_digests(self) -> tuple[str, ...]:
+        """Return `format:digest` entries for generated local sink artifacts."""
+
+        return _csv_values(self.envelope.field("sink_artifact_digests"))
+
+    @property
+    def sink_artifact_manifest_status(self) -> str | None:
+        """Return replay-backed manifest status for generated local sink artifacts."""
+
+        return self.envelope.field("sink_artifact_manifest_status")
 
     @property
     def output_fanout_performed(self) -> bool:
@@ -3224,6 +3289,48 @@ class SqlLocalSourceSmokeReport:
         """Return `format:loss` entries for local output fidelity limits."""
 
         return _csv_values(self.envelope.field("output_fidelity_loss"))
+
+    @property
+    def sink_artifact_count(self) -> int:
+        """Return the number of local SQL sink artifacts."""
+
+        return self.envelope.field_int("sink_artifact_count", 0) or 0
+
+    @property
+    def sink_artifact_ref(self) -> str | None:
+        """Return the primary or labeled local SQL sink artifact ref."""
+
+        value = self.envelope.field("sink_artifact_ref")
+        if value in {None, "", "not_requested", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def sink_artifact_refs(self) -> tuple[str, ...]:
+        """Return `format:path` refs for local SQL sink artifacts."""
+
+        return _csv_values(self.envelope.field("sink_artifact_refs"))
+
+    @property
+    def sink_artifact_digest(self) -> str | None:
+        """Return the primary or labeled local SQL sink artifact digest."""
+
+        value = self.envelope.field("sink_artifact_digest")
+        if value in {None, "", "not_requested", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def sink_artifact_digests(self) -> tuple[str, ...]:
+        """Return `format:digest` entries for local SQL sink artifacts."""
+
+        return _csv_values(self.envelope.field("sink_artifact_digests"))
+
+    @property
+    def sink_artifact_manifest_status(self) -> str | None:
+        """Return replay-backed manifest status for local SQL sink artifacts."""
+
+        return self.envelope.field("sink_artifact_manifest_status")
 
     @property
     def vortex_output_runtime_execution(self) -> bool:

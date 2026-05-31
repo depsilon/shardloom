@@ -13,9 +13,8 @@ external comparison engines:
 - DuckDB
 - DataFusion Python
 - Dask
-- PySpark baseline module
-- Spark default local profile
-- Spark tuned local profile
+- explicit-only Spark/PySpark lanes: PySpark baseline module, Spark default local profile, and
+  Spark tuned local profile
 - optional extended local lanes: pyarrow dataset, pyarrow Acero, clickhouse-local, Daft, Ray Data,
   Ibis adapters, and cuDF GPU
 
@@ -336,7 +335,7 @@ prepare from scoped append-only differential overlay evidence without rerunning 
 or claiming broad CDC/table transaction support.
 `GAR-IOREUSE-1K` adds the VortexCapillaryPreparation contract to the benchmark harness. Future
 refreshed rows carry
-`vortex_capillary_preparation_schema_version=shardloom.traditional_analytics.vortex_capillary_preparation.v1`,
+`vortex_capillary_preparation_schema_version=shardloom.vortex_capillary_preparation.v1`,
 task manifest IDs/digests, source split refs, read byte ranges, row ranges, Vortex segment refs,
 writer sink refs, memory/sink pressure posture, execution and Native I/O certificate status,
 prefixed PulseWeave/FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, no-standalone-lane
@@ -747,8 +746,10 @@ profile, expected lanes, available lanes, missing lanes, lane versions/reasons, 
 fingerprint, artifact paths, and `performance_claim_allowed=false`. Website rendering consumes this
 committed artifact; it must not rediscover competitor availability from the environment that builds
 or deploys the static site. `scripts/check_benchmark_environment.py` defaults to the current
-`full_local_plus_spark` publishing profile, including required `pyspark`, `spark-default`, and
-`spark-local-tuned` baselines; pass `--profile smoke` only for quick ShardLoom-lane bring-up.
+`full_local` publishing profile: ShardLoom lanes plus pandas, Polars eager/lazy, DuckDB,
+DataFusion, and Dask across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC. Spark/PySpark lanes are
+explicit-only historical baselines, not required for the current public refresh; pass
+`--profile smoke` only for quick ShardLoom-lane bring-up.
 Use `scripts/check_benchmark_artifact_completeness.py` before publishing an artifact. The runbook
 is `docs/benchmarks/static-benchmark-publishing-runbook.md`.
 
@@ -966,19 +967,22 @@ workspace.
 
 ```powershell
 python -m venv benchmarks\traditional_analytics\.venv
-benchmarks\traditional_analytics\.venv\Scripts\python -m pip install -r benchmarks\traditional_analytics\requirements.txt
+benchmarks\traditional_analytics\.venv\Scripts\python -m pip install -r benchmarks\traditional_analytics\requirements-full-local.txt
 ```
 
 Avro fixture generation uses `fastavro` from the benchmark virtual environment
 only. Rust runtime Avro coverage is feature-gated in `shardloom-vortex` through
 Apache Arrow's `arrow-avro` crate.
 
-Spark/PySpark also requires a local JDK. Install JDK 17 or newer, set
-`JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark rows to run.
-Without Java, the harness records Spark profiles as missing dependencies while
-still running the other engines. Missing Spark/PySpark dependencies fail the
-`full_local_plus_spark` profile because `pyspark`, `spark-default`, and
-`spark-local-tuned` are required baselines there, not optional lanes.
+Spark/PySpark is explicit-only for local experiments and historical
+`full_local_plus_spark` artifacts. It requires a local JDK. Install JDK 17 or
+newer, set `JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark
+rows to run, then install
+`benchmarks/traditional_analytics/requirements-spark.txt` inside the benchmark
+virtual environment. Without Java or PySpark, the harness records Spark profiles
+as missing dependencies while still running the other engines. Missing
+Spark/PySpark dependencies do not fail the current `full_local` publishing
+profile because Spark lanes are not required there.
 
 Spark rows are split into `pyspark`, `spark-default`, and `spark-local-tuned`.
 The `pyspark` lane is the baseline PySpark module lane using local defaults,
@@ -999,11 +1003,24 @@ JDK there.
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --formats csv,parquet --require-all-engines
 ```
 
-Run the current full local plus PySpark profile before promoting website artifacts:
+Running without `--engines` selects the full main engine roster, including
+local external baselines. The harness prints a safety notice for that path. For
+a laptop-focused ShardLoom-only smoke, prefer the wrapper:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python scripts\check_benchmark_environment.py --profile full_local_plus_spark
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --shardloom-result-sink --require-all-engines
+python examples\local-vortex-benchmark\run.py --repo-root .
+```
+
+Direct `--regenerate` runs now derive an isolated generated-data directory from
+the output artifact when `--data-dir` is omitted, and hold an adjacent
+regeneration lock while deleting/rebuilding data. Supplying both `--output` and
+`--data-dir` remains recommended for reusable runbook commands.
+
+Run the current full-local profile before promoting website artifacts:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python scripts\check_benchmark_environment.py --profile full_local
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines
 ```
 
 `--require-all-engines` is strict for automation: it still writes JSON and
@@ -1011,10 +1028,10 @@ Markdown artifacts, but exits nonzero if an engine dependency is missing. Use th
 default mode while bringing up local dependencies so partial results remain easy
 to inspect.
 
-For a fast smoke run:
+For a fast ShardLoom-only smoke run:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "selective filter" --dataset-profile tiny_smoke --rows 256 --iterations 1 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --data-dir target\shardloom-fast-smoke-data --output target\shardloom-fast-smoke.json --regenerate
 ```
 
 Run the taxonomy-expanded local analytics suite:

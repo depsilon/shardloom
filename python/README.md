@@ -147,6 +147,9 @@ result = (
 )
 
 print(result.output_row_count)
+print(result.first_result_row)
+print(result.evidence_summary.output_path)
+print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
@@ -155,6 +158,16 @@ The same query shape can read other admitted local formats through `read_json(..
 `write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated structured sinks. Format-specific
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
+
+Unsupported materialization conveniences expose blockers and no-fallback evidence rather than
+silently invoking another Python or query engine:
+
+```python
+blocked = ctx.read("target/orders.csv").select("id").to_pandas()
+print(blocked.blocker_id)
+print(blocked.required_evidence)
+print(blocked.fallback_attempted, blocked.external_engine_invoked)
+```
 
 For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl.session(...)` expose
 the same local read/SQL shapes as session-bound workflows:

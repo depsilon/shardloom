@@ -44,6 +44,7 @@ python benchmarks\traditional_analytics\run.py `
   --shardloom-result-sink `
   --skip-shardloom-native `
   --no-markdown `
+  --data-dir target\shardloom-local-workload-smoke-data `
   --output target\shardloom-local-workload-smoke.json `
   --regenerate
 ```

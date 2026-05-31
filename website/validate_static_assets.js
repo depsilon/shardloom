@@ -206,9 +206,9 @@ for (const required of [
   "Certified cold ingest/stage route",
   "Prepared warm query route",
   "Artifact lane availability",
-  "full_local_plus_spark",
-  "pyspark",
-  "spark-default",
+  "full_local",
+  "local non-Spark baselines",
+  "Spark lanes are explicit-only historical baselines",
   "Format coverage",
   "Claim-gate distribution",
   "Claim-grade closeout",
@@ -220,6 +220,10 @@ for (const required of [
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);
 }
+assert(
+  !benchmarks.includes("full_local_plus_spark"),
+  "benchmarks page must not show full_local_plus_spark as the current published profile",
+);
 
 const flow = read("compute-engine-flow.html");
 for (const required of [

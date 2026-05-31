@@ -182,10 +182,11 @@ execution certificates, Native I/O certificates, Vortex-native claim gates, or n
 and they must never run unsupported ShardLoom work as fallback.
 
 `shardloom-prepare-batch` is now a required ShardLoom lane for `full_local`,
-`full_local_plus_spark`, and `extended_local` published profiles. The `full_local_plus_spark`
-profile also requires the baseline PySpark module lane `pyspark` plus the split Spark-profile
-baselines `spark-default` and `spark-local-tuned`; missing PySpark/JDK setup fails that profile
-instead of being treated as an optional lane. The completeness validator checks that the promoted
+`full_local_plus_spark`, and `extended_local` published profiles. The current publication target is
+`full_local`, which does not require Spark/PySpark. The historical/explicit
+`full_local_plus_spark` profile still requires the baseline PySpark module lane `pyspark` plus the
+split Spark-profile baselines `spark-default` and `spark-local-tuned`; missing PySpark/JDK setup
+fails that explicit profile instead of being treated as an optional lane. The completeness validator checks that the promoted
 artifact covers every profile-required format, scenario, and baseline lane and that the
 single-process prepare/batch route appears as row evidence instead of being omitted from the public
 benchmark bundle.
@@ -844,10 +845,11 @@ Vortex layout/write advisor fields derived from workload, benchmark, runtime, an
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
 claims.
 
-The current benchmark suite profile for publication is `full_local_plus_spark`: ShardLoom
+The current benchmark suite profile for publication is `full_local`: ShardLoom
 cold/import, ShardLoom native Vortex, ShardLoom prepared Vortex, `shardloom-prepare-batch`, pandas,
-Polars eager/lazy, DuckDB, DataFusion, Dask, `pyspark`, `spark-default`, and
-`spark-local-tuned` are required lanes for selected CSV/Parquet local scenarios. The suite catalog
+Polars eager/lazy, DuckDB, DataFusion, and Dask are required lanes for CSV, JSONL, Parquet,
+Arrow IPC, Avro, and ORC local taxonomy scenarios. Spark/PySpark lanes are explicit-only
+historical baselines, not required current publication evidence. The suite catalog
 also includes a first-class `runtime_control` suite and `pulseweave_runtime_control` scenario
 category so PulseWeave evidence is not hidden inside an optional lane. Promoted website artifacts
 must include row evidence for every required baseline lane before they can remain marked complete;
@@ -872,8 +874,8 @@ that evidence must remain `fixture_smoke_only`, `not_claim_grade`, `unsupported`
 Suggested first full local preflight:
 
 ```powershell
-python scripts\check_benchmark_environment.py --profile full_local_plus_spark
-python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3 --shardloom-result-sink --require-all-engines
+python scripts\check_benchmark_environment.py --profile full_local
+python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --rows 100000 --iterations 3 --require-all-engines
 ```
 
 Then run profile-specific checks:

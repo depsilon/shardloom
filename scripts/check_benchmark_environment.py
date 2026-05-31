@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Check benchmark lane availability for a declared ShardLoom profile.
 
-The default profile is the current published comparative profile. Use
+The default profile is the current full-local comparative profile. Use
 ``--profile smoke`` only for quick ShardLoom-lane bring-up checks.
 """
 
@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         choices=tuple(PROFILES),
-        default="full_local_plus_spark",
+        default="full_local",
     )
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument(

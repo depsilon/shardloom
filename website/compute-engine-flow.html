@@ -1973,11 +1973,12 @@ repeated `--fanout-output format=local-path` arguments, plus Python `.fanout(...
 computed local result to multiple admitted local sinks. These rows report OutputPlan digests,
 per-output bytes, digests, certificate refs/statuses, `output_fanout_performed`,
 `fanout_result_reuse_hit`, replay status/timing, scoped fidelity/loss reporting, workspace
-path-safety, commit mode, Vortex artifact/reopen fields when feature-gated and admitted, and
-no-fallback/no-external-engine evidence. Python `ShardLoomSession` can reuse admitted local
-query-builder and session-bound SQL workflow collect/write/fanout reports only when statement,
-source fingerprints, and output artifact fingerprints still match; changed output artifacts
-invalidate reuse.
+path-safety, commit mode, first-class `sink_artifact_*` refs/digests/counts/replay/commit
+evidence across primary and fanout sinks, Vortex artifact/reopen fields when feature-gated and
+admitted, and no-fallback/no-external-engine evidence. Python `ShardLoomSession` can reuse
+admitted local query-builder and session-bound SQL workflow collect/write/fanout reports only when
+statement, source fingerprints, and output artifact fingerprints still match; changed output
+artifacts invalidate reuse.
 
 The current `GAR-IOREUSE-1D` slice implements the first fanout benchmark matrix in the traditional
 analytics benchmark JSON/Markdown report. It lists required `io_reuse_and_fanout` cases for CSV,

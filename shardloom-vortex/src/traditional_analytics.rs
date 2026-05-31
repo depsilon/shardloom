@@ -6,6 +6,10 @@ use shardloom_core::{
 };
 use shardloom_exec::PulseWeaveReport;
 
+use crate::vortex_ingest::{
+    VortexCapillaryPreparationInput, evaluate_vortex_capillary_preparation,
+};
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::encoded_predicate_evaluation::{
     VortexEncodedPredicateEvaluationStatus, evaluate_vortex_encoded_value_predicate_batch,
@@ -76,6 +80,7 @@ const SCALE_SUPPORTED_CLASSES: &str = "local_smoke,local_claim_grade,larger_than
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
+const TRADITIONAL_FACT_COLUMN_COUNT: usize = 13;
 const TRADITIONAL_DIM_SCHEMA_SUMMARY: &str = "dim(dim_key:u32,dim_label:utf8,weight:f64)";
 const TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY: &str =
     "cdc_delta(id:u64,op:utf8,value:utf8,metric:utf8,effective_ts:utf8)";
@@ -2573,6 +2578,43 @@ fn merge_static_evidence_field(
     }
 }
 
+fn traditional_capillary_source_refs(
+    source_state_id: &str,
+    source_path: &std::path::Path,
+    source_bytes: u64,
+    row_count: u64,
+    split_count: usize,
+) -> (String, String, String) {
+    let split_count = split_count.max(1);
+    let split_count_u64 = u64::try_from(split_count).unwrap_or(u64::MAX).max(1);
+    let mut split_refs = Vec::with_capacity(split_count);
+    let mut byte_refs = Vec::with_capacity(split_count);
+    let mut row_refs = Vec::with_capacity(split_count);
+    for split_index in 0..split_count {
+        let split_index_u64 = u64::try_from(split_index).unwrap_or(u64::MAX);
+        let next_split_u64 = split_index_u64.saturating_add(1);
+        let byte_start = source_bytes.saturating_mul(split_index_u64) / split_count_u64;
+        let byte_end = source_bytes.saturating_mul(next_split_u64) / split_count_u64;
+        let row_start = row_count.saturating_mul(split_index_u64) / split_count_u64;
+        let row_end = row_count.saturating_mul(next_split_u64) / split_count_u64;
+        split_refs.push(format!(
+            "{source_state_id}:split={split_index}:source={}:bytes={byte_start}..{byte_end}:rows={row_start}..{row_end}",
+            source_path.display()
+        ));
+        byte_refs.push(format!(
+            "{source_state_id}:split={split_index}:bytes={byte_start}..{byte_end}"
+        ));
+        row_refs.push(format!(
+            "{source_state_id}:split={split_index}:rows={row_start}..{row_end}"
+        ));
+    }
+    (
+        split_refs.join(";"),
+        byte_refs.join(";"),
+        row_refs.join(";"),
+    )
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct TraditionalSourceReadEvidence {
@@ -3310,6 +3352,136 @@ impl TraditionalAnalyticsReport {
             self.computed_result_sink_replay_verified,
             self.workload_scorecard_status
         )
+    }
+
+    fn capillary_preparation_fields(
+        &self,
+        source_state_id: &str,
+        source_state_digest: &str,
+        prepared_state_id: &str,
+        prepared_state_digest: &str,
+    ) -> Vec<(String, String)> {
+        let input = self.capillary_preparation_input(
+            source_state_id,
+            source_state_digest,
+            prepared_state_id,
+            prepared_state_digest,
+        );
+        evaluate_vortex_capillary_preparation(input)
+            .map_or_else(Self::invalid_engine_capillary_fields, |report| {
+                report.evidence_fields()
+            })
+    }
+
+    fn capillary_preparation_input(
+        &self,
+        source_state_id: &str,
+        source_state_digest: &str,
+        prepared_state_id: &str,
+        prepared_state_digest: &str,
+    ) -> VortexCapillaryPreparationInput {
+        let (source_split_refs, source_byte_range_refs, source_row_range_refs) =
+            traditional_capillary_source_refs(
+                source_state_id,
+                &self.fact_source_path,
+                self.fact_source_bytes,
+                self.fact_rows,
+                self.runtime_split_count,
+            );
+        VortexCapillaryPreparationInput {
+            source_state_id: source_state_id.to_string(),
+            source_state_digest: source_state_digest.to_string(),
+            prepared_state_id: prepared_state_id.to_string(),
+            prepared_state_digest: prepared_state_digest.to_string(),
+            source_surface: self.input_format.adapter_id().to_string(),
+            sink_surface: "workspace_safe_local_vortex_file_sink".to_string(),
+            format_family: self.input_format.as_str().to_string(),
+            operation_class: format!(
+                "traditional_analytics_{}",
+                traditional_scenario_slug(self.scenario)
+            ),
+            certification_depth: self.certification_level.clone(),
+            row_count: self.fact_rows,
+            source_byte_count: self.fact_source_bytes,
+            column_count: TRADITIONAL_FACT_COLUMN_COUNT,
+            source_split_refs,
+            source_byte_range_refs,
+            source_row_range_refs,
+            projection_mask: self.streaming_projected_columns.join(","),
+            filter_mask_status: if self.streaming_filter_pushdown_applied {
+                "streaming_filter_pushdown_applied"
+            } else {
+                "no_streaming_filter_pushdown"
+            }
+            .to_string(),
+            prepared_artifact_ref: format!(
+                "{},{}",
+                self.fact_vortex_path.display(),
+                self.dim_vortex_path.display()
+            ),
+            prepared_artifact_digest: prepared_state_digest.to_string(),
+            prepared_artifact_segment_refs: format!(
+                "{prepared_state_id}:fact_bytes={}:dim_bytes={}:cdc_delta_bytes={}",
+                self.fact_vortex_bytes, self.dim_vortex_bytes, self.cdc_delta_vortex_bytes
+            ),
+            writer_sink_refs: format!(
+                "{},{}",
+                self.fact_vortex_path.display(),
+                self.dim_vortex_path.display()
+            ),
+            materialization_boundary_status: if self.materialization_boundary_report_emitted {
+                "materialization_boundary_reported"
+            } else {
+                "materialization_boundary_missing"
+            }
+            .to_string(),
+            decode_boundary_status: self.source_state_parse_normalization.clone(),
+            native_io_certificate_status: self.native_io_certificate.status().to_string(),
+            native_io_certificate_refs: self.native_io_certificate.certificate_id.clone(),
+            correctness_digest: self.combined_output_digest.clone(),
+            memory_budget_bytes: self.runtime_memory_budget_bytes,
+            max_parallelism: self.runtime_max_parallelism,
+            result_sink_requested: self.computed_result_sink_requested,
+            result_sink_replay_verified: self.computed_result_sink_replay_verified,
+            capillary_claim_evidence_requested: false,
+            fallback_attempted: self.runtime_execution_certificate.fallback_attempted,
+            external_engine_invoked: self
+                .runtime_execution_certificate
+                .external_query_engine_invoked,
+        }
+    }
+
+    fn invalid_engine_capillary_fields(error: impl std::fmt::Display) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_capillary_preparation_schema_version".to_string(),
+                crate::vortex_ingest::VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_status".to_string(),
+                "blocked_invalid_engine_capillary_input".to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_activation_policy".to_string(),
+                "dynamic_size_complexity_gate.v1".to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_activation_result".to_string(),
+                "blocked".to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_activation_reason".to_string(),
+                format!("{error}"),
+            ),
+            (
+                "vortex_capillary_preparation_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+        ]
     }
 
     #[must_use]
@@ -4293,6 +4465,20 @@ impl TraditionalAnalyticsReport {
             self.streaming_vortex_execution_used,
             self.data_materialized,
         ));
+        fields.extend(self.capillary_preparation_fields(
+            &format!(
+                "source-state://traditional-analytics/{}/{}",
+                self.input_format.as_str(),
+                source_state_digest
+            ),
+            &source_state_digest,
+            &format!(
+                "prepared-state://traditional-analytics/{}/{}",
+                self.input_format.as_str(),
+                prepared_state_digest
+            ),
+            &prepared_state_digest,
+        ));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
     }
@@ -5222,6 +5408,12 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "Scoped local compatibility prepare-once plus prepared/native batch evidence only; not a hidden fast mode, persistent cache, performance claim, production claim, SQL/DataFrame support, object-store/lakehouse support, Foundry support, package readiness, or Spark-displacement claim".to_string(),
             ),
         ]);
+        fields.extend(
+            prepare_fields
+                .iter()
+                .filter(|(key, _)| key.starts_with("vortex_capillary_preparation_"))
+                .map(|(key, value)| (format!("prepare_batch_{key}"), value.clone())),
+        );
         fields
     }
 
@@ -5238,11 +5430,12 @@ impl TraditionalAnalyticsPreparedBatchReport {
     }
 
     fn prepare_batch_lifecycle_scan_status(&self) -> &'static str {
-        if self.batch_report.reports.iter().all(|report| {
-            report.vortex_file_read
-                && report.upstream_vortex_scan_called
-                && report.streaming_vortex_execution_used
-        }) {
+        if self
+            .batch_report
+            .reports
+            .iter()
+            .all(|report| report.vortex_file_read && report.upstream_vortex_scan_called)
+        {
             "all_requested_scenarios_scanned_from_prepared_vortex"
         } else {
             "prepared_vortex_scan_evidence_incomplete"
@@ -6956,10 +7149,7 @@ fn prepared_native_vortex_lifecycle_fields(
     } else {
         "native_vortex_artifact_supplied"
     };
-    let scan_status = if report.vortex_file_read
-        && report.upstream_vortex_scan_called
-        && report.streaming_vortex_execution_used
-    {
+    let scan_status = if report.vortex_file_read && report.upstream_vortex_scan_called {
         "local_vortex_scan_completed"
     } else {
         "local_vortex_scan_incomplete"
@@ -12060,10 +12250,9 @@ const fn prepared_vortex_local_split_operator_family(
         | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
             "stateful_hash_aggregate"
         }
-        TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate => {
-            "stateful_hash_join"
-        }
-        TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => "stateful_hash_join",
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::JoinAggregate
+        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => "stateful_hash_join",
         TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => "stateful_multi_stage_etl",
         TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => {
             "stateful_ordered_topk"
@@ -14950,15 +15139,10 @@ fn fact_input_part_paths(
     let extension = match input_format {
         TraditionalAnalyticsInputFormat::Csv => "csv",
         TraditionalAnalyticsInputFormat::JsonLines => "jsonl",
-        TraditionalAnalyticsInputFormat::Parquet
-        | TraditionalAnalyticsInputFormat::ArrowIpc
-        | TraditionalAnalyticsInputFormat::Avro
-        | TraditionalAnalyticsInputFormat::Orc => {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "{label} directory '{}' is only supported for split CSV or JSONL inputs; fallback execution was not attempted",
-                path.display()
-            )));
-        }
+        TraditionalAnalyticsInputFormat::Parquet => "parquet",
+        TraditionalAnalyticsInputFormat::ArrowIpc => "arrow",
+        TraditionalAnalyticsInputFormat::Avro => "avro",
+        TraditionalAnalyticsInputFormat::Orc => "orc",
     };
     let entries = std::fs::read_dir(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -16218,7 +16402,7 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
     let header = lines.next().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("fact CSV '{}' is empty", path.display()))
     })?;
-    let header_cols = header.trim_end_matches('\r').split(',').collect::<Vec<_>>();
+    let header_cols = split_csv_record(header.trim_end_matches('\r'), path, 1)?;
     let required_header = [
         "id",
         "group_key",
@@ -16229,7 +16413,11 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
         "category",
     ];
     if header_cols.len() < required_header.len()
-        || header_cols[..required_header.len()] != required_header[..]
+        || !header_cols
+            .iter()
+            .take(required_header.len())
+            .map(String::as_str)
+            .eq(required_header.iter().copied())
     {
         return Err(ShardLoomError::InvalidOperation(format!(
             "fact CSV '{}' does not match the benchmark schema",
@@ -16259,7 +16447,7 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
         if line.trim().is_empty() {
             continue;
         }
-        let cols = line.trim_end_matches('\r').split(',').collect::<Vec<_>>();
+        let cols = split_csv_record(line.trim_end_matches('\r'), path, line_index + 2)?;
         if cols.len() < required_header.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "fact CSV '{}' line {} has {} columns, expected at least {}",
@@ -16270,13 +16458,13 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             )));
         }
         rows.push(TraditionalFactRow {
-            id: parse_csv_field(cols[0], path, line_index + 2, "id")?,
-            group_key: parse_csv_field(cols[1], path, line_index + 2, "group_key")?,
-            dim_key: parse_csv_field(cols[2], path, line_index + 2, "dim_key")?,
-            value: parse_csv_field(cols[3], path, line_index + 2, "value")?,
-            metric: parse_csv_field(cols[4], path, line_index + 2, "metric")?,
-            flag: parse_csv_field(cols[5], path, line_index + 2, "flag")?,
-            category: cols[6].to_string(),
+            id: parse_csv_field(&cols[0], path, line_index + 2, "id")?,
+            group_key: parse_csv_field(&cols[1], path, line_index + 2, "group_key")?,
+            dim_key: parse_csv_field(&cols[2], path, line_index + 2, "dim_key")?,
+            value: parse_csv_field(&cols[3], path, line_index + 2, "value")?,
+            metric: parse_csv_field(&cols[4], path, line_index + 2, "metric")?,
+            flag: parse_csv_field(&cols[5], path, line_index + 2, "flag")?,
+            category: cols[6].clone(),
             event_date: optional_csv_string(cols.as_slice(), event_date_index),
             nullable_metric_00: optional_csv_string(cols.as_slice(), nullable_metric_00_index),
             nested_payload: optional_csv_string(cols.as_slice(), nested_payload_index),
@@ -16499,6 +16687,37 @@ fn read_traditional_dim_jsonl(path: &std::path::Path) -> Result<Vec<TraditionalD
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn split_csv_record(line: &str, path: &std::path::Path, line_number: usize) -> Result<Vec<String>> {
+    let mut fields = Vec::new();
+    let mut field = String::new();
+    let mut chars = line.chars().peekable();
+    let mut in_quotes = false;
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' if in_quotes && chars.peek() == Some(&'"') => {
+                field.push('"');
+                let _ = chars.next();
+            }
+            '"' => {
+                in_quotes = !in_quotes;
+            }
+            ',' if !in_quotes => {
+                fields.push(std::mem::take(&mut field));
+            }
+            _ => field.push(ch),
+        }
+    }
+    if in_quotes {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "CSV '{}' line {line_number} has an unterminated quoted field",
+            path.display()
+        )));
+    }
+    fields.push(field);
+    Ok(fields)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_csv_field<T>(
     value: &str,
     path: &std::path::Path,
@@ -16518,7 +16737,7 @@ where
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn optional_csv_string(cols: &[&str], index: Option<usize>) -> Option<String> {
+fn optional_csv_string(cols: &[String], index: Option<usize>) -> Option<String> {
     index.and_then(|field_index| {
         cols.get(field_index)
             .map(std::string::ToString::to_string)
@@ -21665,6 +21884,88 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn compatibility_import_report_emits_engine_capillary_activation_evidence() {
+        let root = traditional_analytics_test_root("compat-capillary-evidence");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+
+        let report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true)
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+        let fields = field_map(report.fields());
+
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_schema_version",
+            crate::vortex_ingest::VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_policy",
+            "dynamic_size_complexity_gate.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_result",
+            "activated",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_reason",
+            "result_sink_replay_requested",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_result_sink_replay_requested",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_observed_rows",
+            "3",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_activation_observed_split_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_capillary_preparation_external_engine_invoked",
+            "false",
+        );
+        for field in [
+            "vortex_capillary_preparation_activation_observed_bytes",
+            "vortex_capillary_preparation_activation_observed_columns",
+            "vortex_capillary_preparation_activation_estimated_peak_memory_bytes",
+        ] {
+            assert!(
+                fields
+                    .get(field)
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .is_some_and(|value| value > 0),
+                "{field} must be positive integer runtime evidence"
+            );
+        }
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn fact_directory_reader_skips_empty_jsonl_parts() {
         let root = traditional_analytics_test_root("split-jsonl-empty");
         let parts_dir = root.join("fact_parts");
@@ -21685,6 +21986,36 @@ mod tests {
 
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, 1);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn fact_directory_reader_admits_all_local_part_formats() {
+        let root = traditional_analytics_test_root("split-format-parts");
+        std::fs::create_dir_all(&root).unwrap();
+        for (format, extension) in [
+            (TraditionalAnalyticsInputFormat::Csv, "csv"),
+            (TraditionalAnalyticsInputFormat::JsonLines, "jsonl"),
+            (TraditionalAnalyticsInputFormat::Parquet, "parquet"),
+            (TraditionalAnalyticsInputFormat::ArrowIpc, "arrow"),
+            (TraditionalAnalyticsInputFormat::Avro, "avro"),
+            (TraditionalAnalyticsInputFormat::Orc, "orc"),
+        ] {
+            let parts_dir = root.join(extension);
+            std::fs::create_dir_all(&parts_dir).unwrap();
+            std::fs::write(parts_dir.join(format!("part-00000.{extension}")), b"part").unwrap();
+            std::fs::write(parts_dir.join("ignored.txt"), b"ignored").unwrap();
+
+            let parts = fact_input_part_paths(&parts_dir, format, "fact input").unwrap();
+
+            assert_eq!(parts.len(), 1, "{extension}");
+            assert_eq!(
+                parts[0].file_name().and_then(std::ffi::OsStr::to_str),
+                Some(format!("part-00000.{extension}").as_str())
+            );
+        }
 
         let _ = std::fs::remove_dir_all(root);
     }

@@ -230,21 +230,41 @@ vortex_differential_preparation_fallback_attempted=false
 vortex_differential_preparation_external_engine_invoked=false
 ```
 
-`GAR-IOREUSE-1K` adds capillary I/O on the same `vortex_ingest` route. Cold preparation emits
-`vortex_capillary_preparation_*` evidence for typed task roles:
-`source_split_discovery`, `read_chunk`, `columnarize_encode`, `vortex_segment_write`,
-`reopen_verify`, and `sink_evidence`. Each report links source split refs, read byte ranges, row
-ranges, projection/filter posture, Vortex segment refs, writer sink refs, memory budget, peak
-memory, memory/sink pressure, retry/idempotency status, materialization/decode posture, execution
-and Native I/O certificates, correctness refs, no-fallback fields, and prefixed PulseWeave
+`GAR-IOREUSE-1K` adds capillary I/O on the same `vortex_ingest` route. Cold preparation always
+emits `vortex_capillary_preparation_*` evidence, but task planning is admitted by
+`dynamic_size_complexity_gate.v1` rather than being mandatory for every tiny local fixture. Small
+inputs can record `not_requested_below_threshold` with no task manifest and
+`pulseweave_status=not_requested`; large, wide, multi-split, memory-pressure, result-sink/replay,
+claim-evidence, or complex operation rows activate typed task roles: `source_split_discovery`,
+`read_chunk`, `columnarize_encode`, `vortex_segment_write`, `reopen_verify`, and `sink_evidence`.
+Each activated report links source split refs, read byte ranges, row ranges, projection/filter
+posture, Vortex segment refs, writer sink refs, memory budget, peak memory, memory/sink pressure,
+retry/idempotency status, materialization/decode posture, execution and Native I/O certificates,
+correctness refs, no-fallback fields, and prefixed PulseWeave
 FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields. PulseWeave applies only when ProofBound
-certifies the capillary task graph; missing Native I/O evidence leaves the graph in report-only
-blocked status. This is not a standalone capillary lane and does not claim object-store,
-distributed, production, or performance readiness.
+certifies the admitted capillary task graph; missing Native I/O evidence leaves the graph in
+report-only blocked status. This is not a standalone capillary lane and does not claim
+object-store, distributed, production, or performance readiness.
 
 ```text
 vortex_capillary_preparation_schema_version
 vortex_capillary_preparation_status
+vortex_capillary_preparation_activation_policy
+vortex_capillary_preparation_activation_result
+vortex_capillary_preparation_activation_reason
+vortex_capillary_preparation_activation_threshold_bytes
+vortex_capillary_preparation_activation_threshold_rows
+vortex_capillary_preparation_activation_threshold_splits
+vortex_capillary_preparation_activation_threshold_columns
+vortex_capillary_preparation_activation_observed_bytes
+vortex_capillary_preparation_activation_observed_rows
+vortex_capillary_preparation_activation_observed_columns
+vortex_capillary_preparation_activation_observed_split_count
+vortex_capillary_preparation_activation_estimated_peak_memory_bytes
+vortex_capillary_preparation_activation_format_family
+vortex_capillary_preparation_activation_operation_class
+vortex_capillary_preparation_activation_certification_depth
+vortex_capillary_preparation_activation_result_sink_replay_requested
 vortex_capillary_preparation_task_manifest_id
 vortex_capillary_preparation_task_manifest_digest
 vortex_capillary_preparation_task_count
@@ -356,6 +376,16 @@ result_replay_verified
 output_native_io_certificate_status
 sink_artifact_ref
 sink_artifact_digest
+sink_artifact_count
+sink_artifact_refs
+sink_artifact_digests
+sink_artifact_formats
+sink_artifact_bytes
+sink_artifact_replay_statuses
+sink_artifact_native_io_certificate_statuses
+sink_artifact_workspace_path_safety_statuses
+sink_artifact_commit_modes
+sink_artifact_manifest_status
 output_plan_fallback_attempted=false
 output_plan_external_engine_invoked=false
 output_plan_claim_gate_status=not_claim_grade
@@ -678,8 +708,10 @@ external_engine_invoked=false
 - Cold-lane follow-through through `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` is
   implemented in `vortex_ingest`; the next benchmark refresh should carry the new scout,
   layout/write, and copy-budget evidence instead of rerunning measurements first.
-- Scoped local SQL/Python and generated-output writes/fanout emit OutputPlan, sink artifact,
-  replay/fidelity, certificate, no-fallback, and no-external-engine evidence.
+- Scoped local SQL/Python and generated-output writes/fanout emit OutputPlan, first-class
+  `sink_artifact_*` refs/digests/counts/replay/commit evidence, typed envelope
+  `artifact_refs` with `kind=sink_artifact`, replay/fidelity, certificate, no-fallback, and
+  no-external-engine evidence.
 - No package publication, object-store runtime, table commit, performance claim, production claim,
   broad output-fidelity claim, or fallback engine is introduced by the local runtime slice.
 

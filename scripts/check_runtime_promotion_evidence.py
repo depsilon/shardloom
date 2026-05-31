@@ -246,14 +246,43 @@ def _validate_benchmark_results(path: Path, blockers: list[str]) -> None:
         dashboard = {}
     profile_lanes = dashboard.get("profile_lane_availability")
     profile_lane_rows = _as_list(profile_lanes.get("rows") if isinstance(profile_lanes, dict) else None)
+    visible_profiles = {
+        str(row[0])
+        for row in profile_lane_rows
+        if isinstance(row, list) and row
+    }
     visible_lanes = {
         str(row[1])
         for row in profile_lane_rows
         if isinstance(row, list) and len(row) > 1
     }
-    for lane in ("spark-default", "spark-local-tuned"):
+    required_full_local_lanes = (
+        "shardloom",
+        "shardloom-prepared-vortex",
+        "shardloom-prepare-batch",
+        "shardloom-vortex",
+        "pandas",
+        "polars-eager",
+        "polars-lazy",
+        "duckdb",
+        "datafusion",
+        "dask",
+    )
+    for lane in required_full_local_lanes:
         if lane not in visible_lanes:
             blockers.append(f"benchmark results must keep {lane} visible in profile lane availability")
+    if visible_profiles == {"full_local"}:
+        for lane in ("pyspark", "spark-default", "spark-local-tuned"):
+            if lane in visible_lanes:
+                blockers.append(
+                    f"benchmark results must not include explicit Spark lane {lane} in full_local profile availability"
+                )
+    elif "full_local_plus_spark" in visible_profiles:
+        for lane in ("pyspark", "spark-default", "spark-local-tuned"):
+            if lane not in visible_lanes:
+                blockers.append(
+                    f"benchmark results must keep {lane} visible for full_local_plus_spark profile availability"
+                )
     format_coverage = dashboard.get("format_coverage")
     format_rows = _as_list(format_coverage.get("rows") if isinstance(format_coverage, dict) else None)
     visible_formats = {

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Mapping
+
+from ._compat import dataclass
 
 OUTPUT_ENVELOPE_SCHEMA_VERSION = "shardloom.output.v2"
 RUNTIME_EXECUTION_ENVELOPE_VALIDATION_SCHEMA_VERSION = (

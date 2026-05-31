@@ -71,6 +71,14 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `vortex_differential_preparation_overlay_applied`
 - `vortex_differential_preparation_no_standalone_lane_status`
 - `vortex_capillary_preparation_status`
+- `vortex_capillary_preparation_activation_policy`
+- `vortex_capillary_preparation_activation_result`
+- `vortex_capillary_preparation_activation_reason`
+- `vortex_capillary_preparation_activation_threshold_bytes`
+- `vortex_capillary_preparation_activation_threshold_rows`
+- `vortex_capillary_preparation_activation_observed_bytes`
+- `vortex_capillary_preparation_activation_observed_rows`
+- `vortex_capillary_preparation_activation_observed_split_count`
 - `vortex_capillary_preparation_task_roles`
 - `vortex_capillary_preparation_read_chunk_byte_range_refs`
 - `vortex_capillary_preparation_row_range_refs`

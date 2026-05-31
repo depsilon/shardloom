@@ -5,17 +5,60 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.72`.
-- Latest upstream intake note: `vortex = 0.72.0` was reviewed in
-  `docs/architecture/vortex-public-api-inventory.md`; the prior detailed `0.71` release-note
-  intake remains historical background.
+- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.73`.
+- Latest upstream intake note: `vortex = 0.73.0` was reviewed in
+  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.72` and detailed `0.71`
+  release-note intake sections remain historical background.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
   claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
 
+## Vortex 0.73 dependency bump proof
+
+`GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
+[#979](https://github.com/depsilon/shardloom/pull/979), updating the optional upstream Vortex
+dependency family from `0.72.0` to `0.73.0`.
+
+Compatibility posture:
+
+- `shardloom-vortex/Cargo.toml` requires optional `vortex = "0.73"`.
+- `Cargo.lock` resolves the upstream Vortex crate family to `0.73.0`.
+- `cargo info vortex@0.73.0` reports license `Apache-2.0` and Rust version `1.91.0`.
+- Default builds still keep upstream Vortex optional and disabled by default.
+- ShardLoom provider-version evidence has been refreshed from `0.72` to `0.73` for the existing
+  approved/scoped Vortex evidence surfaces only.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+Claim boundary:
+
+- The bump proves optional dependency compatibility only.
+- It does not admit new Vortex runtime APIs, TurboQuant execution, vector search, GPU execution,
+  external engines, object-store/table support, SQL/DataFrame support, performance claims, package
+  claims, or production readiness.
+
+Validation recorded for the bump:
+
+- `cargo fmt --all -- --check`
+- `cargo check -p shardloom-cli --all-targets`
+- `cargo check -p shardloom-cli --features vortex-write --all-targets`
+- `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets`
+- `cargo clippy -p shardloom-vortex -p shardloom-cli --all-targets -- -D warnings`
+- `cargo clippy -p shardloom-vortex -p shardloom-cli --features vortex-write --all-targets -- -D warnings`
+- `cargo test -p shardloom-vortex --features vortex-write --lib vortex_compatibility`
+- `cargo test -p shardloom-vortex --features vortex-write --lib vortex_compute_provider`
+- `cargo test -p shardloom-vortex --features vortex-write --lib source_backed_encoded_execution::tests::reader_split_constructor_records_allowed_local_scan_effects`
+- `cargo test -p shardloom-vortex --features vortex-write --lib source_backed_benchmark_matrix::tests::measured_source_backed_rows_preserve_provider_and_certificate_refs`
+- `cargo test -p shardloom-vortex --features vortex-write capillary --lib`
+- `cargo test -p shardloom-cli --features vortex-write --test sql_local_source_runtime_smoke vortex_ingest_smoke_writes_reopens_vortex_prepared_state`
+- `cargo test -p shardloom-cli --features vortex-write --test sql_local_source_runtime_smoke vortex_ingest_smoke_minimal_certification_skips_reopen_scan`
+
 ## Vortex 0.72 dependency bump proof
+
+Historical note; superseded by the Vortex 0.73 dependency bump proof above for current dependency
+status.
 
 The combined dependency/runtime-compatibility update incorporates the open Dependabot Vortex bump
 from `0.71.0` to `0.72.0`, alongside the Parquet `58.3.0` and GitHub Actions major-version updates.

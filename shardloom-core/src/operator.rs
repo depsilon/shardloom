@@ -355,6 +355,23 @@ mod tests {
         assert!(!contract.diagnostics.is_empty());
         assert!(!contract.fallback_execution_allowed());
     }
+
+    #[test]
+    fn hybrid_runtime_profiles_require_encoded_and_partial_decode_kernels() {
+        for operator_kind in [
+            PhysicalOperatorKind::Aggregate,
+            PhysicalOperatorKind::Join,
+            PhysicalOperatorKind::Window,
+        ] {
+            let profile = PhysicalOperatorExecutionProfile::current_runtime(operator_kind);
+            let required = profile
+                .required_kernel_kinds_for_level(PhysicalOperatorExecutionLevel::HybridNative);
+
+            assert!(required.contains(&KernelKind::Metadata));
+            assert!(required.contains(&KernelKind::Encoded));
+            assert!(required.contains(&KernelKind::PartialDecode));
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

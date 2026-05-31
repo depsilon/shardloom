@@ -430,27 +430,32 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_status",
-        "applied_capillary_pulseweave_control"
+        "not_requested_below_threshold"
     )));
     assert!(stdout.contains(&field(
-        "vortex_capillary_preparation_task_roles",
-        "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence"
+        "vortex_capillary_preparation_activation_result",
+        "skipped"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_activation_reason",
+        "below_threshold_small_local_fixture"
+    )));
+    assert!(stdout.contains(&field("vortex_capillary_preparation_task_count", "0")));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_native_io_certificate_status",
         "certified"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_pulseweave_status",
-        "applied"
+        "not_requested"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
-        "true"
+        "false"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_no_standalone_lane_status",
-        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+        "not_requested_below_threshold_no_standalone_lane"
     )));
     assert!(stdout.contains(&field(
         "vortex_copy_budget_schema_version",
@@ -1105,11 +1110,15 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_status",
-        "report_only_blocked_missing_native_io_certificate"
+        "not_requested_below_threshold"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_activation_result",
+        "skipped"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_pulseweave_status",
-        "blocked"
+        "not_requested"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
@@ -4058,6 +4067,22 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     )));
     assert!(stdout.contains("csv:csv_text_roundtrip_loses_static_type_metadata"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("sink_artifact_count", "1")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_ref",
+        &output_path.display().to_string()
+    )));
+    assert!(stdout.contains("\"sink_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("sink_artifact_formats", "csv")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_manifest_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"csv:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        output_path.display(),
+        output_path.display()
+    )));
     assert!(stdout.contains(&field("object_store_io", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -4067,6 +4092,7 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     let source_path = unique_path("sql-local-source-jsonl-csv-fanout", "csv");
     let jsonl_output_path = unique_path("sql-local-source-jsonl-csv-fanout", "jsonl");
@@ -4116,6 +4142,32 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     assert!(stdout.contains(&field("output_fanout_performed", "true")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "jsonl,csv")));
+    assert!(stdout.contains(&field("sink_artifact_count", "2")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_refs",
+        &format!(
+            "jsonl:{},csv:{}",
+            jsonl_output_path.display(),
+            csv_output_path.display()
+        )
+    )));
+    assert!(stdout.contains("\"sink_artifact_digests\",\"value\":\"jsonl:fnv64:"));
+    assert!(stdout.contains("csv:fnv64:"));
+    assert!(stdout.contains(&field("sink_artifact_formats", "jsonl,csv")));
+    assert!(stdout.contains(&field(
+        "sink_artifact_manifest_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"jsonl:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        jsonl_output_path.display(),
+        jsonl_output_path.display()
+    )));
+    assert!(stdout.contains(&format!(
+        "{{\"id\":\"csv:{}\",\"kind\":\"sink_artifact\",\"status\":\"available\",\"uri\":\"{}\"}}",
+        csv_output_path.display(),
+        csv_output_path.display()
+    )));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("write_io", "true")));
     assert!(stdout.contains(&field("result_reuse_for_fanout", "true")));

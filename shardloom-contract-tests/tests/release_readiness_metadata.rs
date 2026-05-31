@@ -388,7 +388,11 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(script.contains("--include-python-packaging"));
     assert!(script.contains("not as a ShardLoom runtime dependency assumption"));
     assert!(script.contains("PYTHON_PROJECT"));
-    assert!(script.contains("-m\", \"pip_audit\", str(PYTHON_PROJECT)"));
+    assert!(script.contains("PYTHON_RUNTIME_REQUIREMENTS"));
+    assert!(script.contains("SHARDLOOM_PIP_AUDIT_PYTHON"));
+    assert!(script.contains("pip-audit"));
+    assert!(script.contains("\"--requirement\""));
+    assert!(script.contains("\"--disable-pip\", \"--no-deps\""));
     assert!(script.contains("shardloom.dependency_audit_report.v1"));
     assert!(script.contains("DependencyAuditReport"));
     assert!(script.contains("fallback_dependency_absent"));
@@ -617,20 +621,21 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
 
     let benchmark_requirements =
         read_repo_file("benchmarks/traditional_analytics/requirements.txt");
-    for benchmark_only in [
-        "pandas",
-        "polars",
-        "duckdb",
-        "datafusion",
-        "dask",
-        "pyspark",
-    ] {
+    let benchmark_spark_requirements =
+        read_repo_file("benchmarks/traditional_analytics/requirements-spark.txt");
+    for benchmark_only in ["pandas", "polars", "duckdb", "datafusion", "dask"] {
         assert!(benchmark_requirements.contains(benchmark_only));
         assert!(
             !read_repo_file("python/pyproject.toml").contains(&format!("{benchmark_only}>")),
             "{benchmark_only} must not become a Python runtime dependency"
         );
     }
+    assert!(benchmark_spark_requirements.contains("pyspark"));
+    assert!(benchmark_spark_requirements.contains("requirements-full-local.txt"));
+    assert!(
+        !read_repo_file("python/pyproject.toml").contains("pyspark>"),
+        "pyspark must not become a Python runtime dependency"
+    );
 }
 
 #[test]

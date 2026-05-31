@@ -91,6 +91,12 @@ def write_foundry_style_dataset(
     metadata: Mapping[str, Any],
 ) -> dict[str, Any]:
     dataset_path.mkdir(parents=True, exist_ok=True)
+    stale_parts_removed = 0
+    stale_parts = sorted(dataset_path.glob("part-*.jsonl"))
+    for stale_part in stale_parts:
+        if stale_part.is_file():
+            stale_part.unlink()
+            stale_parts_removed += 1
     part_path = dataset_path / "part-00000.jsonl"
     normalized_rows = [dict(row) for row in rows]
     part_text = "".join(
@@ -104,6 +110,7 @@ def write_foundry_style_dataset(
         "dataset_api": "local_foundry_style_output_dataset_api",
         "dataset_path": str(dataset_path),
         "part_path": str(part_path),
+        "stale_part_files_removed": stale_parts_removed,
         "row_count": len(normalized_rows),
         "content_digest": digest,
         "foundry_runtime_invoked": False,

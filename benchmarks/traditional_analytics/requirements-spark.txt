@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Optional Spark/PySpark benchmark profile dependencies.
+#
+# Install this only for explicit full_local_plus_spark experiments. These
+# packages are benchmark tooling only and must never become ShardLoom runtime
+# fallback dependencies.
+-r requirements-full-local.txt
+pyspark
