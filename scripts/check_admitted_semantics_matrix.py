@@ -448,6 +448,58 @@ def row_value_in_predicate_case() -> SqlFixtureCase:
     )
 
 
+def row_value_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="row_value_in_subquery_semantics",
+        source_name="row-value-in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n5,,34\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) IN ("
+            "SELECT allowed_id,allowed_label FROM '{allowed}' "
+            "WHERE active IS TRUE ORDER BY score DESC LIMIT 3"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":3,"label":"gamma"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "row_value_in_subquery",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "3",
+            "in_list_null_value_count": "1",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_groups": "id+label",
+            "row_value_in_column_count": "2",
+            "row_value_in_tuple_count": "3",
+            "row_value_in_null_value_count": "1",
+            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "allowed_id,allowed_label",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "5",
+            "in_subquery_filtered_row_count": "4",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "3",
+            "in_subquery_materialized_null_value_count": "1",
+            "in_predicate_null_semantics": "sql_three_valued_where_filter",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "row-value-in-subquery-allowed.csv",
+                "allowed_id,allowed_label,active,score\n1,alpha,true,20\n3,gamma,true,40\n5,NULL,true,50\n4,delta,false,60\n2,beta,true,10\n",
+            ),
+        ),
+    )
+
+
 def sql_union_composition_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="sql_union_composition_semantics",
@@ -1085,6 +1137,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         conditional_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
+        row_value_in_subquery_case(),
         sql_union_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
@@ -1212,15 +1265,15 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="binary source literals and binary input decoding are not admitted",
         ),
         UnsupportedCase(
-            case_id="unsupported_multi_column_in_subquery",
-            source_name="multi-column-subquery-unsupported.csv",
+            case_id="unsupported_scalar_multi_column_in_subquery",
+            source_name="scalar-multi-column-subquery-unsupported.csv",
             source_text="id,label\n1,alpha\n",
             statement_template=(
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT id,label FROM '{source}') LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="multi-column IN subqueries are not admitted",
+            diagnostic_fragment="multi-column IN subqueries require row-value source columns",
         ),
         UnsupportedCase(
             case_id="unsupported_nested_in_subquery",

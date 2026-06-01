@@ -845,6 +845,20 @@ struct ParsedInSubquery {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct ParsedRowValueInSubquery {
+    source_columns: Vec<String>,
+    source_path: PathBuf,
+    predicate: Box<ParsedPredicate>,
+    order_by: Option<ParsedOrderBy>,
+    limit: Option<usize>,
+    source_format: Option<LocalSourceFormat>,
+    source_digest: Option<String>,
+    input_row_count: usize,
+    filtered_row_count: usize,
+    tuples: Vec<Vec<ScalarValue>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum ParsedPredicate {
     All,
     Compare {
@@ -941,6 +955,10 @@ enum ParsedPredicate {
     RowValueInList {
         columns: Vec<String>,
         tuples: Vec<Vec<ScalarValue>>,
+    },
+    RowValueInSubquery {
+        columns: Vec<String>,
+        subquery: Box<ParsedRowValueInSubquery>,
     },
     InSubquery {
         column: String,
@@ -5863,6 +5881,9 @@ fn materialize_in_subquery_predicates(
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. } => materialize_in_subquery(subquery),
+        ParsedPredicate::RowValueInSubquery { subquery, .. } => {
+            materialize_row_value_in_subquery(subquery)
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             materialize_in_subquery_predicates(left)?;
             materialize_in_subquery_predicates(right)
@@ -5938,8 +5959,78 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
     Ok(())
 }
 
+fn materialize_row_value_in_subquery(
+    subquery: &mut ParsedRowValueInSubquery,
+) -> Result<(), ShardLoomError> {
+    if subquery.source_format.is_some() {
+        return Ok(());
+    }
+    let source_read_plan = LocalSourceReadPlan::required(
+        row_value_in_subquery_required_columns(subquery),
+        "row_value_in_subquery_required_source_columns",
+    );
+    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    validate_row_value_in_subquery_source_columns(subquery, &source.header)?;
+    apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
+
+    subquery.input_row_count = source.rows.len();
+    let selected_row_indexes = selected_row_value_in_subquery_row_indexes(subquery, &source)?;
+    subquery.filtered_row_count = selected_row_indexes.len();
+    let mut bounded_row_indexes =
+        ordered_row_value_in_subquery_row_indexes(subquery, &source, &selected_row_indexes)?;
+    if let Some(limit) = subquery.limit {
+        bounded_row_indexes.truncate(limit);
+    }
+    if bounded_row_indexes.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "row-value IN subquery predicates admit at most {MAX_IN_LIST_VALUES} materialized tuples in this scoped runtime slice"
+        )));
+    }
+    subquery.tuples = bounded_row_indexes
+        .iter()
+        .map(|row_index| {
+            let row = source.rows.get(*row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "row-value IN subquery row index is out of bounds".to_string(),
+                )
+            })?;
+            subquery
+                .source_columns
+                .iter()
+                .map(|column| {
+                    row.get(column).cloned().ok_or_else(|| {
+                        unsupported_sql_error(&format!(
+                            "row-value IN subquery source column {column:?} is not present in a materialized row"
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>, ShardLoomError>>()
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    subquery.source_format = Some(source.source_format);
+    subquery.source_digest = Some(source.source_digest);
+    Ok(())
+}
+
 fn in_subquery_required_columns(subquery: &ParsedInSubquery) -> BTreeSet<String> {
     let mut columns = BTreeSet::from([subquery.source_column.clone()]);
+    for column in subquery.predicate.columns() {
+        columns.insert(column.to_string());
+    }
+    if let Some(order_by) = subquery.order_by.as_ref() {
+        for key in &order_by.keys {
+            columns.insert(key.column.clone());
+        }
+    }
+    columns
+}
+
+fn row_value_in_subquery_required_columns(subquery: &ParsedRowValueInSubquery) -> BTreeSet<String> {
+    let mut columns = subquery
+        .source_columns
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     for column in subquery.predicate.columns() {
         columns.insert(column.to_string());
     }
@@ -5975,6 +6066,36 @@ fn validate_in_subquery_source_columns(
     Ok(())
 }
 
+fn validate_row_value_in_subquery_source_columns(
+    subquery: &ParsedRowValueInSubquery,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    for source_column in &subquery.source_columns {
+        require_header_column(
+            header,
+            source_column,
+            "row-value IN subquery source column",
+            "subquery source header",
+        )?;
+    }
+    for predicate_column in subquery.predicate.columns() {
+        require_header_column(
+            header,
+            predicate_column,
+            "row-value IN subquery predicate column",
+            "subquery source header",
+        )?;
+    }
+    if let Some(order_by) = subquery.order_by.as_ref() {
+        validate_order_by_output_columns(
+            order_by,
+            header,
+            "row-value IN subquery ORDER BY column",
+        )?;
+    }
+    Ok(())
+}
+
 fn selected_in_subquery_row_indexes(
     subquery: &ParsedInSubquery,
     source: &CsvSourceData,
@@ -5999,6 +6120,30 @@ fn selected_in_subquery_row_indexes(
     Ok(filter.selected_row_indexes)
 }
 
+fn selected_row_value_in_subquery_row_indexes(
+    subquery: &ParsedRowValueInSubquery,
+    source: &CsvSourceData,
+) -> Result<Vec<usize>, ShardLoomError> {
+    if subquery.predicate.is_all() {
+        return Ok((0..source.rows.len()).collect());
+    }
+    let predicate_expression = subquery.predicate.to_expression()?;
+    let filter = evaluate_filter(&predicate_expression, &source.rows);
+    if filter.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source row-value IN subquery predicate evaluation failed: {}",
+            filter
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .reason
+                    .as_deref()
+                    .unwrap_or(diagnostic.message.as_str()))
+        )));
+    }
+    Ok(filter.selected_row_indexes)
+}
+
 fn ordered_in_subquery_row_indexes(
     subquery: &ParsedInSubquery,
     source: &CsvSourceData,
@@ -6009,6 +6154,19 @@ fn ordered_in_subquery_row_indexes(
         selected_row_indexes,
         subquery.order_by.as_ref(),
         "IN subquery ORDER BY column",
+    )
+}
+
+fn ordered_row_value_in_subquery_row_indexes(
+    subquery: &ParsedRowValueInSubquery,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<usize>, ShardLoomError> {
+    ordered_source_row_indexes(
+        source,
+        selected_row_indexes,
+        subquery.order_by.as_ref(),
+        "row-value IN subquery ORDER BY column",
     )
 }
 
@@ -6106,6 +6264,7 @@ fn apply_in_subquery_date_literal_column_coercions(
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -6179,6 +6338,7 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -8261,6 +8421,7 @@ fn apply_temporal_difference_predicate_coercions(
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -8375,6 +8536,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -8460,6 +8622,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -12695,6 +12858,10 @@ impl ParsedPredicate {
             Self::RowValueInList {
                 columns: row_columns,
                 ..
+            }
+            | Self::RowValueInSubquery {
+                columns: row_columns,
+                ..
             } => columns.extend(row_columns.iter().map(String::as_str)),
             Self::ColumnCompare {
                 left_column,
@@ -12789,6 +12956,9 @@ impl ParsedPredicate {
             Self::InList { column, values } => in_list_expression(column, values),
             Self::RowValueInList { columns, tuples } => {
                 row_value_in_list_expression(columns, tuples)
+            }
+            Self::RowValueInSubquery { columns, subquery } => {
+                row_value_in_subquery_expression(columns, subquery)
             }
             Self::InSubquery { column, subquery } => in_subquery_expression(column, subquery),
             Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
@@ -12891,6 +13061,7 @@ impl ParsedPredicate {
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
             Self::RowValueInList { .. } => "row_value_in_predicate",
+            Self::RowValueInSubquery { .. } => "row_value_in_subquery",
             Self::InSubquery { .. } => "in_subquery",
             Self::StringMatch { .. } => "string_predicate",
             Self::Logical { .. } | Self::Not { .. } => "logical_predicate",
@@ -12922,6 +13093,7 @@ impl ParsedPredicate {
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12964,6 +13136,7 @@ impl ParsedPredicate {
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13005,6 +13178,7 @@ impl ParsedPredicate {
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13036,6 +13210,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13097,6 +13272,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13139,6 +13315,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13197,6 +13374,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13229,6 +13407,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. } => false,
         }
     }
@@ -13271,6 +13450,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. } => {}
         }
     }
@@ -13301,6 +13481,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13343,6 +13524,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13387,6 +13569,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13418,6 +13601,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13462,6 +13646,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13506,6 +13691,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13537,6 +13723,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13579,6 +13766,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13623,6 +13811,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13667,6 +13856,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13711,6 +13901,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13742,6 +13933,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13784,6 +13976,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13826,6 +14019,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13870,6 +14064,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13901,6 +14096,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13943,6 +14139,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13987,6 +14184,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14018,6 +14216,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14060,6 +14259,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14102,6 +14302,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14146,6 +14347,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14177,6 +14379,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14221,6 +14424,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14267,6 +14471,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14302,6 +14507,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -14346,6 +14552,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14369,6 +14576,11 @@ impl ParsedPredicate {
                 .iter()
                 .any(|value| matches!(value, ScalarValue::Date32(_))),
             Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
+                .any(|value| matches!(value, ScalarValue::Date32(_))),
+            Self::RowValueInSubquery { subquery, .. } => subquery
+                .tuples
                 .iter()
                 .flatten()
                 .any(|value| matches!(value, ScalarValue::Date32(_))),
@@ -14426,6 +14638,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14464,6 +14677,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14508,6 +14722,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14550,6 +14765,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14583,6 +14799,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => "not_applicable",
         }
@@ -14614,6 +14831,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => 1,
         }
@@ -14621,7 +14839,10 @@ impl ParsedPredicate {
 
     fn uses_in_list(&self) -> bool {
         match self {
-            Self::InList { .. } | Self::RowValueInList { .. } | Self::InSubquery { .. } => true,
+            Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. } => true,
             Self::Logical { left, right, .. } => left.uses_in_list() || right.uses_in_list(),
             Self::Not { inner } => inner.uses_in_list(),
             Self::All
@@ -14650,6 +14871,7 @@ impl ParsedPredicate {
         match self {
             Self::InList { values, .. } => values.len(),
             Self::RowValueInList { tuples, .. } => tuples.len(),
+            Self::RowValueInSubquery { subquery, .. } => subquery.tuples.len(),
             Self::InSubquery { subquery, .. } => subquery.values.len(),
             Self::Logical { left, right, .. } => {
                 left.in_list_value_count() + right.in_list_value_count()
@@ -14688,6 +14910,12 @@ impl ParsedPredicate {
                 .flatten()
                 .filter(|value| matches!(value, ScalarValue::Null))
                 .count(),
+            Self::RowValueInSubquery { subquery, .. } => subquery
+                .tuples
+                .iter()
+                .flatten()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
             Self::InSubquery { subquery, .. } => subquery
                 .values
                 .iter()
@@ -14721,7 +14949,7 @@ impl ParsedPredicate {
 
     fn uses_row_value_in_list(&self) -> bool {
         match self {
-            Self::RowValueInList { .. } => true,
+            Self::RowValueInList { .. } | Self::RowValueInSubquery { .. } => true,
             Self::Logical { left, right, .. } => {
                 left.uses_row_value_in_list() || right.uses_row_value_in_list()
             }
@@ -14763,6 +14991,10 @@ impl ParsedPredicate {
     fn push_row_value_in_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
             Self::RowValueInList {
+                columns: row_columns,
+                ..
+            }
+            | Self::RowValueInSubquery {
                 columns: row_columns,
                 ..
             } => columns.extend(row_columns.iter().map(String::as_str)),
@@ -14807,7 +15039,9 @@ impl ParsedPredicate {
 
     fn push_row_value_in_column_groups(&self, groups: &mut Vec<String>) {
         match self {
-            Self::RowValueInList { columns, .. } => groups.push(columns.join("+")),
+            Self::RowValueInList { columns, .. } | Self::RowValueInSubquery { columns, .. } => {
+                groups.push(columns.join("+"));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_row_value_in_column_groups(groups);
                 right.push_row_value_in_column_groups(groups);
@@ -14839,7 +15073,9 @@ impl ParsedPredicate {
 
     fn row_value_in_column_count(&self) -> usize {
         match self {
-            Self::RowValueInList { columns, .. } => columns.len(),
+            Self::RowValueInList { columns, .. } | Self::RowValueInSubquery { columns, .. } => {
+                columns.len()
+            }
             Self::Logical { left, right, .. } => {
                 left.row_value_in_column_count() + right.row_value_in_column_count()
             }
@@ -14871,6 +15107,7 @@ impl ParsedPredicate {
     fn row_value_in_tuple_count(&self) -> usize {
         match self {
             Self::RowValueInList { tuples, .. } => tuples.len(),
+            Self::RowValueInSubquery { subquery, .. } => subquery.tuples.len(),
             Self::Logical { left, right, .. } => {
                 left.row_value_in_tuple_count() + right.row_value_in_tuple_count()
             }
@@ -14906,6 +15143,12 @@ impl ParsedPredicate {
                 .flatten()
                 .filter(|value| matches!(value, ScalarValue::Null))
                 .count(),
+            Self::RowValueInSubquery { subquery, .. } => subquery
+                .tuples
+                .iter()
+                .flatten()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
             Self::Logical { left, right, .. } => {
                 left.row_value_in_null_value_count() + right.row_value_in_null_value_count()
             }
@@ -14937,6 +15180,7 @@ impl ParsedPredicate {
     fn in_subquery_value_count(&self) -> usize {
         match self {
             Self::InSubquery { subquery, .. } => subquery.values.len(),
+            Self::RowValueInSubquery { subquery, .. } => subquery.tuples.len(),
             Self::Logical { left, right, .. } => {
                 left.in_subquery_value_count() + right.in_subquery_value_count()
             }
@@ -14972,6 +15216,12 @@ impl ParsedPredicate {
                 .iter()
                 .filter(|value| matches!(value, ScalarValue::Null))
                 .count(),
+            Self::RowValueInSubquery { subquery, .. } => subquery
+                .tuples
+                .iter()
+                .flatten()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
             Self::Logical { left, right, .. } => {
                 left.in_subquery_null_value_count() + right.in_subquery_null_value_count()
             }
@@ -15003,6 +15253,7 @@ impl ParsedPredicate {
     fn in_subquery_input_row_count(&self) -> usize {
         match self {
             Self::InSubquery { subquery, .. } => subquery.input_row_count,
+            Self::RowValueInSubquery { subquery, .. } => subquery.input_row_count,
             Self::Logical { left, right, .. } => {
                 left.in_subquery_input_row_count() + right.in_subquery_input_row_count()
             }
@@ -15034,6 +15285,7 @@ impl ParsedPredicate {
     fn in_subquery_filtered_row_count(&self) -> usize {
         match self {
             Self::InSubquery { subquery, .. } => subquery.filtered_row_count,
+            Self::RowValueInSubquery { subquery, .. } => subquery.filtered_row_count,
             Self::Logical { left, right, .. } => {
                 left.in_subquery_filtered_row_count() + right.in_subquery_filtered_row_count()
             }
@@ -15065,6 +15317,7 @@ impl ParsedPredicate {
     fn in_subquery_filter_runtime_execution(&self) -> bool {
         match self {
             Self::InSubquery { subquery, .. } => !subquery.predicate.is_all(),
+            Self::RowValueInSubquery { subquery, .. } => !subquery.predicate.is_all(),
             Self::Logical { left, right, .. } => {
                 left.in_subquery_filter_runtime_execution()
                     || right.in_subquery_filter_runtime_execution()
@@ -15097,6 +15350,7 @@ impl ParsedPredicate {
     fn in_subquery_order_by_runtime_execution(&self) -> bool {
         match self {
             Self::InSubquery { subquery, .. } => subquery.order_by.is_some(),
+            Self::RowValueInSubquery { subquery, .. } => subquery.order_by.is_some(),
             Self::Logical { left, right, .. } => {
                 left.in_subquery_order_by_runtime_execution()
                     || right.in_subquery_order_by_runtime_execution()
@@ -15129,6 +15383,7 @@ impl ParsedPredicate {
     fn in_subquery_limit_runtime_execution(&self) -> bool {
         match self {
             Self::InSubquery { subquery, .. } => subquery.limit.is_some(),
+            Self::RowValueInSubquery { subquery, .. } => subquery.limit.is_some(),
             Self::Logical { left, right, .. } => {
                 left.in_subquery_limit_runtime_execution()
                     || right.in_subquery_limit_runtime_execution()
@@ -15160,7 +15415,7 @@ impl ParsedPredicate {
 
     fn uses_in_subquery(&self) -> bool {
         match self {
-            Self::InSubquery { .. } => true,
+            Self::InSubquery { .. } | Self::RowValueInSubquery { .. } => true,
             Self::Logical { left, right, .. } => {
                 left.uses_in_subquery() || right.uses_in_subquery()
             }
@@ -15202,6 +15457,9 @@ impl ParsedPredicate {
     fn push_in_subquery_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
             Self::InSubquery { subquery, .. } => columns.push(&subquery.source_column),
+            Self::RowValueInSubquery { subquery, .. } => {
+                columns.extend(subquery.source_columns.iter().map(String::as_str));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_in_subquery_source_columns(columns);
                 right.push_in_subquery_source_columns(columns);
@@ -15244,6 +15502,13 @@ impl ParsedPredicate {
     fn push_in_subquery_source_formats(&self, formats: &mut Vec<&'static str>) {
         match self {
             Self::InSubquery { subquery, .. } => {
+                formats.push(
+                    subquery
+                        .source_format
+                        .map_or("not_materialized", LocalSourceFormat::as_str),
+                );
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
                 formats.push(
                     subquery
                         .source_format
@@ -15296,6 +15561,24 @@ impl ParsedPredicate {
                     .as_deref()
                     .unwrap_or("not_materialized"),
                 subquery.values.len(),
+                subquery.predicate.family(),
+                subquery
+                    .order_by
+                    .as_ref()
+                    .map_or("not_ordered", ParsedOrderBy::operator_family_label),
+                subquery
+                    .limit
+                    .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+            )),
+            Self::RowValueInSubquery { subquery, .. } => fragments.push(format!(
+                "{}:{}:{}:{}:{}:{}:{}",
+                subquery.source_path.display(),
+                subquery.source_columns.join("+"),
+                subquery
+                    .source_digest
+                    .as_deref()
+                    .unwrap_or("not_materialized"),
+                subquery.tuples.len(),
                 subquery.predicate.family(),
                 subquery
                     .order_by
@@ -15360,6 +15643,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15402,6 +15686,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15444,6 +15729,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15467,6 +15753,11 @@ impl ParsedPredicate {
                 .iter()
                 .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
             Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
+                .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
+            Self::RowValueInSubquery { subquery, .. } => subquery
+                .tuples
                 .iter()
                 .flatten()
                 .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
@@ -15526,6 +15817,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15568,6 +15860,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15610,6 +15903,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15641,6 +15935,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15683,6 +15978,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15727,6 +16023,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15769,6 +16066,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15800,6 +16098,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15842,6 +16141,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15884,6 +16184,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15926,6 +16227,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16509,6 +16811,19 @@ fn in_subquery_expression(
         ));
     }
     in_list_expression(column, &subquery.values)
+}
+
+fn row_value_in_subquery_expression(
+    columns: &[String],
+    subquery: &ParsedRowValueInSubquery,
+) -> Result<Expression, ShardLoomError> {
+    if subquery.tuples.is_empty() {
+        return Ok(Expression::literal(
+            ExprId::new("where.row_value_in_subquery.empty")?,
+            ScalarValue::Boolean(false),
+        ));
+    }
+    row_value_in_list_expression(columns, &subquery.tuples)
 }
 
 fn in_list_equality_expression(
@@ -25439,9 +25754,7 @@ fn parse_row_value_in_list_predicate(
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
         && keyword_boundary(values_raw, 0, 6)
     {
-        return Err(unsupported_sql_error(
-            "multi-column IN subqueries are not admitted by the current advanced predicate profile; select exactly one scalar source column",
-        ));
+        return parse_row_value_in_subquery_predicate(columns, values_raw, negated);
     }
     if values_raw.is_empty() {
         return Err(unsupported_sql_error(
@@ -25466,6 +25779,61 @@ fn parse_row_value_in_list_predicate(
     validate_row_value_in_literal_tuples(&tuples)?;
 
     let predicate = ParsedPredicate::RowValueInList { columns, tuples };
+    if negated {
+        Ok(ParsedPredicate::Not {
+            inner: Box::new(predicate),
+        })
+    } else {
+        Ok(predicate)
+    }
+}
+
+fn parse_row_value_in_subquery_predicate(
+    columns: Vec<String>,
+    raw: &str,
+    negated: bool,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_in_subquery_shape(raw)?;
+    let from_clause = find_keyword_outside_quotes_and_parentheses(raw, "from")?.ok_or_else(|| {
+        unsupported_sql_error(
+            "row-value IN subquery predicates admit SELECT <column>,... FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>] only",
+        )
+    })?;
+    let source_columns = parse_in_subquery_selected_columns(raw, from_clause)?;
+    if source_columns.len() != columns.len() {
+        return Err(unsupported_sql_error(
+            "row-value IN subquery selected-column arity must match the source column count",
+        ));
+    }
+    let filter_clause = find_keyword_outside_quotes_and_parentheses(raw, "where")?;
+    let order_by_clause = find_keyword_outside_quotes_and_parentheses(raw, "order by")?;
+    let limit_clause = find_keyword_outside_quotes_and_parentheses(raw, "limit")?;
+    validate_in_subquery_clause_order(from_clause, filter_clause, order_by_clause, limit_clause)?;
+
+    let source_path = parse_in_subquery_source_path(
+        raw,
+        from_clause,
+        &[filter_clause, order_by_clause, limit_clause],
+    )?;
+    let predicate = parse_in_subquery_filter(raw, filter_clause, order_by_clause, limit_clause)?;
+    let order_by = parse_in_subquery_order_by(raw, order_by_clause, limit_clause)?;
+    let limit = parse_in_subquery_limit(raw, limit_clause)?;
+
+    let predicate = ParsedPredicate::RowValueInSubquery {
+        columns,
+        subquery: Box::new(ParsedRowValueInSubquery {
+            source_columns,
+            source_path,
+            predicate: Box::new(predicate),
+            order_by,
+            limit,
+            source_format: None,
+            source_digest: None,
+            input_row_count: 0,
+            filtered_row_count: 0,
+            tuples: Vec::new(),
+        }),
+    };
     if negated {
         Ok(ParsedPredicate::Not {
             inner: Box::new(predicate),
@@ -25623,7 +25991,7 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
     Ok(ParsedPredicate::InSubquery {
         column: column.to_string(),
         subquery: Box::new(ParsedInSubquery {
-            source_column: select_column.to_string(),
+            source_column: select_column.clone(),
             source_path,
             predicate: Box::new(predicate),
             order_by,
@@ -25670,25 +26038,54 @@ fn validate_in_subquery_shape(raw: &str) -> Result<(), ShardLoomError> {
 fn parse_in_subquery_selected_column(
     raw: &str,
     from_clause: usize,
-) -> Result<&str, ShardLoomError> {
+) -> Result<String, ShardLoomError> {
+    let columns = parse_in_subquery_selected_columns(raw, from_clause)?;
+    let [select_column] = columns.as_slice() else {
+        return Err(unsupported_sql_error(
+            "multi-column IN subqueries require row-value source columns; scalar IN subqueries select exactly one source column",
+        ));
+    };
+    Ok(select_column.clone())
+}
+
+fn parse_in_subquery_selected_columns(
+    raw: &str,
+    from_clause: usize,
+) -> Result<Vec<String>, ShardLoomError> {
     if from_clause <= "select".len() {
         return Err(unsupported_sql_error(
-            "IN subquery predicates require a selected source column",
+            "IN subquery predicates require selected source columns",
         ));
     }
-    let select_column = raw["select".len()..from_clause].trim();
-    if select_column.starts_with('(') || select_column.contains(',') {
+    let select_raw = raw["select".len()..from_clause].trim();
+    if select_raw.starts_with('(') {
         return Err(unsupported_sql_error(
-            "multi-column IN subqueries are not admitted by the current advanced predicate profile; select exactly one scalar source column",
+            "IN subquery selected columns must be a plain SELECT column list, not a row-constructor expression",
         ));
     }
-    if select_column.contains('.') {
+    let columns = split_sql_csv(select_raw)?;
+    if columns.is_empty() || columns.iter().any(|column| column.trim().is_empty()) {
         return Err(unsupported_sql_error(
-            "correlated or qualified IN subquery column references are not admitted by the current advanced predicate profile",
+            "IN subquery predicates require selected source columns",
         ));
     }
-    validate_sql_identifier(select_column)?;
-    Ok(select_column)
+    let mut seen = BTreeSet::new();
+    let mut parsed = Vec::with_capacity(columns.len());
+    for column in columns {
+        if column.contains('.') {
+            return Err(unsupported_sql_error(
+                "correlated or qualified IN subquery column references are not admitted by the current advanced predicate profile",
+            ));
+        }
+        validate_sql_identifier(&column)?;
+        if !seen.insert(column.clone()) {
+            return Err(unsupported_sql_error(
+                "IN subquery selected columns must be unique in this scoped runtime slice",
+            ));
+        }
+        parsed.push(column);
+    }
+    Ok(parsed)
 }
 
 fn parse_in_subquery_source_path(
@@ -29167,6 +29564,125 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_row_value_in_subquery_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE (id,label) IN (SELECT allowed_id,allowed_label FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 5",
+        )
+        .expect("row-value IN subquery predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::RowValueInSubquery {
+                ref columns,
+                ref subquery
+            } if columns == &vec!["id".to_string(), "label".to_string()]
+                && subquery.source_columns
+                    == vec!["allowed_id".to_string(), "allowed_label".to_string()]
+                && subquery.source_path == Path::new("target/allowed.csv")
+                && subquery.tuples.is_empty()
+        ));
+        assert_eq!(parsed.predicate.family(), "row_value_in_subquery");
+        assert!(parsed.predicate.uses_in_list());
+        assert!(parsed.predicate.uses_row_value_in_list());
+        assert!(parsed.predicate.uses_in_subquery());
+        assert_eq!(parsed.predicate.row_value_in_source_columns(), "id,label");
+        assert_eq!(parsed.predicate.row_value_in_column_groups(), "id+label");
+        assert_eq!(
+            parsed.predicate.in_subquery_source_columns(),
+            "allowed_id,allowed_label"
+        );
+        assert_eq!(
+            parsed.predicate.in_subquery_source_formats(),
+            "not_materialized"
+        );
+        assert!(parsed.predicate.in_subquery_filter_runtime_execution());
+        assert!(parsed.predicate.in_subquery_order_by_runtime_execution());
+        assert!(parsed.predicate.in_subquery_limit_runtime_execution());
+    }
+
+    #[test]
+    fn runs_scoped_row_value_in_subquery_csv_statement() {
+        let source_path = sql_local_source_test_path("csv");
+        let allowed_path = sql_local_source_test_path("csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n5,,34\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_id,allowed_label,active,score\n1,alpha,true,20\n3,gamma,true,40\n5,NULL,true,50\n4,delta,false,60\n2,beta,true,10\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT allowed_id,allowed_label FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run row-value IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "predicate_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_list_value_count", "3");
+        assert_field_eq(&fields, "in_list_null_value_count", "1");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_groups", "id+label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "row_value_in_tuple_count", "3");
+        assert_field_eq(&fields, "row_value_in_null_value_count", "1");
+        assert_field_eq(
+            &fields,
+            "row_value_in_null_semantics",
+            "sql_row_value_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "in_subquery_source_column",
+            "allowed_id,allowed_label",
+        );
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "5");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_materialization_bound", "32");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "3");
+        assert_field_eq(&fields, "in_subquery_materialized_null_value_count", "1");
+        assert_field_eq(
+            &fields,
+            "in_predicate_null_semantics",
+            "sql_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
     fn in_subquery_counts_stay_separate_from_literal_in_counts() {
         let predicate = ParsedPredicate::Logical {
             op: LogicalPredicateOp::And,
@@ -29269,12 +29785,12 @@ mod tests {
     fn in_subquery_blocks_unadmitted_advanced_shapes_without_fallback() {
         for (statement, expected) in [
             (
-                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
-                "multi-column IN subqueries are not admitted",
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
+                "multi-column IN subqueries require row-value source columns",
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
-                "multi-column IN subqueries are not admitted",
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id FROM 'target/allowed.csv') LIMIT 5",
+                "row-value IN subquery selected-column arity must match the source column count",
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE id IN (SELECT id FROM 'target/nested.csv')) LIMIT 5",

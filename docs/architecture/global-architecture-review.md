@@ -645,6 +645,12 @@ plan before coding.
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit
   follow-up runtime items in the phased plan rather than hidden in the parent item.
+- [x] GAR-RUNTIME-IMPL-6D follow-through promotes bounded row-value local-source IN-subqueries over
+  local sources with admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` tails, source-column arity
+  validation, row-value null-semantics evidence, SQL/Python query-builder access, and
+  deterministic blockers for scalar-left multi-column, nested, joined, grouped/HAVING-internal,
+  correlated, and `EXISTS` / `ANY` / `ALL` subquery shapes with no fallback/external engine
+  invocation.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 

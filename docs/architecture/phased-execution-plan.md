@@ -446,18 +446,21 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   output rows, joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded
   collect. Row-value literal `IN` / `NOT IN` predicates such as
   `(id, label) IN ((1, 'alpha'), (3, 'gamma'))` are now promoted through the same executable
-  ShardLoom-owned runtime path with SQL three-valued row comparison evidence. Scoped top-level SQL
+  ShardLoom-owned runtime path with SQL three-valued row comparison evidence. Bounded local
+  row-value `IN (SELECT ...)` / `NOT IN (SELECT ...)` predicates now materialize scoped
+  multi-column local sources through the same ShardLoom-owned IN-subquery path with arity,
+  null-semantics, source-format, filter/order/limit, and no-fallback evidence. Scoped top-level SQL
   `UNION` and `UNION ALL` composition is now promoted over already-admitted local-source branch
   `SELECT` plans, with matching output-column/dtype checks, fail-closed branch bounds, optional
   global `ORDER BY`, global `LIMIT`, Python/DataFrame `union(...)` / `union_all(...)` lowering,
   and no-fallback evidence fields. The remaining broad
   grammar blockers are explicit rows in `docs/status/admitted-semantics-matrix.json`: decimal casts,
   non-UTC/timezone/interval semantics, regex/collation, complex/list/struct/variant/union-dtype/
-  binary shapes, row-value or multi-column IN-subqueries, and nested/joined/grouped/correlated/
-  EXISTS subquery families.
-  Next slice outcome: choose the next broad SQL grammar family after scoped UNION CI evidence lands;
-  likely candidates are broader subquery classification, complex dtype blocker refinement, or
-  additional front-door parity over the newly admitted UNION route.
+  binary shapes, scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated/
+  EXISTS/ANY/ALL subquery families.
+  Next slice outcome: choose the next broad SQL grammar family after scoped row-value IN-subquery
+  CI evidence lands; likely candidates are EXISTS/NOT EXISTS admission, complex dtype blocker
+  refinement, or additional front-door parity over the newly admitted subquery route.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

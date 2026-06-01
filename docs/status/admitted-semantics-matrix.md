@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=42
-executable_fixture_count=24
+matrix_row_count=43
+executable_fixture_count=25
 unsupported_diagnostic_count=18
 property_lane_count=1
 property_seed_order=20260521
@@ -61,14 +61,19 @@ Covered fixture rows:
 - `conditional_projection_case_when`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
+- `row_value_in_subquery_semantics`
 - `sql_union_composition_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
 - `having_in_subquery_semantics`
 - `distinct_count_grouped`
+- `select_distinct_projection`
+- `select_distinct_aggregate_having`
 - `having_hidden_aggregate_expression`
 - `window_rank_offset_distribution`
+- `select_distinct_window`
 - `join_multi_key_expression_condition`
+- `select_distinct_join`
 - `unsupported_numeric_division_by_zero`
 - `unsupported_cast_decimal128`
 - `unsupported_non_utc_timestamp_literal`
@@ -81,15 +86,15 @@ Covered fixture rows:
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `unsupported_binary_literal_source`
-- `unsupported_multi_column_in_subquery`
+- `unsupported_scalar_multi_column_in_subquery`
 - `unsupported_nested_in_subquery`
 - `unsupported_joined_in_subquery`
 - `unsupported_grouped_having_in_subquery`
 - `unsupported_correlated_in_subquery`
 - `unsupported_exists_any_all_subquery`
 
-Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery
-fixtures, external-oracle result artifact population, and fuzz execution beyond the deterministic
+Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar and row-value
+IN-subquery fixtures, external-oracle result artifact population, and fuzz execution beyond the deterministic
 seeded property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
 interval arithmetic, regex, locale/collation, complex dtype families, and unsupported advanced
 subquery shapes now have deterministic unsupported diagnostics with no fallback.

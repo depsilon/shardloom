@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D bounded row-value IN-subquery runtime slice
+  - Date: 2026-06-01
+  - Branch/PR: `codex/sql-subquery-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to bounded scalar local-source IN-subqueries and row-value literal `IN`
+      predicates: row-value local-source subqueries were still blocked as a broad subquery shape
+      even though both component contracts were already ShardLoom-owned.
+  - Scope:
+    - Added scoped bounded row-value local-source `IN (SELECT ...)` and `NOT IN (SELECT ...)`
+      parsing, binding, materialization, expression lowering, and execution for admitted local
+      sources. The runtime validates selected-column arity, reads only required subquery columns,
+      applies admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` tails, preserves SQL
+      three-valued row-value `WHERE` filtering, and emits deterministic blockers for scalar-left
+      multi-column, arity-mismatched, nested, joined, grouped/HAVING-internal, correlated, and
+      `EXISTS` / `ANY` / `ALL` subquery shapes.
+    - Added SQL/Python evidence fields and Python `row_in_source(...)` /
+      `row_not_in_source(...)` helpers so query-builder users can express source-backed composite
+      key membership without pandas, Polars, DuckDB, DataFusion, Spark, or another fallback.
+    - Updated the admitted semantics matrix, validator fixture, release-readiness markers,
+      README/Python README, use-case atlas, compute-flow reference, static website mirrors, phase
+      plan, global architecture review, and RFC traceability so row-value subqueries are runtime
+      supported while broader ANSI subquery parity stays explicit follow-up work.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo test -p shardloom-cli row_value_in_subquery -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallback -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_row_value_in_subquery_filter_invokes_sql_smoke`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/src/shardloom/__init__.py`
+      passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-row-value-subquery.json`
+      passed with `matrix_row_count=43`, `executable_fixture_count=25`, and
+      `unsupported_diagnostic_count=18`.
+    - `python3 scripts/check_use_case_index.py`, `python3 scripts/check_use_case_backlinks.py`,
+      `python3 scripts/check_use_case_coverage.py`, and
+      `python3 scripts/check_sql_python_dataframe_parity.py` passed.
+    - Tracked-files-only website generation passed with bundled Node:
+      `node scripts/sync-content.mjs`, `node node_modules/.bin/astro build`,
+      `node scripts/postbuild-static.mjs`, `node node_modules/.bin/astro check`, and
+      `node website/validate_static_assets.js`.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped bounded local-source row-value IN-subquery support over already-admitted
+      local SQL/Python runtime routes. It does not claim arbitrary ANSI subquery parity, correlated
+      subqueries, joins/groups inside subqueries, EXISTS/ANY/ALL, object-store/table SQL,
+      performance equivalence, production SQL/DataFrame completeness, or Spark replacement.
+  - Fallback boundary:
+    - All execution stays inside `sql-local-source-smoke` and reports no fallback or external
+      engine invocation. External engines remain baselines/oracles only and are not used for
+      execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL UNION composition slice
   - Date: 2026-06-01
   - Branch/PR: `codex/sql-union-runtime` / pending PR.

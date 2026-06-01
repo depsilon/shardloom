@@ -10785,11 +10785,11 @@ fn sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallbac
         ),
         (
             format!(
-                "SELECT id FROM '{}' WHERE (id,label) IN (SELECT id,label FROM '{}') LIMIT 10",
+                "SELECT id FROM '{}' WHERE id IN (SELECT id,label FROM '{}') LIMIT 10",
                 source_path.display(),
                 source_path.display(),
             ),
-            "multi-column IN subqueries are not admitted",
+            "multi-column IN subqueries require row-value source columns",
         ),
     ];
 
