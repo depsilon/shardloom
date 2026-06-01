@@ -537,8 +537,10 @@ plan before coding.
   booleans, and no-fallback/no-external-engine fields.
 - [x] GAR-RUNTIME-IMPL-4D-S1 adds scoped ShardLoom-native UTF-8 string predicate runtime for
   `utf8_starts_with` / `utf8_contains` / `utf8_ends_with` and local SQL `LIKE 'prefix%'` /
-  `LIKE '%contains%'` / `LIKE '%suffix'` lowering, with deterministic blockers for unsupported
-  LIKE shapes and no fallback/external engine invocation.
+  `LIKE '%contains%'` / `LIKE '%suffix'` lowering; GAR-RUNTIME-IMPL-6D broadens scoped `LIKE`
+  wildcard admission to `%` and `_` patterns through ShardLoom-owned predicate lowering while
+  keeping custom `ESCAPE`, case-folding, locale/collation, and fallback execution outside the
+  claim boundary.
 - [x] GAR-RUNTIME-IMPL-4D-S2 adds scoped ISO Date32 runtime support for parsing/formatting,
   `date_year` / `date_month` / `date_day`, UTF-8/Date32 casts, local SQL
   `DATE 'YYYY-MM-DD'` predicates, CSV ISO date inference, and deterministic invalid-date or

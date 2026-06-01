@@ -11752,6 +11752,9 @@ phase plan first.
     - Suffix-only `LIKE '%text'` is unsupported.
     - Exact `LIKE 'text'` is unsupported; users should use `=`.
     - Non-UTF-8 operands emit deterministic unsupported diagnostics.
+  - Later status: GAR-RUNTIME-IMPL-6D broadens scoped `LIKE` admission to `%` and `_`
+    wildcard patterns. This entry preserves the original 4D-S1 completion boundary rather than the
+    current runtime boundary.
   - Verification:
     - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
     - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`

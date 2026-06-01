@@ -1725,6 +1725,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "TIMESTAMP_SECOND(event_ts) = 45",
         )
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
+        self.assertEqual(str(sl.col("label").like("a%a")), "label LIKE 'a%a'")
+        self.assertEqual(str(sl.col("label").like("_l%")), "label LIKE '_l%'")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
         self.assertEqual(str(sl.col("label").not_like("%tmp%")), "label NOT LIKE '%tmp%'")
