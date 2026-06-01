@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python local-source smokes cover projection/filter/limit, with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source equi/cross/expression joins, and scalar/grouped join aggregates over local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support admitted comparisons, boolean truthiness including IS NOT TRUE/FALSE null-matches, between/not-between, cast, numeric arithmetic/ABS/rounding, date, UTC timestamp arithmetic/extracts, temporal differences, IN/NOT IN plus source-backed scalar, row-value, and quantified subqueries, null/string/logical, LIKE/NOT LIKE, scoped regex predicates, UTF-8 transforms, LENGTH, CONCAT/SUBSTR/REPLACE, and balanced-parentheses leaves. Local JSONL/CSV, feature-gated structured/Vortex writes, and fanout are admitted. No nested JSON/JSONPath, pandas/Polars backend, broad expression trees beyond admitted numeric/temporal differences, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity beyond admitted source-backed subqueries, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
+- **Claim boundary:** Scoped Python local-source smokes cover projection/filter/limit, with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source joins, join aggregates, HAVING filters, and local output/fanout over local CSV, flat JSON/JSONL/NDJSON, plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC and Vortex writes. Filters and HAVING admit documented comparison, boolean/null, cast, numeric, date/UTC timestamp, temporal-difference, string/LIKE/regex, IN/NOT IN, row-value, source-backed IN, EXISTS, and quantified subquery shapes. No nested JSON/JSONPath, pandas/Polars backend, broad expression trees beyond admitted families, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity beyond admitted source-backed shapes, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Python local file query-builder projection, preview, literal-column, aggregate, 
 
 ## Claim Boundary
 
-Scoped Python local-source smokes cover projection/filter/limit, with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source equi/cross/expression joins, and scalar/grouped join aggregates over local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support admitted comparisons, boolean truthiness including IS NOT TRUE/FALSE null-matches, between/not-between, cast, numeric arithmetic/ABS/rounding, date, UTC timestamp arithmetic/extracts, temporal differences, IN/NOT IN plus source-backed scalar, row-value, and quantified subqueries, null/string/logical, LIKE/NOT LIKE, scoped regex predicates, UTF-8 transforms, LENGTH, CONCAT/SUBSTR/REPLACE, and balanced-parentheses leaves. Local JSONL/CSV, feature-gated structured/Vortex writes, and fanout are admitted. No nested JSON/JSONPath, pandas/Polars backend, broad expression trees beyond admitted numeric/temporal differences, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity beyond admitted source-backed subqueries, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
+Scoped Python local-source smokes cover projection/filter/limit, with_column helpers, count, aggregate aliases, multi-key group_by, top-N, local-source joins, join aggregates, HAVING filters, and local output/fanout over local CSV, flat JSON/JSONL/NDJSON, plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC and Vortex writes. Filters and HAVING admit documented comparison, boolean/null, cast, numeric, date/UTC timestamp, temporal-difference, string/LIKE/regex, IN/NOT IN, row-value, source-backed IN, EXISTS, and quantified subquery shapes. No nested JSON/JSONPath, pandas/Polars backend, broad expression trees beyond admitted families, generalized joins/groups/orderings, timezone/collation completeness, broad ANSI subquery parity beyond admitted source-backed shapes, claim-grade fanout/replay, production SQL, object-store/table source, fallback, or performance claim.
 
 ## How To Try It
 
@@ -173,6 +173,31 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `in_subquery_materialized_value_count`
 - `in_subquery_materialized_null_value_count`
 - `having_in_subquery_runtime_execution`
+- `having_exists_subquery_runtime_execution`
+- `having_quantified_subquery_runtime_execution`
+- `exists_subquery_runtime_execution`
+- `exists_subquery_projection_kind`
+- `exists_subquery_source_format`
+- `exists_subquery_filter_runtime_execution`
+- `exists_subquery_order_by_runtime_execution`
+- `exists_subquery_limit_runtime_execution`
+- `exists_subquery_input_row_count`
+- `exists_subquery_filtered_row_count`
+- `exists_subquery_bounded_row_count`
+- `exists_subquery_result`
+- `quantified_subquery_runtime_execution`
+- `quantified_subquery_quantifier`
+- `quantified_subquery_comparison_operator`
+- `quantified_subquery_source_column`
+- `quantified_subquery_source_format`
+- `quantified_subquery_filter_runtime_execution`
+- `quantified_subquery_order_by_runtime_execution`
+- `quantified_subquery_limit_runtime_execution`
+- `quantified_subquery_input_row_count`
+- `quantified_subquery_filtered_row_count`
+- `quantified_subquery_materialization_bound`
+- `quantified_subquery_materialized_value_count`
+- `quantified_subquery_materialized_null_value_count`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`
@@ -222,7 +247,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, admitted local source evidence, source/source-state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, predicate fields, including boolean, generic-expression, temporal-difference, timestamp-arithmetic, and string-function evidence when requested, cast/null-coalesce/nullif/conditional/numeric/date/timestamp/string projection fields when requested, literal-projection fields when requested, bounded IN and source-backed scalar/row-value IN-subquery value/null/filter/order/limit evidence when requested, local output replay/fidelity and Vortex output fields when requested, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, admitted local source evidence, source/source-state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, predicate fields, including boolean, generic-expression, temporal-difference, timestamp-arithmetic, and string-function evidence when requested, cast/null-coalesce/nullif/conditional/numeric/date/timestamp/string projection fields when requested, literal-projection fields when requested, bounded IN, source-backed scalar/row-value IN-subquery value/null/filter/order/limit evidence, EXISTS/quantified subquery evidence, and HAVING subquery evidence when requested, local output replay/fidelity and Vortex output fields when requested, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

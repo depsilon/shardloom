@@ -653,9 +653,11 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-6D follow-through promotes bounded row-value local-source IN-subqueries over
   local sources with admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` tails, source-column arity
   validation, row-value null-semantics evidence, SQL/Python query-builder access, and
-  deterministic blockers for scalar-left multi-column, nested, joined, grouped/HAVING-internal,
-  correlated, and `EXISTS` / `ANY` / `ALL` subquery shapes with no fallback/external engine
-  invocation.
+  deterministic blockers for scalar-left multi-column, nested, joined, grouped/HAVING-internal, and
+  correlated subquery shapes with no fallback/external engine invocation. Later 6D slices now admit
+  scoped local `EXISTS` / `NOT EXISTS`, scoped quantified `ANY` / `ALL`, and HAVING-level
+  `EXISTS` / quantified subqueries over aggregate output rows through ShardLoom-owned runtime
+  routes.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 

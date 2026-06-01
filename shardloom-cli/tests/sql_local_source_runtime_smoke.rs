@@ -7590,6 +7590,149 @@ fn sql_local_source_smoke_executes_having_in_subquery_without_fallback() {
     fs::remove_file(allowed_path).expect("remove allowed csv");
 }
 
+fn write_having_subquery_csv_fixtures() -> (PathBuf, PathBuf, PathBuf) {
+    let source_path = unique_path("sql-local-source-having-subquery-source", "csv");
+    let allowed_path = unique_path("sql-local-source-having-exists-subquery-allowed", "csv");
+    let thresholds_path = unique_path("sql-local-source-having-quantified-thresholds", "csv");
+    fs::write(
+        &source_path,
+        "region,id,amount\n\
+         east,1,10\n\
+         east,2,13\n\
+         west,3,20\n\
+         north,4,12\n\
+         north,5,15\n\
+         north,6,18\n",
+    )
+    .expect("write source csv");
+    fs::write(&allowed_path, "active,score\nfalse,10\ntrue,30\ntrue,20\n")
+        .expect("write allowed csv");
+    fs::write(
+        &thresholds_path,
+        "threshold,active,score\n20,true,10\n22,true,20\n99,false,30\n",
+    )
+    .expect("write thresholds csv");
+    (source_path, allowed_path, thresholds_path)
+}
+
+#[test]
+fn sql_local_source_smoke_executes_having_exists_subquery_without_fallback() {
+    let (source_path, allowed_path, thresholds_path) = write_having_subquery_csv_fixtures();
+
+    let exists_statement = format!(
+        "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{}' GROUP BY region HAVING EXISTS (SELECT * FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) ORDER BY total DESC LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &exists_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        exists_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&exists_output.stdout),
+        String::from_utf8_lossy(&exists_output.stderr)
+    );
+    let stdout = String::from_utf8(exists_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_operator_family", "exists_subquery")));
+    assert!(stdout.contains(&field("having_exists_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_projection_kind", "wildcard")));
+    assert!(stdout.contains(&field("exists_subquery_source_format", "csv")));
+    assert!(stdout.contains(&field("exists_subquery_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_input_row_count", "3")));
+    assert!(stdout.contains(&field("exists_subquery_filtered_row_count", "2")));
+    assert!(stdout.contains(&field("exists_subquery_bounded_row_count", "1")));
+    assert!(stdout.contains(&field("exists_subquery_result", "true")));
+    assert!(stdout.contains(&field("having_input_row_count", "3")));
+    assert!(stdout.contains(&field("having_selected_row_count", "3")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"north\\\",\\\"rows\\\":3,\\\"total\\\":45}\\n{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2,\\\"total\\\":23}\\n{\\\"region\\\":\\\"west\\\",\\\"rows\\\":1,\\\"total\\\":20}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+    fs::remove_file(thresholds_path).expect("remove thresholds csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_having_quantified_subquery_without_fallback() {
+    let (source_path, allowed_path, thresholds_path) = write_having_subquery_csv_fixtures();
+
+    let quantified_statement = format!(
+        "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{}' GROUP BY region HAVING total > ALL (SELECT threshold FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY total DESC LIMIT 10",
+        source_path.display(),
+        thresholds_path.display()
+    );
+    let quantified_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &quantified_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        quantified_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&quantified_output.stdout),
+        String::from_utf8_lossy(&quantified_output.stderr)
+    );
+    let stdout = String::from_utf8(quantified_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_operator_family", "quantified_subquery")));
+    assert!(stdout.contains(&field("having_source_column", "total")));
+    assert!(stdout.contains(&field(
+        "having_quantified_subquery_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("quantified_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("quantified_subquery_quantifier", "all")));
+    assert!(stdout.contains(&field("quantified_subquery_comparison_operator", "gt")));
+    assert!(stdout.contains(&field("quantified_subquery_source_column", "threshold")));
+    assert!(stdout.contains(&field("quantified_subquery_source_format", "csv")));
+    assert!(stdout.contains(&field(
+        "quantified_subquery_filter_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "quantified_subquery_order_by_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "quantified_subquery_limit_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("quantified_subquery_input_row_count", "3")));
+    assert!(stdout.contains(&field("quantified_subquery_filtered_row_count", "2")));
+    assert!(stdout.contains(&field("quantified_subquery_materialized_value_count", "2")));
+    assert!(stdout.contains(&field("having_input_row_count", "3")));
+    assert!(stdout.contains(&field("having_selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"north\\\",\\\"rows\\\":3,\\\"total\\\":45}\\n{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2,\\\"total\\\":23}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+    fs::remove_file(thresholds_path).expect("remove thresholds csv");
+}
+
 fn assert_in_subquery_missing_column_blocks(source_path: &Path, allowed_path: &Path) {
     let statement = format!(
         "SELECT id FROM '{}' WHERE id IN (SELECT missing_id FROM '{}') LIMIT 10",

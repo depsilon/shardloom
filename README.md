@@ -69,7 +69,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   inner/outer/semi/anti equi-joins, cross joins, scoped
   column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
   over joined rows, scoped scalar/grouped join aggregates, and post-aggregate `HAVING` filters over
-  aggregate output rows;
+  aggregate output rows including admitted bounded `IN`, `EXISTS`, and quantified `ANY`/`ALL`
+  subqueries;
 - source-free generated local outputs through user rows, ranges, sequences, calendars, SQL `VALUES`,
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;
@@ -149,7 +150,8 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, LIKE/regex/string
 predicates, interval-backed temporal helper predicates, join/window, source-backed `IN` /
-`EXISTS`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
+`EXISTS` / `ANY` / `ALL`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and
+bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

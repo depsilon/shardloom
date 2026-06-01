@@ -3858,6 +3858,206 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_having_exists_subquery_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) ORDER BY total DESC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"north\\",\\"rows\\":3,\\"total\\":45}\\n{\\"region\\":\\"east\\",\\"rows\\":2,\\"total\\":23}\\n{\\"region\\":\\"west\\",\\"rows\\":1,\\"total\\":20}\\n"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "having_runtime_execution", "value": "true"},
+                        {"key": "having_operator_family", "value": "exists_subquery"},
+                        {"key": "having_exists_subquery_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_projection_kind", "value": "wildcard"},
+                        {"key": "exists_subquery_source_format", "value": "csv"},
+                        {"key": "exists_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_input_row_count", "value": "3"},
+                        {"key": "exists_subquery_filtered_row_count", "value": "2"},
+                        {"key": "exists_subquery_bounded_row_count", "value": "1"},
+                        {"key": "exists_subquery_result", "value": "true"},
+                        {"key": "exists_subquery_null_semantics", "value": "sql_exists_two_valued_presence_test"},
+                        {"key": "having_input_row_count", "value": "3"},
+                        {"key": "having_selected_row_count", "value": "3"},
+                        {"key": "output_row_count", "value": "3"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        allowed = ctx.read_csv("target/allowed.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .group_by("region")
+            .agg(rows="count(*)", total="sum(amount)")
+            .having(
+                sl.exists_source(
+                    allowed,
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=1,
+                )
+            )
+            .sort("total", descending=True)
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.having_operator_family, "exists_subquery")
+        self.assertTrue(report.having_exists_subquery_runtime_execution)
+        self.assertTrue(report.exists_subquery_runtime_execution)
+        self.assertEqual(report.exists_subquery_projection_kind, ("wildcard",))
+        self.assertEqual(report.exists_subquery_source_formats, ("csv",))
+        self.assertTrue(report.exists_subquery_filter_runtime_execution)
+        self.assertTrue(report.exists_subquery_order_by_runtime_execution)
+        self.assertTrue(report.exists_subquery_limit_runtime_execution)
+        self.assertEqual(report.exists_subquery_input_row_count, 3)
+        self.assertEqual(report.exists_subquery_filtered_row_count, 2)
+        self.assertEqual(report.exists_subquery_bounded_row_count, 1)
+        self.assertEqual(report.exists_subquery_result, (True,))
+        self.assertEqual(report.having_input_row_count, 3)
+        self.assertEqual(report.having_selected_row_count, 3)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_having_quantified_subquery_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING total > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY total DESC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"north\\",\\"rows\\":3,\\"total\\":45}\\n{\\"region\\":\\"east\\",\\"rows\\":2,\\"total\\":23}\\n"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "having_runtime_execution", "value": "true"},
+                        {"key": "having_operator_family", "value": "quantified_subquery"},
+                        {"key": "having_source_column", "value": "total"},
+                        {"key": "having_quantified_subquery_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_quantifier", "value": "all"},
+                        {"key": "quantified_subquery_comparison_operator", "value": "gt"},
+                        {"key": "quantified_subquery_source_column", "value": "threshold"},
+                        {"key": "quantified_subquery_source_format", "value": "csv"},
+                        {"key": "quantified_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_input_row_count", "value": "3"},
+                        {"key": "quantified_subquery_filtered_row_count", "value": "2"},
+                        {"key": "quantified_subquery_materialization_bound", "value": "32"},
+                        {"key": "quantified_subquery_materialized_value_count", "value": "2"},
+                        {"key": "quantified_subquery_materialized_null_value_count", "value": "0"},
+                        {"key": "quantified_subquery_null_semantics", "value": "sql_all_three_valued_where_filter"},
+                        {"key": "having_input_row_count", "value": "3"},
+                        {"key": "having_selected_row_count", "value": "2"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        thresholds = ctx.read_csv("target/thresholds.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .group_by("region")
+            .agg(rows="count(*)", total="sum(amount)")
+            .having(
+                sl.col("total").all_source(
+                    ">",
+                    thresholds,
+                    "threshold",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            )
+            .sort("total", descending=True)
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.having_operator_family, "quantified_subquery")
+        self.assertEqual(report.having_source_columns, ("total",))
+        self.assertTrue(report.having_quantified_subquery_runtime_execution)
+        self.assertTrue(report.quantified_subquery_runtime_execution)
+        self.assertEqual(report.quantified_subquery_quantifiers, ("all",))
+        self.assertEqual(report.quantified_subquery_comparison_operators, ("gt",))
+        self.assertEqual(report.quantified_subquery_source_columns, ("threshold",))
+        self.assertEqual(report.quantified_subquery_source_formats, ("csv",))
+        self.assertTrue(report.quantified_subquery_filter_runtime_execution)
+        self.assertTrue(report.quantified_subquery_order_by_runtime_execution)
+        self.assertTrue(report.quantified_subquery_limit_runtime_execution)
+        self.assertEqual(report.quantified_subquery_input_row_count, 3)
+        self.assertEqual(report.quantified_subquery_filtered_row_count, 2)
+        self.assertEqual(report.quantified_subquery_materialization_bound, 32)
+        self.assertEqual(report.quantified_subquery_materialized_value_count, 2)
+        self.assertEqual(report.quantified_subquery_materialized_null_value_count, 0)
+        self.assertEqual(
+            report.quantified_subquery_null_semantics,
+            "sql_all_three_valued_where_filter",
+        )
+        self.assertEqual(report.having_input_row_count, 3)
+        self.assertEqual(report.having_selected_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_having_unprojected_aggregate_invokes_sql_smoke(
         self,
     ) -> None:
