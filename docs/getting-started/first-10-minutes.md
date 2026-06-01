@@ -89,10 +89,10 @@ python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iteratio
 ```
 
 This wraps the local taxonomy benchmark harness with a small ShardLoom-only
-smoke configuration. By default it runs both `shardloom` and
-`shardloom-prepared-vortex` so the compatibility-import certification lane and
-current prepared-Vortex runtime-development lane are visible separately. Use
-`--engines shardloom-prepare-batch` with the underlying
+smoke configuration. By default it runs the internal `shardloom` and
+`shardloom-prepared-vortex` engine IDs, presented publicly as ShardLoom Cold
+Certified Route and ShardLoom Warm Prepared Query so their start states are
+visible separately. Use `--engines shardloom-prepare-batch` with the underlying
 `benchmarks\traditional_analytics\run.py` harness when you specifically want the
 single-process compatibility prepare plus prepared/native batch route and its
 `prepare_batch_*` adapter-timing evidence.

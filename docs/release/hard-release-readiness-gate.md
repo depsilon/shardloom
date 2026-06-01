@@ -68,6 +68,7 @@ python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_python_user_surface_completion.py
 python scripts\check_sql_python_dataframe_parity.py
+python scripts\check_user_surface_runtime_gap_inventory.py
 python scripts\check_pre_5j_dependency_freshness.py
 python scripts\check_golden_workflows.py
 python scripts\check_admitted_semantics_matrix.py
@@ -167,6 +168,45 @@ all_no_fallback_no_external_engine=true
 
 Passing this gate means the repo is honest about front-door parity. It is not a broad
 SQL/Python/DataFrame completion claim.
+
+The user-surface runtime gap inventory uses schema
+`shardloom.user_surface_runtime_gap_inventory.v1`:
+
+```powershell
+python scripts\check_user_surface_runtime_gap_inventory.py
+```
+
+It writes:
+
+```text
+target/user-surface-runtime-gap-inventory.json
+```
+
+The inventory classifies every structured `unsupported`, `blocked`, `not complete`, and
+`front_door_gap` status in the current user-surface path into one of:
+
+```text
+runtime_available_needs_front_door
+runtime_available_needs_output_route
+runtime_available_needs_claim_evidence
+true_runtime_expansion_item
+policy_rejected
+```
+
+It also proves that benchmark unsupported rows are external-baseline limitations rather than
+ShardLoom runtime gaps. The current expected acceptance summary keeps:
+
+```text
+shardloom_benchmark_unsupported_rows=0
+all_inventory_rows_classified=true
+all_inventory_rows_no_fallback_no_external_engine=true
+claim_gate_status=not_claim_grade
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Passing this gate means the user surface is machine-readable about remaining runtime gaps. It does
+not close the gaps or authorize broad runtime, production, or performance claims.
 
 The pre-5J dependency freshness gate uses schema
 `shardloom.pre_5j_dependency_freshness_gate.v1`:

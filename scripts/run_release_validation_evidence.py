@@ -123,6 +123,14 @@ REQUIRED_VALIDATION_COMMANDS = [
         "python_user_surface_completion_gate",
         [sys.executable, "scripts/check_python_user_surface_completion.py"],
     ),
+    (
+        "sql_python_dataframe_parity_gate",
+        [sys.executable, "scripts/check_sql_python_dataframe_parity.py"],
+    ),
+    (
+        "user_surface_runtime_gap_inventory",
+        [sys.executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
+    ),
 ]
 
 

@@ -112,6 +112,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/sql-python-dataframe-parity-gate.json"),
     )
     parser.add_argument(
+        "--user-surface-runtime-gap-inventory-report",
+        type=Path,
+        default=Path("target/user-surface-runtime-gap-inventory.json"),
+    )
+    parser.add_argument(
         "--pre-5j-dependency-report",
         type=Path,
         default=Path("target/pre-5j-dependency-freshness-gate.json"),
@@ -163,6 +168,10 @@ def main() -> int:
     sql_python_dataframe_parity_report_path = resolve(
         repo_root,
         args.sql_python_dataframe_parity_report,
+    )
+    user_surface_runtime_gap_inventory_path = resolve(
+        repo_root,
+        args.user_surface_runtime_gap_inventory_report,
     )
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
 
@@ -942,6 +951,72 @@ def main() -> int:
         )
     )
 
+    user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
+    user_surface_runtime_gap_blockers: list[str] = []
+    if user_surface_runtime_gap_inventory is None:
+        user_surface_runtime_gap_blockers.append("missing user-surface runtime gap inventory report")
+    else:
+        if (
+            user_surface_runtime_gap_inventory.get("schema_version")
+            != "shardloom.user_surface_runtime_gap_inventory.v1"
+        ):
+            user_surface_runtime_gap_blockers.append(
+                "user-surface runtime gap inventory schema_version="
+                + str(user_surface_runtime_gap_inventory.get("schema_version", "missing"))
+            )
+        if user_surface_runtime_gap_inventory.get("status") != "passed":
+            user_surface_runtime_gap_blockers.extend(
+                user_surface_runtime_gap_inventory.get(
+                    "blockers", ["user-surface runtime gap inventory blocked"]
+                )
+            )
+        acceptance = user_surface_runtime_gap_inventory.get("acceptance_summary")
+        if not isinstance(acceptance, dict):
+            user_surface_runtime_gap_blockers.append(
+                "user-surface runtime gap inventory missing acceptance_summary"
+            )
+        else:
+            if acceptance.get("shardloom_benchmark_unsupported_rows") != 0:
+                user_surface_runtime_gap_blockers.append(
+                    "user-surface runtime gap inventory must report zero ShardLoom benchmark "
+                    "unsupported rows"
+                )
+            if acceptance.get("all_inventory_rows_classified") is not True:
+                user_surface_runtime_gap_blockers.append(
+                    "user-surface runtime gap inventory all_inventory_rows_classified must be true"
+                )
+            if acceptance.get("all_inventory_rows_no_fallback_no_external_engine") is not True:
+                user_surface_runtime_gap_blockers.append(
+                    "user-surface runtime gap inventory all_inventory_rows_no_fallback_no_external_engine must be true"
+                )
+            if acceptance.get("claim_gate_status") != "not_claim_grade":
+                user_surface_runtime_gap_blockers.append(
+                    "user-surface runtime gap inventory claim_gate_status="
+                    + str(acceptance.get("claim_gate_status", "missing"))
+                )
+            for field in ["fallback_attempted", "external_engine_invoked"]:
+                if acceptance.get(field) is not False:
+                    user_surface_runtime_gap_blockers.append(
+                        f"user-surface runtime gap inventory {field} must be false"
+                    )
+        benchmark_summary = user_surface_runtime_gap_inventory.get("benchmark_support_summary")
+        if not isinstance(benchmark_summary, dict):
+            user_surface_runtime_gap_blockers.append(
+                "user-surface runtime gap inventory missing benchmark_support_summary"
+            )
+        elif benchmark_summary.get("external_baseline_classification_blockers"):
+            user_surface_runtime_gap_blockers.append(
+                "user-surface runtime gap inventory external unsupported rows must remain "
+                "external-baseline-only"
+            )
+    checks.append(
+        check(
+            "user_surface_runtime_gap_inventory",
+            str(args.user_surface_runtime_gap_inventory_report).replace("\\", "/"),
+            user_surface_runtime_gap_blockers,
+        )
+    )
+
     pre_5j_dependency = load_json(pre_5j_dependency_report_path)
     pre_5j_dependency_blockers: list[str] = []
     if pre_5j_dependency is None:
@@ -1004,6 +1079,8 @@ def main() -> int:
         "python scripts/final_release_rehearsal.py --allow-blocked",
         "python scripts/check_production_usability_gate.py",
         "python scripts/check_python_user_surface_completion.py",
+        "python scripts/check_sql_python_dataframe_parity.py",
+        "python scripts/check_user_surface_runtime_gap_inventory.py",
     ]
     validation_blockers = []
     if validation_evidence is None:
@@ -1045,6 +1122,9 @@ def main() -> int:
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
         "production_usability_report_ref": str(args.production_usability_report).replace("\\", "/"),
+        "user_surface_runtime_gap_inventory_ref": str(
+            args.user_surface_runtime_gap_inventory_report
+        ).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,

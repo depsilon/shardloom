@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Benchmark route runtime status and route-lane presentation cleanup
+  - Date: 2026-06-01
+  - Branch/PR: `codex/benchmark-route-runtime-status` / #997.
+  - Source:
+    - User benchmark-lane feedback for route-comparable lanes versus stage attribution.
+    - `GAR-RUNTIME-IMPL-6D Runtime-Ready User Surface And Benchmark-Range Completion`.
+    - `docs/architecture/benchmark-suite-catalog.md` and
+      `docs/benchmarks/static-benchmark-publishing-runbook.md`.
+  - Scope:
+    - Added a first-class benchmark route-runtime layer across promoted benchmark rows, manifest
+      metadata, static artifacts, validators, and the benchmark dashboard.
+    - Renamed public ShardLoom lanes so internal `shardloom` presents as
+      `ShardLoom Cold Certified Route`, prepared routes present as
+      `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
+      `ShardLoom Warm Prepared Query`, and `ShardLoom Native Vortex Query`, and transient
+      compatibility presents as `ShardLoom Direct Transient Route`.
+    - Split the public benchmark view into route-level comparison and ShardLoom stage attribution,
+      with runtime support separate from evidence quality and performance/production claim
+      authorization.
+    - Updated website, docs, static validators, benchmark publication gates, constitution checks,
+      artifact-completeness checks, and release-readiness contract tests.
+  - Evidence:
+    - Existing full-local benchmark artifact was re-promoted without a full benchmark refresh.
+    - Published route-runtime status counts report `scoped_runtime_supported=480` and
+      `external_baseline_only=720`.
+    - Public artifacts distinguish `ShardLoom unsupported rows: 0` from six external DataFusion
+      baseline unsupported rows.
+    - PR CI passed for head `6895486f`, and post-merge `main` CI run `26728652449` passed.
+  - Claim boundary:
+    - This cleanup proves benchmark route identity/readiness semantics and public presentation, not
+      broad performance superiority, production readiness, Spark replacement, or package
+      publication.
+    - `claim_grade` remains evidence quality, while `performance_claim_allowed=false`,
+      `production_claim_allowed=false`, and `spark_replacement_claim_allowed=false` remain explicit
+      in published rows.
+  - Fallback boundary:
+    - ShardLoom rows remain no-fallback rows with `fallback_attempted=false` and
+      `external_engine_invoked=false`. External engines remain baseline rows only, never fallback.
+
 - [x] Session label: Repo readiness and user-surface audit baseline
   - Date: 2026-05-31
   - Branch/PR: `codex/repo-readiness-user-surface-audit` / #991.
