@@ -487,9 +487,10 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   the reserved `outer.<column>` alias in column-to-column comparisons. The admitted runtime family
   covers scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates through
   per-outer-row bounded materialization, with correlated runtime, outer-column, evaluation-strategy,
-  and no-fallback evidence fields. Arbitrary source aliases, outer references outside
-  column-to-column predicates, broad projected correlated plans, and scalar-left multi-column
-  subqueries remain deterministic blockers.
+  and no-fallback evidence fields. Python/DataFrame front doors now expose the reserved
+  `sl.outer(...)` helper and typed correlated-subquery report fields for those admitted routes.
+  Arbitrary source aliases, outer references outside column-to-column predicates, broad projected
+  correlated plans, and scalar-left multi-column subqueries remain deterministic blockers.
   Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
   `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
   malformed escape literals, trailing escapes, and escape misuse. Case-folding and

@@ -572,8 +572,10 @@ SQL three-valued row comparison semantics. Scoped local `IN` subqueries material
 column or row-value tuple set from another admitted local source. Scoped local `EXISTS` subqueries
 evaluate a two-valued bounded presence test over another admitted local source. Scoped local
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
-source and apply SQL three-valued comparison semantics. Scalar-left multi-column, nested, joined,
-grouped/HAVING-internal, correlated, and broader quantified subquery shapes remain deterministic
+source and apply SQL three-valued comparison semantics. Scoped correlated `outer.<column>`
+subquery filters are admitted for scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` /
+`ALL` predicates through the reserved outer-row alias. Scalar-left multi-column, non-`outer`
+qualified, broad projected correlated, and broader arbitrary subquery shapes remain deterministic
 blockers.
 Typed reports expose `in_predicate_runtime_execution`,
 `in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
@@ -585,7 +587,10 @@ Typed reports expose `in_predicate_runtime_execution`,
 `exists_subquery_source_formats`, `exists_subquery_bounded_row_count`, and
 `exists_subquery_result`, `quantified_subquery_runtime_execution`,
 `quantified_subquery_quantifiers`, `quantified_subquery_source_columns`,
-`quantified_subquery_materialized_value_count`, and `quantified_subquery_null_semantics`, plus
+`quantified_subquery_materialized_value_count`, `quantified_subquery_null_semantics`,
+`correlated_subquery_runtime_execution`, `correlated_subquery_outer_aliases`,
+`correlated_subquery_outer_columns`, `correlated_subquery_evaluation_strategy`, and
+`correlated_subquery_outer_row_evaluation_count`, plus
 `numeric_arithmetic_runtime_execution`,
 `numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
 `numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
@@ -612,7 +617,8 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `sl.row_not_in_source(columns, source, source_columns)`, source-backed
 `sl.exists_source(source, where=..., order_by=..., limit=...)` /
 `sl.not_exists_source(source, ...)`, source-backed `sl.any_source(...)` / `sl.all_source(...)`
-and `sl.col(...).any_source(...)` / `.all_source(...)`, `cast(dtype)`,
+and `sl.col(...).any_source(...)` / `.all_source(...)`, `sl.outer(column)` for the reserved
+correlated outer-row alias, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
@@ -849,6 +855,19 @@ source_subquery_filtered = (
     .limit(10)
     .collect()
 )
+correlated_source_subquery_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(
+        sl.col("id").isin_source(
+            allowed_ids,
+            "allowed_id",
+            where=sl.col("allowed_id") == sl.outer("id"),
+        )
+    )
+    .limit(10)
+    .collect()
+)
 allowed_pairs = ctx.read_csv("target/sql-local-source-allowed-pairs.csv")
 row_source_subquery_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
@@ -1032,6 +1051,11 @@ print(
     source_subquery_filtered.in_subquery_source_columns,
     source_subquery_filtered.in_subquery_materialized_value_count,
     source_subquery_filtered.in_subquery_materialized_null_value_count,
+)
+print(
+    correlated_source_subquery_filtered.correlated_subquery_runtime_execution,
+    correlated_source_subquery_filtered.correlated_subquery_outer_columns,
+    correlated_source_subquery_filtered.correlated_subquery_evaluation_strategy,
 )
 print(
     exists_subquery_filtered.exists_subquery_runtime_execution,
@@ -1313,7 +1337,8 @@ print(join_grouped_topn.top_n_limit)
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
 null ordering, collation parity,
 broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
-IN-subqueries, scoped local EXISTS predicates, and scoped quantified ANY/ALL predicates, arbitrary predicate-tree completeness
+IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, and scoped
+correlated `outer.<column>` source-subquery filters, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
