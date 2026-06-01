@@ -6041,6 +6041,7 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
     if subquery.source_format.is_some() {
         return Ok(());
     }
+    materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
         in_subquery_required_columns(subquery),
         "in_subquery_required_source_columns",
@@ -6089,6 +6090,7 @@ fn materialize_row_value_in_subquery(
     if subquery.source_format.is_some() {
         return Ok(());
     }
+    materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
         row_value_in_subquery_required_columns(subquery),
         "row_value_in_subquery_required_source_columns",
@@ -6140,6 +6142,7 @@ fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<()
     if subquery.source_format.is_some() {
         return Ok(());
     }
+    materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
         exists_subquery_required_columns(subquery),
         "exists_subquery_required_source_columns",
@@ -11495,6 +11498,23 @@ impl ParsedSqlLocalSource {
         self.having.uses_exists_subquery()
     }
 
+    fn nested_subquery_runtime_execution(&self) -> bool {
+        (self.predicate.uses_subquery_predicate()
+            && self.predicate.nested_subquery_runtime_count() > 0)
+            || (self.having.uses_subquery_predicate()
+                && self.having.nested_subquery_runtime_count() > 0)
+    }
+
+    fn nested_subquery_runtime_count(&self) -> usize {
+        self.predicate.nested_subquery_runtime_count() + self.having.nested_subquery_runtime_count()
+    }
+
+    fn nested_subquery_max_depth(&self) -> usize {
+        self.predicate
+            .nested_subquery_max_depth()
+            .max(self.having.nested_subquery_max_depth())
+    }
+
     fn aggregate_statement_suffix(&self, suffix: &str) -> String {
         if self.has_having() {
             format!("{suffix}_having")
@@ -16325,6 +16345,150 @@ impl ParsedPredicate {
         self.uses_in_subquery() || self.uses_exists_subquery() || self.uses_quantified_subquery()
     }
 
+    fn nested_subquery_runtime_count(&self) -> usize {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                subquery.predicate.subquery_node_count()
+            }
+            Self::RowValueInSubquery { subquery, .. } => subquery.predicate.subquery_node_count(),
+            Self::ExistsSubquery { subquery } => subquery.predicate.subquery_node_count(),
+            Self::Logical { left, right, .. } => {
+                left.nested_subquery_runtime_count() + right.nested_subquery_runtime_count()
+            }
+            Self::Not { inner } => inner.nested_subquery_runtime_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn nested_subquery_max_depth(&self) -> usize {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                subquery.predicate.subquery_tree_depth()
+            }
+            Self::RowValueInSubquery { subquery, .. } => subquery.predicate.subquery_tree_depth(),
+            Self::ExistsSubquery { subquery } => subquery.predicate.subquery_tree_depth(),
+            Self::Logical { left, right, .. } => left
+                .nested_subquery_max_depth()
+                .max(right.nested_subquery_max_depth()),
+            Self::Not { inner } => inner.nested_subquery_max_depth(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn subquery_node_count(&self) -> usize {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                1 + subquery.predicate.subquery_node_count()
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                1 + subquery.predicate.subquery_node_count()
+            }
+            Self::ExistsSubquery { subquery } => 1 + subquery.predicate.subquery_node_count(),
+            Self::Logical { left, right, .. } => {
+                left.subquery_node_count() + right.subquery_node_count()
+            }
+            Self::Not { inner } => inner.subquery_node_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn subquery_tree_depth(&self) -> usize {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                1 + subquery.predicate.subquery_tree_depth()
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                1 + subquery.predicate.subquery_tree_depth()
+            }
+            Self::ExistsSubquery { subquery } => 1 + subquery.predicate.subquery_tree_depth(),
+            Self::Logical { left, right, .. } => {
+                left.subquery_tree_depth().max(right.subquery_tree_depth())
+            }
+            Self::Not { inner } => inner.subquery_tree_depth(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
     fn uses_quantified_subquery(&self) -> bool {
         match self {
             Self::QuantifiedSubquery { .. } => true,
@@ -20219,6 +20383,27 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .having_exists_subquery_runtime_execution()
                     .to_string(),
+            ),
+            (
+                "nested_subquery_runtime_execution".to_string(),
+                self.parsed.nested_subquery_runtime_execution().to_string(),
+            ),
+            (
+                "nested_subquery_predicate_count".to_string(),
+                self.parsed.nested_subquery_runtime_count().to_string(),
+            ),
+            (
+                "nested_subquery_max_depth".to_string(),
+                self.parsed.nested_subquery_max_depth().to_string(),
+            ),
+            (
+                "nested_subquery_materialization_order".to_string(),
+                if self.parsed.nested_subquery_runtime_execution() {
+                    "inner_first_depth_first"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "in_subquery_materialized_value_count".to_string(),
@@ -28114,11 +28299,6 @@ fn validate_in_subquery_clause_order(
 fn validate_exists_subquery_filter_predicate(
     predicate: &ParsedPredicate,
 ) -> Result<(), ShardLoomError> {
-    if predicate.uses_subquery_predicate() {
-        return Err(unsupported_sql_error(
-            "nested EXISTS subqueries are not admitted by the current advanced predicate profile",
-        ));
-    }
     if predicate.uses_generic_expression() {
         return Err(unsupported_sql_error(
             "EXISTS subquery WHERE predicates do not admit generic expression trees in this scoped runtime slice",
@@ -28139,11 +28319,6 @@ fn validate_exists_subquery_filter_predicate(
 fn validate_in_subquery_filter_predicate(
     predicate: &ParsedPredicate,
 ) -> Result<(), ShardLoomError> {
-    if predicate.uses_subquery_predicate() {
-        return Err(unsupported_sql_error(
-            "nested IN subqueries are not admitted by the current advanced predicate profile",
-        ));
-    }
     if predicate.uses_generic_expression() {
         return Err(unsupported_sql_error(
             "IN subquery WHERE predicates do not admit generic expression trees in this scoped runtime slice",
@@ -31931,6 +32106,36 @@ mod tests {
     }
 
     #[test]
+    fn parses_nested_local_in_subquery_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT allowed_id FROM 'target/allowed.csv' WHERE allowed_id IN (SELECT id FROM 'target/nested.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 5",
+        )
+        .expect("nested local IN subquery predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::InSubquery {
+                ref column,
+                ref subquery
+            } if column == "id"
+                && subquery.source_column == "allowed_id"
+                && subquery.source_path == Path::new("target/allowed.csv")
+                && matches!(
+                    subquery.predicate.as_ref(),
+                    ParsedPredicate::InSubquery {
+                        column,
+                        subquery
+                    } if column == "allowed_id"
+                        && subquery.source_column == "id"
+                        && subquery.source_path == Path::new("target/nested.csv")
+                )
+        ));
+        assert!(parsed.predicate.uses_subquery_predicate());
+        assert_eq!(parsed.predicate.nested_subquery_runtime_count(), 1);
+        assert_eq!(parsed.predicate.nested_subquery_max_depth(), 1);
+    }
+
+    #[test]
     fn parses_scoped_quantified_subquery_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,label FROM 'target/input.csv' WHERE amount >= ALL (SELECT threshold FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 5",
@@ -32495,6 +32700,74 @@ mod tests {
     }
 
     #[test]
+    fn runs_nested_local_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let allowed_path = sql_local_source_test_path("allowed.csv");
+        let nested_path = sql_local_source_test_path("nested.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_id,priority\n1,10\n2,30\n3,20\n5,40\n",
+        )
+        .expect("write allowed csv");
+        fs::write(
+            &nested_path,
+            "id,active,score\n1,true,20\n2,true,10\n3,true,40\n4,false,50\n",
+        )
+        .expect("write nested csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT allowed_id FROM '{}' WHERE allowed_id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
+                source_path.display(),
+                allowed_path.display(),
+                nested_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run nested IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "allowed_id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "nested_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "nested_subquery_predicate_count", "1");
+        assert_field_eq(&fields, "nested_subquery_max_depth", "1");
+        assert_field_eq(
+            &fields,
+            "nested_subquery_materialization_order",
+            "inner_first_depth_first",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+        fs::remove_file(&nested_path).expect("remove nested csv");
+    }
+
+    #[test]
     fn in_predicate_blocks_unadmitted_literal_lists_without_fallback() {
         let empty_error = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.csv' WHERE label IN () LIMIT 5",
@@ -32562,6 +32835,11 @@ mod tests {
 
     #[test]
     fn in_subquery_blocks_unadmitted_advanced_shapes_without_fallback() {
+        parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE id > ANY (SELECT id FROM 'target/allowed.csv' WHERE id IN (SELECT id FROM 'target/nested.csv')) LIMIT 5",
+        )
+        .expect("quantified nested IN subquery predicate is admitted");
+
         for (statement, expected) in [
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
@@ -32570,10 +32848,6 @@ mod tests {
             (
                 "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id FROM 'target/allowed.csv') LIMIT 5",
                 "row-value IN subquery selected-column arity must match the source column count",
-            ),
-            (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE id IN (SELECT id FROM 'target/nested.csv')) LIMIT 5",
-                "nested IN subqueries are not admitted",
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' JOIN 'target/other.csv' ON id = id) LIMIT 5",
@@ -32586,10 +32860,6 @@ mod tests {
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.id = 1) LIMIT 5",
                 "correlated or qualified IN subquery predicates are not admitted",
-            ),
-            (
-                "SELECT id FROM 'target/input.csv' WHERE id > ANY (SELECT id FROM 'target/allowed.csv' WHERE id IN (SELECT id FROM 'target/nested.csv')) LIMIT 5",
-                "nested IN subqueries are not admitted",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

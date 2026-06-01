@@ -770,6 +770,58 @@ def in_subquery_filtered_ordered_limited_case() -> SqlFixtureCase:
     )
 
 
+def nested_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="nested_in_subquery_semantics",
+        source_name="nested-in-subquery-source.csv",
+        source_text="id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN ("
+            "SELECT allowed_id FROM '{allowed}' WHERE allowed_id IN ("
+            "SELECT id FROM '{nested}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2"
+            ") ORDER BY priority DESC LIMIT 3"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "allowed_id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "4",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "nested_subquery_runtime_execution": "true",
+            "nested_subquery_predicate_count": "1",
+            "nested_subquery_max_depth": "1",
+            "nested_subquery_materialization_order": "inner_first_depth_first",
+            "in_predicate_null_semantics": "not_applicable",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "nested-in-subquery-allowed.csv",
+                "allowed_id,priority\n1,10\n2,30\n3,20\n5,40\n",
+            ),
+            (
+                "nested",
+                "nested-in-subquery-nested.csv",
+                "id,active,score\n1,true,20\n2,true,10\n3,true,40\n4,false,50\n",
+            ),
+        ),
+    )
+
+
 def having_in_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="having_in_subquery_semantics",
@@ -1485,6 +1537,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         sql_union_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
+        nested_in_subquery_case(),
         having_in_subquery_case(),
         having_exists_subquery_case(),
         having_quantified_subquery_case(),
@@ -1593,18 +1646,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="multi-column IN subqueries require row-value source columns",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_nested_in_subquery",
-            source_name="nested-subquery-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id FROM '{source}' WHERE id IN "
-                "(SELECT id FROM '{source}' WHERE id IN "
-                "(SELECT id FROM 'target/nested-in-subquery.csv')) LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="nested IN subqueries are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_joined_in_subquery",

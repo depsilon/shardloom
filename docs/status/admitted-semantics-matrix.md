@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=48
-executable_fixture_count=34
-unsupported_diagnostic_count=14
+executable_fixture_count=35
+unsupported_diagnostic_count=13
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -72,6 +72,7 @@ Covered fixture rows:
 - `sql_union_composition_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
+- `nested_in_subquery_semantics`
 - `having_in_subquery_semantics`
 - `having_exists_subquery_semantics`
 - `having_quantified_subquery_semantics`
@@ -93,18 +94,18 @@ Covered fixture rows:
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `unsupported_scalar_multi_column_in_subquery`
-- `unsupported_nested_in_subquery`
 - `unsupported_joined_in_subquery`
 - `unsupported_grouped_having_in_subquery`
 - `unsupported_correlated_in_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery,
-row-value IN-subquery, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level variants of those
-admitted local subquery fixtures,
+nested scalar IN-subquery, row-value IN-subquery, scoped EXISTS, scoped quantified ANY/ALL, and
+HAVING-level variants of those admitted local subquery fixtures,
 external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
 property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
 locale/collation, complex list/struct/variant/union dtype families, binary source decoding,
-binary casts/helper functions, and remaining unsupported advanced subquery shapes now have
+binary casts/helper functions, and remaining unsupported joined, grouped/HAVING-internal,
+scalar-left multi-column, and correlated advanced subquery shapes now have
 deterministic unsupported diagnostics with no fallback. Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside

@@ -463,7 +463,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
   complex/list/struct/variant/union-dtype shapes, binary source decoding/casts/helper functions,
-  scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated subquery families.
+  scalar-left multi-column IN-subqueries, and joined/grouped/correlated subquery families.
   Scoped quantified `ANY` / `ALL` subquery
   predicates over bounded local scalar
   sources are now part of the admitted ShardLoom-owned route with SQL three-valued null-semantics,
@@ -471,6 +471,10 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   HAVING-level scoped local `EXISTS` and quantified `ANY` / `ALL` subqueries over aggregate output
   rows are now admitted through the same aggregate/HAVING route, with decoded-reference fixtures and
   Python query-builder lowering.
+  Scoped nested local scalar `IN` subqueries are now promoted through depth-first materialization:
+  inner bounded local values are materialized before the parent subquery filter executes, with
+  nested predicate count, max depth, materialization order, source-format, row-count, and
+  no-fallback evidence.
   Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
   `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
   malformed escape literals, trailing escapes, and escape misuse. Case-folding and
@@ -480,9 +484,9 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
   scalar values with exact byte-count/hex evidence and no fallback; binary source decoding, binary
   casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
-  Next slice outcome: after binary hex literal evidence lands, choose the next broad SQL grammar
-  family; likely candidates are complex dtype blocker refinement, broader subquery shape parity, or
-  additional front-door parity over admitted routes.
+  Next slice outcome: after nested local scalar IN-subquery evidence lands, choose the next broad SQL
+  grammar family; likely candidates are joined/grouped/correlated subquery shape parity, complex
+  dtype blocker refinement, or additional front-door parity over admitted routes.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
