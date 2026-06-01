@@ -1578,6 +1578,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "id NOT IN (SELECT id FROM 'target/blocked.csv')",
         )
         self.assertEqual(
+            str(sl.col("id").any_source("=", "target/allowed.csv", "id")),
+            "id = ANY (SELECT id FROM 'target/allowed.csv')",
+        )
+        self.assertEqual(
+            str(
+                sl.all_source(
+                    "amount",
+                    "gt",
+                    "target/thresholds.csv",
+                    "threshold",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            ),
+            "amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2)",
+        )
+        self.assertEqual(
             str(sl.row_in(["id", "label"], [(1, "alpha"), (3, "gamma"), (5, None)])),
             "(id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL))",
         )
@@ -3010,6 +3029,109 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.result_jsonl,
             '{"id":1,"label":"alpha"}\n{"id":2,"label":"beta"}\n',
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_quantified_subquery_filter_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n{\\"id\\":5,\\"label\\":\\"epsilon\\"}\\n"},
+                        {"key": "predicate_operator_family", "value": "quantified_subquery"},
+                        {"key": "quantified_subquery_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_quantifier", "value": "all"},
+                        {"key": "quantified_subquery_comparison_operator", "value": "gt"},
+                        {"key": "quantified_subquery_source_column", "value": "threshold"},
+                        {"key": "quantified_subquery_source_format", "value": "csv"},
+                        {"key": "quantified_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "quantified_subquery_input_row_count", "value": "3"},
+                        {"key": "quantified_subquery_filtered_row_count", "value": "2"},
+                        {"key": "quantified_subquery_materialization_bound", "value": "32"},
+                        {"key": "quantified_subquery_materialized_value_count", "value": "2"},
+                        {"key": "quantified_subquery_materialized_null_value_count", "value": "0"},
+                        {"key": "quantified_subquery_null_semantics", "value": "sql_all_three_valued_where_filter"},
+                        {"key": "having_quantified_subquery_runtime_execution", "value": "false"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        thresholds = ctx.read_csv("target/thresholds.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(
+                sl.col("amount").all_source(
+                    ">",
+                    thresholds,
+                    "threshold",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "quantified_subquery")
+        self.assertTrue(report.quantified_subquery_runtime_execution)
+        self.assertEqual(report.quantified_subquery_quantifiers, ("all",))
+        self.assertEqual(report.quantified_subquery_comparison_operators, ("gt",))
+        self.assertEqual(report.quantified_subquery_source_columns, ("threshold",))
+        self.assertEqual(report.quantified_subquery_source_formats, ("csv",))
+        self.assertTrue(report.quantified_subquery_filter_runtime_execution)
+        self.assertTrue(report.quantified_subquery_order_by_runtime_execution)
+        self.assertTrue(report.quantified_subquery_limit_runtime_execution)
+        self.assertEqual(report.quantified_subquery_input_row_count, 3)
+        self.assertEqual(report.quantified_subquery_filtered_row_count, 2)
+        self.assertEqual(report.quantified_subquery_materialization_bound, 32)
+        self.assertEqual(report.quantified_subquery_materialized_value_count, 2)
+        self.assertEqual(report.quantified_subquery_materialized_null_value_count, 0)
+        self.assertEqual(
+            report.quantified_subquery_null_semantics,
+            "sql_all_three_valued_where_filter",
+        )
+        self.assertFalse(report.having_quantified_subquery_runtime_execution)
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":3,"label":"gamma"}\n{"id":5,"label":"epsilon"}\n',
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

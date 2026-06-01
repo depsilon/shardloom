@@ -2544,6 +2544,139 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def quantified_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted ANY/ALL-subquery predicate path."""
+
+        return (
+            self.envelope.field_bool("quantified_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def quantified_subquery_quantifiers(self) -> tuple[str, ...]:
+        """Return quantified subquery quantifiers used by admitted predicates."""
+
+        value = self.envelope.field("quantified_subquery_quantifier", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def quantified_subquery_comparison_operators(self) -> tuple[str, ...]:
+        """Return comparison operators used by admitted quantified subqueries."""
+
+        value = self.envelope.field("quantified_subquery_comparison_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def quantified_subquery_source_columns(self) -> tuple[str, ...]:
+        """Return selected source columns used by admitted quantified subqueries."""
+
+        value = self.envelope.field("quantified_subquery_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def quantified_subquery_source_formats(self) -> tuple[str, ...]:
+        """Return subquery source formats used by admitted quantified subqueries."""
+
+        value = self.envelope.field("quantified_subquery_source_format", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def quantified_subquery_filter_runtime_execution(self) -> bool:
+        """Whether an admitted quantified subquery evaluated its own WHERE predicate."""
+
+        return (
+            self.envelope.field_bool(
+                "quantified_subquery_filter_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def quantified_subquery_order_by_runtime_execution(self) -> bool:
+        """Whether an admitted quantified subquery applied ORDER BY."""
+
+        return (
+            self.envelope.field_bool(
+                "quantified_subquery_order_by_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def quantified_subquery_limit_runtime_execution(self) -> bool:
+        """Whether an admitted quantified subquery applied LIMIT."""
+
+        return (
+            self.envelope.field_bool(
+                "quantified_subquery_limit_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def quantified_subquery_input_row_count(self) -> int:
+        """Return the number of source rows read by admitted quantified subqueries."""
+
+        return self.envelope.field_int("quantified_subquery_input_row_count", 0) or 0
+
+    @property
+    def quantified_subquery_filtered_row_count(self) -> int:
+        """Return quantified subquery rows selected before ORDER BY/LIMIT."""
+
+        return self.envelope.field_int("quantified_subquery_filtered_row_count", 0) or 0
+
+    @property
+    def quantified_subquery_materialization_bound(self) -> int:
+        """Return the deterministic materialization bound for quantified subqueries."""
+
+        return self.envelope.field_int("quantified_subquery_materialization_bound", 0) or 0
+
+    @property
+    def quantified_subquery_materialized_value_count(self) -> int:
+        """Return bounded materialized scalar count for quantified subqueries."""
+
+        return (
+            self.envelope.field_int("quantified_subquery_materialized_value_count", 0)
+            or 0
+        )
+
+    @property
+    def quantified_subquery_materialized_null_value_count(self) -> int:
+        """Return bounded materialized NULL count for quantified subquery values."""
+
+        return (
+            self.envelope.field_int(
+                "quantified_subquery_materialized_null_value_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def quantified_subquery_null_semantics(self) -> str | None:
+        """Return the quantified subquery null-semantics evidence label."""
+
+        return self.envelope.field("quantified_subquery_null_semantics")
+
+    @property
+    def having_quantified_subquery_runtime_execution(self) -> bool:
+        """Whether HAVING used an admitted quantified subquery predicate."""
+
+        return (
+            self.envelope.field_bool(
+                "having_quantified_subquery_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
     def exists_subquery_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted EXISTS-subquery predicate path."""
 

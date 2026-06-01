@@ -69,6 +69,8 @@ REQUIRED_SOURCE_MARKERS = {
         "def write_vortex(",
         "def to_pandas(",
         "def sql(",
+        "def any_source(",
+        "def all_source(",
         "def _vortex_sql_primitive_shape(",
     ],
     "python/tests/test_query_builder.py": [
@@ -79,6 +81,7 @@ REQUIRED_SOURCE_MARKERS = {
         "test_local_csv_query_builder_distinct_join_invokes_sql_smoke",
         "test_local_csv_query_builder_distinct_window_invokes_sql_smoke",
         "test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke",
+        "test_local_csv_query_builder_quantified_subquery_filter_invokes_sql_smoke",
         "test_context_sql_schema_quality_helpers_invoke_sql_smoke",
         "test_sql_vortex_collect_uses_local_filter_project_primitive",
         "test_local_csv_query_builder_decoded_materialization_helpers",

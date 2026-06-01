@@ -543,6 +543,58 @@ def exists_subquery_case() -> SqlFixtureCase:
     )
 
 
+def quantified_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="quantified_subquery_semantics",
+        source_name="quantified-subquery-source.csv",
+        source_text=(
+            "id,label,amount\n"
+            "1,alpha,8\n"
+            "2,beta,15\n"
+            "3,gamma,21\n"
+            "4,delta,13\n"
+            "5,epsilon,34\n"
+        ),
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE amount > ALL ("
+            "SELECT threshold FROM '{thresholds}' "
+            "WHERE active IS TRUE ORDER BY score DESC LIMIT 2"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":5,"label":"epsilon"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "quantified_subquery",
+            "quantified_subquery_runtime_execution": "true",
+            "quantified_subquery_quantifier": "all",
+            "quantified_subquery_comparison_operator": "gt",
+            "quantified_subquery_source_column": "threshold",
+            "quantified_subquery_source_format": "csv",
+            "quantified_subquery_filter_runtime_execution": "true",
+            "quantified_subquery_order_by_runtime_execution": "true",
+            "quantified_subquery_limit_runtime_execution": "true",
+            "quantified_subquery_input_row_count": "3",
+            "quantified_subquery_filtered_row_count": "2",
+            "quantified_subquery_materialization_bound": "32",
+            "quantified_subquery_materialized_value_count": "2",
+            "quantified_subquery_materialized_null_value_count": "0",
+            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
+            "having_quantified_subquery_runtime_execution": "false",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "thresholds",
+                "quantified-subquery-thresholds.csv",
+                "threshold,active,score\n10,true,10\n20,true,20\n99,false,30\n",
+            ),
+        ),
+    )
+
+
 def sql_union_composition_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="sql_union_composition_semantics",
@@ -1182,6 +1234,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),
         exists_subquery_case(),
+        quantified_subquery_case(),
         sql_union_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
@@ -1363,17 +1416,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="correlated or qualified IN subquery predicates are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_any_all_subquery",
-            source_name="any-all-subquery-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id FROM '{source}' WHERE id = ANY "
-                "(SELECT id FROM '{source}') LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="ANY and ALL subquery predicates are not admitted",
         ),
     ]
 

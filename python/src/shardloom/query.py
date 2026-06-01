@@ -388,6 +388,56 @@ class ColumnExpression:
             f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})"
         )
 
+    def any_source(
+        self,
+        comparison: object,
+        source: object,
+        column: object,
+        *,
+        where: object | None = None,
+        order_by: object | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> PredicateExpression:
+        """Return a scoped bounded local-source `ANY (SELECT ...)` predicate."""
+
+        return _quantified_source_predicate(
+            self.sql,
+            comparison,
+            "ANY",
+            source,
+            column,
+            where=where,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+
+    def all_source(
+        self,
+        comparison: object,
+        source: object,
+        column: object,
+        *,
+        where: object | None = None,
+        order_by: object | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> PredicateExpression:
+        """Return a scoped bounded local-source `ALL (SELECT ...)` predicate."""
+
+        return _quantified_source_predicate(
+            self.sql,
+            comparison,
+            "ALL",
+            source,
+            column,
+            where=where,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
 
@@ -4681,6 +4731,58 @@ def row_not_in_source(
     )
 
 
+def any_source(
+    column: object,
+    comparison: object,
+    source: object,
+    source_column: object,
+    *,
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped bounded local-source `ANY (SELECT ...)` predicate."""
+
+    return _quantified_source_predicate(
+        _normalize_expression_column(column),
+        comparison,
+        "ANY",
+        source,
+        source_column,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
+
+
+def all_source(
+    column: object,
+    comparison: object,
+    source: object,
+    source_column: object,
+    *,
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped bounded local-source `ALL (SELECT ...)` predicate."""
+
+    return _quantified_source_predicate(
+        _normalize_expression_column(column),
+        comparison,
+        "ALL",
+        source,
+        source_column,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
+
+
 def exists_source(
     source: object,
     *,
@@ -7065,6 +7167,66 @@ def _exists_source_predicate(
     return PredicateExpression(
         f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})"
     )
+
+
+def _quantified_source_predicate(
+    column_sql: str,
+    comparison: object,
+    quantifier: str,
+    source: object,
+    source_column: object,
+    *,
+    where: object | None,
+    order_by: object | None,
+    descending: bool,
+    limit: int | None,
+) -> PredicateExpression:
+    operator = _normalize_quantified_comparison_operator(comparison)
+    source_column_sql = _normalize_output_column_name(source_column)
+    source_ref = _sql_local_subquery_source(source, "ANY/ALL subquery source")
+    tail = _sql_local_subquery_tail(
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="ANY/ALL subquery limit",
+        max_limit=32,
+        positive_limit=True,
+    )
+    return PredicateExpression(
+        f"{column_sql} {operator} {quantifier} "
+        f"(SELECT {source_column_sql} FROM {source_ref}{tail})"
+    )
+
+
+def _normalize_quantified_comparison_operator(operator: object) -> str:
+    text = _require_non_empty("ANY/ALL comparison operator", operator).lower()
+    operators = {
+        "=": "=",
+        "==": "=",
+        "eq": "=",
+        "!=": "!=",
+        "<>": "!=",
+        "ne": "!=",
+        "neq": "!=",
+        "<": "<",
+        "lt": "<",
+        "<=": "<=",
+        "le": "<=",
+        "lte": "<=",
+        ">": ">",
+        "gt": ">",
+        ">=": ">=",
+        "ge": ">=",
+        "gte": ">=",
+    }
+    try:
+        return operators[text]
+    except KeyError as exc:
+        raise ValueError(
+            "ANY/ALL comparison operator must be one of =, !=, <>, <, <=, >, >=, "
+            "eq, ne, lt, le, gt, or ge"
+        ) from exc
 
 
 def _normalize_exists_subquery_projection(select: object) -> str:
