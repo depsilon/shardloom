@@ -33074,6 +33074,16 @@ the current queue; promote any actionable unfinished work into Planned before im
       still return a deterministic unsupported report before staging rows. Foundry package/runtime,
       real output APIs, Spark, Marketplace, production claims, benchmark execution, performance
       claims, and external-engine fallback remain gated.
+- [x] GAR-RUNTIME-IMPL-6D scoped row-value literal `IN` / `NOT IN` predicates are runtime-backed
+      through the local-source SQL path and Python query-builder helpers. `sql-local-source-smoke`
+      now parses `(<column>,...) [NOT] IN ((<literal>,...),...)`, lowers each tuple to native
+      ShardLoom comparison/logical predicates, preserves SQL three-valued row comparison semantics,
+      emits `row_value_in_*` evidence fields, and keeps malformed tuples plus row-value or
+      multi-column IN-subqueries as deterministic no-fallback diagnostics. Python exposes
+      `sl.row_in(...)` and `sl.row_not_in(...)`, and the admitted semantics matrix now carries
+      `row_value_in_predicate_semantics` as an executable fixture row rather than an unsupported
+      ShardLoom gap. Broad subquery grammar, UNION-like composition, object-store/table SQL
+      runtime, benchmark execution, performance claims, and external-engine fallback remain gated.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

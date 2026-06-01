@@ -556,17 +556,22 @@ scoped temporal-difference expressions with `DATE_DIFF_DAYS(...)` and
 `TIMESTAMP_DIFF_SECONDS(...)` compared against numeric literals,
 scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
 `<column> * 2.0 > 1.0`,
-bounded `IN (...)` / `NOT IN (...)`, scoped local
+bounded `IN (...)` / `NOT IN (...)`, scoped literal row-value
+`(<column>,...) IN ((...),...)` / `NOT IN` predicates, scoped local
 `IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` subquery predicates, direct SQL
 `BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
 `LENGTH(column)` comparisons against integer literals, string `LIKE` / `NOT LIKE`, null, logical
 `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted leaves. `where(...)` is a
 familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
 including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
-semantics. Scoped local `IN` subqueries materialize a bounded scalar column from another admitted
-local source and keep correlated, filtered, joined, grouped, ordered, limited, nested, and
-multi-column subqueries blocked. Typed reports expose `in_predicate_runtime_execution`,
-`in_list_value_count`, `in_list_null_value_count`, `in_predicate_null_semantics`,
+semantics. Row-value literal predicates admit up to 32 literal tuples with arity/type checks and
+SQL three-valued row comparison semantics; multi-column `IN` subqueries remain blocked. Scoped local
+`IN` subqueries materialize a bounded scalar column from another admitted local source and keep
+correlated, filtered, joined, grouped, ordered, limited, nested, and multi-column subqueries blocked.
+Typed reports expose `in_predicate_runtime_execution`,
+`in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
+`row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
+`in_predicate_null_semantics`,
 `in_subquery_runtime_execution`, `in_subquery_source_columns`, `in_subquery_source_formats`,
 `in_subquery_materialized_value_count`, and `in_subquery_materialized_null_value_count`, plus
 `numeric_arithmetic_runtime_execution`,
@@ -588,7 +593,8 @@ when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
-`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, local source-backed
+`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `sl.row_in(...)` /
+`sl.row_not_in(...)`, local source-backed
 `isin_source(source, column)` / `not_in_source(source, column)`, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
@@ -807,6 +813,13 @@ in_filtered = (
     .limit(10)
     .collect()
 )
+row_value_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(sl.row_in(["id", "label"], [(1, "alpha"), (3, "gamma"), (5, None)]))
+    .limit(10)
+    .collect()
+)
 allowed_ids = ctx.read_csv("target/sql-local-source-allowed.csv")
 source_subquery_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
@@ -940,6 +953,12 @@ print(
     in_filtered.in_predicate_null_semantics,
 )
 print(
+    row_value_filtered.row_value_in_predicate_runtime_execution,
+    row_value_filtered.row_value_in_source_columns,
+    row_value_filtered.row_value_in_tuple_count,
+    row_value_filtered.row_value_in_null_semantics,
+)
+print(
     source_subquery_filtered.in_subquery_runtime_execution,
     source_subquery_filtered.in_subquery_source_columns,
     source_subquery_filtered.in_subquery_materialized_value_count,
@@ -981,6 +1000,11 @@ sql_in_rows = ctx.sql(
     "WHERE label IN ('alpha','gamma') LIMIT 10"
 ).collect()
 
+sql_row_value_rows = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE (id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL)) LIMIT 10"
+).collect()
+
 sql_in_subquery_rows = ctx.sql(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
     "WHERE id IN (SELECT id FROM 'target/sql-local-source-allowed.csv') LIMIT 10"
@@ -997,6 +1021,11 @@ print(
     sql_in_rows.in_list_value_count,
     sql_in_rows.in_list_null_value_count,
     sql_in_rows.in_predicate_null_semantics,
+)
+print(
+    sql_row_value_rows.row_value_in_predicate_runtime_execution,
+    sql_row_value_rows.row_value_in_tuple_count,
+    sql_row_value_rows.row_value_in_null_semantics,
 )
 print(
     sql_in_subquery_rows.in_subquery_runtime_execution,

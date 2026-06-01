@@ -2356,6 +2356,59 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("in_list_null_value_count", 0) or 0
 
     @property
+    def row_value_in_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted row-value IN predicate path."""
+
+        return (
+            self.envelope.field_bool(
+                "row_value_in_predicate_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def row_value_in_source_columns(self) -> tuple[str, ...]:
+        """Return source columns used by admitted row-value IN predicates."""
+
+        value = self.envelope.field("row_value_in_source_columns", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def row_value_in_column_groups(self) -> tuple[str, ...]:
+        """Return grouped source-column sets used by row-value IN predicates."""
+
+        value = self.envelope.field("row_value_in_column_groups", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def row_value_in_column_count(self) -> int:
+        """Return the source-column arity across admitted row-value IN predicates."""
+
+        return self.envelope.field_int("row_value_in_column_count", 0) or 0
+
+    @property
+    def row_value_in_tuple_count(self) -> int:
+        """Return the number of admitted literal tuples in row-value IN predicates."""
+
+        return self.envelope.field_int("row_value_in_tuple_count", 0) or 0
+
+    @property
+    def row_value_in_null_value_count(self) -> int:
+        """Return the number of NULL literals in row-value IN predicate tuples."""
+
+        return self.envelope.field_int("row_value_in_null_value_count", 0) or 0
+
+    @property
+    def row_value_in_null_semantics(self) -> str | None:
+        """Return the row-value IN null semantics evidence label."""
+
+        return self.envelope.field("row_value_in_null_semantics")
+
+    @property
     def in_subquery_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted IN-subquery predicate path."""
 

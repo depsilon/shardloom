@@ -416,6 +416,38 @@ def in_predicate_literal_null_case() -> SqlFixtureCase:
     )
 
 
+def row_value_in_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="row_value_in_predicate_semantics",
+        source_name="row-value-in.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,alpha,13\n5,,34\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) "
+            "IN ((1,'alpha'),(3,'gamma'),(5,NULL)) LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":3,"label":"gamma"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "row_value_in_predicate",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "3",
+            "in_list_null_value_count": "1",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_groups": "id+label",
+            "row_value_in_column_count": "2",
+            "row_value_in_tuple_count": "3",
+            "row_value_in_null_value_count": "1",
+            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
+            "in_predicate_null_semantics": "sql_three_valued_where_filter",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_subquery_scalar_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_subquery_scalar_semantics",
@@ -1014,6 +1046,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         temporal_arithmetic_difference_case(),
         conditional_projection_case(),
         in_predicate_literal_null_case(),
+        row_value_in_predicate_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
         having_in_subquery_case(),
@@ -1140,17 +1173,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT id,X'00ff' AS payload FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="binary source literals and binary input decoding are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_row_value_in_predicate",
-            source_name="row-value-in-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id FROM '{source}' WHERE (id,label) IN "
-                "(SELECT id,label FROM '{source}') LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="multi-column and row-value IN predicates are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_multi_column_in_subquery",

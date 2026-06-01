@@ -938,6 +938,10 @@ enum ParsedPredicate {
         column: String,
         values: Vec<ScalarValue>,
     },
+    RowValueInList {
+        columns: Vec<String>,
+        tuples: Vec<Vec<ScalarValue>>,
+    },
     InSubquery {
         column: String,
         subquery: Box<ParsedInSubquery>,
@@ -5521,6 +5525,7 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::StringMatch { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
@@ -5655,6 +5660,29 @@ fn apply_in_subquery_temporal_literal_column_coercions(
     apply_in_subquery_timestamp_literal_column_coercions(predicate, source)
 }
 
+fn row_value_tuples_contain_literal<F>(tuples: &[Vec<ScalarValue>], matches: F) -> bool
+where
+    F: Fn(&ScalarValue) -> bool,
+{
+    tuples.iter().flatten().any(matches)
+}
+
+fn row_value_literal_column_indexes<F>(tuples: &[Vec<ScalarValue>], matches: F) -> Vec<usize>
+where
+    F: Fn(&ScalarValue) -> bool,
+{
+    let Some(arity) = tuples.first().map(Vec::len) else {
+        return Vec::new();
+    };
+    (0..arity)
+        .filter(|column_index| {
+            tuples
+                .iter()
+                .any(|tuple| tuple.get(*column_index).is_some_and(&matches))
+        })
+        .collect()
+}
+
 fn apply_in_subquery_date_literal_column_coercions(
     predicate: &ParsedPredicate,
     source: &mut CsvSourceData,
@@ -5679,6 +5707,18 @@ fn apply_in_subquery_date_literal_column_coercions(
                 .any(|value| matches!(value, ScalarValue::Date32(_))) =>
         {
             coerce_source_column_to_date32(source, column)
+        }
+        ParsedPredicate::RowValueInList { columns, tuples }
+            if row_value_tuples_contain_literal(tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) {
+                coerce_source_column_to_date32(source, &columns[column_index])?;
+            }
+            Ok(())
         }
         ParsedPredicate::Logical { left, right, .. } => {
             apply_in_subquery_date_literal_column_coercions(left, source)?;
@@ -5705,6 +5745,7 @@ fn apply_in_subquery_date_literal_column_coercions(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -5740,6 +5781,18 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         {
             coerce_source_column_to_timestamp_micros(source, column)
         }
+        ParsedPredicate::RowValueInList { columns, tuples }
+            if row_value_tuples_contain_literal(tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) {
+                coerce_source_column_to_timestamp_micros(source, &columns[column_index])?;
+            }
+            Ok(())
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             apply_in_subquery_timestamp_literal_column_coercions(left, source)?;
             apply_in_subquery_timestamp_literal_column_coercions(right, source)
@@ -5765,6 +5818,7 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -7846,6 +7900,7 @@ fn apply_temporal_difference_predicate_coercions(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -7912,6 +7967,23 @@ fn apply_date_literal_predicate_coercions(
         {
             coerce_date_literal_column(column, parsed, source, right_source)
         }
+        ParsedPredicate::RowValueInList { columns, tuples }
+            if row_value_tuples_contain_literal(tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) {
+                coerce_date_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(())
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             apply_date_literal_predicate_coercions(
                 left,
@@ -7942,6 +8014,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -7979,6 +8052,23 @@ fn apply_timestamp_literal_predicate_coercions(
         {
             coerce_timestamp_literal_column(column, parsed, source, right_source)
         }
+        ParsedPredicate::RowValueInList { columns, tuples }
+            if row_value_tuples_contain_literal(tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) {
+                coerce_timestamp_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(())
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             apply_timestamp_literal_predicate_coercions(
                 left,
@@ -8009,6 +8099,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -10308,6 +10399,36 @@ impl ParsedSqlLocalSource {
         self.predicate.in_list_null_value_count() + self.having.in_list_null_value_count()
     }
 
+    fn uses_row_value_in_list(&self) -> bool {
+        self.predicate.uses_row_value_in_list() || self.having.uses_row_value_in_list()
+    }
+
+    fn row_value_in_source_columns(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.row_value_in_source_columns(),
+            self.having.row_value_in_source_columns(),
+        ])
+    }
+
+    fn row_value_in_column_groups(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.row_value_in_column_groups(),
+            self.having.row_value_in_column_groups(),
+        ])
+    }
+
+    fn row_value_in_column_count(&self) -> usize {
+        self.predicate.row_value_in_column_count() + self.having.row_value_in_column_count()
+    }
+
+    fn row_value_in_tuple_count(&self) -> usize {
+        self.predicate.row_value_in_tuple_count() + self.having.row_value_in_tuple_count()
+    }
+
+    fn row_value_in_null_value_count(&self) -> usize {
+        self.predicate.row_value_in_null_value_count() + self.having.row_value_in_null_value_count()
+    }
+
     fn uses_in_subquery(&self) -> bool {
         self.predicate.uses_in_subquery() || self.having.uses_in_subquery()
     }
@@ -12211,6 +12332,10 @@ impl ParsedPredicate {
             | Self::InList { column, .. }
             | Self::InSubquery { column, .. }
             | Self::StringMatch { column, .. } => columns.push(column),
+            Self::RowValueInList {
+                columns: row_columns,
+                ..
+            } => columns.extend(row_columns.iter().map(String::as_str)),
             Self::ColumnCompare {
                 left_column,
                 right_column,
@@ -12302,6 +12427,9 @@ impl ParsedPredicate {
             Self::IsNull { column } => null_predicate_expression(column, true),
             Self::IsNotNull { column } => null_predicate_expression(column, false),
             Self::InList { column, values } => in_list_expression(column, values),
+            Self::RowValueInList { columns, tuples } => {
+                row_value_in_list_expression(columns, tuples)
+            }
             Self::InSubquery { column, subquery } => in_subquery_expression(column, subquery),
             Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
             Self::Logical { op, left, right } => Ok(Expression::new(
@@ -12402,6 +12530,7 @@ impl ParsedPredicate {
             Self::StringFunctionCompare { .. } => "string_function",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
+            Self::RowValueInList { .. } => "row_value_in_predicate",
             Self::InSubquery { .. } => "in_subquery",
             Self::StringMatch { .. } => "string_predicate",
             Self::Logical { .. } | Self::Not { .. } => "logical_predicate",
@@ -12432,6 +12561,7 @@ impl ParsedPredicate {
             | Self::StringFunctionCompare { .. }
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12473,6 +12603,7 @@ impl ParsedPredicate {
             | Self::StringFunctionCompare { .. }
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12513,6 +12644,7 @@ impl ParsedPredicate {
             | Self::StringFunctionCompare { .. }
             | Self::BooleanPredicate { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12543,6 +12675,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12603,6 +12736,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12644,6 +12778,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12701,6 +12836,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12732,6 +12868,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. } => false,
         }
     }
@@ -12773,6 +12910,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. } => {}
         }
     }
@@ -12802,6 +12940,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12843,6 +12982,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12886,6 +13026,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -12916,6 +13057,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -12959,6 +13101,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13002,6 +13145,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13032,6 +13176,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13073,6 +13218,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13116,6 +13262,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13159,6 +13306,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13202,6 +13350,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13232,6 +13381,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13273,6 +13423,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13314,6 +13465,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13357,6 +13509,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13387,6 +13540,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13428,6 +13582,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13471,6 +13626,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13501,6 +13657,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13542,6 +13699,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13583,6 +13741,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13626,6 +13785,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13656,6 +13816,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13699,6 +13860,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13744,6 +13906,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13778,6 +13941,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -13821,6 +13985,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13842,6 +14007,10 @@ impl ParsedPredicate {
             } => true,
             Self::InList { values, .. } => values
                 .iter()
+                .any(|value| matches!(value, ScalarValue::Date32(_))),
+            Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
                 .any(|value| matches!(value, ScalarValue::Date32(_))),
             Self::InSubquery { subquery, .. } => subquery
                 .values
@@ -13896,6 +14065,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13933,6 +14103,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13976,6 +14147,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14017,6 +14189,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14049,6 +14222,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => "not_applicable",
         }
@@ -14079,6 +14253,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => 1,
         }
@@ -14086,7 +14261,7 @@ impl ParsedPredicate {
 
     fn uses_in_list(&self) -> bool {
         match self {
-            Self::InList { .. } | Self::InSubquery { .. } => true,
+            Self::InList { .. } | Self::RowValueInList { .. } | Self::InSubquery { .. } => true,
             Self::Logical { left, right, .. } => left.uses_in_list() || right.uses_in_list(),
             Self::Not { inner } => inner.uses_in_list(),
             Self::All
@@ -14114,6 +14289,7 @@ impl ParsedPredicate {
     fn in_list_value_count(&self) -> usize {
         match self {
             Self::InList { values, .. } => values.len(),
+            Self::RowValueInList { tuples, .. } => tuples.len(),
             Self::InSubquery { subquery, .. } => subquery.values.len(),
             Self::Logical { left, right, .. } => {
                 left.in_list_value_count() + right.in_list_value_count()
@@ -14147,6 +14323,11 @@ impl ParsedPredicate {
                 .iter()
                 .filter(|value| matches!(value, ScalarValue::Null))
                 .count(),
+            Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
             Self::InSubquery { subquery, .. } => subquery
                 .values
                 .iter()
@@ -14178,6 +14359,221 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_row_value_in_list(&self) -> bool {
+        match self {
+            Self::RowValueInList { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_row_value_in_list() || right.uses_row_value_in_list()
+            }
+            Self::Not { inner } => inner.uses_row_value_in_list(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn row_value_in_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_row_value_in_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_row_value_in_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::RowValueInList {
+                columns: row_columns,
+                ..
+            } => columns.extend(row_columns.iter().map(String::as_str)),
+            Self::Logical { left, right, .. } => {
+                left.push_row_value_in_source_columns(columns);
+                right.push_row_value_in_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_row_value_in_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn row_value_in_column_groups(&self) -> String {
+        let mut groups = Vec::new();
+        self.push_row_value_in_column_groups(&mut groups);
+        if groups.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            groups.join(",")
+        }
+    }
+
+    fn push_row_value_in_column_groups(&self, groups: &mut Vec<String>) {
+        match self {
+            Self::RowValueInList { columns, .. } => groups.push(columns.join("+")),
+            Self::Logical { left, right, .. } => {
+                left.push_row_value_in_column_groups(groups);
+                right.push_row_value_in_column_groups(groups);
+            }
+            Self::Not { inner } => inner.push_row_value_in_column_groups(groups),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn row_value_in_column_count(&self) -> usize {
+        match self {
+            Self::RowValueInList { columns, .. } => columns.len(),
+            Self::Logical { left, right, .. } => {
+                left.row_value_in_column_count() + right.row_value_in_column_count()
+            }
+            Self::Not { inner } => inner.row_value_in_column_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn row_value_in_tuple_count(&self) -> usize {
+        match self {
+            Self::RowValueInList { tuples, .. } => tuples.len(),
+            Self::Logical { left, right, .. } => {
+                left.row_value_in_tuple_count() + right.row_value_in_tuple_count()
+            }
+            Self::Not { inner } => inner.row_value_in_tuple_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn row_value_in_null_value_count(&self) -> usize {
+        match self {
+            Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
+            Self::Logical { left, right, .. } => {
+                left.row_value_in_null_value_count() + right.row_value_in_null_value_count()
+            }
+            Self::Not { inner } => inner.row_value_in_null_value_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
     fn in_subquery_value_count(&self) -> usize {
         match self {
             Self::InSubquery { subquery, .. } => subquery.values.len(),
@@ -14204,6 +14600,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -14238,6 +14635,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -14268,6 +14666,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -14298,6 +14697,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -14329,6 +14729,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -14360,6 +14761,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -14391,6 +14793,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -14421,6 +14824,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -14462,6 +14866,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -14509,6 +14914,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -14563,6 +14969,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -14592,6 +14999,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14633,6 +15041,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14674,6 +15083,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14695,6 +15105,10 @@ impl ParsedPredicate {
             } => true,
             Self::InList { values, .. } => values
                 .iter()
+                .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
+            Self::RowValueInList { tuples, .. } => tuples
+                .iter()
+                .flatten()
                 .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
             Self::InSubquery { subquery, .. } => subquery
                 .values
@@ -14751,6 +15165,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14792,6 +15207,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14833,6 +15249,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14863,6 +15280,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14904,6 +15322,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14947,6 +15366,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14988,6 +15408,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15018,6 +15439,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15059,6 +15481,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15100,6 +15523,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15141,6 +15565,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
+            | Self::RowValueInList { .. }
             | Self::InSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15608,6 +16033,109 @@ fn in_list_expression(column: &str, values: &[ScalarValue]) -> Result<Expression
         );
     }
     Ok(expression)
+}
+
+fn row_value_in_list_expression(
+    columns: &[String],
+    tuples: &[Vec<ScalarValue>],
+) -> Result<Expression, ShardLoomError> {
+    if columns.len() < 2 {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least two source columns",
+        ));
+    }
+    let mut tuples = tuples.iter().enumerate();
+    let Some((first_index, first_tuple)) = tuples.next() else {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least one literal tuple",
+        ));
+    };
+    let mut expression = row_value_tuple_equality_expression(columns, first_tuple, first_index)?;
+    for (tuple_index, tuple) in tuples {
+        expression = Expression::new(
+            ExprId::new(format!("where.row_value_in.or.{tuple_index}"))?,
+            ExpressionKind::Binary {
+                left: Box::new(expression),
+                op: BinaryOp::Or,
+                right: Box::new(row_value_tuple_equality_expression(
+                    columns,
+                    tuple,
+                    tuple_index,
+                )?),
+            },
+        );
+    }
+    Ok(expression)
+}
+
+fn row_value_tuple_equality_expression(
+    columns: &[String],
+    tuple: &[ScalarValue],
+    tuple_index: usize,
+) -> Result<Expression, ShardLoomError> {
+    if tuple.len() != columns.len() {
+        return Err(unsupported_sql_error(
+            "row-value IN literal tuple arity must match the source column count",
+        ));
+    }
+    let mut comparisons = columns.iter().zip(tuple).enumerate();
+    let Some((first_column_index, (first_column, first_value))) = comparisons.next() else {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least two source columns",
+        ));
+    };
+    let mut expression = row_value_component_equality_expression(
+        first_column,
+        first_value,
+        tuple_index,
+        first_column_index,
+    )?;
+    for (column_index, (column, value)) in comparisons {
+        expression = Expression::new(
+            ExprId::new(format!(
+                "where.row_value_in.and.{tuple_index}.{column_index}"
+            ))?,
+            ExpressionKind::Binary {
+                left: Box::new(expression),
+                op: BinaryOp::And,
+                right: Box::new(row_value_component_equality_expression(
+                    column,
+                    value,
+                    tuple_index,
+                    column_index,
+                )?),
+            },
+        );
+    }
+    Ok(expression)
+}
+
+fn row_value_component_equality_expression(
+    column: &str,
+    value: &ScalarValue,
+    tuple_index: usize,
+    column_index: usize,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!(
+            "where.row_value_in.compare.{tuple_index}.{column_index}"
+        ))?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(
+                ExprId::new(format!(
+                    "where.row_value_in.{column}.{tuple_index}.{column_index}"
+                ))?,
+                ColumnRef::new(column.to_string())?,
+            )),
+            op: ComparisonOp::Eq,
+            right: Box::new(Expression::literal(
+                ExprId::new(format!(
+                    "where.row_value_in.literal.{tuple_index}.{column_index}"
+                ))?,
+                value.clone(),
+            )),
+        },
+    ))
 }
 
 fn in_subquery_expression(
@@ -16696,6 +17224,39 @@ impl SqlLocalSourceReport {
             (
                 "in_list_null_value_count".to_string(),
                 self.parsed.in_list_null_value_count().to_string(),
+            ),
+            (
+                "row_value_in_predicate_runtime_execution".to_string(),
+                self.parsed.uses_row_value_in_list().to_string(),
+            ),
+            (
+                "row_value_in_source_columns".to_string(),
+                self.parsed.row_value_in_source_columns(),
+            ),
+            (
+                "row_value_in_column_groups".to_string(),
+                self.parsed.row_value_in_column_groups(),
+            ),
+            (
+                "row_value_in_column_count".to_string(),
+                self.parsed.row_value_in_column_count().to_string(),
+            ),
+            (
+                "row_value_in_tuple_count".to_string(),
+                self.parsed.row_value_in_tuple_count().to_string(),
+            ),
+            (
+                "row_value_in_null_value_count".to_string(),
+                self.parsed.row_value_in_null_value_count().to_string(),
+            ),
+            (
+                "row_value_in_null_semantics".to_string(),
+                if self.parsed.uses_row_value_in_list() {
+                    "sql_row_value_three_valued_where_filter"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "in_subquery_runtime_execution".to_string(),
@@ -23635,16 +24196,19 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
         return Ok(None);
     };
     let column_raw = raw[..in_index].trim();
-    if column_raw.starts_with('(') || column_raw.contains(',') {
+    let (column_raw, negated) = strip_trailing_not_keyword(column_raw);
+    let tail = raw[in_index + "in".len()..].trim();
+    if column_raw.starts_with('(') {
+        return parse_row_value_in_list_predicate(column_raw, tail, negated).map(Some);
+    }
+    if column_raw.contains(',') {
         return Err(unsupported_sql_error(
-            "multi-column and row-value IN predicates are not admitted by the current advanced predicate profile; use one scalar IN predicate per admitted column",
+            "comma-separated IN column lists must use row-value syntax (<column>,...) [NOT] IN ((<literal>,...),...) or one scalar IN predicate per admitted column",
         ));
     }
-    let tail = raw[in_index + "in".len()..].trim();
     let column_tokens = split_whitespace_outside_quotes(column_raw)?;
-    let (column, negated) = match column_tokens.as_slice() {
-        [column] => (column.as_str(), false),
-        [column, not_keyword] if not_keyword.eq_ignore_ascii_case("not") => (column.as_str(), true),
+    let column = match column_tokens.as_slice() {
+        [column] => column.as_str(),
         _ => {
             return Err(unsupported_sql_error(
                 "IN predicates must use <column> [NOT] IN (<literal>,...) syntax",
@@ -23724,6 +24288,196 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
     } else {
         Ok(Some(predicate))
     }
+}
+
+fn strip_trailing_not_keyword(raw: &str) -> (&str, bool) {
+    let trimmed = raw.trim_end();
+    let lower = trimmed.to_ascii_lowercase();
+    let Some(index) = lower.rfind("not") else {
+        return (trimmed, false);
+    };
+    if keyword_boundary(trimmed, index, "not".len())
+        && trimmed[index + "not".len()..].trim().is_empty()
+    {
+        (trimmed[..index].trim_end(), true)
+    } else {
+        (trimmed, false)
+    }
+}
+
+fn parse_row_value_in_list_predicate(
+    columns_raw: &str,
+    tail: &str,
+    negated: bool,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    if !tail.starts_with('(') || !tail.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates must use (<column>,...) [NOT] IN ((<literal>,...),...) syntax",
+        ));
+    }
+    let columns = parse_row_value_in_columns(columns_raw)?;
+    let values_raw = tail[1..tail.len() - 1].trim();
+    if values_raw
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
+        && keyword_boundary(values_raw, 0, 6)
+    {
+        return Err(unsupported_sql_error(
+            "multi-column IN subqueries are not admitted by the current advanced predicate profile; select exactly one scalar source column",
+        ));
+    }
+    if values_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least one literal tuple",
+        ));
+    }
+    if values_raw.ends_with(',') {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require non-empty literal tuples",
+        ));
+    }
+    let entries = split_sql_csv(values_raw)?;
+    if entries.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "row-value IN predicates admit at most {MAX_IN_LIST_VALUES} literal tuples in this scoped runtime slice"
+        )));
+    }
+    let tuples = entries
+        .iter()
+        .map(|entry| parse_row_value_in_tuple(entry, columns.len()))
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    validate_row_value_in_literal_tuples(&tuples)?;
+
+    let predicate = ParsedPredicate::RowValueInList { columns, tuples };
+    if negated {
+        Ok(ParsedPredicate::Not {
+            inner: Box::new(predicate),
+        })
+    } else {
+        Ok(predicate)
+    }
+}
+
+fn parse_row_value_in_columns(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates must wrap source columns in parentheses",
+        ));
+    }
+    let Some(close_index) = matching_closing_parenthesis(trimmed, 0)? else {
+        return Err(unsupported_sql_error(
+            "row-value IN source-column parentheses are not balanced",
+        ));
+    };
+    if close_index != trimmed.len() - 1 {
+        return Err(unsupported_sql_error(
+            "row-value IN source columns must be a single parenthesized column list",
+        ));
+    }
+    let inner = trimmed[1..trimmed.len() - 1].trim();
+    if inner.is_empty() || inner.ends_with(',') {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require non-empty source columns",
+        ));
+    }
+    let columns = split_sql_csv(inner)?;
+    if columns.len() < 2 {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least two source columns; use scalar IN for one column",
+        ));
+    }
+    let mut seen = BTreeSet::new();
+    let mut parsed = Vec::with_capacity(columns.len());
+    for column in columns {
+        validate_sql_column_ref(&column)?;
+        if !seen.insert(column.clone()) {
+            return Err(unsupported_sql_error(
+                "row-value IN source columns must be unique in this scoped runtime slice",
+            ));
+        }
+        parsed.push(column);
+    }
+    Ok(parsed)
+}
+
+fn parse_row_value_in_tuple(
+    raw: &str,
+    expected_arity: usize,
+) -> Result<Vec<ScalarValue>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "row-value IN literal values must be parenthesized tuples",
+        ));
+    }
+    let Some(close_index) = matching_closing_parenthesis(trimmed, 0)? else {
+        return Err(unsupported_sql_error(
+            "row-value IN literal tuple parentheses are not balanced",
+        ));
+    };
+    if close_index != trimmed.len() - 1 {
+        return Err(unsupported_sql_error(
+            "row-value IN literal values must be parenthesized tuples",
+        ));
+    }
+    let inner = trimmed[1..trimmed.len() - 1].trim();
+    if inner.is_empty() || inner.ends_with(',') {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require non-empty literal tuple values",
+        ));
+    }
+    let entries = split_sql_csv(inner)?;
+    if entries.len() != expected_arity {
+        return Err(unsupported_sql_error(
+            "row-value IN literal tuple arity must match the source column count",
+        ));
+    }
+    entries
+        .iter()
+        .map(|entry| parse_in_list_literal(entry))
+        .collect::<Result<Vec<_>, ShardLoomError>>()
+}
+
+fn validate_row_value_in_literal_tuples(tuples: &[Vec<ScalarValue>]) -> Result<(), ShardLoomError> {
+    let Some(arity) = tuples.first().map(Vec::len) else {
+        return Err(unsupported_sql_error(
+            "row-value IN predicates require at least one literal tuple",
+        ));
+    };
+    for column_index in 0..arity {
+        let has_date = tuples.iter().any(|tuple| {
+            tuple
+                .get(column_index)
+                .is_some_and(|value| matches!(value, ScalarValue::Date32(_)))
+        });
+        let has_timestamp = tuples.iter().any(|tuple| {
+            tuple
+                .get(column_index)
+                .is_some_and(|value| matches!(value, ScalarValue::TimestampMicros(_)))
+        });
+        let has_non_date = tuples.iter().any(|tuple| {
+            tuple
+                .get(column_index)
+                .is_some_and(|value| !matches!(value, ScalarValue::Date32(_) | ScalarValue::Null))
+        });
+        let has_non_timestamp = tuples.iter().any(|tuple| {
+            tuple.get(column_index).is_some_and(|value| {
+                !matches!(value, ScalarValue::TimestampMicros(_) | ScalarValue::Null)
+            })
+        });
+        if has_date && has_non_date {
+            return Err(unsupported_sql_error(
+                "row-value IN predicates do not admit mixed DATE and non-DATE literals at the same tuple position in this scoped runtime slice",
+            ));
+        }
+        if has_timestamp && has_non_timestamp {
+            return Err(unsupported_sql_error(
+                "row-value IN predicates do not admit mixed TIMESTAMP and non-TIMESTAMP literals at the same tuple position in this scoped runtime slice",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
@@ -27025,6 +27779,66 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_row_value_in_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE (id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL)) LIMIT 5",
+        )
+        .expect("row-value IN predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::RowValueInList {
+                ref columns,
+                ref tuples,
+            } if columns == &vec!["id".to_string(), "label".to_string()]
+                && tuples == &vec![
+                    vec![ScalarValue::Int64(1), ScalarValue::Utf8("alpha".to_string())],
+                    vec![ScalarValue::Int64(3), ScalarValue::Utf8("gamma".to_string())],
+                    vec![ScalarValue::Int64(5), ScalarValue::Null],
+                ]
+        ));
+        assert_eq!(parsed.predicate.family(), "row_value_in_predicate");
+        assert!(parsed.predicate.uses_in_list());
+        assert!(parsed.predicate.uses_row_value_in_list());
+        assert_eq!(parsed.predicate.in_list_value_count(), 3);
+        assert_eq!(parsed.predicate.in_list_null_value_count(), 1);
+        assert_eq!(parsed.predicate.row_value_in_source_columns(), "id,label");
+        assert_eq!(parsed.predicate.row_value_in_column_groups(), "id+label");
+        assert_eq!(parsed.predicate.row_value_in_column_count(), 2);
+        assert_eq!(parsed.predicate.row_value_in_tuple_count(), 3);
+        assert_eq!(parsed.predicate.row_value_in_null_value_count(), 1);
+        assert_eq!(parsed.predicate.columns(), vec!["id", "label"]);
+    }
+
+    #[test]
+    fn parses_scoped_row_value_not_in_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE (id,label) NOT IN ((1,'alpha'),(3,'gamma')) LIMIT 5",
+        )
+        .expect("row-value NOT IN predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Not { ref inner }
+                if matches!(
+                    inner.as_ref(),
+                    ParsedPredicate::RowValueInList {
+                        columns,
+                        tuples,
+                    } if columns == &vec!["id".to_string(), "label".to_string()]
+                        && tuples.len() == 2
+                )
+        ));
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_in_list());
+        assert!(parsed.predicate.uses_row_value_in_list());
+        assert_eq!(parsed.predicate.in_list_value_count(), 2);
+        assert_eq!(parsed.predicate.row_value_in_column_count(), 2);
+        assert_eq!(parsed.predicate.row_value_in_tuple_count(), 2);
+    }
+
+    #[test]
     fn parses_scoped_date_in_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,event_date FROM 'target/input.csv' WHERE event_date IN (DATE '2026-05-18', DATE '2026-05-20') LIMIT 5",
@@ -27213,7 +28027,7 @@ mod tests {
         for (statement, expected) in [
             (
                 "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
-                "multi-column and row-value IN predicates are not admitted",
+                "multi-column IN subqueries are not admitted",
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id,label FROM 'target/allowed.csv') LIMIT 5",
@@ -27242,6 +28056,40 @@ mod tests {
         ] {
             let error = parse_sql_local_source_statement(statement)
                 .expect_err("unsupported advanced subquery shape remains blocked");
+            assert!(
+                error.to_string().contains(expected),
+                "error {error:?} did not contain {expected:?}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn row_value_in_predicate_blocks_malformed_literal_tuples_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN () LIMIT 5",
+                "row-value IN predicates require at least one literal tuple",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN ((1,'alpha'),) LIMIT 5",
+                "row-value IN predicates require non-empty literal tuples",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN ((1,'alpha',10)) LIMIT 5",
+                "row-value IN literal tuple arity must match the source column count",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (1,'alpha') LIMIT 5",
+                "row-value IN literal values must be parenthesized tuples",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (event_date,label) IN ((DATE '2026-05-19','alpha'),('2026-05-20','beta')) LIMIT 5",
+                "row-value IN predicates do not admit mixed DATE and non-DATE literals",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("malformed row-value IN shape remains blocked");
             assert!(
                 error.to_string().contains(expected),
                 "error {error:?} did not contain {expected:?}"
