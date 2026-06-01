@@ -21,6 +21,7 @@ shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
 shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
 shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
 shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
+regex = "1.12.3"
 rusqlite = { version = "0.40.0", default-features = false, features = ["bundled"] }
 
 [features]

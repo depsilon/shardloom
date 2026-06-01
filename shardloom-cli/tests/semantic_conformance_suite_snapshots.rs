@@ -120,8 +120,9 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     assert!(output.contains(&field("semantic_row_date_parsing_fixture_status", "passed")));
     assert!(output.contains(&field(
         "semantic_row_regex_pattern_policy_current_support",
-        "unsupported_diagnostic_certified"
+        "scoped_utf8_regex_predicate_fixture_certified_locale_collation_blocked"
     )));
+    assert!(output.contains(&field("semantic_row_regex_pattern_policy_passed", "true")));
     assert!(output.contains(&field(
         "semantic_row_locale_collation_policy_passed",
         "true"

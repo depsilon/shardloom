@@ -345,16 +345,12 @@ fn date_string_scalar_rows() -> Vec<SemanticFixtureRow> {
 
 fn regex_collation_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
     vec![
-        SemanticFixtureRow::executed_blocker(
+        SemanticFixtureRow::executed(
             "regex_pattern_policy",
             "regex pattern semantics",
             "scalar_expressions",
-            "unsupported_diagnostic_certified",
-            "regex/regexp pattern functions fail deterministically; scoped LIKE/string predicates remain the admitted string pattern profile",
-            SemanticBlockerEvidence {
-                blocker_id: "gar-runtime-impl-4d-f1.regex_semantics_unsupported",
-                required_future_evidence: "regex_engine_policy,pattern_fixture,claim_boundary",
-            },
+            "scoped_utf8_regex_predicate_fixture_certified_locale_collation_blocked",
+            "scoped UTF-8 regex predicates match through ShardLoom-owned evaluation while invalid patterns block deterministically",
             regex_pattern_policy_fixture(),
         ),
         SemanticFixtureRow::executed_blocker(
@@ -764,7 +760,50 @@ fn date_parsing_fixture() -> bool {
 }
 
 fn regex_pattern_policy_fixture() -> bool {
-    unsupported_function_fixture("regexp_like")
+    let expression = Expression::new(
+        ExprId::new("regex-match").expect("fixture expression id"),
+        ExpressionKind::FunctionCall {
+            name: "regexp_like".to_string(),
+            args: vec![
+                Expression::literal(
+                    ExprId::new("regex-value").expect("fixture expression id"),
+                    ScalarValue::Utf8("ShardLoom".to_string()),
+                ),
+                Expression::literal(
+                    ExprId::new("regex-pattern").expect("fixture expression id"),
+                    ScalarValue::Utf8("^Shard.*$".to_string()),
+                ),
+            ],
+        },
+    );
+    let match_report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+    let invalid_expression = Expression::new(
+        ExprId::new("regex-invalid").expect("fixture expression id"),
+        ExpressionKind::FunctionCall {
+            name: "regexp_like".to_string(),
+            args: vec![
+                Expression::literal(
+                    ExprId::new("regex-invalid-value").expect("fixture expression id"),
+                    ScalarValue::Utf8("ShardLoom".to_string()),
+                ),
+                Expression::literal(
+                    ExprId::new("regex-invalid-pattern").expect("fixture expression id"),
+                    ScalarValue::Utf8("[".to_string()),
+                ),
+            ],
+        },
+    );
+    let invalid_report = evaluate_expression(&invalid_expression, &ExpressionInputRow::new());
+
+    match_report.status == ExpressionEvaluationStatus::Evaluated
+        && match_report.value == Some(ScalarValue::Boolean(true))
+        && !match_report.fallback_attempted
+        && !match_report.external_engine_invoked
+        && invalid_report.status == ExpressionEvaluationStatus::InvalidInput
+        && invalid_report.has_errors()
+        && !invalid_report.fallback_attempted
+        && !invalid_report.external_engine_invoked
 }
 
 fn locale_collation_policy_fixture() -> bool {

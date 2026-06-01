@@ -1106,6 +1106,29 @@ def executable_cases() -> list[SqlFixtureCase]:
             },
         ),
         SqlFixtureCase(
+            case_id="regex_predicate_utf8",
+            source_name="regex-predicate.csv",
+            source_text="id,label\n1,alpha\n2,beta\n3,gamma\n4,\n",
+            statement_template=(
+                "SELECT id,label,REGEXP_LIKE(label, '^a') AS starts_with_a "
+                "FROM '{source}' WHERE label RLIKE '^(alpha|gamma)$' LIMIT 10"
+            ),
+            expected_jsonl=(
+                '{"id":1,"label":"alpha","starts_with_a":true}\n'
+                '{"id":3,"label":"gamma","starts_with_a":false}\n'
+            ),
+            expected_fields={
+                "predicate_operator_family": "string_predicate",
+                "string_predicate_runtime_execution": "true",
+                "string_predicate_operator": "regex_match",
+                "predicate_projection_runtime_execution": "true",
+                "predicate_projection_predicate_family": "string_predicate",
+                "predicate_projection_source_column": "label",
+                "projected_columns": "id,label,starts_with_a",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+        ),
+        SqlFixtureCase(
             case_id="temporal_extract_utc_date32_timestamp",
             source_name="temporal.csv",
             source_text=(
@@ -1300,14 +1323,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="ANSI INTERVAL literals and interval arithmetic are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_regex_predicate",
-            source_name="regex-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template="SELECT id,label FROM '{source}' WHERE label REGEXP '^a' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="regex and regexp pattern semantics are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_locale_collation",

@@ -117,7 +117,7 @@ fn expression_semantics_advanced_scalar_blockers_are_deterministic() {
             .all(|d| !d.fallback.attempted)
     );
 
-    for function_name in ["interval_add_months", "regexp_like", "collate_eq"] {
+    for function_name in ["interval_add_months", "regexp_extract", "collate_eq"] {
         let expression = Expression::new(
             expr_id(function_name),
             ExpressionKind::FunctionCall {
@@ -361,6 +361,28 @@ fn expression_semantics_evaluates_utf8_string_predicates_without_fallback() {
     assert_eq!(contains_report.operator_family, "string_predicate");
     assert!(!contains_report.fallback_attempted);
     assert!(!contains_report.external_engine_invoked);
+
+    let regex = Expression::new(
+        expr_id("regex"),
+        ExpressionKind::FunctionCall {
+            name: "regexp_like".to_string(),
+            args: vec![
+                Expression::column(expr_id("label-regex"), col("label")),
+                Expression::literal(expr_id("pattern"), ScalarValue::Utf8("^a.*a$".to_string())),
+            ],
+        },
+    );
+    let regex_report = evaluate_expression(
+        &regex,
+        &row(&[("label", ScalarValue::Utf8("alpha".into()))]),
+    );
+
+    assert_eq!(regex_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(regex_report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(regex_report.operator_family, "string_predicate");
+    assert_eq!(regex_report.output_dtype, Some(LogicalDType::Boolean));
+    assert!(!regex_report.fallback_attempted);
+    assert!(!regex_report.external_engine_invoked);
 }
 
 #[test]
@@ -418,6 +440,38 @@ fn expression_semantics_string_predicates_propagate_nulls_and_block_non_utf8() {
             .iter()
             .any(|d| d.feature.as_deref() == Some("string_predicate"))
     );
+
+    let invalid_regex = Expression::new(
+        expr_id("invalid-regex"),
+        ExpressionKind::FunctionCall {
+            name: "regexp_like".to_string(),
+            args: vec![
+                Expression::column(expr_id("label-regex"), col("label")),
+                Expression::literal(
+                    expr_id("pattern-invalid"),
+                    ScalarValue::Utf8("[".to_string()),
+                ),
+            ],
+        },
+    );
+    let invalid_regex_report = evaluate_expression(
+        &invalid_regex,
+        &row(&[("label", ScalarValue::Utf8("alpha".into()))]),
+    );
+
+    assert_eq!(
+        invalid_regex_report.status,
+        ExpressionEvaluationStatus::InvalidInput
+    );
+    assert!(invalid_regex_report.has_errors());
+    assert!(!invalid_regex_report.fallback_attempted);
+    assert!(!invalid_regex_report.external_engine_invoked);
+    assert!(invalid_regex_report.diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("invalid regex pattern"))
+    }));
 }
 
 #[test]

@@ -631,10 +631,10 @@ plan before coding.
   mixed window, and multi-key join fixtures without fallback or external runtime engines.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
-  timezone database conversion, ANSI interval literals/arithmetic, regex/regexp predicates, and
-  locale-aware collation. SQL local-source parsing now fails those constructs through a shared
-  advanced-scalar policy guard before execution, always with no fallback/external engine
-  invocation.
+  timezone database conversion, ANSI interval literals/arithmetic, and locale-aware collation.
+  Scoped UTF-8 regex predicates were later promoted through ShardLoom-owned `RLIKE` / `REGEXP` /
+  `REGEXP_LIKE` evaluation, while the remaining advanced scalar blockers still fail through shared
+  policy guards before execution with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout adds executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
   variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,

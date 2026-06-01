@@ -6,6 +6,8 @@
 
 use std::collections::BTreeMap;
 
+use regex::Regex;
+
 use crate::{
     ColumnRef, ComparisonOp, Diagnostic, DiagnosticCode, DiagnosticSeverity, EncodingKind,
     ExecutionState, LogicalDType, MaterializationRequirement, Result, ShardLoomError,
@@ -836,6 +838,9 @@ fn eval_function_call(
         }
         "utf8_ends_with" | "ends_with" => {
             eval_string_predicate(name, args, row, |value, needle| value.ends_with(needle))
+        }
+        "utf8_regex_match" | "regex_match" | "rlike" | "regexp" | "regexp_like" => {
+            eval_string_regex_predicate(name, args, row)
         }
         "utf8_lower" | "lower" => eval_string_transform(name, args, row, str::to_lowercase),
         "utf8_upper" | "upper" => eval_string_transform(name, args, row, str::to_uppercase),
@@ -1723,6 +1728,64 @@ fn eval_string_predicate(
     }
 }
 
+fn eval_string_regex_predicate(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "string_predicate",
+            format!("function {name:?} requires exactly two UTF-8 arguments"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let pattern = eval_expression(&args[1], row)?;
+    let data_materialized = value.data_materialized || pattern.data_materialized;
+    if !matches!(value.value, ScalarValue::Utf8(_) | ScalarValue::Null)
+        || !matches!(pattern.value, ScalarValue::Utf8(_) | ScalarValue::Null)
+    {
+        return Err(EvalFailure::unsupported(
+            "string_predicate",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {} and {}",
+                value.value.dtype().as_str(),
+                pattern.value.dtype().as_str()
+            ),
+        ));
+    }
+    if value.value.is_null() || pattern.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Boolean, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (value.value, pattern.value) {
+        (ScalarValue::Utf8(value), ScalarValue::Utf8(pattern)) => {
+            let regex = Regex::new(&pattern).map_err(|error| {
+                EvalFailure::invalid(
+                    "string_predicate",
+                    format!("function {name:?} received invalid regex pattern: {error}"),
+                )
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Boolean(regex.is_match(&value)),
+                LogicalDType::Boolean,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, pattern) => Err(EvalFailure::unsupported(
+            "string_predicate",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {} and {}",
+                value.dtype().as_str(),
+                pattern.dtype().as_str()
+            ),
+        )),
+    }
+}
+
 fn eval_boolean_and(left: ScalarValue, right: ScalarValue) -> EvalResult<EvalValue> {
     let value = match (left, right) {
         (ScalarValue::Boolean(false), _) | (_, ScalarValue::Boolean(false)) => {
@@ -2132,7 +2195,9 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
 fn function_operator_family(name: &str) -> &'static str {
     match name.trim().to_ascii_lowercase().as_str() {
         "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" | "utf8_ends_with"
-        | "ends_with" => "string_predicate",
+        | "ends_with" | "utf8_regex_match" | "regex_match" | "rlike" | "regexp" | "regexp_like" => {
+            "string_predicate"
+        }
         "utf8_lower" | "lower" | "utf8_upper" | "upper" | "utf8_trim" | "trim" => {
             "string_transform"
         }
@@ -3528,6 +3593,67 @@ mod tests {
         assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_utf8_regex_match_without_fallback() {
+        let expression = Expression::new(
+            expr_id("regex-match"),
+            ExpressionKind::FunctionCall {
+                name: "utf8_regex_match".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(
+                        expr_id("pattern"),
+                        ScalarValue::Utf8("^(alpha|gamma)$".to_string()),
+                    ),
+                ],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("gamma".to_string()))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "string_predicate");
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+
+        let null_report = evaluate_expression(&expression, &row(&[("label", ScalarValue::Null)]));
+        assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(null_report.value, Some(ScalarValue::Null));
+        assert_eq!(null_report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!null_report.fallback_attempted);
+        assert!(!null_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_invalid_regex_pattern_without_fallback() {
+        let expression = Expression::new(
+            expr_id("invalid-regex"),
+            ExpressionKind::FunctionCall {
+                name: "regexp".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("pattern"), ScalarValue::Utf8("[".to_string())),
+                ],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::InvalidInput);
+        assert_eq!(report.operator_family, "string_predicate");
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
     }
 
     #[test]
