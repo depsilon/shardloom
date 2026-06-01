@@ -1308,6 +1308,24 @@ def executable_cases() -> list[SqlFixtureCase]:
             },
         ),
         SqlFixtureCase(
+            case_id="like_escape_predicate_utf8",
+            source_name="like-escape-predicate.csv",
+            source_text="id,label\n1,alpha\n2,al_pha\n3,al%pha\n4,alxpha\n5,\n",
+            statement_template=(
+                "SELECT id,label FROM '{source}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10"
+            ),
+            expected_jsonl='{"id":2,"label":"al_pha"}\n',
+            expected_fields={
+                "predicate_operator_family": "string_predicate",
+                "string_predicate_runtime_execution": "true",
+                "string_predicate_operator": "like_pattern",
+                "string_predicate_like_escape_runtime_execution": "true",
+                "string_predicate_like_escape_character": "!",
+                "projected_columns": "id,label",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+        ),
+        SqlFixtureCase(
             case_id="temporal_extract_utc_date32_timestamp",
             source_name="temporal.csv",
             source_text=(

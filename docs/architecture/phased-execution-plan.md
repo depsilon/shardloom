@@ -470,13 +470,14 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   HAVING-level scoped local `EXISTS` and quantified `ANY` / `ALL` subqueries over aggregate output
   rows are now admitted through the same aggregate/HAVING route, with decoded-reference fixtures and
   Python query-builder lowering.
-  Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes through ShardLoom-owned
-  predicate lowering while custom `ESCAPE`, case-folding, and locale/collation semantics remain
-  blocked. Scoped UTF-8 `RLIKE` / `REGEXP` / `REGEXP_LIKE` predicates are admitted separately
-  through ShardLoom-owned regex evaluation while locale-aware collation/regex semantics remain
-  blocked.
-  Next slice outcome: choose the next broad SQL grammar family after HAVING subquery CI evidence
-  lands; likely candidates are complex dtype blocker refinement, broader subquery shape parity, or
+  Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
+  `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
+  malformed escape literals, trailing escapes, and escape misuse. Case-folding and
+  locale/collation semantics remain blocked. Scoped UTF-8 `RLIKE` / `REGEXP` / `REGEXP_LIKE`
+  predicates are admitted separately through ShardLoom-owned regex evaluation while locale-aware
+  collation/regex semantics remain blocked.
+  Next slice outcome: choose the next broad SQL grammar family after LIKE ESCAPE evidence lands;
+  likely candidates are complex dtype blocker refinement, broader subquery shape parity, or
   additional front-door parity over admitted routes.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.

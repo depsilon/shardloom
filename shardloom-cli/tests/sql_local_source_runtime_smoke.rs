@@ -10899,31 +10899,33 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_like_escape_clause_without_fallback() {
-    let source_path = unique_path("sql-local-source-like-blocked", "csv");
-    fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
+fn sql_local_source_smoke_executes_like_escape_clause_without_fallback() {
+    let source_path = unique_path("sql-local-source-like-escape", "csv");
+    fs::write(
+        &source_path,
+        "id,label\n1,alpha\n2,al_pha\n3,al%pha\n4,alxpha\n",
+    )
+    .expect("write source csv");
 
     let statement = format!(
-        "SELECT id FROM '{}' WHERE label LIKE 'a!_%' ESCAPE '!' LIMIT 10",
+        "SELECT id,label FROM '{}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10",
         source_path.display()
     );
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
-        .output()
-        .expect("sql-local-source-smoke command runs");
+    let stdout = run_sql_local_source_smoke_json(&statement);
     assert!(
-        !output.status.success(),
-        "statement={statement} stdout={} stderr={}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(
-        stdout.contains("LIKE ESCAPE clauses are not admitted"),
+        stdout.contains("{\\\"id\\\":2,\\\"label\\\":\\\"al_pha\\\"}\\n"),
         "statement={statement} stdout={stdout}"
     );
-    assert!(stdout.contains("no fallback execution was attempted"));
-    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_predicate")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_predicate_operator", "like_pattern")));
+    assert!(stdout.contains(&field(
+        "string_predicate_like_escape_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("string_predicate_like_escape_character", "!")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

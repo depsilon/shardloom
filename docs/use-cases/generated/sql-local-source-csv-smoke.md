@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, scoped quantified ANY/ALL subqueries, and UTF-8 helper families. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column, correlated, joined, grouped, nested, and non-admitted quantified subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, scoped quantified ANY/ALL subqueries, and UTF-8 helper families including LIKE/NOT LIKE with single-character ESCAPE clauses. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column, correlated, joined, grouped, nested, and non-admitted quantified subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by
 
 ## Claim Boundary
 
-Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, scoped quantified ANY/ALL subqueries, and UTF-8 helper families. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column, correlated, joined, grouped, nested, and non-admitted quantified subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
+Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, scoped quantified ANY/ALL subqueries, and UTF-8 helper families including LIKE/NOT LIKE with single-character ESCAPE clauses. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column, correlated, joined, grouped, nested, and non-admitted quantified subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
 
 ## How To Try It
 
@@ -51,6 +51,10 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `null_predicate_operator`
 - `null_predicate_source_column`
 - `null_predicate_null_semantics`
+- `string_predicate_runtime_execution`
+- `string_predicate_operator`
+- `string_predicate_like_escape_runtime_execution`
+- `string_predicate_like_escape_character`
 - `string_transform_runtime_execution`
 - `string_transform_operator`
 - `string_transform_source_column`
@@ -240,7 +244,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, and string-function predicate/projection evidence; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, and string-function predicate/projection evidence; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

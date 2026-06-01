@@ -2929,6 +2929,26 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def string_predicate_like_escape_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted LIKE ESCAPE predicate."""
+
+        return (
+            self.envelope.field_bool(
+                "string_predicate_like_escape_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def string_predicate_like_escape_character(self) -> tuple[str, ...]:
+        """Return LIKE ESCAPE characters emitted by the smoke."""
+
+        value = self.envelope.field("string_predicate_like_escape_character", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def string_transform_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted UTF-8 transform predicate."""
 
