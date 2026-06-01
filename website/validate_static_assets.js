@@ -214,7 +214,7 @@ const benchmarks = read("benchmarks.html");
 for (const required of [
   "Benchmark Evidence, Not a Leaderboard",
   "Route timing dashboard",
-  "Route cards are the comparison surface.",
+  "Route lanes are the comparison surface.",
   "data-route-card-dashboard",
   "data-route-badge-fixture",
   "ShardLoom Prepare-Once First Query",
