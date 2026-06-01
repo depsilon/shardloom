@@ -131,9 +131,9 @@ pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-sour
 opt into explicit decoded containers through the Python materialization helpers:
 
 ```python
-unsupported = ctx.read("target/orders.csv").select("id").to_pandas()
-print(unsupported.blocker_id)
-print(unsupported.fallback_attempted, unsupported.external_engine_invoked)
+materialization_report = ctx.read("target/orders.csv").select("id").to_pandas()
+print(materialization_report.blocker_id)
+print(materialization_report.fallback_attempted, materialization_report.external_engine_invoked)
 ```
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked

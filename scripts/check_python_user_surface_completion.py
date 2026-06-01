@@ -102,7 +102,7 @@ REQUIRED_DOC_MARKERS = {
         ".select(\"id\", \"amount\")",
         ".write_jsonl(\"target/orders-out.jsonl\", allow_overwrite=True)",
         "result.evidence_summary.output_path",
-        "unsupported.blocker_id",
+        "materialization_report.blocker_id",
         "fallback_attempted, result.external_engine_invoked",
     ],
     "python/README.md": [
