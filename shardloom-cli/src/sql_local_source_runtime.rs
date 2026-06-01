@@ -8660,6 +8660,14 @@ fn apply_date_literal_predicate_coercions(
     source: &mut CsvSourceData,
     mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
+    if apply_materialized_subquery_date_column_coercions(
+        predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )? {
+        return Ok(());
+    }
     match predicate {
         ParsedPredicate::Compare {
             column,
@@ -8737,12 +8745,59 @@ fn apply_date_literal_predicate_coercions(
     }
 }
 
+fn apply_materialized_subquery_date_column_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<bool, ShardLoomError> {
+    match predicate {
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::Date32(_))) =>
+        {
+            coerce_date_literal_column(column, parsed, source, right_source)?;
+            Ok(true)
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) {
+                coerce_date_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 fn apply_timestamp_literal_predicate_coercions(
     predicate: &ParsedPredicate,
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
     mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
+    if apply_materialized_subquery_timestamp_column_coercions(
+        predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )? {
+        return Ok(());
+    }
     match predicate {
         ParsedPredicate::Compare {
             column,
@@ -8822,6 +8877,45 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn apply_materialized_subquery_timestamp_column_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<bool, ShardLoomError> {
+    match predicate {
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::TimestampMicros(_))) =>
+        {
+            coerce_timestamp_literal_column(column, parsed, source, right_source)?;
+            Ok(true)
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) {
+                coerce_timestamp_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -31591,6 +31685,113 @@ mod tests {
         fs::remove_file(&source_path).expect("remove source csv");
         fs::remove_file(&allowed_path).expect("remove allowed csv");
         fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+    }
+
+    #[test]
+    fn runs_scoped_quantified_date_subquery_csv_statement() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let thresholds_path = sql_local_source_test_path("thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,event_date\n1,2026-01-01\n2,2026-01-02\n3,2026-01-03\n4,\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "allowed_date,active,score\n2026-01-02,true,10\n2026-01-03,true,20\n2026-01-04,false,30\n",
+        )
+        .expect("write threshold csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_date FROM '{}' WHERE event_date = ANY (SELECT allowed_date FROM '{}' WHERE allowed_date >= DATE '2026-01-02' ORDER BY score ASC LIMIT 2) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run date ANY subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"event_date\":\"2026-01-02\"}\n{\"id\":3,\"event_date\":\"2026-01-03\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "any");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "eq");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "allowed_date");
+        assert_field_eq(&fields, "quantified_subquery_source_format", "csv");
+        assert_field_eq(&fields, "quantified_subquery_materialized_value_count", "2");
+        assert_field_eq(
+            &fields,
+            "quantified_subquery_null_semantics",
+            "sql_any_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove threshold csv");
+    }
+
+    #[test]
+    fn runs_scoped_quantified_timestamp_subquery_csv_statement() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let thresholds_path = sql_local_source_test_path("thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,event_ts\n1,2026-01-01T00:00:00Z\n2,2026-01-01T00:00:10Z\n3,2026-01-01T00:00:20Z\n4,\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "threshold_ts,active,score\n2026-01-01T00:00:05Z,true,10\n2026-01-01T00:00:15Z,true,20\n2026-01-01T00:00:30Z,false,30\n",
+        )
+        .expect("write threshold csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_ts FROM '{}' WHERE event_ts > ALL (SELECT threshold_ts FROM '{}' WHERE threshold_ts >= TIMESTAMP '2026-01-01T00:00:05Z' ORDER BY score ASC LIMIT 2) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run timestamp ALL subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":3,\"event_ts\":\"2026-01-01T00:00:20Z\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "threshold_ts");
+        assert_field_eq(&fields, "quantified_subquery_materialized_value_count", "2");
+        assert_field_eq(
+            &fields,
+            "quantified_subquery_null_semantics",
+            "sql_all_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "selected_row_count", "1");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove threshold csv");
     }
 
     #[test]
