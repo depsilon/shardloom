@@ -2153,6 +2153,45 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary="Pandas-style alias for sort(...), preserving scoped local-source top-N/order-by runtime evidence and no-fallback boundaries.",
     ),
     _df_method(
+        "distinct",
+        "deduplication",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "distinct_projection_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="Scoped row-level duplicate removal over bounded local-source projection rows; aggregate/window/join DISTINCT shapes remain blocked unless separately admitted.",
+    ),
+    _df_method(
+        "drop_duplicates",
+        "deduplication",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "distinct_projection_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="Pandas-style alias for distinct(), preserving scoped row-level SELECT DISTINCT evidence and no-fallback boundaries.",
+    ),
+    _df_method(
+        "unique",
+        "deduplication",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "distinct_projection_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="DataFrame-style alias for distinct(), preserving scoped row-level SELECT DISTINCT evidence and no-fallback boundaries.",
+    ),
+    _df_method(
         "window",
         "window",
         "fixture_smoke_supported",
@@ -2795,11 +2834,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
 FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_file_filter_project_limit",
-        "local file read, filter, project, limit, collect, and local write",
+        "local file read, filter, project, distinct, limit, collect, and local write",
         "scoped_runtime_supported",
-        sql_surface="ctx.sql(\"SELECT ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()/write_*",
+        sql_surface="ctx.sql(\"SELECT [DISTINCT] ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()/write_*",
         python_surface="ctx.sql(...), ctx.read(...), LazyFrame.collect(), LazyFrame.write_*",
-        dataframe_surface="ctx.read_csv(...).filter(...).select(...).limit(...).collect()/write_*",
+        dataframe_surface="ctx.read_csv(...).filter(...).select(...).distinct().limit(...).collect()/write_*",
         shared_runtime_path="sql-local-source-smoke",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_runtime_path_no_benchmark_claim",
@@ -2815,9 +2854,9 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "SQL, Python, and DataFrame-style local file filter/project/limit workflows lower to "
-            "the same ShardLoom local-source runtime surface. Local compatibility inputs are "
-            "adapters that must expose their adapter-to-Vortex normalization boundary before "
+            "SQL, Python, and DataFrame-style local file filter/project/distinct/limit workflows "
+            "lower to the same ShardLoom local-source runtime surface. Local compatibility inputs "
+            "are adapters that must expose their adapter-to-Vortex normalization boundary before "
             "broad runtime-ready claims. This does not claim arbitrary SQL, remote/table sources, "
             "or benchmarked performance equivalence."
         ),

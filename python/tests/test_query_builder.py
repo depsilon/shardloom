@@ -3673,6 +3673,81 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_distinct_projection_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT DISTINCT region,label FROM 'target/input.csv' WHERE amount >= 8 ORDER BY region ASC,label ASC LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source distinct projection",
+                    "human_text": "sql local source distinct projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"label\\":\\"alpha\\"}\\n{\\"region\\":\\"north\\",\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_distinct_projection_order_by_topn_filter_limit"},
+                        {"key": "distinct_projection_runtime_execution", "value": "true"},
+                        {"key": "distinct_projection_output_columns", "value": "region,label"},
+                        {"key": "distinct_projection_input_row_count", "value": "5"},
+                        {"key": "distinct_projection_output_row_count", "value": "2"},
+                        {"key": "distinct_projection_limit_applied_after_deduplication", "value": "true"},
+                        {"key": "distinct_projection_null_semantics", "value": "sql_select_distinct_groups_nulls"},
+                        {"key": "projected_columns", "value": "region,label"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "5"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("amount") >= 8)
+            .select("region", "label")
+            .drop_duplicates()
+            .sort("region", "label")
+        )
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        report = workflow.limit(2).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","label":"alpha"}\n'
+            '{"region":"north","label":"gamma"}\n',
+        )
+        self.assertTrue(report.distinct_projection_runtime_execution)
+        self.assertEqual(report.distinct_projection_output_columns, ("region", "label"))
+        self.assertEqual(report.distinct_projection_input_row_count, 5)
+        self.assertEqual(report.distinct_projection_output_row_count, 2)
+        self.assertTrue(report.distinct_projection_limit_applied_after_deduplication)
+        self.assertEqual(
+            report.distinct_projection_null_semantics,
+            "sql_select_distinct_groups_nulls",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_multi_key_group_by_aggregate_invokes_sql_smoke(
         self,
     ) -> None:

@@ -658,9 +658,12 @@ Unsupported computed-column expressions still block before fallback.
 For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.select(...)`,
 `.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
 projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
-`.sort_by(...)`, and `.sort_values(...)` are aliases for `.sort(...)`. These aliases do not widen
-the expression registry or execution providers; they lower to the same scoped ShardLoom runtime
-routes and evidence fields as the canonical methods.
+`.sort_by(...)`, and `.sort_values(...)` are aliases for `.sort(...)`. Row-level duplicate removal
+is admitted for bounded local-source projections through SQL `SELECT DISTINCT` and Python/DataFrame
+`.distinct()`, `.drop_duplicates()`, and `.unique()` aliases; LIMIT is applied after duplicate
+removal and reports `distinct_projection_*` evidence. These aliases do not widen the expression
+registry or execution providers; they lower to the same scoped ShardLoom runtime routes and
+evidence fields as the canonical methods.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
@@ -1277,9 +1280,10 @@ projection/optional-filter/limit bridges are marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
 and scoped ranking-window shapes described above.
-Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and
-`sort_values` are included in the matrix so wrappers and agents can distinguish familiar method
-names that lower to existing runtime evidence from genuinely unsupported DataFrame requests.
+Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`,
+`sort_values`, `distinct`, `drop_duplicates`, and `unique` are included in the matrix so wrappers
+and agents can distinguish familiar method names that lower to existing runtime evidence from
+genuinely unsupported DataFrame requests.
 `ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
 collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
 parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still

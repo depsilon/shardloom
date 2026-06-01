@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D row-level SELECT DISTINCT front-door slice
+  - Date: 2026-06-01
+  - Branch/PR: `codex/select-distinct-front-door` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - User request to keep broad SQL/Python/DataFrame runtime gaps as concrete phase-plan work
+      and to make ShardLoom easy to use without external fallback.
+  - Scope:
+    - Added row-level `SELECT DISTINCT` parsing, binding, planning, and evaluation for bounded
+      local-source projection rows. The runtime deduplicates projected scalar rows before applying
+      `LIMIT`, preserves optional `WHERE` and admitted output-column `ORDER BY`, and emits
+      deterministic blockers for aggregate/GROUP BY/HAVING, window, and join distinct shapes.
+    - Added `distinct_projection_*` evidence fields and Python typed accessors so reports expose
+      runtime execution, output columns, input/output row counts, dedupe-before-limit status, and
+      null semantics.
+    - Added Python/DataFrame `.distinct()`, `.drop_duplicates()`, and `.unique()` aliases that
+      lower to the same ShardLoom-owned SQL local-source runtime instead of pandas/Polars/external
+      execution.
+    - Updated DataFrame method capability rows, SQL/Python/DataFrame parity guards, admitted
+      semantics matrix/validator fixtures, README/Python README, compute-flow reference, and
+      front-door parity docs.
+  - Evidence:
+    - `cargo test -p shardloom-cli select_distinct -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke select_distinct -- --nocapture`
+      passed.
+    - `cargo clippy -p shardloom-cli --all-targets -- -D warnings` passed.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+    - `python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_distinct_projection_invokes_sql_smoke python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate-select-distinct.json`
+      passed.
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-select-distinct.json`
+      passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report-select-distinct.json`
+      passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --skip-build --output target/admitted-semantics-matrix-select-distinct.json`
+      passed.
+  - Claim boundary:
+    - This closes scoped row-level duplicate-removal support for bounded local-source projection
+      rows. It does not claim arbitrary SQL grammar, DISTINCT over aggregate/window/join output,
+      production SQL/DataFrame completeness, object-store/table SQL, performance equivalence, or
+      Spark replacement.
+  - Fallback boundary:
+    - The route stays inside `sql-local-source-smoke` and reports no external engine execution.
+      Python aliases lower to ShardLoom SQL rather than pandas, Polars, DuckDB, DataFusion, Spark,
+      or another fallback engine.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6E-2 capillary pre-write work shaping
   - Date: 2026-06-01
   - Branch/PR: local worktree / pending PR.

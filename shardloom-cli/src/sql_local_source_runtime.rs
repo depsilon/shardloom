@@ -281,6 +281,7 @@ impl SqlLocalSourceOutputFormat {
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSqlLocalSource {
+    distinct_projection: bool,
     projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
@@ -1884,6 +1885,7 @@ struct SqlLocalSourceClauseIndexes {
 struct ParsedSqlLocalSourceParts {
     statement: String,
     projection_list: ParsedProjectionList,
+    distinct_projection: bool,
     having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
@@ -5788,13 +5790,25 @@ fn evaluate_projection_output(
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    if parsed.limit == 0 {
+        return Ok(Vec::new());
+    }
     let projection_expressions = projection_expressions(parsed, source)?;
     let mut output_rows = Vec::new();
-    for row_index in selected_row_indexes.iter().take(parsed.limit) {
+    let mut distinct_keys = BTreeSet::new();
+    for row_index in selected_row_indexes {
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
-        output_rows.push(evaluate_projection_row(&projection_expressions, row)?);
+        let output_row = evaluate_projection_row(&projection_expressions, row)?;
+        if parsed.has_distinct_projection() && !distinct_keys.insert(row_distinct_key(&output_row))
+        {
+            continue;
+        }
+        output_rows.push(output_row);
+        if output_rows.len() >= parsed.limit {
+            break;
+        }
     }
     Ok(output_rows)
 }
@@ -5836,11 +5850,30 @@ fn evaluate_computed_projection_ordered_output(
         },
     );
 
-    Ok(sort_entries
-        .into_iter()
-        .take(parsed.limit)
-        .map(|(_source_index, output_index, _values)| projected_rows[output_index].clone())
-        .collect())
+    if !parsed.has_distinct_projection() {
+        return Ok(sort_entries
+            .into_iter()
+            .take(parsed.limit)
+            .map(|(_source_index, output_index, _values)| projected_rows[output_index].clone())
+            .collect());
+    }
+
+    let mut output_rows = Vec::new();
+    let mut distinct_keys = BTreeSet::new();
+    if parsed.limit == 0 {
+        return Ok(output_rows);
+    }
+    for (_source_index, output_index, _values) in sort_entries {
+        let row = &projected_rows[output_index];
+        if !distinct_keys.insert(row_distinct_key(row)) {
+            continue;
+        }
+        output_rows.push(row.clone());
+        if output_rows.len() >= parsed.limit {
+            break;
+        }
+    }
+    Ok(output_rows)
 }
 
 fn evaluate_window_projection_output(
@@ -8395,6 +8428,13 @@ fn group_key(values: &[(String, ScalarValue)]) -> String {
         .join("\u{1f}")
 }
 
+fn row_distinct_key(values: &[(String, ScalarValue)]) -> Vec<String> {
+    values
+        .iter()
+        .map(|(_name, value)| scalar_distinct_key(value))
+        .collect()
+}
+
 fn qualified_column_name(alias: &str, column: &str) -> String {
     format!("{alias}.{column}")
 }
@@ -8909,6 +8949,7 @@ fn bind_sql_local_source(
     }
     validate_window_projection_shape(parsed)?;
     validate_order_by_source(parsed, header)?;
+    validate_distinct_projection_shape(parsed, header)?;
     validate_computed_projection_shape(parsed)?;
     validate_projection_output_names(parsed, header)?;
     if parsed.is_grouped_aggregate() {
@@ -8931,6 +8972,34 @@ fn bind_sql_local_source(
     }
     validate_having_source_columns(parsed, &parsed.having_evaluation_columns(header))?;
     validate_predicate_source_columns(parsed, header)?;
+    Ok(())
+}
+
+fn validate_distinct_projection_shape(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    if !parsed.has_distinct_projection() {
+        return Ok(());
+    }
+    if parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.has_having() {
+        return Err(unsupported_sql_error(
+            "row-level SELECT DISTINCT cannot be mixed with aggregate, GROUP BY, or HAVING clauses in this scoped runtime slice; use COUNT(DISTINCT <column>) for distinct aggregate counts",
+        ));
+    }
+    if parsed.has_window_projection() {
+        return Err(unsupported_sql_error(
+            "row-level SELECT DISTINCT over window projection output is not admitted in this scoped runtime slice",
+        ));
+    }
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        let output_columns = parsed.output_columns(header);
+        validate_order_by_output_columns(
+            order_by,
+            &output_columns,
+            "ORDER BY DISTINCT projection output column",
+        )?;
+    }
     Ok(())
 }
 
@@ -9526,6 +9595,7 @@ fn bind_join_sql_local_source(
             "JOIN window projections are not admitted in this runtime slice",
         ));
     }
+    validate_join_distinct_projection_shape(parsed)?;
     if parsed.has_computed_projection() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
             "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
@@ -9605,6 +9675,18 @@ fn bind_join_sql_local_source(
         &join.right_alias,
         right_header,
     )
+}
+
+fn validate_join_distinct_projection_shape(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<(), ShardLoomError> {
+    if parsed.has_distinct_projection() {
+        Err(unsupported_sql_error(
+            "row-level SELECT DISTINCT over JOIN output is not admitted in this scoped runtime slice",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn qualified_join_header(
@@ -10046,6 +10128,38 @@ impl ParsedSqlLocalSource {
         !self.having.is_all()
     }
 
+    fn has_distinct_projection(&self) -> bool {
+        self.distinct_projection
+    }
+
+    fn distinct_projection_statement_kind(&self) -> String {
+        format!("local_source_{}", self.distinct_projection_claim_suffix())
+    }
+
+    fn distinct_projection_certificate_suffix(&self) -> String {
+        self.distinct_projection_claim_suffix().replace('_', "-")
+    }
+
+    fn distinct_projection_claim_suffix(&self) -> String {
+        if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
+            "distinct_computed_projection_order_by_topn_filter_limit".to_string()
+        } else if self.has_computed_projection() && self.order_by.is_some() {
+            "distinct_computed_projection_order_by_topn_limit".to_string()
+        } else if self.has_computed_projection() && self.has_filter() {
+            "distinct_computed_projection_filter_limit".to_string()
+        } else if self.has_computed_projection() {
+            "distinct_computed_projection_limit".to_string()
+        } else if self.order_by.is_some() && self.has_filter() {
+            "distinct_projection_order_by_topn_filter_limit".to_string()
+        } else if self.order_by.is_some() {
+            "distinct_projection_order_by_topn_limit".to_string()
+        } else if self.has_filter() {
+            "distinct_projection_filter_limit".to_string()
+        } else {
+            "distinct_projection_limit".to_string()
+        }
+    }
+
     fn uses_in_list(&self) -> bool {
         self.predicate.uses_in_list() || self.having.uses_in_list()
     }
@@ -10335,6 +10449,8 @@ impl ParsedSqlLocalSource {
                 "local_source_{}",
                 self.aggregate_statement_suffix("aggregate_order_by_topn_limit")
             )
+        } else if self.has_distinct_projection() {
+            self.distinct_projection_statement_kind()
         } else if self.has_window_projection() && self.has_filter() {
             "local_source_window_filter_limit".to_string()
         } else if self.has_window_projection() {
@@ -10421,6 +10537,8 @@ impl ParsedSqlLocalSource {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-limit")
+        } else if self.has_distinct_projection() {
+            self.distinct_projection_certificate_suffix()
         } else if self.has_window_projection() && self.has_filter() {
             "window-filter-limit".to_string()
         } else if self.has_window_projection() {
@@ -10495,6 +10613,8 @@ impl ParsedSqlLocalSource {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_filter_limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_limit")
+        } else if self.has_distinct_projection() {
+            self.distinct_projection_claim_suffix()
         } else if self.has_window_projection() && self.has_filter() {
             "window_filter_limit".to_string()
         } else if self.has_window_projection() {
@@ -15918,6 +16038,47 @@ impl SqlLocalSourceReport {
                 self.output_rows.len().to_string(),
             ),
             (
+                "distinct_projection_runtime_execution".to_string(),
+                self.parsed.has_distinct_projection().to_string(),
+            ),
+            (
+                "distinct_projection_output_columns".to_string(),
+                if self.parsed.has_distinct_projection() {
+                    self.parsed.output_columns(&self.source.header).join(",")
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
+                "distinct_projection_input_row_count".to_string(),
+                if self.parsed.has_distinct_projection() {
+                    self.selected_row_count.to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "distinct_projection_output_row_count".to_string(),
+                if self.parsed.has_distinct_projection() {
+                    self.output_rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "distinct_projection_limit_applied_after_deduplication".to_string(),
+                self.parsed.has_distinct_projection().to_string(),
+            ),
+            (
+                "distinct_projection_null_semantics".to_string(),
+                if self.parsed.has_distinct_projection() {
+                    "sql_select_distinct_groups_nulls"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
                 "projected_columns".to_string(),
                 self.parsed.output_columns(&self.source.header).join(","),
             ),
@@ -18630,6 +18791,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let indexes = sql_local_source_clause_indexes(&statement)?;
 
     let select_list = statement[6..indexes.from].trim();
+    let (distinct_projection, select_list) = parse_select_distinct_marker(select_list)?;
     let source_end = earliest_clause_index_after(
         indexes.from,
         &[
@@ -18678,12 +18840,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
             "SQL local-source SELECT list, source, optional predicate, and limit must not be empty",
         ));
     }
-    if contains_keyword_outside_quotes(limit_raw, "where")
-        || contains_keyword_outside_quotes(limit_raw, "from")
-        || contains_keyword_outside_quotes(limit_raw, "select")
-        || contains_keyword_outside_quotes(limit_raw, "having")
-        || contains_keyword_outside_quotes(limit_raw, "order by")
-    {
+    if limit_clause_contains_sql_clause_keyword(limit_raw) {
         return Err(unsupported_sql_error(
             "SQL local-source smoke admits one flat SELECT without subqueries",
         ));
@@ -18712,6 +18869,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         ParsedSqlLocalSourceParts {
             statement,
             projection_list,
+            distinct_projection,
             having_aggregates,
             group_by,
             order_by,
@@ -18727,6 +18885,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
     let ParsedSqlLocalSourceParts {
         statement,
         projection_list,
+        distinct_projection,
         having_aggregates,
         group_by,
         order_by,
@@ -18736,6 +18895,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         limit,
     } = parts;
     ParsedSqlLocalSource {
+        distinct_projection,
         projection_order: projection_list.projection_order,
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
@@ -18768,6 +18928,39 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         limit,
         normalized_statement: statement,
     }
+}
+
+fn limit_clause_contains_sql_clause_keyword(limit_raw: &str) -> bool {
+    contains_keyword_outside_quotes(limit_raw, "where")
+        || contains_keyword_outside_quotes(limit_raw, "from")
+        || contains_keyword_outside_quotes(limit_raw, "select")
+        || contains_keyword_outside_quotes(limit_raw, "having")
+        || contains_keyword_outside_quotes(limit_raw, "order by")
+}
+
+fn parse_select_distinct_marker(select_list: &str) -> Result<(bool, &str), ShardLoomError> {
+    let trimmed = select_list.trim_start();
+    let keyword = "distinct";
+    if !trimmed
+        .get(..keyword.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+    {
+        return Ok((false, select_list));
+    }
+    if trimmed
+        .as_bytes()
+        .get(keyword.len())
+        .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+    {
+        return Ok((false, select_list));
+    }
+    let rest = trimmed[keyword.len()..].trim_start();
+    if rest.is_empty() {
+        return Err(unsupported_sql_error(
+            "SELECT DISTINCT requires at least one projection expression",
+        ));
+    }
+    Ok((true, rest))
 }
 
 fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
@@ -24736,6 +24929,30 @@ mod tests {
         assert!(parsed.predicate.is_all());
         assert_eq!(parsed.statement_kind(), "local_source_projection_limit");
         assert_eq!(parsed.execution_certificate_suffix(), "projection-limit");
+    }
+
+    #[test]
+    fn parses_scoped_select_distinct_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT DISTINCT region,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY region,label LIMIT 5",
+        )
+        .expect("SELECT DISTINCT statement parses");
+
+        assert!(parsed.has_distinct_projection());
+        assert_eq!(parsed.projections, vec!["region", "label"]);
+        assert!(parsed.aggregates.is_empty());
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_distinct_projection_order_by_topn_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "distinct-projection-order-by-topn-filter-limit"
+        );
+        assert_eq!(
+            parsed.claim_gate_reason_suffix(),
+            "distinct_projection_order_by_topn_filter_limit"
+        );
     }
 
     #[test]

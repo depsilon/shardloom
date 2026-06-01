@@ -77,6 +77,9 @@ REQUIRED_ALIAS_METHODS = [
     "order_by",
     "sort_by",
     "sort_values",
+    "distinct",
+    "drop_duplicates",
+    "unique",
     "schema_contract",
 ]
 

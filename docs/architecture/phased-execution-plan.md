@@ -444,14 +444,17 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,
   joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded collect; broad
   arbitrary SQL grammar still has report-only or gated pockets.
-  Next slice outcome: promote one coherent binder/planner grammar expansion that routes newly
-  admitted syntax into ShardLoom-native runtime paths or stable unsupported diagnostics.
+  Next slice outcome: promote row-level `SELECT DISTINCT` projection syntax for bounded
+  local-source routes, expose matching Python/DataFrame `distinct`/`drop_duplicates`/`unique`
+  aliases, and emit explicit distinct-projection evidence while keeping aggregate/window/join or
+  semantically ambiguous distinct shapes deterministic blockers.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
   lowering, SQL/DataFrame parity validators, route capability reports, and docs.
-  Evidence required: positive SQL fixtures, unsupported diagnostics, parity rows, no-fallback fields,
-  and claim gates for every newly admitted syntax family.
+  Evidence required: positive SQL fixtures for dedupe-before-limit semantics, unsupported
+  diagnostics for non-admitted distinct shapes, Python/DataFrame alias tests, parity docs,
+  no-fallback fields, and claim gates for every newly admitted syntax family.
   Acceptance: admitted SQL grammar reaches an existing ShardLoom runtime route; non-admitted grammar
   fails deterministically without external engines.
   Verification: focused Rust CLI tests, Python parity tests, `scripts/check_sql_python_dataframe_parity.py`,

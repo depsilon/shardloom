@@ -74,6 +74,7 @@ REQUIRED_SOURCE_MARKERS = {
     "python/tests/test_query_builder.py": [
         "test_local_csv_query_builder_join_invokes_sql_smoke",
         "test_local_csv_query_builder_group_by_aggregate_invokes_sql_smoke",
+        "test_local_csv_query_builder_distinct_projection_invokes_sql_smoke",
         "test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke",
         "test_context_sql_schema_quality_helpers_invoke_sql_smoke",
         "test_sql_vortex_collect_uses_local_filter_project_primitive",
