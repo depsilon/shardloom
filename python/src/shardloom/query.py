@@ -232,8 +232,9 @@ class ColumnExpression:
     def like(self, pattern: object) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
 
-        The runtime admits only prefix, suffix, and contains forms. Unsupported
-        LIKE patterns still block in the ShardLoom CLI before fallback.
+        The runtime admits scoped UTF-8 SQL LIKE patterns with `%` and `_`
+        wildcards. Custom ESCAPE clauses, locale-aware collation, and
+        case-folding semantics remain outside this helper's claim boundary.
         """
 
         return PredicateExpression(f"{self.sql} LIKE {_sql_string_literal(pattern)}")

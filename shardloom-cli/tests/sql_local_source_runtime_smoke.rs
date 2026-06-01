@@ -2413,6 +2413,7 @@ fn sql_local_source_smoke_executes_computed_projection_order_by_alias_topn_witho
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_executes_computed_projection_source_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-computed-projection-source-topn", "csv");
     fs::write(
@@ -6471,6 +6472,7 @@ fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallba
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-string-like", "csv");
     fs::write(
@@ -6567,6 +6569,100 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("predicate_operator_family", "string_predicate")));
     assert!(stdout.contains(&field("string_predicate_operator", "ends_with")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let mixed_wildcard_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label LIKE 'a%a' LIMIT 10",
+        source_path.display()
+    );
+    let mixed_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &mixed_wildcard_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        mixed_wildcard_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&mixed_wildcard_output.stdout),
+        String::from_utf8_lossy(&mixed_wildcard_output.stderr)
+    );
+    let stdout = String::from_utf8(mixed_wildcard_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_predicate")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_predicate_operator", "like_pattern")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let underscore_wildcard_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label LIKE '_l%' LIMIT 10",
+        source_path.display()
+    );
+    let underscore_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &underscore_wildcard_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        underscore_wildcard_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&underscore_wildcard_output.stdout),
+        String::from_utf8_lossy(&underscore_wildcard_output.stderr)
+    );
+    let stdout = String::from_utf8(underscore_wildcard_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("string_predicate_operator", "like_pattern")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"alpine\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let negated_wildcard_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label NOT LIKE 'a_p%' LIMIT 10",
+        source_path.display()
+    );
+    let negated_wildcard_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &negated_wildcard_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        negated_wildcard_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&negated_wildcard_output.stdout),
+        String::from_utf8_lossy(&negated_wildcard_output.stderr)
+    );
+    let stdout = String::from_utf8(negated_wildcard_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("string_predicate_operator", "like_pattern")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
@@ -10593,46 +10689,31 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_unsupported_like_shapes_without_fallback() {
+fn sql_local_source_smoke_blocks_unsupported_like_escape_clause_without_fallback() {
     let source_path = unique_path("sql-local-source-like-blocked", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
-    let cases = [
-        (
-            format!(
-                "SELECT id FROM '{}' WHERE label LIKE 'a_ph%' LIMIT 10",
-                source_path.display()
-            ),
-            "LIKE '_' wildcards are not admitted",
-        ),
-        (
-            format!(
-                "SELECT id FROM '{}' WHERE label LIKE 'alpha' LIMIT 10",
-                source_path.display()
-            ),
-            "use = for exact string equality",
-        ),
-    ];
-
-    for (statement, expected_reason) in cases {
-        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-            .args(["sql-local-source-smoke", &statement, "--format", "json"])
-            .output()
-            .expect("sql-local-source-smoke command runs");
-        assert!(
-            !output.status.success(),
-            "statement={statement} stdout={} stderr={}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-        assert!(
-            stdout.contains(expected_reason),
-            "statement={statement} expected={expected_reason} stdout={stdout}"
-        );
-        assert!(stdout.contains("no fallback execution was attempted"));
-        assert!(stdout.contains("external_engine_invoked=false"));
-    }
+    let statement = format!(
+        "SELECT id FROM '{}' WHERE label LIKE 'a!_%' ESCAPE '!' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !output.status.success(),
+        "statement={statement} stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(
+        stdout.contains("LIKE ESCAPE clauses are not admitted"),
+        "statement={statement} stdout={stdout}"
+    );
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

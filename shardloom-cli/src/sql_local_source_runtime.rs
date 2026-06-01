@@ -1100,6 +1100,7 @@ enum StringPredicateOp {
     StartsWith,
     Contains,
     EndsWith,
+    LikePattern,
     RegexMatch,
 }
 
@@ -1243,7 +1244,7 @@ impl StringPredicateOp {
             Self::StartsWith => "utf8_starts_with",
             Self::Contains => "utf8_contains",
             Self::EndsWith => "utf8_ends_with",
-            Self::RegexMatch => "utf8_regex_match",
+            Self::LikePattern | Self::RegexMatch => "utf8_regex_match",
         }
     }
 
@@ -1252,6 +1253,7 @@ impl StringPredicateOp {
             Self::StartsWith => "starts_with",
             Self::Contains => "contains",
             Self::EndsWith => "ends_with",
+            Self::LikePattern => "like_pattern",
             Self::RegexMatch => "regex_match",
         }
     }
@@ -25817,7 +25819,24 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         return Ok(predicate);
     }
     parse_quantified_subquery_blocker(raw)?;
+    parse_like_escape_clause_blocker(raw)?;
     parse_token_predicate(raw)
+}
+
+fn parse_like_escape_clause_blocker(raw: &str) -> Result<(), ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let has_like = tokens
+        .iter()
+        .any(|token| token.eq_ignore_ascii_case("like"));
+    let has_escape = tokens
+        .iter()
+        .any(|token| token.eq_ignore_ascii_case("escape"));
+    if has_like && has_escape {
+        return Err(unsupported_sql_error(
+            "LIKE ESCAPE clauses are not admitted in this scoped UTF-8 LIKE runtime slice; use unescaped %/_ wildcards or an explicit RLIKE/REGEXP predicate",
+        ));
+    }
+    Ok(())
 }
 
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
@@ -27945,36 +27964,52 @@ fn validate_regex_pattern(pattern: &str) -> Result<(), ShardLoomError> {
 fn parse_like_string_predicate(
     pattern: &str,
 ) -> Result<(StringPredicateOp, String), ShardLoomError> {
-    if pattern.contains('_') {
-        return Err(unsupported_sql_error(
-            "LIKE '_' wildcards are not admitted in this scoped string-predicate smoke",
-        ));
-    }
     let percent_count = pattern.chars().filter(|ch| *ch == '%').count();
-    match (
-        pattern.strip_prefix('%'),
-        pattern.strip_suffix('%'),
-        percent_count,
-    ) {
-        (Some(inner), Some(_), 2) if pattern.len() >= 3 => {
-            let needle = inner.strip_suffix('%').unwrap_or(inner);
-            if needle.is_empty() || needle.contains('%') {
-                Err(unsupported_sql_error(
-                    "LIKE contains predicates admit exactly one non-empty %needle% pattern",
-                ))
-            } else {
-                Ok((StringPredicateOp::Contains, needle.to_string()))
+    if !pattern.contains('_') {
+        match (
+            pattern.strip_prefix('%'),
+            pattern.strip_suffix('%'),
+            percent_count,
+        ) {
+            (Some(inner), Some(_), 2) if pattern.len() >= 3 => {
+                let needle = inner.strip_suffix('%').unwrap_or(inner);
+                if !needle.is_empty() && !needle.contains('%') {
+                    return Ok((StringPredicateOp::Contains, needle.to_string()));
+                }
             }
+            (None, Some(prefix), 1) if !prefix.is_empty() => {
+                return Ok((StringPredicateOp::StartsWith, prefix.to_string()));
+            }
+            (Some(suffix), None, 1) if !suffix.is_empty() => {
+                return Ok((StringPredicateOp::EndsWith, suffix.to_string()));
+            }
+            _ => {}
         }
-        (None, Some(prefix), 1) if !prefix.is_empty() => {
-            Ok((StringPredicateOp::StartsWith, prefix.to_string()))
+    }
+    like_pattern_to_regex(pattern).map(|regex| (StringPredicateOp::LikePattern, regex))
+}
+
+fn like_pattern_to_regex(pattern: &str) -> Result<String, ShardLoomError> {
+    let mut regex = String::from(r"\A");
+    for ch in pattern.chars() {
+        match ch {
+            '%' => regex.push_str("(?s:.*)"),
+            '_' => regex.push_str("(?s:.)"),
+            ch => push_regex_escaped_char(&mut regex, ch),
         }
-        (Some(suffix), None, 1) if !suffix.is_empty() => {
-            Ok((StringPredicateOp::EndsWith, suffix.to_string()))
+    }
+    regex.push_str(r"\z");
+    validate_regex_pattern(&regex)?;
+    Ok(regex)
+}
+
+fn push_regex_escaped_char(regex: &mut String, ch: char) {
+    match ch {
+        '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$' => {
+            regex.push('\\');
+            regex.push(ch);
         }
-        _ => Err(unsupported_sql_error(
-            "LIKE admits only prefix 'text%', suffix '%text', and contains '%text%' patterns in this scoped runtime slice; use = for exact string equality",
-        )),
+        ch => regex.push(ch),
     }
 }
 
@@ -32187,6 +32222,66 @@ mod tests {
 
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
+    }
+
+    #[test]
+    fn parser_admits_scoped_like_wildcard_predicates_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a%a' LIMIT 5",
+        )
+        .expect("scoped LIKE multi-wildcard predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::StringMatch { column, op, value } => {
+                assert_eq!(column, "label");
+                assert_eq!(op, StringPredicateOp::LikePattern);
+                assert_eq!(value, r"\Aa(?s:.*)a\z");
+            }
+            other => panic!("expected LIKE StringMatch predicate, got {other:?}"),
+        }
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label LIKE '_l%' LIMIT 5",
+        )
+        .expect("scoped LIKE single-character wildcard predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::StringMatch { column, op, value } => {
+                assert_eq!(column, "label");
+                assert_eq!(op, StringPredicateOp::LikePattern);
+                assert_eq!(value, r"\A(?s:.)l(?s:.*)\z");
+            }
+            other => panic!("expected LIKE StringMatch predicate, got {other:?}"),
+        }
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label NOT LIKE 'a_p%' LIMIT 5",
+        )
+        .expect("scoped NOT LIKE wildcard predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::Not { inner } => match *inner {
+                ParsedPredicate::StringMatch { column, op, value } => {
+                    assert_eq!(column, "label");
+                    assert_eq!(op, StringPredicateOp::LikePattern);
+                    assert_eq!(value, r"\Aa(?s:.)p(?s:.*)\z");
+                }
+                other => panic!("expected inner LIKE StringMatch predicate, got {other:?}"),
+            },
+            other => panic!("expected negated LIKE predicate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_blocks_like_escape_clauses_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!_%' ESCAPE '!' LIMIT 5",
+        )
+        .expect_err("LIKE ESCAPE remains outside the scoped LIKE claim");
+
+        assert!(
+            error
+                .to_string()
+                .contains("LIKE ESCAPE clauses are not admitted")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]
