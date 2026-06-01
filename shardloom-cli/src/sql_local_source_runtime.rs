@@ -1854,6 +1854,7 @@ struct JoinEvaluationOutput {
     selected_row_count: usize,
     having_input_row_count: usize,
     having_selected_row_count: usize,
+    distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
 
@@ -1862,6 +1863,7 @@ struct NonJoinEvaluationOutput {
     selected_row_count: usize,
     having_input_row_count: usize,
     having_selected_row_count: usize,
+    distinct_projection_input_row_count: usize,
     output_rows: SqlOutputRows,
 }
 
@@ -1904,6 +1906,7 @@ struct SqlLocalSourceEvaluationOutput {
     candidate_row_count: usize,
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
+    distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
 
@@ -1920,6 +1923,7 @@ struct SqlLocalSourceReport {
     candidate_row_count: usize,
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
+    distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_jsonl: String,
     plan_digest: String,
@@ -5352,6 +5356,7 @@ fn run_sql_local_source_smoke(
         candidate_row_count: evaluated_output.candidate_row_count,
         unmatched_left_row_count: evaluated_output.unmatched_left_row_count,
         unmatched_right_row_count: evaluated_output.unmatched_right_row_count,
+        distinct_projection_input_row_count: evaluated_output.distinct_projection_input_row_count,
         output_rows: evaluated_output.output_rows,
         result_jsonl,
         plan_digest,
@@ -5382,6 +5387,7 @@ fn evaluate_sql_local_source_output(
             candidate_row_count: join_output.candidate_row_count,
             unmatched_left_row_count: join_output.unmatched_left_row_count,
             unmatched_right_row_count: join_output.unmatched_right_row_count,
+            distinct_projection_input_row_count: join_output.distinct_projection_input_row_count,
             output_rows: join_output.output_rows,
         })
     } else {
@@ -5394,6 +5400,8 @@ fn evaluate_sql_local_source_output(
             candidate_row_count: 0,
             unmatched_left_row_count: 0,
             unmatched_right_row_count: 0,
+            distinct_projection_input_row_count: non_join_output
+                .distinct_projection_input_row_count,
             output_rows: non_join_output.output_rows,
         })
     }
@@ -5425,48 +5433,63 @@ fn evaluate_non_join_output(
     source: &CsvSourceData,
 ) -> Result<NonJoinEvaluationOutput, ShardLoomError> {
     let selected_row_indexes = selected_row_indexes(parsed, source)?;
-    let (having_input_row_count, having_selected_row_count, output_rows) =
-        if parsed.is_grouped_aggregate() {
-            let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-            let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_rows)?;
-            (
-                aggregate.having_input_row_count,
-                aggregate.having_selected_row_count,
-                aggregate.rows,
-            )
-        } else if parsed.is_aggregate() {
-            let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-            let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_rows)?;
-            (
-                aggregate.having_input_row_count,
-                aggregate.having_selected_row_count,
-                aggregate.rows,
-            )
-        } else if parsed.has_window_projection() {
-            (
-                0,
-                0,
-                evaluate_window_projection_output(parsed, source, &selected_row_indexes)?,
-            )
-        } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
-            (
-                0,
-                0,
-                evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?,
-            )
-        } else {
-            let selected_row_indexes =
-                ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
-            (
-                0,
-                0,
-                evaluate_projection_output(parsed, source, &selected_row_indexes)?,
-            )
-        };
+    let (
+        having_input_row_count,
+        having_selected_row_count,
+        distinct_projection_input_row_count,
+        output_rows,
+    ) = if parsed.is_grouped_aggregate() {
+        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_rows)?;
+        let (distinct_projection_input_row_count, output_rows) =
+            apply_distinct_projection_limit(parsed, aggregate.rows);
+        (
+            aggregate.having_input_row_count,
+            aggregate.having_selected_row_count,
+            distinct_projection_input_row_count,
+            output_rows,
+        )
+    } else if parsed.is_aggregate() {
+        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_rows)?;
+        let (distinct_projection_input_row_count, output_rows) =
+            apply_distinct_projection_limit(parsed, aggregate.rows);
+        (
+            aggregate.having_input_row_count,
+            aggregate.having_selected_row_count,
+            distinct_projection_input_row_count,
+            output_rows,
+        )
+    } else if parsed.has_window_projection() {
+        let output_rows = evaluate_window_projection_output(parsed, source, &selected_row_indexes)?;
+        let (distinct_projection_input_row_count, output_rows) =
+            apply_distinct_projection_limit(parsed, output_rows);
+        (0, 0, distinct_projection_input_row_count, output_rows)
+    } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
+        let output_rows =
+            evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?;
+        (
+            0,
+            0,
+            distinct_projection_input_count(parsed, selected_row_indexes.len()),
+            output_rows,
+        )
+    } else {
+        let ordered_row_indexes =
+            ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
+        let output_rows = evaluate_projection_output(parsed, source, &ordered_row_indexes)?;
+        (
+            0,
+            0,
+            distinct_projection_input_count(parsed, ordered_row_indexes.len()),
+            output_rows,
+        )
+    };
     Ok(NonJoinEvaluationOutput {
         selected_row_count: selected_row_indexes.len(),
         having_input_row_count,
         having_selected_row_count,
+        distinct_projection_input_row_count,
         output_rows,
     })
 }
@@ -5883,7 +5906,12 @@ fn evaluate_window_projection_output(
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
     let window_maps = window_value_maps(parsed, source, selected_row_indexes)?;
     let mut output_rows = Vec::new();
-    for row_index in selected_row_indexes.iter().take(parsed.limit) {
+    let row_take_count = if parsed.has_distinct_projection() {
+        selected_row_indexes.len()
+    } else {
+        parsed.limit
+    };
+    for row_index in selected_row_indexes.iter().take(row_take_count) {
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
@@ -6864,8 +6892,12 @@ fn evaluate_join_output(
         )?;
     }
 
-    let (output_rows, having_input_row_count, having_selected_row_count) =
-        evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
+    let (
+        output_rows,
+        having_input_row_count,
+        having_selected_row_count,
+        distinct_projection_input_row_count,
+    ) = evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
 
     Ok(JoinEvaluationOutput {
         joined_row_count: accumulator.joined_row_count,
@@ -6875,6 +6907,7 @@ fn evaluate_join_output(
         selected_row_count: accumulator.selected_row_count,
         having_input_row_count,
         having_selected_row_count,
+        distinct_projection_input_row_count,
         output_rows,
     })
 }
@@ -7138,27 +7171,38 @@ fn evaluate_join_selected_output_rows(
     parsed: &ParsedSqlLocalSource,
     projection_expressions: &[Expression],
     selected_join_rows: &[ExpressionInputRow],
-) -> Result<(SqlOutputRows, usize, usize), ShardLoomError> {
+) -> Result<(SqlOutputRows, usize, usize, usize), ShardLoomError> {
     let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
     if parsed.is_grouped_aggregate() {
         let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
+        let (distinct_projection_input_row_count, output_rows) =
+            apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
-            aggregate.rows,
+            output_rows,
             aggregate.having_input_row_count,
             aggregate.having_selected_row_count,
+            distinct_projection_input_row_count,
         ));
     }
     if parsed.is_aggregate() {
         let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
+        let (distinct_projection_input_row_count, output_rows) =
+            apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
-            aggregate.rows,
+            output_rows,
             aggregate.having_input_row_count,
             aggregate.having_selected_row_count,
+            distinct_projection_input_row_count,
         ));
     }
     let ordered_join_row_indexes = ordered_join_row_indexes(parsed, &selected_join_row_refs)?;
     let mut output_rows = Vec::new();
-    for row_index in ordered_join_row_indexes.into_iter().take(parsed.limit) {
+    let row_take_count = if parsed.has_distinct_projection() {
+        ordered_join_row_indexes.len()
+    } else {
+        parsed.limit
+    };
+    for row_index in ordered_join_row_indexes.into_iter().take(row_take_count) {
         let joined_row = selected_join_rows.get(row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("ordered join row index is out of bounds".to_string())
         })?;
@@ -7167,7 +7211,9 @@ fn evaluate_join_selected_output_rows(
             joined_row,
         )?);
     }
-    Ok((output_rows, 0, 0))
+    let (distinct_projection_input_row_count, output_rows) =
+        apply_distinct_projection_limit(parsed, output_rows);
+    Ok((output_rows, 0, 0, distinct_projection_input_row_count))
 }
 
 fn enforce_join_candidate_cap(joined_row_count: usize) -> Result<(), ShardLoomError> {
@@ -8281,7 +8327,9 @@ fn evaluate_scalar_aggregate_output(
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
         apply_having_filter(parsed, vec![row])?;
     strip_having_aggregate_columns(parsed, &mut output_rows);
-    output_rows.truncate(parsed.limit);
+    if !parsed.has_distinct_projection() {
+        output_rows.truncate(parsed.limit);
+    }
     Ok(AggregateEvaluationOutput {
         having_input_row_count,
         having_selected_row_count,
@@ -8340,12 +8388,17 @@ fn evaluate_grouped_aggregate_output(
     if let Some(order_by) = parsed.order_by.as_ref() {
         let ordered_indexes =
             ordered_output_row_indexes(&output_rows, order_by, "ORDER BY aggregate output column")?;
+        let row_take_count = if parsed.has_distinct_projection() {
+            ordered_indexes.len()
+        } else {
+            parsed.limit
+        };
         output_rows = ordered_indexes
             .into_iter()
-            .take(parsed.limit)
+            .take(row_take_count)
             .map(|row_index| output_rows[row_index].clone())
             .collect();
-    } else {
+    } else if !parsed.has_distinct_projection() {
         output_rows.truncate(parsed.limit);
     }
     Ok(AggregateEvaluationOutput {
@@ -8433,6 +8486,39 @@ fn row_distinct_key(values: &[(String, ScalarValue)]) -> Vec<String> {
         .iter()
         .map(|(_name, value)| scalar_distinct_key(value))
         .collect()
+}
+
+fn distinct_projection_input_count(parsed: &ParsedSqlLocalSource, count: usize) -> usize {
+    if parsed.has_distinct_projection() {
+        count
+    } else {
+        0
+    }
+}
+
+fn apply_distinct_projection_limit(
+    parsed: &ParsedSqlLocalSource,
+    rows: SqlOutputRows,
+) -> (usize, SqlOutputRows) {
+    if !parsed.has_distinct_projection() {
+        return (0, rows);
+    }
+    let input_row_count = rows.len();
+    if parsed.limit == 0 {
+        return (input_row_count, Vec::new());
+    }
+    let mut distinct_keys = BTreeSet::new();
+    let mut output_rows = Vec::new();
+    for row in rows {
+        if !distinct_keys.insert(row_distinct_key(&row)) {
+            continue;
+        }
+        output_rows.push(row);
+        if output_rows.len() >= parsed.limit {
+            break;
+        }
+    }
+    (input_row_count, output_rows)
 }
 
 fn qualified_column_name(alias: &str, column: &str) -> String {
@@ -8981,16 +9067,6 @@ fn validate_distinct_projection_shape(
 ) -> Result<(), ShardLoomError> {
     if !parsed.has_distinct_projection() {
         return Ok(());
-    }
-    if parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.has_having() {
-        return Err(unsupported_sql_error(
-            "row-level SELECT DISTINCT cannot be mixed with aggregate, GROUP BY, or HAVING clauses in this scoped runtime slice; use COUNT(DISTINCT <column>) for distinct aggregate counts",
-        ));
-    }
-    if parsed.has_window_projection() {
-        return Err(unsupported_sql_error(
-            "row-level SELECT DISTINCT over window projection output is not admitted in this scoped runtime slice",
-        ));
     }
     if let Some(order_by) = parsed.order_by.as_ref() {
         let output_columns = parsed.output_columns(header);
@@ -9595,7 +9671,6 @@ fn bind_join_sql_local_source(
             "JOIN window projections are not admitted in this runtime slice",
         ));
     }
-    validate_join_distinct_projection_shape(parsed)?;
     if parsed.has_computed_projection() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
             "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
@@ -9603,6 +9678,7 @@ fn bind_join_sql_local_source(
     }
     let qualified_header =
         qualified_join_header(left_alias, left_header, &join.right_alias, right_header);
+    validate_join_distinct_projection_shape(parsed, &qualified_header)?;
     if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
         if let Some(order_by) = parsed.order_by.as_ref() {
             let output_columns = parsed.output_columns(&qualified_header);
@@ -9679,14 +9755,20 @@ fn bind_join_sql_local_source(
 
 fn validate_join_distinct_projection_shape(
     parsed: &ParsedSqlLocalSource,
+    qualified_header: &[String],
 ) -> Result<(), ShardLoomError> {
-    if parsed.has_distinct_projection() {
-        Err(unsupported_sql_error(
-            "row-level SELECT DISTINCT over JOIN output is not admitted in this scoped runtime slice",
-        ))
-    } else {
-        Ok(())
+    if !parsed.has_distinct_projection() {
+        return Ok(());
     }
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        let output_columns = parsed.output_columns(qualified_header);
+        validate_order_by_output_columns(
+            order_by,
+            &output_columns,
+            "ORDER BY DISTINCT join output column",
+        )?;
+    }
+    Ok(())
 }
 
 fn qualified_join_header(
@@ -10141,7 +10223,61 @@ impl ParsedSqlLocalSource {
     }
 
     fn distinct_projection_claim_suffix(&self) -> String {
-        if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
+        if self.is_join()
+            && self.is_grouped_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            self.join_aggregate_claim_suffix(
+                "distinct_group_by_aggregate_order_by_topn_filter_limit",
+            )
+        } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
+            self.join_aggregate_claim_suffix("distinct_group_by_aggregate_order_by_topn_limit")
+        } else if self.is_join()
+            && self.is_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            self.join_aggregate_claim_suffix("distinct_scalar_aggregate_order_by_topn_filter_limit")
+        } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
+            self.join_aggregate_claim_suffix("distinct_scalar_aggregate_order_by_topn_limit")
+        } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+            self.join_aggregate_claim_suffix("distinct_group_by_aggregate_filter_limit")
+        } else if self.is_join() && self.is_grouped_aggregate() {
+            self.join_aggregate_claim_suffix("distinct_group_by_aggregate_limit")
+        } else if self.is_join() && self.is_aggregate() && self.has_filter() {
+            self.join_aggregate_claim_suffix("distinct_scalar_aggregate_filter_limit")
+        } else if self.is_join() && self.is_aggregate() {
+            self.join_aggregate_claim_suffix("distinct_scalar_aggregate_limit")
+        } else if let Some(shape) = self.join_projection_shape() {
+            self.join_claim_suffix(&format!("distinct_{}", shape.claim_suffix()))
+        } else if self.is_join() && self.has_filter() {
+            self.join_claim_suffix("distinct_filter_limit")
+        } else if self.is_join() {
+            self.join_claim_suffix("distinct_limit")
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
+            self.aggregate_statement_suffix(
+                "distinct_group_by_aggregate_order_by_topn_filter_limit",
+            )
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() {
+            self.aggregate_statement_suffix("distinct_group_by_aggregate_order_by_topn_limit")
+        } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
+            self.aggregate_statement_suffix("distinct_scalar_aggregate_order_by_topn_filter_limit")
+        } else if self.is_aggregate() && self.order_by.is_some() {
+            self.aggregate_statement_suffix("distinct_scalar_aggregate_order_by_topn_limit")
+        } else if self.is_grouped_aggregate() && self.has_filter() {
+            self.aggregate_statement_suffix("distinct_group_by_aggregate_filter_limit")
+        } else if self.is_grouped_aggregate() {
+            self.aggregate_statement_suffix("distinct_group_by_aggregate_limit")
+        } else if self.is_aggregate() && self.has_filter() {
+            self.aggregate_statement_suffix("distinct_scalar_aggregate_filter_limit")
+        } else if self.is_aggregate() {
+            self.aggregate_statement_suffix("distinct_scalar_aggregate_limit")
+        } else if self.has_window_projection() && self.has_filter() {
+            "distinct_window_filter_limit".to_string()
+        } else if self.has_window_projection() {
+            "distinct_window_limit".to_string()
+        } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "distinct_computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
             "distinct_computed_projection_order_by_topn_limit".to_string()
@@ -10399,7 +10535,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn statement_kind(&self) -> String {
-        if self.is_join()
+        if self.has_distinct_projection() {
+            self.distinct_projection_statement_kind()
+        } else if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
@@ -10449,8 +10587,6 @@ impl ParsedSqlLocalSource {
                 "local_source_{}",
                 self.aggregate_statement_suffix("aggregate_order_by_topn_limit")
             )
-        } else if self.has_distinct_projection() {
-            self.distinct_projection_statement_kind()
         } else if self.has_window_projection() && self.has_filter() {
             "local_source_window_filter_limit".to_string()
         } else if self.has_window_projection() {
@@ -10499,7 +10635,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_suffix(&self) -> String {
-        if self.is_join()
+        if self.has_distinct_projection() {
+            self.distinct_projection_certificate_suffix()
+        } else if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
@@ -10537,8 +10675,6 @@ impl ParsedSqlLocalSource {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-limit")
-        } else if self.has_distinct_projection() {
-            self.distinct_projection_certificate_suffix()
         } else if self.has_window_projection() && self.has_filter() {
             "window-filter-limit".to_string()
         } else if self.has_window_projection() {
@@ -10575,7 +10711,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason_suffix(&self) -> String {
-        if self.is_join()
+        if self.has_distinct_projection() {
+            self.distinct_projection_claim_suffix()
+        } else if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
@@ -10613,8 +10751,6 @@ impl ParsedSqlLocalSource {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_filter_limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_limit")
-        } else if self.has_distinct_projection() {
-            self.distinct_projection_claim_suffix()
         } else if self.has_window_projection() && self.has_filter() {
             "window_filter_limit".to_string()
         } else if self.has_window_projection() {
@@ -16052,7 +16188,7 @@ impl SqlLocalSourceReport {
             (
                 "distinct_projection_input_row_count".to_string(),
                 if self.parsed.has_distinct_projection() {
-                    self.selected_row_count.to_string()
+                    self.distinct_projection_input_row_count.to_string()
                 } else {
                     "0".to_string()
                 },

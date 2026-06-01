@@ -16,9 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D row-level DISTINCT output route slice
+  - Date: 2026-06-01
+  - Branch/PR: `codex/distinct-output-front-door` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the row-level DISTINCT front-door slice: aggregate/HAVING, join, and window
+      output rows were already ShardLoom-owned runtime rows but were still artificially blocked by
+      DISTINCT admission and Python lowering.
+  - Scope:
+    - Promoted row-level `SELECT DISTINCT` over admitted aggregate/HAVING, join, and window output
+      rows. The runtime now produces all candidate output rows for these shapes, deduplicates rows
+      by SQL-style scalar distinct keys, and applies `LIMIT` after deduplication.
+    - Added `distinct_projection_input_row_count` propagation through non-join, join, and top-level
+      SQL local-source reports so evidence records the pre-dedup output-row count instead of
+      overloading selected source-row count for aggregate/window/join routes.
+    - Updated statement/certificate/claim suffixes so DISTINCT aggregate, window, and join rows are
+      labeled as distinct routes instead of hiding under the non-DISTINCT route kind.
+    - Updated Python/DataFrame lowering so `.distinct()`, `.drop_duplicates()`, and `.unique()` lower
+      through the same `sql-local-source-smoke` path after aggregate/HAVING, join, and window
+      output shaping, without pandas, Polars, DataFusion, Spark, DuckDB, or another fallback.
+    - Updated the admitted semantics matrix, SQL/Python/DataFrame parity validator, README,
+      Python README, front-door parity docs, compute-flow reference, and website compute-flow
+      snapshots.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke select_distinct -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli select_distinct -- --nocapture` passed.
+    - `cargo test --workspace --all-targets` passed from a tracked-files-only temp copy with an
+      isolated Cargo target; the direct dirty-checkout run fails only because unrelated untracked
+      `" 2"` generated docs change the release-readiness atlas count.
+    - Focused Python tests passed:
+      `test_local_csv_query_builder_distinct_projection_invokes_sql_smoke`,
+      `test_local_csv_query_builder_distinct_aggregate_having_invokes_sql_smoke`,
+      `test_local_csv_query_builder_distinct_join_invokes_sql_smoke`,
+      `test_local_csv_query_builder_distinct_window_invokes_sql_smoke`, and
+      `test_local_csv_query_builder_window_blocks_post_window_reordering`.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/context.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py`
+      passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --skip-build --output target/admitted-semantics-matrix-distinct-output.json`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-distinct-output.json`
+      passed.
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-distinct-output.json`
+      passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report-distinct-output.json`
+      passed.
+    - `python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-distinct-output.json`
+      still fails in the dirty local checkout because unrelated untracked `" 2"` website/status
+      duplicates are present; the same tracked-file-only validation passed from a temp copy.
+  - Claim boundary:
+    - This closes scoped row-level duplicate removal over admitted local-source projection,
+      aggregate/HAVING, join, and window output rows. It does not claim arbitrary SQL grammar,
+      broader DISTINCT expressions/functions, production SQL/DataFrame completeness,
+      object-store/table SQL, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - All routes stay inside ShardLoom-owned SQL local-source runtime paths and report
+      `fallback_attempted=false` and `external_engine_invoked=false`. External engines remain
+      baselines/oracles only and are not used for execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D row-level SELECT DISTINCT front-door slice
   - Date: 2026-06-01
-  - Branch/PR: `codex/select-distinct-front-door` / pending PR.
+  - Branch/PR: `codex/select-distinct-front-door` / PR #1004.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
     - User request to keep broad SQL/Python/DataFrame runtime gaps as concrete phase-plan work

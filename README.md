@@ -57,7 +57,8 @@ Current runtime support is intentionally scoped and evidence-gated:
 - local first-10-minutes smoke and release dry-run workflows;
 - Python and CLI front doors for local CSV, JSONL/NDJSON, flat JSON, generated-source, local
   Vortex, and feature-gated Parquet/Arrow IPC/Avro/ORC runtime paths;
-- scoped SQL local-source execution for projection, row-level `SELECT DISTINCT`, filter, limit,
+- scoped SQL local-source execution for projection, row-level `SELECT DISTINCT` over projection,
+  aggregate/HAVING, join, and window output rows, filter, limit,
   scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
   predicates, scoped local-source inner/outer/semi/anti equi-joins, cross joins, scoped
   column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
@@ -139,8 +140,8 @@ returns a deterministic no-fallback diagnostic instead of accidentally reading a
 For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_columns(...)`,
 `.assign(...)`, `.groupby(...)`, `.order_by(...)`, `.sort_by(...)`, `.sort_values(...)`,
 `.distinct()`, `.drop_duplicates()`, and `.unique()` are accepted only as thin names over
-the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, row-level
-`SELECT DISTINCT`, and bounded terminal paths.
+the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, join/window,
+row-level `SELECT DISTINCT`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

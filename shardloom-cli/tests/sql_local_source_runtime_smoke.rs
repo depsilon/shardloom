@@ -3985,31 +3985,107 @@ fn sql_local_source_smoke_executes_select_distinct_before_limit_without_fallback
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_select_distinct_aggregate_shape_without_fallback() {
-    let source_path = unique_path("sql-local-source-select-distinct-blocked", "csv");
+fn sql_local_source_smoke_executes_select_distinct_aggregate_having_without_fallback() {
+    let source_path = unique_path("sql-local-source-select-distinct-aggregate", "csv");
     fs::write(
         &source_path,
-        "id,region,amount\n1,east,10\n2,east,12\n3,west,8\n",
+        "id,region,amount\n1,east,10\n2,east,12\n3,west,8\n4,west,14\n5,north,3\n",
     )
     .expect("write source csv");
 
     let statement = format!(
-        "SELECT DISTINCT region,count(*) AS rows FROM '{}' GROUP BY region LIMIT 5",
+        "SELECT DISTINCT region,count(*) AS rows FROM '{}' GROUP BY region HAVING count(*) >= 2 LIMIT 5",
         source_path.display()
     );
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
-        .output()
-        .expect("sql-local-source-smoke command runs");
+    let stdout = run_sql_local_source_smoke_json(&statement);
 
-    assert!(!output.status.success());
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
-    let combined = format!("{stdout}{stderr}");
-    assert!(combined.contains(
-        "row-level SELECT DISTINCT cannot be mixed with aggregate, GROUP BY, or HAVING clauses"
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_distinct_group_by_aggregate_limit_having"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("distinct_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("distinct_projection_output_columns", "region,rows")));
+    assert!(stdout.contains(&field("distinct_projection_input_row_count", "2")));
+    assert!(stdout.contains(&field("distinct_projection_output_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_select_distinct_join_output_before_limit_without_fallback() {
+    let fact_path = unique_path("sql-local-source-select-distinct-join-fact", "csv");
+    let dim_path = unique_path("sql-local-source-select-distinct-join-dim", "csv");
+    fs::write(
+        &fact_path,
+        "id,customer_id,region,amount\n1,10,east,5\n2,10,east,7\n3,20,west,9\n",
+    )
+    .expect("write fact csv");
+    fs::write(&dim_path, "customer_id,segment\n10,retail\n20,enterprise\n").expect("write dim csv");
+
+    let statement = format!(
+        "SELECT DISTINCT f.region,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id LIMIT 2",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_distinct_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("distinct_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "distinct_projection_output_columns",
+        "f.region,d.segment"
+    )));
+    assert!(stdout.contains(&field("distinct_projection_input_row_count", "3")));
+    assert!(stdout.contains(&field("distinct_projection_output_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.region\\\":\\\"east\\\",\\\"d.segment\\\":\\\"retail\\\"}\\n{\\\"f.region\\\":\\\"west\\\",\\\"d.segment\\\":\\\"enterprise\\\"}\\n\""
     ));
-    assert!(combined.contains("external_engine_invoked=false"));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_select_distinct_window_output_before_limit_without_fallback() {
+    let source_path = unique_path("sql-local-source-select-distinct-window", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n1,east,10\n2,east,10\n3,east,5\n4,west,7\n5,west,7\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT DISTINCT region,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r FROM '{}' LIMIT 2",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_distinct_window_limit"
+    )));
+    assert!(stdout.contains(&field("window_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_rank_runtime_execution", "true")));
+    assert!(stdout.contains(&field("distinct_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("distinct_projection_output_columns", "region,r")));
+    assert!(stdout.contains(&field("distinct_projection_input_row_count", "5")));
+    assert!(stdout.contains(&field("distinct_projection_output_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"r\\\":1}\\n{\\\"region\\\":\\\"east\\\",\\\"r\\\":3}\\n\""
+    ));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

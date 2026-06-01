@@ -3748,6 +3748,127 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_distinct_aggregate_having_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT DISTINCT region,count(*) AS rows FROM 'target/input.csv' GROUP BY region HAVING count(*) >= 2 LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source distinct aggregate",
+                    "human_text": "sql local source distinct aggregate",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"rows\\":2}\\n{\\"region\\":\\"west\\",\\"rows\\":2}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_distinct_group_by_aggregate_limit_having"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "having_runtime_execution", "value": "true"},
+                        {"key": "distinct_projection_runtime_execution", "value": "true"},
+                        {"key": "distinct_projection_output_columns", "value": "region,rows"},
+                        {"key": "distinct_projection_input_row_count", "value": "2"},
+                        {"key": "distinct_projection_output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped = ctx.read_csv("target/input.csv").group_by("region").agg(rows="count(*)")
+        self.assertIsInstance(grouped, sl.LazyFrame)
+        filtered = grouped.having("count(*) >= 2")
+        self.assertIsInstance(filtered, sl.LazyFrame)
+        report = filtered.distinct().collect(limit=5)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertTrue(report.having_runtime_execution)
+        self.assertTrue(report.distinct_projection_runtime_execution)
+        self.assertEqual(report.distinct_projection_output_columns, ("region", "rows"))
+        self.assertEqual(report.distinct_projection_input_row_count, 2)
+        self.assertEqual(report.distinct_projection_output_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_distinct_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT DISTINCT f.region,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source distinct join",
+                    "human_text": "sql local source distinct join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.region\\":\\"east\\",\\"d.segment\\":\\"retail\\"}\\n{\\"f.region\\":\\"west\\",\\"d.segment\\":\\"enterprise\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_distinct_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "distinct_projection_runtime_execution", "value": "true"},
+                        {"key": "distinct_projection_output_columns", "value": "f.region,d.segment"},
+                        {"key": "distinct_projection_input_row_count", "value": "3"},
+                        {"key": "distinct_projection_output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on="customer_id")
+            .select("f.region", "d.segment")
+            .distinct()
+            .collect(limit=2)
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertTrue(report.distinct_projection_runtime_execution)
+        self.assertEqual(
+            report.distinct_projection_output_columns,
+            ("f.region", "d.segment"),
+        )
+        self.assertEqual(report.distinct_projection_input_row_count, 3)
+        self.assertEqual(report.distinct_projection_output_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_multi_key_group_by_aggregate_invokes_sql_smoke(
         self,
     ) -> None:
@@ -5774,9 +5895,80 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.limit(5)._sql_local_source_statement(),
             "SELECT *,ROW_NUMBER() OVER (ORDER BY amount ASC) AS rn FROM 'target/input.csv' LIMIT 5",
         )
+        self.assertEqual(
+            workflow.distinct().limit(5)._sql_local_source_statement(),
+            "SELECT DISTINCT *,ROW_NUMBER() OVER (ORDER BY amount ASC) AS rn FROM 'target/input.csv' LIMIT 5",
+        )
         self.assertIsNone(workflow.select("id").limit(5)._sql_local_source_statement())
         self.assertIsNone(workflow.filter("amount > 1").limit(5)._sql_local_source_statement())
         self.assertIsNone(workflow.sort("amount").limit(5)._sql_local_source_statement())
+
+    def test_local_csv_query_builder_distinct_window_invokes_sql_smoke(self) -> None:
+        statement = "SELECT DISTINCT region,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r FROM 'target/input.csv' LIMIT 2"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source distinct window",
+                    "human_text": "sql local source distinct window",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"region\\":\\"east\\",\\"r\\":1}}\\n{{\\"region\\":\\"east\\",\\"r\\":3}}\\n"}},
+                        {{"key": "sql_statement_kind", "value": "local_source_distinct_window_limit"}},
+                        {{"key": "window_runtime_execution", "value": "true"}},
+                        {{"key": "window_rank_runtime_execution", "value": "true"}},
+                        {{"key": "distinct_projection_runtime_execution", "value": "true"}},
+                        {{"key": "distinct_projection_output_columns", "value": "region,r"}},
+                        {{"key": "distinct_projection_input_row_count", "value": "5"}},
+                        {{"key": "distinct_projection_output_row_count", "value": "2"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("region")
+            .window(
+                sl.rank(
+                    partition_by="region",
+                    order_by="amount",
+                    descending=True,
+                    alias="r",
+                )
+            )
+            .distinct()
+            .collect(limit=2)
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.window_runtime_execution)
+        self.assertTrue(report.window_rank_runtime_execution)
+        self.assertTrue(report.distinct_projection_runtime_execution)
+        self.assertEqual(report.distinct_projection_output_columns, ("region", "r"))
+        self.assertEqual(report.distinct_projection_input_row_count, 5)
+        self.assertEqual(report.distinct_projection_output_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke(self) -> None:
         statement = "SELECT id,region,amount,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r,DENSE_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS dr FROM 'target/input.csv' LIMIT 6"

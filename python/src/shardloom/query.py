@@ -4332,15 +4332,7 @@ class LazyFrame:
                     return None
                 join_info = operation.values  # type: ignore[assignment]
             elif operation.kind == "distinct" and not distinct_requested:
-                if (
-                    aggregate_list is not None
-                    or group_by_list is not None
-                    or window_expressions
-                    or join_info is not None
-                    or sort_key is not None
-                    or having is not None
-                    or limit is not None
-                ):
+                if limit is not None:
                     return None
                 distinct_requested = True
             elif operation.kind == "filter" and predicate is None:
@@ -4370,8 +4362,6 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
-            if distinct_requested:
-                return None
             if len(join_info) == 6:
                 right_uri, left_key, right_key, how, left_alias, right_alias = join_info
                 join_condition = ""
@@ -4434,8 +4424,9 @@ class LazyFrame:
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             join_keyword = _sql_join_keyword(how)
+            select_keyword = "SELECT DISTINCT" if distinct_requested else "SELECT"
             return (
-                f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
+                f"{select_keyword} {select_clause} FROM {source_uri} AS {left_alias} "
                 f"{join_keyword} {right_source_uri} AS {right_alias}"
                 f"{on_clause}"
                 f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
