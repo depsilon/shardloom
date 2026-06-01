@@ -37,12 +37,40 @@ REQUIRED_MANIFEST_FIELDS = {
     "environment",
     "claim_boundary",
     "performance_claim_allowed",
+    "route_runtime_status_schema_version",
+    "route_runtime_status_vocabulary",
     "benchmark_constitution_schema_version",
     "benchmark_constitution_validator",
     "benchmark_constitution_required_field_order",
     "benchmark_constitution_claim_gate_status",
     "benchmark_constitution_performance_claim_allowed",
     "artifact_paths",
+}
+ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
+ROUTE_RUNTIME_STATUSES = {
+    "scoped_runtime_supported",
+    "feature_gated",
+    "fixture_smoke_only",
+    "unsupported",
+    "external_baseline_only",
+}
+REQUIRED_ROUTE_FIELDS = {
+    "route_lane_id",
+    "route_display_name",
+    "route_runtime_status",
+    "start_state",
+    "end_state",
+    "includes_preparation",
+    "includes_query",
+    "includes_output",
+    "includes_evidence",
+    "route_comparable_to_external_end_to_end",
+    "preparation_included",
+    "query_timing_starts_after_preparation",
+    "prepared_state_reused",
+    "performance_claim_allowed",
+    "production_claim_allowed",
+    "spark_replacement_claim_allowed",
 }
 
 
@@ -210,7 +238,37 @@ def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
     for index, row in enumerate(result_rows(payload)):
         engine = str(row.get("engine", ""))
+        missing_route_fields = sorted(REQUIRED_ROUTE_FIELDS - set(row))
+        if missing_route_fields:
+            blockers.append(
+                f"benchmark row {index} is missing route fields: {missing_route_fields}"
+            )
+        route_status = str(row.get("route_runtime_status") or "")
+        if route_status not in ROUTE_RUNTIME_STATUSES:
+            blockers.append(
+                f"benchmark row {index} has invalid route_runtime_status={route_status!r}"
+            )
+        for claim_field in (
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ):
+            if row.get(claim_field) is not False:
+                blockers.append(f"benchmark row {index} must set {claim_field}=false")
         if engine.startswith("shardloom"):
+            if route_status == "external_baseline_only":
+                blockers.append(
+                    f"ShardLoom row {index} must not use external_baseline_only route status"
+                )
+            if row.get("status") == "success" and route_status == "unsupported":
+                blockers.append(
+                    f"successful ShardLoom row {index} must not report route_runtime_status=unsupported"
+                )
+            if engine == "shardloom" and row.get("route_display_name") == "shardloom":
+                blockers.append(
+                    "internal shardloom lane must be publicly labeled as "
+                    "ShardLoom Cold Certified Route"
+                )
             if "fallback_attempted" not in row:
                 blockers.append(f"ShardLoom row {index} is missing fallback_attempted")
             elif row.get("fallback_attempted") is not False:
@@ -237,6 +295,10 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     + "; ".join(validation.blockers)
                 )
         elif engine:
+            if route_status != "external_baseline_only":
+                blockers.append(
+                    f"external row {index} ({engine}) must set route_runtime_status=external_baseline_only"
+                )
             if (
                 row.get("external_baseline_only") is not True
                 and row.get("row_classification") != "external_baseline_only"
@@ -259,6 +321,14 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
         )
     if manifest.get("performance_claim_allowed") is not False:
         blockers.append("performance_claim_allowed must be false")
+    if manifest.get("route_runtime_status_schema_version") != ROUTE_RUNTIME_STATUS_SCHEMA_VERSION:
+        blockers.append("route_runtime_status_schema_version mismatch")
+    route_vocab = set(manifest.get("route_runtime_status_vocabulary") or [])
+    if not ROUTE_RUNTIME_STATUSES.issubset(route_vocab):
+        blockers.append(
+            "route_runtime_status_vocabulary missing values: "
+            f"{sorted(ROUTE_RUNTIME_STATUSES - route_vocab)}"
+        )
     if (
         manifest.get("benchmark_constitution_schema_version")
         != "shardloom.benchmark_constitution_validation.v1"

@@ -192,6 +192,48 @@ single-process prepare/batch route appears as row evidence instead of being omit
 benchmark bundle.
 ```
 
+Public benchmark presentation must add a route-runtime layer on top of those internal modes. Every
+published row should expose:
+
+```text
+route_runtime_status=scoped_runtime_supported|feature_gated|fixture_smoke_only|unsupported|external_baseline_only
+route_lane_id
+route_display_name
+start_state
+end_state
+includes_preparation
+includes_query
+includes_output
+includes_evidence
+route_comparable_to_external_end_to_end
+performance_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+```
+
+Use route lanes for end-to-end comparison and stage attribution for explanation. Public route labels
+are:
+
+```text
+ShardLoom Cold Certified Route
+ShardLoom Prepare-Once First Query
+ShardLoom Prepare-Once Batch
+ShardLoom Warm Prepared Query
+ShardLoom Native Vortex Query
+ShardLoom Direct Transient Route
+External Baseline End-to-End
+```
+
+The internal `shardloom` lane is specifically `ShardLoom Cold Certified Route`; it must not be
+rendered as the generic ShardLoom runtime. `ShardLoom Warm Prepared Query` and
+`ShardLoom Native Vortex Query` are valid runtime evidence, but their start states are
+`VortexPreparedState` and `Vortex`, so they are not raw-source end-to-end comparisons unless that
+boundary is shown. `claim_gate_status=claim_grade` remains an evidence-quality signal only. Runtime
+support, evidence quality, performance claims, production claims, and Spark-replacement claims must
+be separate fields and separate page cues. Unsupported counts must distinguish ShardLoom route gaps
+from external baseline limitations, for example `ShardLoom unsupported rows: 0` and
+`External baseline unsupported rows: 6`.
+
 Required row fields include requested/selected execution mode, mode-selection reason, preparation
 timing, prepared artifact refs/digests, source read/parse/import timing, Vortex write/reopen/scan
 timing, operator compute timing, result-sink write timing, evidence-rendering timing,

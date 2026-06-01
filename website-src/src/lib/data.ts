@@ -13,6 +13,8 @@ export type UseCase = (typeof useCaseIndex.use_cases)[number];
 type BenchmarkRow = Record<string, unknown> & {
   engine?: unknown;
   claim_gate_status?: unknown;
+  route_runtime_status?: unknown;
+  status?: unknown;
 };
 
 export const siteNav = [
@@ -114,11 +116,22 @@ export function routeMetrics() {
   );
   const claimGrade = routeRows.filter((row) => row.claim_gate_status === "claim_grade").length;
   const fixtureSmoke = routeRows.filter((row) => row.claim_gate_status === "fixture_smoke_only").length;
+  const scopedRuntimeSupported = routeRows.filter((row) => row.route_runtime_status === "scoped_runtime_supported").length;
+  const shardloomUnsupported = routeRows.filter(
+    (row) => row.status === "unsupported" || row.route_runtime_status === "unsupported",
+  ).length;
+  const externalUnsupported = publishedRows.filter((row) => {
+    const engine = String(row.engine ?? "");
+    return !engine.includes("shardloom") && row.status === "unsupported";
+  }).length;
   const sourceStateRows = allRows.filter((row) =>
     Object.keys(row).some((key) => key.includes("source_state")),
   ).length;
   return {
     routeRows: routeRows.length,
+    scopedRuntimeSupported,
+    shardloomUnsupported,
+    externalUnsupported,
     claimGrade,
     fixtureSmoke,
     sourceStateRows,

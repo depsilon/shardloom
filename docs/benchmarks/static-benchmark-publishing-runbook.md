@@ -18,8 +18,9 @@ package-publication claims.
 
 ## Profiles
 
-- `smoke`: quick checks for the ready ShardLoom lanes (`shardloom`,
-  `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`).
+- `smoke`: quick checks for the ready ShardLoom internal lanes (`shardloom`,
+  `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`). Public pages
+  must render those as route names, not product-level aliases.
 - `full_local`: current publishing profile. ShardLoom plus pandas, Polars eager/lazy, DuckDB,
   DataFusion, and Dask across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC.
 - `full_local_plus_spark`: historical/explicit profile only. `full_local` plus `pyspark`,
@@ -37,6 +38,49 @@ Missing required lanes fail the selected full profile. The current public refres
 `spark-local-tuned` remain required external baselines and need a local JDK. Missing optional
 extended/GPU/object-store lanes remain visible with a reason. External engines are baseline
 context only and never ShardLoom fallback execution.
+
+## Public Route Names
+
+The benchmark page uses two views:
+
+- Route lanes are what users compare end to end.
+- Stage pieces explain why a ShardLoom route took time.
+
+The promoter keeps internal lane IDs stable but publishes user-facing route identity fields on every
+row:
+
+```text
+route_runtime_status
+route_lane_id
+route_display_name
+start_state
+end_state
+includes_preparation
+includes_query
+includes_output
+includes_evidence
+route_comparable_to_external_end_to_end
+performance_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+```
+
+Public route names must be:
+
+| Internal lane / mode | Public route |
+| --- | --- |
+| `shardloom` / `compatibility_import_certified` | ShardLoom Cold Certified Route |
+| synthesized from `shardloom-prepare-batch` preparation plus first query | ShardLoom Prepare-Once First Query |
+| `shardloom-prepare-batch` | ShardLoom Prepare-Once Batch |
+| `shardloom-prepared-vortex` / `prepared_vortex` | ShardLoom Warm Prepared Query |
+| `shardloom-vortex` / `native_vortex` | ShardLoom Native Vortex Query |
+| `direct_compatibility_transient` | ShardLoom Direct Transient Route |
+| pandas/Polars/DuckDB/DataFusion/Dask | External Baseline End-to-End rows, with per-engine labels |
+
+Do not call the internal `shardloom` lane simply "ShardLoom" on public benchmark surfaces. It is
+the cold certified raw-source route, not the entire runtime. `claim_grade` means row evidence
+quality; it must not be used as shorthand for runtime support, production readiness, performance
+readiness, or Spark-replacement readiness.
 
 ## Publish A Local Artifact
 
@@ -90,7 +134,8 @@ python scripts\promote_benchmark_artifact.py `
 The promotion step is the only supported way to refresh the public comparative benchmark snapshot.
 It derives the website timing/context tables from the promoted benchmark artifact, records
 `expected_lanes`, `available_lanes`, `missing_lanes`, lane versions, and lane availability reasons,
-and keeps external engines marked as `external_baseline_only`.
+keeps external engines marked as `external_baseline_only`, and adds route identity/status fields so
+the website can report runtime support separately from evidence and claim authorization.
 
 Keep raw benchmark Markdown under `target/benchmark-artifacts/` as local evidence unless a separate
 claim-safe public Markdown renderer is added. The website latest bundle publishes the JSON manifest
@@ -164,6 +209,11 @@ The manifest must include:
 
 ShardLoom rows must preserve `fallback_attempted=false` and `external_engine_invoked=false`.
 External rows must remain `external_baseline_only=true` or `row_classification=external_baseline_only`.
+All rows must carry route identity and readiness fields. For current public artifacts, ShardLoom
+successful rows should report `route_runtime_status=scoped_runtime_supported`, while external
+baseline rows should report `route_runtime_status=external_baseline_only`. Unsupported external
+baseline rows are allowed when they represent an external engine limitation; they must not be
+reported as ShardLoom unsupported rows.
 Format declarations are not enough for publication: every required ShardLoom publication lane
 (`shardloom`, `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`) must
 have actual published rows for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC. External baseline rows

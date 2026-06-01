@@ -7,22 +7,22 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 300,
-        "sha256": "726a966995ffa01a7d8243bb20798c2f68eb29a26768c22ffb7b8caba7ed72a4"
+        "sha256": "578ec92f24d5588a142784f4f657d8c644091e399cd53170831c8ac6456e538c"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 300,
-        "sha256": "d730d0f1278272bb4204665c33b669243503842102138d34d62d89e06ffc0d36"
+        "sha256": "3754d2b95c565c3ce6b547b9cbaf58daba4b3a267d7ef7382e8d9ee0d2bc1e22"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 300,
-        "sha256": "02dfb994c61948da29624e573469e6708626dcc64294d4e40b3e3dc9dba5b584"
+        "sha256": "92450c30d91be0e3b8639973b810a3a9e1b74951e790524640e782fca86d0e96"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 300,
-        "sha256": "2b0def5ad0e6cee16156e7fc158a62f091611fb48dfdc9e786f2498a589ef861"
+        "sha256": "7cb97e567a46da3e15b4e056a9671e4027571df142fd896a0548bbdbf2ec28c4"
       }
     ]
   },
@@ -43,10 +43,13 @@
   "benchmark_constitution_performance_claim_allowed": false,
   "benchmark_constitution_required_field_order": [
     "benchmark_result_row",
+    "route_identity",
+    "route_runtime_status",
     "dataset_source_admission",
     "preparation_route",
     "execution_route",
     "output_route",
+    "claim_readiness_boundary",
     "correctness_proof",
     "hardware_profile",
     "build_profile",
@@ -59,7 +62,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "5458f38168ca6c247be25d24b51b7570fffd622d",
+  "benchmark_git_sha": "649ee2531b5760fa86a5eb6ec9e1708d5f07e5c5",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -117,6 +120,14 @@
   "missing_required_lanes": [],
   "performance_claim_allowed": false,
   "published_benchmark_row_count": 1200,
+  "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
+  "route_runtime_status_vocabulary": [
+    "external_baseline_only",
+    "feature_gated",
+    "fixture_smoke_only",
+    "scoped_runtime_supported",
+    "unsupported"
+  ],
   "runtime_envelope_validation": {
     "headers": [
       "Status",
@@ -617,5 +628,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "5458f38168ca6c247be25d24b51b7570fffd622d"
+  "shardloom_git_sha": "649ee2531b5760fa86a5eb6ec9e1708d5f07e5c5"
 }

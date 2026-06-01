@@ -48,10 +48,41 @@ PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
 PUBLISHED_ROW_CHUNK_SIZE = 300
 WEBSITE_ROW_KEYS = (
     "engine",
+    "engine_display_name",
     "scenario_name",
     "storage_format",
     "status",
     "selected_execution_mode",
+    "route_lane_id",
+    "route_display_name",
+    "route_family_display_name",
+    "route_runtime_status",
+    "start_state",
+    "end_state",
+    "includes_preparation",
+    "includes_query",
+    "includes_output",
+    "includes_evidence",
+    "route_comparable_to_external_end_to_end",
+    "preparation_included",
+    "preparation_included_scope",
+    "query_timing_starts_after_preparation",
+    "prepared_state_reused",
+    "performance_claim_allowed",
+    "production_claim_allowed",
+    "spark_replacement_claim_allowed",
+    "source_admission_ms",
+    "source_read_ms",
+    "source_parse_or_columnar_decode_ms",
+    "source_to_vortex_array_ms",
+    "vortex_write_ms",
+    "vortex_reopen_or_verify_ms",
+    "prepared_state_lookup_or_create_ms",
+    "vortex_scan_ms",
+    "operator_compute_ms",
+    "result_sink_write_ms",
+    "evidence_render_ms",
+    "total_route_ms",
     "total_runtime_millis",
     "vortex_scan_millis",
     "operator_compute_millis",
@@ -101,6 +132,59 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
 COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.cold_lane_attribution.v1"
 )
+ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
+ROUTE_RUNTIME_STATUSES = {
+    "scoped_runtime_supported",
+    "feature_gated",
+    "fixture_smoke_only",
+    "unsupported",
+    "external_baseline_only",
+}
+ROUTE_STAGE_FIELD_KEYS = (
+    "source_admission_ms",
+    "source_read_ms",
+    "source_parse_or_columnar_decode_ms",
+    "source_to_vortex_array_ms",
+    "vortex_write_ms",
+    "vortex_reopen_or_verify_ms",
+    "prepared_state_lookup_or_create_ms",
+    "vortex_scan_ms",
+    "operator_compute_ms",
+    "result_sink_write_ms",
+    "evidence_render_ms",
+    "total_route_ms",
+)
+ROUTE_IDENTITY_KEYS = (
+    "route_lane_id",
+    "route_display_name",
+    "route_family_display_name",
+    "route_runtime_status",
+    "start_state",
+    "end_state",
+    "includes_preparation",
+    "includes_query",
+    "includes_output",
+    "includes_evidence",
+    "route_comparable_to_external_end_to_end",
+    "preparation_included",
+    "preparation_included_scope",
+    "query_timing_starts_after_preparation",
+    "prepared_state_reused",
+    "performance_claim_allowed",
+    "production_claim_allowed",
+    "spark_replacement_claim_allowed",
+)
+EXTERNAL_ENGINE_DISPLAY_NAMES = {
+    "pandas": "pandas",
+    "polars-eager": "Polars Eager",
+    "polars-lazy": "Polars Lazy",
+    "duckdb": "DuckDB",
+    "datafusion": "DataFusion",
+    "dask": "Dask",
+    "pyspark": "PySpark",
+    "spark-default": "Spark Default",
+    "spark-local-tuned": "Spark Local Tuned",
+}
 COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION = {
     "full_certified_cold_ingest": (
         "source_read_millis",
@@ -453,6 +537,373 @@ def fmt_percent(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.1f}%"
 
 
+def is_shardloom_engine(engine: str) -> bool:
+    return engine.startswith("shardloom")
+
+
+def engine_display_name(engine: str) -> str:
+    shardloom_names = {
+        "shardloom": "ShardLoom",
+        "shardloom-prepared-vortex": "ShardLoom Prepared Vortex",
+        "shardloom-prepare-batch": "ShardLoom Prepare Batch",
+        "shardloom-vortex": "ShardLoom Native Vortex",
+        "native-vortex": "ShardLoom Native Vortex",
+    }
+    if engine in shardloom_names:
+        return shardloom_names[engine]
+    return EXTERNAL_ENGINE_DISPLAY_NAMES.get(engine, engine or "unknown")
+
+
+def field_bool(fields: dict[str, Any], key: str, default: bool = False) -> bool:
+    value = fields.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+    return default
+
+
+def first_numeric_field(fields: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        value = fields.get(key)
+        parsed = numeric_value(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def micros_to_millis(value: Any) -> float | None:
+    parsed = numeric_value(value)
+    return None if parsed is None else parsed / 1000.0
+
+
+def source_admission_millis(fields: dict[str, Any]) -> float | None:
+    direct = first_numeric_field(
+        fields,
+        (
+            "source_stat_millis",
+            "source_admission_millis",
+            "source_metadata_snapshot_millis",
+        ),
+    )
+    if direct is not None:
+        return direct
+    return micros_to_millis(fields.get("source_state_prepare_micros"))
+
+
+def route_runtime_status_for_row(row: dict[str, Any], fields: dict[str, Any]) -> str:
+    engine = str(row.get("engine") or "")
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if row.get("status") != "success":
+        return "unsupported"
+    status_text = " ".join(
+        str(fields.get(key) or "")
+        for key in (
+            "source_adapter_status",
+            "vortex_ingest_status",
+            "prepared_state_status",
+            "runtime_execution_validation_status",
+        )
+    )
+    if "feature_gated" in status_text or "feature-gated" in status_text:
+        return "feature_gated"
+    if str(fields.get("claim_gate_status") or "") == "fixture_smoke_only":
+        return "fixture_smoke_only"
+    return "scoped_runtime_supported"
+
+
+def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    mode = str(row.get("selected_execution_mode") or fields.get("execution_mode") or "")
+    external = not is_shardloom_engine(engine)
+    runtime_status = route_runtime_status_for_row(row, fields)
+    route: dict[str, Any] = {
+        "route_runtime_status_schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
+        "engine_display_name": engine_display_name(engine),
+        "route_runtime_status": runtime_status,
+        "includes_query": True,
+        "includes_output": True,
+        "includes_evidence": True,
+        "performance_claim_allowed": False,
+        "production_claim_allowed": False,
+        "spark_replacement_claim_allowed": False,
+    }
+    if external:
+        display = engine_display_name(engine)
+        route.update(
+            {
+                "route_lane_id": "external_baseline_end_to_end",
+                "route_display_name": f"{display} End-to-End",
+                "route_family_display_name": "External Baseline End-to-End",
+                "start_state": "raw_compat_source",
+                "end_state": "external_result",
+                "includes_preparation": False,
+                "route_comparable_to_external_end_to_end": True,
+                "preparation_included": False,
+                "preparation_included_scope": "not_applicable_external_baseline",
+                "query_timing_starts_after_preparation": False,
+                "prepared_state_reused": False,
+                "route_claim_boundary": (
+                    "external baseline timing context only; never ShardLoom execution, "
+                    "fallback, runtime support, production, or replacement evidence"
+                ),
+            }
+        )
+        return route
+
+    if engine == "shardloom-prepare-batch":
+        route.update(
+            {
+                "route_lane_id": "prepare_once_batch",
+                "route_display_name": "ShardLoom Prepare-Once Batch",
+                "route_family_display_name": "ShardLoom Raw Compatibility To Prepared Vortex",
+                "start_state": "raw_compat_source",
+                "end_state": "result_sink",
+                "includes_preparation": True,
+                "route_comparable_to_external_end_to_end": True,
+                "preparation_included": False,
+                "preparation_included_scope": "prepared_once_per_batch_not_child_query_timing",
+                "query_timing_starts_after_preparation": True,
+                "prepared_state_reused": field_bool(fields, "prepared_state_reused", True),
+                "route_claim_boundary": (
+                    "raw compatibility source is prepared once into VortexPreparedState, "
+                    "then multiple ShardLoom prepared queries run in one process; timing "
+                    "is local evidence only, not a performance, production, or replacement claim"
+                ),
+            }
+        )
+    elif engine == "shardloom-vortex" or mode == "native_vortex":
+        route.update(
+            {
+                "route_lane_id": "native_vortex_query",
+                "route_display_name": "ShardLoom Native Vortex Query",
+                "route_family_display_name": "ShardLoom Native Vortex Query",
+                "start_state": "Vortex",
+                "end_state": "result_sink",
+                "includes_preparation": False,
+                "route_comparable_to_external_end_to_end": False,
+                "preparation_included": False,
+                "preparation_included_scope": "input_already_vortex",
+                "query_timing_starts_after_preparation": True,
+                "prepared_state_reused": field_bool(fields, "prepared_state_reused", False),
+                "route_claim_boundary": (
+                    "input is already Vortex; useful native-path evidence but not comparable "
+                    "to raw CSV/Parquet/JSONL baselines unless the start state is shown"
+                ),
+            }
+        )
+    elif engine == "shardloom-prepared-vortex" or mode == "prepared_vortex":
+        route.update(
+            {
+                "route_lane_id": "warm_prepared_query",
+                "route_display_name": "ShardLoom Warm Prepared Query",
+                "route_family_display_name": "ShardLoom Warm Prepared Query",
+                "start_state": "VortexPreparedState",
+                "end_state": "result_sink",
+                "includes_preparation": False,
+                "route_comparable_to_external_end_to_end": False,
+                "preparation_included": False,
+                "preparation_included_scope": "preparation_precompleted_before_timing",
+                "query_timing_starts_after_preparation": True,
+                "prepared_state_reused": field_bool(fields, "prepared_state_reused", True),
+                "route_claim_boundary": (
+                    "query starts after VortexPreparedState exists; runtime evidence is valid "
+                    "for warm prepared execution but it is not the raw-source end-to-end route"
+                ),
+            }
+        )
+    elif mode == "direct_compatibility_transient":
+        route.update(
+            {
+                "route_lane_id": "direct_transient_route",
+                "route_display_name": "ShardLoom Direct Transient Route",
+                "route_family_display_name": "ShardLoom Direct Transient Route",
+                "start_state": "raw_compat_source",
+                "end_state": "result_sink",
+                "includes_preparation": False,
+                "route_comparable_to_external_end_to_end": True,
+                "preparation_included": False,
+                "preparation_included_scope": "not_persistent_vortex_preparation",
+                "query_timing_starts_after_preparation": False,
+                "prepared_state_reused": False,
+                "route_claim_boundary": (
+                    "one-shot local compatibility execution without persistent Vortex "
+                    "preparation; not a Vortex-native or production claim"
+                ),
+            }
+        )
+    else:
+        route.update(
+            {
+                "route_lane_id": "cold_certified_route",
+                "route_display_name": "ShardLoom Cold Certified Route",
+                "route_family_display_name": "ShardLoom Cold Certified Route",
+                "start_state": "raw_compat_source",
+                "end_state": "result_sink",
+                "includes_preparation": True,
+                "route_comparable_to_external_end_to_end": True,
+                "preparation_included": True,
+                "preparation_included_scope": "included_in_cold_certified_route_timing",
+                "query_timing_starts_after_preparation": False,
+                "prepared_state_reused": field_bool(fields, "prepared_state_reused", False),
+                "route_claim_boundary": (
+                    "raw compatibility input is certified, ingested to Vortex, reopened/"
+                    "scanned, queried, and emitted with evidence in one measured route; "
+                    "not pure query speed or a production/replacement claim"
+                ),
+            }
+        )
+    return route
+
+
+def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    identity = route_identity_for_row(row)
+    route_lane_id = str(identity.get("route_lane_id") or "")
+    total_runtime = first_numeric_field(
+        fields, ("total_runtime_millis", "query_runtime_millis")
+    )
+    preparation = first_numeric_field(
+        fields,
+        (
+            "preparation_millis",
+            "prepare_batch_preparation_millis",
+            "vortex_prepare_millis",
+        ),
+    )
+    batch_count = first_numeric_field(fields, ("batch_scenario_count", "scenario_count"))
+    amortized_preparation = None
+    if preparation is not None and batch_count and batch_count > 0:
+        amortized_preparation = preparation / batch_count
+
+    prepared_state_lookup = first_numeric_field(
+        fields,
+        (
+            "prepared_state_lookup_millis",
+            "prepared_state_create_millis",
+        ),
+    )
+    if prepared_state_lookup is None and route_lane_id == "prepare_once_batch":
+        prepared_state_lookup = amortized_preparation
+    elif prepared_state_lookup is None and route_lane_id == "cold_certified_route":
+        prepared_state_lookup = first_numeric_field(
+            fields, ("preparation_millis", "vortex_prepare_millis")
+        )
+
+    total_route = total_runtime
+    if route_lane_id == "prepare_once_batch" and total_runtime is not None:
+        total_route = total_runtime + (amortized_preparation or 0.0)
+
+    return {
+        "source_admission_ms": source_admission_millis(fields),
+        "source_read_ms": first_numeric_field(fields, ("source_read_millis",)),
+        "source_parse_or_columnar_decode_ms": first_numeric_field(
+            fields,
+            (
+                "compatibility_parse_millis",
+                "source_parse_millis",
+                "source_to_columnar_millis",
+                "prepare_batch_source_to_columnar_millis",
+            ),
+        ),
+        "source_to_vortex_array_ms": first_numeric_field(
+            fields,
+            (
+                "vortex_array_build_millis",
+                "prepare_batch_vortex_array_build_millis",
+                "compatibility_to_vortex_import_millis",
+            ),
+        ),
+        "vortex_write_ms": first_numeric_field(
+            fields, ("vortex_write_millis", "prepare_batch_vortex_write_millis")
+        ),
+        "vortex_reopen_or_verify_ms": first_numeric_field(
+            fields,
+            (
+                "vortex_reopen_verify_millis",
+                "vortex_reopen_millis",
+                "prepare_batch_vortex_reopen_verify_millis",
+            ),
+        ),
+        "prepared_state_lookup_or_create_ms": prepared_state_lookup,
+        "vortex_scan_ms": first_numeric_field(fields, ("vortex_scan_millis",)),
+        "operator_compute_ms": first_numeric_field(fields, ("operator_compute_millis",)),
+        "result_sink_write_ms": first_numeric_field(fields, ("result_sink_write_millis",)),
+        "evidence_render_ms": first_numeric_field(fields, ("evidence_render_millis",)),
+        "total_route_ms": total_route,
+        "route_stage_timing_scope": (
+            "amortized_once_per_observed_batch"
+            if route_lane_id == "prepare_once_batch"
+            else "row_total_timing"
+        ),
+    }
+
+
+def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **row,
+        **route_identity_for_row(row),
+        **route_stage_fields_for_row(row),
+    }
+
+
+def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    synthetic: list[dict[str, Any]] = []
+    for row in rows:
+        base = decorated_route_row(row)
+        if base.get("route_lane_id") != "prepare_once_batch":
+            continue
+        fields = runtime_validation_field_map(row)
+        total_runtime = first_numeric_field(
+            fields, ("total_runtime_millis", "query_runtime_millis")
+        )
+        preparation = first_numeric_field(
+            fields,
+            (
+                "preparation_millis",
+                "prepare_batch_preparation_millis",
+                "vortex_prepare_millis",
+            ),
+        )
+        first_query_total = (
+            total_runtime + preparation
+            if total_runtime is not None and preparation is not None
+            else total_runtime
+        )
+        prepared = dict(base)
+        prepared.update(
+            {
+                "route_lane_id": "prepare_once_first_query",
+                "route_display_name": "ShardLoom Prepare-Once First Query",
+                "route_family_display_name": "ShardLoom Raw Compatibility To Prepared Vortex",
+                "start_state": "raw_compat_source",
+                "end_state": "result_sink",
+                "includes_preparation": True,
+                "preparation_included": True,
+                "preparation_included_scope": "prepare_once_then_first_query",
+                "query_timing_starts_after_preparation": True,
+                "prepared_state_reused": False,
+                "route_comparable_to_external_end_to_end": True,
+                "prepared_state_lookup_or_create_ms": preparation,
+                "total_route_ms": first_query_total,
+                "route_stage_timing_scope": "prepare_once_first_query",
+                "route_claim_boundary": (
+                    "raw compatibility input is prepared once into VortexPreparedState, "
+                    "then the first prepared query runs; preparation is included for "
+                    "route-level comparison and remains local evidence only"
+                ),
+            }
+        )
+        synthetic.append(prepared)
+    return synthetic
+
+
 def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
     rows = artifact.get("results")
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
@@ -590,6 +1041,193 @@ def claim_gate_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def claims_cell(row: dict[str, Any]) -> str:
+    allowed: list[str] = []
+    if row.get("performance_claim_allowed") is True:
+        allowed.append("performance")
+    if row.get("production_claim_allowed") is True:
+        allowed.append("production")
+    if row.get("spark_replacement_claim_allowed") is True:
+        allowed.append("replacement")
+    return ", ".join(allowed) if allowed else "no performance / production / replacement claim"
+
+
+def route_table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    decorated = [decorated_route_row(row) for row in rows]
+    decorated.extend(synthetic_prepare_once_first_query_rows(rows))
+    order = {
+        "prepare_once_first_query": 0,
+        "prepare_once_batch": 1,
+        "cold_certified_route": 2,
+        "warm_prepared_query": 3,
+        "native_vortex_query": 4,
+        "direct_transient_route": 5,
+        "external_baseline_end_to_end": 6,
+    }
+    return sorted(
+        decorated,
+        key=lambda row: (
+            order.get(str(row.get("route_lane_id")), 99),
+            str(row.get("route_display_name") or ""),
+            str(row.get("storage_format") or ""),
+            str(row.get("scenario_name") or ""),
+        ),
+    )
+
+
+def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        first = group_rows[0]
+        successes = [row for row in group_rows if row.get("status") == "success"]
+        values = [
+            value
+            for row in successes
+            for value in [numeric_value(row.get("total_route_ms"))]
+            if value is not None and value > 0
+        ]
+        runtime_counts = Counter(
+            str(row.get("route_runtime_status") or "unknown") for row in group_rows
+        )
+        claim_counts = Counter(str(row.get("claim_gate_status") or "unknown") for row in group_rows)
+        rendered_rows.append(
+            [
+                display_name,
+                first.get("start_state"),
+                "yes" if first.get("includes_preparation") is True else "no",
+                first.get("preparation_included_scope"),
+                f"{len(successes)}/{len(group_rows)}",
+                fmt_ms(geomean(values)),
+                ", ".join(f"{key}: {count}" for key, count in sorted(runtime_counts.items())),
+                ", ".join(f"{key}: {count}" for key, count in sorted(claim_counts.items())),
+                claims_cell(first),
+                str(first.get("route_comparable_to_external_end_to_end")),
+            ]
+        )
+    return {
+        "heading": "Route-Level Lane Comparison",
+        "headers": [
+            "Lane",
+            "Starts from",
+            "Includes prepare?",
+            "Prepare timing scope",
+            "Success / total",
+            "Route geomean",
+            "Runtime",
+            "Evidence",
+            "Claims",
+            "Comparable E2E",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
+        "claim_boundary": (
+            "route lanes are end-to-end comparison surfaces; warm/native/stage rows stay "
+            "labeled by start state and cannot imply raw-source performance, production, "
+            "or Spark-replacement claims"
+        ),
+    }
+
+
+def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                *[
+                    fmt_ms(
+                        geomean(
+                            [
+                                value
+                                for row in group_rows
+                                for value in [numeric_value(row.get(field))]
+                                if value is not None and value >= 0
+                            ]
+                        )
+                    )
+                    for field in ROUTE_STAGE_FIELD_KEYS
+                ],
+            ]
+        )
+    return {
+        "heading": "ShardLoom Stage Attribution",
+        "headers": [
+            "Route",
+            "Rows",
+            "Source admission",
+            "Source read",
+            "Parse/decode",
+            "Source -> Vortex array",
+            "Vortex write",
+            "Vortex reopen/verify",
+            "Prepared lookup/create",
+            "Vortex scan",
+            "Operator compute",
+            "Result sink",
+            "Evidence render",
+            "Total route",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
+        "claim_boundary": (
+            "stage attribution explains why a ShardLoom route took time; stage pieces are "
+            "not competing product lanes"
+        ),
+    }
+
+
+def runtime_status_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    decorated = [decorated_route_row(row) for row in rows]
+    shardloom_rows = [
+        row for row in decorated if is_shardloom_engine(str(row.get("engine") or ""))
+    ]
+    external_rows = [
+        row for row in decorated if not is_shardloom_engine(str(row.get("engine") or ""))
+    ]
+    shardloom_unsupported = sum(
+        1
+        for row in shardloom_rows
+        if row.get("status") == "unsupported" or row.get("route_runtime_status") == "unsupported"
+    )
+    external_unsupported = sum(1 for row in external_rows if row.get("status") == "unsupported")
+    status_counts = Counter(str(row.get("route_runtime_status") or "unknown") for row in decorated)
+    return {
+        "heading": "Route Runtime Status",
+        "headers": ["Scope", "Rows", "Interpretation"],
+        "rows": [
+            [
+                "ShardLoom unsupported rows",
+                shardloom_unsupported,
+                "ShardLoom runtime gaps in the promoted comparative roster",
+            ],
+            [
+                "External baseline unsupported rows",
+                external_unsupported,
+                "External engine limitation rows; not ShardLoom runtime gaps",
+            ],
+            *[
+                [f"route_runtime_status={status}", count, "published row status vocabulary"]
+                for status, count in sorted(status_counts.items())
+            ],
+        ],
+        "schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
+        "status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
+    }
+
+
 def format_coverage_table(artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str) -> dict[str, Any]:
     profile_spec = PROFILES[profile]
     required = set(profile_spec.required_formats)
@@ -669,7 +1307,12 @@ def claim_grade_closeout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     shardloom_rows = [
         row for row in rows if str(row.get("engine", "")).startswith("shardloom")
     ]
+    external_rows = [
+        row for row in rows if not str(row.get("engine", "")).startswith("shardloom")
+    ]
     counts = Counter(str(row.get("claim_gate_status", "unknown")) for row in shardloom_rows)
+    shardloom_unsupported = sum(1 for row in shardloom_rows if row.get("status") == "unsupported")
+    external_unsupported = sum(1 for row in external_rows if row.get("status") == "unsupported")
     blockers = counts["blocked"] + counts["unsupported"] + counts["not_claim_grade"] + counts["fixture_smoke_only"]
     return {
         "heading": "ShardLoom Claim-Grade Closeout",
@@ -688,10 +1331,16 @@ def claim_grade_closeout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "GAR-BENCH-PUB-1 / GAR-RUNTIME-IMPL-5J",
             ],
             [
-                "Unsupported or blocked rows",
-                f"{counts['blocked'] + counts['unsupported']} ShardLoom rows",
-                "implemented, claim-gated, or moved to an explicit non-comparative gap appendix",
-                "GAR-RUNTIME-IMPL-5J",
+                "ShardLoom unsupported rows",
+                f"{shardloom_unsupported} ShardLoom rows",
+                "0 ShardLoom unsupported rows in the admitted benchmark-range route roster",
+                "GAR-RUNTIME-IMPL-6D",
+            ],
+            [
+                "External baseline unsupported rows",
+                f"{external_unsupported} external baseline rows",
+                "visible baseline engine limitation rows; never counted as ShardLoom runtime gaps",
+                "GAR-BENCH-PUB-1 / GAR-RUNTIME-IMPL-6D",
             ],
         ],
     }
@@ -1177,6 +1826,8 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         runtime_fields["claim_grade_requirements_met"] = claim_grade_requirements_met
         runtime_fields["claim_grade_missing_evidence"] = claim_grade_missing_evidence
         runtime_validation = runtime_validation_for_row(adjusted_row)
+        route_identity = route_identity_for_row(adjusted_row)
+        route_stage_fields = route_stage_fields_for_row(adjusted_row)
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -1206,6 +1857,8 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "result_sink_write_millis": metrics.get("result_sink_write_millis"),
             "evidence_render_millis": metrics.get("evidence_render_millis"),
         }
+        rendered_row.update(route_identity)
+        rendered_row.update(route_stage_fields)
         rendered_row.update(cold_lane_fields)
         if runtime_validation is not None:
             rendered_row["runtime_execution_validation"] = runtime_validation
@@ -1267,6 +1920,9 @@ def comparative_summary(
             },
         ],
         "engine_timing_overview": engine_timing_table(rows),
+        "route_lane_comparison": route_lane_comparison_table(claim_adjusted_rows),
+        "stage_attribution": stage_attribution_table(claim_adjusted_rows),
+        "route_runtime_status": runtime_status_table(claim_adjusted_rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(claim_adjusted_rows),
         "runtime_envelope_validation": runtime_validation_table(claim_adjusted_rows),
@@ -1339,14 +1995,19 @@ def manifest_for_artifact(
         },
         "claim_boundary": PROFILES[profile].claim_boundary,
         "performance_claim_allowed": False,
+        "route_runtime_status_schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
+        "route_runtime_status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
         "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
         "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
         "benchmark_constitution_required_field_order": [
             "benchmark_result_row",
+            "route_identity",
+            "route_runtime_status",
             "dataset_source_admission",
             "preparation_route",
             "execution_route",
             "output_route",
+            "claim_readiness_boundary",
             "correctness_proof",
             "hardware_profile",
             "build_profile",

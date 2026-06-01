@@ -3,10 +3,12 @@
 This harness runs conventional dataframe/SQL workloads against ShardLoom plus
 external comparison engines:
 
-- ShardLoom
-- ShardLoom native Vortex
-- ShardLoom prepared Vortex
-- ShardLoom direct transient local-adapter smoke
+- ShardLoom Cold Certified Route (`shardloom` / `compatibility_import_certified`)
+- ShardLoom Prepare-Once First Query (route-level synthesis from prepare-once evidence)
+- ShardLoom Prepare-Once Batch (`shardloom-prepare-batch`)
+- ShardLoom Warm Prepared Query (`shardloom-prepared-vortex` / `prepared_vortex`)
+- ShardLoom Native Vortex Query (`shardloom-vortex` / `native_vortex`)
+- ShardLoom Direct Transient Route (`direct_compatibility_transient` smoke paths)
 - pandas
 - Polars eager
 - Polars lazy
@@ -52,6 +54,15 @@ compatibility-import-certified timing is not confused with prepared/native Vorte
 Native I/O source/sink ref points to the RFC 0031 matrix in `native-io-envelope-plan`; it is
 coverage evidence, not a timing or production-readiness claim.
 
+Published benchmark artifacts add a route-runtime presentation layer on top of those raw execution
+fields. Every public row carries `route_runtime_status`, `route_lane_id`, `route_display_name`,
+`start_state`, `end_state`, `includes_preparation`, `includes_query`, `includes_output`,
+`includes_evidence`, `route_comparable_to_external_end_to_end`,
+`performance_claim_allowed=false`, `production_claim_allowed=false`, and
+`spark_replacement_claim_allowed=false`. The benchmark page must show route lanes for end-to-end
+comparison and stage pieces only as attribution. `claim_grade` is evidence quality; it is not a
+performance, production, Spark-replacement, or broad runtime-readiness claim.
+
 ## Workloads
 
 The deterministic generator creates a fact table and a dimension table as CSV,
@@ -60,10 +71,13 @@ and Parquet; `--formats` can also include JSONL/NDJSON, Arrow IPC, Avro, and
 ORC. Each engine runs only the formats it declares support for, and unsupported
 rows are captured without aborting the report. The `shardloom` lane imports
 each selected compatibility format into local Vortex files before running the
-temporary benchmark operator. The `shardloom-vortex` and `shardloom-prepared-vortex`
+temporary benchmark operator and must be presented publicly as `ShardLoom Cold Certified Route`.
+The `shardloom-vortex` and `shardloom-prepared-vortex`
 lanes prepare native Vortex artifacts once for each requested source format and then
 report the native/prepared scenario result under that source-format row, such as CSV
-or Parquet. The `shardloom-prepare-batch` lane runs the scoped
+or Parquet. They must be presented as `ShardLoom Native Vortex Query` and
+`ShardLoom Warm Prepared Query` so their start states are visible. The `shardloom-prepare-batch`
+lane runs the scoped
 compatibility prepare plus prepared/native batch route in one ShardLoom process and
 keeps preparation timing split from child query timing. It is required for published
 full local profiles because it carries the single-process prepared/native route,
@@ -75,7 +89,9 @@ adapter evidence, and evidence shape; it is not a Vortex-native, SQL/DataFrame, 
 performance-claim lane.
 Native Vortex rows start from prepared/existing Vortex artifacts, but they may still use temporary
 ShardLoom operator paths unless the row's evidence proves encoded/native execution. External-engine
-rows are baseline comparisons only and never execute unsupported ShardLoom work as fallback.
+rows are baseline comparisons only and never execute unsupported ShardLoom work as fallback. If an
+external baseline row is unsupported because that external engine cannot run the scenario, it is an
+external baseline limitation, not a ShardLoom runtime gap.
 The scenarios are:
 
 - `csv/file ingest`

@@ -331,6 +331,28 @@ attached.
 
 Implementation checklist, in required order:
 
+- [ ] Benchmark route/status presentation cleanup before more runtime expansion: update the
+  benchmark promoter, published artifacts, website benchmark page, validators, and benchmark docs
+  so public benchmark output separates route execution, runtime support, and claim readiness. Add
+  row-level fields for `route_runtime_status`, `performance_claim_allowed`,
+  `production_claim_allowed`, `spark_replacement_claim_allowed`, `route_lane_id`,
+  `route_display_name`, `start_state`, `end_state`, `includes_preparation`, `includes_query`,
+  `includes_output`, `includes_evidence`, `route_comparable_to_external_end_to_end`,
+  `preparation_included`, `query_timing_starts_after_preparation`, and `prepared_state_reused`.
+  Rename public ShardLoom benchmark lanes so internal lane `shardloom` presents as
+  `ShardLoom Cold Certified Route`; prepared routes present as
+  `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
+  `ShardLoom Warm Prepared Query`, and `ShardLoom Native Vortex Query`; one-shot transient
+  compatibility presents as `ShardLoom Direct Transient Route`; and pandas/Polars/DuckDB/
+  DataFusion/Dask rows present as `External Baseline End-to-End` baseline rows, never fallback.
+  The top benchmark page view must compare route lanes end to end, while a second stage-attribution
+  view explains source admission/read/parse, source-to-Vortex, Vortex write/reopen, prepared-state
+  lookup/create, scan, operator compute, result sink, evidence render, and total route timing.
+  Unsupported counts must distinguish `ShardLoom unsupported rows: 0` from external baseline
+  unsupported rows, and `claim_grade` must remain evidence quality rather than runtime-readiness or
+  performance-readiness shorthand. Verification must avoid running benchmarks and instead
+  re-promote existing artifacts, rebuild the static website, run benchmark/page validators, and
+  assert that route runtime status vocabulary matches the support matrix.
 - [ ] Inventory every user-facing `unsupported`, `blocked`, `not complete`, and `front_door_gap`
   status in Python context/capability matrices, SQL/Python/DataFrame parity docs, benchmark coverage
   rows, CLI diagnostics, examples, and README quickstart material. Classify each as

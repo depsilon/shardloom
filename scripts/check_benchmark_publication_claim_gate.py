@@ -31,6 +31,8 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
 )
 from check_benchmark_artifact_completeness import (  # noqa: E402
+    REQUIRED_ROUTE_FIELDS,
+    ROUTE_RUNTIME_STATUSES,
     load_json,
     repo_path,
     result_rows,
@@ -424,6 +426,7 @@ def validate_profile_and_rows(
     shardloom_format_counts: Counter[str] = Counter()
     all_engine_counts: Counter[str] = Counter()
     external_engine_counts: Counter[str] = Counter()
+    route_runtime_counts: Counter[str] = Counter()
     shardloom_engine_format_counts: dict[str, Counter[str]] = defaultdict(Counter)
     runtime_validation_counts: Counter[str] = Counter()
     missing_capillary_count = 0
@@ -436,6 +439,9 @@ def validate_profile_and_rows(
     external_claim_examples: list[str] = []
     runtime_validation_examples: list[str] = []
     runtime_claim_examples: list[str] = []
+    missing_route_examples: list[str] = []
+    invalid_route_examples: list[str] = []
+    unsupported_external_examples: list[str] = []
     independent_claim_examples: list[str] = []
     missing_independent_claim_proof_count = 0
 
@@ -495,11 +501,36 @@ def validate_profile_and_rows(
     for index, row in enumerate(rows):
         engine = str(row.get("engine") or "")
         storage_format = str(row.get("storage_format") or "")
+        route_status = str(field_value(row, "route_runtime_status") or "")
+        if route_status:
+            route_runtime_counts[route_status] += 1
+        missing_route = sorted(REQUIRED_ROUTE_FIELDS - set(row))
+        if missing_route and len(missing_route_examples) < 5:
+            missing_route_examples.append(f"{index}:{engine}:{missing_route}")
+        if route_status not in ROUTE_RUNTIME_STATUSES and len(invalid_route_examples) < 5:
+            invalid_route_examples.append(
+                f"{index}:{engine}:route_runtime_status={route_status!r}"
+            )
+        for claim_field in (
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ):
+            if field_value(row, claim_field) is not False and len(invalid_route_examples) < 5:
+                invalid_route_examples.append(
+                    f"{index}:{engine}:{claim_field}={field_value(row, claim_field)!r}"
+                )
         if engine:
             all_engine_counts[engine] += 1
         if not engine.startswith("shardloom"):
             if engine:
                 external_engine_counts[engine] += 1
+            if route_status != "external_baseline_only" and len(invalid_route_examples) < 5:
+                invalid_route_examples.append(
+                    f"{index}:{engine}:external route status must be external_baseline_only"
+                )
+            if row.get("status") == "unsupported" and len(unsupported_external_examples) < 5:
+                unsupported_external_examples.append(f"{index}:{engine}:{storage_format}")
             if field_value(row, "external_baseline_only") is not True:
                 if len(external_baseline_boundary_examples) < 5:
                     external_baseline_boundary_examples.append(f"{index}:{engine}")
@@ -514,6 +545,15 @@ def validate_profile_and_rows(
                     external_examples.append(f"{index}:{engine}")
             continue
         shardloom_engine_counts[engine] += 1
+        if route_status == "external_baseline_only" and len(invalid_route_examples) < 5:
+            invalid_route_examples.append(
+                f"{index}:{engine}:ShardLoom route status cannot be external_baseline_only"
+            )
+        if row.get("status") == "success" and route_status == "unsupported":
+            if len(invalid_route_examples) < 5:
+                invalid_route_examples.append(
+                    f"{index}:{engine}:successful ShardLoom row reports unsupported route"
+                )
         if storage_format:
             shardloom_format_counts[storage_format] += 1
             shardloom_engine_format_counts[engine][storage_format] += 1
@@ -667,6 +707,16 @@ def validate_profile_and_rows(
             "external benchmark rows must not satisfy ShardLoom claim-grade requirements; "
             f"examples={external_claim_examples}"
         )
+    if missing_route_examples:
+        blockers.append(
+            "published benchmark rows missing route identity/runtime fields; "
+            f"examples={missing_route_examples}"
+        )
+    if invalid_route_examples:
+        blockers.append(
+            "published benchmark rows have invalid route runtime/status claim fields; "
+            f"examples={invalid_route_examples}"
+        )
     failed_runtime_validations = {
         status: count
         for status, count in runtime_validation_counts.items()
@@ -706,6 +756,8 @@ def validate_profile_and_rows(
         "missing_publication_formats": missing_required_formats,
         "all_engine_counts": dict(sorted(all_engine_counts.items())),
         "external_engine_counts": dict(sorted(external_engine_counts.items())),
+        "route_runtime_status_counts": dict(sorted(route_runtime_counts.items())),
+        "external_baseline_unsupported_examples": unsupported_external_examples,
         "shardloom_row_count": sum(shardloom_engine_counts.values()),
         "shardloom_engine_counts": dict(sorted(shardloom_engine_counts.items())),
         "shardloom_format_counts": dict(sorted(shardloom_format_counts.items())),
