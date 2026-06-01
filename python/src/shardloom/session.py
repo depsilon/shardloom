@@ -17,6 +17,8 @@ from .client import (
     VortexIngestSmokeReport,
 )
 from .models import RuntimeEnvelopeValidationReport
+from .native_route import NativeVortexRoute
+from .prepared_route import CompatibilityPreparedVortexRoute
 from .query import (
     GroupedLazyFrame,
     LazyFrame,
@@ -477,6 +479,7 @@ class SessionLazyFrame:
     def collect(
         self,
         *,
+        limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
         memory_gb: int = 4,
@@ -484,8 +487,14 @@ class SessionLazyFrame:
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows through this session's scoped local-source reuse cache."""
 
+        frame = (
+            self.frame
+            if limit is None
+            or any(operation.kind == "limit" for operation in self.frame.operations)
+            else self.frame.limit(limit)
+        )
         return self.session.collect(
-            self.frame,
+            frame,
             reuse=reuse,
             check=check,
             memory_gb=memory_gb,
@@ -792,6 +801,7 @@ class SessionSqlWorkflow:
     def collect(
         self,
         *,
+        limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
         memory_gb: int = 4,
@@ -805,6 +815,13 @@ class SessionSqlWorkflow:
         """Collect local-source SQL rows through this session when admitted."""
 
         self.session._ensure_open()
+        if limit is not None:
+            return self.limit(limit).collect(
+                reuse=reuse,
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         if not _is_local_source_sql_statement(self.statement):
             return self.workflow.collect(
                 check=check,
@@ -817,6 +834,14 @@ class SessionSqlWorkflow:
             execute=lambda: self.workflow.collect(check=check),
             output_paths=(),
             reuse=reuse,
+        )
+
+    def limit(self, count: int) -> "SessionSqlWorkflow":
+        """Return this session SQL workflow with an explicit LIMIT."""
+
+        return SessionSqlWorkflow(
+            session=self.session,
+            workflow=self.workflow.limit(count),
         )
 
     def write(
@@ -1300,6 +1325,33 @@ class ShardLoomSession:
             ),
         )
 
+    def native_vortex_route(
+        self,
+        fact_vortex: str | os.PathLike[str],
+        dim_vortex: str | os.PathLike[str],
+        *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        execution_mode: str = "native_vortex",
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> NativeVortexRoute:
+        """Create a session-scoped native `.vortex` benchmark-range route handle."""
+
+        self._ensure_open()
+        return NativeVortexRoute.from_inputs(
+            client=self.client,
+            fact_vortex=fact_vortex,
+            dim_vortex=dim_vortex,
+            cdc_delta_vortex=cdc_delta_vortex,
+            workspace=workspace,
+            execution_mode=execution_mode,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        )
+
     def sql(self, statement: object) -> SessionSqlWorkflow:
         """Create a session-bound SQL workflow."""
 
@@ -1312,16 +1364,87 @@ class ShardLoomSession:
     def prepare_vortex(
         self,
         source_path: str | os.PathLike[str],
-        target_vortex_path: str | os.PathLike[str],
+        target_vortex_path: str | os.PathLike[str] | None = None,
         *,
+        dim: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        cdc_delta: str | os.PathLike[str] | None = None,
+        result_workspace: str | os.PathLike[str] | None = None,
+        evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         reuse: bool = True,
         check: bool = True,
-    ) -> SessionPreparedState:
-        """Prepare or reuse a local `VortexPreparedState` within this session."""
+    ) -> SessionPreparedState | CompatibilityPreparedVortexRoute:
+        """Prepare or reuse a local `VortexPreparedState` within this session.
+
+        With only ``source_path`` and ``target_vortex_path`` this preserves the lower-level
+        session cache over ``vortex-ingest-smoke``. With ``workspace`` plus ``dim`` or a second
+        positional dimension path, it returns the same compatibility prepared-route handle as
+        ``ShardLoomContext.prepare_vortex(...)``.
+        """
 
         self._ensure_open()
+        route_requested = any(
+            value is not None
+            for value in (
+                dim,
+                workspace,
+                input_format,
+                cdc_delta,
+                result_workspace,
+                evidence_level,
+                memory_gb,
+                max_parallelism,
+            )
+        )
+        if route_requested:
+            dim_input = dim if dim is not None else target_vortex_path
+            if dim_input is None:
+                raise ValueError(
+                    "compatibility prepared routes require a dimension input via dim=... or "
+                    "the second positional argument"
+                )
+            if workspace is None:
+                raise ValueError(
+                    "compatibility prepared routes require workspace=... so caller-owned "
+                    "VortexPreparedState artifacts and route evidence have an explicit location"
+                )
+            if allow_overwrite:
+                raise ValueError(
+                    "allow_overwrite applies only to the lower-level vortex-ingest-smoke helper; "
+                    "prepared-route result writes use write_vortex(...)/run_batch(..., "
+                    "write_result_vortex=True)"
+                )
+            if certification_level != "ingest_certified":
+                raise ValueError(
+                    "certification_level applies only to the lower-level vortex-ingest-smoke "
+                    "helper; the compatibility prepared route uses certified traditional-analytics "
+                    "preparation evidence emitted by ShardLoom"
+                )
+            return CompatibilityPreparedVortexRoute.from_inputs(
+                client=self.client,
+                fact_input=source_path,
+                dim_input=dim_input,
+                workspace=workspace,
+                input_format=input_format,
+                cdc_delta_input=cdc_delta,
+                result_workspace=result_workspace,
+                evidence_level=evidence_level,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+
+        if target_vortex_path is None:
+            raise ValueError(
+                "prepare_vortex requires either a target_vortex_path for the session "
+                "vortex-ingest-smoke cache or workspace plus dim/second positional input for "
+                "the compatibility prepared route"
+            )
         normalized_source = _normalized_path(source_path)
         normalized_target = _normalized_path(target_vortex_path)
         normalized_certification = _require_non_empty(

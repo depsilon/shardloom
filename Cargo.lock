@@ -2382,6 +2382,7 @@ dependencies = [
  "lending-iterator",
  "orc-rust",
  "parquet",
+ "serde_json",
  "shardloom-core",
  "shardloom-exec",
  "shardloom-plan",

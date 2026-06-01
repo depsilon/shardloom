@@ -27,21 +27,43 @@ For route selection, the Python package also exposes
 `shardloom.user_route_capability_report.v1`. The route report is the agent-facing answer to
 "given input X and desired output Y, which ShardLoom route should I use?" Each row carries the
 start state, Vortex normalization point, execution mode, output route, evidence route,
-materialization/decode boundary, runtime status, claim boundary, and no-fallback/no-external-engine
-fields.
+materialization/decode boundary, prepared-state reuse scope/manifest diagnostics, runtime status,
+claim boundary, and no-fallback/no-external-engine fields.
+
+For local compatibility-file benchmark families, the Python package exposes
+`ShardLoomContext.local_file_benchmark_route_report()` with schema
+`shardloom.local_file_benchmark_route_report.v1`. That report maps each named scenario from
+`benchmarks/common/scenario_catalog.json` to the admitted direct or prepare-once ShardLoom route,
+front-door examples, Vortex normalization point, output/evidence route, materialization boundary,
+prepared-state reuse scope/manifest diagnostics, and claim boundary. Its purpose is to prevent
+benchmark-range fixture coverage from being described as vague no-route work while also preventing
+fixture-scoped nested JSON, CDC overlay, many-small-files, partition, dirty-data, sort/window, join,
+and aggregate routes from being overclaimed as broad production or performance support.
 
 Rows with `parity_status=equivalent_admitted_scope` are the current front-door parity contract:
 
 - `local_file_filter_project_limit`: SQL, Python, and DataFrame-style local file
   filter/project/limit collect/write workflows lower to `sql-local-source-smoke`; runtime-ready
-  expansion must expose the adapter-to-Vortex normalization boundary.
+  expansion must expose the adapter-to-Vortex normalization boundary. SQL users can provide that
+  boundedness in the statement, through `collect(limit=n)`, or through `.limit(n).collect()`.
+  Python/DataFrame users can use `.limit(n).collect()` or `collect(limit=n)`. Unbounded
+  local-source `collect()` returns a deterministic no-fallback diagnostic. Familiar aliases
+  `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and `sort_values` lower to
+  the same admitted ShardLoom operations instead of creating separate runtime paths.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
   and window workflows lower to `sql-local-source-smoke`.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
-  lower through the generated-source smoke family.
+  lower through the generated-source smoke family; generated row/range aliases such as `project`,
+  `with_columns`, `assign`, and `order_by` remain thin wrappers over the same generated-source
+  commands. Scoped local-emulator object-store generated-output writes additionally stage generated
+  rows through that same generated-source command before invoking `object-store-write-smoke`; live
+  cloud providers and lakehouse/table commits remain platform/runtime expansion items. Scoped local
+  Foundry-style generated-output writes use the same generated-source command before writing local
+  result/evidence dataset-shaped artifacts; real Foundry runtime and output APIs remain platform
+  integration gates.
 - `schema_quality_preview`: `ctx.sql(...)`, Python `LazyFrame`, and DataFrame-style helpers expose
-  bounded schema, validation, data-quality, preview, head, and take methods over
-  `sql-local-source-smoke` inline results.
+  bounded schema, `schema_contract`/validation, data-quality, runtime profile, scoped local-source
+  quarantine, preview, head, and take methods over `sql-local-source-smoke` inline results.
 - `decoded_materialization_interop`: bounded local-source ShardLoom results can materialize to
   Python objects, optional pandas DataFrames, optional PyArrow tables/IPC bytes, optional NumPy
   arrays, and notebook preview HTML from the same inline result path; pandas/Arrow materialized
@@ -67,7 +89,12 @@ Every user input route should answer four questions:
   materialization, or output translation boundary?
 
 Rows that cannot answer those questions are runtime-expansion checklist items, not vague
-unsupported shapes.
+unsupported shapes. The parity matrix therefore exposes two separate fields for gap rows:
+`parity_status=front_door_gap` says the broad user story is not complete, while
+`runtime_gap_status` says what kind of work remains. Current precise statuses are
+`front_door_connection_pending`, `runtime_expansion_pending`, and
+`benchmark_publication_pending`; generic `unsupported`, `blocked`, or `not complete` labels are
+validator failures for engine-capable benchmark-range surfaces.
 
 ## Scoped Vortex Primitive Runtime
 
@@ -107,19 +134,51 @@ front-door parity claim: general Vortex SQL, broad read-transform-write workflow
 materialization, object-store sources, and benchmark-backed performance equivalence remain tracked
 runtime-expansion work until the required evidence lands.
 
+The benchmark-family native route is separate from those primitive helpers:
+`ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex',
+memory_gb=4, max_parallelism=1)` and the matching session form run
+`traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run` with explicit source,
+scenario, execution-mode, resource-policy, result-sink, and no-fallback fields. Use primitive
+helpers for scoped count/filter/project reports; use the native route handle for route-comparable
+benchmark-range workflows.
+
 ## Runtime Expansion Checklist Families
 
 Rows with `parity_status=front_door_gap` are not generic engine-unsupported claims. They are
 runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME-IMPL-6D`:
 
-- General Vortex-native SQL/Python/DataFrame read-transform-write workflows beyond the scoped local
-  primitive runtime above.
+- `native_vortex_general_runtime`
+  (`runtime_gap_status=front_door_connection_pending`): general Vortex-native SQL/Python/DataFrame
+  read-transform-write workflows beyond the scoped local primitive runtime above.
 - Explicit adapter-to-Vortex normalization/preparation evidence for every non-Vortex input route.
+- Compatibility-file prepare-once routes now have a concrete context/session handle:
+  `ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared')`
+  and the same session form return a route over
+  `compatibility_import_certified -> prepared_vortex`. The Python route now writes a
+  workspace-scoped prepared-state reuse manifest and can run subsequent compatible batches through
+  the real prepared Vortex batch command without re-preparing when source and artifact fingerprints
+  match. The user-route capability and local-file benchmark route reports now expose the same
+  reuse contract with `prepared_state_reuse_scope`, `prepared_state_reuse_manifest_path`,
+  `prepared_state_reuse_policy`, `prepared_state_reuse_hit`,
+  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
+  `prepared_state_invalidation_reason`. Rust/CLI reports now emit the same fields for cold first
+  preparation, warm prepared Vortex input, native Vortex input, in-process prepare/batch reuse, and
+  artifact-adjacent `vortex-ingest-smoke` prepared-state reuse hits/misses. The
+  `traditional-analytics-prepare-batch-run` CLI now also validates the same workspace manifest and
+  skips compatibility preparation on valid source/artifact/policy hits. Remaining work is
+  broadening front-door parity and deepening evidence, not inventing a separate direct
+  CSV/Parquet/JSONL prepared query path.
 - Broad unbounded decoded pandas, Arrow, NumPy, and notebook-display materialization outside the
   admitted local-source/materialized-input scope.
-- Object-store, lakehouse/table, catalog, commit, and remote sink workflows.
-- Arbitrary SQL grammar, Python expressions, DataFrame API parity, UDFs, and effectful operations.
-- Benchmark-backed performance equivalence across front doors.
+- `object_store_lakehouse_catalog`
+  (`runtime_gap_status=runtime_expansion_pending`): object-store, lakehouse/table, catalog, commit,
+  and remote sink workflows.
+- `arbitrary_sql_python_dataframe_breadth`
+  (`runtime_gap_status=front_door_connection_pending`): arbitrary SQL grammar, Python expressions,
+  DataFrame API parity, UDFs, and effectful operations.
+- `performance_equivalence`
+  (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
+  across front doors.
 
 The parity matrix intentionally keeps `flexible_anything_claim_allowed=false` and
 `performance_equivalence_claim_allowed=false` until those checklist items are closed with
@@ -138,6 +197,10 @@ The validator passes when:
 
 - required parity rows are present;
 - scoped admitted rows identify their shared ShardLoom runtime path;
+- broad gap rows expose precise `runtime_gap_status` labels instead of generic unsupported or
+  blocked posture;
+- local-file benchmark scenario rows cover the required catalog scenarios with direct or
+  prepare-once ShardLoom route status and no vague no-route posture;
 - broad gap rows name blocker ids and required evidence;
 - no row attempts fallback or invokes an external engine;
 - broad flexibility and performance-equivalence claims remain blocked until evidence exists.

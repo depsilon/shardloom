@@ -1198,6 +1198,7 @@ fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
     let source_path = unique_path("vortex-ingest-columnar-source", "parquet");
     let target_path = unique_path("vortex-ingest-columnar-target", "vortex");

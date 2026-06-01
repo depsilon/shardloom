@@ -58,21 +58,225 @@ class ReleaseScriptTests(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
-    def _shardloom_benchmark_route_fields(self) -> dict[str, object]:
+    def _shardloom_benchmark_route_fields(
+        self,
+        engine: str = "shardloom-prepare-batch",
+    ) -> dict[str, object]:
+        lane_by_engine = {
+            "shardloom": (
+                "cold_certified_route",
+                "ShardLoom Cold Certified Route",
+                "raw_compat_source",
+                True,
+                "total_route_ms = total_runtime_millis",
+                "cold_certified_route_total",
+                "total_runtime_millis",
+            ),
+            "shardloom-prepared-vortex": (
+                "warm_prepared_query",
+                "ShardLoom Warm Prepared Query",
+                "VortexPreparedState",
+                False,
+                "total_route_ms = query_runtime_millis",
+                "warm_prepared_query_only",
+                "query_runtime_millis",
+            ),
+            "shardloom-prepare-batch": (
+                "prepare_once_batch",
+                "ShardLoom Prepare-Once Batch",
+                "raw_compat_source",
+                True,
+                "total_route_ms = amortized_prepare_batch_preparation_millis + query_runtime_millis",
+                "prepare_once_batch_amortized",
+                "amortized_prepare_batch_preparation_millis,query_runtime_millis",
+            ),
+            "shardloom-vortex": (
+                "native_vortex_query",
+                "ShardLoom Native Vortex Query",
+                "Vortex",
+                False,
+                "total_route_ms = query_runtime_millis",
+                "native_vortex_query_only",
+                "query_runtime_millis",
+            ),
+        }
+        (
+            lane_id,
+            display_name,
+            start_state,
+            preparation_included,
+            formula,
+            timing_scope,
+            included_stage_ids,
+        ) = lane_by_engine[engine]
+        cold_route = lane_id in {
+            "cold_certified_route",
+            "prepare_once_first_query",
+            "prepare_once_batch",
+        }
+        if lane_id == "warm_prepared_query":
+            reuse_fields = {
+                "prepared_state_reuse_scope": "explicit_prepared_state_input",
+                "prepared_state_reuse_manifest_path": "not_required_existing_prepared_state",
+                "prepared_state_reuse_policy": "explicit_prepared_state_admission.v1",
+                "prepared_state_reuse_hit": True,
+                "prepared_state_reuse_reason": "explicit_prepared_state_input",
+                "prepared_state_reuse_manifest_digest": "fnv64:prepared",
+                "prepared_state_invalidation_reason": (
+                    "artifact_admission_failure_or_policy_mismatch"
+                ),
+            }
+        elif lane_id == "prepare_once_batch":
+            reuse_fields = {
+                "prepared_state_reuse_scope": "in_process_prepared_batch_vortex_artifacts",
+                "prepared_state_reuse_manifest_path": "not_required_in_process_prepared_batch",
+                "prepared_state_reuse_policy": "in_process_prepared_batch_reuse.v1",
+                "prepared_state_reuse_hit": True,
+                "prepared_state_reuse_reason": "prepared_state_reused_inside_batch",
+                "prepared_state_reuse_manifest_digest": "fnv64:prepared",
+                "prepared_state_invalidation_reason": (
+                    "not_applicable_same_process_or_explicit_prepared_state"
+                ),
+            }
+        else:
+            reuse_fields = {
+                "prepared_state_reuse_scope": "prepared_state_created_not_reused"
+                if cold_route
+                else "not_applicable_native_vortex_input",
+                "prepared_state_reuse_manifest_path": "not_applicable_first_preparation"
+                if cold_route
+                else "not_applicable_native_vortex_input",
+                "prepared_state_reuse_policy": (
+                    "first_preparation_creates_vortex_prepared_state.v1"
+                    if cold_route
+                    else "not_applicable_native_vortex_input"
+                ),
+                "prepared_state_reuse_hit": False,
+                "prepared_state_reuse_reason": "prepared_state_reuse_not_requested_for_route",
+                "prepared_state_reuse_manifest_digest": (
+                    "not_applicable_no_reuse_manifest_for_route"
+                ),
+                "prepared_state_invalidation_reason": "not_applicable_no_reuse_attempt",
+            }
         return {
-            "route_lane_id": "prepare_once_first_query",
-            "route_display_name": "ShardLoom Prepare-Once First Query",
+            "route_lane_id": lane_id,
+            "route_display_name": display_name,
             "route_runtime_status": "scoped_runtime_supported",
-            "start_state": "raw_compat_source",
+            "start_state": start_state,
             "end_state": "result_sink",
-            "includes_preparation": True,
+            "includes_preparation": preparation_included,
             "includes_query": True,
             "includes_output": True,
             "includes_evidence": True,
             "route_comparable_to_external_end_to_end": True,
-            "preparation_included": True,
-            "query_timing_starts_after_preparation": False,
-            "prepared_state_reused": False,
+            "preparation_included": preparation_included,
+            "query_timing_starts_after_preparation": lane_id != "cold_certified_route",
+            "prepared_state_reused": lane_id in {"prepare_once_batch", "warm_prepared_query"},
+            "route_timing_ledger_schema_version": "shardloom.route_timing_ledger.v1",
+            "route_timing_ledger_status": "valid",
+            "route_total_formula": formula,
+            "route_timing_scope": timing_scope,
+            "stage_parent_id": lane_id,
+            "route_timing_included_stage_ids": included_stage_ids,
+            "route_timing_excluded_stage_ids": "none",
+            "route_timing_included_stage_total_ms": 1.0,
+            "route_timing_total_delta_ms": 0.0,
+            "preparation_timing_included_in_total": preparation_included,
+            "query_timing_included_in_total": True,
+            "output_timing_included_in_total": lane_id in {"cold_certified_route"},
+            "evidence_timing_included_in_total": lane_id in {"cold_certified_route"},
+            "fast_path_attribution_schema_version": "shardloom.route_fast_path_attribution.v1",
+            "runtime_execution_ms": 0.8,
+            "output_delivery_ms": 0.1,
+            "evidence_capture_ms": 0.0,
+            "evidence_render_ms": 0.1,
+            "certificate_link_ms": 0.0,
+            "runtime_execution_timing_scope": timing_scope,
+            "output_delivery_timing_scope": (
+                "included_in_route_total"
+                if lane_id in {"cold_certified_route"}
+                else "excluded_from_route_total"
+            ),
+            "evidence_capture_timing_status": "certificate_metadata_linked_not_separately_timed",
+            "certificate_link_timing_status": "metadata_linked_not_separately_timed",
+            "runtime_execution_certificate_id": "execution://fixture",
+            "runtime_execution_certificate_status": "certified",
+            "runtime_execution_certificate_plan_ref": "scheduler://fixture",
+            "certificate_link_status": "linked_certified_runtime_execution",
+            "evidence_required_for_claim": True,
+            "evidence_render_included_in_route_total": lane_id in {"cold_certified_route"},
+            "fast_path_claim_boundary": "runtime fast path fixture",
+            "operator_mode_inventory_schema_version": "shardloom.operator_mode_inventory.v1",
+            "operator_execution_class": "residual_native",
+            "operator_admission_status": "residual_native_supported",
+            "operator_encoded_native_claim_allowed": False,
+            "operator_residual_native_used": True,
+            "operator_temporary_materialization_used": False,
+            "operator_blocker_matrix_ref": "operator-blocker://fixture",
+            "operator_execution_mode": "residual_native",
+            "encoded_native_operators": "none",
+            "residual_native_operators": "shardloom_native_residual_operator",
+            "materialized_temporary_operators": "none",
+            "operator_blocker_code": "gar-flow-2b.residual_native_operator_not_encoded_native",
+            "operator_hot_path_candidate": "residual_native_operator_encoding_promotion",
+            "operator_hot_path_candidate_status": "blocked_residual_native_operator_not_encoded_native",
+            "operator_hot_path_next_step": (
+                "add decoded-reference correctness and encoded kernel evidence before "
+                "encoded-native promotion"
+            ),
+            "operator_mode_claim_boundary": (
+                "runtime supported is not encoded-native support"
+            ),
+            "total_route_ms": 1.0,
+            "cold_bottleneck_schema_version": "shardloom.traditional_analytics.cold_bottleneck.v1",
+            "cold_bottleneck_status": (
+                "complete" if cold_route else "not_applicable_non_cold_route"
+            ),
+            "cold_bottleneck_stage_labels": (
+                "source_admission,source_read,source_parse_or_decode,source_state_build,"
+                "vortex_array_build,vortex_write,vortex_digest,vortex_reopen_verify,"
+                "prepared_query,sink_output,evidence_render"
+            ),
+            "cold_bottleneck_primary_stage": "vortex_write" if cold_route else "not_applicable",
+            "cold_bottleneck_primary_stage_ms": 1.0 if cold_route else None,
+            "cold_bottleneck_primary_stage_share": 1.0 if cold_route else None,
+            "cold_bottleneck_secondary_stage": (
+                "vortex_array_build" if cold_route else "not_applicable"
+            ),
+            "cold_bottleneck_secondary_stage_ms": 0.5 if cold_route else None,
+            "cold_bottleneck_secondary_stage_share": 0.5 if cold_route else None,
+            "cold_bottleneck_stage_value_fields": (
+                "vortex_write=1.0000;vortex_array_build=0.5000"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "cold_route_optimization_hint": (
+                "optimize_vortex_writer_batching_layout_and_sink_buffering"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "cold_route_optimization_hint_scope": "diagnostic_only_no_runtime_policy_change",
+            "cold_route_bottleneck_claim_boundary": "diagnostic_only_no_claim",
+            "source_split_count": 1,
+            "source_open_count": 1,
+            "source_bytes_read": 1024,
+            "source_columns_requested": 2,
+            "source_projection_applied": False,
+            "source_pressure_profile": "single_local_source",
+            "vortex_prepared_state_reusable": cold_route,
+            "vortex_prepared_state_fingerprint": "fnv64:prepared",
+            "vortex_prepared_state_fingerprint_status": "fingerprint_recorded",
+            "source_state_fingerprint": "fnv64:source",
+            "source_schema_fingerprint": "fnv64:schema",
+            "source_parse_plan_id": "parse-plan://fixture",
+            "source_split_manifest_id": "split-manifest://fixture",
+            "source_anomaly_count": 0,
+            "source_quarantine_required": False,
+            "prepared_state_fingerprint": "fnv64:prepared",
+            **reuse_fields,
+            "nearest_runnable_route": lane_id,
+            "required_feature_gate": "none_runtime_supported",
+            "runtime_blocker_code": "none",
             "performance_claim_allowed": False,
             "production_claim_allowed": False,
             "spark_replacement_claim_allowed": False,
@@ -93,6 +297,70 @@ class ReleaseScriptTests(unittest.TestCase):
             "preparation_included": False,
             "query_timing_starts_after_preparation": False,
             "prepared_state_reused": False,
+            "route_timing_ledger_schema_version": "shardloom.route_timing_ledger.v1",
+            "route_timing_ledger_status": "valid",
+            "route_total_formula": "total_route_ms = external engine reported total_runtime_millis",
+            "route_timing_scope": "external_baseline_end_to_end",
+            "stage_parent_id": "external_baseline_end_to_end",
+            "route_timing_included_stage_ids": "external_engine_reported_total_runtime_millis",
+            "route_timing_excluded_stage_ids": "none",
+            "route_timing_included_stage_total_ms": 1.0,
+            "route_timing_total_delta_ms": 0.0,
+            "preparation_timing_included_in_total": False,
+            "query_timing_included_in_total": True,
+            "output_timing_included_in_total": True,
+            "evidence_timing_included_in_total": False,
+            "fast_path_attribution_schema_version": "shardloom.route_fast_path_attribution.v1",
+            "runtime_execution_ms": 1.0,
+            "output_delivery_ms": 0.0,
+            "evidence_capture_ms": 0.0,
+            "evidence_render_ms": 0.0,
+            "certificate_link_ms": 0.0,
+            "runtime_execution_timing_scope": "external_baseline_end_to_end",
+            "output_delivery_timing_scope": "included_in_route_total",
+            "evidence_capture_timing_status": "certificate_metadata_linked_not_separately_timed",
+            "certificate_link_timing_status": "metadata_linked_not_separately_timed",
+            "runtime_execution_certificate_id": "external_baseline_only",
+            "runtime_execution_certificate_status": "external_baseline_only",
+            "runtime_execution_certificate_plan_ref": "external_baseline_only",
+            "certificate_link_status": "external_baseline_only",
+            "evidence_required_for_claim": False,
+            "evidence_render_included_in_route_total": False,
+            "fast_path_claim_boundary": "external baseline fixture",
+            "operator_mode_inventory_schema_version": "shardloom.operator_mode_inventory.v1",
+            "operator_execution_class": "external_baseline_only",
+            "operator_admission_status": "external_baseline_only",
+            "operator_encoded_native_claim_allowed": False,
+            "operator_residual_native_used": False,
+            "operator_temporary_materialization_used": False,
+            "operator_blocker_matrix_ref": "external_baseline_only",
+            "operator_execution_mode": "external_baseline_only",
+            "encoded_native_operators": "external_baseline_only",
+            "residual_native_operators": "external_baseline_only",
+            "materialized_temporary_operators": "external_baseline_only",
+            "operator_blocker_code": "external_baseline_only",
+            "operator_hot_path_candidate": "external_baseline_only",
+            "operator_hot_path_candidate_status": "external_baseline_only",
+            "operator_hot_path_next_step": "external_baseline_only",
+            "operator_mode_claim_boundary": "external rows are comparison baselines only",
+            "total_route_ms": 1.0,
+            "source_state_fingerprint": "external_baseline_only",
+            "source_schema_fingerprint": "external_baseline_only",
+            "source_parse_plan_id": "external_baseline_only",
+            "source_split_manifest_id": "external_baseline_only",
+            "source_anomaly_count": "external_baseline_only",
+            "source_quarantine_required": "external_baseline_only",
+            "prepared_state_fingerprint": "external_baseline_only",
+            "prepared_state_reuse_scope": "external_baseline_only",
+            "prepared_state_reuse_manifest_path": "external_baseline_only",
+            "prepared_state_reuse_policy": "external_baseline_only",
+            "prepared_state_reuse_hit": "external_baseline_only",
+            "prepared_state_reuse_reason": "external_baseline_only",
+            "prepared_state_reuse_manifest_digest": "external_baseline_only",
+            "prepared_state_invalidation_reason": "external_baseline_only",
+            "nearest_runnable_route": "external_baseline_only",
+            "required_feature_gate": "external_baseline_only",
+            "runtime_blocker_code": "external_baseline_only",
             "performance_claim_allowed": False,
             "production_claim_allowed": False,
             "spark_replacement_claim_allowed": False,
@@ -361,6 +629,237 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(published["claim_grade_requirements_met"])
         self.assertTrue(published["batch_process_wall_shared"])
         self.assertEqual(published["batch_cli_process_wall_millis"], 2.0)
+
+    def test_benchmark_promoter_emits_cold_bottleneck_fields(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_cold_bottleneck_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "cold bottleneck route row",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "source_state_id": "source-state://cold-bottleneck-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://cold-bottleneck-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.cold-bottleneck-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "source_read_millis": 10.0,
+                "compatibility_parse_millis": 12.0,
+                "compatibility_to_vortex_import_millis": 95.0,
+                "vortex_array_build_millis": 20.0,
+                "vortex_write_millis": 70.0,
+                "vortex_digest_micros": 1500.0,
+                "vortex_reopen_verify_millis": 5.0,
+                "vortex_scan_millis": 1.0,
+                "operator_compute_millis": 2.0,
+                "result_sink_write_millis": 3.0,
+                "evidence_render_millis": 4.0,
+                "total_runtime_millis": 130.0,
+                "cli_process_wall_millis": 135.0,
+                "python_harness_overhead_millis": 5.0,
+                "file_count": 8,
+                "bytes_read": 4096,
+                "source_columns": "group_key,metric",
+                "vortex_capillary_preparation_activation_observed_columns": 13,
+                "prepared_state_reuse_allowed": True,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["cold_lane_timing_split_status"], "complete")
+        self.assertEqual(published["cold_bottleneck_status"], "complete")
+        self.assertEqual(published["cold_bottleneck_primary_stage"], "vortex_write")
+        self.assertEqual(published["cold_bottleneck_secondary_stage"], "vortex_array_build")
+        self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
+        self.assertEqual(published["source_split_count"], 8)
+        self.assertEqual(published["source_open_count"], 8)
+        self.assertEqual(published["source_columns_requested"], 2)
+        self.assertTrue(published["source_projection_applied"])
+        self.assertTrue(published["vortex_prepared_state_reusable"])
+        self.assertEqual(
+            published["cold_route_optimization_hint"],
+            "batch_source_open_and_split_planning_before_parse_or_writer_tuning",
+        )
+        self.assertEqual(published["total_route_ms"], 130.0)
+        self.assertFalse(published["performance_claim_allowed"])
+
+    def test_benchmark_promoter_derives_prepare_once_first_query_route(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_prepare_once_route_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepare-batch",
+            "storage_format": "csv",
+            "scenario_name": "prepared batch route row",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "source_state_id": "source-state://prepared-route-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://prepared-route-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.prepared-route-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "persistent_runner_status": "single_process_batch_runner_supported",
+                "prepare_batch_preparation_millis": 100.0,
+                "batch_scenario_count": 20,
+                "query_runtime_millis": 2.0,
+                "total_runtime_millis": 2.0,
+                "vortex_scan_millis": 1.0,
+                "operator_compute_millis": 2.0,
+                "result_sink_write_millis": 3.0,
+                "evidence_render_millis": 0.5,
+                "cli_process_wall_millis": 110.0,
+                "batch_cli_process_wall_millis": 110.0,
+                "batch_process_wall_shared": True,
+            },
+        }
+
+        [prepare_batch] = module.published_rows([row])
+        rows = module.rows_with_prepare_once_first_query([prepare_batch])
+        by_lane = {item["route_lane_id"]: item for item in rows}
+
+        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 7.0)
+        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 102.0)
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["route_row_derivation_status"],
+            module.DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS,
+        )
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["route_timing_included_stage_total_ms"],
+            102.0,
+        )
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["route_timing_total_delta_ms"],
+            0.0,
+        )
+
+        amortization = module.prepared_route_amortization_table(rows)
+        by_count = {item[0]: item for item in amortization["rows"]}
+        self.assertEqual(set(by_count), {1, 5, 10, 50, 100})
+        self.assertEqual(by_count[1][1], 1)
+        self.assertEqual(by_count[1][2], "102.00 ms")
+        self.assertEqual(by_count[100][2], "3.00 ms")
+
+    def test_benchmark_promoter_emits_operator_mode_inventory(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_operator_mode_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "csv",
+            "scenario_name": "selective filter",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "source_state_id": "source-state://operator-mode-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://operator-mode-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.operator-mode-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+                "evidence_render_millis": 0.1,
+                "cli_process_wall_millis": 1.4,
+                "python_harness_overhead_millis": 0.4,
+                "operator_execution_class": "residual_native",
+                "operator_admission_status": "residual_native_supported",
+                "operator_blocker_id": (
+                    "gar-flow-2b.residual_native_operator_not_encoded_native"
+                ),
+                "operator_encoded_native_claim_allowed": False,
+                "operator_residual_native_used": True,
+                "operator_temporary_materialization_used": False,
+                "operator_blocker_matrix_ref": "operator-blocker://selective-filter",
+                "encoded_predicate_provider_status": "selection_vectors_admitted",
+                "fused_pipeline_blocker_id": (
+                    "gar-perf-1c.selection_vector_metric_aggregation_not_admitted"
+                ),
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["operator_mode_inventory_schema_version"],
+            "shardloom.operator_mode_inventory.v1",
+        )
+        self.assertEqual(published["operator_execution_mode"], "residual_native")
+        self.assertFalse(published["operator_encoded_native_claim_allowed"])
+        self.assertEqual(published["encoded_native_operators"], "none")
+        self.assertEqual(
+            published["operator_hot_path_candidate"],
+            "selective_filter_selection_vector_metric_aggregation",
+        )
+        self.assertEqual(
+            published["operator_hot_path_candidate_status"],
+            "blocked_selection_vector_metric_aggregation_not_admitted",
+        )
+
+        inventory = module.operator_mode_inventory_table([row])
+        candidates = module.operator_hot_path_candidate_table([row])
+
+        self.assertEqual(inventory["schema_version"], "shardloom.operator_mode_inventory.v1")
+        self.assertEqual(inventory["residual_native_row_count"], 1)
+        self.assertIn("runtime-supported", inventory["claim_boundary"])
+        self.assertEqual(
+            candidates["rows"][0][0],
+            "selective_filter_selection_vector_metric_aggregation",
+        )
 
     def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
         module = self._load_script_module(
@@ -830,6 +1329,74 @@ class ReleaseScriptTests(unittest.TestCase):
             any("missing capillary activation evidence fields" in blocker for blocker in blockers)
         )
 
+    def test_benchmark_publication_claim_gate_rejects_reuse_without_evidence(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_reuse_evidence_for_test",
+        )
+        lanes = list(module.expected_lanes_for_profile("full_local"))
+        row = {
+            "engine": "shardloom-prepare-batch",
+            "storage_format": "csv",
+            "status": "success",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "selected_execution_mode": "shardloom-prepare-batch",
+            "source_state_id": "source-state://claim-grade-row",
+            "source_state_digest": "fnv64:source",
+            "prepared_state_id": "prepared-state://claim-grade-row",
+            "prepared_state_digest": "fnv64:prepared",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.claim-grade-row",
+            "runtime_execution_certificate_status": "certified",
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "fnv64:correct",
+            "correctness_digest_stable": True,
+            "query_runtime_millis": 1.0,
+            "cold_lane_timing_split_status": "complete",
+            "computed_result_sink_replay_verified": True,
+            "vortex_capillary_preparation_activation_policy": (
+                "dynamic_size_complexity_gate.v1"
+            ),
+            "vortex_capillary_preparation_activation_result": "activated",
+            "vortex_capillary_preparation_activation_reason": (
+                "claim_evidence_requested"
+            ),
+            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
+            "vortex_capillary_preparation_activation_observed_rows": "1000000",
+            "vortex_capillary_preparation_activation_observed_columns": "8",
+            "vortex_capillary_preparation_activation_observed_split_count": "8",
+            **self._shardloom_benchmark_route_fields("shardloom-prepare-batch"),
+        }
+        row["prepared_state_reuse_manifest_digest"] = (
+            "not_applicable_no_reuse_manifest_for_route"
+        )
+        payload = {
+            "published_benchmark_artifact": {
+                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
+            },
+            "published_benchmark_rows": [row],
+        }
+        manifest = {
+            "benchmark_profile": "full_local",
+            "expected_lanes": lanes,
+            "available_lanes": lanes,
+        }
+
+        blockers: list[str] = []
+        report = module.validate_profile_and_rows(manifest, payload, blockers)
+
+        self.assertEqual(report["missing_prepared_state_reuse_evidence_row_count"], 1)
+        self.assertTrue(
+            any("missing prepared-state reuse evidence fields" in blocker for blocker in blockers)
+        )
+
     def test_benchmark_publication_claim_gate_accepts_current_claim_grade_rows(self) -> None:
         module = self._load_script_module(
             "check_benchmark_publication_claim_gate.py",
@@ -875,7 +1442,7 @@ class ReleaseScriptTests(unittest.TestCase):
                         "claim_grade_requirements_met": True,
                         "fallback_attempted": False,
                         "external_engine_invoked": False,
-                        **self._shardloom_benchmark_route_fields(),
+                        **self._shardloom_benchmark_route_fields(engine),
                         **capillary_fields,
                         **runtime_fields,
                     }
@@ -921,6 +1488,223 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["missing_shardloom_engine_format_cell_count"], 0)
         self.assertEqual(report["shardloom_runtime_validation_counts"], {"passed": 24})
         self.assertEqual(report["missing_independent_claim_proof_row_count"], 0)
+
+    def test_benchmark_publication_claim_gate_rejects_false_encoded_native_operator_claim(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_operator_mode_for_test",
+        )
+        lanes = list(module.expected_lanes_for_profile("full_local"))
+        capillary_fields = {
+            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
+            "vortex_capillary_preparation_activation_result": "activated",
+            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
+            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
+            "vortex_capillary_preparation_activation_observed_rows": "1000000",
+            "vortex_capillary_preparation_activation_observed_columns": "8",
+            "vortex_capillary_preparation_activation_observed_split_count": "8",
+        }
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "csv",
+            "status": "success",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "selected_execution_mode": "prepared_vortex",
+            "source_state_id": "source-state://operator-claim-row",
+            "source_state_digest": "fnv64:source",
+            "prepared_state_id": "prepared-state://operator-claim-row",
+            "prepared_state_digest": "fnv64:prepared",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.operator-claim-row",
+            "runtime_execution_certificate_status": "certified",
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "fnv64:correct",
+            "correctness_digest_stable": True,
+            "query_runtime_millis": 1.0,
+            "cold_lane_timing_split_status": "complete",
+            "computed_result_sink_replay_verified": True,
+            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
+            **capillary_fields,
+        }
+        row["operator_encoded_native_claim_allowed"] = True
+        manifest = {
+            "benchmark_profile": "full_local",
+            "expected_lanes": lanes,
+            "available_lanes": lanes,
+        }
+        payload = {
+            "published_benchmark_artifact": {
+                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
+            },
+            "published_benchmark_rows": [row],
+        }
+
+        blockers: list[str] = []
+        report = module.validate_profile_and_rows(manifest, payload, blockers)
+
+        self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
+        self.assertTrue(
+            any("invalid operator mode/encoded-native claim fields" in blocker for blocker in blockers)
+        )
+        self.assertTrue(
+            any(
+                "non_encoded_operator_row_allows_encoded_native_claim" in example
+                for example in report.get("blockers", [])
+            )
+            or any(
+                "non_encoded_operator_row_allows_encoded_native_claim" in blocker
+                for blocker in blockers
+            )
+        )
+
+    def test_benchmark_publish_doctor_accepts_current_static_artifact(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publish_doctor.py",
+            "benchmark_publish_doctor_pass_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            pre_5j_report = Path(tempdir) / "pre-5j-dependency-freshness-gate.json"
+            self._write_passing_pre_5j_dependency_report(pre_5j_report)
+
+            report, packet = module.build_report(
+                manifest_path=REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
+                repo_root=REPO_ROOT,
+                pre_5j_dependency_report_path=pre_5j_report,
+                require_current_git=False,
+                allow_dirty_worktree=True,
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertFalse(report["benchmark_run_performed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertEqual(report["artifact_completeness_status"], "passed")
+        self.assertEqual(report["publication_claim_gate_status"], "passed")
+        self.assertEqual(report["mirror_status"]["status"], "passed")
+        self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
+        self.assertIn("GAR-RUNTIME-IMPL", packet["next_implementation_slice"])
+        self.assertIn("performance superiority", packet["forbidden_claims"])
+
+    def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publish_doctor.py",
+            "benchmark_publish_doctor_missing_fields_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            artifact = root / "benchmark-results.json"
+            manifest = root / "manifest.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "published_benchmark_artifact": {
+                            "format_order": ["csv"],
+                            "scenario_order": ["selective filter"],
+                        },
+                        "published_benchmark_rows": [
+                            {
+                                "engine": "shardloom",
+                                "storage_format": "csv",
+                                "scenario_name": "selective filter",
+                                "status": "success",
+                                "claim_gate_status": "claim_grade",
+                                "fallback_attempted": False,
+                                "external_engine_invoked": False,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website_benchmark_manifest.v1",
+                        "generated_at_utc": "2026-01-01T00:00:00+00:00",
+                        "benchmark_profile": "smoke",
+                        "expected_lanes": ["shardloom"],
+                        "available_lanes": ["shardloom"],
+                        "missing_lanes": [],
+                        "lane_versions": {},
+                        "lane_availability_reasons": {},
+                        "environment": {},
+                        "claim_boundary": "fixture",
+                        "performance_claim_allowed": False,
+                        "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
+                        "route_runtime_status_vocabulary": [
+                            "scoped_runtime_supported",
+                            "feature_gated",
+                            "fixture_smoke_only",
+                            "unsupported",
+                            "external_baseline_only",
+                        ],
+                        "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
+                        "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
+                        "benchmark_constitution_required_field_order": [],
+                        "benchmark_constitution_claim_gate_status": "not_claim_grade",
+                        "benchmark_constitution_performance_claim_allowed": False,
+                        "artifact_paths": {"json": str(artifact)},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report, packet = module.build_report(
+                manifest_path=manifest,
+                repo_root=root,
+                require_current_git=False,
+                allow_dirty_worktree=True,
+                max_age_days=-1,
+            )
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(
+            any("missing route fields" in blocker for blocker in report["blockers"])
+        )
+        self.assertEqual(packet["status"], "blocked")
+        self.assertIn(
+            "check_benchmark_artifact_completeness.py",
+            report["nearest_next_validation_command"],
+        )
+
+    def test_benchmark_publish_doctor_route_packet_markdown_is_compact(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publish_doctor.py",
+            "benchmark_publish_doctor_packet_for_test",
+        )
+        packet = {
+            "status": "passed",
+            "benchmark_profile": "full_local",
+            "artifact_status": "complete",
+            "route_runtime_status_counts": {"scoped_runtime_supported": 600},
+            "operator_execution_mode_counts": {"residual_native": 456},
+            "shardloom_claim_grade_rows": 600,
+            "shardloom_unsupported_rows": 0,
+            "external_baseline_rows": 720,
+            "external_unsupported_rows": 6,
+            "primary_bottleneck": "vortex_write",
+            "operator_inventory_status": "encoded_native_promotion_pending",
+            "next_implementation_slice": "GAR-RUNTIME-IMPL-6D-10 benchmark publish doctor",
+            "required_validators": ["python3 scripts/check_benchmark_publish_doctor.py"],
+            "forbidden_claims": ["performance superiority"],
+            "claim_boundary": "publication readiness only",
+            "fallback_boundary": "no fallback",
+        }
+
+        markdown = module.render_packet_markdown(packet)
+
+        self.assertLess(len(markdown), 2500)
+        self.assertIn("Benchmark Route Packet", markdown)
+        self.assertIn("performance superiority", markdown)
+        self.assertIn("GAR-RUNTIME-IMPL-6D-10", markdown)
 
     def test_benchmark_publication_claim_gate_recomputes_runtime_envelope_validation(
         self,
@@ -1025,6 +1809,77 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
         self.assertTrue(
             any("missing independent claim-grade proof" in blocker for blocker in blockers)
+        )
+
+    def test_benchmark_publication_claim_gate_rejects_unlinked_evidence_excluded_claim_row(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_unlinked_fast_path_for_test",
+        )
+        lanes = list(module.expected_lanes_for_profile("full_local"))
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "csv",
+            "status": "success",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "selected_execution_mode": "prepared_vortex",
+            "source_state_id": "source-state://unlinked-fast-path-row",
+            "source_state_digest": "fnv64:source",
+            "prepared_state_id": "prepared-state://unlinked-fast-path-row",
+            "prepared_state_digest": "fnv64:prepared",
+            "data_decoded": False,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "fnv64:correct",
+            "correctness_digest_stable": True,
+            "query_runtime_millis": 1.0,
+            "cold_lane_timing_split_status": "complete",
+            "computed_result_sink_replay_verified": True,
+            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
+            "vortex_capillary_preparation_activation_result": "activated",
+            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
+            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
+            "vortex_capillary_preparation_activation_observed_rows": "1000000",
+            "vortex_capillary_preparation_activation_observed_columns": "8",
+            "vortex_capillary_preparation_activation_observed_split_count": "8",
+            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
+        }
+        row.update(
+            {
+                "runtime_execution_certificate_id": "missing",
+                "runtime_execution_certificate_status": "missing",
+                "runtime_execution_certificate_plan_ref": "missing",
+                "certificate_link_status": "missing_required_certificate_link",
+                "evidence_render_included_in_route_total": False,
+            }
+        )
+        manifest = {
+            "benchmark_profile": "full_local",
+            "expected_lanes": lanes,
+            "available_lanes": lanes,
+        }
+        payload = {
+            "published_benchmark_artifact": {
+                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
+            },
+            "published_benchmark_rows": [row],
+        }
+
+        blockers: list[str] = []
+        report = module.validate_profile_and_rows(manifest, payload, blockers)
+
+        self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
+        self.assertTrue(
+            any(
+                "certificate_link_status!=linked_certified_runtime_execution" in blocker
+                for blocker in blockers
+            )
         )
 
     def test_benchmark_publication_claim_gate_blocks_local_artifact_paths(self) -> None:
@@ -1183,6 +2038,36 @@ class ReleaseScriptTests(unittest.TestCase):
             "html_url": f"https://github.com/depsilon/shardloom/pull/{number}",
             "user": {"login": "dependabot[bot]"},
         }
+
+    def _write_passing_pre_5j_dependency_report(self, path: Path) -> None:
+        payload = {
+            "schema_version": "shardloom.pre_5j_dependency_freshness_gate.v1",
+            "status": "passed",
+            "gate_id": "gar-runtime-impl-5j.pre_5j_dependency_freshness",
+            "require_live_github": True,
+            "open_dependabot_check_status": "loaded_from_file",
+            "open_dependabot_check_error": None,
+            "open_dependabot_prs": [
+                self._dependabot_pr(
+                    979,
+                    "Bump vortex from 0.72.0 to 0.73.0 in the vortex-upstream group",
+                ),
+                self._dependabot_pr(980, "Bump rusqlite from 0.37.0 to 0.40.0"),
+            ],
+            "open_dependabot_pr_count": 2,
+            "admitted_open_dependabot_prs": [979, 980],
+            "unknown_open_dependabot_prs": [],
+            "benchmark_refresh_dependency_gate_status": "passed",
+            "benchmark_refresh_allowed": True,
+            "benchmark_run_performed": False,
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "blockers": [],
+        }
+        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
@@ -2094,6 +2979,81 @@ jobs:
                 "docs/architecture/flow.md"
             ],
         )
+
+    def test_website_readiness_validates_benchmark_route_cards(self) -> None:
+        module = self._load_script_module(
+            "check_website_readiness.py", "check_website_route_cards_for_test"
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            website = Path(tempdir) / "website"
+            website.mkdir()
+            runtime_badges = "".join(
+                f'<span class="status-chip">{status}</span>'
+                for status in module.REQUIRED_BENCHMARK_RUNTIME_BADGES
+            )
+            evidence_badges = "".join(
+                f'<span class="status-chip">{status}</span>'
+                for status in module.REQUIRED_BENCHMARK_EVIDENCE_BADGES
+            )
+            cards = {
+                "cold_certified_route": "ShardLoom Cold Certified Route",
+                "prepare_once_first_query": "ShardLoom Prepare-Once First Query",
+                "prepare_once_batch": "ShardLoom Prepare-Once Batch",
+                "warm_prepared_query": "ShardLoom Warm Prepared Query",
+                "native_vortex_query": "ShardLoom Native Vortex Query",
+                "external_baseline_end_to_end": "External Baseline End-to-End",
+            }
+            card_markup = "\n".join(
+                f'<article data-route-card-id="{card_id}" data-route-view="end-to-end prepared-state native-vortex diagnostic-stage" data-route-card-e2e-comparable="{str(card_id != "warm_prepared_query").lower()}">{label}</article>'
+                for card_id, label in cards.items()
+            )
+            (website / "benchmarks.html").write_text(
+                f"""
+                <section data-route-card-dashboard>
+                  {card_markup}
+                  <p>Not comparable to raw-source external end-to-end baselines.</p>
+                  <p>External rows are baseline context only.</p>
+                  <div data-route-badge-fixture>{runtime_badges}{evidence_badges}</div>
+                </section>
+                <h2>Stage attribution</h2>
+                <section>
+                  <h2>Runtime fast path</h2>
+                  <p>Runtime timing is separate from output and evidence rendering.</p>
+                  <table>
+                    <caption>Runtime Fast Path Versus Evidence Path</caption>
+                    <tr><th>Certificate status</th></tr>
+                    <tr><td>linked_certified_runtime_execution</td></tr>
+                  </table>
+                  <p>shardloom.route_fast_path_attribution.v1</p>
+                </section>
+                <section>
+                  <h2>Operator mode inventory</h2>
+                  <p>Runtime support is not encoded-native support.</p>
+                  <table>
+                    <caption>Operator Mode Inventory</caption>
+                    <tr><th>Execution mode</th><th>Rows</th></tr>
+                    <tr><td>residual_native</td><td>1</td></tr>
+                  </table>
+                  <table>
+                    <caption>Operator Hot-Path Promotion Candidates</caption>
+                    <tr><th>Candidate</th><th>Status</th></tr>
+                    <tr>
+                      <td>selective_filter_selection_vector_metric_aggregation</td>
+                      <td>blocked_selection_vector_metric_aggregation_not_admitted</td>
+                    </tr>
+                  </table>
+                  <p>shardloom.operator_mode_inventory.v1</p>
+                </section>
+                <h2>Raw timing tables</h2>
+                """,
+                encoding="utf-8",
+            )
+
+            blockers: list[str] = []
+            module.check_benchmark_route_card_dashboard(website, blockers)
+
+        self.assertEqual(blockers, [])
 
     def test_foundry_dev_stack_starter_accepts_local_runtime_proof(self) -> None:
         module = self._load_script_module(

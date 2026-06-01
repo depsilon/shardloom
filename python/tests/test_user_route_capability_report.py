@@ -45,6 +45,46 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(report["local_vortex_primitive_all_runtime_supported"])
         self.assertTrue(report["local_vortex_primitive_all_no_fallback_no_external_engine"])
         self.assertEqual(
+            report["local_file_benchmark_schema_version"],
+            "shardloom.local_file_benchmark_route_report.v1",
+        )
+        self.assertEqual(report["local_file_benchmark_unsupported_scenario_ids"], [])
+        self.assertTrue(report["local_file_benchmark_all_no_fallback_no_external_engine"])
+        self.assertTrue(report["local_file_benchmark_all_mapped_without_generic_unsupported"])
+        self.assertTrue(
+            report["acceptance_summary"][
+                "all_required_local_file_benchmark_scenarios_mapped"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "all_admitted_benchmark_routes_have_clear_output_options"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "all_admitted_local_file_benchmark_routes_have_clear_output_options"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "all_prepared_routes_expose_workspace_manifest_reuse_contract"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract"
+            ]
+        )
+        self.assertIn(
+            "native_vortex_output",
+            report["admitted_route_output_options"]["native_vortex_query"],
+        )
+        self.assertIn(
+            "result_sink_replay",
+            report["admitted_local_file_benchmark_output_options"]["join_aggregate"],
+        )
+        self.assertEqual(
             set(report["local_vortex_primitive_command_coverage"]),
             {
                 "vortex-run",
@@ -61,16 +101,73 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertIn("VortexPreparedState", prepare_first["vortex_normalization_point"])
         self.assertEqual(prepare_first["execution_mode"], "prepared_vortex")
         self.assertIn("prepared query", prepare_first["output_route"])
+        self.assertEqual(
+            prepare_first["prepared_state_fingerprint"],
+            "runtime_prepared_state_fingerprint_pending",
+        )
+        self.assertEqual(
+            prepare_first["prepared_state_reuse_scope"],
+            "workspace_manifest_local_vortex_artifacts",
+        )
+        self.assertEqual(
+            prepare_first["prepared_state_reuse_manifest_path"],
+            "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json",
+        )
+        self.assertEqual(
+            prepare_first["prepared_state_reuse_policy"],
+            "shardloom.python.prepared_vortex_reuse_manifest.v1",
+        )
+        self.assertEqual(prepare_first["prepared_state_reuse_hit"], "runtime_evaluated")
+        self.assertEqual(
+            prepare_first["prepared_state_reuse_reason"],
+            "runtime_evaluated_workspace_manifest_lookup",
+        )
+        self.assertEqual(
+            prepare_first["prepared_state_invalidation_reason"],
+            "runtime_evaluated_on_reuse_miss_or_block",
+        )
+        self.assertEqual(
+            prepare_first["nearest_runnable_route"],
+            "local_file_prepare_once_first_query",
+        )
+        self.assertEqual(prepare_first["runtime_blocker_code"], "none")
+
+        direct = by_id["local_file_direct_transient_route"]
+        self.assertEqual(
+            direct["prepared_state_reuse_scope"],
+            "not_applicable_no_prepared_state",
+        )
 
         native = by_id["native_vortex_query"]
         self.assertEqual(native["vortex_normalization_point"], "native_vortex_boundary")
         self.assertEqual(native["route_runtime_status"], "scoped_runtime_supported")
-        self.assertNotIn("write_vortex", native["recommended_user_surface"])
+        self.assertIn("native_vortex_route", native["recommended_user_surface"])
+        self.assertIn("memory_gb", native["recommended_user_surface"])
+        self.assertIn("write_vortex", native["recommended_user_surface"])
 
         materialized = by_id["materialized_python_snapshot_reentry"]
         self.assertIn("materialized snapshot", materialized["vortex_normalization_point"])
         self.assertIn("Vortex-preparable", materialized["vortex_normalization_point"])
         self.assertFalse(materialized["external_engine_invoked"])
+
+        broad = by_id["broad_sql_python_dataframe_runtime"]
+        self.assertEqual(
+            broad["nearest_runnable_route"],
+            "local_file_direct_transient_route",
+        )
+        self.assertEqual(
+            broad["runtime_blocker_code"],
+            "cg20.cg21.broad_language_surface_missing",
+        )
+        performance_evidence = by_id["performance_equivalence_evidence"]
+        self.assertEqual(
+            performance_evidence["route_runtime_status"],
+            "benchmark_publication_pending",
+        )
+        self.assertEqual(
+            performance_evidence["runtime_blocker_code"],
+            "cg6.front_door_performance_equivalence_benchmark_missing",
+        )
 
         primitive_rows = {
             row["route_id"]: row for row in report["local_vortex_primitive_rows"]
@@ -85,6 +182,56 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             primitive_rows["vortex_filter_project_limit_collect"][
                 "supports_source_order_limit"
             ]
+        )
+
+        scenarios = {
+            row["scenario_id"]: row for row in report["local_file_benchmark_rows"]
+        }
+        self.assertEqual(len(scenarios), 15)
+        self.assertEqual(
+            scenarios["selective_filter"]["route_runtime_status"],
+            "scoped_runtime_supported",
+        )
+        self.assertEqual(
+            scenarios["selective_filter"]["selected_execution_mode"],
+            "direct_compatibility_transient",
+        )
+        self.assertIn(
+            "local_file_prepare_once_first_query",
+            scenarios["selective_filter"]["alternate_route_ids"],
+        )
+        self.assertEqual(
+            scenarios["join_aggregate"]["route_runtime_status"],
+            "prepared_route_supported",
+        )
+        self.assertIn(
+            "VortexPreparedState",
+            scenarios["join_aggregate"]["vortex_normalization_point"],
+        )
+        self.assertEqual(
+            scenarios["join_aggregate"]["prepared_state_fingerprint"],
+            "runtime_prepared_state_fingerprint_pending",
+        )
+        self.assertEqual(
+            scenarios["join_aggregate"]["prepared_state_reuse_scope"],
+            "workspace_manifest_local_vortex_artifacts",
+        )
+        self.assertEqual(
+            scenarios["join_aggregate"]["prepared_state_reuse_manifest_digest"],
+            "runtime_prepared_state_reuse_manifest_digest_pending",
+        )
+        self.assertEqual(
+            scenarios["join_aggregate"]["nearest_runnable_route"],
+            "local_file_prepare_once_first_query",
+        )
+        self.assertEqual(scenarios["join_aggregate"]["runtime_blocker_code"], "none")
+        self.assertIn(
+            "not claim native nested field pruning",
+            scenarios["nested_json_field_scan"]["claim_boundary"],
+        )
+        self.assertIn(
+            "not general deletes",
+            scenarios["small_change_over_large_base"]["claim_boundary"],
         )
 
     def test_context_route_selector_filters_by_input_and_output(self) -> None:
@@ -108,6 +255,10 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             {row.route_id for row in routes.routes_for(input_family="local_compat_file")},
         )
         self.assertEqual(
+            routes.route("local_file_prepare_once_first_query").prepared_state_reuse_scope,
+            "workspace_manifest_local_vortex_artifacts",
+        )
+        self.assertEqual(
             routes.route("local_vortex_primitive_report").vortex_normalization_point,
             "native_vortex_boundary",
         )
@@ -120,6 +271,14 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "vortex_select_star_limit_collect",
             primitives.source_order_limit_route_ids,
         )
+        local_file_routes = ShardLoomContext(
+            client=None
+        ).local_file_benchmark_route_report()
+        self.assertEqual(
+            local_file_routes.scenario("many_small_files_scan").route_runtime_status,
+            "prepared_route_supported",
+        )
+        self.assertEqual(local_file_routes.unsupported_scenario_ids, ())
 
     def test_validator_rejects_unsupported_or_overclaimed_route_rows(self) -> None:
         module = load_route_module()
@@ -128,6 +287,11 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         rows[0]["route_runtime_status"] = "unsupported"
         rows[0]["performance_claim_allowed"] = True
         rows[0]["fallback_attempted"] = True
+        rows[1]["desired_outputs"] = ["opaque_internal"]
+        rows[1]["output_route"] = "internal only"
+        rows[1]["evidence_route"] = "internal evidence only"
+        rows[1]["recommended_user_surface"] = "ctx.internal_only()"
+        rows[2]["prepared_state_reuse_manifest_path"] = "missing"
         for row in rows:
             if row["route_id"] == "local_vortex_primitive_report":
                 row["recommended_user_surface"] = (
@@ -150,7 +314,55 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(any("fallback_attempted must be false" in blocker for blocker in blockers))
         self.assertTrue(any("performance_claim_allowed must be false" in blocker for blocker in blockers))
         self.assertTrue(any("must not be generically unsupported" in blocker for blocker in blockers))
+        self.assertTrue(any("clear output option" in blocker for blocker in blockers))
         self.assertTrue(any("must not advertise write_vortex" in blocker for blocker in blockers))
+        self.assertTrue(any("workspace manifest path" in blocker for blocker in blockers))
+
+    def test_validator_rejects_incomplete_local_file_benchmark_routes(self) -> None:
+        module = load_route_module()
+        src = REPO_ROOT / "python" / "src"
+        if str(src) not in sys.path:
+            sys.path.insert(0, str(src))
+        from shardloom import ShardLoomContext
+
+        report = ShardLoomContext(client=None).local_file_benchmark_route_report()
+        rows = [module.local_file_benchmark_row_payload(row) for row in report.rows]
+        rows[0]["route_runtime_status"] = "unsupported"
+        rows[0]["fallback_attempted"] = True
+        rows[1]["vortex_normalization_point"] = "decoded_arrow_boundary"
+        rows[2]["output_route"] = "internal only"
+        rows[2]["evidence_route"] = "internal evidence only"
+        rows[2]["prepared_state_reuse_policy"] = "missing"
+        rows = [
+            row
+            for row in rows
+            if row["scenario_id"] != "small_change_over_large_base"
+        ]
+        fake_report = SimpleNamespace(
+            route_runtime_status_counts={"unsupported": 1},
+            unsupported_scenario_ids=("selective_filter",),
+            all_no_fallback_no_external_engine=False,
+            all_mapped_without_generic_unsupported=False,
+            claim_gate_status="not_claim_grade",
+            performance_claim_allowed=False,
+            production_claim_allowed=False,
+            spark_replacement_claim_allowed=False,
+        )
+
+        blockers = module.validate_local_file_benchmark_routes(
+            fake_report,
+            rows,
+            module.load_scenario_catalog(REPO_ROOT),
+            {"local_file_direct_transient_route", "local_file_prepare_once_first_query"},
+        )
+
+        self.assertTrue(any("missing scenarios" in blocker for blocker in blockers))
+        self.assertTrue(any("invalid route_runtime_status" in blocker for blocker in blockers))
+        self.assertTrue(any("must not be generically unsupported" in blocker for blocker in blockers))
+        self.assertTrue(any("fallback_attempted must be false" in blocker for blocker in blockers))
+        self.assertTrue(any("must name SourceState" in blocker for blocker in blockers))
+        self.assertTrue(any("clear output option" in blocker for blocker in blockers))
+        self.assertTrue(any("reuse manifest policy" in blocker for blocker in blockers))
 
     def test_validator_rejects_incomplete_local_vortex_primitive_routes(self) -> None:
         module = load_route_module()

@@ -318,7 +318,9 @@ artifact with `prepared_state_contract_schema_version=shardloom.traditional_anal
 `prepared_state_digest`, `prepared_state_source_state_id`, `vortex_artifact_ref`,
 `vortex_artifact_digest`, `layout_summary`, `encoding_summary`, `statistics_summary`,
 `prepared_state_reuse_allowed`, `prepared_state_reuse_hit`, `prepared_state_reuse_reason`,
-`preparation_included_in_timing`, `vortex_prepare_millis`,
+`prepared_state_reuse_scope`, `prepared_state_reuse_manifest_path`,
+`prepared_state_reuse_policy`, `prepared_state_reuse_manifest_digest`,
+`prepared_state_invalidation_reason`, `preparation_included_in_timing`, `vortex_prepare_millis`,
 `prepared_state_materialization_decode_boundary_ref`,
 `prepared_state_native_io_certificate_status`, `prepared_state_fallback_attempted=false`,
 `prepared_state_external_engine_invoked=false`, `prepared_state_claim_gate_status=not_claim_grade`,
@@ -326,6 +328,24 @@ and `prepared_state_claim_boundary`. This prepared-state contract records scoped
 artifact identity, digest, source-state linkage, preparation timing separation, and reuse posture
 only; it is not output support, encoded-native coverage, object-store/lakehouse support, or a
 performance claim.
+Static promotion now preserves those reuse diagnostics in public benchmark rows. Reuse rows must
+carry an explicit scope and digest-backed evidence: workspace-manifest reuse uses
+`workspace_manifest_local_vortex_artifacts` plus the workspace manifest path/policy, while
+same-process prepared-batch and explicit warm-prepared rows use distinct scopes so they cannot be
+misread as cross-call workspace cache hits.
+The Rust CLI emits those route scopes before promotion: cold compatibility-import rows use
+`prepared_state_created_not_reused`, warm prepared Vortex rows use `explicit_prepared_state_input`,
+native Vortex rows use `not_applicable_native_vortex_input`, and
+`traditional-analytics-prepare-batch-run` uses `in_process_prepared_batch_vortex_artifacts` with an
+in-process reuse evidence digest on the first call. Repeated compatible
+`traditional-analytics-prepare-batch-run` calls now validate
+`<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`; on a hit they skip compatibility
+preparation, run the prepared Vortex batch command against the existing local artifacts, and emit
+`workspace_manifest_local_vortex_artifacts` with the manifest digest and invalidation reason.
+For local `vortex_ingest` preparation, the CLI now also has a true artifact-adjacent manifest reuse
+path: a repeated identical `vortex-ingest-smoke` reports
+`prepared_state_reuse_scope=artifact_adjacent_manifest_local_vortex_artifacts` and skips the writer,
+while source/artifact/plan/policy drift is recorded as an invalidation reason before re-preparation.
 `GAR-IOREUSE-1I` adds a companion VortexPreparationSpine contract to the benchmark harness. Future
 refreshed rows carry
 `vortex_preparation_spine_schema_version=shardloom.traditional_analytics.vortex_preparation_spine.v1`,
@@ -353,11 +373,13 @@ or claiming broad CDC/table transaction support.
 refreshed rows carry
 `vortex_capillary_preparation_schema_version=shardloom.vortex_capillary_preparation.v1`,
 task manifest IDs/digests, source split refs, read byte ranges, row ranges, Vortex segment refs,
-writer sink refs, memory/sink pressure posture, execution and Native I/O certificate status,
-prefixed PulseWeave/FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, no-standalone-lane
-status, and no-fallback fields. This keeps cold-preparation capillaries inside `vortex_ingest` and
-does not rerun or republish benchmark measurements before scout, layout/write, and copy-budget
-schema support exists.
+writer sink refs, memory/sink pressure posture, execution-window IDs/counts/digests,
+`vortex_capillary_preparation_scheduler_applied`, execution and Native I/O certificate status,
+`vortex_capillary_preparation_prewrite_*` route-gate fields, prefixed
+PulseWeave/FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, no-standalone-lane status, and
+no-fallback fields. This keeps cold-preparation capillaries inside `vortex_ingest`, shows whether
+PulseWeave-admitted windows shaped the local prepare/write/reopen route before artifact creation, and
+does not by itself publish performance, object-store, distributed, or production evidence.
 `GAR-IOREUSE-1L` adds the VortexScoutIngress contract to the benchmark harness. Future refreshed
 rows carry `vortex_scout_ingress_schema_version=shardloom.traditional_analytics.vortex_scout_ingress.v1`,
 source scope, metadata/sample ranges, schema digest before/after, anomaly families, malformed row
@@ -656,6 +678,24 @@ no-fallback fields in the same artifact as the child scenario timings. Rows also
 fields attached to the same prepared Vortex route. It does not replace the warm
 `shardloom-prepared-vortex` lane, which remains the route for already-prepared artifact reuse.
 
+Published benchmark rows also expose cold-route bottleneck attribution under
+`shardloom.traditional_analytics.cold_bottleneck.v1`. Cold certified and prepare-once rows carry
+`cold_bottleneck_primary_stage`, `cold_bottleneck_secondary_stage`,
+`cold_route_optimization_hint`, `source_split_count`, `source_open_count`, `source_bytes_read`,
+`source_columns_requested`, `source_projection_applied`, `source_pressure_profile`,
+`vortex_prepared_state_reusable`, and stable prepared-state fingerprint fields. The hints are
+diagnostic-only optimization pointers; they do not mutate execution, weaken claim gates, or permit
+Spark/DataFusion/other-engine fallback. Warm prepared/native route rows report cold bottlenecks as
+not applicable so query-only timing cannot be confused with raw-source preparation.
+
+Route rows also carry source/prepared diagnostics for agent handoff:
+`source_state_fingerprint`, `source_schema_fingerprint`, `source_parse_plan_id`,
+`source_split_manifest_id`, `source_anomaly_count`, `source_quarantine_required`,
+`prepared_state_fingerprint`, `nearest_runnable_route`, `required_feature_gate`, and
+`runtime_blocker_code`. For successful ShardLoom rows, `runtime_blocker_code=none`; blocked or
+pending rows must name a deterministic code and a nearest runnable route without executing fallback
+work.
+
 GAR-PERF-1B adds the complete source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits
 `source_state_coverage_schema_version`,
@@ -766,8 +806,11 @@ or deploys the static site. `scripts/check_benchmark_environment.py` defaults to
 DataFusion, and Dask across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC. Spark/PySpark lanes are
 explicit-only historical baselines, not required for the current public refresh; pass
 `--profile smoke` only for quick ShardLoom-lane bring-up.
-Use `scripts/check_benchmark_artifact_completeness.py` before publishing an artifact. The runbook
-is `docs/benchmarks/static-benchmark-publishing-runbook.md`.
+Use `scripts/check_benchmark_publish_doctor.py` before publishing or handing off benchmark
+artifacts. It wraps artifact completeness, publication claim-gate, mirror-drift, row-count, route
+runtime status, operator-mode, and next-command checks, and writes a compact agent route packet to
+`target/benchmark-route-packet.md`. Use `scripts/check_benchmark_artifact_completeness.py` for the
+lower-level schema gate. The runbook is `docs/benchmarks/static-benchmark-publishing-runbook.md`.
 
 The harness now splits the legacy `polars` alias into `polars-eager` and `polars-lazy`. The eager
 lane uses direct `read_*` DataFrame APIs; the lazy lane uses Polars `scan_*` LazyFrame APIs for
@@ -809,6 +852,12 @@ Prepared/native rows also emit an operator blocker matrix:
 `operator_blocker_reason`, and `operator_encoded_native_claim_allowed`. Current
 residual-native and materialized-temporary classes are never counted as
 encoded-native operator execution.
+The website promoter publishes this as the route-level operator-mode inventory fields
+`operator_execution_mode`, `encoded_native_operators`, `residual_native_operators`,
+`materialized_temporary_operators`, `operator_blocker_code`, and
+`operator_hot_path_candidate`. These fields deliberately separate "the row ran through a
+ShardLoom runtime route" from "the hot operator is encoded-native"; claim-grade runtime evidence
+does not by itself allow an encoded-native operator claim.
 
 The native `vortex-count-benchmark` microbenchmark also exposes
 `native_vortex_admission_*` fields. The only admitted lane today is
@@ -897,6 +946,20 @@ as source read/parse plus Vortex array build plus Vortex write. If scan and
 operator work are still fused in the current streaming loop, the row keeps
 `operator_compute_millis` present and explains the limitation through
 `operator_compute_timing_scope`.
+
+Promoted website rows also carry the route fast-path attribution schema
+`shardloom.route_fast_path_attribution.v1`. The fields
+`runtime_execution_ms`, `output_delivery_ms`, `evidence_capture_ms`,
+`evidence_render_ms`, and `certificate_link_ms` separate query/runtime work
+from sink delivery and human-readable evidence rendering. Rows also report
+`evidence_required_for_claim` and
+`evidence_render_included_in_route_total`; a claim-grade ShardLoom row that
+excludes evidence rendering from route total must still link a certified
+runtime execution through `runtime_execution_certificate_id`,
+`runtime_execution_certificate_status`, `runtime_execution_certificate_plan_ref`,
+and `certificate_link_status=linked_certified_runtime_execution`. These fields
+explain timing attribution only. They do not authorize performance superiority,
+production readiness, or Spark-replacement claims.
 
 The CLI `runtime-report --format json` exposes the same field order as a
 GAR-0018-A report-only introspection schema. It is useful for tooling that wants

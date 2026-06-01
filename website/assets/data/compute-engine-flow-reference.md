@@ -368,7 +368,7 @@ gated rather than hidden side lanes.
 | Vortex Scan pushdown | Prepared/native rows now emit complete local `scan_pushdown_*` evidence for the current runtime: required filter/projection/limit dimensions, pushed-down status, filter-only versus output column sets, residual-limit row counts/executor, blocker IDs/reasons, claim boundary, and no-fallback/no-external-engine fields. | GAR-PERF-2C maps each prepared/native family to Vortex Scan filter/projection/limit evidence or a deterministic blocker, and `compute-capability-matrix` exposes `shardloom.prepared_vortex.scan_pushdown_matrix.v1` plus Python typed rows for the same matrix. | Pushdown evidence is source/provider-boundary evidence only. Limit-like rows currently execute as ShardLoom-native residuals or block; this is not an encoded-native operator claim, broad Source/Split runtime claim, SQL/DataFrame claim, object-store/lakehouse claim, or performance claim. |
 | Compressed/encoded kernel registry | GAR-PERF-2D now emits scoped `compressed_kernel_registry_*` evidence for prepared/native rows. Observed `flag:fastlanes.bitpacked`, `value:vortex.sequence`, and `flag:vortex.constant` filter inputs execute as reader-generated selection-vector inputs when present; a real prepared Vortex `group_key:vortex.dict` reader chunk executes dictionary group-by evidence with decoded-reference digest comparison. `runtime.5g-f1` also projects registry and operator coverage into the current-runtime physical operator plan and capability/compute rows so supported residual-native families and unsupported blockers are visible from one route. Sorted/min-max, FSST/string, sparse, TurboQuant/vector, and broader encoded-native operator pairs remain deterministic blockers or future candidates. | Later slices can broaden encoded-native kernel families only with correctness, materialization/decode, certificate, no-fallback, spill/memory where applicable, and claim-gate evidence. | Registry admission is not blanket encoded-native support. Rows keep canonicalization, decode, materialization, validity, input-row counts, decoded-reference digests, no-fallback, and claim-gate evidence visible with `encoded_native_claim_allowed=false`. |
 | Fused operator pipeline | GAR-PERF-2E now emits scoped `fused_pipeline_*` evidence with family statuses, correctness digest parity fields, row counts, materialization/decode posture, deterministic blockers, and no-fallback fields. Executed scoped families are filter/projection/limit, filter/aggregate via selective-filter selection vectors, and top-k/projection; filter/group-by is blocked until a filtered grouped scenario exists. | Later slices can add stronger independent unfused runtime re-execution certificates and broader fused families only with correctness, materialization/decode, and claim-gate evidence. | Fusion evidence is scoped residual-native runtime evidence only. It is not an encoded-native operator claim, broad SQL/DataFrame claim, object-store/lakehouse claim, production claim, or public performance claim. |
-| In-process session runtime | `ShardLoomSessionModelReport` exists as report-only explicit session/registry posture, `traditional-analytics-vortex-batch-run` emits scoped session-backed prepared/native local-artifact evidence, and `traditional-analytics-prepare-batch-run` prepares compatibility inputs once before executing the prepared batch in the same process. Python exposes a caller-owned `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus session-bound `read_*` and `sql(...)` workflows whose admitted collect/write/fanout terminal calls reuse local SourceState/result/OutputPlan reports when source, output, and prepared-artifact fingerprints still match. `session-cache-smoke` now exercises the CLI-visible scoped cache lifecycle for SourceState, VortexPreparedState, OutputPlan, schema cache, dictionary cache, fingerprint invalidation, scratch-buffer reuse, optimizer-trace linkage, explicit close, and cleanup. | Continue broadening only evidence-backed session reuse into object-store/table/non-local workflows and persistent cross-process cache through their owning runtime queues. | Session support is local, caller-owned, and explicit-close only. It is not a daemon/service, remote server, hidden global cache, distributed cache, persistent object-store/table cache, production claim, broad SQL/DataFrame claim, or performance/superiority claim. |
+| In-process session runtime | `ShardLoomSessionModelReport` exists as report-only explicit session/registry posture, `traditional-analytics-vortex-batch-run` emits scoped session-backed prepared/native local-artifact evidence, and `traditional-analytics-prepare-batch-run` prepares compatibility inputs once before executing the prepared batch in the same process. Python exposes a caller-owned `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus session-bound `read_*` and `sql(...)` workflows whose admitted collect/write/fanout terminal calls reuse local SourceState/result/OutputPlan reports when source, output, and prepared-artifact fingerprints still match. Python `CompatibilityPreparedVortexRoute` handles now add a workspace-scoped prepared-state reuse manifest for compatibility-file prepare-once routes: repeated compatible calls reuse existing local Vortex artifacts through `traditional-analytics-vortex-batch-run`, while source or artifact drift re-enters normal preparation and reports `prepared_state_reuse_*` plus invalidation fields. `session-cache-smoke` now exercises the CLI-visible scoped cache lifecycle for SourceState, VortexPreparedState, OutputPlan, schema cache, dictionary cache, fingerprint invalidation, scratch-buffer reuse, optimizer-trace linkage, explicit close, and cleanup. | Continue broadening only evidence-backed session reuse into CLI-native prepared-state reuse reports, benchmark artifact promotion enforcement, object-store/table/non-local workflows, and persistent cross-process cache through their owning runtime queues. | Session support is local, caller-owned, and explicit-close only. The new Python workspace manifest is caller-owned route state, not a daemon/service, hidden global cache, remote server, distributed cache, object-store/table cache, production claim, broad SQL/DataFrame claim, or performance/superiority claim. |
 | Allocation and buffer-pool optimization | Session-backed prepared/native batch rows now emit scoped allocation/resource-profile evidence with explicit `not_available` allocation counts/bytes/peak RSS, `buffer_pool_enabled=false`, `buffer_reuse_count=0`, deterministic buffer-reuse blocker, no unsafe lifetime shortcut, and no-fallback/no-external-engine fields. No global allocation profiling or buffer-pool optimization pass is claimable. | GAR-PERF-2G follow-through can add safe measurement and scoped reuse only after ownership/lifecycle, correctness parity, and evidence parity are proven. | Allocation and buffer-pool evidence is resource-profile evidence only. Current rows show visibility and blockers, not buffer reuse, memory-efficiency, performance, production, or broad runtime claims. |
 | Optimized build profiles and PGO | The benchmark harness records `build_profile` evidence for `release`, `release-lto`, `release-pgo`, and `release-native-benchmark`. | GAR-PERF-2H adds explicit Cargo profiles, benchmark row fields, PGO helper workflow, and host-native benchmark-only boundaries. | Build-profile evidence is compiler/config evidence only. `target-cpu=native` is benchmark-only, portable release artifacts stay portable, and optimized builds do not create performance or release claims. |
 | Native microbenchmarks | The traditional analytics harness emits first-class `benchmark_category=native_microbenchmark` rows for subsystem optimization visibility. Implemented smoke rows cover encoded count, Vortex count/projection/filter-style primitives, local commit manifest evidence, and evidence rendering. Scan-only, group-by kernel, hash-join kernel, top-k, and result-sink write remain deterministic blocked rows until isolated primitives exist. | Use these rows to identify prepared/native optimization targets without mixing them with compatibility-import, prepared/native end-to-end, or external baseline rows. | Native microbenchmarks are subsystem evidence only. They are not end-to-end performance, superiority, Spark-replacement, SQL/DataFrame, object-store/lakehouse, Foundry, or production claims. |
@@ -1019,12 +1019,17 @@ helpers write through the same generated-source local-output command and emit ge
 output Native I/O, execution, sink-artifact, and no-fallback evidence. Scoped generated
 `with_column` execution over concrete generated sources remains available through
 `ctx.from_rows(...).with_column(literal).write(...)` and
-`ctx.range(...).with_column(int64_expression).write(...)`. Python context helpers still expose
-deterministic unsupported reports for the remaining non-local source-free runtime candidates:
-`ctx.generated_output_to_object_store(...)` and `ctx.foundry_generated_output(...)`. The broad
-diagnostic helpers return `workflow-unsupported-plan` envelopes with source-free blocker IDs and
-required evidence; they do not execute DataFrame plans, generate rows, write outputs, probe object
-stores, invoke Foundry, invoke external engines, or attempt fallback.
+`ctx.range(...).with_column(int64_expression).write(...)`.
+`ctx.generated_output_to_object_store(...)` is admitted for scoped local-emulator fixture paths: the
+helper stages generated rows through `generated-source-user-rows-smoke` and then writes the staged
+artifact through `object-store-write-smoke` with local commit/rollback evidence and no fallback.
+Remote S3/GCS/ADLS targets still return a deterministic unsupported report when called with
+`check=False`, before any staging rows are written. `ctx.foundry_generated_output(...)` is admitted
+only for local Foundry-style result/evidence dataset-shaped paths: generated rows still flow through
+ShardLoom's generated-source command, then the helper writes local dataset metadata/evidence through
+the dev-stack output API boundary. Real `foundry://...` references still return a
+`workflow-unsupported-plan` envelope with source-free blocker IDs and required evidence; they do not
+stage rows, invoke Foundry, invoke external engines, or attempt fallback.
 
 ### Source-Free API Admission Matrix
 
@@ -1062,7 +1067,9 @@ views that expose source-free generated-output posture. `GAR-NOVEL-1B` adds
 `GeneratedSourceCertificate` contract and source-free API admission matrix to report-only
 OpenLineage generated-source facets, OpenTelemetry result/evidence span placeholders, Bayesian
 confidence refs, and the Foundry generated-output boundary without emitting events, exporting
-telemetry, fitting a posterior confidence model, invoking Foundry, or writing object-store output.
+telemetry, fitting a posterior confidence model, invoking Foundry, or itself writing object-store
+output. The separate scoped `ctx.generated_output_to_object_store(...)` helper is runtime evidence
+for a local-emulator object-store write, not an OpenLineage/telemetry export row.
 `GAR-NOVEL-1D` adds the benchmark-level
 `shardloom.traditional_analytics.bayesian_claim_confidence.v1` report as the current
 report-only/not-fit claim-confidence posture for those future Bayesian refs.
@@ -1188,10 +1195,12 @@ exists.
 
 ### S3, Object-Store, And Foundry Boundary
 
-S3 and object-store generated-output paths remain report-only/gated until a later object-store phase
-adds credential, network, write, commit, retry, and certificate evidence. `GAR-GEN-1` does not allow
-credential resolution, network probing, S3 reads, S3 writes, object-store commits, lakehouse writes,
-or object-store performance claims.
+Generated-output object-store writes are now admitted only for the scoped `local-emulator` fixture
+route. The Python helper stages generated rows locally, invokes `object-store-write-smoke`, and
+returns local commit/rollback, object-store IO, and no-fallback evidence. Live S3/GCS/ADLS
+providers, credential resolution, network probing, cloud writes, lakehouse/table commits, retry
+semantics beyond the local fixture, production claims, and object-store performance claims remain
+gated.
 
 Foundry production generated-output remains gated, but the local dev-stack proof now executes a
 scoped generated-output workflow and writes local result/evidence dataset-shaped artifacts through a
@@ -2027,9 +2036,14 @@ reuse.
 discovery, read chunk, columnarize/encode, Vortex segment write, reopen verification, and sink
 evidence tasks. The report carries task manifest IDs/digests, task roles, source split refs, byte
 and row range refs, Vortex segment refs, writer sink refs, memory/sink pressure posture,
+execution-window IDs/counts/digests, `vortex_capillary_preparation_scheduler_applied`,
 execution/Native I/O certificates, correctness refs, prefixed PulseWeave fields, and
 no-standalone-lane/no-fallback fields. PulseWeave can apply only when ProofBound admits the
-capillary task graph; otherwise the route remains report-only or deterministically blocked.
+capillary task graph; admitted rows use `batch_window_size()` to expose the bounded manifest window
+plan. The 6E-2 runtime promotion adds `vortex_capillary_preparation_prewrite_*` evidence and applies
+the admitted task-role gates before local source split/read, array build, Vortex write, reopen
+verification, and sink-evidence rendering. Blocked or below-threshold rows keep the existing
+ShardLoom-native route and report why the pre-write scheduler did not apply.
 
 `GAR-IOREUSE-1L` adds VortexScoutIngress evidence to that same route. `vortex-ingest-smoke` now
 emits `vortex_scout_ingress_*` fields for source format/path, SourceState ID/digest, schema digest
@@ -2280,6 +2294,25 @@ it runs `UniversalIngress`, `SourceState`, `vortex_ingest`, `VortexPreparedState
 scenario batch in one ShardLoom process while keeping preparation timing separate from child query
 timing. Full local benchmark profiles must include this lane so public evidence covers the
 prepare-once runtime route, not only the warm prepared replay route.
+
+The Python route handle also has a caller-owned workspace reuse form. After one successful
+compatibility preparation, `ctx.prepare_vortex(..., workspace=...).run_batch(...)` writes
+`<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`. A later compatible call validates
+source fingerprints, prepare policy, and local Vortex artifact fingerprints; on a hit it skips
+compatibility re-preparation and invokes `traditional-analytics-vortex-batch-run` over the existing
+`VortexPreparedState` artifacts. On source or artifact drift it invalidates the manifest and uses
+the normal prepare/batch route. Rust/CLI reports now carry the same reuse vocabulary in typed
+`compute_flow_evidence`: cold preparation, warm prepared input, native Vortex input, and
+single-process prepare/batch reuse are distinguishable without benchmark-promotion inference.
+The Rust/CLI `traditional-analytics-prepare-batch-run` surface now uses the workspace manifest
+directly as well: repeated compatible calls skip compatibility preparation, execute the prepared
+Vortex batch route over the manifest artifacts, and expose workspace reuse hit/reason/digest and
+invalidation fields.
+`vortex-ingest-smoke` now also writes an artifact-adjacent prepared-state reuse manifest for local
+`.vortex` outputs and emits a dedicated reuse report on manifest hits, so repeated identical local
+ingest skips writer/reopen work while source/artifact/plan/policy drift remains fail-closed. The
+remaining 6E-1 Rust/CLI work is broader local-source auto-route wiring across higher-level `auto`
+front doors.
 
 Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
 and `N=100` when the artifact contains enough child query evidence. If an amortization count is

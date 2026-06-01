@@ -31,6 +31,9 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
 )
 from check_benchmark_artifact_completeness import (  # noqa: E402
+    FAST_PATH_ATTRIBUTION_SCHEMA_VERSION,
+    OPERATOR_EXECUTION_MODES,
+    OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
     REQUIRED_ROUTE_FIELDS,
     ROUTE_RUNTIME_STATUSES,
     load_json,
@@ -76,6 +79,22 @@ REQUIRED_CAPILLARY_ACTIVATION_FIELDS = (
     "vortex_capillary_preparation_activation_observed_rows",
     "vortex_capillary_preparation_activation_observed_columns",
     "vortex_capillary_preparation_activation_observed_split_count",
+)
+PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
+PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
+    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+)
+PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
+    "shardloom.python.prepared_vortex_reuse_manifest.v1"
+)
+REQUIRED_PREPARED_STATE_REUSE_FIELDS = (
+    "prepared_state_reuse_scope",
+    "prepared_state_reuse_manifest_path",
+    "prepared_state_reuse_policy",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
 )
 BLOCKING_SHARDLOOM_STATUSES = {"blocked", "unsupported", "failed", "error"}
 MIN_CLAIM_GRADE_ITERATIONS = 3
@@ -270,6 +289,16 @@ def finite_non_negative_number(value: Any) -> bool:
     return math.isfinite(parsed) and parsed >= 0
 
 
+def numeric_value(value: Any) -> float | None:
+    if isinstance(value, bool) or value in (None, ""):
+        return None
+    try:
+        parsed = float(str(value).strip())
+    except ValueError:
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
 def meaningful_value(value: Any) -> bool:
     return str(value or "").strip().lower() not in {
         "",
@@ -319,6 +348,39 @@ def shardloom_claim_gate(row: dict[str, Any]) -> str:
 
 def independent_claim_grade_missing_evidence(row: dict[str, Any]) -> list[str]:
     missing: list[str] = []
+    if (
+        field_value(row, "fast_path_attribution_schema_version")
+        != FAST_PATH_ATTRIBUTION_SCHEMA_VERSION
+    ):
+        missing.append("fast_path_attribution_schema_version invalid")
+    if (
+        field_value(row, "operator_mode_inventory_schema_version")
+        != OPERATOR_MODE_INVENTORY_SCHEMA_VERSION
+    ):
+        missing.append("operator_mode_inventory_schema_version invalid")
+    operator_mode = str(field_value(row, "operator_execution_mode") or "")
+    if operator_mode not in OPERATOR_EXECUTION_MODES:
+        missing.append(f"operator_execution_mode invalid ({operator_mode or 'missing'})")
+    encoded_claim_allowed = bool_value(
+        field_value(row, "operator_encoded_native_claim_allowed")
+    )
+    operator_blocker_code = str(field_value(row, "operator_blocker_code") or "")
+    if operator_mode == "encoded_native":
+        if encoded_claim_allowed is not True:
+            missing.append("operator_encoded_native_claim_allowed!=true")
+        if operator_blocker_code != "none":
+            missing.append("encoded_native row has operator_blocker_code!=none")
+        if bool_value(field_value(row, "operator_residual_native_used")) is True:
+            missing.append("encoded_native row reports residual_native operator")
+        if bool_value(field_value(row, "operator_temporary_materialization_used")) is True:
+            missing.append("encoded_native row reports materialized temporary operator")
+    elif operator_mode in {"residual_native", "materialized_temporary", "unsupported"}:
+        if encoded_claim_allowed is not False:
+            missing.append("non_encoded_operator_row_allows_encoded_native_claim")
+        if not meaningful_value(operator_blocker_code) or operator_blocker_code == "none":
+            missing.append("non_encoded_operator_row_missing_operator_blocker_code")
+        if str(field_value(row, "encoded_native_operators") or "") != "none":
+            missing.append("non_encoded_operator_row_reports_encoded_native_operators")
     iterations = int_value(field_value(row, "iterations"))
     min_iterations = int_value(field_value(row, "reproducibility_min_iterations"))
     if min_iterations is None:
@@ -339,8 +401,52 @@ def independent_claim_grade_missing_evidence(row: dict[str, Any]) -> list[str]:
         missing.append("correctness_digest missing")
     if not finite_non_negative_number(field_value(row, "query_runtime_millis")):
         missing.append("query_runtime_millis missing_or_invalid")
+    for timing_field in (
+        "runtime_execution_ms",
+        "output_delivery_ms",
+        "evidence_capture_ms",
+        "evidence_render_ms",
+        "certificate_link_ms",
+    ):
+        if not finite_non_negative_number(field_value(row, timing_field)):
+            missing.append(f"{timing_field} missing_or_invalid")
+    if (
+        field_value(row, "evidence_render_included_in_route_total")
+        != field_value(row, "evidence_timing_included_in_total")
+    ):
+        missing.append("evidence_render_included_in_route_total mismatch")
+    if field_value(row, "evidence_required_for_claim") is not True:
+        missing.append("evidence_required_for_claim!=true")
+    if str(field_value(row, "certificate_link_status") or "") != "linked_certified_runtime_execution":
+        missing.append("certificate_link_status!=linked_certified_runtime_execution")
+    certificate_status = str(field_value(row, "runtime_execution_certificate_status") or "")
+    if "certified" not in certificate_status.lower() and certificate_status.lower() != "passed":
+        missing.append("runtime_execution_certificate_status not certified")
+    if not meaningful_value(field_value(row, "runtime_execution_certificate_id")):
+        missing.append("runtime_execution_certificate_id missing")
     if str(field_value(row, "cold_lane_timing_split_status") or "") != "complete":
         missing.append("cold_lane_timing_split_status!=complete")
+    if str(field_value(row, "route_lane_id") or "") in {
+        "cold_certified_route",
+        "prepare_once_first_query",
+        "prepare_once_batch",
+    } and str(field_value(row, "cold_bottleneck_status") or "") != "complete":
+        missing.append("cold_bottleneck_status!=complete")
+    for field in (
+        "source_state_fingerprint",
+        "source_schema_fingerprint",
+        "source_parse_plan_id",
+        "source_split_manifest_id",
+        "prepared_state_fingerprint",
+        "nearest_runnable_route",
+        "required_feature_gate",
+    ):
+        if not meaningful_value(field_value(row, field)):
+            missing.append(f"{field} missing")
+    if field_value(row, "runtime_blocker_code") in {None, ""}:
+        missing.append("runtime_blocker_code missing")
+    if str(field_value(row, "runtime_blocker_code") or "") != "none":
+        missing.append("runtime_blocker_code!=none")
     if not result_sink_replay_verified(row):
         missing.append("result_sink_replay_verified proof missing")
     return missing
@@ -427,9 +533,11 @@ def validate_profile_and_rows(
     all_engine_counts: Counter[str] = Counter()
     external_engine_counts: Counter[str] = Counter()
     route_runtime_counts: Counter[str] = Counter()
+    operator_mode_counts: Counter[str] = Counter()
     shardloom_engine_format_counts: dict[str, Counter[str]] = defaultdict(Counter)
     runtime_validation_counts: Counter[str] = Counter()
     missing_capillary_count = 0
+    missing_reuse_evidence_count = 0
     non_success_examples: list[str] = []
     non_claim_examples: list[str] = []
     requirements_examples: list[str] = []
@@ -441,8 +549,10 @@ def validate_profile_and_rows(
     runtime_claim_examples: list[str] = []
     missing_route_examples: list[str] = []
     invalid_route_examples: list[str] = []
+    invalid_operator_mode_examples: list[str] = []
     unsupported_external_examples: list[str] = []
     independent_claim_examples: list[str] = []
+    reuse_evidence_examples: list[str] = []
     missing_independent_claim_proof_count = 0
 
     if profile not in PROFILES:
@@ -504,12 +614,64 @@ def validate_profile_and_rows(
         route_status = str(field_value(row, "route_runtime_status") or "")
         if route_status:
             route_runtime_counts[route_status] += 1
+        operator_mode = str(field_value(row, "operator_execution_mode") or "")
+        if operator_mode:
+            operator_mode_counts[operator_mode] += 1
         missing_route = sorted(REQUIRED_ROUTE_FIELDS - set(row))
         if missing_route and len(missing_route_examples) < 5:
             missing_route_examples.append(f"{index}:{engine}:{missing_route}")
+        ledger_schema = field_value(row, "route_timing_ledger_schema_version")
+        if (
+            ledger_schema != "shardloom.route_timing_ledger.v1"
+            and len(invalid_route_examples) < 5
+        ):
+            invalid_route_examples.append(
+                f"{index}:{engine}:route_timing_ledger_schema_version={ledger_schema!r}"
+            )
+        ledger_status = field_value(row, "route_timing_ledger_status")
+        if ledger_status != "valid" and len(invalid_route_examples) < 5:
+            invalid_route_examples.append(
+                f"{index}:{engine}:route_timing_ledger_status={ledger_status!r}"
+            )
+        included_total = numeric_value(field_value(row, "route_timing_included_stage_total_ms"))
+        total_route = numeric_value(field_value(row, "total_route_ms"))
+        ledger_delta = numeric_value(field_value(row, "route_timing_total_delta_ms"))
+        if (
+            included_total is None
+            or total_route is None
+            or ledger_delta is None
+            or abs(included_total - total_route) > 0.001
+            or ledger_delta > 0.001
+        ) and len(invalid_route_examples) < 5:
+            invalid_route_examples.append(
+                f"{index}:{engine}:route timing ledger does not reproduce total_route_ms"
+            )
         if route_status not in ROUTE_RUNTIME_STATUSES and len(invalid_route_examples) < 5:
             invalid_route_examples.append(
                 f"{index}:{engine}:route_runtime_status={route_status!r}"
+            )
+        operator_schema = field_value(row, "operator_mode_inventory_schema_version")
+        if (
+            operator_schema != OPERATOR_MODE_INVENTORY_SCHEMA_VERSION
+            and len(invalid_operator_mode_examples) < 5
+        ):
+            invalid_operator_mode_examples.append(
+                f"{index}:{engine}:operator_mode_inventory_schema_version={operator_schema!r}"
+            )
+        if (
+            operator_mode not in OPERATOR_EXECUTION_MODES
+            and len(invalid_operator_mode_examples) < 5
+        ):
+            invalid_operator_mode_examples.append(
+                f"{index}:{engine}:operator_execution_mode={operator_mode!r}"
+            )
+        fast_path_schema = field_value(row, "fast_path_attribution_schema_version")
+        if (
+            fast_path_schema != FAST_PATH_ATTRIBUTION_SCHEMA_VERSION
+            and len(invalid_route_examples) < 5
+        ):
+            invalid_route_examples.append(
+                f"{index}:{engine}:fast_path_attribution_schema_version={fast_path_schema!r}"
             )
         for claim_field in (
             "performance_claim_allowed",
@@ -528,6 +690,21 @@ def validate_profile_and_rows(
             if route_status != "external_baseline_only" and len(invalid_route_examples) < 5:
                 invalid_route_examples.append(
                     f"{index}:{engine}:external route status must be external_baseline_only"
+                )
+            if (
+                operator_mode != "external_baseline_only"
+                and len(invalid_operator_mode_examples) < 5
+            ):
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:external operator mode must be external_baseline_only"
+                )
+            if (
+                bool_value(field_value(row, "operator_encoded_native_claim_allowed"))
+                is not False
+                and len(invalid_operator_mode_examples) < 5
+            ):
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:external row allows encoded-native operator claim"
                 )
             if row.get("status") == "unsupported" and len(unsupported_external_examples) < 5:
                 unsupported_external_examples.append(f"{index}:{engine}:{storage_format}")
@@ -549,6 +726,53 @@ def validate_profile_and_rows(
             invalid_route_examples.append(
                 f"{index}:{engine}:ShardLoom route status cannot be external_baseline_only"
             )
+        if operator_mode == "external_baseline_only" and len(invalid_operator_mode_examples) < 5:
+            invalid_operator_mode_examples.append(
+                f"{index}:{engine}:ShardLoom operator mode cannot be external_baseline_only"
+            )
+        if (
+            row.get("status") == "success"
+            and operator_mode == "unsupported"
+            and len(invalid_operator_mode_examples) < 5
+        ):
+            invalid_operator_mode_examples.append(
+                f"{index}:{engine}:successful ShardLoom row reports unsupported operator mode"
+            )
+        encoded_claim_allowed = bool_value(
+            field_value(row, "operator_encoded_native_claim_allowed")
+        )
+        if operator_mode == "encoded_native":
+            if encoded_claim_allowed is not True and len(invalid_operator_mode_examples) < 5:
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:encoded_native row missing encoded-native claim allowance"
+                )
+            if (
+                str(field_value(row, "operator_blocker_code") or "") != "none"
+                and len(invalid_operator_mode_examples) < 5
+            ):
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:encoded_native row has operator blocker"
+                )
+        elif operator_mode in {"residual_native", "materialized_temporary", "unsupported"}:
+            blocker_code = str(field_value(row, "operator_blocker_code") or "")
+            if encoded_claim_allowed is not False and len(invalid_operator_mode_examples) < 5:
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:non-encoded row allows encoded-native operator claim"
+                )
+            if (
+                (not meaningful_value(blocker_code) or blocker_code == "none")
+                and len(invalid_operator_mode_examples) < 5
+            ):
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:non-encoded row missing operator blocker"
+                )
+            if (
+                str(field_value(row, "encoded_native_operators") or "") != "none"
+                and len(invalid_operator_mode_examples) < 5
+            ):
+                invalid_operator_mode_examples.append(
+                    f"{index}:{engine}:non-encoded row reports encoded-native operators"
+                )
         if row.get("status") == "success" and route_status == "unsupported":
             if len(invalid_route_examples) < 5:
                 invalid_route_examples.append(
@@ -561,6 +785,54 @@ def validate_profile_and_rows(
         shardloom_status_counts[status] += 1
         claim_gate = shardloom_claim_gate(row)
         shardloom_claim_counts[claim_gate] += 1
+        missing_reuse_fields = [
+            key for key in REQUIRED_PREPARED_STATE_REUSE_FIELDS if key not in row
+        ]
+        reuse_hit = bool_value(field_value(row, "prepared_state_reuse_hit")) is True
+        reused = bool_value(field_value(row, "prepared_state_reused")) is True
+        if missing_reuse_fields:
+            missing_reuse_evidence_count += 1
+            if len(reuse_evidence_examples) < 5:
+                reuse_evidence_examples.append(
+                    f"{index}:{engine}:missing={','.join(missing_reuse_fields)}"
+                )
+        elif reuse_hit or reused:
+            invalid_reuse_fields = [
+                key
+                for key in (
+                    "prepared_state_reuse_scope",
+                    "prepared_state_reuse_reason",
+                    "prepared_state_reuse_manifest_digest",
+                    "prepared_state_invalidation_reason",
+                )
+                if not meaningful_value(field_value(row, key))
+                or str(field_value(row, key)).strip().lower()
+                in {
+                    "not_applicable",
+                    "not_applicable_no_prepared_state",
+                    "not_applicable_no_reuse_manifest_for_route",
+                }
+            ]
+            if invalid_reuse_fields:
+                missing_reuse_evidence_count += 1
+                if len(reuse_evidence_examples) < 5:
+                    reuse_evidence_examples.append(
+                        f"{index}:{engine}:invalid={','.join(invalid_reuse_fields)}"
+                    )
+            if field_value(row, "prepared_state_reuse_scope") == (
+                PREPARED_STATE_REUSE_WORKSPACE_SCOPE
+            ):
+                if (
+                    field_value(row, "prepared_state_reuse_manifest_path")
+                    != PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH
+                    or field_value(row, "prepared_state_reuse_policy")
+                    != PREPARED_STATE_REUSE_WORKSPACE_POLICY
+                ):
+                    missing_reuse_evidence_count += 1
+                    if len(reuse_evidence_examples) < 5:
+                        reuse_evidence_examples.append(
+                            f"{index}:{engine}:invalid_workspace_manifest_contract"
+                        )
         runtime_validation = validate_runtime_execution_fields(
             runtime_validation_field_map(row),
             command="published-benchmark-row",
@@ -717,6 +989,11 @@ def validate_profile_and_rows(
             "published benchmark rows have invalid route runtime/status claim fields; "
             f"examples={invalid_route_examples}"
         )
+    if invalid_operator_mode_examples:
+        blockers.append(
+            "published benchmark rows have invalid operator mode/encoded-native claim fields; "
+            f"examples={invalid_operator_mode_examples}"
+        )
     failed_runtime_validations = {
         status: count
         for status, count in runtime_validation_counts.items()
@@ -748,6 +1025,11 @@ def validate_profile_and_rows(
             "ShardLoom publication rows missing capillary activation evidence fields: "
             f"{missing_capillary_count}"
         )
+    if missing_reuse_evidence_count:
+        blockers.append(
+            "ShardLoom publication rows missing prepared-state reuse evidence fields: "
+            f"{missing_reuse_evidence_count}; examples={reuse_evidence_examples}"
+        )
 
     return {
         "required_publication_formats": list(REQUIRED_PUBLICATION_FORMATS),
@@ -757,6 +1039,7 @@ def validate_profile_and_rows(
         "all_engine_counts": dict(sorted(all_engine_counts.items())),
         "external_engine_counts": dict(sorted(external_engine_counts.items())),
         "route_runtime_status_counts": dict(sorted(route_runtime_counts.items())),
+        "operator_execution_mode_counts": dict(sorted(operator_mode_counts.items())),
         "external_baseline_unsupported_examples": unsupported_external_examples,
         "shardloom_row_count": sum(shardloom_engine_counts.values()),
         "shardloom_engine_counts": dict(sorted(shardloom_engine_counts.items())),
@@ -776,6 +1059,7 @@ def validate_profile_and_rows(
         "shardloom_status_counts": dict(sorted(shardloom_status_counts.items())),
         "shardloom_claim_gate_counts": dict(sorted(shardloom_claim_counts.items())),
         "missing_capillary_activation_row_count": missing_capillary_count,
+        "missing_prepared_state_reuse_evidence_row_count": missing_reuse_evidence_count,
     }
 
 

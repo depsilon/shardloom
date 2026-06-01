@@ -159,10 +159,11 @@ The same query shape can read other admitted local formats through `read_json(..
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
 
-Bounded materialization is explicit. Local-source workflows that already carry a `limit(...)`, or
-SQL workflows that pass a `limit=...`, can decode ShardLoom's inline JSONL result into Python
-objects, a notebook preview, or optional pandas/Arrow/NumPy containers. Those optional packages are
-not execution engines:
+Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
+`collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
+`.limit(...).collect()`. Those bounded routes can decode ShardLoom's inline JSONL result into
+Python objects, a notebook preview, or optional pandas/Arrow/NumPy containers. Those optional
+packages are not execution engines:
 
 ```python
 preview = (
@@ -247,32 +248,45 @@ python -c "from shardloom import context; ctx=context(); r=ctx.prepare_vortex('t
 Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
 path is a local fixture smoke; it is not the primary user API, broad Vortex writer support,
 object-store/table output support, production SQL/DataFrame support, or a performance claim.
+When capillary preparation is admitted, the report exposes
+`vortex_capillary_preparation_prewrite_status`,
+`vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array
+build, write, reopen, and sink evidence so Python callers can see whether PulseWeave-shaped work
+windows affected the local route before artifact creation.
 
-Traditional analytics compatibility inputs can also use a single-process prepare/batch route
-through `ShardLoomClient.traditional_analytics_prepare_batch_run(...)` or the convenience
-`prepare_and_run_traditional_analytics_vortex_batch(...)` helper. Both invoke
-`traditional-analytics-prepare-batch-run`, prepare the local fact/dimension inputs once into
-prepared Vortex artifacts, then run a prepared/native scenario batch while preserving
-`prepare_batch_*`, source-state reuse, fallback, and claim-boundary fields:
+Traditional analytics compatibility inputs can also use the explicit context/session prepared route
+or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
+`session.prepare_vortex(..., workspace=...)` return a route handle for
+`compatibility_import_certified -> prepared_vortex`; `query(...).collect()` runs a single prepared
+query and `run_batch([...])` runs a prepared scenario batch. The first compatible call invokes
+`traditional-analytics-prepare-batch-run`, prepares the local fact/dimension inputs once into
+prepared Vortex artifacts, and writes a caller-owned workspace manifest. Later compatible calls
+reuse that manifest and run `traditional-analytics-vortex-batch-run` directly over the existing
+artifacts when source, artifact, and prepare-policy fingerprints match. The returned envelope keeps
+`prepare_batch_*`, source-state reuse, fallback, claim-boundary, `prepared_state_reuse_hit`,
+`prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and `invalidation_reason`
+fields visible:
 
 ```python
-from shardloom import ShardLoomClient
+import shardloom as sl
 
-client = ShardLoomClient.from_repo()
-result = client.traditional_analytics_prepare_batch_run(
-    ["selective filter", "filter + projection + limit"],
+ctx = sl.context()
+prepared = ctx.prepare_vortex(
     "fact.csv",
-    "dim.csv",
+    dim="dim.csv",
     workspace="target/prepare-batch",
     input_format="csv",
     evidence_level="certified",
 )
+result = prepared.run_batch(["selective filter", "filter + projection + limit"])
 
-print(result.field("prepare_batch_preparation_included_in_batch_timing"))
-print(result.field("source_state_reuse_status"))
-print(result.field("prepare_batch_lifecycle_status"))
-print(result.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"))
-print(result.fallback.attempted)
+print(prepared.route_fields())
+print(result.batch.field("prepare_batch_preparation_included_in_batch_timing"))
+print(result.batch.field("source_state_reuse_status"))
+print(result.batch.field("prepare_batch_lifecycle_status"))
+print(result.prepared_state_reuse_hit, result.prepared_state_reuse_reason)
+print(result.batch.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"))
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
 This is a scoped local runtime route for avoiding repeated compatibility preparation inside a batch.
@@ -282,9 +296,37 @@ This is a scoped local runtime route for avoiding repeated compatibility prepara
 posture. `ExecutionResultEnvelopeView.prepared_native_vortex_lifecycle_status` and related output/
 no-standalone accessors expose the per-scenario lifecycle fields when a typed execution result
 contains them.
-Use `prepare_traditional_analytics_vortex_artifacts(...)` only when the caller needs to manage
-prepared artifacts explicitly across later commands. This is not a native Python binding,
+Use `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`,
+`prepare_and_run_traditional_analytics_vortex_batch(...)`, or
+`prepare_traditional_analytics_vortex_artifacts(...)` only when the caller needs lower-level CLI
+control or explicit artifact lifecycle management across later commands. This is not a native Python binding,
 persistent cache, object-store/table runtime, package-readiness claim, or performance claim.
+
+For existing native `.vortex` fact/dimension artifacts, use the route-level native handle when you
+want the same benchmark-family runtime path rather than isolated primitive helpers:
+
+```python
+native = ctx.native_vortex_route(
+    "fact.vortex",
+    "dim.vortex",
+    execution_mode="native_vortex",
+    memory_gb=4,
+    max_parallelism=1,
+)
+
+result = native.query("selective filter").collect()
+sink = native.query("selective filter").write_vortex("target/native-result")
+
+print(native.route_fields())
+print(result.field("selected_execution_mode"))
+print(result.fallback.attempted)
+```
+
+`read_vortex(...).count/filter/select/limit/collect` remains the scoped primitive/query-builder
+surface. `native_vortex_route(...)` is the explicit route-comparable surface for
+`traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run`; it keeps source,
+execution mode, scenario/operator, memory/parallelism hints, result sink, and no-fallback evidence
+visible.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
@@ -613,6 +655,12 @@ generic expression missing-source-column and division-by-zero cases, `COALESCE(.
 mismatches block deterministically before fallback. `CASE WHEN` projections currently admit one
 branch, admitted predicate leaves, non-NULL literal branches, and matching branch dtypes only.
 Unsupported computed-column expressions still block before fallback.
+For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.select(...)`,
+`.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
+projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
+`.sort_by(...)`, and `.sort_values(...)` are aliases for `.sort(...)`. These aliases do not widen
+the expression registry or execution providers; they lower to the same scoped ShardLoom runtime
+routes and evidence fields as the canonical methods.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
@@ -775,11 +823,23 @@ collected = workflow.collect()
 python_objects = workflow.to_python_objects()
 schema_report = workflow.schema()
 schema_validation = workflow.validate_schema({"id": "int64", "label": "string"})
+schema_contract = workflow.schema_contract({"id": "int64", "label": "string"})
 quality_report = workflow.data_quality_check("not_null:id", "unique:id")
+profile_report = workflow.profile()
+quarantine_report = workflow.quarantine(
+    "target/sql-local-source-quarantine.jsonl",
+    "not_null:label",
+    output_format="jsonl",
+    allow_overwrite=True,
+)
 sql_workflow = ctx.sql("SELECT id,label,amount FROM 'target/sql-local-source-smoke.csv'")
 sql_schema = sql_workflow.schema()
+sql_contract = sql_workflow.schema_contract({"id": "int64", "label": "string"})
 sql_quality = sql_workflow.data_quality_summary()
+sql_profile = sql_workflow.profile(limit=100)
 sql_preview = sql_workflow.preview(limit=2)
+sql_rows = sql_workflow.collect(limit=2)
+sql_rows_from_chain = sql_workflow.limit(2).collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
 fanout_written = workflow.fanout(
@@ -1003,6 +1063,7 @@ claim = written.claim_summary
 print(collected.first_result_row)
 print(workflow.schema().schema_map)
 print(workflow.validate_schema({"id": "int64", "label": "string"}).valid)
+print(workflow.schema_contract({"id": "int64", "label": "string"}).valid)
 print(workflow.data_quality_summary().null_counts)
 print(workflow.data_quality_check("not_null:id", "unique:id").passed)
 print(summary.output_path)
@@ -1164,7 +1225,6 @@ reports = [
     selected_workflow.agg("count(*)"),
     workflow.sort("event_date"),
     workflow.data_quality_check("regex:id"),
-    workflow.quarantine("bad-events.vortex"),
     sl.read_csv("events.data").display(),
     ctx.sql_parse("select * from events"),
     ctx.sql_bind("select * from events"),
@@ -1182,7 +1242,7 @@ for report in reports:
 
 Every report above is generated through `workflow-unsupported-plan` and returns
 `status="unsupported"` with `fallback_attempted=false`. The methods do not
-use pandas, pyarrow, or numpy as execution engines, write quarantine outputs, parse SQL, execute
+use pandas, pyarrow, or numpy as execution engines, parse SQL, execute
 unsupported DataFrame expressions, render broad notebook runtime output, invoke Foundry/model
 services, or use another engine as fallback. Valid pandas/Arrow inputs are treated as explicit
 materialized snapshots that lower to generated-source user rows, not as hidden external execution.
@@ -1217,6 +1277,9 @@ projection/optional-filter/limit bridges are marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
 and scoped ranking-window shapes described above.
+Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and
+`sort_values` are included in the matrix so wrappers and agents can distinguish familiar method
+names that lower to existing runtime evidence from genuinely unsupported DataFrame requests.
 `ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
 collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
 parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still
@@ -1225,12 +1288,25 @@ for the scoped literal helper and for concrete generated builders such as
 `ctx.from_rows(...).with_column(...)` and `ctx.range(...).with_column(...)`; broad generated
 DataFrame expression runtime still uses deterministic unsupported diagnostics.
 It does not use DataFrame libraries as execution engines, invoke external engines, or upgrade
-DataFrame/notebook support to claim-grade status. Other lazy source, `filter`, `select`, `limit`,
-and `group_by` helpers remain side-effect-free declarations unless an admitted terminal method is
-called. Joins, aggregations, windows, schema/data-quality helpers, bounded Python-object
-materialization, optional pandas/Arrow/NumPy conversion, and notebook preview remain fixture-scoped;
-broad unbounded materialization and production notebook display remain deterministic unsupported
-surfaces unless later evidence-backed slices promote them.
+DataFrame/notebook support to claim-grade status. Other lazy source, `filter`, `select`/`project`,
+`limit`, and `group_by`/`groupby` helpers remain side-effect-free declarations unless an admitted
+terminal method is called. Joins, aggregations, windows, schema/data-quality helpers, bounded
+runtime profile, scoped local-source quarantine, bounded Python-object materialization, optional
+pandas/Arrow/NumPy conversion, and notebook preview remain fixture-scoped; broad unbounded
+materialization, production observability, production quarantine governance, and production notebook
+display remain deterministic unsupported surfaces unless later evidence-backed slices promote them.
+`schema_contract(...)` is supported as the exact bounded `validate_schema(...)` contract over the
+same admitted local-source rows; it is not a broad schema registry, table constraint manager, or
+object-store/lakehouse enforcement surface.
+`profile(...)` is supported as a bounded local-source runtime profile over the same
+`sql-local-source-smoke` path, reporting row count, field count, null counts, inline JSONL
+materialization, and no-fallback evidence. It is not a hidden pandas/Polars profiler, resource
+tracer, performance claim, or production observability surface.
+`quarantine(...)` is supported for scoped local-source bounded classification; pushdownable
+`not_null:column` quarantine rows can write to admitted local sinks through
+`sql-local-source-smoke`, while non-pushdown checks remain explicit report-only bounded
+classification. It is not object-store/table quarantine, production remediation, or a broad
+data-governance engine.
 
 When the question is broader than one DataFrame method, use the front-door parity matrix. It
 separates workflows that already lower SQL, Python, and DataFrame-style code to the same ShardLoom
@@ -1626,7 +1702,9 @@ semantics as `ctx.range(...)`. The range SQL subset also admits scoped int64 pro
 single-branch int64 `CASE`, one range-column filter, `ORDER BY` over the range source column or
 projected int64 aliases, and `LIMIT`, so fluent
 `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)` lowers through the
-same generated-source SQL smoke. Source-free top-N reports
+same generated-source SQL smoke; the generated range builder also accepts `project`,
+`with_columns`/`assign`, and `order_by`/`sort_by`/`sort_values` aliases over those same operations.
+Source-free top-N reports
 `sql_source_free_order_by_runtime_execution`, `sql_source_free_top_n_runtime_execution`,
 `sql_source_free_sort_keys`, `sql_source_free_sort_direction`,
 `sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
@@ -1712,9 +1790,13 @@ scalar Parquet/Arrow IPC/Avro/ORC/Vortex lanes. Default binaries return determin
 structured sinks until built with `--features universal-format-io`, and for Vortex until built with
 `--features vortex-write`. Vortex generated-output reports include
 `vortex_output_runtime_execution`, `vortex_output_reopen_verified`, `vortex_artifact_digest`,
-`upstream_vortex_write_called`, and `upstream_vortex_scan_called`. S3/object-store writes remain
-report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs rather
-than direct S3 paths.
+`upstream_vortex_write_called`, and `upstream_vortex_scan_called`.
+`ctx.generated_output_to_object_store(...)` now admits a scoped local-emulator fixture route by
+staging generated rows through `generated-source-user-rows-smoke` and then committing them through
+`object-store-write-smoke`; live S3/GCS/ADLS providers, table/lakehouse commits, and production
+object-store claims remain gated. `ctx.foundry_generated_output(...)` admits only the local
+Foundry-style result/evidence dataset proof; real Foundry output APIs, production Foundry runtime,
+and direct S3/object-store shortcuts remain gated.
 
 The scoped DataFrame source-free projection helper lowers literal aliases to the generated-source
 local-output command and returns the same `GeneratedSourceWriteReport` as other generated-output
@@ -1734,20 +1816,42 @@ through the same generated-source local-output command:
 )
 ```
 
-The Python context still exposes deterministic unsupported report helpers for remaining non-local
-source-free forms. These helpers do not execute a DataFrame plan, generate rows, write outputs,
-probe object stores, invoke Foundry, or call an external engine; they return the same
-`workflow-unsupported-plan` envelope with source-free blocker IDs and required evidence:
+Generated rows can also be written through the scoped local-emulator object-store route:
 
 ```python
-ctx.generated_output_to_object_store("s3://bucket/out.jsonl")
-ctx.foundry_generated_output("foundry://dataset/output")
+object_store = ctx.generated_output_to_object_store(
+    "target/object-store/generated.jsonl",
+    rows=[{"id": 1, "label": "alpha"}],
+    allow_overwrite=True,
+)
+
+print(object_store.object_store_write_status)
+print(object_store.fallback_attempted, object_store.external_engine_invoked)
 ```
 
-Use these helpers when code wants a typed, no-effect diagnostic instead of a
-missing-method failure. They preserve `fallback_attempted=false`,
-`external_engine_invoked=false`, `runtime_execution=false`, and
-`claim_gate_status=not_claim_grade`.
+The Foundry helper is similarly scoped to the local dev-stack proof. A local path writes generated
+rows through ShardLoom into a result dataset-shaped directory and writes an evidence
+dataset-shaped directory through the local Foundry-style output API:
+
+```python
+foundry = ctx.foundry_generated_output(
+    "target/foundry/result-dataset",
+    rows=[{"id": 1, "label": "alpha"}],
+    allow_overwrite=True,
+)
+
+print(foundry.foundry_style_output_api_invoked)
+print(foundry.fallback_attempted, foundry.external_engine_invoked)
+```
+
+Remote object-store generated-output targets and real Foundry references still expose deterministic
+unsupported reports when called with `check=False`. Those reports do not stage rows, probe
+credentials, invoke real Foundry, call an external engine, or attempt fallback:
+
+```python
+remote_report = ctx.generated_output_to_object_store("s3://bucket/out.jsonl", check=False)
+foundry_report = ctx.foundry_generated_output("foundry://dataset/output")
+```
 
 The client also exposes the P7 claim gate closeout report:
 

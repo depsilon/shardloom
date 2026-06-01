@@ -1130,6 +1130,7 @@ pub fn execute_vortex_local_primitive_with_policy(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_primitive_enabled(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,

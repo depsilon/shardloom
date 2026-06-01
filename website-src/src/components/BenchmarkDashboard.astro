@@ -8,9 +8,21 @@ const claimRows = Array.isArray(claimDistribution.rows) ? claimDistribution.rows
 const routeLaneTable = dashboard.route_lane_comparison ?? {};
 const routeLaneRows = Array.isArray(routeLaneTable.rows) ? routeLaneTable.rows : [];
 const routeLaneHeaders = Array.isArray(routeLaneTable.headers) ? routeLaneTable.headers : [];
+const preparedAmortizationTable = dashboard.prepared_route_amortization ?? {};
+const preparedAmortizationRows = Array.isArray(preparedAmortizationTable.rows) ? preparedAmortizationTable.rows : [];
+const preparedAmortizationHeaders = Array.isArray(preparedAmortizationTable.headers) ? preparedAmortizationTable.headers : [];
 const stageAttributionTable = dashboard.stage_attribution ?? {};
 const stageAttributionRows = Array.isArray(stageAttributionTable.rows) ? stageAttributionTable.rows : [];
 const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? stageAttributionTable.headers : [];
+const fastPathTable = dashboard.fast_path_attribution ?? {};
+const fastPathRows = Array.isArray(fastPathTable.rows) ? fastPathTable.rows : [];
+const fastPathHeaders = Array.isArray(fastPathTable.headers) ? fastPathTable.headers : [];
+const operatorModeTable = dashboard.operator_mode_inventory ?? {};
+const operatorModeRows = Array.isArray(operatorModeTable.rows) ? operatorModeTable.rows : [];
+const operatorModeHeaders = Array.isArray(operatorModeTable.headers) ? operatorModeTable.headers : [];
+const operatorCandidateTable = dashboard.operator_hot_path_candidates ?? {};
+const operatorCandidateRows = Array.isArray(operatorCandidateTable.rows) ? operatorCandidateTable.rows : [];
+const operatorCandidateHeaders = Array.isArray(operatorCandidateTable.headers) ? operatorCandidateTable.headers : [];
 const routeRuntimeTable = dashboard.route_runtime_status ?? {};
 const routeRuntimeRows = Array.isArray(routeRuntimeTable.rows) ? routeRuntimeTable.rows : [];
 const engineOverview = dashboard.engine_timing_overview ?? {};
@@ -24,6 +36,7 @@ const closeoutTable = dashboard.claim_grade_closeout ?? {};
 const closeoutRows = Array.isArray(closeoutTable.rows) ? closeoutTable.rows : [];
 const coldLaneTable = dashboard.cold_lane_attribution ?? {};
 const coldLaneRows = Array.isArray(coldLaneTable.rows) ? coldLaneTable.rows : [];
+const coldLaneHeaders = Array.isArray(coldLaneTable.headers) ? coldLaneTable.headers : ["Classification", "Timing split", "Primary bottleneck", "Source pressure", "Rows", "Optimization hint"];
 const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows) ? (benchmark as any).published_benchmark_rows : [];
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
@@ -33,6 +46,202 @@ const supportCounts = (runsTodayMatrix as any).support_state_counts ?? {};
 const supportRowCount = (runsTodayMatrix as any).row_count ?? 0;
 const supportClaimBoundary = (runsTodayMatrix as any).claim_boundary ?? "not reported";
 const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-today-support-matrix.json";
+
+const ROUTE_CARD_ORDER = [
+  "cold_certified_route",
+  "prepare_once_first_query",
+  "prepare_once_batch",
+  "warm_prepared_query",
+  "native_vortex_query",
+] as const;
+
+const ROUTE_CARD_COPY: Record<string, { eyebrow: string; scope: string; warning?: string; routeViewTokens: string[] }> = {
+  cold_certified_route: {
+    eyebrow: "Cold E2E",
+    scope: "Raw compatibility input is admitted, ingested to Vortex, reopened, queried, and emitted with evidence in one route.",
+    routeViewTokens: ["end-to-end", "diagnostic-stage"],
+  },
+  prepare_once_first_query: {
+    eyebrow: "Prepare once",
+    scope: "Raw compatibility input is prepared into VortexPreparedState, then the first prepared query and output route runs.",
+    routeViewTokens: ["end-to-end", "diagnostic-stage"],
+  },
+  prepare_once_batch: {
+    eyebrow: "Batch reuse",
+    scope: "Raw compatibility input is prepared once, then multiple prepared scenarios reuse the same process state.",
+    routeViewTokens: ["end-to-end", "diagnostic-stage"],
+  },
+  warm_prepared_query: {
+    eyebrow: "Warm prepared",
+    scope: "Query timing starts after VortexPreparedState already exists.",
+    warning: "Not comparable to raw-source external end-to-end baselines.",
+    routeViewTokens: ["prepared-state", "diagnostic-stage"],
+  },
+  native_vortex_query: {
+    eyebrow: "Native Vortex",
+    scope: "Input starts at the Vortex-native boundary, so compatibility preparation is not part of the route.",
+    warning: "Not comparable to CSV/Parquet external end-to-end baselines.",
+    routeViewTokens: ["native-vortex", "diagnostic-stage"],
+  },
+};
+
+const BADGE_FIXTURE_RUNTIME_STATUSES = [
+  "runtime_supported",
+  "scoped_runtime_supported",
+  "smoke_supported",
+  "blocked",
+  "unsupported",
+];
+const BADGE_FIXTURE_EVIDENCE_STATUSES = [
+  "claim_grade",
+  "external_baseline_only",
+  "diagnostic_only",
+];
+
+function textValue(value: unknown, fallback = "not reported"): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  return String(value);
+}
+
+function boolText(value: unknown): string {
+  return value === true ? "yes" : "no";
+}
+
+function statusClass(value: unknown): string {
+  return `status-${textValue(value, "not-reported").replaceAll("_", "-")}`;
+}
+
+function countBy(rows: any[], key: string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const value = textValue(row?.[key]);
+    counts[value] = (counts[value] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countEntries(counts: Record<string, number>): [string, number][] {
+  return Object.entries(counts).sort((left, right) => {
+    if (right[1] !== left[1]) return right[1] - left[1];
+    return left[0].localeCompare(right[0]);
+  });
+}
+
+function firstValue(rows: any[], key: string, fallback = "not reported"): string {
+  for (const row of rows) {
+    const value = row?.[key];
+    if (value !== null && value !== undefined && value !== "") return String(value);
+  }
+  return fallback;
+}
+
+function routeLaneObject(row: unknown[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  routeLaneHeaders.forEach((header: string, index: number) => {
+    result[header] = row[index];
+  });
+  return result;
+}
+
+function stageObject(row: unknown[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  stageAttributionHeaders.forEach((header: string, index: number) => {
+    result[header] = row[index];
+  });
+  return result;
+}
+
+function parseMillis(value: unknown): number | null {
+  const match = String(value ?? "").match(/([0-9]+(?:\.[0-9]+)?)\s*ms/);
+  return match ? Number(match[1]) : null;
+}
+
+function routeStageSummary(stage: Record<string, unknown> | undefined): string {
+  if (!stage) return "Stage split not reported.";
+  const prep = textValue(stage["Source -> Vortex array"], textValue(stage["Vortex write"], "n/a"));
+  const query = textValue(stage["Vortex scan"], "n/a");
+  const output = textValue(stage["Result sink"], "n/a");
+  const evidence = textValue(stage["Evidence render"], "n/a");
+  return `prep ${prep} / query ${query} / output ${output} / evidence ${evidence}`;
+}
+
+const routeLaneObjects: Record<string, unknown>[] = routeLaneRows.map((row: unknown[]) => routeLaneObject(row));
+const routeLaneByDisplay: Map<string, Record<string, unknown>> = new Map(
+  routeLaneObjects.map((row: Record<string, unknown>) => [textValue(row["Lane"]), row] as const),
+);
+const stageByDisplay: Map<string, Record<string, unknown>> = new Map(
+  stageAttributionRows.map((row: unknown[]) => {
+    const object = stageObject(row);
+    return [textValue(object["Route"]), object] as const;
+  }),
+);
+
+function shardloomRouteCard(laneId: string) {
+  const rows = shardloomRows.filter((row: any) => row.route_lane_id === laneId);
+  const displayName = firstValue(rows, "route_display_name", laneId);
+  const laneSummary: Record<string, unknown> = routeLaneByDisplay.get(displayName) ?? {};
+  const copy = ROUTE_CARD_COPY[laneId] ?? {
+    eyebrow: "ShardLoom route",
+    scope: "ShardLoom route evidence.",
+    routeViewTokens: ["diagnostic-stage"],
+  };
+  const comparable = rows.some((row: any) => row.route_comparable_to_external_end_to_end === true);
+  return {
+    id: laneId,
+    title: displayName,
+    eyebrow: copy.eyebrow,
+    scope: copy.scope,
+    warning: copy.warning,
+    rows,
+    routeViewTokens: copy.routeViewTokens,
+    runtimeStatuses: countBy(rows, "route_runtime_status"),
+    evidenceStatuses: countBy(rows, "claim_gate_status"),
+    successLabel: textValue(laneSummary["Success / total"], `${rows.filter((row: any) => row.status === "success").length}/${rows.length}`),
+    geomeanLabel: textValue(laneSummary["Route geomean"], "not reported"),
+    startState: textValue(laneSummary["Starts from"], firstValue(rows, "start_state")),
+    includesPrepare: textValue(laneSummary["Includes prepare?"], boolText(rows.some((row: any) => row.includes_preparation === true))),
+    timingScope: textValue(laneSummary["Prepare timing scope"], firstValue(rows, "route_timing_scope")),
+    comparable,
+    stageSummary: routeStageSummary(stageByDisplay.get(displayName)),
+    performanceClaimAllowed: rows.some((row: any) => row.performance_claim_allowed === true),
+    productionClaimAllowed: rows.some((row: any) => row.production_claim_allowed === true),
+    sparkReplacementClaimAllowed: rows.some((row: any) => row.spark_replacement_claim_allowed === true),
+  };
+}
+
+const externalRows = publishedRows.filter((row: any) => !String(row.engine ?? "").startsWith("shardloom"));
+const externalLaneObjects: Record<string, unknown>[] = routeLaneObjects.filter((row: Record<string, unknown>) => !textValue(row["Lane"]).startsWith("ShardLoom"));
+const externalGeomeans = externalLaneObjects
+  .map((row: Record<string, unknown>) => parseMillis(row["Route geomean"]))
+  .filter((value: number | null): value is number => value !== null)
+  .sort((left: number, right: number) => left - right);
+const externalRouteCard = {
+  id: "external_baseline_end_to_end",
+  title: "External Baseline End-to-End",
+  eyebrow: "Baseline only",
+  scope: "pandas, Polars, DuckDB, Dask, and DataFusion rows run from their normal raw-source path as comparison evidence, never ShardLoom fallback.",
+  warning: "External rows are baseline context only. Unsupported baseline rows do not imply ShardLoom runtime gaps.",
+  rows: externalRows,
+  routeViewTokens: ["end-to-end"],
+  runtimeStatuses: countBy(externalRows, "route_runtime_status"),
+  evidenceStatuses: countBy(externalRows, "claim_gate_status"),
+  successLabel: `${externalRows.filter((row: any) => row.status === "success").length}/${externalRows.length}`,
+  geomeanLabel: externalGeomeans.length
+    ? `${externalGeomeans[0].toFixed(2)}-${externalGeomeans[externalGeomeans.length - 1].toFixed(2)} ms by baseline lane`
+    : "not reported",
+  startState: "raw_compat_source",
+  includesPrepare: "no",
+  timingScope: "external_baseline_end_to_end",
+  comparable: true,
+  stageSummary: "External engines report their own raw-source end-to-end timing; ShardLoom stages do not apply.",
+  performanceClaimAllowed: false,
+  productionClaimAllowed: false,
+  sparkReplacementClaimAllowed: false,
+};
+const routeCards = [
+  ...ROUTE_CARD_ORDER.map((laneId) => shardloomRouteCard(laneId)).filter((card) => card.rows.length),
+  ...(externalRows.length ? [externalRouteCard] : []),
+];
 ---
 
 <section class="page-hero">
@@ -68,18 +277,237 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
   <p class="narrow">
     Stage pieces explain a ShardLoom route; they are not competing product lanes. Warm prepared and native Vortex rows stay labeled by start state.
   </p>
+  <div class="route-card-shell" data-filter-scope data-route-card-dashboard>
+    <div class="filter-bar route-filter-bar">
+      <label>
+        Route view
+        <select data-filter="routeView">
+          <option value="">All route cards</option>
+          <option value="end-to-end">Comparable end-to-end</option>
+          <option value="prepared-state">Prepared-state steady-state</option>
+          <option value="native-vortex">Native Vortex only</option>
+          <option value="diagnostic-stage">Diagnostics and stage rows</option>
+        </select>
+      </label>
+      <label>
+        Runtime
+        <select data-filter="routeRuntime">
+          <option value="">All runtime states</option>
+          <option value="scoped_runtime_supported">Scoped runtime supported</option>
+          <option value="external_baseline_only">External baseline only</option>
+          <option value="unsupported">Unsupported visible</option>
+        </select>
+      </label>
+      <label>
+        Evidence
+        <select data-filter="evidence">
+          <option value="">All evidence states</option>
+          <option value="claim_grade">Claim-grade evidence</option>
+          <option value="external_baseline_only">External baseline evidence</option>
+          <option value="unsupported">Unsupported evidence</option>
+        </select>
+      </label>
+      <p class="filter-count" data-filter-count></p>
+    </div>
+    <div class="route-card-grid primary-route-grid">
+      {routeCards.map((card) => (
+        <article
+          class:list={["route-summary-card", { "not-comparable": !card.comparable }]}
+          data-filter-card
+          data-route-card-id={card.id}
+          data-route-view={card.routeViewTokens.join(" ")}
+          data-route-runtime={countEntries(card.runtimeStatuses).map(([status]) => status).join(" ")}
+          data-evidence={countEntries(card.evidenceStatuses).map(([status]) => status).join(" ")}
+          data-route-card-e2e-comparable={String(card.comparable)}
+        >
+          <div class="route-card-topline">
+            <span class="badge">{card.eyebrow}</span>
+            <span class:list={["compare-chip", { "compare-chip-muted": !card.comparable }]}>
+              {card.comparable ? "Comparable E2E" : "Not raw-source E2E"}
+            </span>
+          </div>
+          <h3>{card.title}</h3>
+          <p>{card.scope}</p>
+          <div class="route-card-metrics">
+            <div><span>Rows</span><strong>{card.successLabel}</strong></div>
+            <div><span>Route geomean</span><strong>{card.geomeanLabel}</strong></div>
+            <div><span>Start</span><strong>{card.startState}</strong></div>
+            <div><span>Includes prepare</span><strong>{card.includesPrepare}</strong></div>
+          </div>
+          <div class="readiness-groups" aria-label={`${card.title} readiness badges`}>
+            <div>
+              <span>Runtime</span>
+              <div>
+                {countEntries(card.runtimeStatuses).map(([status, count]) => (
+                  <span class="badge-count">
+                    <span class:list={["status-chip", statusClass(status)]}>{status}</span>
+                    <span>{count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span>Evidence</span>
+              <div>
+                {countEntries(card.evidenceStatuses).map(([status, count]) => (
+                  <span class="badge-count">
+                    <span class:list={["status-chip", statusClass(status)]}>{status}</span>
+                    <span>{count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span>Claims</span>
+              <div>
+                <span class="claim-chip">performance_claim_allowed={String(card.performanceClaimAllowed)}</span>
+                <span class="claim-chip">production_claim_allowed={String(card.productionClaimAllowed)}</span>
+                <span class="claim-chip">spark_replacement_claim_allowed={String(card.sparkReplacementClaimAllowed)}</span>
+              </div>
+            </div>
+          </div>
+          <dl class="route-card-facts">
+            <div><dt>Timing scope</dt><dd>{card.timingScope}</dd></div>
+            <div><dt>Stage split</dt><dd>{card.stageSummary}</dd></div>
+          </dl>
+          {card.warning && <p class="route-card-warning">{card.warning}</p>}
+        </article>
+      ))}
+    </div>
+    <div class="badge-fixture" data-route-badge-fixture>
+      <div>
+        <strong>Runtime badges</strong>
+        <span>{BADGE_FIXTURE_RUNTIME_STATUSES.map((status) => (
+          <span class:list={["status-chip", statusClass(status)]}>{status}</span>
+        ))}</span>
+      </div>
+      <div>
+        <strong>Evidence badges</strong>
+        <span>{BADGE_FIXTURE_EVIDENCE_STATUSES.map((status) => (
+          <span class:list={["status-chip", statusClass(status)]}>{status}</span>
+        ))}</span>
+      </div>
+    </div>
+    <details class="drawer">
+      <summary>Open route lane ledger</summary>
+      <div class="table-wrap compact-table">
+        <table>
+          <thead><tr>{routeLaneHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+          <tbody>
+            {routeLaneRows.map((row: unknown[]) => (
+              <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <p class="table-note">Schema: {routeLaneTable.schema_version ?? "not reported"}. Boundary: {routeLaneTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Stage attribution</p>
+    <h2>ShardLoom stage pieces explain route cost.</h2>
+    <p class="narrow">Preparation, query, output, evidence, and diagnostic context are separated from route-level comparisons so a warm prepared slice cannot be read as a cold end-to-end route.</p>
+  </div>
   <div class="artifact-panel">
     <div class="table-wrap compact-table">
       <table>
-        <thead><tr>{routeLaneHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{stageAttributionHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
-          {routeLaneRows.map((row: unknown[]) => (
+          {stageAttributionRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
           ))}
         </tbody>
       </table>
     </div>
-    <p class="table-note">Schema: {routeLaneTable.schema_version ?? "not reported"}. Boundary: {routeLaneTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Runtime fast path</p>
+    <h2>Runtime timing is separate from output and evidence rendering.</h2>
+    <p class="narrow">
+      Sub-ms prepared/native query work can coexist with larger sink or evidence-render costs because route timing, output delivery, evidence capture, and certificate linkage are reported as separate buckets.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <p class="table-note">Artifact table: <strong>{fastPathTable.heading ?? "Runtime Fast Path Versus Evidence Path"}</strong>.</p>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{fastPathHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {fastPathRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {fastPathTable.schema_version ?? "not reported"}. Boundary: {fastPathTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Operator mode inventory</p>
+    <h2>Runtime support is not encoded-native support.</h2>
+    <p class="narrow">
+      Rows can be scoped-runtime-supported while their operators remain residual-native or materialized-temporary. Encoded-native execution is a separate claim with its own blocker code and promotion candidate.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <p class="table-note">Artifact table: <strong>{operatorModeTable.heading ?? "Operator Mode Inventory"}</strong>.</p>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{operatorModeHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {operatorModeRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{operatorCandidateTable.heading ?? "Operator Hot-Path Promotion Candidates"}</strong>.</p>
+      <table>
+        <thead><tr>{operatorCandidateHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {operatorCandidateRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      Schema: {operatorModeTable.schema_version ?? "not reported"}. Status: <strong>{operatorModeTable.status ?? "not reported"}</strong>.
+      Boundary: {operatorModeTable.claim_boundary ?? "not reported"}.
+    </p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Prepare-once reuse</p>
+    <h2>Amortization is shown as route math.</h2>
+    <p class="narrow">
+      The prepared route keeps first-query cost visible, then shows how the same preparation cost amortizes across repeated prepared executions.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{preparedAmortizationHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {preparedAmortizationRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {preparedAmortizationTable.schema_version ?? "not reported"}. Boundary: {preparedAmortizationTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 
@@ -148,35 +576,14 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
 
 <section class="section-grid">
   <div>
-    <p class="eyebrow">Stage attribution</p>
-    <h2>ShardLoom stage pieces explain route cost.</h2>
-    <p class="narrow">The attribution view keeps source admission, parse/decode, source-to-Vortex work, Vortex write/reopen, scan, operator compute, sink, and evidence rendering separate from route-level comparisons.</p>
-  </div>
-  <div class="artifact-panel">
-    <div class="table-wrap compact-table">
-      <table>
-        <thead><tr>{stageAttributionHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
-        <tbody>
-          {stageAttributionRows.map((row: unknown[]) => (
-            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
-  </div>
-</section>
-
-<section class="section-grid">
-  <div>
     <p class="eyebrow">Cold-lane attribution</p>
-    <h2>Cold ingest, warm query, sink, evidence, and harness timing stay separate.</h2>
-    <p class="narrow">The promoter classifies each row before publication. Missing stage splits block claim-grade interpretation instead of letting cold preparation or harness overhead hide inside a single timing number.</p>
+    <h2>Cold ingest bottlenecks stay attached to the route.</h2>
+    <p class="narrow">The promoter classifies each row before publication and labels the dominant cold-stage bottleneck. Missing stage splits block claim-grade interpretation instead of letting cold preparation or harness overhead hide inside a single timing number.</p>
   </div>
   <div class="artifact-panel">
     <div class="table-wrap compact-table">
       <table>
-        <thead><tr><th>Classification</th><th>Timing split</th><th>Rows</th></tr></thead>
+        <thead><tr>{coldLaneHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {coldLaneRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
@@ -184,7 +591,7 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
         </tbody>
       </table>
     </div>
-    <p class="table-note">Schema: {coldLaneTable.schema_version ?? "not reported"}. Status: <strong>{coldLaneTable.status ?? "not reported"}</strong>.</p>
+    <p class="table-note">Schema: {coldLaneTable.schema_version ?? "not reported"}. Bottleneck schema: {coldLaneTable.cold_bottleneck_schema_version ?? "not reported"}. Status: <strong>{coldLaneTable.status ?? "not reported"}</strong>.</p>
   </div>
 </section>
 
@@ -313,12 +720,12 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
     <summary>Published comparative roster ({publishedRows.length} rows)</summary>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Route</th><th>Internal lane</th><th>Scenario</th><th>Format</th><th>Status</th><th>Runtime</th><th>Mode</th><th>Total ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
+        <thead><tr><th>Route</th><th>Internal lane</th><th>Scenario</th><th>Format</th><th>Status</th><th>Runtime</th><th>Mode</th><th>Total route ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
         <tbody>
           {publishedRows.map((row: any) => (
             <tr>
               <td>{row.route_display_name ?? row.engine}</td><td>{row.engine}</td><td>{row.scenario_name}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.route_runtime_status}</td><td>{row.selected_execution_mode}</td>
-              <td>{row.total_runtime_millis}</td><td>{String(row.fallback_attempted)}</td><td>{String(row.external_engine_invoked)}</td><td>{row.claim_gate_status}</td>
+              <td>{row.total_route_ms ?? row.total_runtime_millis}</td><td>{String(row.fallback_attempted)}</td><td>{String(row.external_engine_invoked)}</td><td>{row.claim_gate_status}</td>
             </tr>
           ))}
         </tbody>

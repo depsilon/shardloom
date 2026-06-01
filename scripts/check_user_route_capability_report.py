@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """Build and validate the user/agent route capability report.
 
-This GAR-RUNTIME-IMPL-6D gate is the direct answer to "given input X and desired
-output Y, which ShardLoom route should I use?" It is side-effect-free: it reads
-the Python route metadata and verifies that benchmark-range route guidance names
-the Vortex normalization point, execution mode, output/evidence path,
+This GAR-RUNTIME-IMPL-6D/GAR-RUNTIME-IMPL-6E gate is the direct answer to
+"given input X and desired output Y, which ShardLoom route should I use?" It is
+side-effect-free: it reads the Python route metadata and verifies that
+benchmark-range route guidance names the Vortex normalization point, execution
+mode, prepared-state reuse contract, output/evidence path,
 materialization/decode boundary, claim boundary, and no-fallback status.
 """
 
@@ -27,6 +28,35 @@ ROUTE_RUNTIME_STATUSES = {
     "output_route_pending",
     "runtime_expansion_pending",
     "claim_evidence_pending",
+    "benchmark_publication_pending",
+}
+
+LOCAL_FILE_BENCHMARK_ROUTE_RUNTIME_STATUSES = {
+    "scoped_runtime_supported",
+    "prepared_route_supported",
+    "front_door_connection_pending",
+    "output_route_pending",
+    "claim_evidence_pending",
+    "benchmark_publication_pending",
+    "runtime_expansion_pending",
+}
+
+REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS = {
+    "selective_filter",
+    "filter_projection_limit",
+    "group_by_aggregation",
+    "multi_key_group_by",
+    "join_aggregate",
+    "sort_top_k",
+    "row_number_window",
+    "top_n_per_group",
+    "clean_cast_filter_write",
+    "partition_pruning",
+    "many_small_files_scan",
+    "null_heavy_aggregate",
+    "high_cardinality_string_group_distinct",
+    "nested_json_field_scan",
+    "small_change_over_large_base",
 }
 
 REQUIRED_ROUTE_IDS = {
@@ -74,6 +104,71 @@ REQUIRED_OUTPUT_TOKENS = {
     "schema_report",
     "benchmark_evidence",
 }
+
+ADMITTED_ROUTE_RUNTIME_STATUSES = {
+    "scoped_runtime_supported",
+    "prepared_route_supported",
+}
+
+OUTPUT_OPTION_PATTERNS = {
+    "machine_readable_report": (
+        "machine_readable_report",
+        "machine-readable",
+        "machine readable",
+        "report",
+    ),
+    "bounded_preview": ("bounded_preview", "bounded preview", "bounded scoped collect"),
+    "local_compat_output": (
+        "local_compat_output",
+        "local compatibility output",
+        "local jsonl/csv",
+        "jsonl/csv",
+    ),
+    "native_vortex_output": (
+        "native_vortex_output",
+        "feature_gated_local_vortex_output",
+        "vortex sink",
+        "vortex result sink",
+        "vortex output",
+    ),
+    "result_sink_replay": (
+        "result_sink",
+        "result sink",
+        "result-sink",
+        "replay proof",
+        "replay",
+    ),
+    "fanout": ("fanout",),
+}
+
+REQUIRED_ROUTE_DIAGNOSTIC_FIELDS = {
+    "source_state_fingerprint",
+    "source_schema_fingerprint",
+    "source_parse_plan_id",
+    "source_split_manifest_id",
+    "source_anomaly_count",
+    "source_quarantine_required",
+    "prepared_state_fingerprint",
+    "prepared_state_reuse_scope",
+    "prepared_state_reuse_manifest_path",
+    "prepared_state_reuse_policy",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
+    "nearest_runnable_route",
+    "required_feature_gate",
+    "runtime_blocker_code",
+}
+
+PREPARED_STATE_REUSE_MANIFEST_SCOPE = "workspace_manifest_local_vortex_artifacts"
+PREPARED_STATE_REUSE_MANIFEST_PATH = (
+    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+)
+PREPARED_STATE_REUSE_MANIFEST_POLICY = (
+    "shardloom.python.prepared_vortex_reuse_manifest.v1"
+)
+PREPARED_STATE_NOT_APPLICABLE = "not_applicable_no_prepared_state"
 
 REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
     "vortex_count_all",
@@ -127,6 +222,19 @@ def load_report(repo_root: Path) -> Any:
     return ShardLoomContext(client=None).user_route_capability_report()
 
 
+def load_scenario_catalog(repo_root: Path) -> dict[str, dict[str, Any]]:
+    catalog_path = repo_root / "benchmarks" / "common" / "scenario_catalog.json"
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    scenarios = payload.get("scenarios")
+    if not isinstance(scenarios, list):
+        return {}
+    return {
+        str(row.get("id")): row
+        for row in scenarios
+        if isinstance(row, dict) and row.get("id")
+    }
+
+
 def row_payload(row: Any) -> dict[str, Any]:
     return {
         "route_id": row.route_id,
@@ -145,6 +253,23 @@ def row_payload(row: Any) -> dict[str, Any]:
         "output_route": row.output_route,
         "evidence_route": row.evidence_route,
         "materialization_decode_boundary": row.materialization_decode_boundary,
+        "source_state_fingerprint": row.source_state_fingerprint,
+        "source_schema_fingerprint": row.source_schema_fingerprint,
+        "source_parse_plan_id": row.source_parse_plan_id,
+        "source_split_manifest_id": row.source_split_manifest_id,
+        "source_anomaly_count": row.source_anomaly_count,
+        "source_quarantine_required": row.source_quarantine_required,
+        "prepared_state_fingerprint": row.prepared_state_fingerprint,
+        "prepared_state_reuse_scope": row.prepared_state_reuse_scope,
+        "prepared_state_reuse_manifest_path": row.prepared_state_reuse_manifest_path,
+        "prepared_state_reuse_policy": row.prepared_state_reuse_policy,
+        "prepared_state_reuse_hit": row.prepared_state_reuse_hit,
+        "prepared_state_reuse_reason": row.prepared_state_reuse_reason,
+        "prepared_state_reuse_manifest_digest": row.prepared_state_reuse_manifest_digest,
+        "prepared_state_invalidation_reason": row.prepared_state_invalidation_reason,
+        "nearest_runnable_route": row.nearest_runnable_route,
+        "required_feature_gate": row.required_feature_gate,
+        "runtime_blocker_code": row.runtime_blocker_code,
         "route_runtime_status": row.route_runtime_status,
         "benchmark_range": row.benchmark_range,
         "route_comparable_to_external_end_to_end": row.route_comparable_to_external_end_to_end,
@@ -186,6 +311,86 @@ def primitive_row_payload(row: Any) -> dict[str, Any]:
         "claim_gate_status": row.claim_gate_status,
         "claim_boundary": row.claim_boundary,
     }
+
+
+def local_file_benchmark_row_payload(row: Any) -> dict[str, Any]:
+    return {
+        "scenario_id": row.scenario_id,
+        "scenario_name": row.scenario_name,
+        "scenario_suite": row.scenario_suite,
+        "scenario_category": row.scenario_category,
+        "dataset_profiles": list(row.dataset_profiles),
+        "route_id": row.route_id,
+        "route_display_name": row.route_display_name,
+        "alternate_route_ids": list(row.alternate_route_ids),
+        "front_doors": list(row.front_doors),
+        "sql_surface": row.sql_surface,
+        "python_surface": row.python_surface,
+        "dataframe_surface": row.dataframe_surface,
+        "context_surface": row.context_surface,
+        "session_surface": row.session_surface,
+        "cli_surface": row.cli_surface,
+        "start_state": row.start_state,
+        "vortex_normalization_point": row.vortex_normalization_point,
+        "source_route": row.source_route,
+        "preparation_route": row.preparation_route,
+        "selected_execution_mode": row.selected_execution_mode,
+        "output_route": row.output_route,
+        "evidence_route": row.evidence_route,
+        "materialization_decode_boundary": row.materialization_decode_boundary,
+        "source_state_fingerprint": row.source_state_fingerprint,
+        "source_schema_fingerprint": row.source_schema_fingerprint,
+        "source_parse_plan_id": row.source_parse_plan_id,
+        "source_split_manifest_id": row.source_split_manifest_id,
+        "source_anomaly_count": row.source_anomaly_count,
+        "source_quarantine_required": row.source_quarantine_required,
+        "prepared_state_fingerprint": row.prepared_state_fingerprint,
+        "prepared_state_reuse_scope": row.prepared_state_reuse_scope,
+        "prepared_state_reuse_manifest_path": row.prepared_state_reuse_manifest_path,
+        "prepared_state_reuse_policy": row.prepared_state_reuse_policy,
+        "prepared_state_reuse_hit": row.prepared_state_reuse_hit,
+        "prepared_state_reuse_reason": row.prepared_state_reuse_reason,
+        "prepared_state_reuse_manifest_digest": row.prepared_state_reuse_manifest_digest,
+        "prepared_state_invalidation_reason": row.prepared_state_invalidation_reason,
+        "nearest_runnable_route": row.nearest_runnable_route,
+        "required_feature_gate": row.required_feature_gate,
+        "runtime_blocker_code": row.runtime_blocker_code,
+        "route_runtime_status": row.route_runtime_status,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
+        "blocker_id": row.blocker_id or "none",
+        "owner": row.owner,
+        "required_evidence": list(row.required_evidence),
+        "next_verifier": row.next_verifier,
+        "claim_gate_status": row.claim_gate_status,
+        "performance_claim_allowed": row.performance_claim_allowed,
+        "production_claim_allowed": row.production_claim_allowed,
+        "spark_replacement_claim_allowed": row.spark_replacement_claim_allowed,
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def output_options_for_row(row: dict[str, Any]) -> list[str]:
+    """Classify the explicit output options advertised by one route row."""
+
+    values: list[str] = []
+    for field in (
+        "desired_outputs",
+        "output_route",
+        "evidence_route",
+        "recommended_user_surface",
+    ):
+        value = row.get(field)
+        if isinstance(value, list):
+            values.extend(str(item) for item in value)
+        else:
+            values.append(str(value or ""))
+    text = " ".join(values).lower().replace("_", "-")
+    options: list[str] = []
+    for option, patterns in OUTPUT_OPTION_PATTERNS.items():
+        if any(pattern.replace("_", "-") in text for pattern in patterns):
+            options.append(option)
+    return options
 
 
 def validate_local_vortex_primitives(
@@ -282,6 +487,198 @@ def validate_local_vortex_primitives(
     return blockers
 
 
+def validate_local_file_benchmark_routes(
+    report: Any,
+    rows: list[dict[str, Any]],
+    scenario_catalog: dict[str, dict[str, Any]],
+    user_route_ids: set[str],
+) -> list[str]:
+    blockers: list[str] = []
+    by_id = {str(row["scenario_id"]): row for row in rows}
+
+    missing = sorted(REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS - by_id.keys())
+    if missing:
+        blockers.append(
+            "local file benchmark route report missing scenarios: " + ",".join(missing)
+        )
+
+    extra = sorted(by_id.keys() - REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS)
+    if extra:
+        blockers.append(
+            "local file benchmark route report has unclassified extra scenarios: "
+            + ",".join(extra)
+        )
+
+    duplicate_count = len(rows) - len(by_id)
+    if duplicate_count:
+        blockers.append(
+            f"local file benchmark route report has duplicate scenario ids: {duplicate_count}"
+        )
+
+    for scenario_id in sorted(REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS):
+        if scenario_id not in scenario_catalog:
+            blockers.append(f"scenario catalog is missing required scenario {scenario_id}")
+
+    for row in rows:
+        scenario_id = str(row["scenario_id"])
+        catalog_row = scenario_catalog.get(scenario_id)
+        if catalog_row is None:
+            blockers.append(f"{scenario_id}: not present in benchmark scenario catalog")
+        else:
+            if row.get("scenario_name") != catalog_row.get("name"):
+                blockers.append(f"{scenario_id}: scenario_name does not match scenario catalog")
+            if row.get("scenario_suite") != catalog_row.get("suite"):
+                blockers.append(f"{scenario_id}: scenario_suite does not match scenario catalog")
+            if row.get("scenario_category") != catalog_row.get("category"):
+                blockers.append(f"{scenario_id}: scenario_category does not match scenario catalog")
+            catalog_profiles = set(catalog_row.get("dataset_profiles", []))
+            row_profiles = set(row.get("dataset_profiles", []))
+            if not row_profiles:
+                blockers.append(f"{scenario_id}: missing dataset_profiles")
+            if not row_profiles.issubset(catalog_profiles):
+                blockers.append(
+                    f"{scenario_id}: dataset_profiles include values not in scenario catalog"
+                )
+
+        status = str(row.get("route_runtime_status", ""))
+        if status not in LOCAL_FILE_BENCHMARK_ROUTE_RUNTIME_STATUSES:
+            blockers.append(f"{scenario_id}: invalid route_runtime_status={status!r}")
+        if status == "unsupported":
+            blockers.append(f"{scenario_id}: must not be generically unsupported")
+
+        route_id = str(row.get("route_id", ""))
+        if route_id not in user_route_ids:
+            blockers.append(f"{scenario_id}: route_id {route_id!r} is not in user route report")
+        for alternate in row.get("alternate_route_ids", []):
+            if str(alternate) not in user_route_ids:
+                blockers.append(
+                    f"{scenario_id}: alternate_route_id {alternate!r} is not in user route report"
+                )
+
+        for field in (
+            "scenario_name",
+            "scenario_suite",
+            "scenario_category",
+            "route_display_name",
+            "sql_surface",
+            "python_surface",
+            "dataframe_surface",
+            "context_surface",
+            "session_surface",
+            "cli_surface",
+            "start_state",
+            "vortex_normalization_point",
+            "source_route",
+            "preparation_route",
+            "selected_execution_mode",
+            "output_route",
+            "evidence_route",
+            "materialization_decode_boundary",
+            "owner",
+            "next_verifier",
+            "claim_boundary",
+        ):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                blockers.append(f"{scenario_id}: missing {field}")
+
+        for field in ("front_doors", "dataset_profiles", "required_evidence"):
+            value = row.get(field)
+            if not isinstance(value, list) or not value:
+                blockers.append(f"{scenario_id}: missing non-empty {field}")
+
+        for field in REQUIRED_ROUTE_DIAGNOSTIC_FIELDS:
+            value = row.get(field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                blockers.append(f"{scenario_id}: missing route diagnostic field {field}")
+        nearest = str(row.get("nearest_runnable_route") or "")
+        if nearest and nearest not in user_route_ids:
+            blockers.append(
+                f"{scenario_id}: nearest_runnable_route {nearest!r} is not in user route report"
+            )
+        blocker = str(row.get("blocker_id") or "none")
+        runtime_blocker = str(row.get("runtime_blocker_code") or "")
+        if blocker != "none" and runtime_blocker != blocker:
+            blockers.append(f"{scenario_id}: runtime_blocker_code must mirror blocker_id")
+
+        if "SourceState" not in str(row.get("vortex_normalization_point", "")):
+            blockers.append(f"{scenario_id}: must name SourceState normalization")
+        if status == "prepared_route_supported" and "VortexPreparedState" not in str(
+            row.get("vortex_normalization_point", "")
+        ):
+            blockers.append(
+                f"{scenario_id}: prepared routes must name VortexPreparedState"
+            )
+        if status == "prepared_route_supported":
+            if row.get("prepared_state_reuse_scope") != PREPARED_STATE_REUSE_MANIFEST_SCOPE:
+                blockers.append(
+                    f"{scenario_id}: prepared routes must use workspace manifest reuse scope"
+                )
+            if (
+                row.get("prepared_state_reuse_manifest_path")
+                != PREPARED_STATE_REUSE_MANIFEST_PATH
+            ):
+                blockers.append(
+                    f"{scenario_id}: prepared routes must expose workspace manifest path"
+                )
+            if (
+                row.get("prepared_state_reuse_policy")
+                != PREPARED_STATE_REUSE_MANIFEST_POLICY
+            ):
+                blockers.append(
+                    f"{scenario_id}: prepared routes must expose reuse manifest policy"
+                )
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{scenario_id}: fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{scenario_id}: external_engine_invoked must be false")
+        for field in (
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ):
+            if row.get(field) is not False:
+                blockers.append(f"{scenario_id}: {field} must be false")
+        if row.get("claim_gate_status") != "not_claim_grade":
+            blockers.append(f"{scenario_id}: claim_gate_status must be not_claim_grade")
+        if status in ADMITTED_ROUTE_RUNTIME_STATUSES and not output_options_for_row(row):
+            blockers.append(
+                f"{scenario_id}: admitted local-file benchmark route must advertise at least "
+                "one clear output option"
+            )
+
+    status_counts = dict(getattr(report, "route_runtime_status_counts", {}))
+    if status_counts != {
+        status: list(row["route_runtime_status"] for row in rows).count(status)
+        for status in status_counts
+    }:
+        blockers.append("local file benchmark route status counts are inconsistent")
+    if getattr(report, "unsupported_scenario_ids", ()):
+        blockers.append(
+            "local file benchmark scenarios must not be generically unsupported: "
+            + ",".join(report.unsupported_scenario_ids)
+        )
+    if report.all_no_fallback_no_external_engine is not True:
+        blockers.append(
+            "local file benchmark route report all_no_fallback_no_external_engine must be true"
+        )
+    if report.all_mapped_without_generic_unsupported is not True:
+        blockers.append(
+            "local file benchmark route report all_mapped_without_generic_unsupported must be true"
+        )
+    if report.claim_gate_status != "not_claim_grade":
+        blockers.append("local file benchmark route report claim_gate_status must be not_claim_grade")
+    for field in (
+        "performance_claim_allowed",
+        "production_claim_allowed",
+        "spark_replacement_claim_allowed",
+    ):
+        if getattr(report, field) is not False:
+            blockers.append(f"local file benchmark route report {field} must be false")
+
+    return blockers
+
+
 def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
     blockers: list[str] = []
     by_id = {str(row["route_id"]): row for row in rows}
@@ -326,6 +723,19 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
             value = row.get(field)
             if not isinstance(value, list) or not value:
                 blockers.append(f"{route_id}: missing non-empty {field}")
+        for field in REQUIRED_ROUTE_DIAGNOSTIC_FIELDS:
+            value = row.get(field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                blockers.append(f"{route_id}: missing route diagnostic field {field}")
+        nearest = str(row.get("nearest_runnable_route") or "")
+        if nearest and nearest not in REQUIRED_ROUTE_IDS:
+            blockers.append(f"{route_id}: nearest_runnable_route {nearest!r} is unknown")
+        blocker = str(row.get("blocker_id") or "none")
+        runtime_blocker = str(row.get("runtime_blocker_code") or "")
+        if blocker != "none" and runtime_blocker != blocker:
+            blockers.append(f"{route_id}: runtime_blocker_code must mirror blocker_id")
+        if status == "scoped_runtime_supported" and runtime_blocker != "none":
+            blockers.append(f"{route_id}: supported route must have runtime_blocker_code=none")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{route_id}: fallback_attempted must be false")
         if row.get("external_engine_invoked") is not False:
@@ -341,6 +751,15 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
             blockers.append(f"{route_id}: claim_gate_status must be not_claim_grade")
         if row.get("benchmark_range") is True and status == "unsupported":
             blockers.append(f"{route_id}: benchmark-range ShardLoom route must not be unsupported")
+        if (
+            row.get("benchmark_range") is True
+            and status in ADMITTED_ROUTE_RUNTIME_STATUSES
+            and not output_options_for_row(row)
+        ):
+            blockers.append(
+                f"{route_id}: admitted benchmark-range route must advertise at least one "
+                "clear output option"
+            )
 
     benchmark_ids = {str(row["route_id"]) for row in rows if row.get("benchmark_range") is True}
     missing_benchmark = sorted(REQUIRED_LOCAL_BENCHMARK_ROUTE_IDS - benchmark_ids)
@@ -367,10 +786,17 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
     for row in native_rows:
         if row.get("vortex_normalization_point") != "native_vortex_boundary":
             blockers.append(f"{row['route_id']}: native Vortex rows must start at native_vortex_boundary")
-        if "write_vortex" in str(row.get("recommended_user_surface", "")):
+        surface = str(row.get("recommended_user_surface", ""))
+        if row["route_id"] == "local_vortex_primitive_report" and "write_vortex" in surface:
             blockers.append(
                 f"{row['route_id']}: scoped native Vortex primitive route must not advertise write_vortex"
             )
+        if row["route_id"] == "native_vortex_query":
+            for token in ("native_vortex_route", "execution_mode", "memory_gb", "max_parallelism"):
+                if token not in surface:
+                    blockers.append(
+                        f"{row['route_id']}: native route surface must name {token}"
+                    )
 
     prepared_rows = [
         row
@@ -387,6 +813,36 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         if "SourceState" not in normalization or "VortexPreparedState" not in normalization:
             blockers.append(
                 f"{row['route_id']}: prepared compatibility route must name SourceState and VortexPreparedState"
+            )
+        if row.get("prepared_state_reuse_scope") != PREPARED_STATE_REUSE_MANIFEST_SCOPE:
+            blockers.append(
+                f"{row['route_id']}: prepared compatibility route must use workspace manifest reuse scope"
+            )
+        if (
+            row.get("prepared_state_reuse_manifest_path")
+            != PREPARED_STATE_REUSE_MANIFEST_PATH
+        ):
+            blockers.append(
+                f"{row['route_id']}: prepared compatibility route must expose workspace manifest path"
+            )
+        if row.get("prepared_state_reuse_policy") != PREPARED_STATE_REUSE_MANIFEST_POLICY:
+            blockers.append(
+                f"{row['route_id']}: prepared compatibility route must expose reuse manifest policy"
+            )
+
+    for row in rows:
+        if row["route_id"] in {
+            "local_file_cold_certified_route",
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+            "prepared_vortex_warm_query",
+        }:
+            continue
+        if row.get("prepared_state_fingerprint") == PREPARED_STATE_NOT_APPLICABLE and (
+            row.get("prepared_state_reuse_scope") != PREPARED_STATE_NOT_APPLICABLE
+        ):
+            blockers.append(
+                f"{row['route_id']}: non-prepared route must mark prepared-state reuse not applicable"
             )
 
     materialized = by_id.get("materialized_python_snapshot_reentry")
@@ -423,10 +879,19 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     from shardloom import ShardLoomContext
 
     local_vortex_report = ShardLoomContext(client=None).local_vortex_primitive_route_report()
+    local_file_benchmark_report = (
+        ShardLoomContext(client=None).local_file_benchmark_route_report()
+    )
     rows = [row_payload(row) for row in route_report.rows]
     local_vortex_primitive_rows = [
         primitive_row_payload(row) for row in local_vortex_report.rows
     ]
+    local_file_benchmark_rows = [
+        local_file_benchmark_row_payload(row)
+        for row in local_file_benchmark_report.rows
+    ]
+    user_route_ids = {str(row["route_id"]) for row in rows}
+    scenario_catalog = load_scenario_catalog(repo_root)
     blockers = validate_rows(route_report, rows)
     blockers.extend(
         validate_local_vortex_primitives(
@@ -434,9 +899,43 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             local_vortex_primitive_rows,
         )
     )
+    blockers.extend(
+        validate_local_file_benchmark_routes(
+            local_file_benchmark_report,
+            local_file_benchmark_rows,
+            scenario_catalog,
+            user_route_ids,
+        )
+    )
     runtime_status_counts = dict(route_report.route_runtime_status_counts)
     local_benchmark_route_ids = [
         row["route_id"] for row in rows if row["benchmark_range"] is True
+    ]
+    admitted_route_output_options = {
+        str(row["route_id"]): output_options_for_row(row)
+        for row in rows
+        if row.get("benchmark_range") is True
+        and row.get("route_runtime_status") in ADMITTED_ROUTE_RUNTIME_STATUSES
+    }
+    admitted_local_file_output_options = {
+        str(row["scenario_id"]): output_options_for_row(row)
+        for row in local_file_benchmark_rows
+        if row.get("route_runtime_status") in ADMITTED_ROUTE_RUNTIME_STATUSES
+    }
+    prepared_route_reuse_rows = [
+        row
+        for row in rows
+        if row["route_id"]
+        in {
+            "local_file_cold_certified_route",
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+        }
+    ]
+    prepared_local_file_reuse_rows = [
+        row
+        for row in local_file_benchmark_rows
+        if row.get("route_runtime_status") == "prepared_route_supported"
     ]
 
     return {
@@ -447,15 +946,23 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             "GAR-RUNTIME-IMPL-6D",
             "GAR-RUNTIME-IMPL-6D-1",
             "GAR-RUNTIME-IMPL-6D-2",
+            "GAR-RUNTIME-IMPL-6D-3",
+            "GAR-RUNTIME-IMPL-6E",
+            "GAR-RUNTIME-IMPL-6E-1",
             "CG-20",
             "CG-21",
         ],
         "route_runtime_status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
+        "local_file_benchmark_route_runtime_status_vocabulary": sorted(
+            LOCAL_FILE_BENCHMARK_ROUTE_RUNTIME_STATUSES
+        ),
         "route_count": len(rows),
         "route_order": list(route_report.route_order),
         "route_runtime_status_counts": runtime_status_counts,
         "local_benchmark_range_route_ids": local_benchmark_route_ids,
         "local_benchmark_range_route_count": len(local_benchmark_route_ids),
+        "admitted_route_output_options": admitted_route_output_options,
+        "admitted_local_file_benchmark_output_options": admitted_local_file_output_options,
         "unsupported_local_benchmark_route_ids": list(route_report.unsupported_local_benchmark_route_ids),
         "local_vortex_primitive_schema_version": local_vortex_report.schema_version,
         "local_vortex_primitive_route_count": len(local_vortex_primitive_rows),
@@ -468,6 +975,25 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "local_vortex_primitive_all_no_fallback_no_external_engine": (
             local_vortex_report.all_no_fallback_no_external_engine
         ),
+        "local_file_benchmark_schema_version": (
+            local_file_benchmark_report.schema_version
+        ),
+        "local_file_benchmark_route_count": len(local_file_benchmark_rows),
+        "local_file_benchmark_scenario_ids": list(
+            local_file_benchmark_report.scenario_ids
+        ),
+        "local_file_benchmark_route_runtime_status_counts": dict(
+            local_file_benchmark_report.route_runtime_status_counts
+        ),
+        "local_file_benchmark_unsupported_scenario_ids": list(
+            local_file_benchmark_report.unsupported_scenario_ids
+        ),
+        "local_file_benchmark_all_no_fallback_no_external_engine": (
+            local_file_benchmark_report.all_no_fallback_no_external_engine
+        ),
+        "local_file_benchmark_all_mapped_without_generic_unsupported": (
+            local_file_benchmark_report.all_mapped_without_generic_unsupported
+        ),
         "all_no_fallback_no_external_engine": route_report.all_no_fallback_no_external_engine,
         "flexible_anything_claim_allowed": route_report.flexible_anything_claim_allowed,
         "performance_equivalence_claim_allowed": route_report.performance_equivalence_claim_allowed,
@@ -477,6 +1003,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "vortex_normalization_contract": route_report.vortex_normalization_contract,
         "rows": rows,
         "local_vortex_primitive_rows": local_vortex_primitive_rows,
+        "local_file_benchmark_rows": local_file_benchmark_rows,
         "acceptance_summary": {
             "all_routes_have_vortex_normalization": all(
                 bool(str(row["vortex_normalization_point"]).strip()) for row in rows
@@ -485,8 +1012,24 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 bool(str(row["output_route"]).strip()) and bool(str(row["evidence_route"]).strip())
                 for row in rows
             ),
+            "all_admitted_benchmark_routes_have_clear_output_options": all(
+                bool(options) for options in admitted_route_output_options.values()
+            ),
             "all_routes_have_materialization_decode_boundary": all(
                 bool(str(row["materialization_decode_boundary"]).strip()) for row in rows
+            ),
+            "all_routes_have_source_prepared_diagnostics": all(
+                all(row.get(field) is not None for field in REQUIRED_ROUTE_DIAGNOSTIC_FIELDS)
+                for row in rows
+            ),
+            "all_prepared_routes_expose_workspace_manifest_reuse_contract": all(
+                row.get("prepared_state_reuse_scope")
+                == PREPARED_STATE_REUSE_MANIFEST_SCOPE
+                and row.get("prepared_state_reuse_manifest_path")
+                == PREPARED_STATE_REUSE_MANIFEST_PATH
+                and row.get("prepared_state_reuse_policy")
+                == PREPARED_STATE_REUSE_MANIFEST_POLICY
+                for row in prepared_route_reuse_rows
             ),
             "no_generic_unsupported_local_benchmark_route": not route_report.unsupported_local_benchmark_route_ids,
             "all_local_vortex_primitive_routes_supported": (
@@ -499,6 +1042,42 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             "all_local_vortex_primitive_commands_covered": (
                 set(local_vortex_report.command_coverage)
                 == REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS
+            ),
+            "all_required_local_file_benchmark_scenarios_mapped": (
+                set(local_file_benchmark_report.scenario_ids)
+                == REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS
+            ),
+            "no_generic_unsupported_local_file_benchmark_scenario": (
+                not local_file_benchmark_report.unsupported_scenario_ids
+            ),
+            "all_local_file_benchmark_routes_have_vortex_normalization": all(
+                bool(str(row["vortex_normalization_point"]).strip())
+                and "SourceState" in str(row["vortex_normalization_point"])
+                for row in local_file_benchmark_rows
+            ),
+            "all_local_file_benchmark_routes_have_output_and_evidence": all(
+                bool(str(row["output_route"]).strip())
+                and bool(str(row["evidence_route"]).strip())
+                for row in local_file_benchmark_rows
+            ),
+            "all_admitted_local_file_benchmark_routes_have_clear_output_options": all(
+                bool(options) for options in admitted_local_file_output_options.values()
+            ),
+            "all_local_file_benchmark_routes_have_source_prepared_diagnostics": all(
+                all(row.get(field) is not None for field in REQUIRED_ROUTE_DIAGNOSTIC_FIELDS)
+                for row in local_file_benchmark_rows
+            ),
+            "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract": all(
+                row.get("prepared_state_reuse_scope")
+                == PREPARED_STATE_REUSE_MANIFEST_SCOPE
+                and row.get("prepared_state_reuse_manifest_path")
+                == PREPARED_STATE_REUSE_MANIFEST_PATH
+                and row.get("prepared_state_reuse_policy")
+                == PREPARED_STATE_REUSE_MANIFEST_POLICY
+                for row in prepared_local_file_reuse_rows
+            ),
+            "all_local_file_benchmark_routes_preserve_no_fallback": (
+                local_file_benchmark_report.all_no_fallback_no_external_engine
             ),
             "all_no_fallback_no_external_engine": route_report.all_no_fallback_no_external_engine,
             "claim_gate_status": route_report.claim_gate_status,

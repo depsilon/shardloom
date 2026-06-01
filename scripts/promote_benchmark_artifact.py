@@ -34,6 +34,37 @@ from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
 SUMMARY_SCHEMA_VERSION = "shardloom.website.benchmark_evidence.v1"
+ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
+FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
+OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
+OPERATOR_EXECUTION_MODES = {
+    "encoded_native",
+    "residual_native",
+    "materialized_temporary",
+    "unsupported",
+    "external_baseline_only",
+}
+PREPARED_ROUTE_AMORTIZATION_COUNTS = (1, 5, 10, 50, 100)
+DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS = "derived_from_prepare_once_batch_route_timing"
+COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottleneck.v1"
+COLD_BOTTLENECK_ROUTE_LANES = {
+    "cold_certified_route",
+    "prepare_once_first_query",
+    "prepare_once_batch",
+}
+COLD_BOTTLENECK_STAGE_ORDER = (
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_state_build",
+    "vortex_array_build",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_query",
+    "sink_output",
+    "evidence_render",
+)
 DEFAULT_LATEST_DIR = ROOT / "website" / "assets" / "benchmarks" / "latest"
 DEFAULT_WEBSITE_DATA = ROOT / "website" / "assets" / "data" / "benchmark-evidence.json"
 DEFAULT_PUBLIC_LATEST_DIR = ROOT / "website-public" / "assets" / "benchmarks" / "latest"
@@ -68,6 +99,95 @@ WEBSITE_ROW_KEYS = (
     "preparation_included_scope",
     "query_timing_starts_after_preparation",
     "prepared_state_reused",
+    "prepared_state_reuse_scope",
+    "prepared_state_reuse_manifest_path",
+    "prepared_state_reuse_policy",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
+    "route_row_derivation_status",
+    "route_row_source_lane_id",
+    "route_row_source_engine",
+    "prepared_route_query_count",
+    "prepared_route_observed_batch_count",
+    "route_timing_ledger_schema_version",
+    "route_timing_ledger_status",
+    "route_total_formula",
+    "route_timing_scope",
+    "stage_parent_id",
+    "route_timing_included_stage_ids",
+    "route_timing_excluded_stage_ids",
+    "route_timing_included_stage_total_ms",
+    "route_timing_total_delta_ms",
+    "preparation_timing_included_in_total",
+    "query_timing_included_in_total",
+    "output_timing_included_in_total",
+    "evidence_timing_included_in_total",
+    "fast_path_attribution_schema_version",
+    "runtime_execution_ms",
+    "output_delivery_ms",
+    "evidence_capture_ms",
+    "certificate_link_ms",
+    "runtime_execution_timing_scope",
+    "output_delivery_timing_scope",
+    "evidence_capture_timing_status",
+    "certificate_link_timing_status",
+    "runtime_execution_certificate_id",
+    "runtime_execution_certificate_status",
+    "runtime_execution_certificate_plan_ref",
+    "certificate_link_status",
+    "evidence_required_for_claim",
+    "evidence_render_included_in_route_total",
+    "fast_path_claim_boundary",
+    "operator_mode_inventory_schema_version",
+    "operator_execution_class",
+    "operator_admission_status",
+    "operator_encoded_native_claim_allowed",
+    "operator_residual_native_used",
+    "operator_temporary_materialization_used",
+    "operator_blocker_matrix_ref",
+    "operator_execution_mode",
+    "encoded_native_operators",
+    "residual_native_operators",
+    "materialized_temporary_operators",
+    "operator_blocker_code",
+    "operator_hot_path_candidate",
+    "operator_hot_path_candidate_status",
+    "operator_hot_path_next_step",
+    "operator_mode_claim_boundary",
+    "cold_bottleneck_schema_version",
+    "cold_bottleneck_status",
+    "cold_bottleneck_stage_labels",
+    "cold_bottleneck_primary_stage",
+    "cold_bottleneck_primary_stage_ms",
+    "cold_bottleneck_primary_stage_share",
+    "cold_bottleneck_secondary_stage",
+    "cold_bottleneck_secondary_stage_ms",
+    "cold_bottleneck_secondary_stage_share",
+    "cold_bottleneck_stage_value_fields",
+    "cold_route_optimization_hint",
+    "cold_route_optimization_hint_scope",
+    "cold_route_bottleneck_claim_boundary",
+    "source_split_count",
+    "source_open_count",
+    "source_bytes_read",
+    "source_columns_requested",
+    "source_projection_applied",
+    "source_pressure_profile",
+    "vortex_prepared_state_reusable",
+    "vortex_prepared_state_fingerprint",
+    "vortex_prepared_state_fingerprint_status",
+    "source_state_fingerprint",
+    "source_schema_fingerprint",
+    "source_parse_plan_id",
+    "source_split_manifest_id",
+    "source_anomaly_count",
+    "source_quarantine_required",
+    "prepared_state_fingerprint",
+    "nearest_runnable_route",
+    "required_feature_gate",
+    "runtime_blocker_code",
     "performance_claim_allowed",
     "production_claim_allowed",
     "spark_replacement_claim_allowed",
@@ -83,7 +203,15 @@ WEBSITE_ROW_KEYS = (
     "result_sink_write_ms",
     "evidence_render_ms",
     "total_route_ms",
+    "query_runtime_millis",
     "total_runtime_millis",
+    "prepare_batch_preparation_millis",
+    "prepare_batch_source_to_columnar_millis",
+    "prepare_batch_vortex_array_build_millis",
+    "prepare_batch_vortex_write_millis",
+    "prepare_batch_vortex_reopen_verify_millis",
+    "batch_scenario_count",
+    "session_requested_scenario_count",
     "vortex_scan_millis",
     "operator_compute_millis",
     "result_sink_write_millis",
@@ -119,6 +247,9 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "claim_boundary",
     "runtime_execution_validation",
     "runtime_execution",
+    "operator_execution",
+    "encoded_native",
+    "residual_native",
     "cold_lane",
     "materialization",
     "decode",
@@ -174,6 +305,16 @@ ROUTE_IDENTITY_KEYS = (
     "production_claim_allowed",
     "spark_replacement_claim_allowed",
 )
+PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
+PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
+    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+)
+PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
+    "shardloom.python.prepared_vortex_reuse_manifest.v1"
+)
+PREPARED_STATE_REUSE_IN_PROCESS_SCOPE = "in_process_prepared_batch_vortex_artifacts"
+PREPARED_STATE_REUSE_EXPLICIT_SCOPE = "explicit_prepared_state_input"
+PREPARED_STATE_REUSE_NOT_APPLICABLE = "not_applicable_no_prepared_state"
 EXTERNAL_ENGINE_DISPLAY_NAMES = {
     "pandas": "pandas",
     "polars-eager": "Polars Eager",
@@ -241,6 +382,16 @@ COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION = {
         "python_harness_overhead_millis",
     ),
 }
+COLD_LANE_FIELD_ALIASES = {
+    "source_read_millis": ("source_read_ms",),
+    "compatibility_parse_millis": ("source_parse_or_columnar_decode_ms",),
+    "vortex_array_build_millis": ("source_to_vortex_array_ms",),
+    "vortex_write_millis": ("vortex_write_ms",),
+    "vortex_reopen_verify_millis": ("vortex_reopen_or_verify_ms",),
+    "operator_compute_millis": ("operator_compute_ms",),
+    "result_sink_write_millis": ("result_sink_write_ms",),
+    "evidence_render_millis": ("evidence_render_ms",),
+}
 PUBLISHED_METRIC_KEYS = (
     "source_state_id",
     "source_state_digest",
@@ -267,7 +418,14 @@ PUBLISHED_METRIC_KEYS = (
     "data_materialized",
     "materialization_required",
     "decode_required",
+    "operator_execution_class",
+    "operator_admission_status",
+    "operator_blocker_id",
+    "operator_blocker_reason",
+    "operator_encoded_native_claim_allowed",
+    "operator_residual_native_used",
     "operator_temporary_materialization_used",
+    "operator_blocker_matrix_ref",
     "materialization_boundary_report_emitted",
     "representation_transition_summary",
     "native_io_certificate_status",
@@ -533,6 +691,15 @@ def fmt_ms(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.2f} ms"
 
 
+def geomean_non_negative(values: list[float]) -> float | None:
+    if not values:
+        return None
+    positives = [value for value in values if value > 0]
+    if not positives:
+        return 0.0
+    return geomean(positives)
+
+
 def fmt_percent(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.1f}%"
 
@@ -667,8 +834,8 @@ def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:
                 "end_state": "result_sink",
                 "includes_preparation": True,
                 "route_comparable_to_external_end_to_end": True,
-                "preparation_included": False,
-                "preparation_included_scope": "prepared_once_per_batch_not_child_query_timing",
+                "preparation_included": True,
+                "preparation_included_scope": "amortized_once_per_observed_batch",
                 "query_timing_starts_after_preparation": True,
                 "prepared_state_reused": field_bool(fields, "prepared_state_reused", True),
                 "route_claim_boundary": (
@@ -765,19 +932,11 @@ def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:
 def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     fields = runtime_validation_field_map(row)
     identity = route_identity_for_row(row)
-    route_lane_id = str(identity.get("route_lane_id") or "")
-    total_runtime = first_numeric_field(
-        fields, ("total_runtime_millis", "query_runtime_millis")
-    )
-    preparation = first_numeric_field(
-        fields,
-        (
-            "preparation_millis",
-            "prepare_batch_preparation_millis",
-            "vortex_prepare_millis",
-        ),
-    )
-    batch_count = first_numeric_field(fields, ("batch_scenario_count", "scenario_count"))
+    route_lane_id = str(row.get("route_lane_id") or identity.get("route_lane_id") or "")
+    total_runtime = route_total_runtime_millis(fields)
+    query_runtime = prepared_route_query_runtime_millis(fields)
+    preparation = prepare_once_preparation_millis(fields)
+    batch_count = prepared_route_observed_batch_count(fields)
     amortized_preparation = None
     if preparation is not None and batch_count and batch_count > 0:
         amortized_preparation = preparation / batch_count
@@ -797,8 +956,8 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         )
 
     total_route = total_runtime
-    if route_lane_id == "prepare_once_batch" and total_runtime is not None:
-        total_route = total_runtime + (amortized_preparation or 0.0)
+    if route_lane_id == "prepare_once_batch" and query_runtime is not None:
+        total_route = query_runtime + (amortized_preparation or 0.0)
 
     return {
         "source_admission_ms": source_admission_millis(fields),
@@ -837,6 +996,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "result_sink_write_ms": first_numeric_field(fields, ("result_sink_write_millis",)),
         "evidence_render_ms": first_numeric_field(fields, ("evidence_render_millis",)),
         "total_route_ms": total_route,
+        "prepared_route_observed_batch_count": batch_count,
         "route_stage_timing_scope": (
             "amortized_once_per_observed_batch"
             if route_lane_id == "prepare_once_batch"
@@ -845,11 +1005,508 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _stage_ids_with_values(stage_fields: dict[str, Any]) -> list[str]:
+    return [
+        key
+        for key in (
+            "source_admission_ms",
+            "source_read_ms",
+            "source_parse_or_columnar_decode_ms",
+            "source_to_vortex_array_ms",
+            "vortex_write_ms",
+            "vortex_reopen_or_verify_ms",
+            "prepared_state_lookup_or_create_ms",
+            "vortex_scan_ms",
+            "operator_compute_ms",
+            "result_sink_write_ms",
+            "evidence_render_ms",
+        )
+        if numeric_value(stage_fields.get(key)) is not None
+    ]
+
+
+def route_timing_ledger_fields_for_row(
+    row: dict[str, Any],
+    identity: dict[str, Any],
+    stage_fields: dict[str, Any],
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    lane_id = str(identity.get("route_lane_id") or stage_fields.get("route_lane_id") or "")
+    total_route = numeric_value(stage_fields.get("total_route_ms"))
+    query_runtime = prepared_route_query_runtime_millis(fields)
+    preparation = prepare_once_preparation_millis(fields, stage_fields)
+    batch_count = prepared_route_observed_batch_count(fields)
+    amortized_preparation = (
+        preparation / batch_count
+        if preparation is not None and batch_count and batch_count > 0
+        else None
+    )
+    detailed_stage_ids = set(_stage_ids_with_values(stage_fields))
+
+    included_stage_ids: tuple[str, ...]
+    scope: str
+    formula: str
+    preparation_included: bool
+    query_included: bool
+    output_included: bool
+    evidence_included: bool
+    included_total = total_route
+
+    if lane_id == "prepare_once_first_query":
+        included_stage_ids = ("prepare_batch_preparation_millis", "query_runtime_millis")
+        scope = "prepare_once_first_query"
+        formula = "total_route_ms = prepare_batch_preparation_millis + query_runtime_millis"
+        preparation_included = True
+        query_included = True
+        output_included = False
+        evidence_included = False
+        included_total = (
+            preparation + query_runtime
+            if preparation is not None and query_runtime is not None
+            else total_route
+        )
+    elif lane_id == "prepare_once_batch":
+        included_stage_ids = (
+            "amortized_prepare_batch_preparation_millis",
+            "query_runtime_millis",
+        )
+        scope = "prepare_once_batch_amortized"
+        formula = (
+            "total_route_ms = amortized_prepare_batch_preparation_millis "
+            "+ query_runtime_millis"
+        )
+        preparation_included = True
+        query_included = True
+        output_included = False
+        evidence_included = False
+        included_total = (
+            amortized_preparation + query_runtime
+            if amortized_preparation is not None and query_runtime is not None
+            else total_route
+        )
+    elif lane_id in {"warm_prepared_query", "native_vortex_query"}:
+        included_stage_ids = ("query_runtime_millis",)
+        scope = (
+            "warm_prepared_query_only"
+            if lane_id == "warm_prepared_query"
+            else "native_vortex_query_only"
+        )
+        formula = "total_route_ms = query_runtime_millis"
+        preparation_included = False
+        query_included = True
+        output_included = False
+        evidence_included = False
+        included_total = query_runtime if query_runtime is not None else total_route
+    elif lane_id == "external_baseline_end_to_end":
+        included_stage_ids = ("external_engine_reported_total_runtime_millis",)
+        scope = "external_baseline_end_to_end"
+        formula = "total_route_ms = external engine reported total_runtime_millis"
+        preparation_included = False
+        query_included = True
+        output_included = True
+        evidence_included = False
+    elif lane_id == "direct_transient_route":
+        included_stage_ids = ("total_runtime_millis",)
+        scope = "direct_transient_route_total"
+        formula = "total_route_ms = total_runtime_millis"
+        preparation_included = False
+        query_included = True
+        output_included = True
+        evidence_included = True
+    else:
+        included_stage_ids = ("total_runtime_millis",)
+        scope = "cold_certified_route_total"
+        formula = "total_route_ms = total_runtime_millis"
+        preparation_included = True
+        query_included = True
+        output_included = True
+        evidence_included = True
+
+    excluded_stage_ids = sorted(detailed_stage_ids - set(included_stage_ids))
+    delta = (
+        abs((included_total or 0.0) - (total_route or 0.0))
+        if included_total is not None and total_route is not None
+        else None
+    )
+    return {
+        "route_timing_ledger_schema_version": ROUTE_TIMING_LEDGER_SCHEMA_VERSION,
+        "route_timing_ledger_status": "valid" if delta is not None else "not_numeric",
+        "route_total_formula": formula,
+        "route_timing_scope": scope,
+        "stage_parent_id": lane_id or "unknown",
+        "route_timing_included_stage_ids": ",".join(included_stage_ids),
+        "route_timing_excluded_stage_ids": ",".join(excluded_stage_ids) or "none",
+        "route_timing_included_stage_total_ms": included_total,
+        "route_timing_total_delta_ms": delta,
+        "preparation_timing_included_in_total": preparation_included,
+        "query_timing_included_in_total": query_included,
+        "output_timing_included_in_total": output_included,
+        "evidence_timing_included_in_total": evidence_included,
+    }
+
+
+def first_meaningful_field(fields: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = fields.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text.lower() not in {"none", "null", "not_reported"}:
+            return text
+    return None
+
+
+def certified_status(value: str | None) -> bool:
+    if not value:
+        return False
+    return "certified" in value.lower() or value.lower() == "passed"
+
+
+def route_fast_path_attribution_fields_for_row(
+    row: dict[str, Any],
+    identity: dict[str, Any],
+    stage_fields: dict[str, Any],
+    timing_ledger: dict[str, Any],
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    is_shardloom = is_shardloom_engine(engine)
+    total_route = numeric_value(stage_fields.get("total_route_ms"))
+    output_delivery = (
+        first_numeric_field(
+            fields,
+            (
+                "result_sink_write_millis",
+                "computed_result_sink_write_millis",
+            ),
+        )
+        or numeric_value(stage_fields.get("result_sink_write_ms"))
+        or 0.0
+    )
+    evidence_render = (
+        first_numeric_field(fields, ("evidence_render_millis",))
+        or numeric_value(stage_fields.get("evidence_render_ms"))
+        or 0.0
+    )
+    evidence_capture = 0.0
+    certificate_link = 0.0
+    output_included = timing_ledger.get("output_timing_included_in_total") is True
+    evidence_included = timing_ledger.get("evidence_timing_included_in_total") is True
+    included_overhead = (
+        (output_delivery if output_included else 0.0)
+        + (evidence_render if evidence_included else 0.0)
+        + evidence_capture
+        + certificate_link
+    )
+    runtime_execution = (
+        max(total_route - included_overhead, 0.0)
+        if total_route is not None
+        else first_numeric_field(fields, ("query_runtime_millis", "total_runtime_millis"))
+    )
+    certificate_id = first_meaningful_field(
+        fields,
+        (
+            "runtime_execution_certificate_id",
+            "execution_certificate_id",
+            "vortex_capillary_preparation_execution_certificate_id",
+        ),
+    )
+    certificate_status = first_meaningful_field(
+        fields,
+        (
+            "runtime_execution_certificate_status",
+            "execution_certificate_status",
+            "vortex_capillary_preparation_execution_certificate_status",
+        ),
+    )
+    certificate_plan_ref = first_meaningful_field(
+        fields,
+        (
+            "runtime_execution_certificate_plan_ref",
+            "runtime_scheduler_ref",
+            "vortex_capillary_preparation_task_manifest_id",
+        ),
+    )
+    evidence_required = (
+        is_shardloom
+        and str(row.get("status") or "") == "success"
+        and str(row.get("claim_gate_status") or "") == "claim_grade"
+    )
+    if not is_shardloom:
+        certificate_link_status = "external_baseline_only"
+    elif certificate_id and certified_status(certificate_status):
+        certificate_link_status = "linked_certified_runtime_execution"
+    elif evidence_required:
+        certificate_link_status = "missing_required_certificate_link"
+    else:
+        certificate_link_status = "not_required_not_claim_grade"
+    return {
+        "fast_path_attribution_schema_version": FAST_PATH_ATTRIBUTION_SCHEMA_VERSION,
+        "runtime_execution_ms": runtime_execution,
+        "output_delivery_ms": output_delivery,
+        "evidence_capture_ms": evidence_capture,
+        "evidence_render_ms": evidence_render,
+        "certificate_link_ms": certificate_link,
+        "runtime_execution_timing_scope": str(
+            timing_ledger.get("route_timing_scope") or "unknown"
+        ),
+        "output_delivery_timing_scope": (
+            "included_in_route_total" if output_included else "excluded_from_route_total"
+        ),
+        "evidence_capture_timing_status": "certificate_metadata_linked_not_separately_timed",
+        "certificate_link_timing_status": "metadata_linked_not_separately_timed",
+        "runtime_execution_certificate_id": (
+            certificate_id
+            if certificate_id
+            else ("external_baseline_only" if not is_shardloom else "missing")
+        ),
+        "runtime_execution_certificate_status": (
+            certificate_status
+            if certificate_status
+            else ("external_baseline_only" if not is_shardloom else "missing")
+        ),
+        "runtime_execution_certificate_plan_ref": (
+            certificate_plan_ref
+            if certificate_plan_ref
+            else ("external_baseline_only" if not is_shardloom else "missing")
+        ),
+        "certificate_link_status": certificate_link_status,
+        "evidence_required_for_claim": evidence_required,
+        "evidence_render_included_in_route_total": evidence_included,
+        "fast_path_claim_boundary": (
+            "runtime_execution_ms is route-scoped timing; output_delivery_ms, "
+            "evidence_capture_ms, evidence_render_ms, and certificate_link_ms explain "
+            "claim evidence overhead and do not authorize performance superiority"
+        ),
+    }
+
+
+def csv_unique(values: list[Any]) -> str:
+    seen: list[str] = []
+    for value in values:
+        if value in {None, "", "none", "missing", "not_reported", "not_applicable"}:
+            continue
+        for item in str(value).split(","):
+            text = item.strip()
+            if text and text not in seen:
+                seen.append(text)
+    return ",".join(seen) if seen else "none"
+
+
+def normalized_operator_mode(fields: dict[str, Any], is_shardloom: bool) -> str:
+    if not is_shardloom:
+        return "external_baseline_only"
+    raw_class = str(
+        first_meaningful_field(
+            fields,
+            (
+                "operator_execution_class",
+                "source_backed_scan_operator_execution_class",
+                "fused_pipeline_operator_execution_class",
+                "encoded_predicate_provider_operator_execution_class",
+            ),
+        )
+        or ""
+    ).strip()
+    encoded_claim_allowed = field_bool(fields, "operator_encoded_native_claim_allowed", False)
+    if raw_class == "encoded_native" and encoded_claim_allowed:
+        return "encoded_native"
+    if raw_class in {"residual_native", "materialized_temporary", "unsupported"}:
+        return raw_class
+    if field_bool(fields, "operator_temporary_materialization_used", False) or field_bool(
+        fields, "data_materialized", False
+    ):
+        return "materialized_temporary"
+    if field_bool(fields, "operator_residual_native_used", False) or first_meaningful_field(
+        fields, ("source_backed_scan_residual_executor",)
+    ):
+        return "residual_native"
+    return "unsupported"
+
+
+def operator_hot_path_candidate_fields(
+    fields: dict[str, Any], mode: str
+) -> tuple[str, str, str]:
+    encoded_provider_status = first_meaningful_field(
+        fields,
+        (
+            "encoded_predicate_provider_status",
+            "encoded_predicate_provider_filter_column_batch_status",
+        ),
+    )
+    scenario = str(fields.get("scenario_name") or fields.get("scenario_id") or "").lower()
+    if encoded_provider_status and "selective" in scenario:
+        return (
+            "selective_filter_selection_vector_metric_aggregation",
+            "blocked_selection_vector_metric_aggregation_not_admitted",
+            "implement selection-vector-backed metric aggregation with decoded-reference correctness, execution certificate, and Native I/O evidence before changing encoded_native_claim_allowed",
+        )
+    if mode == "materialized_temporary":
+        return (
+            "compatibility_import_materialization_elimination",
+            "blocked_materialized_temporary_operator_not_encoded_native",
+            "move the cold compatibility route toward prepared/native operator execution before claiming encoded-native behavior",
+        )
+    if mode == "residual_native":
+        return (
+            "residual_native_operator_encoding_promotion",
+            "blocked_residual_native_operator_not_encoded_native",
+            "select a residual-native operator family, add encoded-kernel correctness evidence, and require claim-gate validation before promotion",
+        )
+    if mode == "encoded_native":
+        return (
+            "already_encoded_native",
+            "none",
+            "keep correctness, certificate, Native I/O, and benchmark claim gates attached",
+        )
+    return (
+        "operator_mode_evidence_missing",
+        "blocked_operator_mode_evidence_missing",
+        "emit operator blocker matrix evidence before attempting encoded-native promotion",
+    )
+
+
+def operator_mode_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    is_shardloom = is_shardloom_engine(engine)
+    mode = normalized_operator_mode(fields, is_shardloom)
+    if mode not in OPERATOR_EXECUTION_MODES:
+        mode = "unsupported"
+    if not is_shardloom:
+        return {
+            "operator_mode_inventory_schema_version": OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
+            "operator_execution_class": "external_baseline_only",
+            "operator_admission_status": "external_baseline_only",
+            "operator_encoded_native_claim_allowed": False,
+            "operator_residual_native_used": False,
+            "operator_temporary_materialization_used": False,
+            "operator_blocker_matrix_ref": "external_baseline_only",
+            "operator_execution_mode": "external_baseline_only",
+            "encoded_native_operators": "external_baseline_only",
+            "residual_native_operators": "external_baseline_only",
+            "materialized_temporary_operators": "external_baseline_only",
+            "operator_blocker_code": "external_baseline_only",
+            "operator_hot_path_candidate": "external_baseline_only",
+            "operator_hot_path_candidate_status": "external_baseline_only",
+            "operator_hot_path_next_step": "external_baseline_only",
+            "operator_mode_claim_boundary": "external rows are comparison baselines only",
+        }
+
+    encoded_native_claim_allowed = field_bool(
+        fields, "operator_encoded_native_claim_allowed", False
+    )
+    residual_used = mode == "residual_native" or field_bool(
+        fields, "operator_residual_native_used", False
+    )
+    temporary_used = mode == "materialized_temporary" or field_bool(
+        fields, "operator_temporary_materialization_used", False
+    )
+    blocker_code = (
+        first_meaningful_field(
+            fields,
+            (
+                "operator_blocker_id",
+                "fused_pipeline_blocker_id",
+                "encoded_predicate_provider_blocker_id",
+            ),
+        )
+        or ("none" if mode == "encoded_native" else "gar-6d9.operator_mode_not_encoded_native")
+    )
+    candidate, candidate_status, next_step = operator_hot_path_candidate_fields(fields, mode)
+    candidate = first_meaningful_field(fields, ("operator_hot_path_candidate",)) or candidate
+    candidate_status = (
+        first_meaningful_field(fields, ("operator_hot_path_candidate_status",))
+        or candidate_status
+    )
+    next_step = first_meaningful_field(fields, ("operator_hot_path_next_step",)) or next_step
+    encoded_operators = (
+        csv_unique(
+            [
+                fields.get("operator_family"),
+                fields.get("prepared_vortex_scale_split_operator_family"),
+                fields.get("encoded_predicate_provider_candidate"),
+            ]
+        )
+        if mode == "encoded_native" and encoded_native_claim_allowed
+        else "none"
+    )
+    residual_operators = (
+        csv_unique(
+            [
+                fields.get("source_backed_scan_residual_executor"),
+                fields.get("prepared_vortex_scale_split_operator_family"),
+                fields.get("fused_operator_family"),
+                fields.get("encoded_predicate_provider_selected_metric_source"),
+            ]
+        )
+        if residual_used
+        else "none"
+    )
+    materialized_operators = (
+        csv_unique(
+            [
+                fields.get("operator_blocker_matrix_ref"),
+                "vortex_derived_array_temporary_operator",
+            ]
+        )
+        if temporary_used
+        else "none"
+    )
+    return {
+        "operator_mode_inventory_schema_version": OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
+        "operator_execution_class": mode,
+        "operator_admission_status": str(
+            first_meaningful_field(
+                fields,
+                (
+                    "operator_admission_status",
+                    "prepared_vortex_scale_split_operator_runtime_status",
+                ),
+            )
+            or ("encoded_native_admitted" if mode == "encoded_native" else "not_encoded_native")
+        ),
+        "operator_encoded_native_claim_allowed": encoded_native_claim_allowed
+        if mode == "encoded_native"
+        else False,
+        "operator_residual_native_used": residual_used,
+        "operator_temporary_materialization_used": temporary_used,
+        "operator_blocker_matrix_ref": first_meaningful_field(
+            fields, ("operator_blocker_matrix_ref",)
+        )
+        or "missing",
+        "operator_execution_mode": mode,
+        "encoded_native_operators": encoded_operators,
+        "residual_native_operators": residual_operators,
+        "materialized_temporary_operators": materialized_operators,
+        "operator_blocker_code": blocker_code,
+        "operator_hot_path_candidate": candidate,
+        "operator_hot_path_candidate_status": candidate_status,
+        "operator_hot_path_next_step": next_step,
+        "operator_mode_claim_boundary": (
+            "runtime-supported, residual-native, materialized-temporary, and encoded-native "
+            "operator evidence are separate claims; encoded_native requires explicit "
+            "operator_encoded_native_claim_allowed=true plus correctness, certificate, "
+            "materialization/decode, Native I/O, and no-fallback evidence"
+        ),
+    }
+
+
 def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
+    identity = route_identity_for_row(row)
+    stage_fields = route_stage_fields_for_row(row)
+    timing_ledger = route_timing_ledger_fields_for_row(row, identity, stage_fields)
+    fast_path_fields = route_fast_path_attribution_fields_for_row(
+        row, identity, stage_fields, timing_ledger
+    )
+    operator_mode_fields = operator_mode_fields_for_row(row)
     return {
         **row,
-        **route_identity_for_row(row),
-        **route_stage_fields_for_row(row),
+        **identity,
+        **stage_fields,
+        **timing_ledger,
+        **fast_path_fields,
+        **operator_mode_fields,
     }
 
 
@@ -860,17 +1517,9 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
         if base.get("route_lane_id") != "prepare_once_batch":
             continue
         fields = runtime_validation_field_map(row)
-        total_runtime = first_numeric_field(
-            fields, ("total_runtime_millis", "query_runtime_millis")
-        )
-        preparation = first_numeric_field(
-            fields,
-            (
-                "preparation_millis",
-                "prepare_batch_preparation_millis",
-                "vortex_prepare_millis",
-            ),
-        )
+        total_runtime = prepared_route_query_runtime_millis(fields)
+        preparation = prepare_once_preparation_millis(fields, base)
+        batch_count = prepared_route_observed_batch_count(fields)
         first_query_total = (
             total_runtime + preparation
             if total_runtime is not None and preparation is not None
@@ -890,6 +1539,11 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
                 "query_timing_starts_after_preparation": True,
                 "prepared_state_reused": False,
                 "route_comparable_to_external_end_to_end": True,
+                "route_row_derivation_status": DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS,
+                "route_row_source_lane_id": "prepare_once_batch",
+                "route_row_source_engine": row.get("engine"),
+                "prepared_route_query_count": 1,
+                "prepared_route_observed_batch_count": batch_count,
                 "prepared_state_lookup_or_create_ms": preparation,
                 "total_route_ms": first_query_total,
                 "route_stage_timing_scope": "prepare_once_first_query",
@@ -900,12 +1554,58 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
                 ),
             }
         )
+        prepared_timing_ledger = route_timing_ledger_fields_for_row(row, prepared, prepared)
+        prepared.update(prepared_timing_ledger)
+        prepared.update(
+            route_fast_path_attribution_fields_for_row(
+                row,
+                prepared,
+                prepared,
+                prepared_timing_ledger,
+            )
+        )
+        prepared.update(operator_mode_fields_for_row(prepared))
+        prepared.update(route_diagnostic_fields_for_row(prepared, prepared))
+        prepared.update(cold_lane_attribution_for_row(prepared))
         synthetic.append(prepared)
     return synthetic
 
 
+def rows_with_prepare_once_first_query(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    source_rows = [
+        row
+        for row in rows
+        if str(row.get("route_lane_id") or "") != "prepare_once_first_query"
+    ]
+    return [*source_rows, *synthetic_prepare_once_first_query_rows(source_rows)]
+
+
 def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
     rows = artifact.get("results")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    chunks = artifact.get("published_benchmark_row_chunks")
+    if isinstance(chunks, list):
+        chunk_rows: list[dict[str, Any]] = []
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            path_text = chunk.get("path")
+            if not isinstance(path_text, str) or not path_text:
+                continue
+            path = ROOT / path_text
+            if not path.exists():
+                continue
+            payload = load_json(path)
+            rows_payload = payload.get("rows") if isinstance(payload, dict) else payload
+            if isinstance(rows_payload, list):
+                chunk_rows.extend(row for row in rows_payload if isinstance(row, dict))
+        if chunk_rows:
+            return chunk_rows
+    rows = artifact.get("published_benchmark_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    rows = artifact.get("rows")
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
@@ -955,7 +1655,68 @@ def scenario_key(row: dict[str, Any]) -> tuple[str, str]:
     return (str(row.get("storage_format", "")), str(row.get("scenario_name", "")))
 
 
+def prepared_route_observed_batch_count(fields: dict[str, Any]) -> float | None:
+    return first_numeric_field(
+        fields,
+        (
+            "batch_scenario_count",
+            "session_requested_scenario_count",
+            "scenario_count",
+            "prepared_route_observed_batch_count",
+        ),
+    )
+
+
+def prepared_route_query_runtime_millis(fields: dict[str, Any]) -> float | None:
+    return first_numeric_field(
+        fields,
+        (
+            "query_runtime_millis",
+            "total_runtime_millis",
+        ),
+    )
+
+
+def route_total_runtime_millis(fields: dict[str, Any]) -> float | None:
+    return first_numeric_field(
+        fields,
+        (
+            "total_runtime_millis",
+            "query_runtime_millis",
+        ),
+    )
+
+
+def prepare_once_preparation_millis(
+    fields: dict[str, Any],
+    stage_fields: dict[str, Any] | None = None,
+) -> float | None:
+    preparation = first_numeric_field(
+        fields,
+        (
+            "prepare_batch_preparation_millis",
+            "preparation_millis",
+            "vortex_prepare_millis",
+        ),
+    )
+    if preparation is not None:
+        return preparation
+    if stage_fields is None:
+        return None
+    amortized = numeric_value(stage_fields.get("prepared_state_lookup_or_create_ms"))
+    batch_count = prepared_route_observed_batch_count(fields)
+    if amortized is not None and batch_count and batch_count > 0:
+        return amortized * batch_count
+    return None
+
+
 def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    rows = [
+        row
+        for row in rows
+        if row.get("route_row_derivation_status")
+        != DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS
+    ]
     by_engine: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         engine = row.get("engine")
@@ -1053,8 +1814,13 @@ def claims_cell(row: dict[str, Any]) -> str:
 
 
 def route_table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    decorated = [decorated_route_row(row) for row in rows]
-    decorated.extend(synthetic_prepare_once_first_query_rows(rows))
+    source_rows = [
+        row
+        for row in rows
+        if str(row.get("route_lane_id") or "") != "prepare_once_first_query"
+    ]
+    decorated = [decorated_route_row(row) for row in source_rows]
+    decorated.extend(synthetic_prepare_once_first_query_rows(source_rows))
     order = {
         "prepare_once_first_query": 0,
         "prepare_once_batch": 1,
@@ -1133,6 +1899,55 @@ def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def prepared_route_amortization_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    prepare_batch_rows = [
+        row
+        for row in route_table_rows(rows)
+        if str(row.get("route_lane_id") or "") == "prepare_once_batch"
+    ]
+    rendered_rows: list[list[Any]] = []
+    for query_count in PREPARED_ROUTE_AMORTIZATION_COUNTS:
+        per_query_values: list[float] = []
+        total_batch_values: list[float] = []
+        for row in prepare_batch_rows:
+            fields = runtime_validation_field_map(row)
+            preparation = prepare_once_preparation_millis(fields, row)
+            query_runtime = prepared_route_query_runtime_millis(fields)
+            if preparation is None or query_runtime is None:
+                continue
+            per_query_values.append(preparation / query_count + query_runtime)
+            total_batch_values.append(preparation + query_runtime * query_count)
+        rendered_rows.append(
+            [
+                query_count,
+                len(per_query_values),
+                fmt_ms(geomean(per_query_values)),
+                fmt_ms(geomean(total_batch_values)),
+                "prepare_batch_preparation_millis / N + query_runtime_millis",
+                "raw_compat_source -> VortexPreparedState reused for N prepared executions",
+            ]
+        )
+    return {
+        "heading": "Prepare-Once Amortization",
+        "headers": [
+            "Prepared executions",
+            "Rows",
+            "Per-query route geomean",
+            "Batch route geomean",
+            "Formula",
+            "Scope",
+        ],
+        "rows": rendered_rows,
+        "schema_version": "shardloom.website.prepared_route_amortization.v1",
+        "query_counts": list(PREPARED_ROUTE_AMORTIZATION_COUNTS),
+        "claim_boundary": (
+            "amortized prepare-once rows are derived from the observed prepare-batch "
+            "artifact to explain reuse economics; they do not authorize performance, "
+            "production, or replacement claims"
+        ),
+    }
+
+
 def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
@@ -1185,6 +2000,210 @@ def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "claim_boundary": (
             "stage attribution explains why a ShardLoom route took time; stage pieces are "
             "not competing product lanes"
+        ),
+    }
+
+
+def fast_path_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        evidence_excluded = sum(
+            1 for row in group_rows if row.get("evidence_render_included_in_route_total") is False
+        )
+        certificate_counts = Counter(
+            str(row.get("certificate_link_status") or "unknown") for row in group_rows
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                fmt_ms(
+                    geomean_non_negative(
+                        [
+                            value
+                            for row in group_rows
+                            for value in [numeric_value(row.get("runtime_execution_ms"))]
+                            if value is not None and value >= 0
+                        ]
+                    )
+                ),
+                fmt_ms(
+                    geomean_non_negative(
+                        [
+                            value
+                            for row in group_rows
+                            for value in [numeric_value(row.get("output_delivery_ms"))]
+                            if value is not None and value >= 0
+                        ]
+                    )
+                ),
+                fmt_ms(
+                    geomean_non_negative(
+                        [
+                            value
+                            for row in group_rows
+                            for value in [numeric_value(row.get("evidence_capture_ms"))]
+                            if value is not None and value >= 0
+                        ]
+                    )
+                ),
+                fmt_ms(
+                    geomean_non_negative(
+                        [
+                            value
+                            for row in group_rows
+                            for value in [numeric_value(row.get("evidence_render_ms"))]
+                            if value is not None and value >= 0
+                        ]
+                    )
+                ),
+                fmt_ms(
+                    geomean_non_negative(
+                        [
+                            value
+                            for row in group_rows
+                            for value in [numeric_value(row.get("certificate_link_ms"))]
+                            if value is not None and value >= 0
+                        ]
+                    )
+                ),
+                f"{evidence_excluded}/{len(group_rows)} excluded from route total",
+                ", ".join(f"{key}: {count}" for key, count in sorted(certificate_counts.items())),
+            ]
+        )
+    return {
+        "heading": "Runtime Fast Path Versus Evidence Path",
+        "headers": [
+            "Route",
+            "Rows",
+            "Runtime execution",
+            "Output delivery",
+            "Evidence capture",
+            "Evidence render",
+            "Certificate link",
+            "Evidence render route total",
+            "Certificate status",
+        ],
+        "rows": rendered_rows,
+        "schema_version": FAST_PATH_ATTRIBUTION_SCHEMA_VERSION,
+        "claim_boundary": (
+            "runtime execution timing, output delivery, evidence capture, evidence render, "
+            "and certificate linking are separate interpretation buckets; fast-path timing "
+            "is not a performance superiority claim"
+        ),
+    }
+
+
+def operator_mode_inventory_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        mode = str(row.get("operator_execution_mode") or "unsupported")
+        blocker = str(row.get("operator_blocker_code") or "missing")
+        encoded = str(row.get("encoded_native_operators") or "none")
+        residual = str(row.get("residual_native_operators") or "none")
+        materialized = str(row.get("materialized_temporary_operators") or "none")
+        key = (mode, blocker, encoded, residual, materialized)
+        if key not in grouped:
+            grouped[key] = {"count": 0, "lanes": set()}
+        grouped[key]["count"] += 1
+        grouped[key]["lanes"].add(
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        )
+
+    rows_out: list[list[Any]] = []
+    mode_order = {
+        "encoded_native": 0,
+        "residual_native": 1,
+        "materialized_temporary": 2,
+        "unsupported": 3,
+    }
+    for (mode, blocker, encoded, residual, materialized), payload in sorted(
+        grouped.items(), key=lambda item: (mode_order.get(item[0][0], 99), item[0])
+    ):
+        rows_out.append(
+            [
+                mode,
+                payload["count"],
+                encoded,
+                residual,
+                materialized,
+                blocker,
+                ", ".join(sorted(payload["lanes"])),
+            ]
+        )
+
+    encoded_count = sum(row[1] for row in rows_out if row[0] == "encoded_native")
+    residual_count = sum(row[1] for row in rows_out if row[0] == "residual_native")
+    temporary_count = sum(row[1] for row in rows_out if row[0] == "materialized_temporary")
+    unsupported_count = sum(row[1] for row in rows_out if row[0] == "unsupported")
+    return {
+        "heading": "Operator Mode Inventory",
+        "headers": [
+            "Execution mode",
+            "Rows",
+            "Encoded-native operators",
+            "Residual-native operators",
+            "Materialized temporary operators",
+            "Blocker",
+            "Route lanes",
+        ],
+        "rows": rows_out,
+        "schema_version": OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
+        "status": (
+            "encoded_native_promotion_pending"
+            if residual_count or temporary_count or unsupported_count
+            else "encoded_native_inventory_complete"
+        ),
+        "encoded_native_row_count": encoded_count,
+        "residual_native_row_count": residual_count,
+        "materialized_temporary_row_count": temporary_count,
+        "unsupported_row_count": unsupported_count,
+        "claim_boundary": (
+            "runtime-supported rows may still be residual-native or materialized-temporary; "
+            "encoded-native support requires operator_encoded_native_claim_allowed=true "
+            "and no residual/materialized blocker"
+        ),
+    }
+
+
+def operator_hot_path_candidate_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[tuple[str, str, str, str], int] = Counter()
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        candidate = str(row.get("operator_hot_path_candidate") or "operator_mode_evidence_missing")
+        status = str(row.get("operator_hot_path_candidate_status") or "blocked_operator_mode_evidence_missing")
+        blocker = str(row.get("operator_blocker_code") or "missing")
+        next_step = str(row.get("operator_hot_path_next_step") or "emit operator evidence")
+        grouped[(candidate, status, blocker, next_step)] += 1
+
+    return {
+        "heading": "Operator Hot-Path Promotion Candidates",
+        "headers": ["Candidate", "Status", "Rows", "Blocker", "Next step"],
+        "rows": [
+            [candidate, status, count, blocker, next_step]
+            for (candidate, status, blocker, next_step), count in sorted(
+                grouped.items(),
+                key=lambda item: (
+                    0 if item[0][0] == "selective_filter_selection_vector_metric_aggregation" else 1,
+                    -item[1],
+                    item[0],
+                ),
+            )
+        ],
+        "schema_version": OPERATOR_MODE_INVENTORY_SCHEMA_VERSION,
+        "claim_boundary": (
+            "candidate rows name the next encoded-native promotion proof; they do not "
+            "change runtime support, claim-grade status, or fallback policy"
         ),
     }
 
@@ -1402,19 +2421,619 @@ def numeric_value(value: Any) -> float | None:
 
 
 def cold_lane_field_present(fields: dict[str, Any], field: str) -> bool:
-    value = fields.get(field)
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip()) and value.strip().lower() not in {
-            "missing",
-            "n/a",
-            "not_applicable",
-            "not_measured",
-            "not_reported",
-            "unknown",
+    for candidate in (field, *COLD_LANE_FIELD_ALIASES.get(field, ())):
+        value = fields.get(candidate)
+        if value is None:
+            continue
+        if isinstance(value, str):
+            if bool(value.strip()) and value.strip().lower() not in {
+                "missing",
+                "n/a",
+                "not_applicable",
+                "not_measured",
+                "not_reported",
+                "unknown",
+            }:
+                return True
+            continue
+        return True
+    return False
+
+
+def first_numeric_millis(fields: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        parsed = numeric_value(fields.get(key))
+        if parsed is None:
+            continue
+        if key.endswith("_micros"):
+            return parsed / 1000.0
+        return parsed
+    return None
+
+
+def first_integer_field(fields: dict[str, Any], keys: tuple[str, ...]) -> int | None:
+    for key in keys:
+        parsed = numeric_value(fields.get(key))
+        if parsed is not None:
+            return int(parsed)
+    return None
+
+
+def count_csv_values(value: Any) -> int | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if not stripped or stripped.lower() in {"none", "not_reported", "not_requested"}:
+        return 0
+    return len([item for item in stripped.split(",") if item.strip()])
+
+
+def source_columns_requested(fields: dict[str, Any]) -> int | None:
+    direct = first_integer_field(
+        fields,
+        (
+            "source_columns_requested",
+            "source_state_reader_projection_column_count",
+        ),
+    )
+    if direct is not None:
+        return direct
+    for key in (
+        "source_state_reader_projection_columns",
+        "source_columns",
+        "streaming_projected_columns",
+        "vortex_capillary_preparation_projection_mask",
+    ):
+        count = count_csv_values(fields.get(key))
+        if count is not None:
+            return count
+    observed = first_integer_field(
+        fields,
+        (
+            "source_column_count",
+            "vortex_scout_ingress_column_count",
+            "vortex_capillary_preparation_activation_observed_columns",
+        ),
+    )
+    if observed is not None:
+        return observed
+    return None
+
+
+def source_projection_applied(fields: dict[str, Any]) -> bool:
+    for key in (
+        "source_projection_applied",
+        "projection_applied",
+        "scan_projection_pushed_down",
+        "streaming_projection_pushdown_applied",
+    ):
+        if key in fields:
+            return field_bool(fields, key, False)
+    status = str(
+        fields.get("source_state_projection_pushdown_status")
+        or fields.get("scan_projection_pushdown_status")
+        or fields.get("vortex_preparation_spine_projection_mask_status")
+        or ""
+    ).strip().lower()
+    if status and status not in {
+        "none",
+        "not_applicable",
+        "not_reported",
+        "not_requested",
+        "not_requested_full_read",
+        "benchmark_projection_mask_not_materialized",
+    }:
+        return True
+    requested = source_columns_requested(fields)
+    observed = first_integer_field(
+        fields,
+        (
+            "vortex_capillary_preparation_activation_observed_columns",
+            "vortex_scout_ingress_column_count",
+        ),
+    )
+    return bool(
+        requested is not None and observed is not None and requested > 0 and requested < observed
+    )
+
+
+def source_pressure_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    split_count = first_integer_field(
+        fields,
+        (
+            "source_split_count",
+            "split_count",
+            "split_manifest_split_count",
+            "vortex_preparation_spine_source_split_count",
+            "scale_benchmark_split_count",
+            "file_count",
+            "runtime_split_count",
+        ),
+    )
+    open_count = first_integer_field(
+        fields,
+        (
+            "source_open_count",
+            "source_file_open_count",
+            "file_open_count",
+            "file_count",
+            "split_manifest_split_count",
+            "source_split_count",
+        ),
+    )
+    bytes_read = first_integer_field(
+        fields,
+        (
+            "source_bytes_read",
+            "bytes_read",
+            "source_size",
+            "vortex_scout_ingress_source_byte_count",
+            "vortex_copy_budget_source_byte_count",
+        ),
+    )
+    columns = source_columns_requested(fields)
+    projection = source_projection_applied(fields)
+    if (split_count or 0) >= 8 or (open_count or 0) >= 8:
+        profile = "many_small_files_pressure"
+    elif (bytes_read or 0) >= 64 * 1024 * 1024:
+        profile = "large_source_byte_pressure"
+    elif projection:
+        profile = "projection_sensitive_source"
+    else:
+        profile = "single_local_source"
+    return {
+        "source_split_count": split_count,
+        "source_open_count": open_count,
+        "source_bytes_read": bytes_read,
+        "source_columns_requested": columns,
+        "source_projection_applied": projection,
+        "source_pressure_profile": profile,
+    }
+
+
+def vortex_prepared_state_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    reusable = (
+        field_bool(fields, "vortex_prepared_state_reusable", False)
+        or field_bool(fields, "prepared_state_reuse_allowed", False)
+        or field_bool(fields, "prepared_artifact_reuse_eligible", False)
+        or field_bool(fields, "prepared_state_reused", False)
+    )
+    fingerprint = next(
+        (
+            str(fields.get(key))
+            for key in (
+                "vortex_prepared_state_fingerprint",
+                "prepared_state_digest",
+                "vortex_preparation_spine_prepared_state_digest",
+                "vortex_capillary_preparation_prepared_state_digest",
+                "prepared_artifact_digest",
+                "vortex_artifact_digest",
+            )
+            if fields.get(key) not in {None, "", "none", "not_reported"}
+        ),
+        "none",
+    )
+    return {
+        "vortex_prepared_state_reusable": reusable,
+        "vortex_prepared_state_fingerprint": fingerprint,
+        "vortex_prepared_state_fingerprint_status": (
+            "fingerprint_recorded" if fingerprint != "none" else "not_recorded"
+        ),
+    }
+
+
+def first_meaningful_text(fields: dict[str, Any], keys: tuple[str, ...], default: str) -> str:
+    for key in keys:
+        value = fields.get(key)
+        if value not in {None, "", "none", "not_reported", "not_requested"}:
+            return str(value)
+    return default
+
+
+def route_diagnostic_fields_for_row(
+    row: dict[str, Any], identity: dict[str, Any]
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    lane_id = str(row.get("route_lane_id") or identity.get("route_lane_id") or "")
+    external = not is_shardloom_engine(engine)
+    if external:
+        return {
+            "source_state_fingerprint": "external_baseline_only",
+            "source_schema_fingerprint": "external_baseline_only",
+            "source_parse_plan_id": "external_baseline_only",
+            "source_split_manifest_id": "external_baseline_only",
+            "source_anomaly_count": "external_baseline_only",
+            "source_quarantine_required": "external_baseline_only",
+            "prepared_state_fingerprint": "external_baseline_only",
+            "prepared_state_reuse_scope": "external_baseline_only",
+            "prepared_state_reuse_manifest_path": "external_baseline_only",
+            "prepared_state_reuse_policy": "external_baseline_only",
+            "prepared_state_reuse_hit": "external_baseline_only",
+            "prepared_state_reuse_reason": "external_baseline_only",
+            "prepared_state_reuse_manifest_digest": "external_baseline_only",
+            "prepared_state_invalidation_reason": "external_baseline_only",
+            "nearest_runnable_route": "external_baseline_only",
+            "required_feature_gate": "external_baseline_only",
+            "runtime_blocker_code": "external_baseline_only",
         }
-    return True
+
+    status = str(row.get("status") or "")
+    source_state = first_meaningful_text(
+        fields,
+        (
+            "source_state_fingerprint",
+            "source_state_digest",
+            "vortex_preparation_spine_source_state_digest",
+            "vortex_capillary_preparation_source_state_digest",
+            "vortex_scout_ingress_source_state_digest",
+        ),
+        "runtime_source_state_fingerprint_pending",
+    )
+    schema = first_meaningful_text(
+        fields,
+        (
+            "source_schema_fingerprint",
+            "schema_digest",
+            "vortex_scout_ingress_source_schema_digest_after",
+            "vortex_layout_write_advisor_source_schema_digest",
+        ),
+        "runtime_source_schema_fingerprint_pending",
+    )
+    split_manifest = first_meaningful_text(
+        fields,
+        (
+            "source_split_manifest_id",
+            "split_manifest_id",
+            "vortex_preparation_spine_source_split_refs",
+            "vortex_capillary_preparation_source_split_refs",
+        ),
+        "split_manifest_pending_until_source_admission",
+    )
+    prepared = first_meaningful_text(
+        fields,
+        (
+            "prepared_state_fingerprint",
+            "vortex_prepared_state_fingerprint",
+            "prepared_state_digest",
+            "vortex_preparation_spine_prepared_state_digest",
+            "vortex_capillary_preparation_prepared_state_digest",
+        ),
+        "runtime_prepared_state_fingerprint_pending",
+    )
+    reuse_scope = first_meaningful_text(
+        fields, ("prepared_state_reuse_scope",), PREPARED_STATE_REUSE_NOT_APPLICABLE
+    )
+    reuse_path = first_meaningful_text(
+        fields, ("prepared_state_reuse_manifest_path",), PREPARED_STATE_REUSE_NOT_APPLICABLE
+    )
+    reuse_policy = first_meaningful_text(
+        fields, ("prepared_state_reuse_policy",), PREPARED_STATE_REUSE_NOT_APPLICABLE
+    )
+    prepared_state_reused = field_bool(
+        fields,
+        "prepared_state_reused",
+        bool(identity.get("prepared_state_reused") is True),
+    )
+    reuse_hit = field_bool(fields, "prepared_state_reuse_hit", prepared_state_reused)
+    if reuse_scope == PREPARED_STATE_REUSE_NOT_APPLICABLE:
+        if lane_id == "warm_prepared_query":
+            reuse_scope = PREPARED_STATE_REUSE_EXPLICIT_SCOPE
+            reuse_path = "not_required_existing_prepared_state"
+            reuse_policy = "explicit_prepared_state_admission.v1"
+            reuse_hit = True
+        elif lane_id == "prepare_once_batch" and (prepared_state_reused or reuse_hit):
+            reuse_scope = PREPARED_STATE_REUSE_IN_PROCESS_SCOPE
+            reuse_path = "not_required_in_process_prepared_batch"
+            reuse_policy = "in_process_prepared_batch_reuse.v1"
+            reuse_hit = True
+        elif lane_id in {"cold_certified_route", "prepare_once_first_query"}:
+            reuse_scope = "prepared_state_created_not_reused"
+            reuse_path = "not_applicable_first_preparation"
+            reuse_policy = "first_preparation_creates_vortex_prepared_state.v1"
+            reuse_hit = False
+        elif lane_id == "native_vortex_query":
+            reuse_scope = "not_applicable_native_vortex_input"
+            reuse_path = "not_applicable_native_vortex_input"
+            reuse_policy = "not_applicable_native_vortex_input"
+            reuse_hit = False
+    if reuse_scope == PREPARED_STATE_REUSE_WORKSPACE_SCOPE:
+        reuse_path = (
+            reuse_path
+            if reuse_path != PREPARED_STATE_REUSE_NOT_APPLICABLE
+            else PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH
+        )
+        reuse_policy = (
+            reuse_policy
+            if reuse_policy != PREPARED_STATE_REUSE_NOT_APPLICABLE
+            else PREPARED_STATE_REUSE_WORKSPACE_POLICY
+        )
+    reuse_reason = first_meaningful_text(
+        fields,
+        (
+            "prepared_state_reuse_reason",
+            "prepare_batch_prepared_state_reuse_reason",
+        ),
+        (
+            "prepared_state_reused_within_declared_scope"
+            if reuse_hit
+            else "prepared_state_reuse_not_requested_for_route"
+        ),
+    )
+    reuse_digest = first_meaningful_text(
+        fields,
+        (
+            "prepared_state_reuse_manifest_digest",
+            "prepare_batch_prepared_state_reuse_manifest_digest",
+            "prepared_state_digest",
+            "prepared_artifact_digest",
+            "vortex_artifact_digest",
+            "vortex_prepared_state_fingerprint",
+        ),
+        (
+            prepared
+            if reuse_hit
+            else "not_applicable_no_reuse_manifest_for_route"
+        ),
+    )
+    invalidation_reason = first_meaningful_text(
+        fields,
+        (
+            "prepared_state_invalidation_reason",
+            "invalidation_reason",
+            "prepare_batch_prepared_state_invalidation_reason",
+        ),
+        (
+            "not_applicable_same_process_or_explicit_prepared_state"
+            if reuse_hit
+            else "not_applicable_no_reuse_attempt"
+        ),
+    )
+    anomaly_count = first_integer_field(
+        fields,
+        (
+            "source_anomaly_count",
+            "vortex_scout_ingress_anomaly_count",
+        ),
+    )
+    blocker = first_meaningful_text(
+        fields,
+        (
+            "runtime_blocker_code",
+            "runtime_blocker_id",
+            "source_adapter_blocker_id",
+            "operator_blocker_id",
+            "certification_blocker_id",
+        ),
+        "none" if status == "success" else "blocked_without_specific_code",
+    )
+    if status == "success":
+        blocker = "none"
+    if status == "success":
+        feature_gate = "none_runtime_supported"
+    elif str(identity.get("route_runtime_status")) == "feature_gated":
+        feature_gate = "feature_gate_required"
+    else:
+        feature_gate = "none"
+    return {
+        "source_state_fingerprint": source_state,
+        "source_schema_fingerprint": schema,
+        "source_parse_plan_id": first_meaningful_text(
+            fields,
+            ("source_parse_plan_id", "parse_decode_plan_digest", "source_state_parse_normalization"),
+            "parse_plan_pending_until_source_admission",
+        ),
+        "source_split_manifest_id": split_manifest,
+        "source_anomaly_count": anomaly_count if anomaly_count is not None else 0,
+        "source_quarantine_required": field_bool(
+            fields, "source_quarantine_required", field_bool(fields, "vortex_scout_ingress_quarantine_required", False)
+        ),
+        "prepared_state_fingerprint": prepared,
+        "prepared_state_reuse_scope": reuse_scope,
+        "prepared_state_reuse_manifest_path": reuse_path,
+        "prepared_state_reuse_policy": reuse_policy,
+        "prepared_state_reuse_hit": reuse_hit,
+        "prepared_state_reuse_reason": reuse_reason,
+        "prepared_state_reuse_manifest_digest": reuse_digest,
+        "prepared_state_invalidation_reason": invalidation_reason,
+        "nearest_runnable_route": lane_id if status == "success" else "local_file_direct_transient_route",
+        "required_feature_gate": feature_gate,
+        "runtime_blocker_code": blocker,
+    }
+
+
+def cold_prepared_query_millis(fields: dict[str, Any], route_lane_id: str) -> float | None:
+    if route_lane_id in {"prepare_once_first_query", "prepare_once_batch"}:
+        return first_numeric_millis(
+            fields, ("query_runtime_millis", "total_runtime_millis")
+        )
+    scan = first_numeric_millis(fields, ("vortex_scan_ms", "vortex_scan_millis"))
+    compute = first_numeric_millis(fields, ("operator_compute_ms", "operator_compute_millis"))
+    if scan is not None or compute is not None:
+        return (scan or 0.0) + (compute or 0.0)
+    return first_numeric_millis(fields, ("query_runtime_millis",))
+
+
+def cold_bottleneck_stage_values(
+    fields: dict[str, Any], route_lane_id: str
+) -> dict[str, float]:
+    values = {
+        "source_admission": source_admission_millis(fields),
+        "source_read": first_numeric_millis(fields, ("source_read_ms", "source_read_millis")),
+        "source_parse_or_decode": first_numeric_millis(
+            fields,
+            (
+                "source_parse_or_columnar_decode_ms",
+                "compatibility_parse_millis",
+                "source_parse_millis",
+                "source_to_columnar_millis",
+                "prepare_batch_source_to_columnar_millis",
+            ),
+        ),
+        "source_state_build": first_numeric_millis(
+            fields,
+            (
+                "source_state_build_millis",
+                "source_state_create_millis",
+                "source_state_prepare_millis",
+                "source_state_prepare_micros",
+            ),
+        ),
+        "vortex_array_build": first_numeric_millis(
+            fields,
+            (
+                "source_to_vortex_array_ms",
+                "vortex_array_build_millis",
+                "prepare_batch_vortex_array_build_millis",
+            ),
+        ),
+        "vortex_write": first_numeric_millis(
+            fields, ("vortex_write_ms", "vortex_write_millis", "prepare_batch_vortex_write_millis")
+        ),
+        "vortex_digest": first_numeric_millis(
+            fields, ("vortex_digest_millis", "vortex_digest_micros")
+        ),
+        "vortex_reopen_verify": first_numeric_millis(
+            fields,
+            (
+                "vortex_reopen_or_verify_ms",
+                "vortex_reopen_verify_millis",
+                "vortex_reopen_millis",
+                "prepare_batch_vortex_reopen_verify_millis",
+            ),
+        ),
+        "prepared_query": cold_prepared_query_millis(fields, route_lane_id),
+        "sink_output": first_numeric_millis(
+            fields, ("result_sink_write_ms", "result_sink_write_millis")
+        ),
+        "evidence_render": first_numeric_millis(
+            fields, ("evidence_render_ms", "evidence_render_millis")
+        ),
+    }
+    return {
+        stage: value
+        for stage, value in values.items()
+        if value is not None and value >= 0.0
+    }
+
+
+def cold_route_optimization_hint(primary_stage: str, pressure_profile: str) -> str:
+    if pressure_profile == "many_small_files_pressure":
+        return "batch_source_open_and_split_planning_before_parse_or_writer_tuning"
+    return {
+        "source_admission": "reuse_source_state_stat_and_admission_packets",
+        "source_read": "improve_source_reader_throughput_and_byte_range_accounting",
+        "source_parse_or_decode": "reduce_compatibility_parse_decode_tax_with_columnar_reader_projection",
+        "source_state_build": "cache_source_state_schema_fingerprint_and_parse_plan_work",
+        "vortex_array_build": "move_more_import_work_into_vortex_native_array_builders",
+        "vortex_write": "optimize_vortex_writer_batching_layout_and_sink_buffering",
+        "vortex_digest": "stream_digest_work_alongside_vortex_write",
+        "vortex_reopen_verify": "reuse_prepared_state_verification_metadata_and_tighten_reopen_checks",
+        "prepared_query": "optimize_prepared_vortex_scan_operator_path_after_ingest",
+        "sink_output": "bound_or_amortize_result_sink_replay_cost",
+        "evidence_render": "defer_noncritical_evidence_formatting_from_route_timing",
+    }.get(primary_stage, "collect_more_stage_timing_before_selecting_an_optimization")
+
+
+def cold_bottleneck_fields_for_row(
+    row: dict[str, Any], classification: str
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    identity = route_identity_for_row(row)
+    route_lane_id = str(identity.get("route_lane_id") or "")
+    pressure = source_pressure_fields(fields)
+    prepared = vortex_prepared_state_fields(fields)
+    base = {
+        "cold_bottleneck_schema_version": COLD_BOTTLENECK_SCHEMA_VERSION,
+        "cold_bottleneck_stage_labels": ",".join(COLD_BOTTLENECK_STAGE_ORDER),
+        "cold_route_optimization_hint_scope": "diagnostic_only_no_runtime_policy_change",
+        "cold_route_bottleneck_claim_boundary": (
+            "cold bottleneck attribution explains measured local route composition only; "
+            "it does not change execution, authorize performance claims, or imply "
+            "Spark/DataFusion fallback"
+        ),
+        **pressure,
+        **prepared,
+    }
+    if classification == "external_baseline_only":
+        return {
+            **base,
+            "cold_bottleneck_status": "external_baseline_only",
+            "cold_bottleneck_primary_stage": "external_baseline_only",
+            "cold_bottleneck_primary_stage_ms": None,
+            "cold_bottleneck_primary_stage_share": None,
+            "cold_bottleneck_secondary_stage": "external_baseline_only",
+            "cold_bottleneck_secondary_stage_ms": None,
+            "cold_bottleneck_secondary_stage_share": None,
+            "cold_bottleneck_stage_value_fields": "external_baseline_only",
+            "cold_route_optimization_hint": "external_baseline_only_not_shardloom_runtime",
+        }
+    if route_lane_id not in COLD_BOTTLENECK_ROUTE_LANES:
+        return {
+            **base,
+            "cold_bottleneck_status": "not_applicable_non_cold_route",
+            "cold_bottleneck_primary_stage": "not_applicable",
+            "cold_bottleneck_primary_stage_ms": None,
+            "cold_bottleneck_primary_stage_share": None,
+            "cold_bottleneck_secondary_stage": "not_applicable",
+            "cold_bottleneck_secondary_stage_ms": None,
+            "cold_bottleneck_secondary_stage_share": None,
+            "cold_bottleneck_stage_value_fields": "not_applicable_non_cold_route",
+            "cold_route_optimization_hint": "not_applicable_non_cold_route",
+        }
+    if row.get("status") != "success":
+        return {
+            **base,
+            "cold_bottleneck_status": "blocked_row_not_executed",
+            "cold_bottleneck_primary_stage": "blocked",
+            "cold_bottleneck_primary_stage_ms": None,
+            "cold_bottleneck_primary_stage_share": None,
+            "cold_bottleneck_secondary_stage": "blocked",
+            "cold_bottleneck_secondary_stage_ms": None,
+            "cold_bottleneck_secondary_stage_share": None,
+            "cold_bottleneck_stage_value_fields": "blocked_row_not_executed",
+            "cold_route_optimization_hint": "execute_row_before_bottleneck_attribution",
+        }
+    stage_values = cold_bottleneck_stage_values(fields, route_lane_id)
+    ranked = sorted(stage_values.items(), key=lambda item: item[1], reverse=True)
+    if not ranked:
+        return {
+            **base,
+            "cold_bottleneck_status": "blocked_missing_stage_timing",
+            "cold_bottleneck_primary_stage": "missing",
+            "cold_bottleneck_primary_stage_ms": None,
+            "cold_bottleneck_primary_stage_share": None,
+            "cold_bottleneck_secondary_stage": "missing",
+            "cold_bottleneck_secondary_stage_ms": None,
+            "cold_bottleneck_secondary_stage_share": None,
+            "cold_bottleneck_stage_value_fields": "missing",
+            "cold_route_optimization_hint": "add_stage_timing_before_optimization",
+        }
+    total_stage_ms = sum(value for _, value in ranked if value >= 0.0)
+    primary_stage, primary_ms = ranked[0]
+    secondary_stage, secondary_ms = ranked[1] if len(ranked) > 1 else ("none", None)
+    return {
+        **base,
+        "cold_bottleneck_status": "complete",
+        "cold_bottleneck_primary_stage": primary_stage,
+        "cold_bottleneck_primary_stage_ms": primary_ms,
+        "cold_bottleneck_primary_stage_share": (
+            primary_ms / total_stage_ms if total_stage_ms > 0.0 else None
+        ),
+        "cold_bottleneck_secondary_stage": secondary_stage,
+        "cold_bottleneck_secondary_stage_ms": secondary_ms,
+        "cold_bottleneck_secondary_stage_share": (
+            secondary_ms / total_stage_ms
+            if secondary_ms is not None and total_stage_ms > 0.0
+            else None
+        ),
+        "cold_bottleneck_stage_value_fields": ";".join(
+            f"{stage}={value:.4f}" for stage, value in ranked
+        ),
+        "cold_route_optimization_hint": cold_route_optimization_hint(
+            primary_stage, str(pressure["source_pressure_profile"])
+        ),
+    }
 
 
 def cold_lane_primary_classification(row: dict[str, Any], fields: dict[str, Any]) -> str:
@@ -1462,6 +3081,7 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
     fields = runtime_validation_field_map(row)
     classification = cold_lane_primary_classification(row, fields)
     secondary = cold_lane_secondary_classifications(row, fields)
+    bottleneck = cold_bottleneck_fields_for_row(row, classification)
     if classification == "external_baseline_only":
         return {
             "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
@@ -1480,6 +3100,7 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
             "cold_lane_fallback_attempted": False,
             "cold_lane_external_engine_invoked": False,
             "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
+            **bottleneck,
         }
     required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
     batch_row = (
@@ -1548,6 +3169,7 @@ def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "cold_lane_fallback_attempted": False,
         "cold_lane_external_engine_invoked": False,
         "cold_lane_claim_boundary": "cold-lane attribution separates preparation, warm query, sink/replay, evidence rendering, and process harness timing; it is not a performance or Spark-displacement claim",
+        **bottleneck,
     }
 
 
@@ -1555,10 +3177,11 @@ def cold_lane_missing_evidence_message(cold_lane: dict[str, Any]) -> str:
     status = str(cold_lane.get("cold_lane_timing_split_status", "missing"))
     classification = str(cold_lane.get("cold_lane_classification", "missing"))
     missing = str(cold_lane.get("cold_lane_missing_stage_fields", "missing"))
+    bottleneck_status = str(cold_lane.get("cold_bottleneck_status", "missing"))
     return (
         "cold_lane_timing_split_status!=complete "
         f"(actual={status}; classification={classification}; "
-        f"missing_stage_fields={missing})"
+        f"missing_stage_fields={missing}; bottleneck_status={bottleneck_status})"
     )
 
 
@@ -1582,7 +3205,9 @@ def cold_lane_adjusted_claim_fields(
         return current_status, current_requirements, current_missing
     if row.get("status") != "success":
         return current_status, current_requirements, current_missing
-    if cold_lane.get("cold_lane_timing_split_status") == "complete":
+    if cold_lane.get("cold_lane_timing_split_status") == "complete" and cold_lane.get(
+        "cold_bottleneck_status"
+    ) in {"complete", "not_applicable_non_cold_route", "external_baseline_only"}:
         return current_status, current_requirements, current_missing
     if current_status != "claim_grade" and current_requirements is not True:
         return current_status, current_requirements, current_missing
@@ -1781,27 +3406,47 @@ def runtime_validation_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    counts: Counter[tuple[str, str]] = Counter()
+    counts: Counter[tuple[str, str, str, str, str]] = Counter()
     blockers: Counter[str] = Counter()
     for row in rows:
         published = cold_lane_attribution_for_row(row)
         classification = str(published["cold_lane_classification"])
         status = str(published["cold_lane_timing_split_status"])
-        counts[(classification, status)] += 1
+        primary = str(published.get("cold_bottleneck_primary_stage") or "missing")
+        pressure = str(published.get("source_pressure_profile") or "missing")
+        hint = str(published.get("cold_route_optimization_hint") or "missing")
+        counts[(classification, status, primary, pressure, hint)] += 1
         missing = str(published["cold_lane_missing_stage_fields"])
         if missing != "none":
             blockers[missing] += 1
+        if published.get("cold_bottleneck_status") not in {
+            "complete",
+            "not_applicable_non_cold_route",
+            "external_baseline_only",
+        }:
+            blockers[str(published.get("cold_bottleneck_status") or "missing")] += 1
     return {
         "heading": "Cold-Lane Attribution",
-        "headers": ["Classification", "Timing split", "Rows"],
+        "headers": [
+            "Classification",
+            "Timing split",
+            "Primary bottleneck",
+            "Source pressure",
+            "Rows",
+            "Optimization hint",
+        ],
         "rows": [
-            [classification, status, count]
-            for (classification, status), count in sorted(counts.items())
+            [classification, status, primary, pressure, count, hint]
+            for (classification, status, primary, pressure, hint), count in sorted(
+                counts.items()
+            )
         ],
         "schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+        "cold_bottleneck_schema_version": COLD_BOTTLENECK_SCHEMA_VERSION,
+        "cold_bottleneck_stage_labels": list(COLD_BOTTLENECK_STAGE_ORDER),
         "status": "passed" if not blockers else "blocked",
         "blockers": [
-            {"missing_stage_fields": fields, "row_count": count}
+            {"blocker": fields, "row_count": count}
             for fields, count in sorted(blockers.items())
         ],
         "claim_boundary": (
@@ -1827,7 +3472,19 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         runtime_fields["claim_grade_missing_evidence"] = claim_grade_missing_evidence
         runtime_validation = runtime_validation_for_row(adjusted_row)
         route_identity = route_identity_for_row(adjusted_row)
+        route_diagnostics = route_diagnostic_fields_for_row(adjusted_row, route_identity)
         route_stage_fields = route_stage_fields_for_row(adjusted_row)
+        route_timing_ledger = route_timing_ledger_fields_for_row(
+            adjusted_row,
+            route_identity,
+            route_stage_fields,
+        )
+        fast_path_fields = route_fast_path_attribution_fields_for_row(
+            adjusted_row,
+            route_identity,
+            route_stage_fields,
+            route_timing_ledger,
+        )
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -1858,7 +3515,10 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "evidence_render_millis": metrics.get("evidence_render_millis"),
         }
         rendered_row.update(route_identity)
+        rendered_row.update(route_diagnostics)
         rendered_row.update(route_stage_fields)
+        rendered_row.update(route_timing_ledger)
+        rendered_row.update(fast_path_fields)
         rendered_row.update(cold_lane_fields)
         if runtime_validation is not None:
             rendered_row["runtime_execution_validation"] = runtime_validation
@@ -1884,8 +3544,43 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
                 rendered_row[key] = value
+        rendered_row.update(operator_mode_fields_for_row(adjusted_row))
         rendered.append(
             portable_public_value(normalize_published_runtime_evidence(rendered_row))
+        )
+    return rendered
+
+
+def published_rows_with_current_route_timing_ledger(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rendered: list[dict[str, Any]] = []
+    for row in rows:
+        updated = dict(row)
+        cold_lane_fields = cold_lane_attribution_for_row(updated)
+        route_identity = route_identity_for_row(updated)
+        route_diagnostics = route_diagnostic_fields_for_row(updated, route_identity)
+        claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
+            cold_lane_adjusted_claim_fields(updated, cold_lane_fields)
+        )
+        timing_ledger = route_timing_ledger_fields_for_row(updated, updated, updated)
+        updated.update(timing_ledger)
+        updated.update(
+            route_fast_path_attribution_fields_for_row(
+                updated,
+                updated,
+                updated,
+                timing_ledger,
+            )
+        )
+        updated.update(operator_mode_fields_for_row(updated))
+        updated.update(route_diagnostics)
+        updated.update(cold_lane_fields)
+        updated["claim_gate_status"] = claim_gate_status
+        updated["claim_grade_requirements_met"] = claim_grade_requirements_met
+        updated["claim_grade_missing_evidence"] = claim_grade_missing_evidence
+        rendered.append(
+            portable_public_value(normalize_published_runtime_evidence(updated))
         )
     return rendered
 
@@ -1903,6 +3598,8 @@ def comparative_summary(
     rows: list[dict[str, Any]],
     source_path: Path,
     profile: str,
+    *,
+    runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     dataset = artifact.get("dataset") if isinstance(artifact.get("dataset"), dict) else {}
     generated = artifact.get("generated_at_utc") or datetime.now(timezone.utc).isoformat()
@@ -1921,11 +3618,20 @@ def comparative_summary(
         ],
         "engine_timing_overview": engine_timing_table(rows),
         "route_lane_comparison": route_lane_comparison_table(claim_adjusted_rows),
+        "prepared_route_amortization": prepared_route_amortization_table(
+            claim_adjusted_rows
+        ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
+        "fast_path_attribution": fast_path_attribution_table(claim_adjusted_rows),
+        "operator_mode_inventory": operator_mode_inventory_table(claim_adjusted_rows),
+        "operator_hot_path_candidates": operator_hot_path_candidate_table(
+            claim_adjusted_rows
+        ),
         "route_runtime_status": runtime_status_table(claim_adjusted_rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(claim_adjusted_rows),
-        "runtime_envelope_validation": runtime_validation_table(claim_adjusted_rows),
+        "runtime_envelope_validation": runtime_validation_override
+        or runtime_validation_table(claim_adjusted_rows),
         "cold_lane_attribution": cold_lane_attribution_table(rows),
         "profile_lane_availability": profile_lane_availability_table(
             artifact, rows, profile
@@ -1948,6 +3654,8 @@ def manifest_for_artifact(
     rows: list[dict[str, Any]],
     profile: str,
     results_path: Path,
+    *,
+    runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     expected = list(expected_lanes_for_profile(profile))
     available = available_lanes(artifact, rows)
@@ -1971,7 +3679,7 @@ def manifest_for_artifact(
         "markdown": None,
         "html": None,
     }
-    runtime_validation = runtime_validation_table(rows)
+    runtime_validation = runtime_validation_override or runtime_validation_table(rows)
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": artifact.get("generated_at_utc")
@@ -2013,6 +3721,7 @@ def manifest_for_artifact(
             "build_profile",
             "cold_warm_state",
             "stage_timings",
+            "route_timing_ledger",
             "cold_lane_attribution",
             "cost_unit_fields",
             "no_fallback_proof",
@@ -2041,15 +3750,31 @@ def main() -> int:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results_path = args.output_dir / "benchmark-results.json"
-    full_published_rows = published_rows(rows)
+    raw_input = isinstance(artifact.get("results"), list)
+    if raw_input:
+        full_published_rows = rows_with_prepare_once_first_query(published_rows(rows))
+        summary_rows = full_published_rows
+        runtime_validation_override = None
+    else:
+        full_published_rows = rows_with_prepare_once_first_query(
+            published_rows_with_current_route_timing_ledger(rows)
+        )
+        summary_rows = full_published_rows
+        existing_manifest = artifact.get("benchmark_manifest")
+        runtime_validation_override = (
+            existing_manifest.get("runtime_envelope_validation")
+            if isinstance(existing_manifest, dict)
+            else artifact.get("runtime_envelope_validation")
+        )
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     write_row_chunks(args.public_output_dir, full_published_rows)
 
     manifest = manifest_for_artifact(
         artifact,
-        rows,
+        summary_rows,
         args.profile,
         results_path,
+        runtime_validation_override=runtime_validation_override,
     )
     manifest["artifact_paths"]["row_chunks"] = row_chunks
     manifest["published_benchmark_row_count"] = len(full_published_rows)
@@ -2069,7 +3794,13 @@ def main() -> int:
         "published_benchmark_rows_inlined": "summary_only",
         "published_benchmark_row_chunks": row_chunks,
         "published_benchmark_row_count": len(full_published_rows),
-        "comparative_dashboard": comparative_summary(artifact, rows, source_path, args.profile),
+        "comparative_dashboard": comparative_summary(
+            artifact,
+            summary_rows,
+            source_path,
+            args.profile,
+            runtime_validation_override=runtime_validation_override,
+        ),
         "benchmark_manifest": manifest,
         "claim_boundary": {
             "performance_claim_allowed": False,

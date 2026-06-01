@@ -6,13 +6,16 @@
 //! a `VortexPreparedState`. It is not a broad Vortex writer, object-store sink,
 //! table commit path, or query-engine integration.
 
-use std::path::PathBuf;
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::{Read as _, Write as _},
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
+};
 
 #[cfg(feature = "vortex-write")]
-use std::{collections::BTreeSet, path::Path, time::Instant};
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::collections::BTreeMap;
+use std::{collections::BTreeSet, time::Instant};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -50,8 +53,913 @@ pub const VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
     "shardloom.vortex_layout_write_advisor.v1";
 /// Evidence schema emitted by scoped local copy-budget and buffer-lifecycle checks.
 pub const VORTEX_COPY_BUDGET_SCHEMA_VERSION: &str = "shardloom.vortex_copy_budget.v1";
+/// Evidence schema emitted by scoped local prepared-state reuse manifests.
+pub const VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION: &str =
+    "shardloom.vortex_prepared_state_reuse_manifest.v1";
+/// Admission policy for artifact-adjacent prepared-state reuse manifests.
+pub const VORTEX_PREPARED_STATE_REUSE_POLICY: &str =
+    "artifact_adjacent_local_prepared_state_reuse.v1";
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.73";
+
+/// Request used to decide whether an existing local Vortex prepared artifact can
+/// be reused without re-running compatibility preparation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexPreparedStateReuseRequest {
+    pub source_path: PathBuf,
+    pub manifest_path: PathBuf,
+    pub prepared_artifact_path: PathBuf,
+    pub source_format: String,
+    pub source_content_digest: String,
+    pub source_size_bytes: u64,
+    pub source_mtime_ns: String,
+    pub source_schema_digest: Option<String>,
+    pub parse_decode_plan_digest: String,
+    pub selected_columns: String,
+    pub output_policy: String,
+    pub provider_version: String,
+    pub feature_gates: String,
+    pub certification_level: String,
+}
+
+/// Evidence attached when writing a prepared-state reuse manifest after a
+/// successful local Vortex preparation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexPreparedStateReuseWriteEvidence {
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub source_schema_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub prepared_artifact_digest: String,
+    pub certificate_refs: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+/// Result of a prepared-state reuse lookup or manifest write.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexPreparedStateReuseReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub scope: String,
+    pub manifest_path: PathBuf,
+    pub policy: &'static str,
+    pub hit: bool,
+    pub reason: String,
+    pub manifest_digest: String,
+    pub invalidation_reason: String,
+    pub manifest_written: bool,
+    pub source_path: PathBuf,
+    pub source_format: String,
+    pub source_content_digest: String,
+    pub source_size_bytes: u64,
+    pub source_mtime_ns: String,
+    pub source_schema_digest: String,
+    pub parse_decode_plan_digest: String,
+    pub selected_columns: String,
+    pub output_policy: String,
+    pub prepared_artifact_ref: PathBuf,
+    pub prepared_artifact_digest: String,
+    pub prepared_artifact_size_bytes: u64,
+    pub provider_version: String,
+    pub feature_gates: String,
+    pub certification_level: String,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub certificate_refs: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexPreparedStateReuseRequest {
+    /// Create a local prepared-state reuse request and fingerprint the source
+    /// path. The source content digest is the primary fail-closed invalidation
+    /// key; mtime is reported as evidence but does not invalidate by itself.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] when the local source cannot
+    /// be fingerprinted.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_local(
+        source_path: impl AsRef<Path>,
+        prepared_artifact_path: impl AsRef<Path>,
+        manifest_path: impl Into<PathBuf>,
+        source_format: impl Into<String>,
+        source_schema_digest: Option<String>,
+        parse_decode_plan_digest: impl Into<String>,
+        selected_columns: impl Into<String>,
+        output_policy: impl Into<String>,
+        provider_version: impl Into<String>,
+        feature_gates: impl Into<String>,
+        certification_level: impl Into<String>,
+    ) -> Result<Self> {
+        let source_fingerprint = LocalReuseFileFingerprint::from_path(
+            source_path.as_ref(),
+            "prepared-state reuse source",
+        )?;
+        Ok(Self {
+            source_path: source_fingerprint.path,
+            manifest_path: absolute_local_path(manifest_path.into())?,
+            prepared_artifact_path: absolute_local_path(prepared_artifact_path.as_ref())?,
+            source_format: source_format.into(),
+            source_content_digest: source_fingerprint.content_digest,
+            source_size_bytes: source_fingerprint.size_bytes,
+            source_mtime_ns: source_fingerprint.mtime_ns,
+            source_schema_digest,
+            parse_decode_plan_digest: parse_decode_plan_digest.into(),
+            selected_columns: selected_columns.into(),
+            output_policy: output_policy.into(),
+            provider_version: provider_version.into(),
+            feature_gates: feature_gates.into(),
+            certification_level: certification_level.into(),
+        })
+    }
+}
+
+impl VortexPreparedStateReuseReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_prepared_state_reuse_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_scope".to_string(),
+                self.scope.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_manifest_path".to_string(),
+                self.manifest_path.display().to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_policy".to_string(),
+                self.policy.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_hit".to_string(),
+                self.hit.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_reason".to_string(),
+                self.reason.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_manifest_digest".to_string(),
+                self.manifest_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_invalidation_reason".to_string(),
+                self.invalidation_reason.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_manifest_written".to_string(),
+                self.manifest_written.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_path".to_string(),
+                self.source_path.display().to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_format".to_string(),
+                self.source_format.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_content_digest".to_string(),
+                self.source_content_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_size_bytes".to_string(),
+                self.source_size_bytes.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_mtime_ns".to_string(),
+                self.source_mtime_ns.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_schema_digest".to_string(),
+                self.source_schema_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_parse_decode_plan_digest".to_string(),
+                self.parse_decode_plan_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_selected_columns".to_string(),
+                self.selected_columns.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_output_policy".to_string(),
+                self.output_policy.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_prepared_artifact_ref".to_string(),
+                self.prepared_artifact_ref.display().to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_prepared_artifact_digest".to_string(),
+                self.prepared_artifact_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_prepared_artifact_size_bytes".to_string(),
+                self.prepared_artifact_size_bytes.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_provider_version".to_string(),
+                self.provider_version.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_feature_gates".to_string(),
+                self.feature_gates.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_certification_level".to_string(),
+                self.certification_level.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_state_id".to_string(),
+                self.source_state_id.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_prepared_state_id".to_string(),
+                self.prepared_state_id.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_prepared_state_digest".to_string(),
+                self.prepared_state_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_certificate_refs".to_string(),
+                self.certificate_refs.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
+/// Return the artifact-adjacent reuse manifest path for a local Vortex artifact.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the artifact path has no
+/// file name.
+pub fn vortex_prepared_state_reuse_manifest_path(
+    prepared_artifact_path: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let path = absolute_local_path(prepared_artifact_path.as_ref())?;
+    let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared-state reuse manifest requires a local artifact file name for '{}'; no fallback execution was attempted",
+            path.display()
+        )));
+    };
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    Ok(parent
+        .join(".shardloom")
+        .join(format!("{file_name}.prepared-state-reuse.manifest")))
+}
+
+/// Evaluate whether a local prepared artifact can be reused.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the manifest exists but
+/// cannot be read or parsed deterministically.
+#[allow(clippy::too_many_lines)]
+pub fn evaluate_vortex_prepared_state_reuse(
+    request: &VortexPreparedStateReuseRequest,
+) -> Result<VortexPreparedStateReuseReport> {
+    if !request.manifest_path.exists() {
+        return Ok(prepared_state_reuse_miss(
+            request,
+            "no_reuse_manifest",
+            "none",
+        ));
+    }
+    let fields = read_reuse_manifest_fields(&request.manifest_path)?;
+    let manifest_digest = fields
+        .get("manifest_digest")
+        .cloned()
+        .unwrap_or_else(|| "none".to_string());
+    let expected_digest = reuse_manifest_digest(&fields);
+    if manifest_digest != expected_digest {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "reuse_manifest_digest_mismatch",
+            &manifest_digest,
+        ));
+    }
+    if fields.get("schema_version").map(String::as_str)
+        != Some(VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION)
+    {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "reuse_manifest_schema_mismatch",
+            &manifest_digest,
+        ));
+    }
+    if let Some(reason) = reuse_manifest_request_mismatch_reason(request, &fields) {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            &reason,
+            &manifest_digest,
+        ));
+    }
+    if fields.get("fallback_attempted").map(String::as_str) != Some("false") {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "reuse_manifest_fallback_attempted",
+            &manifest_digest,
+        ));
+    }
+    if fields.get("external_engine_invoked").map(String::as_str) != Some("false") {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "reuse_manifest_external_engine_invoked",
+            &manifest_digest,
+        ));
+    }
+    let artifact_fingerprint = LocalReuseFileFingerprint::from_path(
+        &request.prepared_artifact_path,
+        "prepared-state reuse artifact",
+    )?;
+    if fields
+        .get("prepared_artifact_size_bytes")
+        .map(String::as_str)
+        != Some(artifact_fingerprint.size_bytes.to_string().as_str())
+    {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "prepared_artifact_size_changed",
+            &manifest_digest,
+        ));
+    }
+    if fields.get("prepared_artifact_digest").map(String::as_str)
+        != Some(artifact_fingerprint.content_digest.as_str())
+    {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "prepared_artifact_digest_changed",
+            &manifest_digest,
+        ));
+    }
+    for required in [
+        "source_state_id",
+        "source_state_digest",
+        "prepared_state_id",
+        "prepared_state_digest",
+    ] {
+        if fields.get(required).is_none_or(String::is_empty) {
+            return Ok(prepared_state_reuse_miss_with_digest(
+                request,
+                &format!("reuse_manifest_missing_{required}"),
+                &manifest_digest,
+            ));
+        }
+    }
+    Ok(VortexPreparedStateReuseReport {
+        schema_version: VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION,
+        status: "prepared_state_reuse_hit".to_string(),
+        scope: "artifact_adjacent_manifest_local_vortex_artifacts".to_string(),
+        manifest_path: request.manifest_path.clone(),
+        policy: VORTEX_PREPARED_STATE_REUSE_POLICY,
+        hit: true,
+        reason: "manifest_fingerprints_match".to_string(),
+        manifest_digest,
+        invalidation_reason: "none".to_string(),
+        manifest_written: false,
+        source_path: request.source_path.clone(),
+        source_format: request.source_format.clone(),
+        source_content_digest: request.source_content_digest.clone(),
+        source_size_bytes: request.source_size_bytes,
+        source_mtime_ns: request.source_mtime_ns.clone(),
+        source_schema_digest: fields
+            .get("source_schema_digest")
+            .cloned()
+            .unwrap_or_else(|| request.source_schema_digest.clone().unwrap_or_default()),
+        parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
+        selected_columns: request.selected_columns.clone(),
+        output_policy: request.output_policy.clone(),
+        prepared_artifact_ref: request.prepared_artifact_path.clone(),
+        prepared_artifact_digest: artifact_fingerprint.content_digest,
+        prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
+        provider_version: request.provider_version.clone(),
+        feature_gates: request.feature_gates.clone(),
+        certification_level: request.certification_level.clone(),
+        source_state_id: fields.get("source_state_id").cloned().unwrap_or_default(),
+        source_state_digest: fields
+            .get("source_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        prepared_state_id: fields.get("prepared_state_id").cloned().unwrap_or_default(),
+        prepared_state_digest: fields
+            .get("prepared_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        certificate_refs: fields
+            .get("certificate_refs")
+            .cloned()
+            .unwrap_or_else(|| "manifest_certificate_refs_missing".to_string()),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+/// Write a fail-closed prepared-state reuse manifest after a successful local
+/// Vortex preparation.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the prepared artifact
+/// cannot be fingerprinted or the manifest cannot be written atomically.
+#[allow(clippy::too_many_lines)]
+pub fn write_vortex_prepared_state_reuse_manifest(
+    request: &VortexPreparedStateReuseRequest,
+    previous_decision: &VortexPreparedStateReuseReport,
+    evidence: VortexPreparedStateReuseWriteEvidence,
+) -> Result<VortexPreparedStateReuseReport> {
+    let artifact_fingerprint = LocalReuseFileFingerprint::from_path(
+        &request.prepared_artifact_path,
+        "prepared-state reuse artifact",
+    )?;
+    if artifact_fingerprint.content_digest != evidence.prepared_artifact_digest {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared-state reuse manifest artifact digest mismatch for '{}': writer reported {}, file fingerprint {}; no fallback execution was attempted",
+            request.prepared_artifact_path.display(),
+            evidence.prepared_artifact_digest,
+            artifact_fingerprint.content_digest
+        )));
+    }
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "schema_version".to_string(),
+        VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION.to_string(),
+    );
+    fields.insert(
+        "policy".to_string(),
+        VORTEX_PREPARED_STATE_REUSE_POLICY.to_string(),
+    );
+    fields.insert(
+        "source_path".to_string(),
+        request.source_path.display().to_string(),
+    );
+    fields.insert("source_format".to_string(), request.source_format.clone());
+    fields.insert(
+        "source_content_digest".to_string(),
+        request.source_content_digest.clone(),
+    );
+    fields.insert(
+        "source_size_bytes".to_string(),
+        request.source_size_bytes.to_string(),
+    );
+    fields.insert(
+        "source_mtime_ns".to_string(),
+        request.source_mtime_ns.clone(),
+    );
+    fields.insert(
+        "source_schema_digest".to_string(),
+        evidence.source_schema_digest.clone(),
+    );
+    fields.insert(
+        "parse_decode_plan_digest".to_string(),
+        request.parse_decode_plan_digest.clone(),
+    );
+    fields.insert(
+        "selected_columns".to_string(),
+        request.selected_columns.clone(),
+    );
+    fields.insert("output_policy".to_string(), request.output_policy.clone());
+    fields.insert(
+        "prepared_artifact_path".to_string(),
+        request.prepared_artifact_path.display().to_string(),
+    );
+    fields.insert(
+        "prepared_artifact_size_bytes".to_string(),
+        artifact_fingerprint.size_bytes.to_string(),
+    );
+    fields.insert(
+        "prepared_artifact_digest".to_string(),
+        evidence.prepared_artifact_digest.clone(),
+    );
+    fields.insert(
+        "provider_version".to_string(),
+        request.provider_version.clone(),
+    );
+    fields.insert("feature_gates".to_string(), request.feature_gates.clone());
+    fields.insert(
+        "certification_level".to_string(),
+        request.certification_level.clone(),
+    );
+    fields.insert(
+        "source_state_id".to_string(),
+        evidence.source_state_id.clone(),
+    );
+    fields.insert(
+        "source_state_digest".to_string(),
+        evidence.source_state_digest.clone(),
+    );
+    fields.insert(
+        "prepared_state_id".to_string(),
+        evidence.prepared_state_id.clone(),
+    );
+    fields.insert(
+        "prepared_state_digest".to_string(),
+        evidence.prepared_state_digest.clone(),
+    );
+    fields.insert(
+        "certificate_refs".to_string(),
+        evidence.certificate_refs.clone(),
+    );
+    fields.insert(
+        "fallback_attempted".to_string(),
+        evidence.fallback_attempted.to_string(),
+    );
+    fields.insert(
+        "external_engine_invoked".to_string(),
+        evidence.external_engine_invoked.to_string(),
+    );
+    let manifest_digest = reuse_manifest_digest(&fields);
+    fields.insert("manifest_digest".to_string(), manifest_digest.clone());
+    write_reuse_manifest_fields(&request.manifest_path, &fields)?;
+
+    Ok(VortexPreparedStateReuseReport {
+        schema_version: VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION,
+        status: "prepared_state_created_manifest_written".to_string(),
+        scope: "artifact_adjacent_manifest_local_vortex_artifacts".to_string(),
+        manifest_path: request.manifest_path.clone(),
+        policy: VORTEX_PREPARED_STATE_REUSE_POLICY,
+        hit: false,
+        reason: format!("prepared_state_created_after_{}", previous_decision.reason),
+        manifest_digest,
+        invalidation_reason: previous_decision.invalidation_reason.clone(),
+        manifest_written: true,
+        source_path: request.source_path.clone(),
+        source_format: request.source_format.clone(),
+        source_content_digest: request.source_content_digest.clone(),
+        source_size_bytes: request.source_size_bytes,
+        source_mtime_ns: request.source_mtime_ns.clone(),
+        source_schema_digest: evidence.source_schema_digest,
+        parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
+        selected_columns: request.selected_columns.clone(),
+        output_policy: request.output_policy.clone(),
+        prepared_artifact_ref: request.prepared_artifact_path.clone(),
+        prepared_artifact_digest: artifact_fingerprint.content_digest,
+        prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
+        provider_version: request.provider_version.clone(),
+        feature_gates: request.feature_gates.clone(),
+        certification_level: request.certification_level.clone(),
+        source_state_id: evidence.source_state_id,
+        source_state_digest: evidence.source_state_digest,
+        prepared_state_id: evidence.prepared_state_id,
+        prepared_state_digest: evidence.prepared_state_digest,
+        certificate_refs: evidence.certificate_refs,
+        fallback_attempted: evidence.fallback_attempted,
+        external_engine_invoked: evidence.external_engine_invoked,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalReuseFileFingerprint {
+    path: PathBuf,
+    size_bytes: u64,
+    mtime_ns: String,
+    content_digest: String,
+}
+
+impl LocalReuseFileFingerprint {
+    fn from_path(path: &Path, label: &str) -> Result<Self> {
+        let path = absolute_local_path(path)?;
+        let metadata = fs::metadata(&path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat {label} '{}': {error}; no fallback execution was attempted",
+                path.display()
+            ))
+        })?;
+        if !metadata.is_file() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{label} '{}' must be a local file for prepared-state reuse; no fallback execution was attempted",
+                path.display()
+            )));
+        }
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+            .map_or_else(
+                || "unknown".to_string(),
+                |value| value.as_nanos().to_string(),
+            );
+        Ok(Self {
+            content_digest: fnv64_file_digest(&path, label)?,
+            path,
+            size_bytes: metadata.len(),
+            mtime_ns: modified,
+        })
+    }
+}
+
+fn absolute_local_path(path: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = path.as_ref();
+    if path.as_os_str().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "prepared-state reuse local path must not be empty; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(path))
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to resolve prepared-state reuse path '{}': {error}; no fallback execution was attempted",
+                    path.display()
+                ))
+            })
+    }
+}
+
+fn fnv64_file_digest(path: &Path, label: &str) -> Result<String> {
+    let mut file = fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for prepared-state reuse digest: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} '{}' for prepared-state reuse digest: {error}; no fallback execution was attempted",
+                path.display()
+            ))
+        })?;
+        if read == 0 {
+            break;
+        }
+        for byte in &buffer[..read] {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    Ok(format!("fnv64:{hash:016x}"))
+}
+
+fn prepared_state_reuse_miss(
+    request: &VortexPreparedStateReuseRequest,
+    reason: &str,
+    manifest_digest: &str,
+) -> VortexPreparedStateReuseReport {
+    prepared_state_reuse_miss_with_digest(request, reason, manifest_digest)
+}
+
+fn prepared_state_reuse_miss_with_digest(
+    request: &VortexPreparedStateReuseRequest,
+    reason: &str,
+    manifest_digest: &str,
+) -> VortexPreparedStateReuseReport {
+    VortexPreparedStateReuseReport {
+        schema_version: VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION,
+        status: "prepared_state_reuse_miss".to_string(),
+        scope: "artifact_adjacent_manifest_local_vortex_artifacts".to_string(),
+        manifest_path: request.manifest_path.clone(),
+        policy: VORTEX_PREPARED_STATE_REUSE_POLICY,
+        hit: false,
+        reason: reason.to_string(),
+        manifest_digest: manifest_digest.to_string(),
+        invalidation_reason: reason.to_string(),
+        manifest_written: false,
+        source_path: request.source_path.clone(),
+        source_format: request.source_format.clone(),
+        source_content_digest: request.source_content_digest.clone(),
+        source_size_bytes: request.source_size_bytes,
+        source_mtime_ns: request.source_mtime_ns.clone(),
+        source_schema_digest: request.source_schema_digest.clone().unwrap_or_default(),
+        parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
+        selected_columns: request.selected_columns.clone(),
+        output_policy: request.output_policy.clone(),
+        prepared_artifact_ref: request.prepared_artifact_path.clone(),
+        prepared_artifact_digest: "none".to_string(),
+        prepared_artifact_size_bytes: 0,
+        provider_version: request.provider_version.clone(),
+        feature_gates: request.feature_gates.clone(),
+        certification_level: request.certification_level.clone(),
+        source_state_id: String::new(),
+        source_state_digest: String::new(),
+        prepared_state_id: String::new(),
+        prepared_state_digest: String::new(),
+        certificate_refs: String::new(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    }
+}
+
+fn reuse_manifest_request_mismatch_reason(
+    request: &VortexPreparedStateReuseRequest,
+    fields: &BTreeMap<String, String>,
+) -> Option<String> {
+    let source_size_bytes = request.source_size_bytes.to_string();
+    let source_path = request.source_path.display().to_string();
+    let prepared_artifact_path = request.prepared_artifact_path.display().to_string();
+    for (key, expected) in [
+        ("policy", VORTEX_PREPARED_STATE_REUSE_POLICY),
+        ("source_path", source_path.as_str()),
+        ("source_format", request.source_format.as_str()),
+        (
+            "source_content_digest",
+            request.source_content_digest.as_str(),
+        ),
+        ("source_size_bytes", source_size_bytes.as_str()),
+        (
+            "parse_decode_plan_digest",
+            request.parse_decode_plan_digest.as_str(),
+        ),
+        ("selected_columns", request.selected_columns.as_str()),
+        ("output_policy", request.output_policy.as_str()),
+        ("prepared_artifact_path", prepared_artifact_path.as_str()),
+        ("provider_version", request.provider_version.as_str()),
+        ("feature_gates", request.feature_gates.as_str()),
+        ("certification_level", request.certification_level.as_str()),
+    ] {
+        if fields.get(key).map(String::as_str) != Some(expected) {
+            return Some(format!("{key}_changed"));
+        }
+    }
+    if let Some(schema_digest) = request.source_schema_digest.as_deref() {
+        if fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest) {
+            return Some("source_schema_digest_changed".to_string());
+        }
+    }
+    None
+}
+
+fn read_reuse_manifest_fields(path: &Path) -> Result<BTreeMap<String, String>> {
+    let text = fs::read_to_string(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    let mut fields = BTreeMap::new();
+    for (line_index, line) in text.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "prepared-state reuse manifest '{}' line {} is not key=value; no fallback execution was attempted",
+                path.display(),
+                line_index + 1
+            )));
+        };
+        if key.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "prepared-state reuse manifest '{}' line {} has an empty key; no fallback execution was attempted",
+                path.display(),
+                line_index + 1
+            )));
+        }
+        fields.insert(
+            key.trim().to_string(),
+            unescape_manifest_value(value.trim())?,
+        );
+    }
+    Ok(fields)
+}
+
+fn write_reuse_manifest_fields(path: &Path, fields: &BTreeMap<String, String>) -> Result<()> {
+    let parent = path.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "prepared-state reuse manifest path '{}' has no parent directory; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create prepared-state reuse manifest directory '{}': {error}; no fallback execution was attempted",
+            parent.display()
+        ))
+    })?;
+    let tmp_path = path.with_extension("tmp");
+    let mut file = fs::File::create(&tmp_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create prepared-state reuse manifest temp file '{}': {error}; no fallback execution was attempted",
+            tmp_path.display()
+        ))
+    })?;
+    file.write_all(b"# ShardLoom prepared-state reuse manifest\n")
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to write prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+                tmp_path.display()
+            ))
+        })?;
+    for (key, value) in fields {
+        writeln!(file, "{key}={}", escape_manifest_value(value)).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to write prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+                tmp_path.display()
+            ))
+        })?;
+    }
+    file.sync_all().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to sync prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+            tmp_path.display()
+        ))
+    })?;
+    drop(file);
+    fs::rename(&tmp_path, path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to publish prepared-state reuse manifest '{}' to '{}': {error}; no fallback execution was attempted",
+            tmp_path.display(),
+            path.display()
+        ))
+    })
+}
+
+fn reuse_manifest_digest(fields: &BTreeMap<String, String>) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for (key, value) in fields
+        .iter()
+        .filter(|(key, _)| key.as_str() != "manifest_digest")
+    {
+        for byte in key
+            .as_bytes()
+            .iter()
+            .chain(b"=")
+            .chain(value.as_bytes())
+            .chain(b"\0")
+        {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    format!("fnv64:{hash:016x}")
+}
+
+fn escape_manifest_value(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '%' => escaped.push_str("%25"),
+            '\n' => escaped.push_str("%0A"),
+            '\r' => escaped.push_str("%0D"),
+            '=' => escaped.push_str("%3D"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn unescape_manifest_value(value: &str) -> Result<String> {
+    let mut output = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            output.push(ch);
+            continue;
+        }
+        let hi = chars.next().ok_or_else(invalid_manifest_escape)?;
+        let lo = chars.next().ok_or_else(invalid_manifest_escape)?;
+        match (hi, lo) {
+            ('2', '5') => output.push('%'),
+            ('0', 'A' | 'a') => output.push('\n'),
+            ('0', 'D' | 'd') => output.push('\r'),
+            ('3', 'D' | 'd') => output.push('='),
+            _ => return Err(invalid_manifest_escape()),
+        }
+    }
+    Ok(output)
+}
+
+fn invalid_manifest_escape() -> ShardLoomError {
+    ShardLoomError::InvalidOperation(
+        "prepared-state reuse manifest contains an invalid percent escape; no fallback execution was attempted"
+            .to_string(),
+    )
+}
 
 /// Request to write one flat scalar local source into a local Vortex artifact.
 #[derive(Debug, Clone, PartialEq)]
@@ -61,6 +969,7 @@ pub struct VortexPreparedStateWriteRequest {
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
+    pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
 }
 
 /// Request to write one flat columnar local source into a Vortex artifact.
@@ -71,6 +980,7 @@ pub struct VortexPreparedStateColumnarWriteRequest {
     pub source: FlatLocalColumnarSource,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
+    pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -83,6 +993,7 @@ impl VortexPreparedStateColumnarWriteRequest {
             source,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
+            capillary_prewrite_input: None,
         }
     }
 
@@ -100,6 +1011,13 @@ impl VortexPreparedStateColumnarWriteRequest {
         certification_level: VortexIngestCertificationLevel,
     ) -> Self {
         self.certification_level = certification_level;
+        self
+    }
+
+    /// Attach pre-write capillary control input for the local cold-preparation route.
+    #[must_use]
+    pub fn capillary_prewrite_input(mut self, input: VortexCapillaryPreparationInput) -> Self {
+        self.capillary_prewrite_input = Some(input);
         self
     }
 }
@@ -118,6 +1036,7 @@ impl VortexPreparedStateWriteRequest {
             rows,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
+            capillary_prewrite_input: None,
         }
     }
 
@@ -135,6 +1054,13 @@ impl VortexPreparedStateWriteRequest {
         certification_level: VortexIngestCertificationLevel,
     ) -> Self {
         self.certification_level = certification_level;
+        self
+    }
+
+    /// Attach pre-write capillary control input for the local cold-preparation route.
+    #[must_use]
+    pub fn capillary_prewrite_input(mut self, input: VortexCapillaryPreparationInput) -> Self {
+        self.capillary_prewrite_input = Some(input);
         self
     }
 }
@@ -1915,6 +2841,14 @@ struct VortexCapillaryActivatedEvidence {
     task_byte_range_refs: String,
     task_row_range_refs: String,
     vortex_segment_refs: String,
+    execution_window_count: usize,
+    execution_window_size: usize,
+    execution_window_ids: String,
+    execution_window_task_counts: String,
+    execution_window_task_ids: String,
+    execution_window_digests: String,
+    scheduler_applied: bool,
+    scheduler_application_reason: &'static str,
     peak_memory_bytes: u64,
     pulseweave_report: PulseWeaveReport,
     status: &'static str,
@@ -1960,6 +2894,14 @@ impl VortexCapillaryPreparationTask {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VortexCapillaryExecutionWindow {
+    window_id: String,
+    task_ids: Vec<String>,
+    task_count: usize,
+    window_digest: String,
+}
+
 /// Evidence for capillary cold-preparation task control.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -1994,6 +2936,14 @@ pub struct VortexCapillaryPreparationReport {
     pub task_count: usize,
     pub task_roles: String,
     pub task_ids: String,
+    pub execution_window_count: usize,
+    pub execution_window_size: usize,
+    pub execution_window_ids: String,
+    pub execution_window_task_counts: String,
+    pub execution_window_task_ids: String,
+    pub execution_window_digests: String,
+    pub scheduler_applied: bool,
+    pub scheduler_application_reason: String,
     pub source_split_refs: String,
     pub read_chunk_byte_range_refs: String,
     pub row_range_refs: String,
@@ -2199,6 +3149,46 @@ impl VortexCapillaryPreparationReport {
         );
         Self::push_field(
             fields,
+            "vortex_capillary_preparation_execution_window_count",
+            self.execution_window_count.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_window_size",
+            self.execution_window_size.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_window_ids",
+            &self.execution_window_ids,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_window_task_counts",
+            &self.execution_window_task_counts,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_window_task_ids",
+            &self.execution_window_task_ids,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_window_digests",
+            &self.execution_window_digests,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_scheduler_applied",
+            self.scheduler_applied.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_scheduler_application_reason",
+            &self.scheduler_application_reason,
+        );
+        Self::push_field(
+            fields,
             "vortex_capillary_preparation_source_split_refs",
             &self.source_split_refs,
         );
@@ -2328,6 +3318,295 @@ impl VortexCapillaryPreparationReport {
     }
 }
 
+/// Pre-write capillary control evidence attached to local Vortex preparation.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexCapillaryPreWriteControlReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub source_report_status: String,
+    pub activation_result: String,
+    pub activation_reason: String,
+    pub scheduler_applied: bool,
+    pub execution_window_count: usize,
+    pub execution_window_size: usize,
+    pub execution_window_ids: String,
+    pub execution_window_task_ids: String,
+    pub execution_window_digests: String,
+    pub controlled_task_roles: String,
+    pub plan_digest: String,
+    pub source_split_discovery_gate_status: String,
+    pub read_chunk_gate_status: String,
+    pub array_build_gate_status: String,
+    pub write_gate_status: String,
+    pub reopen_gate_status: String,
+    pub sink_evidence_gate_status: String,
+    pub flow_inventory_wip_limit: usize,
+    pub scarcity_ledger_selected_action: String,
+    pub endopulse_adjustment_applied: bool,
+    pub proofbound_pre_application_status: String,
+    pub proofbound_post_application_status: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+#[cfg(feature = "vortex-write")]
+impl VortexCapillaryPreWriteControlReport {
+    fn not_requested(reason: impl Into<String>) -> Self {
+        let reason = reason.into();
+        Self {
+            schema_version: VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION,
+            status: "not_requested".to_string(),
+            source_report_status: "not_requested".to_string(),
+            activation_result: "not_requested".to_string(),
+            activation_reason: reason.clone(),
+            scheduler_applied: false,
+            execution_window_count: 0,
+            execution_window_size: 0,
+            execution_window_ids: "none".to_string(),
+            execution_window_task_ids: "none".to_string(),
+            execution_window_digests: "none".to_string(),
+            controlled_task_roles: "none".to_string(),
+            plan_digest: "none".to_string(),
+            source_split_discovery_gate_status: "not_requested".to_string(),
+            read_chunk_gate_status: "not_requested".to_string(),
+            array_build_gate_status: "not_requested".to_string(),
+            write_gate_status: "not_requested".to_string(),
+            reopen_gate_status: "not_requested".to_string(),
+            sink_evidence_gate_status: "not_requested".to_string(),
+            flow_inventory_wip_limit: 0,
+            scarcity_ledger_selected_action: "not_requested".to_string(),
+            endopulse_adjustment_applied: false,
+            proofbound_pre_application_status: "not_requested".to_string(),
+            proofbound_post_application_status: "not_requested".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn from_preparation_report(report: &VortexCapillaryPreparationReport) -> Self {
+        let status = if report.scheduler_applied {
+            "applied_before_array_build"
+        } else if report.activation_result == "skipped" {
+            "not_requested_below_threshold"
+        } else if report.status.starts_with("blocked")
+            || report.status.starts_with("report_only_blocked")
+        {
+            "report_only_blocked_before_array_build"
+        } else {
+            "report_only_not_applied_before_array_build"
+        };
+        let plan_digest = fnv64_digest_text(&format!(
+            "{}|{}|{}|{}|{}|{}",
+            report.source_state_digest,
+            report.task_manifest_digest,
+            report.execution_window_count,
+            report.execution_window_size,
+            report.execution_window_ids,
+            report.execution_window_task_ids
+        ));
+        Self {
+            schema_version: VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION,
+            status: status.to_string(),
+            source_report_status: report.status.clone(),
+            activation_result: report.activation_result.clone(),
+            activation_reason: report.activation_reason.clone(),
+            scheduler_applied: report.scheduler_applied,
+            execution_window_count: report.execution_window_count,
+            execution_window_size: report.execution_window_size,
+            execution_window_ids: report.execution_window_ids.clone(),
+            execution_window_task_ids: report.execution_window_task_ids.clone(),
+            execution_window_digests: report.execution_window_digests.clone(),
+            controlled_task_roles: report.task_roles.clone(),
+            plan_digest,
+            source_split_discovery_gate_status: "pending".to_string(),
+            read_chunk_gate_status: "pending".to_string(),
+            array_build_gate_status: "pending".to_string(),
+            write_gate_status: "pending".to_string(),
+            reopen_gate_status: "pending".to_string(),
+            sink_evidence_gate_status: "pending".to_string(),
+            flow_inventory_wip_limit: report.pulseweave_report.flow_inventory.wip_limit,
+            scarcity_ledger_selected_action: report
+                .pulseweave_report
+                .scarcity_ledger
+                .selected_action
+                .as_str()
+                .to_string(),
+            endopulse_adjustment_applied: report.pulseweave_report.endopulse.adjustment_applied,
+            proofbound_pre_application_status: report
+                .pulseweave_report
+                .proofbound
+                .pre_application_status
+                .clone(),
+            proofbound_post_application_status: report
+                .pulseweave_report
+                .proofbound
+                .post_application_status
+                .clone(),
+            fallback_attempted: report.fallback_attempted,
+            external_engine_invoked: report.external_engine_invoked,
+        }
+    }
+
+    fn apply_task_role_gate(&mut self, role: &str, gate: &str) -> Result<()> {
+        let status = if self.scheduler_applied {
+            if capillary_role_list_contains(&self.controlled_task_roles, role) {
+                "applied_prewrite_window"
+            } else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest capillary pre-write scheduler applied, but task role '{role}' was missing before {gate}; no fallback execution was attempted"
+                )));
+            }
+        } else {
+            "not_applicable_scheduler_not_applied"
+        };
+        self.set_gate_status(gate, status);
+        Ok(())
+    }
+
+    fn mark_task_role_not_performed(&mut self, role: &str, gate: &str) {
+        let status = if self.scheduler_applied
+            && capillary_role_list_contains(&self.controlled_task_roles, role)
+        {
+            "not_performed_by_certification_depth"
+        } else {
+            "not_applicable_scheduler_not_applied"
+        };
+        self.set_gate_status(gate, status);
+    }
+
+    fn set_gate_status(&mut self, gate: &str, status: &str) {
+        match gate {
+            "source_split_discovery" => {
+                self.source_split_discovery_gate_status = status.to_string();
+            }
+            "read_chunk" => self.read_chunk_gate_status = status.to_string(),
+            "array_build" => self.array_build_gate_status = status.to_string(),
+            "write" => self.write_gate_status = status.to_string(),
+            "reopen" => self.reopen_gate_status = status.to_string(),
+            "sink_evidence" => self.sink_evidence_gate_status = status.to_string(),
+            _ => {}
+        }
+    }
+}
+
+impl VortexCapillaryPreWriteControlReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_capillary_preparation_prewrite_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_source_report_status".to_string(),
+                self.source_report_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_activation_result".to_string(),
+                self.activation_result.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_activation_reason".to_string(),
+                self.activation_reason.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_scheduler_applied".to_string(),
+                self.scheduler_applied.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_execution_window_count".to_string(),
+                self.execution_window_count.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_execution_window_size".to_string(),
+                self.execution_window_size.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_execution_window_ids".to_string(),
+                self.execution_window_ids.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_execution_window_task_ids".to_string(),
+                self.execution_window_task_ids.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_execution_window_digests".to_string(),
+                self.execution_window_digests.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_controlled_task_roles".to_string(),
+                self.controlled_task_roles.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_plan_digest".to_string(),
+                self.plan_digest.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_source_split_discovery_gate_status"
+                    .to_string(),
+                self.source_split_discovery_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_read_chunk_gate_status".to_string(),
+                self.read_chunk_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_array_build_gate_status".to_string(),
+                self.array_build_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_write_gate_status".to_string(),
+                self.write_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_reopen_gate_status".to_string(),
+                self.reopen_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_sink_evidence_gate_status".to_string(),
+                self.sink_evidence_gate_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_flow_inventory_wip_limit".to_string(),
+                self.flow_inventory_wip_limit.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_scarcity_ledger_selected_action".to_string(),
+                self.scarcity_ledger_selected_action.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_endopulse_adjustment_applied".to_string(),
+                self.endopulse_adjustment_applied.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_proofbound_pre_application_status"
+                    .to_string(),
+                self.proofbound_pre_application_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_proofbound_post_application_status"
+                    .to_string(),
+                self.proofbound_post_application_status.clone(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
 /// Plan capillary cold-preparation task evidence and `PulseWeave` control.
 ///
 /// # Errors
@@ -2383,6 +3662,16 @@ pub fn evaluate_vortex_capillary_preparation(
         execution_certificate_status,
     )?;
     let status = capillary_status(&input, &tasks, &pulseweave_report);
+    let scheduler_applied = capillary_scheduler_applied(&input, &tasks, &pulseweave_report);
+    let scheduler_application_reason =
+        capillary_scheduler_application_reason(&input, &tasks, &pulseweave_report);
+    let execution_window_size = if scheduler_applied {
+        pulseweave_report.batch_window_size(input.max_parallelism)
+    } else {
+        0
+    };
+    let execution_windows =
+        capillary_execution_windows(&tasks, scheduler_applied, execution_window_size);
 
     let evidence = VortexCapillaryActivatedEvidence {
         task_manifest_digest,
@@ -2394,6 +3683,22 @@ pub fn evaluate_vortex_capillary_preparation(
         task_byte_range_refs,
         task_row_range_refs,
         vortex_segment_refs,
+        execution_window_count: execution_windows.len(),
+        execution_window_size,
+        execution_window_ids: join_window_values(&execution_windows, |window| {
+            window.window_id.clone()
+        }),
+        execution_window_task_counts: join_window_values(&execution_windows, |window| {
+            format!("{}={}", window.window_id, window.task_count)
+        }),
+        execution_window_task_ids: join_window_values(&execution_windows, |window| {
+            format!("{}={}", window.window_id, window.task_ids.join("|"))
+        }),
+        execution_window_digests: join_window_values(&execution_windows, |window| {
+            format!("{}={}", window.window_id, window.window_digest)
+        }),
+        scheduler_applied,
+        scheduler_application_reason,
         peak_memory_bytes,
         pulseweave_report,
         status,
@@ -2401,6 +3706,24 @@ pub fn evaluate_vortex_capillary_preparation(
     Ok(activated_vortex_capillary_preparation_report(
         input, activation, evidence,
     ))
+}
+
+#[cfg(feature = "vortex-write")]
+fn plan_capillary_prewrite_control(
+    input: Option<&VortexCapillaryPreparationInput>,
+) -> Result<VortexCapillaryPreWriteControlReport> {
+    let Some(input) = input else {
+        return Ok(VortexCapillaryPreWriteControlReport::not_requested(
+            "no_capillary_prewrite_input",
+        ));
+    };
+    if input.certification_depth != VortexIngestCertificationLevel::IngestCertified.as_str() {
+        return Ok(VortexCapillaryPreWriteControlReport::not_requested(
+            "certification_depth_does_not_request_reopen_verified_prewrite_control",
+        ));
+    }
+    evaluate_vortex_capillary_preparation(input.clone())
+        .map(|report| VortexCapillaryPreWriteControlReport::from_preparation_report(&report))
 }
 
 fn activated_vortex_capillary_preparation_report(
@@ -2443,6 +3766,14 @@ fn activated_vortex_capillary_preparation_report(
         task_count: evidence.task_count,
         task_roles: evidence.task_roles,
         task_ids: evidence.task_ids,
+        execution_window_count: evidence.execution_window_count,
+        execution_window_size: evidence.execution_window_size,
+        execution_window_ids: evidence.execution_window_ids,
+        execution_window_task_counts: evidence.execution_window_task_counts,
+        execution_window_task_ids: evidence.execution_window_task_ids,
+        execution_window_digests: evidence.execution_window_digests,
+        scheduler_applied: evidence.scheduler_applied,
+        scheduler_application_reason: evidence.scheduler_application_reason.to_string(),
         source_split_refs: input.source_split_refs,
         read_chunk_byte_range_refs: evidence.task_byte_range_refs,
         row_range_refs: evidence.task_row_range_refs,
@@ -2556,6 +3887,14 @@ fn skipped_vortex_capillary_preparation_report(
         task_count: 0,
         task_roles: "none".to_string(),
         task_ids: "none".to_string(),
+        execution_window_count: 0,
+        execution_window_size: 0,
+        execution_window_ids: "none".to_string(),
+        execution_window_task_counts: "none".to_string(),
+        execution_window_task_ids: "none".to_string(),
+        execution_window_digests: "none".to_string(),
+        scheduler_applied: false,
+        scheduler_application_reason: "not_requested_below_threshold".to_string(),
         source_split_refs: input.source_split_refs,
         read_chunk_byte_range_refs: "none".to_string(),
         row_range_refs: "none".to_string(),
@@ -2722,6 +4061,69 @@ fn capillary_status(
     }
 }
 
+fn capillary_scheduler_applied(
+    input: &VortexCapillaryPreparationInput,
+    tasks: &[VortexCapillaryPreparationTask],
+    pulseweave_report: &PulseWeaveReport,
+) -> bool {
+    !tasks.is_empty()
+        && !missing_capillary_task_manifest(&input.source_split_refs)
+        && input.native_io_certificate_status == "certified"
+        && pulseweave_report.runtime_decision_applied
+}
+
+fn capillary_scheduler_application_reason(
+    input: &VortexCapillaryPreparationInput,
+    tasks: &[VortexCapillaryPreparationTask],
+    pulseweave_report: &PulseWeaveReport,
+) -> &'static str {
+    if tasks.is_empty() {
+        "no_capillary_tasks"
+    } else if missing_capillary_task_manifest(&input.source_split_refs) {
+        "blocked_missing_capillary_task_manifest"
+    } else if input.native_io_certificate_status != "certified" {
+        "blocked_missing_native_io_certificate"
+    } else if pulseweave_report.runtime_decision_applied {
+        "pulseweave_batch_window_applied_to_capillary_manifest"
+    } else {
+        "proofbound_or_resource_policy_blocked"
+    }
+}
+
+fn capillary_execution_windows(
+    tasks: &[VortexCapillaryPreparationTask],
+    scheduler_applied: bool,
+    execution_window_size: usize,
+) -> Vec<VortexCapillaryExecutionWindow> {
+    if !scheduler_applied || tasks.is_empty() || execution_window_size == 0 {
+        return Vec::new();
+    }
+
+    tasks
+        .chunks(execution_window_size.max(1))
+        .enumerate()
+        .map(|(index, window_tasks)| {
+            let window_id = format!("vortex-capillary-window-{index:04}");
+            let task_ids = window_tasks
+                .iter()
+                .map(|task| task.task_id.clone())
+                .collect::<Vec<_>>();
+            let window_digest = fnv64_digest_text(&format!(
+                "{}|{}|{}",
+                window_id,
+                execution_window_size,
+                task_ids.join("|")
+            ));
+            VortexCapillaryExecutionWindow {
+                window_id,
+                task_count: task_ids.len(),
+                task_ids,
+                window_digest,
+            }
+        })
+        .collect()
+}
+
 fn missing_capillary_task_manifest(source_split_refs: &str) -> bool {
     let source_split_refs = source_split_refs.trim();
     source_split_refs.is_empty() || source_split_refs.eq_ignore_ascii_case("none")
@@ -2771,6 +4173,24 @@ fn join_task_values(
     tasks.iter().map(&mut value).collect::<Vec<_>>().join(",")
 }
 
+fn join_window_values(
+    windows: &[VortexCapillaryExecutionWindow],
+    mut value: impl FnMut(&VortexCapillaryExecutionWindow) -> String,
+) -> String {
+    if windows.is_empty() {
+        "none".to_string()
+    } else {
+        windows.iter().map(&mut value).collect::<Vec<_>>().join(";")
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn capillary_role_list_contains(roles: &str, role: &str) -> bool {
+    roles
+        .split(',')
+        .any(|candidate| candidate.trim().eq_ignore_ascii_case(role))
+}
+
 /// Evidence returned by the scoped local `vortex_ingest` helper.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -2801,6 +4221,7 @@ pub struct VortexPreparedStateWriteReport {
     pub array_build_record_batch_count: usize,
     pub manual_scalar_copy_avoided: bool,
     pub preparation_spine: VortexPreparationSpineReport,
+    pub capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
@@ -2889,6 +4310,12 @@ pub fn write_flat_scalar_vortex_prepared_state(
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
     let column_families = scalar_column_families(&request.columns, &request.rows)?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
+    let mut capillary_prewrite_control =
+        plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
+    capillary_prewrite_control
+        .apply_task_role_gate("source_split_discovery", "source_split_discovery")?;
+    capillary_prewrite_control.apply_task_role_gate("read_chunk", "read_chunk")?;
+    capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
     let array_build_start = Instant::now();
     let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
@@ -2907,6 +4334,7 @@ pub fn write_flat_scalar_vortex_prepared_state(
         array_build_input_layout: "materialized_rows",
         array_build_record_batch_count: 0,
         manual_scalar_copy_avoided: false,
+        capillary_prewrite_control,
         preparation_spine: VortexPreparationSpineFinalizeInput {
             vortex_first_decision: "implement_shardloom_kernel",
             feature_gate: "vortex-write",
@@ -2941,6 +4369,12 @@ pub fn write_flat_columnar_vortex_prepared_state(
 
     let source_shape = validate_flat_columnar_source_shape(&request.source)?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
+    let mut capillary_prewrite_control =
+        plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
+    capillary_prewrite_control
+        .apply_task_role_gate("source_split_discovery", "source_split_discovery")?;
+    capillary_prewrite_control.apply_task_role_gate("read_chunk", "read_chunk")?;
+    capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
     let array_build_start = Instant::now();
     let array_build = flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
@@ -2980,6 +4414,7 @@ pub fn write_flat_columnar_vortex_prepared_state(
         array_build_input_layout: "arrow_record_batch_columnar_source_state",
         array_build_record_batch_count: request.source.batches.len(),
         manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
+        capillary_prewrite_control,
         preparation_spine: VortexPreparationSpineFinalizeInput {
             vortex_first_decision,
             feature_gate: "vortex-write,universal-format-io",
@@ -3109,6 +4544,7 @@ struct VortexPreparedStateFinalizeInput<'a> {
     array_build_input_layout: &'static str,
     array_build_record_batch_count: usize,
     manual_scalar_copy_avoided: bool,
+    capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
     preparation_spine: VortexPreparationSpineFinalizeInput,
 }
 
@@ -3130,6 +4566,8 @@ struct VortexPreparationSpineFinalizeInput {
 fn finalize_vortex_prepared_state_write(
     input: VortexPreparedStateFinalizeInput<'_>,
 ) -> Result<VortexPreparedStateWriteReport> {
+    let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
+    capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
     let write_result = write_vortex_array(&input.target_path, input.array, input.allow_overwrite)?;
 
     let (
@@ -3138,6 +4576,7 @@ fn finalize_vortex_prepared_state_write(
         reopen_verification_status,
         upstream_vortex_scan_called,
     ) = if input.certification_level == VortexIngestCertificationLevel::IngestCertified {
+        capillary_prewrite_control.apply_task_role_gate("reopen_verify", "reopen")?;
         let reopen_start = Instant::now();
         let reopen_row_count = reopen_vortex_row_count(&input.target_path)?;
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
@@ -3154,6 +4593,7 @@ fn finalize_vortex_prepared_state_write(
             true,
         )
     } else {
+        capillary_prewrite_control.mark_task_role_not_performed("reopen_verify", "reopen");
         if write_result.writer_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local vortex_ingest writer row count mismatch: source={} writer={}; no fallback execution was attempted",
@@ -3162,6 +4602,7 @@ fn finalize_vortex_prepared_state_write(
         }
         (0, 0, "not_performed_ingest_minimal".to_string(), false)
     };
+    capillary_prewrite_control.apply_task_role_gate("sink_evidence", "sink_evidence")?;
     let preparation_spine = preparation_spine_report(
         &input,
         upstream_vortex_scan_called,
@@ -3195,6 +4636,7 @@ fn finalize_vortex_prepared_state_write(
         array_build_record_batch_count: input.array_build_record_batch_count,
         manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
         preparation_spine,
+        capillary_prewrite_control,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
@@ -4184,8 +5626,61 @@ mod tests {
         std::fs::remove_file(path).expect("remove artifact");
     }
 
+    #[test]
+    fn local_flat_scalar_rows_apply_capillary_prewrite_control_before_write() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-capillary-prewrite-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(1)),
+                    ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(2)),
+                    ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
+                ],
+            ],
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 2));
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert!(report.capillary_prewrite_control.scheduler_applied);
+        assert_eq!(
+            report.capillary_prewrite_control.status,
+            "applied_before_array_build"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.array_build_gate_status,
+            "applied_prewrite_window"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.write_gate_status,
+            "applied_prewrite_window"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.reopen_gate_status,
+            "applied_prewrite_window"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.sink_evidence_gate_status,
+            "applied_prewrite_window"
+        );
+        assert!(report.capillary_prewrite_control.execution_window_count > 0);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
     #[cfg(feature = "universal-format-io")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn local_flat_columnar_source_writes_and_reopens_vortex_artifact() {
         use std::sync::Arc;
 
@@ -4227,7 +5722,8 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source)
+            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 4));
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -4283,6 +5779,19 @@ mod tests {
         assert_eq!(
             report.preparation_spine.decode_boundary_status,
             "no_scalar_row_decode_for_non_empty_batches"
+        );
+        assert!(report.capillary_prewrite_control.scheduler_applied);
+        assert_eq!(
+            report.capillary_prewrite_control.array_build_gate_status,
+            "applied_prewrite_window"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.write_gate_status,
+            "applied_prewrite_window"
+        );
+        assert_eq!(
+            report.capillary_prewrite_control.reopen_gate_status,
+            "applied_prewrite_window"
         );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
@@ -4510,6 +6019,19 @@ mod tests {
         assert_eq!(report.native_io_certificate_status, "certified");
         assert_eq!(report.pulseweave_report.status, "applied");
         assert!(report.pulseweave_report.runtime_decision_applied);
+        assert!(report.scheduler_applied);
+        assert_eq!(
+            report.scheduler_application_reason,
+            "pulseweave_batch_window_applied_to_capillary_manifest"
+        );
+        assert!(report.execution_window_size >= 1);
+        assert_eq!(
+            report.execution_window_count,
+            report.task_count.div_ceil(report.execution_window_size)
+        );
+        assert_ne!(report.execution_window_ids, "none");
+        assert_ne!(report.execution_window_task_ids, "none");
+        assert_ne!(report.execution_window_digests, "none");
         assert_eq!(
             report.pulseweave_report.application_scope,
             "vortex_cold_preparation_local_capillary_io"
@@ -4522,6 +6044,13 @@ mod tests {
             "vortex_capillary_preparation_pulseweave_runtime_decision_applied".to_string(),
             "true".to_string()
         )));
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_scheduler_applied".to_string(),
+            "true".to_string()
+        )));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "vortex_capillary_preparation_execution_window_count" && value != "0"
+        }));
         assert!(fields.contains(&(
             "vortex_capillary_preparation_fallback_attempted".to_string(),
             "false".to_string()
@@ -4544,6 +6073,14 @@ mod tests {
         );
         assert_eq!(report.task_count, 0);
         assert_eq!(report.task_manifest_id, "none");
+        assert_eq!(report.execution_window_count, 0);
+        assert_eq!(report.execution_window_size, 0);
+        assert_eq!(report.execution_window_ids, "none");
+        assert!(!report.scheduler_applied);
+        assert_eq!(
+            report.scheduler_application_reason,
+            "not_requested_below_threshold"
+        );
         assert_eq!(report.pulseweave_report.status, "not_requested");
         assert!(!report.pulseweave_report.runtime_decision_applied);
         assert_eq!(report.execution_certificate_status, "not_requested");
@@ -4566,6 +6103,14 @@ mod tests {
             "vortex_capillary_preparation_pulseweave_status".to_string(),
             "not_requested".to_string()
         )));
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_scheduler_applied".to_string(),
+            "false".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_execution_window_count".to_string(),
+            "0".to_string()
+        )));
     }
 
     #[test]
@@ -4580,6 +6125,8 @@ mod tests {
         assert_eq!(report.activation_result, "activated");
         assert_eq!(report.activation_reason, "source_bytes_above_threshold");
         assert_eq!(report.task_count, 6);
+        assert!(report.scheduler_applied);
+        assert!(report.execution_window_count > 0);
         assert_eq!(report.pulseweave_report.status, "applied");
     }
 
@@ -4597,6 +6144,12 @@ mod tests {
         );
         assert_eq!(report.pulseweave_report.status, "blocked");
         assert!(!report.pulseweave_report.runtime_decision_applied);
+        assert!(!report.scheduler_applied);
+        assert_eq!(
+            report.scheduler_application_reason,
+            "blocked_missing_capillary_task_manifest"
+        );
+        assert_eq!(report.execution_window_count, 0);
         assert!(
             report
                 .pulseweave_report
@@ -4724,6 +6277,12 @@ mod tests {
         assert_eq!(report.execution_certificate_status, "certified");
         assert_eq!(report.pulseweave_report.status, "blocked");
         assert!(!report.pulseweave_report.runtime_decision_applied);
+        assert!(!report.scheduler_applied);
+        assert_eq!(
+            report.scheduler_application_reason,
+            "blocked_missing_native_io_certificate"
+        );
+        assert_eq!(report.execution_window_count, 0);
         assert!(
             report
                 .pulseweave_report
@@ -4962,5 +6521,24 @@ mod tests {
             fallback_attempted: false,
             external_engine_invoked: false,
         }
+    }
+
+    fn capillary_prewrite_test_input(
+        target_path: &Path,
+        row_count: u64,
+        column_count: usize,
+    ) -> VortexCapillaryPreparationInput {
+        let mut input = capillary_input("certified");
+        input.prepared_artifact_ref = target_path.display().to_string();
+        input.prepared_artifact_digest =
+            "prewrite_pending_until_vortex_writer_certificate".to_string();
+        input.writer_sink_refs = target_path.display().to_string();
+        input.row_count = row_count;
+        input.column_count = column_count;
+        input.certification_depth = VortexIngestCertificationLevel::IngestCertified
+            .as_str()
+            .to_string();
+        input.capillary_claim_evidence_requested = true;
+        input
     }
 }

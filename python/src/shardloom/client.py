@@ -232,6 +232,37 @@ class PreparedVortexArtifacts:
         )
 
     @property
+    def prepared_state_reuse_hit(self) -> bool:
+        """Whether this artifact handle came from a manifest-backed reuse hit."""
+
+        explicit = self.prepare.field("prepared_state_reuse_hit")
+        if explicit is not None:
+            return self.prepare.field_bool("prepared_state_reuse_hit", False) is True
+        return self.prepare.field_bool("prepare_batch_prepared_state_reuse_hit", False) is True
+
+    @property
+    def prepared_state_reuse_reason(self) -> str | None:
+        """Return the prepared-state reuse or invalidation reason."""
+
+        return self.prepare.field("prepared_state_reuse_reason") or self.prepare.field(
+            "prepare_batch_prepared_state_reuse_reason"
+        )
+
+    @property
+    def prepared_state_reuse_manifest_digest(self) -> str | None:
+        """Return the reuse manifest digest when workspace reuse was evaluated."""
+
+        return self.prepare.field("prepared_state_reuse_manifest_digest") or self.prepare.field(
+            "prepare_batch_prepared_state_reuse_manifest_digest"
+        )
+
+    @property
+    def prepared_state_invalidation_reason(self) -> str | None:
+        """Return why a prepared-state reuse candidate was invalidated."""
+
+        return self.prepare.field("invalidation_reason")
+
+    @property
     def source_state_id(self) -> str:
         """Return the SourceState identifier from the ingest/stage report."""
 
@@ -514,6 +545,47 @@ class PreparedVortexBatchResult:
         """Whether the preparation step marked artifacts as reuse eligible."""
 
         return self.artifacts.reuse_eligible
+
+    @property
+    def prepared_state_reuse_hit(self) -> bool:
+        """Whether the batch route reused a manifest-backed prepared state."""
+
+        explicit = self.batch.field("prepared_state_reuse_hit")
+        if explicit is not None:
+            return self.batch.field_bool("prepared_state_reuse_hit", False) is True
+        return (
+            self.batch.field_bool("prepare_batch_prepared_state_reuse_hit", False) is True
+            or self.artifacts.prepared_state_reuse_hit
+        )
+
+    @property
+    def prepared_state_reuse_reason(self) -> str | None:
+        """Return the batch prepared-state reuse reason."""
+
+        return (
+            self.batch.field("prepared_state_reuse_reason")
+            or self.batch.field("prepare_batch_prepared_state_reuse_reason")
+            or self.artifacts.prepared_state_reuse_reason
+        )
+
+    @property
+    def prepared_state_reuse_manifest_digest(self) -> str | None:
+        """Return the workspace reuse manifest digest for the batch route."""
+
+        return (
+            self.batch.field("prepared_state_reuse_manifest_digest")
+            or self.batch.field("prepare_batch_prepared_state_reuse_manifest_digest")
+            or self.artifacts.prepared_state_reuse_manifest_digest
+        )
+
+    @property
+    def prepared_state_invalidation_reason(self) -> str | None:
+        """Return the invalidation reason when prepared-state reuse missed or blocked."""
+
+        return (
+            self.batch.field("invalidation_reason")
+            or self.artifacts.prepared_state_invalidation_reason
+        )
 
     @property
     def selected_evidence_level(self) -> str:
@@ -990,6 +1062,141 @@ class VortexIngestSmokeReport:
 
         value = self.envelope.field("vortex_capillary_preparation_task_roles")
         return () if value in {None, "", "none"} else tuple(value.split(","))
+
+    @property
+    def vortex_capillary_preparation_execution_window_count(self) -> int:
+        """Return the number of applied capillary execution windows."""
+
+        return (
+            self.envelope.field_int(
+                "vortex_capillary_preparation_execution_window_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def vortex_capillary_preparation_execution_window_ids(self) -> tuple[str, ...]:
+        """Return applied capillary execution-window IDs."""
+
+        value = self.envelope.field("vortex_capillary_preparation_execution_window_ids")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_capillary_preparation_scheduler_applied(self) -> bool:
+        """Whether capillary execution windows shaped the cold-preparation route."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_scheduler_applied", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_capillary_preparation_scheduler_application_reason(self) -> str | None:
+        """Return the capillary scheduler admission or block reason."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_scheduler_application_reason"
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_status(self) -> str | None:
+        """Return whether capillary control gated the local pre-write route."""
+
+        return self.envelope.field("vortex_capillary_preparation_prewrite_status")
+
+    @property
+    def vortex_capillary_preparation_prewrite_scheduler_applied(self) -> bool:
+        """Whether the capillary scheduler was applied before local array build."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_prewrite_scheduler_applied", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_execution_window_count(self) -> int:
+        """Return the number of pre-write capillary execution windows."""
+
+        return (
+            self.envelope.field_int(
+                "vortex_capillary_preparation_prewrite_execution_window_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_execution_window_ids(
+        self,
+    ) -> tuple[str, ...]:
+        """Return pre-write capillary execution-window IDs."""
+
+        value = self.envelope.field(
+            "vortex_capillary_preparation_prewrite_execution_window_ids"
+        )
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_capillary_preparation_prewrite_array_build_gate_status(
+        self,
+    ) -> str | None:
+        """Return the pre-write capillary gate status for local array build."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_prewrite_array_build_gate_status"
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_write_gate_status(self) -> str | None:
+        """Return the pre-write capillary gate status for Vortex write."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_prewrite_write_gate_status"
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_reopen_gate_status(self) -> str | None:
+        """Return the pre-write capillary gate status for reopen verification."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_prewrite_reopen_gate_status"
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_sink_evidence_gate_status(
+        self,
+    ) -> str | None:
+        """Return the pre-write capillary gate status for sink evidence."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_prewrite_sink_evidence_gate_status"
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_fallback_attempted(self) -> bool:
+        """Whether pre-write capillary control attempted fallback execution."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_prewrite_fallback_attempted", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_capillary_preparation_prewrite_external_engine_invoked(self) -> bool:
+        """Whether pre-write capillary control invoked an external engine."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_prewrite_external_engine_invoked",
+                False,
+            )
+            is True
+        )
 
     @property
     def vortex_capillary_preparation_native_io_certificate_status(
@@ -8821,6 +9028,8 @@ class ShardLoomClient:
         workspace: str | os.PathLike[str] | None = None,
         write_result_vortex: bool = False,
         execution_mode: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit native Vortex traditional analytics smoke command."""
@@ -8839,6 +9048,10 @@ class ShardLoomClient:
             args.append("--write-result-vortex")
         if execution_mode is not None:
             args.extend(["--execution-mode", execution_mode])
+        if memory_gb is not None:
+            args.extend(["--memory-gb", str(memory_gb)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
         return self.run(args, check=check)
 
     def traditional_analytics_vortex_batch_run(
@@ -8852,6 +9065,8 @@ class ShardLoomClient:
         write_result_vortex: bool = False,
         execution_mode: str | None = None,
         evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the scoped prepared/native Vortex batch command."""
@@ -8872,6 +9087,10 @@ class ShardLoomClient:
             args.extend(["--execution-mode", execution_mode])
         if evidence_level is not None:
             args.extend(["--evidence-level", evidence_level])
+        if memory_gb is not None:
+            args.extend(["--memory-gb", str(memory_gb)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
         return self.run(args, check=check)
 
     def traditional_analytics_prepare_batch_run(

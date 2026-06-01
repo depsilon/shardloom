@@ -69,6 +69,7 @@ EXPECTED_NAV_PATHS = {
 }
 STATUS_VOCABULARY = {
     "runtime_supported",
+    "scoped_runtime_supported",
     "smoke_supported",
     "fixture_smoke_only",
     "ready_local",
@@ -80,7 +81,51 @@ STATUS_VOCABULARY = {
     "executable",
     "feature_gated",
     "diagnostic_only",
+    "claim_grade",
+    "external_baseline_only",
     "future",
+}
+REQUIRED_BENCHMARK_ROUTE_CARDS = {
+    "cold_certified_route": "ShardLoom Cold Certified Route",
+    "prepare_once_first_query": "ShardLoom Prepare-Once First Query",
+    "prepare_once_batch": "ShardLoom Prepare-Once Batch",
+    "warm_prepared_query": "ShardLoom Warm Prepared Query",
+    "native_vortex_query": "ShardLoom Native Vortex Query",
+    "external_baseline_end_to_end": "External Baseline End-to-End",
+}
+REQUIRED_BENCHMARK_ROUTE_VIEW_TOKENS = {
+    "end-to-end",
+    "prepared-state",
+    "native-vortex",
+    "diagnostic-stage",
+}
+REQUIRED_BENCHMARK_RUNTIME_BADGES = {
+    "runtime_supported",
+    "scoped_runtime_supported",
+    "smoke_supported",
+    "blocked",
+    "unsupported",
+}
+REQUIRED_BENCHMARK_EVIDENCE_BADGES = {
+    "claim_grade",
+    "external_baseline_only",
+    "diagnostic_only",
+}
+REQUIRED_BENCHMARK_FAST_PATH_STRINGS = {
+    "Runtime fast path",
+    "Runtime timing is separate from output and evidence rendering.",
+    "Runtime Fast Path Versus Evidence Path",
+    "Certificate status",
+    "shardloom.route_fast_path_attribution.v1",
+}
+REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS = {
+    "Operator mode inventory",
+    "Runtime support is not encoded-native support.",
+    "Operator Mode Inventory",
+    "Operator Hot-Path Promotion Candidates",
+    "selective_filter_selection_vector_metric_aggregation",
+    "blocked_selection_vector_metric_aggregation_not_admitted",
+    "shardloom.operator_mode_inventory.v1",
 }
 CLAIM_PHRASES = [
     r"\bShardLoom is faster\b",
@@ -105,6 +150,7 @@ FORBIDDEN_RUNTIME_HOSTS = {"raw.githubusercontent.com"}
 FORBIDDEN_RUNTIME_SNIPPETS = {"docs/architecture/phased-execution-plan.md"}
 URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 STATUS_CHIP_RE = re.compile(r'<span class="status-chip[^"]*">([^<]+)</span>')
+ROUTE_CARD_ID_RE = re.compile(r'data-route-card-id="([^"]+)"')
 
 
 class HtmlRefs(HTMLParser):
@@ -370,6 +416,58 @@ def validate_html_page(path: Path, root: Path, website: Path, blockers: list[str
     check_claim_phrases(html, relative, blockers)
 
 
+def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> None:
+    path = website / "benchmarks.html"
+    if not path.exists():
+        blockers.append("missing benchmark page for route-card validation")
+        return
+    html = path.read_text(encoding="utf-8")
+    if "data-route-card-dashboard" not in html:
+        blockers.append("benchmark page missing route-card dashboard")
+    card_ids = set(ROUTE_CARD_ID_RE.findall(html))
+    missing_cards = sorted(set(REQUIRED_BENCHMARK_ROUTE_CARDS) - card_ids)
+    if missing_cards:
+        blockers.append(
+            "benchmark page missing required route cards: " + ", ".join(missing_cards)
+        )
+    for card_id, label in REQUIRED_BENCHMARK_ROUTE_CARDS.items():
+        if label not in html:
+            blockers.append(f"benchmark route card label missing for {card_id}: {label}")
+    if "data-route-badge-fixture" not in html:
+        blockers.append("benchmark page missing route badge fixture")
+    for status in sorted(REQUIRED_BENCHMARK_RUNTIME_BADGES | REQUIRED_BENCHMARK_EVIDENCE_BADGES):
+        if f">{status}</span>" not in html:
+            blockers.append(f"benchmark route badge fixture missing status: {status}")
+    for token in sorted(REQUIRED_BENCHMARK_ROUTE_VIEW_TOKENS):
+        if token not in html:
+            blockers.append(f"benchmark route view filter token missing: {token}")
+    if 'data-route-card-e2e-comparable="false"' not in html:
+        blockers.append("benchmark page must visibly mark non-end-to-end route cards")
+    if "Not comparable to raw-source external end-to-end baselines." not in html:
+        blockers.append("benchmark page missing warm prepared non-comparability warning")
+    if "External rows are baseline context only." not in html:
+        blockers.append("benchmark page missing external baseline-only warning")
+    for required in sorted(REQUIRED_BENCHMARK_FAST_PATH_STRINGS):
+        if required not in html:
+            blockers.append(f"benchmark page missing fast-path attribution string: {required}")
+    for required in sorted(REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS):
+        if required not in html:
+            blockers.append(f"benchmark page missing operator-mode inventory string: {required}")
+    route_dashboard_index = html.find("data-route-card-dashboard")
+    stage_index = html.find("Stage attribution")
+    fast_path_index = html.find("Runtime fast path")
+    operator_mode_index = html.find("Operator mode inventory")
+    raw_index = html.find("Raw timing tables")
+    if route_dashboard_index == -1 or stage_index == -1 or route_dashboard_index > stage_index:
+        blockers.append("benchmark page must lead with route cards before stage attribution")
+    if stage_index == -1 or fast_path_index == -1 or stage_index > fast_path_index:
+        blockers.append("benchmark page must show fast-path attribution after stage attribution")
+    if fast_path_index == -1 or operator_mode_index == -1 or fast_path_index > operator_mode_index:
+        blockers.append("benchmark page must show operator-mode inventory after fast-path attribution")
+    if raw_index != -1 and route_dashboard_index != -1 and route_dashboard_index > raw_index:
+        blockers.append("benchmark page must keep raw timing tables after route cards")
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -388,7 +486,7 @@ def main() -> int:
         blockers.append(f"runtime promotion evidence: {blocker}")
 
     for page in website.rglob("*.html"):
-        if page.name == "validate_static_assets.js":
+        if not page.is_file() or page.name == "validate_static_assets.js":
             continue
         validate_html_page(page, repo_root, website, blockers)
 
@@ -396,6 +494,7 @@ def main() -> int:
         if not (website / asset).exists():
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
+    check_benchmark_route_card_dashboard(website, blockers)
 
     for removed in REMOVED_WEBSITE_SURFACES:
         if (website / removed).exists():
@@ -597,6 +696,14 @@ def main() -> int:
         "checked_assets": EXPECTED_ASSETS,
         "checked_nav_paths": sorted(EXPECTED_NAV_PATHS),
         "status_vocabulary": sorted(STATUS_VOCABULARY),
+        "benchmark_route_cards_checked": sorted(REQUIRED_BENCHMARK_ROUTE_CARDS),
+        "benchmark_route_badges_checked": sorted(
+            REQUIRED_BENCHMARK_RUNTIME_BADGES | REQUIRED_BENCHMARK_EVIDENCE_BADGES
+        ),
+        "benchmark_fast_path_strings_checked": sorted(REQUIRED_BENCHMARK_FAST_PATH_STRINGS),
+        "benchmark_operator_mode_strings_checked": sorted(
+            REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS
+        ),
         "blockers": blockers,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)

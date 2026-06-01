@@ -724,6 +724,184 @@ p {
   color: var(--muted);
 }
 
+.route-card-shell {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.route-filter-bar {
+  margin: 0;
+}
+
+.primary-route-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.route-summary-card {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.04);
+  overflow-wrap: anywhere;
+}
+
+.route-summary-card.not-comparable {
+  border-color: rgba(154, 101, 0, 0.32);
+  background:
+    linear-gradient(180deg, rgba(154, 101, 0, 0.055), transparent 170px),
+    #fff;
+}
+
+.route-card-topline,
+.readiness-groups > div > div,
+.badge-fixture > div > span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.route-card-topline {
+  justify-content: space-between;
+}
+
+.route-card-topline .badge {
+  margin-bottom: 0;
+}
+
+.compare-chip,
+.claim-chip,
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(21, 116, 95, 0.25);
+  border-radius: 999px;
+  background: rgba(21, 116, 95, 0.07);
+  color: var(--green);
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.compare-chip-muted {
+  border-color: rgba(154, 101, 0, 0.28);
+  background: rgba(154, 101, 0, 0.08);
+  color: var(--amber);
+}
+
+.claim-chip {
+  border-color: rgba(95, 111, 125, 0.24);
+  background: #f8fbfc;
+  color: var(--muted);
+}
+
+.badge-count {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.badge-count > span:last-child {
+  color: var(--quiet);
+  font-size: 0.72rem;
+  font-weight: 780;
+}
+
+.route-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route-card-metrics div {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: #f9fcfd;
+  padding: 10px;
+  align-content: center;
+}
+
+.route-card-metrics span,
+.readiness-groups > div > span,
+.route-card-facts dt {
+  color: var(--quiet);
+  font-size: 0.72rem;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-card-metrics strong {
+  color: var(--navy);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.readiness-groups,
+.route-card-facts {
+  display: grid;
+  gap: 9px;
+}
+
+.readiness-groups > div {
+  display: grid;
+  gap: 6px;
+}
+
+.route-card-facts {
+  margin: 0;
+}
+
+.route-card-facts div {
+  display: grid;
+  gap: 3px;
+}
+
+.route-card-facts dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.route-card-warning {
+  border-left: 3px solid var(--amber);
+  background: #fff8ea;
+  color: #64450f;
+  padding: 9px 10px;
+  font-size: 0.88rem;
+}
+
+.badge-fixture {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fbfc;
+  padding: 12px;
+}
+
+.badge-fixture > div {
+  display: grid;
+  gap: 8px;
+}
+
+.badge-fixture strong {
+  color: var(--navy);
+  font-size: 0.86rem;
+}
+
 .compact-table table {
   min-width: 900px;
 }
@@ -986,12 +1164,20 @@ p {
 }
 
 .status-runtime-supported,
+.status-scoped-runtime-supported,
 .status-ready-local,
 .status-smoke-supported,
-.status-executable {
+.status-executable,
+.status-claim-grade {
   border-color: rgba(21, 116, 95, 0.28);
   background: rgba(21, 116, 95, 0.07);
   color: var(--green);
+}
+
+.status-external-baseline-only {
+  border-color: rgba(6, 169, 214, 0.28);
+  background: rgba(6, 169, 214, 0.08);
+  color: #075a72;
 }
 
 .status-report-only,
@@ -1280,6 +1466,7 @@ tr:last-child td {
   .route,
   .compact-route,
   .route-card-grid,
+  .badge-fixture,
   .check-list,
   .route-dashboard,
   .mini-strip,
@@ -1339,8 +1526,10 @@ tr:last-child td {
   .route,
   .compact-route,
   .route-card-grid,
+  .route-card-metrics,
   .evidence-grid,
   .benchmark-preview,
+  .badge-fixture,
   .check-list,
   .route-dashboard,
   .mini-strip,

@@ -46,7 +46,7 @@ The gate aggregates:
   rows, and performance-equivalence claim blockers
 - user route capability report for input/output route selection, Vortex-normalization boundaries,
   materialization/decode boundaries, output/evidence routes, and local benchmark-range route
-  posture
+  posture, including the scenario-level local-file benchmark route map
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -228,7 +228,22 @@ target/user-route-capability-report.json
 The report is the agent-facing route selector for scoped local ShardLoom workflows. Each row names
 the input family, desired outputs, start state, Vortex normalization point, execution mode,
 execution route, output route, evidence route, materialization/decode boundary, runtime status,
-claim boundary, and no-fallback/no-external-engine fields. It intentionally keeps:
+prepared-state reuse scope/manifest diagnostics, claim boundary, and no-fallback/no-external-engine
+fields. Prepared compatibility routes must expose the workspace manifest contract at
+`<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`; non-prepared routes must mark reuse
+as not applicable instead of implying hidden cache behavior. It intentionally keeps:
+
+The CLI evidence surface uses the same vocabulary: cold compatibility preparation reports
+`prepared_state_created_not_reused`, warm prepared rows report `explicit_prepared_state_input`,
+native Vortex rows report `not_applicable_native_vortex_input`, and single-process prepare/batch
+rows report `in_process_prepared_batch_vortex_artifacts` for the first prepare/batch call.
+Repeated compatible `traditional-analytics-prepare-batch-run` calls may report
+`workspace_manifest_local_vortex_artifacts` when the workspace manifest validates and compatibility
+preparation is skipped; source or artifact drift must reprepare and record the invalidation reason.
+Feature-gated `vortex-ingest-smoke`
+reports `artifact_adjacent_manifest_local_vortex_artifacts` when a repeated local ingest reuses an
+existing `.vortex` artifact, and it must keep source/artifact drift visible through
+`prepared_state_invalidation_reason`.
 
 ```text
 all_no_fallback_no_external_engine=true
@@ -238,6 +253,8 @@ production_claim_allowed=false
 spark_replacement_claim_allowed=false
 claim_gate_status=not_claim_grade
 unsupported_local_benchmark_route_ids=[]
+local_file_benchmark_unsupported_scenario_ids=[]
+local_file_benchmark_all_mapped_without_generic_unsupported=true
 ```
 
 Passing this gate means agents and users can choose a scoped route without inferring from scattered

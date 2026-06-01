@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import json
 from datetime import date
+from hashlib import sha256
+from pathlib import Path
 from typing import Mapping, Sequence
 
 from ._compat import dataclass
@@ -14,6 +17,7 @@ from .client import (
     DEFAULT_PROFILE_ORDER,
     EngineCapabilityMatrix,
     EngineSelectionPlan,
+    GeneratedSourceWriteReport,
     HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
@@ -31,6 +35,8 @@ from .client import (
     VortexIngestSmokeReport,
 )
 from .models import Diagnostic, OutputEnvelope
+from .native_route import NativeVortexRoute
+from .prepared_route import CompatibilityPreparedVortexRoute
 from .query import (
     GeneratedRangeSource,
     GeneratedRowsSource,
@@ -81,6 +87,9 @@ DEFAULT_CAPABILITY_SCOPES = (
     "cross-cg",
 )
 SUPPORTED_ENGINE_MODES = ("auto", "batch", "live", "hybrid")
+_OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS: tuple[Mapping[str, object], ...] = (
+    {"value": 1},
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,12 +259,215 @@ class DataFrameMethodCapabilityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedObjectStoreOutputReport:
+    """Typed view over generated rows staged into a local-emulator object-store write."""
+
+    target_uri: str
+    staging_path: str
+    output_format: str
+    provider_profile: str
+    generated_report: GeneratedSourceWriteReport
+    object_store_report: OutputEnvelope
+
+    @property
+    def envelope(self) -> OutputEnvelope:
+        """Return the final object-store write envelope."""
+
+        return self.object_store_report
+
+    @property
+    def command(self) -> str:
+        """Return the final object-store write command name."""
+
+        return self.object_store_report.command
+
+    @property
+    def status(self) -> str:
+        """Return the final object-store write status."""
+
+        return self.object_store_report.status
+
+    @property
+    def generated_source_created(self) -> bool:
+        """Whether the generated-source staging certificate was emitted."""
+
+        return self.generated_report.generated_source_certificate_status not in {
+            "",
+            "not_applicable",
+            "not_emitted",
+            "not_requested",
+        }
+
+    @property
+    def object_store_write_status(self) -> str | None:
+        """Return the object-store write status field."""
+
+        return self.object_store_report.field("object_store_write_status")
+
+    @property
+    def commit_protocol_status(self) -> str | None:
+        """Return the object-store commit protocol status."""
+
+        return self.object_store_report.field("commit_protocol_status")
+
+    @property
+    def rollback_status(self) -> str | None:
+        """Return local-emulator rollback status when requested."""
+
+        return self.object_store_report.field("rollback_status")
+
+    @property
+    def object_store_io(self) -> bool:
+        """Whether the final route performed object-store IO."""
+
+        return self.object_store_report.field_bool("object_store_io", False) is True
+
+    @property
+    def object_store_write_io(self) -> bool:
+        """Whether the final route performed object-store write IO."""
+
+        return self.object_store_report.field_bool("object_store_write_io", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the route performed write IO."""
+
+        return self.object_store_write_io
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the scoped generated-output object-store route executed."""
+
+        return self.generated_source_created and self.object_store_write_io
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any route stage attempted fallback execution."""
+
+        return (
+            self.generated_report.fallback_attempted
+            or self.object_store_report.fallback.attempted
+            or self.object_store_report.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether any route stage invoked an external engine."""
+
+        return (
+            self.generated_report.external_engine_invoked
+            or self.object_store_report.field_bool("external_engine_invoked", False) is True
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the final object-store route claim-gate status."""
+
+        return self.object_store_report.field("claim_gate_status")
+
+
+@dataclass(frozen=True, slots=True)
+class FoundryGeneratedOutputReport:
+    """Typed view over the local Foundry-style generated-output dataset route."""
+
+    output_ref: str
+    result_dataset_path: str
+    evidence_dataset_path: str
+    generated_report: GeneratedSourceWriteReport
+    result_dataset_report: Mapping[str, object]
+    evidence_dataset_report: Mapping[str, object]
+
+    @property
+    def envelope(self) -> OutputEnvelope:
+        """Return the ShardLoom generated-source write envelope."""
+
+        return self.generated_report.envelope
+
+    @property
+    def command(self) -> str:
+        """Return the ShardLoom command used for generated rows."""
+
+        return self.generated_report.envelope.command
+
+    @property
+    def status(self) -> str:
+        """Return the generated-output status."""
+
+        return self.generated_report.envelope.status
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the local Foundry-style generated-output route executed."""
+
+        return self.generated_report.envelope.status == "success"
+
+    @property
+    def generated_source_created(self) -> bool:
+        """Whether generated-source evidence was emitted."""
+
+        return self.generated_report.generated_source_certificate_status not in {
+            "",
+            "not_applicable",
+            "not_emitted",
+            "not_requested",
+        }
+
+    @property
+    def foundry_style_output_api_invoked(self) -> bool:
+        """Whether the local Foundry-style output API boundary wrote datasets."""
+
+        return (
+            self.result_dataset_report.get("foundry_style_output_api_invoked") is True
+            and self.evidence_dataset_report.get("foundry_style_output_api_invoked") is True
+        )
+
+    @property
+    def foundry_runtime_invoked(self) -> bool:
+        """Whether real Foundry runtime was invoked."""
+
+        return False
+
+    @property
+    def foundry_output_api_invoked(self) -> bool:
+        """Whether real Foundry output APIs were invoked."""
+
+        return False
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the local Foundry-style route wrote output artifacts."""
+
+        return self.foundry_style_output_api_invoked
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the route attempted fallback execution."""
+
+        return self.generated_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the route invoked an external engine."""
+
+        return self.generated_report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the generated-output claim-gate status."""
+
+        if self.runtime_execution and self.foundry_style_output_api_invoked:
+            return "fixture_smoke_only"
+        return "not_claim_grade"
+
+
+@dataclass(frozen=True, slots=True)
 class FrontDoorParityRow:
     """SQL/Python/DataFrame parity posture for one user-facing workflow family."""
 
     row_id: str
     workflow: str
     support_status: str
+    runtime_gap_status: str
     sql_surface: str
     python_surface: str
     dataframe_surface: str
@@ -283,6 +495,13 @@ class FrontDoorParityRow:
         """Whether this row names a remaining blocker for the broad user goal."""
 
         return self.blocker_id is not None
+
+    @property
+    def precise_runtime_gap(self) -> bool:
+        """Whether broad-gap rows avoid generic unsupported/blocked posture."""
+
+        generic = {"unsupported", "blocked", "not_complete", "not complete"}
+        return self.runtime_gap_status not in generic
 
     @property
     def no_fallback_no_external_engine(self) -> bool:
@@ -320,6 +539,21 @@ class FrontDoorParityMatrix:
         """Return rows still blocking broad SQL/Python/DataFrame parity."""
 
         return tuple(row for row in self.rows if row.broad_gap)
+
+    @property
+    def runtime_gap_status_counts(self) -> Mapping[str, int]:
+        """Return runtime gap status counts in deterministic insertion order."""
+
+        counts: dict[str, int] = {}
+        for row in self.rows:
+            counts[row.runtime_gap_status] = counts.get(row.runtime_gap_status, 0) + 1
+        return counts
+
+    @property
+    def all_broad_gaps_have_precise_runtime_status(self) -> bool:
+        """Whether broad gaps avoid generic unsupported/blocked labels."""
+
+        return all(row.precise_runtime_gap for row in self.broad_gap_rows)
 
     @property
     def all_no_fallback_no_external_engine(self) -> bool:
@@ -384,6 +618,23 @@ class UserRouteCapabilityRow:
     output_route: str
     evidence_route: str
     materialization_decode_boundary: str
+    source_state_fingerprint: str
+    source_schema_fingerprint: str
+    source_parse_plan_id: str
+    source_split_manifest_id: str
+    source_anomaly_count: int | str
+    source_quarantine_required: bool | str
+    prepared_state_fingerprint: str
+    prepared_state_reuse_scope: str
+    prepared_state_reuse_manifest_path: str
+    prepared_state_reuse_policy: str
+    prepared_state_reuse_hit: bool | str
+    prepared_state_reuse_reason: str
+    prepared_state_reuse_manifest_digest: str
+    prepared_state_invalidation_reason: str
+    nearest_runnable_route: str
+    required_feature_gate: str
+    runtime_blocker_code: str
     route_runtime_status: str
     benchmark_range: bool
     route_comparable_to_external_end_to_end: bool
@@ -637,6 +888,167 @@ class LocalVortexPrimitiveRouteReport:
         raise KeyError(f"local Vortex primitive route {route_id!r} is not in the report")
 
 
+@dataclass(frozen=True, slots=True)
+class LocalFileBenchmarkRouteRow:
+    """Scenario-level route row for local-file benchmark families."""
+
+    scenario_id: str
+    scenario_name: str
+    scenario_suite: str
+    scenario_category: str
+    dataset_profiles: tuple[str, ...]
+    route_id: str
+    route_display_name: str
+    alternate_route_ids: tuple[str, ...]
+    front_doors: tuple[str, ...]
+    sql_surface: str
+    python_surface: str
+    dataframe_surface: str
+    context_surface: str
+    session_surface: str
+    cli_surface: str
+    start_state: str
+    vortex_normalization_point: str
+    source_route: str
+    preparation_route: str
+    selected_execution_mode: str
+    output_route: str
+    evidence_route: str
+    materialization_decode_boundary: str
+    source_state_fingerprint: str
+    source_schema_fingerprint: str
+    source_parse_plan_id: str
+    source_split_manifest_id: str
+    source_anomaly_count: int | str
+    source_quarantine_required: bool | str
+    prepared_state_fingerprint: str
+    prepared_state_reuse_scope: str
+    prepared_state_reuse_manifest_path: str
+    prepared_state_reuse_policy: str
+    prepared_state_reuse_hit: bool | str
+    prepared_state_reuse_reason: str
+    prepared_state_reuse_manifest_digest: str
+    prepared_state_invalidation_reason: str
+    nearest_runnable_route: str
+    required_feature_gate: str
+    runtime_blocker_code: str
+    route_runtime_status: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    blocker_id: str | None
+    owner: str
+    required_evidence: tuple[str, ...]
+    next_verifier: str
+    claim_gate_status: str
+    performance_claim_allowed: bool
+    production_claim_allowed: bool
+    spark_replacement_claim_allowed: bool
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this scenario route preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def runtime_mapped(self) -> bool:
+        """Whether this scenario is mapped to a non-unsupported runtime posture."""
+
+        return self.route_runtime_status != "unsupported"
+
+
+@dataclass(frozen=True, slots=True)
+class LocalFileBenchmarkRouteReport:
+    """Side-effect-free scenario map for local-file benchmark route coverage."""
+
+    rows: tuple[LocalFileBenchmarkRouteRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.local_file_benchmark_route_report.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "gar-runtime-impl-6d.local_file_benchmark_routes"
+
+    @property
+    def scenario_ids(self) -> tuple[str, ...]:
+        """Return scenario ids in stable report order."""
+
+        return tuple(row.scenario_id for row in self.rows)
+
+    @property
+    def unsupported_scenario_ids(self) -> tuple[str, ...]:
+        """Return scenario ids that are still generically unsupported."""
+
+        return tuple(
+            row.scenario_id
+            for row in self.rows
+            if row.route_runtime_status == "unsupported"
+        )
+
+    @property
+    def route_runtime_status_counts(self) -> Mapping[str, int]:
+        """Return route runtime status counts in deterministic insertion order."""
+
+        counts: dict[str, int] = {}
+        for row in self.rows:
+            counts[row.route_runtime_status] = counts.get(row.route_runtime_status, 0) + 1
+        return counts
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every scenario route preserves no fallback and no external engine use."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def all_mapped_without_generic_unsupported(self) -> bool:
+        """Whether every scenario avoids generic unsupported status."""
+
+        return all(row.runtime_mapped for row in self.rows)
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the scenario-report claim gate status."""
+
+        return "not_claim_grade"
+
+    @property
+    def performance_claim_allowed(self) -> bool:
+        """Whether performance claims can be made from this report."""
+
+        return False
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether production readiness can be claimed from this report."""
+
+        return False
+
+    @property
+    def spark_replacement_claim_allowed(self) -> bool:
+        """Whether Spark replacement can be claimed from this report."""
+
+        return False
+
+    def scenario(self, scenario_id: str) -> LocalFileBenchmarkRouteRow:
+        """Return one scenario route row by id."""
+
+        normalized = scenario_id.strip()
+        for row in self.rows:
+            if row.scenario_id == normalized:
+                return row
+        raise KeyError(
+            f"local file benchmark scenario {scenario_id!r} is not in the route report"
+        )
+
+
 def _df_method(
     method: str,
     family: str,
@@ -674,6 +1086,7 @@ def _front_door_row(
     workflow: str,
     support_status: str,
     *,
+    runtime_gap_status: str | None = None,
     sql_surface: str,
     python_surface: str,
     dataframe_surface: str,
@@ -692,6 +1105,11 @@ def _front_door_row(
         row_id=row_id,
         workflow=workflow,
         support_status=support_status,
+        runtime_gap_status=(
+            runtime_gap_status
+            if runtime_gap_status is not None
+            else "admitted_scope"
+        ),
         sql_surface=sql_surface,
         python_surface=python_surface,
         dataframe_surface=dataframe_surface,
@@ -708,6 +1126,134 @@ def _front_door_row(
         required_evidence=tuple(required_evidence),
         claim_boundary=claim_boundary,
     )
+
+
+def _route_diagnostic_packet(
+    *,
+    route_id: str,
+    start_state: str,
+    vortex_normalization_point: str,
+    route_runtime_status: str,
+    blocker_id: str | None,
+    input_examples: Sequence[str] = (),
+) -> dict[str, object]:
+    """Return side-effect-free route diagnostics for users and agents."""
+
+    normalization = vortex_normalization_point
+    examples = " ".join(input_examples).lower()
+    source_backed = (
+        "SourceState" in normalization
+        or "raw_" in start_state
+        or "compat" in start_state
+        or "materialized" in start_state
+    )
+    prepared_backed = (
+        "VortexPreparedState" in normalization
+        and "no persistent VortexPreparedState" not in normalization
+    ) or start_state == "VortexPreparedState"
+    if not prepared_backed:
+        reuse_packet: dict[str, object] = {
+            "prepared_state_reuse_scope": "not_applicable_no_prepared_state",
+            "prepared_state_reuse_manifest_path": "not_applicable_no_prepared_state",
+            "prepared_state_reuse_policy": "not_applicable_no_prepared_state",
+            "prepared_state_reuse_hit": "not_applicable_no_prepared_state",
+            "prepared_state_reuse_reason": "not_applicable_no_prepared_state",
+            "prepared_state_reuse_manifest_digest": "not_applicable_no_prepared_state",
+            "prepared_state_invalidation_reason": "not_applicable_no_prepared_state",
+        }
+    elif "already_prepared_vortex_state" in normalization or start_state == "VortexPreparedState":
+        reuse_packet = {
+            "prepared_state_reuse_scope": "explicit_prepared_state_input",
+            "prepared_state_reuse_manifest_path": "not_required_existing_prepared_state",
+            "prepared_state_reuse_policy": "explicit_prepared_state_admission.v1",
+            "prepared_state_reuse_hit": "true_when_artifact_admitted",
+            "prepared_state_reuse_reason": "explicit_prepared_state_input",
+            "prepared_state_reuse_manifest_digest": "runtime_prepared_state_digest_pending",
+            "prepared_state_invalidation_reason": (
+                "artifact_admission_failure_or_policy_mismatch"
+            ),
+        }
+    else:
+        reuse_packet = {
+            "prepared_state_reuse_scope": "workspace_manifest_local_vortex_artifacts",
+            "prepared_state_reuse_manifest_path": (
+                "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+            ),
+            "prepared_state_reuse_policy": (
+                "shardloom.python.prepared_vortex_reuse_manifest.v1"
+            ),
+            "prepared_state_reuse_hit": "runtime_evaluated",
+            "prepared_state_reuse_reason": "runtime_evaluated_workspace_manifest_lookup",
+            "prepared_state_reuse_manifest_digest": (
+                "runtime_prepared_state_reuse_manifest_digest_pending"
+            ),
+            "prepared_state_invalidation_reason": (
+                "runtime_evaluated_on_reuse_miss_or_block"
+            ),
+        }
+    runnable = route_runtime_status in {
+        "scoped_runtime_supported",
+        "prepared_route_supported",
+    }
+    nearest_by_route = {
+        "quarantine_output_route": "local_file_prepare_once_first_query",
+        "broad_sql_python_dataframe_runtime": "local_file_direct_transient_route",
+        "object_store_lakehouse_runtime": "local_file_cold_certified_route",
+        "performance_equivalence_evidence": "local_file_prepare_once_batch",
+    }
+    feature_gate = "none"
+    if any(token in examples for token in ("parquet", "arrow", "avro", "orc")):
+        feature_gate = "compat_format_gate_for_parquet_arrow_ipc_avro_orc_when_selected"
+    if blocker_id:
+        lowered = blocker_id.lower()
+        if "quarantine" in lowered:
+            feature_gate = "quarantine_output_route"
+        elif "object" in lowered or "lakehouse" in lowered:
+            feature_gate = "object_store_lakehouse_runtime"
+        elif "broad" in lowered or "language" in lowered:
+            feature_gate = "broad_sql_python_dataframe_runtime_expansion"
+        elif "benchmark" in lowered:
+            feature_gate = "front_door_benchmark_claim_evidence"
+
+    return {
+        "source_state_fingerprint": (
+            "runtime_source_state_fingerprint_pending"
+            if source_backed
+            else "not_applicable_native_or_source_free_route"
+        ),
+        "source_schema_fingerprint": (
+            "runtime_source_schema_fingerprint_pending"
+            if source_backed
+            else "not_applicable_native_or_source_free_route"
+        ),
+        "source_parse_plan_id": (
+            f"parse-plan://{route_id}"
+            if source_backed
+            else "not_applicable_native_or_source_free_route"
+        ),
+        "source_split_manifest_id": (
+            f"split-manifest://{route_id}"
+            if source_backed
+            else "not_applicable_native_or_source_free_route"
+        ),
+        "source_anomaly_count": (
+            "not_evaluated_until_source_admission" if source_backed else 0
+        ),
+        "source_quarantine_required": (
+            "not_evaluated_until_source_admission" if source_backed else False
+        ),
+        "prepared_state_fingerprint": (
+            "runtime_prepared_state_fingerprint_pending"
+            if prepared_backed
+            else "not_applicable_no_prepared_state"
+        ),
+        **reuse_packet,
+        "nearest_runnable_route": (
+            route_id if runnable else nearest_by_route.get(route_id, "local_file_direct_transient_route")
+        ),
+        "required_feature_gate": feature_gate,
+        "runtime_blocker_code": blocker_id or "none",
+    }
 
 
 def _user_route(
@@ -740,6 +1286,14 @@ def _user_route(
     production_claim_allowed: bool = False,
     spark_replacement_claim_allowed: bool = False,
 ) -> UserRouteCapabilityRow:
+    diagnostic_packet = _route_diagnostic_packet(
+        route_id=route_id,
+        start_state=start_state,
+        vortex_normalization_point=vortex_normalization_point,
+        route_runtime_status=route_runtime_status,
+        blocker_id=blocker_id,
+        input_examples=input_examples,
+    )
     return UserRouteCapabilityRow(
         route_id=route_id,
         route_display_name=route_display_name,
@@ -757,6 +1311,31 @@ def _user_route(
         output_route=output_route,
         evidence_route=evidence_route,
         materialization_decode_boundary=materialization_decode_boundary,
+        source_state_fingerprint=str(diagnostic_packet["source_state_fingerprint"]),
+        source_schema_fingerprint=str(diagnostic_packet["source_schema_fingerprint"]),
+        source_parse_plan_id=str(diagnostic_packet["source_parse_plan_id"]),
+        source_split_manifest_id=str(diagnostic_packet["source_split_manifest_id"]),
+        source_anomaly_count=diagnostic_packet["source_anomaly_count"],
+        source_quarantine_required=diagnostic_packet["source_quarantine_required"],
+        prepared_state_fingerprint=str(diagnostic_packet["prepared_state_fingerprint"]),
+        prepared_state_reuse_scope=str(diagnostic_packet["prepared_state_reuse_scope"]),
+        prepared_state_reuse_manifest_path=str(
+            diagnostic_packet["prepared_state_reuse_manifest_path"]
+        ),
+        prepared_state_reuse_policy=str(diagnostic_packet["prepared_state_reuse_policy"]),
+        prepared_state_reuse_hit=diagnostic_packet["prepared_state_reuse_hit"],
+        prepared_state_reuse_reason=str(
+            diagnostic_packet["prepared_state_reuse_reason"]
+        ),
+        prepared_state_reuse_manifest_digest=str(
+            diagnostic_packet["prepared_state_reuse_manifest_digest"]
+        ),
+        prepared_state_invalidation_reason=str(
+            diagnostic_packet["prepared_state_invalidation_reason"]
+        ),
+        nearest_runnable_route=str(diagnostic_packet["nearest_runnable_route"]),
+        required_feature_gate=str(diagnostic_packet["required_feature_gate"]),
+        runtime_blocker_code=str(diagnostic_packet["runtime_blocker_code"]),
         route_runtime_status=route_runtime_status,
         benchmark_range=benchmark_range,
         route_comparable_to_external_end_to_end=route_comparable_to_external_end_to_end,
@@ -810,6 +1389,115 @@ def _local_vortex_primitive_route(
         required_evidence=tuple(required_evidence),
         claim_gate_status="not_claim_grade",
         claim_boundary=_LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY,
+    )
+
+
+def _local_file_benchmark_route(
+    scenario_id: str,
+    scenario_name: str,
+    scenario_suite: str,
+    scenario_category: str,
+    *,
+    dataset_profiles: Sequence[str],
+    route_id: str,
+    route_display_name: str,
+    selected_execution_mode: str,
+    sql_surface: str,
+    python_surface: str,
+    dataframe_surface: str,
+    context_surface: str,
+    session_surface: str,
+    cli_surface: str,
+    source_route: str,
+    preparation_route: str,
+    output_route: str,
+    evidence_route: str,
+    materialization_decode_boundary: str,
+    route_runtime_status: str,
+    owner: str,
+    required_evidence: Sequence[str],
+    next_verifier: str,
+    claim_boundary: str,
+    alternate_route_ids: Sequence[str] = (),
+    start_state: str = "raw_compat_source",
+    vortex_normalization_point: str = (
+        "local compatibility source -> SourceState -> vortex_ingest -> VortexPreparedState"
+    ),
+    blocker_id: str | None = None,
+    front_doors: Sequence[str] = ("SQL", "Python", "DataFrame", "context", "session", "CLI"),
+) -> LocalFileBenchmarkRouteRow:
+    diagnostic_packet = _route_diagnostic_packet(
+        route_id=route_id,
+        start_state=start_state,
+        vortex_normalization_point=vortex_normalization_point,
+        route_runtime_status=route_runtime_status,
+        blocker_id=blocker_id,
+        input_examples=(scenario_name, *dataset_profiles),
+    )
+    source_split_manifest_id = str(diagnostic_packet["source_split_manifest_id"])
+    if scenario_id == "many_small_files_scan":
+        source_split_manifest_id = "split-manifest://many_small_files_scan"
+    return LocalFileBenchmarkRouteRow(
+        scenario_id=scenario_id,
+        scenario_name=scenario_name,
+        scenario_suite=scenario_suite,
+        scenario_category=scenario_category,
+        dataset_profiles=tuple(dataset_profiles),
+        route_id=route_id,
+        route_display_name=route_display_name,
+        alternate_route_ids=tuple(alternate_route_ids),
+        front_doors=tuple(front_doors),
+        sql_surface=sql_surface,
+        python_surface=python_surface,
+        dataframe_surface=dataframe_surface,
+        context_surface=context_surface,
+        session_surface=session_surface,
+        cli_surface=cli_surface,
+        start_state=start_state,
+        vortex_normalization_point=vortex_normalization_point,
+        source_route=source_route,
+        preparation_route=preparation_route,
+        selected_execution_mode=selected_execution_mode,
+        output_route=output_route,
+        evidence_route=evidence_route,
+        materialization_decode_boundary=materialization_decode_boundary,
+        source_state_fingerprint=str(diagnostic_packet["source_state_fingerprint"]),
+        source_schema_fingerprint=str(diagnostic_packet["source_schema_fingerprint"]),
+        source_parse_plan_id=str(diagnostic_packet["source_parse_plan_id"]),
+        source_split_manifest_id=source_split_manifest_id,
+        source_anomaly_count=diagnostic_packet["source_anomaly_count"],
+        source_quarantine_required=diagnostic_packet["source_quarantine_required"],
+        prepared_state_fingerprint=str(diagnostic_packet["prepared_state_fingerprint"]),
+        prepared_state_reuse_scope=str(diagnostic_packet["prepared_state_reuse_scope"]),
+        prepared_state_reuse_manifest_path=str(
+            diagnostic_packet["prepared_state_reuse_manifest_path"]
+        ),
+        prepared_state_reuse_policy=str(diagnostic_packet["prepared_state_reuse_policy"]),
+        prepared_state_reuse_hit=diagnostic_packet["prepared_state_reuse_hit"],
+        prepared_state_reuse_reason=str(
+            diagnostic_packet["prepared_state_reuse_reason"]
+        ),
+        prepared_state_reuse_manifest_digest=str(
+            diagnostic_packet["prepared_state_reuse_manifest_digest"]
+        ),
+        prepared_state_invalidation_reason=str(
+            diagnostic_packet["prepared_state_invalidation_reason"]
+        ),
+        nearest_runnable_route=str(diagnostic_packet["nearest_runnable_route"]),
+        required_feature_gate=str(diagnostic_packet["required_feature_gate"]),
+        runtime_blocker_code=str(diagnostic_packet["runtime_blocker_code"]),
+        route_runtime_status=route_runtime_status,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        blocker_id=blocker_id,
+        owner=owner,
+        required_evidence=tuple(required_evidence),
+        next_verifier=next_verifier,
+        claim_gate_status="not_claim_grade",
+        performance_claim_allowed=False,
+        production_claim_allowed=False,
+        spark_replacement_claim_allowed=False,
+        claim_boundary=claim_boundary,
     )
 
 
@@ -1246,24 +1934,35 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "object_store_generated_output",
         "output",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="object-store-generated-output",
-        blocker_id="gar-gen-1.object_store_generated_output_blocked",
-        required_evidence=("object_store_write_policy", "output_commit_protocol"),
-        claim_boundary=_WRITE_BOUNDARY,
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "generated_source_certificate",
+            "object_store_write_smoke",
+            "object_store_write_policy",
+            "output_commit_protocol",
+            "no_fallback_evidence",
+        ),
+        claim_boundary="scoped local-emulator generated-output object-store fixture only; no live S3/GCS/ADLS, lakehouse table commit, production, or performance claim",
     ),
     _df_method(
         "foundry_generated_output",
         "platform",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="foundry-generated-output",
-        blocker_id="gar-gen-1.foundry_generated_output_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        materialization_required=True,
         required_evidence=(
-            "foundry_transform_wrapper",
-            "foundry_output_dataset_evidence",
             "generated_source_certificate",
+            "foundry_style_result_dataset",
+            "foundry_style_evidence_dataset",
+            "foundry_output_api_invoked_false",
+            "foundry_spark_invoked_false",
+            "no_fallback_evidence",
         ),
-        claim_boundary=_WRITE_BOUNDARY,
+        claim_boundary="local Foundry-style generated-output dataset proof only; no real Foundry runtime, output API, package, production, Marketplace, Spark, object-store, or performance claim",
     ),
     _df_method(
         "filter",
@@ -1282,6 +1981,15 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "lazy_plan",
         "lazy_plan_supported",
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "project",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=(
+            "Alias for select(...). Plan declaration only until an admitted collect/write/"
+            "materialization terminal runs through ShardLoom runtime evidence."
+        ),
     ),
     _df_method(
         "limit",
@@ -1304,6 +2012,41 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY,
     ),
     _df_method(
+        "with_columns",
+        "expression",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "expression_engine",
+            "computed_projection_evidence",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=(
+            "Alias over repeated with_column(...) calls for admitted scoped local-source "
+            "computed projections and source-free generated rows/ranges. No broad expression "
+            "runtime, external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
+        "assign",
+        "expression",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "expression_engine",
+            "computed_projection_evidence",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=(
+            "Pandas-style alias for with_columns(...), preserving the same admitted "
+            "ShardLoom computed-projection runtime boundaries and no-fallback evidence."
+        ),
+    ),
+    _df_method(
         "join",
         "join",
         "fixture_smoke_supported",
@@ -1322,6 +2065,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "aggregation",
         "lazy_group_handle_supported",
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "groupby",
+        "aggregation",
+        "lazy_group_handle_supported",
+        claim_boundary="Alias for group_by(...). Lazy grouped handle only until agg/aggregate/count terminal lowering is admitted.",
     ),
     _df_method(
         "agg",
@@ -1365,6 +2114,45 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY,
     ),
     _df_method(
+        "order_by",
+        "ordering",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "sort_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="Alias for sort(...), preserving scoped local-source top-N/order-by runtime evidence and no-fallback boundaries.",
+    ),
+    _df_method(
+        "sort_by",
+        "ordering",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "sort_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="Alias for sort(...), preserving scoped local-source top-N/order-by runtime evidence and no-fallback boundaries.",
+    ),
+    _df_method(
+        "sort_values",
+        "ordering",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "sort_operator",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary="Pandas-style alias for sort(...), preserving scoped local-source top-N/order-by runtime evidence and no-fallback boundaries.",
+    ),
+    _df_method(
         "window",
         "window",
         "fixture_smoke_supported",
@@ -1381,11 +2169,21 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "schema_contract",
         "schema_quality",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="schema-contract",
-        blocker_id="cg21.workflow.schema_contract.enforcement_unsupported",
-        required_evidence=("schema_contract_runtime", "diagnostic_evidence"),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "schema_validation",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Alias for validate_schema(...): exact bounded schema validation over admitted "
+            "local-source SQL/Python/DataFrame workflows. No broad schema registry, object-store/"
+            "table enforcement, production contract management, external engine, or fallback claim."
+        ),
     ),
     _df_method(
         "schema",
@@ -1884,12 +2682,26 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "quarantine",
         "write",
-        "unsupported_write_diagnostic",
-        diagnostic_operation="quarantine",
-        blocker_id="cg21.workflow.quarantine.output_unsupported",
-        required_evidence=("quarantine_policy", "sink_write_evidence", "commit_evidence"),
-        write_io=False,
-        claim_boundary=_WRITE_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "quarantine_policy",
+            "local_quarantine_sink_write_evidence",
+            "output_native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Scoped local-source quarantine only. Bounded runtime rows are classified through "
+            "ShardLoom local-source evidence; pushdownable not-null quarantine rows can be written "
+            "to admitted local sinks through sql-local-source-smoke. Broad quarantine policy, "
+            "object-store/table quarantine, unique-check sink pushdown, production remediation, "
+            "and performance claims remain blocked."
+        ),
     ),
     _df_method(
         "from_pandas",
@@ -1959,11 +2771,23 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "profile",
         "observability",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="profile",
-        blocker_id="cg21.workflow.profile.runtime_profile_unsupported",
-        required_evidence=("profile_runtime", "observability_evidence"),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "bounded_inline_jsonl_result",
+            "profile_runtime",
+            "schema_observability",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Scoped local-source bounded runtime profile only. The profile reuses the admitted "
+            "sql-local-source-smoke path and reports inline JSONL materialization, schema/null-count "
+            "observability, and no-fallback evidence. Broad runtime profiling, resource tracing, "
+            "quarantine output, production observability, and performance claims remain blocked."
+        ),
     ),
 )
 
@@ -2121,6 +2945,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "native_vortex_general_runtime",
         "general Vortex-native read, transform, and write workflows",
         "broad_runtime_expansion_pending",
+        runtime_gap_status="front_door_connection_pending",
         sql_surface="scoped SQL local Vortex primitive reports supported; broad Vortex SQL is tracked in GAR-RUNTIME-IMPL-6D",
         python_surface="ctx.read_vortex(...).count/filter/select/limit scoped local primitive reports; broad workflow expansion is tracked in GAR-RUNTIME-IMPL-6D",
         dataframe_surface="read_vortex(...).filter/select/count/limit/collect scoped primitive reports; broader read-transform-write expansion is tracked in GAR-RUNTIME-IMPL-6D",
@@ -2181,6 +3006,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "object_store_lakehouse_catalog",
         "object-store, lakehouse/table, catalog, commit, and remote sink workflows",
         "production_io_runtime_expansion_pending",
+        runtime_gap_status="runtime_expansion_pending",
         sql_surface="remote/table SQL runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
         python_surface="object-store/table helper smokes and plans only",
         dataframe_surface="DataFrame remote/table read/write runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
@@ -2208,6 +3034,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "arbitrary_sql_python_dataframe_breadth",
         "arbitrary user SQL, Python expressions, DataFrame APIs, UDFs, and effects",
         "broad_language_runtime_expansion_pending",
+        runtime_gap_status="front_door_connection_pending",
         sql_surface="broad SQL parse/bind/plan/execute expansion is tracked in GAR-RUNTIME-IMPL-6D",
         python_surface="arbitrary Python function/UDF/effect runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
         dataframe_surface="full DataFrame API parity expansion is tracked in GAR-RUNTIME-IMPL-6D",
@@ -2234,7 +3061,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "performance_equivalence",
         "same-result and same-performance expectation across SQL, Python, and DataFrame front doors",
-        "benchmark_claim_evidence_pending",
+        "benchmark_publication_pending",
+        runtime_gap_status="benchmark_publication_pending",
         sql_surface="not benchmark-certified against equivalent Python/DataFrame workflows",
         python_surface="not benchmark-certified against equivalent SQL/DataFrame workflows",
         dataframe_surface="not benchmark-certified against equivalent SQL/Python workflows",
@@ -2261,6 +3089,588 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
 
 _ALL_USER_FRONT_DOORS = ("SQL", "Python", "DataFrame", "context", "session", "CLI")
 _PYTHON_FRONT_DOORS = ("Python", "DataFrame", "context", "session")
+
+_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY = (
+    "Scoped local compatibility-file benchmark scenario route: raw local CSV/JSONL/Parquet/"
+    "Arrow IPC/Avro/ORC fixture inputs enter SourceState, prepare through vortex_ingest into "
+    "VortexPreparedState, execute through ShardLoom prepared/native benchmark runtime, and emit "
+    "local result/evidence artifacts with no external engine fallback. This is not broad arbitrary "
+    "SQL/Python/DataFrame support, object-store/table runtime, production readiness, performance "
+    "superiority, or Spark replacement."
+)
+_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY = (
+    "Scoped direct local compatibility-file route: raw local CSV/JSONL and feature-gated flat "
+    "scalar compatibility formats enter SourceState and execute through ShardLoom's local-source "
+    "runtime with transient Vortex-preparable arrays. This is not Vortex-native persistence, broad "
+    "SQL/Python/DataFrame support, production readiness, performance superiority, or fallback."
+)
+
+LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
+    _local_file_benchmark_route(
+        "selective_filter",
+        "selective filter",
+        "local_analytics",
+        "scan_and_pruning",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "null_heavy",
+            "partitioned_by_date",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_direct_transient_route",
+        route_display_name="ShardLoom Direct Transient Route",
+        alternate_route_ids=(
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+        ),
+        selected_execution_mode="direct_compatibility_transient",
+        sql_surface="ctx.sql(\"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\").collect()",
+        python_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
+        dataframe_surface="ctx.read('fact.csv').where(sl.col('flag') == True).agg(sum_metric=('metric', 'sum')).collect()",
+        context_surface="ctx.read('fact.csv').filter(sl.col('flag') == True).collect()",
+        session_surface="session.read('fact.csv').filter(sl.col('flag') == True).collect()",
+        cli_surface="shardloom sql-local-source-smoke \"SELECT SUM(metric) FROM 'fact.csv' WHERE flag = true\" --format json",
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="direct_compatibility_transient_no_persistent_preparation",
+        output_route="bounded report, local compatibility output, or feature-gated local Vortex sink",
+        evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
+        route_runtime_status="scoped_runtime_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.selective_filter",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "traditional_analytics.direct_compatibility_transient.selective_filter",
+            "no_fallback_evidence",
+        ),
+        next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
+        claim_boundary=_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY,
+        vortex_normalization_point=(
+            "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
+            "prepared routes are available when persistence/reuse is requested"
+        ),
+    ),
+    _local_file_benchmark_route(
+        "filter_projection_limit",
+        "filter + projection + limit",
+        "local_analytics",
+        "scan_and_pruning",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "wide_table",
+            "very_wide_table",
+            "null_heavy",
+            "partitioned_by_date",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_direct_transient_route",
+        route_display_name="ShardLoom Direct Transient Route",
+        alternate_route_ids=(
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+        ),
+        selected_execution_mode="direct_compatibility_transient",
+        sql_surface="ctx.sql(\"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 ORDER BY id LIMIT 100\").collect()",
+        python_surface="ctx.read('fact.csv').filter(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
+        dataframe_surface="ctx.read('fact.csv').where(sl.col('metric') >= 10).select('id', 'metric').limit(100).collect()",
+        context_surface="ctx.read('fact.csv').select('id', 'metric').limit(100).collect()",
+        session_surface="session.read('fact.csv').select('id', 'metric').limit(100).collect()",
+        cli_surface="shardloom sql-local-source-smoke \"SELECT id, metric FROM 'fact.csv' WHERE metric >= 10 LIMIT 100\" --format json",
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="direct_compatibility_transient_no_persistent_preparation",
+        output_route="bounded report, local compatibility output, or feature-gated local Vortex sink",
+        evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
+        route_runtime_status="scoped_runtime_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.filter_projection_limit",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "traditional_analytics.direct_compatibility_transient.filter_projection_limit",
+            "no_fallback_evidence",
+        ),
+        next_verifier="python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json",
+        claim_boundary=_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY,
+        vortex_normalization_point=(
+            "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
+            "prepared routes are available when persistence/reuse is requested"
+        ),
+    ),
+    _local_file_benchmark_route(
+        "group_by_aggregation",
+        "group by aggregation",
+        "local_analytics",
+        "aggregation",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "null_heavy",
+            "partitioned_by_date",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(\"SELECT group_key, SUM(metric) FROM fact GROUP BY group_key\").collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('group_by_aggregation').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().group_by('group_key').agg(total=('metric', 'sum')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('group_by_aggregation')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('group_by_aggregation').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run group_by_aggregation fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared query result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, route timing, execution certificate, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only after prepared query output or sink is declared",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.group_by_aggregation",
+        required_evidence=(
+            "traditional_analytics.prepared_native.group_by_aggregation",
+            "VortexPreparedState",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "multi_key_group_by",
+        "multi-key group by",
+        "local_analytics",
+        "aggregation",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "high_cardinality_strings",
+            "null_heavy",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(\"SELECT group_key, category, SUM(metric) FROM fact GROUP BY group_key, category\").collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('multi_key_group_by').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().group_by('group_key', 'category').agg(total=('metric', 'sum')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('multi_key_group_by')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('multi_key_group_by').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run multi_key_group_by fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared query result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, route timing, execution certificate, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only after prepared query output or sink is declared",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.multi_key_group_by",
+        required_evidence=(
+            "traditional_analytics.prepared_native.multi_key_group_by",
+            "VortexPreparedState",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "join_aggregate",
+        "join + aggregate",
+        "local_analytics",
+        "joins",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "partitioned_by_date",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('join_aggregate').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('join_aggregate').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare(dim='dim.csv').join('dim').group_by('dim_label').agg(total=('metric', 'sum')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('join_aggregate')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('join_aggregate').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run join_aggregate fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local fact/dimension compatibility source adapters",
+        preparation_route="vortex_ingest_prepare_once_for_fact_and_dimension",
+        output_route="prepared join aggregate result, bounded report, or local result sink",
+        evidence_route="prepared fact/dim evidence, route timing, execution certificate, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="join residual state stays ShardLoom-native; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.join_aggregate",
+        required_evidence=(
+            "traditional_analytics.prepared_native.join_aggregate",
+            "prepared_fact_and_dimension",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "sort_top_k",
+        "sort and top-k",
+        "local_analytics",
+        "sort_and_window",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "wide_table",
+            "very_wide_table",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(\"SELECT id, metric FROM fact ORDER BY metric DESC LIMIT 10\").collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('sort_top_k').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().sort('metric', descending=True).limit(10).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('sort_top_k')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('sort_top_k').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run sort_top_k fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared top-k result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, ShardLoom native top-k residual evidence, route timing, and no-fallback evidence",
+        materialization_decode_boundary="ordered residual state is ShardLoom-native; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.sort_top_k",
+        required_evidence=(
+            "traditional_analytics.prepared_native.sort_and_top_k",
+            "shardloom_native_top_k_residual",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex enabled_top_n_per_group_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "row_number_window",
+        "row number window",
+        "local_analytics",
+        "sort_and_window",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "null_heavy",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('row_number_window').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('row_number_window').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().with_row_number(partition_by='group_key', order_by='metric').collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('row_number_window')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('row_number_window').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run row_number_window fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared row-number result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, ShardLoom native window residual evidence, route timing, and no-fallback evidence",
+        materialization_decode_boundary="window residual state is ShardLoom-native; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.row_number_window",
+        required_evidence=(
+            "traditional_analytics.prepared_native.row_number_window",
+            "shardloom_native_window_residual",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex traditional_analytics::tests::enabled_row_number_window_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark --lib",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "top_n_per_group",
+        "top-N per group",
+        "local_analytics",
+        "sort_and_window",
+        dataset_profiles=(
+            "tiny_smoke",
+            "narrow_fact_dim",
+            "skewed_keys",
+            "null_heavy",
+            "well_clustered",
+            "poorly_clustered",
+        ),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('top_n_per_group').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('top_n_per_group').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().top_n(3, partition_by='group_key', order_by='metric').collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('top_n_per_group')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('top_n_per_group').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run top_n_per_group fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared per-group top-N result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, ShardLoom native per-group top-N residual evidence, route timing, and no-fallback evidence",
+        materialization_decode_boundary="per-group top-N residual state is ShardLoom-native; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.top_n_per_group",
+        required_evidence=(
+            "traditional_analytics.prepared_native.top_n_per_group",
+            "shardloom_native_per_group_top_n_residual",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex enabled_top_n_per_group_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "clean_cast_filter_write",
+        "clean/cast/filter/write",
+        "etl_workflows",
+        "etl_write",
+        dataset_profiles=("dirty_csv", "schema_drift"),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('dirty.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('clean_cast_filter_write').write_vortex('target/clean-result')",
+        python_surface="ctx.prepare_vortex('dirty.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('clean_cast_filter_write').write_vortex('target/clean-result')",
+        dataframe_surface="ctx.read('dirty.csv').prepare().with_column('metric', sl.col('dirty_numeric').cast('float64')).filter(sl.col('dirty_flag') == False).write_jsonl('target/clean.jsonl')",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('clean_cast_filter_write')",
+        session_surface="session.prepare_vortex('dirty.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('clean_cast_filter_write').write_vortex('target/clean-result')",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run clean_cast_filter_write fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv --write-result-vortex",
+        source_route="dirty local compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="local result sink, JSONL/CSV compatibility output, or feature-gated Vortex result artifact",
+        evidence_route="prepared-state evidence, result-sink replay proof, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="dirty values are normalized in ShardLoom route; decoded output only at declared local sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.clean_cast_filter_write",
+        required_evidence=(
+            "traditional_analytics.prepared_native.clean_cast_filter_write",
+            "result_sink_replay",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex enabled_clean_cast_filter_write_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark --lib",
+        claim_boundary=(
+            _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY
+            + " Dirty CSV support is fixture-scoped and does not claim general data-cleaning "
+            "or production write semantics."
+        ),
+    ),
+    _local_file_benchmark_route(
+        "partition_pruning",
+        "partition pruning",
+        "layout_and_pruning",
+        "scan_and_pruning",
+        dataset_profiles=("partitioned_by_date", "well_clustered", "poorly_clustered"),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('partition_pruning').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('partition_pruning').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().filter(sl.col('event_date') >= '2026-01-01').collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('partition_pruning')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('partition_pruning').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run partition_pruning fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local partitioned fixture compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared partition-filter result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, partition fixture coverage, route timing, and no-fallback evidence",
+        materialization_decode_boundary="partition/date predicate residual stays ShardLoom-native unless a declared sink requires decode",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.partition_pruning",
+        required_evidence=(
+            "traditional_analytics.prepared_native.partition_pruning",
+            "prepared_vortex_scan_pushdown_matrix",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex traditional_analytics::tests::enabled_partition_pruning_uses_prepared_native_date_range_scan --features vortex-traditional-analytics-benchmark --lib",
+        claim_boundary=(
+            _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY
+            + " This route proves local partition fixture execution, not object-store/table "
+            "partition pruning or broad metadata-pruning claims."
+        ),
+    ),
+    _local_file_benchmark_route(
+        "many_small_files_scan",
+        "many-small-files scan",
+        "local_analytics",
+        "scan_and_pruning",
+        dataset_profiles=("many_small_files", "few_large_files"),
+        route_id="local_file_prepare_once_batch",
+        route_display_name="ShardLoom Prepare-Once Batch",
+        alternate_route_ids=("local_file_prepare_once_first_query",),
+        selected_execution_mode="shardloom-prepare-batch",
+        sql_surface="ctx.prepare_vortex('fact-parts/', dim='dim.csv', workspace='target/shardloom-prepared', input_format='csv').query('many_small_files_scan').collect()",
+        python_surface="ctx.prepare_vortex('fact-parts/', dim='dim.csv', workspace='target/shardloom-prepared', input_format='csv').query('many_small_files_scan').collect()",
+        dataframe_surface="ctx.read('fact-parts/').prepare(dim='dim.csv', workspace='target/shardloom-prepared').select('metric').collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('many_small_files_scan')",
+        session_surface="session.prepare_vortex('fact-parts/', dim='dim.csv', workspace='target/shardloom-prepared', input_format='csv').query('many_small_files_scan').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run many_small_files_scan fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        start_state="raw_local_split_compat_sources",
+        source_route="local split-file compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once_for_split_manifest",
+        output_route="prepared split-file scan result, bounded report, or local result sink",
+        evidence_route="prepared split manifest evidence, route timing, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="split-file inputs normalize before query; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.many_small_files_scan",
+        required_evidence=(
+            "traditional_analytics.prepared_native.many_small_files_scan",
+            "split_manifest",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=(
+            _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY
+            + " Many-small-files support is local fixture/split-manifest scoped and is not "
+            "object-store listing, distributed scheduling, or scan-pushdown support."
+        ),
+    ),
+    _local_file_benchmark_route(
+        "null_heavy_aggregate",
+        "null-heavy aggregate",
+        "local_analytics",
+        "aggregation",
+        dataset_profiles=("null_heavy",),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('null_heavy_aggregate').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('null_heavy_aggregate').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().agg(non_null=('nullable_metric_00', 'count')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('null_heavy_aggregate')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('null_heavy_aggregate').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run null_heavy_aggregate fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local null-heavy compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared null-heavy aggregate result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, null-heavy fixture coverage, route timing, and no-fallback evidence",
+        materialization_decode_boundary="null semantics remain inside ShardLoom route; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.null_heavy_aggregate",
+        required_evidence=(
+            "traditional_analytics.prepared_native.null_heavy_aggregate",
+            "null_heavy_fixture",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "high_cardinality_string_group_distinct",
+        "high-cardinality string group/distinct",
+        "local_analytics",
+        "aggregation",
+        dataset_profiles=("high_cardinality_strings",),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('high_cardinality_string_group_distinct').collect()",
+        python_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('high_cardinality_string_group_distinct').collect()",
+        dataframe_surface="ctx.read('fact.csv').prepare().group_by('category').agg(unique=('category', 'n_unique')).collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('high_cardinality_string_group_distinct')",
+        session_surface="session.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query('high_cardinality_string_group_distinct').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run high_cardinality_string_group_distinct fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local high-cardinality string compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        output_route="prepared high-cardinality group/distinct result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, high-cardinality fixture coverage, route timing, and no-fallback evidence",
+        materialization_decode_boundary="string grouping state remains ShardLoom-native; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.high_cardinality_string_group_distinct",
+        required_evidence=(
+            "traditional_analytics.prepared_native.high_cardinality_string_group_distinct",
+            "high_cardinality_fixture",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+        claim_boundary=_LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY,
+    ),
+    _local_file_benchmark_route(
+        "nested_json_field_scan",
+        "nested JSON field scan",
+        "etl_workflows",
+        "messy_lakehouse_data",
+        dataset_profiles=("nested_json",),
+        route_id="local_file_prepare_once_first_query",
+        route_display_name="ShardLoom Prepare-Once First Query",
+        alternate_route_ids=("local_file_prepare_once_batch",),
+        selected_execution_mode="prepared_vortex",
+        sql_surface="ctx.prepare_vortex('nested_fact.jsonl', dim='dim.jsonl', workspace='target/shardloom-prepared', input_format='jsonl').query('nested_json_field_scan').collect()",
+        python_surface="ctx.prepare_vortex('nested_fact.jsonl', dim='dim.jsonl', workspace='target/shardloom-prepared', input_format='jsonl').query('nested_json_field_scan').collect()",
+        dataframe_surface="ctx.read_json('nested_fact.jsonl').prepare().select('nested_payload').collect()",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('nested_json_field_scan')",
+        session_surface="session.prepare_vortex('nested_fact.jsonl', dim='dim.jsonl', workspace='target/shardloom-prepared', input_format='jsonl').query('nested_json_field_scan').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run nested_json_field_scan fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv",
+        source_route="local nested JSON sidecar compatibility source adapter",
+        preparation_route="vortex_ingest_prepare_once_for_nested_fixture",
+        output_route="prepared nested-field fixture result, bounded report, or local result sink",
+        evidence_route="prepared-state evidence, nested JSON fixture coverage, route timing, and no-fallback evidence",
+        materialization_decode_boundary="nested fixture values are admitted for this benchmark route only; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.nested_json_field_scan",
+        required_evidence=(
+            "traditional_analytics.prepared_native.nested_json_field_scan",
+            "nested_json_fixture",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex nested_json_field_scan_runs_jsonl_fixture --features vortex-traditional-analytics-benchmark --lib",
+        claim_boundary=(
+            _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY
+            + " Nested JSON is fixture-scoped route support and does not claim native nested "
+            "field pruning, arbitrary nested schema execution, or broad JSON analytics support."
+        ),
+    ),
+    _local_file_benchmark_route(
+        "small_change_over_large_base",
+        "small change over large base",
+        "incremental_state",
+        "incremental_state",
+        dataset_profiles=("cdc_delta_overlay",),
+        route_id="local_file_prepare_once_batch",
+        route_display_name="ShardLoom Prepare-Once Batch",
+        alternate_route_ids=("local_file_prepare_once_first_query",),
+        selected_execution_mode="shardloom-prepare-batch",
+        sql_surface="ctx.prepare_vortex('base.csv', dim='dim.csv', workspace='target/shardloom-prepared', cdc_delta='cdc_delta.csv').query('small_change_over_large_base').collect()",
+        python_surface="ctx.prepare_vortex('base.csv', dim='dim.csv', workspace='target/shardloom-prepared', cdc_delta='cdc_delta.csv').query('small_change_over_large_base').collect()",
+        dataframe_surface="ctx.read('base.csv').prepare(dim='dim.csv', workspace='target/shardloom-prepared', cdc_delta='cdc_delta.csv').run('small_change_over_large_base')",
+        context_surface="ctx.local_file_benchmark_route_report().scenario('small_change_over_large_base')",
+        session_surface="session.prepare_vortex('base.csv', dim='dim.csv', workspace='target/shardloom-prepared', cdc_delta='cdc_delta.csv').query('small_change_over_large_base').collect()",
+        cli_surface="shardloom traditional-analytics-prepare-batch-run small_change_over_large_base fact.csv dim.csv --workspace target/shardloom-prepared --input-format csv --cdc-delta cdc_delta.csv",
+        start_state="raw_compat_source_plus_cdc_delta_overlay",
+        source_route="local base compatibility source plus explicit CDC delta sidecar",
+        preparation_route="vortex_ingest_prepare_once_for_base_and_cdc_delta",
+        output_route="prepared CDC-overlay fixture result, bounded report, or local result sink",
+        evidence_route="base and cdc_delta prepared-state evidence, route timing, Native I/O, and no-fallback evidence",
+        materialization_decode_boundary="CDC overlay is an explicit local fixture route; decoded output only at declared result sink",
+        route_runtime_status="prepared_route_supported",
+        owner="GAR-RUNTIME-IMPL-6D-3.small_change_over_large_base",
+        required_evidence=(
+            "traditional_analytics.prepared_native.small_change_over_large_base",
+            "cdc_delta_vortex",
+            "no_fallback_evidence",
+        ),
+        next_verifier="cargo test -p shardloom-vortex small_change_over_large_base_imports_cdc_delta_fixture --features vortex-traditional-analytics-benchmark --lib",
+        claim_boundary=(
+            _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY
+            + " CDC overlay support is the deterministic local benchmark fixture route, not "
+            "general deletes, upserts, table transaction semantics, streaming CDC, or "
+            "production incremental processing."
+        ),
+    ),
+)
 
 USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
     _user_route(
@@ -2305,10 +3715,17 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "local_file_cold_certified_route",
         "ShardLoom Cold Certified Route",
         "local_compat_file",
-        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        input_examples=(
+            "fact.csv + dim.csv",
+            "fact.jsonl + dim.jsonl",
+            "fact.parquet + dim.parquet",
+            "fact.arrow + dim.arrow",
+            "fact.avro + dim.avro",
+            "fact.orc + dim.orc",
+        ),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("machine_readable_report", "evidence_certificate", "result_sink"),
-        recommended_user_surface="ctx.prepare_vortex(..., certification_depth='certified') or benchmark cold route",
+        recommended_user_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').prepare() or benchmark cold route",
         start_state="raw_compat_source",
         vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState -> reopen/scan verification",
         source_route="compatibility_import_certified",
@@ -2340,18 +3757,25 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "local_file_prepare_once_first_query",
         "ShardLoom Prepare-Once First Query",
         "local_compat_file",
-        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        input_examples=(
+            "fact.csv + dim.csv",
+            "fact.jsonl + dim.jsonl",
+            "fact.parquet + dim.parquet",
+            "fact.arrow + dim.arrow",
+            "fact.avro + dim.avro",
+            "fact.orc + dim.orc",
+        ),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("prepared_query_result", "machine_readable_report", "result_sink"),
-        recommended_user_surface="ctx.prepare_vortex(path).query(...).collect()/write_*",
+        recommended_user_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').query(...).collect()/write_vortex(...)",
         start_state="raw_compat_source",
         vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState before first query",
-        source_route="compatibility input adapter",
+        source_route="compatibility_import_certified local input adapter",
         preparation_route="vortex_ingest_prepare_once",
         execution_mode="prepared_vortex",
         execution_route="prepared_vortex first query after preparation",
         output_route="prepared query result, bounded report, or local result sink",
-        evidence_route="prepared-state creation evidence, preparation_included=true, first-query route fields",
+        evidence_route="prepared-state creation evidence, preparation_included_in_route=true, query_timing_starts_after_preparation=true, first-query route fields",
         materialization_decode_boundary="decode/materialization only after prepared query output is declared",
         route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
@@ -2374,13 +3798,20 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "local_file_prepare_once_batch",
         "ShardLoom Prepare-Once Batch",
         "local_compat_file",
-        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        input_examples=(
+            "fact.csv + dim.csv",
+            "fact.jsonl + dim.jsonl",
+            "fact.parquet + dim.parquet",
+            "fact.arrow + dim.arrow",
+            "fact.avro + dim.avro",
+            "fact.orc + dim.orc",
+        ),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("amortized_prepared_queries", "machine_readable_report", "result_sink"),
-        recommended_user_surface="ctx.prepare_vortex(path).run_batch([...]) or benchmark prepare-batch lane",
+        recommended_user_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').run_batch([...])",
         start_state="raw_compat_source",
         vortex_normalization_point="SourceState -> vortex_ingest once -> reused VortexPreparedState",
-        source_route="compatibility input adapter",
+        source_route="compatibility_import_certified local input adapter",
         preparation_route="vortex_ingest_prepare_once_reused_for_batch",
         execution_mode="shardloom-prepare-batch",
         execution_route="prepared_vortex batch scenarios in one ShardLoom process",
@@ -2443,16 +3874,16 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("orders.vortex", "local .vortex artifact"),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("machine_readable_report", "count_report", "filter_report", "project_report", "bounded_preview"),
-        recommended_user_surface="ctx.read_vortex(path).count/filter/select/limit/collect or ctx.local_vortex_primitive_route_report()",
+        recommended_user_surface="ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex', memory_gb=4, max_parallelism=1).query(...).collect()/write_vortex(...)",
         start_state="native_vortex_file",
         vortex_normalization_point="native_vortex_boundary",
         source_route="Vortex-native local file/source",
         preparation_route="not_required_native_vortex_input",
         execution_mode="native_vortex",
         execution_route="ShardLoom local Vortex primitive runtime family",
-        output_route="machine-readable primitive report and bounded scoped collect output",
-        evidence_route="Vortex local primitive or native route envelope, Native I/O, no-fallback evidence",
-        materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested",
+        output_route="machine-readable native route report, bounded scoped collect output, or Vortex result sink",
+        evidence_route="traditional-analytics-vortex-run/vortex-batch envelope, Native I/O, execution mode, resource policy, and no-fallback evidence",
+        materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested by result/report boundary",
         route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
@@ -2593,16 +4024,24 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "local_compat_file",
         input_examples=("orders.csv", "events.jsonl"),
         front_doors=("SQL", "Python", "DataFrame", "context", "session"),
-        desired_outputs=("schema_report", "validation_report", "data_quality_report", "preview"),
-        recommended_user_surface="ctx.read(path).schema()/validate_schema()/data_quality()/preview()",
+        desired_outputs=(
+            "schema_report",
+            "validation_report",
+            "data_quality_report",
+            "quarantine_report",
+            "preview",
+        ),
+        recommended_user_surface=(
+            "ctx.read(path).schema()/validate_schema()/data_quality()/quarantine()/preview()"
+        ),
         start_state="raw_compat_source",
         vortex_normalization_point="local source -> SourceState -> ShardLoom runtime bounded evidence rows",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="route_specific_direct_or_prepared_source_state",
         execution_mode="direct_compatibility_transient",
         execution_route="sql-local-source-smoke inline bounded schema/data-quality result",
-        output_route="machine-readable schema, validation, data-quality, preview report",
-        evidence_route="schema/data-quality report fields, execution certificate, no-fallback evidence",
+        output_route="machine-readable schema, validation, data-quality, quarantine, preview report",
+        evidence_route="schema/data-quality/quarantine report fields, execution certificate, no-fallback evidence",
         materialization_decode_boundary="bounded decoded report rows only",
         route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
@@ -2612,6 +4051,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "sql_schema_quality_surface",
             "schema_report_contract",
             "data_quality_report_contract",
+            "quarantine_report_contract",
             "front_door_equivalence_tests",
             "no_fallback_evidence",
         ),
@@ -2624,23 +4064,34 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("orders.csv", "events.jsonl"),
         front_doors=("Python", "DataFrame", "context", "session", "CLI"),
         desired_outputs=("quarantine_output", "policy_report"),
-        recommended_user_surface="ctx.read(path).quarantine(...) once sink policy lands",
+        recommended_user_surface=(
+            "ctx.read(path).quarantine(local_path, 'not_null:column', output_format='jsonl')"
+        ),
         start_state="raw_compat_source",
-        vortex_normalization_point="local source or generated rows -> Vortex-preparable rows",
-        source_route="local source or generated rows",
-        preparation_route="pending_quarantine_sink_policy",
-        execution_mode="pending_output_route",
-        execution_route="admitted local rows exist; quarantine sink write policy is pending",
-        output_route="output_route_pending",
-        evidence_route="deterministic output-route blocker until quarantine sink evidence lands",
-        materialization_decode_boundary="no quarantine materialization or write until sink policy is admitted",
-        route_runtime_status="output_route_pending",
+        vortex_normalization_point="local source -> SourceState -> ShardLoom runtime bounded evidence rows",
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="route_specific_direct_or_prepared_source_state",
+        execution_mode="direct_compatibility_transient",
+        execution_route="sql-local-source-smoke bounded classification and pushdownable not-null quarantine",
+        output_route="local quarantine sink through sql-local-source-smoke for pushdownable not-null rows",
+        evidence_route="quarantine report, local sink certificate, replay evidence, no-fallback evidence",
+        materialization_decode_boundary="bounded inline JSONL classification before scoped quarantine sink write",
+        route_runtime_status="scoped_runtime_supported",
         benchmark_range=False,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D:last_order.quarantine_output_route",
-        blocker_id="cg21.workflow.quarantine.output_unsupported",
-        required_evidence=("quarantine_policy", "sink_write_evidence", "commit_evidence"),
-        claim_boundary=_WRITE_BOUNDARY,
+        required_evidence=(
+            "sql_local_source_smoke",
+            "quarantine_policy",
+            "local_quarantine_sink_write_evidence",
+            "output_native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped local-source not-null quarantine and bounded report evidence only; object-store/"
+            "table quarantine, broad policy remediation, unique-check sink pushdown, production "
+            "governance, external effects, and performance claims remain blocked."
+        ),
     ),
     _user_route(
         "broad_sql_python_dataframe_runtime",
@@ -2730,7 +4181,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         output_route="benchmark publication and claim evidence pending",
         evidence_route="correctness, execution certificate, no-fallback, route timings, benchmark manifest pending",
         materialization_decode_boundary="must match across front doors or be declared as timing scope difference",
-        route_runtime_status="claim_evidence_pending",
+        route_runtime_status="benchmark_publication_pending",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
@@ -6310,6 +7761,12 @@ class ContextCapabilities:
         return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
 
     @property
+    def local_file_benchmark_route_report(self) -> LocalFileBenchmarkRouteReport:
+        """Return scenario-level local-file benchmark route coverage."""
+
+        return LocalFileBenchmarkRouteReport(rows=LOCAL_FILE_BENCHMARK_ROUTE_ROWS)
+
+    @property
     def dataframe_notebook_package_readiness(
         self,
     ) -> DataFrameNotebookPackageReadinessReport:
@@ -6554,6 +8011,16 @@ class ShardLoomContext:
 
         _ = check
         return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
+
+    def local_file_benchmark_route_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> LocalFileBenchmarkRouteReport:
+        """Return scenario-level local-file benchmark route coverage."""
+
+        _ = check
+        return LocalFileBenchmarkRouteReport(rows=LOCAL_FILE_BENCHMARK_ROUTE_ROWS)
 
     def dataframe_notebook_package_readiness(
         self,
@@ -6813,30 +8280,149 @@ class ShardLoomContext:
         self,
         target_uri: str | os.PathLike[str],
         *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for generated-output object-store writes."""
+        rows: Sequence[Mapping[str, object]] | None = None,
+        staging_path: str | os.PathLike[str] | None = None,
+        output_format: str = "jsonl",
+        profile: str = "local-emulator",
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        check: bool = True,
+    ) -> GeneratedObjectStoreOutputReport | UnsupportedWorkflowOperationReport:
+        """Write generated rows through the scoped local-emulator object-store route."""
 
-        return self._source_free_unsupported(
-            "object-store-generated-output",
-            "object_store_generated_output",
-            _require_non_empty_text("object-store target URI", target_uri),
+        target_ref = _require_non_empty_text("object-store target URI", target_uri)
+        normalized_profile = _require_non_empty_text("object-store profile", profile)
+        if _object_store_generated_output_requires_report_only(
+            target_ref,
+            normalized_profile,
+        ):
+            return self._source_free_unsupported(
+                "object-store-generated-output",
+                "object_store_generated_output",
+                target_ref,
+                check=check,
+            )
+
+        normalized_format = _normalize_generated_object_store_output_format(output_format)
+        staging_ref = (
+            _require_non_empty_text("object-store generated-output staging path", staging_path)
+            if staging_path is not None
+            else _generated_object_store_staging_path(target_ref, normalized_format)
+        )
+        generated_rows = (
+            _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS if rows is None else rows
+        )
+        generated_report = from_rows(
+            generated_rows,
+            client=self.client,
+        ).write(
+            staging_ref,
+            output_format=normalized_format,
+            allow_overwrite=True,
             check=check,
+        )
+        object_store_report = self.client.object_store_write_smoke(
+            generated_report.output_path,
+            target_ref,
+            profile=normalized_profile,
+            idempotency_key=idempotency_key,
+            allow_overwrite=allow_overwrite,
+            rollback_after_commit=rollback_after_commit,
+            check=check,
+        )
+        return GeneratedObjectStoreOutputReport(
+            target_uri=target_ref,
+            staging_path=generated_report.output_path,
+            output_format=normalized_format,
+            provider_profile=normalized_profile,
+            generated_report=generated_report,
+            object_store_report=object_store_report,
         )
 
     def foundry_generated_output(
         self,
         output_ref: str | os.PathLike[str],
         *,
+        rows: Sequence[Mapping[str, object]] | None = None,
+        evidence_ref: str | os.PathLike[str] | None = None,
+        allow_overwrite: bool = False,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Foundry generated-output transforms."""
+    ) -> FoundryGeneratedOutputReport | UnsupportedWorkflowOperationReport:
+        """Write generated rows through the local Foundry-style dataset proof route."""
 
-        return self._source_free_unsupported(
-            "foundry-generated-output",
-            "foundry_generated_output",
-            _require_non_empty_text("Foundry output reference", output_ref),
+        result_ref = _require_non_empty_text("Foundry output reference", output_ref)
+        if _foundry_generated_output_requires_report_only(result_ref):
+            return self._source_free_unsupported(
+                "foundry-generated-output",
+                "foundry_generated_output",
+                result_ref,
+                check=check,
+            )
+
+        result_dataset = Path(result_ref)
+        evidence_dataset = (
+            Path(_require_non_empty_text("Foundry evidence dataset reference", evidence_ref))
+            if evidence_ref is not None
+            else _default_foundry_evidence_dataset_path(result_dataset)
+        )
+        generated_rows = _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS if rows is None else rows
+        result_part = result_dataset / "part-00000.jsonl"
+        generated_report = from_rows(
+            generated_rows,
+            client=self.client,
+        ).write(
+            result_part,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
             check=check,
+        )
+        result_dataset_report = _write_foundry_style_dataset_metadata(
+            result_dataset,
+            result_part,
+            dataset_role="result_dataset",
+            row_count=generated_report.generated_source_row_count,
+            content_digest=generated_report.sink_artifact_digest,
+            metadata={
+                "generated_source_kind": generated_report.generated_source_kind,
+                "generated_source_certificate_status": (
+                    generated_report.generated_source_certificate_status
+                ),
+                "output_native_io_certificate_status": (
+                    generated_report.output_native_io_certificate_status
+                ),
+            },
+        )
+        evidence_dataset_report = _write_foundry_style_dataset(
+            evidence_dataset,
+            (
+                {
+                    "proof_step": "generated_output",
+                    "command": generated_report.envelope.command,
+                    "status": generated_report.envelope.status,
+                    "fields": generated_report.envelope.field_map,
+                    "evidence_summary": generated_report.evidence_summary.as_dict(),
+                    "claim_summary": generated_report.claim_summary.as_dict(),
+                },
+            ),
+            dataset_role="evidence_dataset",
+            metadata={
+                "result_dataset_ref": str(result_dataset),
+                "generated_source_certificate_status": (
+                    generated_report.generated_source_certificate_status
+                ),
+                "output_native_io_certificate_status": (
+                    generated_report.output_native_io_certificate_status
+                ),
+            },
+        )
+        return FoundryGeneratedOutputReport(
+            output_ref=result_ref,
+            result_dataset_path=str(result_dataset),
+            evidence_dataset_path=str(evidence_dataset),
+            generated_report=generated_report,
+            result_dataset_report=result_dataset_report,
+            evidence_dataset_report=evidence_dataset_report,
         )
 
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
@@ -6936,6 +8522,32 @@ class ShardLoomContext:
 
         return read_vortex(uri, client=self.client, engine_mode=self.engine)
 
+    def native_vortex_route(
+        self,
+        fact_vortex: str | os.PathLike[str],
+        dim_vortex: str | os.PathLike[str],
+        *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        execution_mode: str = "native_vortex",
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> NativeVortexRoute:
+        """Create an explicit native `.vortex` benchmark-range route handle."""
+
+        return NativeVortexRoute.from_inputs(
+            client=self.client,
+            fact_vortex=fact_vortex,
+            dim_vortex=dim_vortex,
+            cdc_delta_vortex=cdc_delta_vortex,
+            workspace=workspace,
+            execution_mode=execution_mode,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        )
+
     def read(
         self,
         uri: str | os.PathLike[str],
@@ -7009,19 +8621,90 @@ class ShardLoomContext:
     def prepare_vortex(
         self,
         source_path: str | os.PathLike[str],
-        target_vortex_path: str | os.PathLike[str],
+        target_vortex_path: str | os.PathLike[str] | None = None,
         *,
+        dim: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        cdc_delta: str | os.PathLike[str] | None = None,
+        result_workspace: str | os.PathLike[str] | None = None,
+        evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         check: bool = True,
-    ) -> VortexIngestSmokeReport:
-        """Prepare an admitted local source into a local `VortexPreparedState` smoke."""
+    ) -> VortexIngestSmokeReport | CompatibilityPreparedVortexRoute:
+        """Prepare local compatibility input through an explicit Vortex route.
 
-        return self.client.vortex_ingest_smoke(
-            source_path,
-            target_vortex_path,
-            allow_overwrite=allow_overwrite,
-            certification_level=certification_level,
+        Passing ``source_path`` and ``target_vortex_path`` with no route arguments preserves the
+        lower-level ``vortex-ingest-smoke`` diagnostic helper. Passing ``workspace`` plus ``dim``
+        or a second positional dimension path returns a route handle for
+        ``compatibility_import_certified -> prepared_vortex`` and prepare-once batch execution.
+        """
+
+        route_requested = any(
+            value is not None
+            for value in (
+                dim,
+                workspace,
+                input_format,
+                cdc_delta,
+                result_workspace,
+                evidence_level,
+                memory_gb,
+                max_parallelism,
+            )
+        )
+        if not route_requested:
+            if target_vortex_path is None:
+                raise ValueError(
+                    "prepare_vortex requires either a target_vortex_path for the lower-level "
+                    "vortex-ingest-smoke helper or workspace plus dim/second positional input "
+                    "for the compatibility prepared route"
+                )
+            return self.client.vortex_ingest_smoke(
+                source_path,
+                target_vortex_path,
+                allow_overwrite=allow_overwrite,
+                certification_level=certification_level,
+                check=check,
+            )
+
+        dim_input = dim if dim is not None else target_vortex_path
+        if dim_input is None:
+            raise ValueError(
+                "compatibility prepared routes require a dimension input via dim=... or the "
+                "second positional argument"
+            )
+        if workspace is None:
+            raise ValueError(
+                "compatibility prepared routes require workspace=... so caller-owned "
+                "VortexPreparedState artifacts and route evidence have an explicit location"
+            )
+        if allow_overwrite:
+            raise ValueError(
+                "allow_overwrite applies only to the lower-level vortex-ingest-smoke helper; "
+                "prepared-route result writes use write_vortex(...)/run_batch(..., "
+                "write_result_vortex=True)"
+            )
+        if certification_level != "ingest_certified":
+            raise ValueError(
+                "certification_level applies only to the lower-level vortex-ingest-smoke helper; "
+                "the compatibility prepared route uses the certified traditional-analytics "
+                "preparation evidence emitted by ShardLoom"
+            )
+        return CompatibilityPreparedVortexRoute.from_inputs(
+            client=self.client,
+            fact_input=source_path,
+            dim_input=dim_input,
+            workspace=workspace,
+            input_format=input_format,
+            cdc_delta_input=cdc_delta,
+            result_workspace=result_workspace,
+            evidence_level=evidence_level,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             check=check,
         )
 
@@ -7366,6 +9049,132 @@ def _require_non_empty_text(label: str, value: object) -> str:
     if not text:
         raise ValueError(f"{label} must not be empty")
     return text
+
+
+def _object_store_generated_output_requires_report_only(
+    target_ref: str,
+    profile: str,
+) -> bool:
+    if profile != "local-emulator":
+        return True
+    _scheme, separator, _rest = target_ref.partition("://")
+    return bool(separator)
+
+
+def _normalize_generated_object_store_output_format(output_format: str) -> str:
+    normalized = output_format.strip().lower()
+    aliases = {
+        "json-lines": "jsonl",
+        "ndjson": "jsonl",
+        "inline-jsonl": "jsonl",
+        "arrow": "arrow-ipc",
+        "arrow_ipc": "arrow-ipc",
+        "ipc": "arrow-ipc",
+        "feather": "arrow-ipc",
+        "vtx": "vortex",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized in {"jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex"}:
+        return normalized
+    raise ValueError(
+        "object-store generated output currently supports JSONL, CSV, and "
+        "feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex staging formats"
+    )
+
+
+def _generated_object_store_staging_path(target_ref: str, output_format: str) -> str:
+    target_path = Path(target_ref)
+    parent = target_path.parent
+    staging_parent = (
+        parent / ".shardloom-generated-output-staging"
+        if str(parent) not in {"", "."}
+        else Path(".shardloom-generated-output-staging")
+    )
+    target_name = target_path.name or "generated-output"
+    digest = sha256(f"{target_ref}|{output_format}".encode("utf-8")).hexdigest()[:16]
+    extension = {
+        "jsonl": "jsonl",
+        "csv": "csv",
+        "parquet": "parquet",
+        "arrow-ipc": "arrow",
+        "avro": "avro",
+        "orc": "orc",
+        "vortex": "vortex",
+    }[output_format]
+    return str(staging_parent / f"{target_name}.{digest}.{extension}")
+
+
+def _foundry_generated_output_requires_report_only(output_ref: str) -> bool:
+    _scheme, separator, _rest = output_ref.partition("://")
+    return bool(separator)
+
+
+def _default_foundry_evidence_dataset_path(result_dataset: Path) -> Path:
+    if result_dataset.name == "result-dataset":
+        return result_dataset.parent / "evidence-dataset"
+    return result_dataset.parent / f"{result_dataset.name}-evidence"
+
+
+def _write_foundry_style_dataset_metadata(
+    dataset_path: Path,
+    part_path: Path,
+    *,
+    dataset_role: str,
+    row_count: int,
+    content_digest: str | None,
+    metadata: Mapping[str, object],
+) -> Mapping[str, object]:
+    dataset_path.mkdir(parents=True, exist_ok=True)
+    report: dict[str, object] = {
+        "schema_version": "shardloom.python.foundry_style_dataset_output.v1",
+        "dataset_role": dataset_role,
+        "dataset_api": "local_foundry_style_output_dataset_api",
+        "dataset_path": str(dataset_path),
+        "part_path": str(part_path),
+        "row_count": row_count,
+        "content_digest": content_digest,
+        "foundry_runtime_invoked": False,
+        "foundry_compute_invoked": False,
+        "foundry_spark_invoked": False,
+        "foundry_output_api_invoked": False,
+        "foundry_style_output_api_invoked": True,
+        "direct_s3_write_invoked": False,
+        "object_store_write_invoked": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_gate_status": "fixture_smoke_only",
+        "metadata": dict(metadata),
+    }
+    (dataset_path / "_dataset_metadata.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
+def _write_foundry_style_dataset(
+    dataset_path: Path,
+    rows: Sequence[Mapping[str, object]],
+    *,
+    dataset_role: str,
+    metadata: Mapping[str, object],
+) -> Mapping[str, object]:
+    dataset_path.mkdir(parents=True, exist_ok=True)
+    part_path = dataset_path / "part-00000.jsonl"
+    normalized_rows = [dict(row) for row in rows]
+    part_text = "".join(
+        json.dumps(row, sort_keys=True) + "\n" for row in normalized_rows
+    )
+    part_path.write_text(part_text, encoding="utf-8")
+    digest = "sha256:" + sha256(part_text.encode("utf-8")).hexdigest()
+    return _write_foundry_style_dataset_metadata(
+        dataset_path,
+        part_path,
+        dataset_role=dataset_role,
+        row_count=len(normalized_rows),
+        content_digest=digest,
+        metadata=metadata,
+    )
 
 
 def _join_non_empty_text(label: str, values: Sequence[object]) -> str:

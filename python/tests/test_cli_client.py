@@ -19,6 +19,7 @@ from shardloom import (
     ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
     CapabilityPosture,
+    CompatibilityPreparedVortexRoute,
     ContextCapabilities,
     CapabilityView,
     DataFrameMethodCapabilityMatrix,
@@ -29,10 +30,14 @@ from shardloom import (
     EvidenceSchemaRegistryReport,
     EvidenceAwareOptimizerTraceReport,
     ExecutionResultEnvelopeView,
+    FoundryGeneratedOutputReport,
     FrontDoorParityMatrix,
+    GeneratedObjectStoreOutputReport,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
+    NativeVortexQuery,
+    NativeVortexRoute,
     OpenLineageFacetMappingReport,
     OpenTelemetryTraceExportContractReport,
     ShardLoomBinaryNotFoundError,
@@ -49,6 +54,7 @@ from shardloom import (
     OutputEnvelope,
     PreparedVortexArtifacts,
     PreparedVortexBatchResult,
+    PreparedVortexQuery,
     PreparedVortexScanPushdownRow,
     PredicateDtypeCoverageRow,
     RestApiContractPlan,
@@ -2118,6 +2124,20 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_capillary_preparation_activation_observed_split_count", "value": "1"},
                         {"key": "vortex_capillary_preparation_task_count", "value": "6"},
                         {"key": "vortex_capillary_preparation_task_roles", "value": "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence"},
+                        {"key": "vortex_capillary_preparation_execution_window_count", "value": "3"},
+                        {"key": "vortex_capillary_preparation_execution_window_ids", "value": "vortex-capillary-window-0000;vortex-capillary-window-0001;vortex-capillary-window-0002"},
+                        {"key": "vortex_capillary_preparation_scheduler_applied", "value": "true"},
+                        {"key": "vortex_capillary_preparation_scheduler_application_reason", "value": "pulseweave_batch_window_applied_to_capillary_manifest"},
+                        {"key": "vortex_capillary_preparation_prewrite_status", "value": "applied_before_array_build"},
+                        {"key": "vortex_capillary_preparation_prewrite_scheduler_applied", "value": "true"},
+                        {"key": "vortex_capillary_preparation_prewrite_execution_window_count", "value": "3"},
+                        {"key": "vortex_capillary_preparation_prewrite_execution_window_ids", "value": "vortex-capillary-window-0000;vortex-capillary-window-0001;vortex-capillary-window-0002"},
+                        {"key": "vortex_capillary_preparation_prewrite_array_build_gate_status", "value": "applied_prewrite_window"},
+                        {"key": "vortex_capillary_preparation_prewrite_write_gate_status", "value": "applied_prewrite_window"},
+                        {"key": "vortex_capillary_preparation_prewrite_reopen_gate_status", "value": "applied_prewrite_window"},
+                        {"key": "vortex_capillary_preparation_prewrite_sink_evidence_gate_status", "value": "applied_prewrite_window"},
+                        {"key": "vortex_capillary_preparation_prewrite_fallback_attempted", "value": "false"},
+                        {"key": "vortex_capillary_preparation_prewrite_external_engine_invoked", "value": "false"},
                         {"key": "vortex_capillary_preparation_native_io_certificate_status", "value": "certified"},
                         {"key": "vortex_capillary_preparation_pulseweave_status", "value": "applied"},
                         {"key": "vortex_capillary_preparation_pulseweave_runtime_decision_applied", "value": "true"},
@@ -2299,6 +2319,57 @@ class ShardLoomClientTests(unittest.TestCase):
                 "reopen_verify",
                 "sink_evidence",
             ),
+        )
+        self.assertEqual(result.vortex_capillary_preparation_execution_window_count, 3)
+        self.assertEqual(
+            result.vortex_capillary_preparation_execution_window_ids,
+            (
+                "vortex-capillary-window-0000",
+                "vortex-capillary-window-0001",
+                "vortex-capillary-window-0002",
+            ),
+        )
+        self.assertTrue(result.vortex_capillary_preparation_scheduler_applied)
+        self.assertEqual(
+            result.vortex_capillary_preparation_scheduler_application_reason,
+            "pulseweave_batch_window_applied_to_capillary_manifest",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_status,
+            "applied_before_array_build",
+        )
+        self.assertTrue(result.vortex_capillary_preparation_prewrite_scheduler_applied)
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_execution_window_count,
+            3,
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_execution_window_ids,
+            (
+                "vortex-capillary-window-0000",
+                "vortex-capillary-window-0001",
+                "vortex-capillary-window-0002",
+            ),
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_array_build_gate_status,
+            "applied_prewrite_window",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_write_gate_status,
+            "applied_prewrite_window",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_reopen_gate_status,
+            "applied_prewrite_window",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_prewrite_sink_evidence_gate_status,
+            "applied_prewrite_window",
+        )
+        self.assertFalse(result.vortex_capillary_preparation_prewrite_fallback_attempted)
+        self.assertFalse(
+            result.vortex_capillary_preparation_prewrite_external_engine_invoked
         )
         self.assertEqual(
             result.vortex_capillary_preparation_native_io_certificate_status,
@@ -2489,6 +2560,301 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.reopen_verification_status, "not_performed_ingest_minimal")
         self.assertEqual(result.certification_level, "ingest_minimal")
         self.assertEqual(result.claim_gate_status, "not_claim_grade")
+
+    def test_context_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
+        route = ShardLoomContext(client=ShardLoomClient(binary=("unused",))).prepare_vortex(
+            "fact.arrow",
+            "dim.arrow",
+            workspace="target/prepared",
+            evidence_level="certified",
+        )
+
+        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
+        self.assertEqual(route.input_format, "arrow-ipc")
+        self.assertEqual(route.route_id, "local_file_prepare_once_first_query")
+        self.assertEqual(route.batch_route_id, "local_file_prepare_once_batch")
+        self.assertEqual(route.source_route, "compatibility_import_certified")
+        self.assertEqual(route.execution_mode, "prepared_vortex")
+        self.assertEqual(route.batch_execution_mode, "shardloom-prepare-batch")
+        self.assertIn("VortexPreparedState", route.vortex_normalization_point)
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
+        fields = route.route_fields()
+        self.assertTrue(fields["preparation_included_in_route"])
+        self.assertTrue(fields["query_timing_starts_after_preparation"])
+        self.assertEqual(fields["input_format"], "arrow-ipc")
+
+    def test_session_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
+        session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
+
+        route = session.prepare_vortex(
+            "fact.jsonl",
+            dim="dim.jsonl",
+            workspace="target/prepared",
+        )
+
+        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
+        self.assertEqual(route.input_format, "jsonl")
+        self.assertEqual(route.route_id, "local_file_prepare_once_first_query")
+        self.assertEqual(route.batch_route_id, "local_file_prepare_once_batch")
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
+
+    def test_context_prepared_route_query_collect_dispatches_prepare_batch(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-prepare-batch-run",
+                    "selective filter",
+                    "fact.parquet",
+                    "dim.parquet",
+                    "--workspace",
+                    "prepare-work",
+                    "--input-format",
+                    "parquet",
+                    "--cdc-delta",
+                    "cdc.parquet",
+                    "--result-workspace",
+                    "result-work",
+                    "--write-result-vortex",
+                    "--evidence-level",
+                    "certified",
+                    "--memory-gb",
+                    "2",
+                    "--max-parallelism",
+                    "4",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-prepare-batch-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_complete_with_output_replay"},
+                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
+                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
+                        {"key": "prepare_batch_preparation_input_format", "value": "parquet"},
+                        {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
+                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
+                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
+                        {"key": "prepare_batch_cdc_delta_vortex_path", "value": "cdc.vortex"},
+                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
+                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
+                        {"key": "scenario_order", "value": "selective filter"},
+                        {"key": "source_state_digest", "value": "sha256:source"},
+                        {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
+                        {"key": "source_state_reused", "value": "true"},
+                        {"key": "selected_evidence_level", "value": "certified"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        query = ctx.prepare_vortex(
+            "fact.parquet",
+            dim="dim.parquet",
+            workspace="prepare-work",
+            cdc_delta="cdc.parquet",
+            evidence_level="certified",
+            memory_gb=2,
+            max_parallelism=4,
+        ).query("selective filter", result_workspace="result-work")
+
+        self.assertIsInstance(query, PreparedVortexQuery)
+        self.assertEqual(query.execution_mode, "prepared_vortex")
+        result = query.write_vortex()
+
+        self.assertIsInstance(result, PreparedVortexBatchResult)
+        self.assertEqual(result.batch.command, "traditional-analytics-prepare-batch-run")
+        self.assertEqual(result.artifacts.fact_vortex_path, "fact.vortex")
+        self.assertEqual(result.artifacts.cdc_delta_vortex_path, "cdc.vortex")
+        self.assertEqual(result.scenario_order, ("selective filter",))
+        self.assertTrue(result.source_state_reused)
+        self.assertTrue(result.lifecycle_complete_with_output_replay)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
+
+    def test_context_prepared_route_reuses_workspace_manifest_without_reprepare(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            fact = root / "fact.csv"
+            dim = root / "dim.csv"
+            workspace = root / "prepared"
+            count_path = root / "counts.json"
+            fact.write_text(
+                "id,group_key,dim_key,value,metric,flag,category\n"
+                "1,1,10,7,3.5,1,A\n",
+                encoding="utf-8",
+            )
+            dim.write_text("dim_key,dim_label,weight\n10,alpha,1.0\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+
+                    count_path = Path({str(count_path)!r})
+                    counts = json.loads(count_path.read_text(encoding="utf-8")) if count_path.exists() else {{"prepare": 0, "batch": 0}}
+
+                    def emit(command, fields):
+                        print(json.dumps({{
+                            "schema_version": "shardloom.output.v2",
+                            "command": command,
+                            "status": "success",
+                            "summary": "ok",
+                            "human_text": "ok",
+                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                            "diagnostics": [],
+                            "fields": [{{"key": key, "value": str(value)}} for key, value in fields.items()],
+                        }}))
+
+                    command = sys.argv[1]
+                    if command == "traditional-analytics-prepare-batch-run":
+                        counts["prepare"] += 1
+                        count_path.write_text(json.dumps(counts), encoding="utf-8")
+                        workspace = Path(sys.argv[sys.argv.index("--workspace") + 1])
+                        workspace.mkdir(parents=True, exist_ok=True)
+                        fact_vortex = workspace / "fact.vortex"
+                        dim_vortex = workspace / "dim.vortex"
+                        fact_vortex.write_text(f"fact artifact {{counts['prepare']}}", encoding="utf-8")
+                        dim_vortex.write_text(f"dim artifact {{counts['prepare']}}", encoding="utf-8")
+                        emit(command, {{
+                            "prepare_batch_schema_version": "shardloom.traditional_analytics.prepare_and_batch.v1",
+                            "prepare_batch_lifecycle_status": "prepared_vortex_lifecycle_scan_complete_output_not_requested",
+                            "prepare_batch_lifecycle_output_status": "vortex_result_sink_not_requested",
+                            "prepare_batch_lifecycle_no_standalone_lane": "true",
+                            "prepare_batch_preparation_input_format": "csv",
+                            "prepare_batch_preparation_included_in_batch_timing": "false",
+                            "prepare_batch_query_timing_starts_after_preparation": "true",
+                            "prepare_batch_fact_vortex_path": str(fact_vortex),
+                            "prepare_batch_dim_vortex_path": str(dim_vortex),
+                            "prepare_batch_fact_vortex_digest": f"sha256:fact-{{counts['prepare']}}",
+                            "prepare_batch_dim_vortex_digest": f"sha256:dim-{{counts['prepare']}}",
+                            "prepare_batch_prepared_state_id": f"prepared-state://{{counts['prepare']}}",
+                            "prepare_batch_prepared_state_digest": f"sha256:prepared-{{counts['prepare']}}",
+                            "prepare_batch_source_state_id": f"source-state://{{counts['prepare']}}",
+                            "prepare_batch_source_state_digest": f"sha256:source-{{counts['prepare']}}",
+                            "prepare_batch_prepared_artifact_cleanup_policy": "caller_owned_workspace_cleanup",
+                            "prepare_batch_prepared_artifact_reuse_eligible": "true",
+                            "scenario_order": "selective filter",
+                            "source_state_digest": "sha256:batch-source",
+                            "source_state_reuse_status": "not_prepared_single_consumer_uses_scenario_scan",
+                            "source_state_reused": "false",
+                            "selected_evidence_level": "certified",
+                            "fallback_attempted": "false",
+                            "external_engine_invoked": "false",
+                        }})
+                    elif command == "traditional-analytics-vortex-batch-run":
+                        counts["batch"] += 1
+                        count_path.write_text(json.dumps(counts), encoding="utf-8")
+                        assert sys.argv[3] == str(Path({str(workspace / "fact.vortex")!r}).resolve(strict=False)), sys.argv
+                        assert sys.argv[4] == str(Path({str(workspace / "dim.vortex")!r}).resolve(strict=False)), sys.argv
+                        emit(command, {{
+                            "schema_version": "shardloom.traditional_analytics.vortex_batch.v1",
+                            "runner_kind": "single_process_prepared_native_batch",
+                            "support_status": "runtime_supported",
+                            "claim_gate_status": "fixture_smoke_only",
+                            "requested_execution_mode": "prepared_vortex",
+                            "selected_execution_modes": "prepared_vortex",
+                            "scenario_order": "selective filter",
+                            "source_state_digest": "sha256:batch-source",
+                            "source_state_reuse_status": "not_prepared_single_consumer_uses_scenario_scan",
+                            "source_state_reused": "false",
+                            "selected_evidence_level": "certified",
+                            "all_native_io_certificates_certified": "true",
+                            "result_sink_requested": "false",
+                            "all_result_sink_replays_verified": "false",
+                            "fallback_attempted": "false",
+                            "external_engine_invoked": "false",
+                        }})
+                    else:
+                        raise AssertionError(sys.argv)
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            route = ctx.prepare_vortex(
+                fact,
+                dim=dim,
+                workspace=workspace,
+                input_format="csv",
+                evidence_level="certified",
+            )
+
+            first = route.run_batch("selective filter")
+            second = route.run_batch("selective filter")
+
+            self.assertIsInstance(first, PreparedVortexBatchResult)
+            self.assertIsInstance(second, PreparedVortexBatchResult)
+            self.assertEqual(first.batch.command, "traditional-analytics-prepare-batch-run")
+            self.assertFalse(first.prepared_state_reuse_hit)
+            self.assertEqual(first.prepared_state_reuse_reason, "no_reuse_manifest")
+            self.assertEqual(
+                second.batch.command,
+                "traditional-analytics-prepared-state-reuse-batch-run",
+            )
+            self.assertEqual(
+                second.batch.field("prepare_batch_preparation_timing_scope"),
+                "workspace_manifest_reuse_skips_compatibility_prepare",
+            )
+            self.assertEqual(second.batch.field("prepare_batch_preparation_micros"), "0")
+            self.assertEqual(second.batch.field("prepare_batch_prepared_state_created"), "false")
+            self.assertEqual(second.batch.field("prepare_batch_prepared_state_reused"), "true")
+            self.assertEqual(second.batch.field("prepared_state_reuse_hit"), "true")
+            self.assertTrue(second.prepared_state_reuse_hit)
+            self.assertEqual(
+                second.prepared_state_reuse_reason,
+                "manifest_fingerprints_match",
+            )
+            self.assertEqual(
+                second.batch.field("prepared_state_reuse_reason"),
+                "manifest_fingerprints_match",
+            )
+            self.assertTrue(
+                str(second.batch.field("prepared_state_reuse_manifest_digest")).startswith(
+                    "sha256:"
+                )
+            )
+            self.assertEqual(
+                second.artifacts.fact_vortex_path,
+                str((workspace / "fact.vortex").resolve(strict=False)),
+            )
+            self.assertFalse(second.fallback_attempted)
+            self.assertFalse(second.external_engine_invoked)
+            self.assertEqual(
+                json.loads(count_path.read_text(encoding="utf-8")),
+                {"prepare": 1, "batch": 1},
+            )
+
+            fact.write_text(
+                "id,group_key,dim_key,value,metric,flag,category\n"
+                "1,1,10,9,4.5,1,A\n",
+                encoding="utf-8",
+            )
+            third = route.run_batch("selective filter")
+            self.assertFalse(third.prepared_state_reuse_hit)
+            self.assertEqual(
+                third.prepared_state_reuse_reason,
+                "fact_input_fingerprint_changed",
+            )
+            self.assertEqual(
+                json.loads(count_path.read_text(encoding="utf-8")),
+                {"prepare": 2, "batch": 1},
+            )
 
     def test_context_session_reuses_prepared_vortex_state_when_fingerprints_match(
         self,
@@ -4322,10 +4688,21 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("filter", dataframe_methods.plan_only_methods)
         self.assertIn("where", dataframe_methods.plan_only_methods)
         self.assertIn("select", dataframe_methods.plan_only_methods)
+        self.assertIn("project", dataframe_methods.plan_only_methods)
         self.assertNotIn("join", dataframe_methods.unsupported_methods)
         self.assertNotIn("agg", dataframe_methods.unsupported_methods)
+        self.assertNotIn("groupby", dataframe_methods.unsupported_methods)
+        self.assertNotIn("with_columns", dataframe_methods.unsupported_methods)
+        self.assertNotIn("assign", dataframe_methods.unsupported_methods)
+        self.assertNotIn("order_by", dataframe_methods.unsupported_methods)
+        self.assertNotIn("sort_values", dataframe_methods.unsupported_methods)
         self.assertNotIn("window", dataframe_methods.unsupported_methods)
         self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
+        self.assertNotIn("schema_contract", dataframe_methods.unsupported_methods)
+        self.assertNotIn("profile", dataframe_methods.unsupported_methods)
+        self.assertNotIn("quarantine", dataframe_methods.unsupported_methods)
+        self.assertNotIn("object_store_generated_output", dataframe_methods.unsupported_methods)
+        self.assertNotIn("foundry_generated_output", dataframe_methods.unsupported_methods)
         self.assertNotIn("sql", dataframe_methods.unsupported_methods)
         self.assertNotIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
@@ -4360,6 +4737,19 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("with_column").required_evidence,
         )
         self.assertEqual(
+            dataframe_methods.row("with_columns").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("with_columns").runtime_execution)
+        self.assertEqual(
+            dataframe_methods.row("assign").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "computed_projection_evidence",
+            dataframe_methods.row("assign").required_evidence,
+        )
+        self.assertEqual(
             dataframe_methods.row("sql").support_status,
             "fixture_smoke_supported",
         )
@@ -4389,6 +4779,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("join").runtime_execution)
         self.assertIn("join_operator", dataframe_methods.row("join").required_evidence)
         self.assertEqual(
+            dataframe_methods.row("groupby").support_status,
+            "lazy_group_handle_supported",
+        )
+        self.assertEqual(
             dataframe_methods.row("agg").support_status,
             "fixture_smoke_supported",
         )
@@ -4401,6 +4795,22 @@ class ShardLoomClientTests(unittest.TestCase):
             "fixture_smoke_supported",
         )
         self.assertIn("sort_operator", dataframe_methods.row("sort").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("order_by").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("sort_by").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("sort_values").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "sort_operator",
+            dataframe_methods.row("sort_values").required_evidence,
+        )
         self.assertEqual(
             dataframe_methods.row("window").support_status,
             "fixture_smoke_supported",
@@ -4425,13 +4835,68 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("validate_schema").support_status,
             "fixture_smoke_supported",
         )
+        self.assertEqual(
+            dataframe_methods.row("schema_contract").support_status,
+            "fixture_smoke_supported",
+        )
         self.assertTrue(dataframe_methods.row("schema").runtime_execution)
         self.assertTrue(dataframe_methods.row("validate_schema").materialization_required)
+        self.assertTrue(dataframe_methods.row("schema_contract").materialization_required)
         self.assertEqual(
             dataframe_methods.row("data_quality_summary").support_status,
             "fixture_smoke_supported",
         )
         self.assertTrue(dataframe_methods.row("data_quality_check").runtime_execution)
+        self.assertEqual(
+            dataframe_methods.row("profile").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("profile").runtime_execution)
+        self.assertTrue(dataframe_methods.row("profile").data_read)
+        self.assertTrue(dataframe_methods.row("profile").materialization_required)
+        self.assertIn("profile_runtime", dataframe_methods.row("profile").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("quarantine").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("quarantine").runtime_execution)
+        self.assertTrue(dataframe_methods.row("quarantine").data_read)
+        self.assertTrue(dataframe_methods.row("quarantine").write_io)
+        self.assertEqual(
+            dataframe_methods.row("object_store_generated_output").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(
+            dataframe_methods.row("object_store_generated_output").runtime_execution
+        )
+        self.assertTrue(dataframe_methods.row("object_store_generated_output").write_io)
+        self.assertTrue(
+            dataframe_methods.row(
+                "object_store_generated_output"
+            ).materialization_required
+        )
+        self.assertIsNone(dataframe_methods.row("object_store_generated_output").blocker_id)
+        self.assertIn(
+            "object_store_write_smoke",
+            dataframe_methods.row("object_store_generated_output").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("foundry_generated_output").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("foundry_generated_output").runtime_execution)
+        self.assertTrue(dataframe_methods.row("foundry_generated_output").write_io)
+        self.assertTrue(dataframe_methods.row("foundry_generated_output").materialization_required)
+        self.assertIsNone(dataframe_methods.row("foundry_generated_output").blocker_id)
+        self.assertIn(
+            "foundry_style_result_dataset",
+            dataframe_methods.row("foundry_generated_output").required_evidence,
+        )
+        self.assertTrue(dataframe_methods.row("quarantine").materialization_required)
+        self.assertIn(
+            "local_quarantine_sink_write_evidence",
+            dataframe_methods.row("quarantine").required_evidence,
+        )
         self.assertEqual(
             dataframe_methods.row("write").required_evidence,
             (
@@ -4654,10 +5119,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(matrix.flexible_anything_claim_allowed)
         self.assertFalse(matrix.performance_equivalence_claim_allowed)
         self.assertTrue(matrix.all_no_fallback_no_external_engine)
+        self.assertTrue(matrix.all_broad_gaps_have_precise_runtime_status)
+        self.assertEqual(
+            matrix.runtime_gap_status_counts["front_door_connection_pending"],
+            2,
+        )
         self.assertIn("local_file_filter_project_limit", matrix.row_order)
         self.assertIn("arbitrary_sql_python_dataframe_breadth", matrix.row_order)
         local = matrix.row("local_file_filter_project_limit")
         self.assertTrue(local.equivalent_admitted_scope)
+        self.assertEqual(local.runtime_gap_status, "admitted_scope")
         self.assertEqual(local.shared_runtime_path, "sql-local-source-smoke")
         self.assertIsNone(local.blocker_id)
         self.assertIn("no_benchmark_claim", local.performance_equivalence_status)
@@ -4686,11 +5157,14 @@ class ShardLoomClientTests(unittest.TestCase):
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
+        self.assertEqual(broad.runtime_gap_status, "front_door_connection_pending")
         self.assertEqual(
             broad.blocker_id,
             "cg20.cg21.broad_language_surface_missing",
         )
         performance = matrix.row("performance_equivalence")
+        self.assertEqual(performance.support_status, "benchmark_publication_pending")
+        self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
         self.assertEqual(len(matrix.admitted_rows), 6)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
@@ -5540,6 +6014,193 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(envelope.field_bool("object_store_write_io"))
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
+    def test_context_generated_output_to_object_store_uses_local_emulator_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == [
+                    "generated-source-user-rows-smoke",
+                    "target/staging/generated.jsonl",
+                    "id:int64,label:utf8",
+                    "id=1,label=alpha",
+                    "--source-kind",
+                    "user_rows",
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "generated-source-user-rows-smoke",
+                        "status": "success",
+                        "summary": "generated rows staged",
+                        "human_text": "generated rows staged",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "output_path", "value": "target/staging/generated.jsonl"},
+                            {"key": "output_format", "value": "jsonl"},
+                            {"key": "generated_source_kind", "value": "user_rows"},
+                            {"key": "generated_source_row_count", "value": "1"},
+                            {"key": "generated_source_certificate_status", "value": "present"},
+                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                elif args == [
+                    "object-store-write-smoke",
+                    "target/staging/generated.jsonl",
+                    "target/object-store/generated.jsonl",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "generated-output-001",
+                    "--allow-overwrite",
+                    "--rollback-after-commit",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "object-store-write-smoke",
+                        "status": "success",
+                        "summary": "object-store generated output",
+                        "human_text": "object-store generated output",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "object_store_write_status", "value": "rolled_back"},
+                            {"key": "provider_profile", "value": "local-emulator"},
+                            {"key": "commit_protocol_status", "value": "rolled_back"},
+                            {"key": "rollback_status", "value": "performed_local_emulator_cleanup"},
+                            {"key": "idempotency_key", "value": "generated-output-001"},
+                            {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "object_store_io", "value": "true"},
+                            {"key": "object_store_write_io", "value": "true"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                else:
+                    raise AssertionError(sys.argv)
+                """
+            )
+        )
+
+        report = ShardLoomContext(
+            ShardLoomClient(binary=binary)
+        ).generated_output_to_object_store(
+            "target/object-store/generated.jsonl",
+            rows=[{"id": 1, "label": "alpha"}],
+            staging_path="target/staging/generated.jsonl",
+            idempotency_key="generated-output-001",
+            allow_overwrite=True,
+            rollback_after_commit=True,
+        )
+
+        self.assertIsInstance(report, GeneratedObjectStoreOutputReport)
+        self.assertEqual(report.command, "object-store-write-smoke")
+        self.assertEqual(report.status, "success")
+        self.assertEqual(report.target_uri, "target/object-store/generated.jsonl")
+        self.assertEqual(report.staging_path, "target/staging/generated.jsonl")
+        self.assertEqual(report.output_format, "jsonl")
+        self.assertTrue(report.generated_source_created)
+        self.assertTrue(report.runtime_execution)
+        self.assertTrue(report.write_io)
+        self.assertTrue(report.object_store_io)
+        self.assertEqual(report.object_store_write_status, "rolled_back")
+        self.assertEqual(report.commit_protocol_status, "rolled_back")
+        self.assertEqual(report.rollback_status, "performed_local_emulator_cleanup")
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_foundry_generated_output_uses_local_style_dataset_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            result_dataset = Path(tempdir) / "result-dataset"
+            evidence_dataset = Path(tempdir) / "evidence-dataset"
+            result_part = result_dataset / "part-00000.jsonl"
+            script = textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-user-rows-smoke",
+                    __RESULT_PART__,
+                    "id:int64,label:utf8",
+                    "id=1,label=alpha",
+                    "--source-kind",
+                    "user_rows",
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-user-rows-smoke",
+                    "status": "success",
+                    "summary": "local Foundry-style generated output",
+                    "human_text": "local Foundry-style generated output",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": __RESULT_PART__},
+                        {"key": "output_format", "value": "jsonl"},
+                        {"key": "generated_source_kind", "value": "user_rows"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                        {"key": "sink_artifact_digest", "value": "sha256:generated"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            ).replace("__RESULT_PART__", json.dumps(str(result_part)))
+            binary = self.fake_cli(script)
+
+            report = ShardLoomContext(
+                ShardLoomClient(binary=binary)
+            ).foundry_generated_output(
+                result_dataset,
+                rows=[{"id": 1, "label": "alpha"}],
+                evidence_ref=evidence_dataset,
+                allow_overwrite=True,
+            )
+
+            self.assertIsInstance(report, FoundryGeneratedOutputReport)
+            self.assertEqual(report.command, "generated-source-user-rows-smoke")
+            self.assertEqual(report.status, "success")
+            self.assertEqual(report.result_dataset_path, str(result_dataset))
+            self.assertEqual(report.evidence_dataset_path, str(evidence_dataset))
+            self.assertTrue(report.runtime_execution)
+            self.assertTrue(report.generated_source_created)
+            self.assertTrue(report.foundry_style_output_api_invoked)
+            self.assertTrue(report.write_io)
+            self.assertFalse(report.foundry_runtime_invoked)
+            self.assertFalse(report.foundry_output_api_invoked)
+            self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+            self.assertTrue((result_dataset / "_dataset_metadata.json").exists())
+            self.assertTrue((evidence_dataset / "part-00000.jsonl").exists())
+            evidence_metadata = json.loads(
+                (evidence_dataset / "_dataset_metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(evidence_metadata["foundry_style_output_api_invoked"])
+            self.assertFalse(evidence_metadata["foundry_runtime_invoked"])
 
     def test_local_table_append_commit_rehearsal_wrapper_calls_local_manifest_profile(self) -> None:
         binary = self.fake_cli(
@@ -7331,6 +7992,88 @@ class ShardLoomClientTests(unittest.TestCase):
             result.field("computed_result_sink_native_io_certificate_status"),
             "certified",
         )
+
+    def test_context_native_vortex_route_dispatches_engine_and_resource_policy(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-run",
+                    "selective filter",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--workspace",
+                    "sink-work",
+                    "--write-result-vortex",
+                    "--execution-mode",
+                    "native_vortex",
+                    "--memory-gb",
+                    "3",
+                    "--max-parallelism",
+                    "2",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "selected_execution_mode", "value": "native_vortex"},
+                        {"key": "resource_policy_memory_budget_gb", "value": "3"},
+                        {"key": "resource_policy_max_parallelism", "value": "2"},
+                        {"key": "computed_result_sink_requested", "value": "true"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+        route = ctx.native_vortex_route(
+            "fact.vortex",
+            "dim.vortex",
+            workspace="sink-work",
+            execution_mode="native_vortex",
+            memory_gb=3,
+            max_parallelism=2,
+        )
+
+        self.assertIsInstance(route, NativeVortexRoute)
+        self.assertEqual(route.route_fields()["vortex_normalization_point"], "native_vortex_boundary")
+        self.assertFalse(route.route_fields()["preparation_included_in_route"])
+        query = route.query("selective filter")
+        self.assertIsInstance(query, NativeVortexQuery)
+        result = query.write_vortex()
+
+        self.assertEqual(result.command, "traditional-analytics-vortex-run")
+        self.assertEqual(result.field("selected_execution_mode"), "native_vortex")
+        self.assertEqual(result.field("resource_policy_memory_budget_gb"), "3")
+        self.assertEqual(result.field("resource_policy_max_parallelism"), "2")
+        self.assertFalse(result.fallback.attempted)
+
+    def test_session_native_vortex_route_returns_route_handle(self) -> None:
+        session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
+
+        route = session.native_vortex_route(
+            "fact.vortex",
+            "dim.vortex",
+            execution_mode="prepared_vortex",
+            memory_gb=4,
+            max_parallelism=1,
+        )
+
+        self.assertIsInstance(route, NativeVortexRoute)
+        self.assertEqual(route.execution_mode, "prepared_vortex")
+        self.assertEqual(route.memory_gb, 4)
+        self.assertEqual(route.max_parallelism, 1)
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
 
     def test_traditional_analytics_vortex_run_can_pass_cdc_delta_vortex(self) -> None:
         binary = self.fake_cli(

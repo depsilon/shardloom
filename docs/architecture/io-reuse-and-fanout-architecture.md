@@ -243,8 +243,10 @@ retry/idempotency status, materialization/decode posture, execution and Native I
 correctness refs, no-fallback fields, and prefixed PulseWeave
 FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields. PulseWeave applies only when ProofBound
 certifies the admitted capillary task graph; missing Native I/O evidence leaves the graph in
-report-only blocked status. This is not a standalone capillary lane and does not claim
-object-store, distributed, production, or performance readiness.
+report-only blocked status. The first runtime promotion also emits `prewrite_*` evidence showing
+whether the admitted task graph gated the local SourceState split/read, array build, write, reopen,
+and sink-evidence steps before the Vortex artifact is written. This is not a standalone capillary
+lane and does not claim object-store, distributed, production, or performance readiness.
 
 ```text
 vortex_capillary_preparation_schema_version
@@ -269,6 +271,22 @@ vortex_capillary_preparation_task_manifest_id
 vortex_capillary_preparation_task_manifest_digest
 vortex_capillary_preparation_task_count
 vortex_capillary_preparation_task_roles
+vortex_capillary_preparation_execution_window_count
+vortex_capillary_preparation_execution_window_ids
+vortex_capillary_preparation_scheduler_applied
+vortex_capillary_preparation_scheduler_application_reason
+vortex_capillary_preparation_prewrite_status
+vortex_capillary_preparation_prewrite_scheduler_applied
+vortex_capillary_preparation_prewrite_execution_window_count
+vortex_capillary_preparation_prewrite_execution_window_ids
+vortex_capillary_preparation_prewrite_source_split_discovery_gate_status
+vortex_capillary_preparation_prewrite_read_chunk_gate_status
+vortex_capillary_preparation_prewrite_array_build_gate_status
+vortex_capillary_preparation_prewrite_write_gate_status
+vortex_capillary_preparation_prewrite_reopen_gate_status
+vortex_capillary_preparation_prewrite_sink_evidence_gate_status
+vortex_capillary_preparation_prewrite_fallback_attempted=false
+vortex_capillary_preparation_prewrite_external_engine_invoked=false
 vortex_capillary_preparation_source_split_refs
 vortex_capillary_preparation_read_chunk_byte_range_refs
 vortex_capillary_preparation_row_range_refs
@@ -640,13 +658,14 @@ fidelity output target. Metadata loss must be reported per output target.
 
 ## Foundry Generated-Output Boundary
 
-Implemented `GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture to the local
-Foundry proof report. It does not execute generated output, invoke Foundry, write through Foundry
-output APIs, write direct S3/object-store outputs, or upgrade Foundry support. It makes the future
-proof shape machine-visible through a `shardloom.foundry_generated_output_fanout_posture.v1`
-object with blocked/report-only status.
+Implemented `GAR-IOREUSE-1G` originally added report-only Foundry generated-output fanout posture
+to the local Foundry proof report. The current dev-stack route can execute local-style generated
+output and write local result/evidence dataset-shaped artifacts, but it still does not invoke real
+Foundry, write through real Foundry output APIs, write direct S3/object-store outputs, or upgrade
+Foundry production support. It makes the future proof shape machine-visible through a
+`shardloom.foundry_generated_output_fanout_posture.v1` object.
 
-Current Foundry generated-output fanout posture fields:
+The original report-only posture fields were:
 
 ```text
 input_dataset_count=0

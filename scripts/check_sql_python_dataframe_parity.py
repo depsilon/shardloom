@@ -44,6 +44,15 @@ REQUIRED_ADMITTED_ROWS = {
 }
 
 REQUIRED_GAP_ROWS = REQUIRED_ROWS - REQUIRED_ADMITTED_ROWS
+ADMITTED_RUNTIME_GAP_STATUS = "admitted_scope"
+PRECISE_RUNTIME_GAP_STATUSES = {
+    "front_door_connection_pending",
+    "output_route_pending",
+    "claim_evidence_pending",
+    "benchmark_publication_pending",
+    "runtime_expansion_pending",
+}
+GENERIC_GAP_TERMS = {"unsupported", "blocked", "not complete", "not_complete"}
 
 REQUIRED_SOURCE_MARKERS = {
     "python/src/shardloom/context.py": [
@@ -121,6 +130,7 @@ def row_payload(row: Any) -> dict[str, Any]:
         "row_id": row.row_id,
         "workflow": row.workflow,
         "support_status": row.support_status,
+        "runtime_gap_status": row.runtime_gap_status,
         "sql_surface": row.sql_surface,
         "python_surface": row.python_surface,
         "dataframe_surface": row.dataframe_surface,
@@ -165,6 +175,8 @@ def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
         if row_id in REQUIRED_ADMITTED_ROWS:
             if row["parity_status"] != "equivalent_admitted_scope":
                 blockers.append(f"{row_id}: admitted row must be equivalent_admitted_scope")
+            if row["runtime_gap_status"] != ADMITTED_RUNTIME_GAP_STATUS:
+                blockers.append(f"{row_id}: admitted row must use runtime_gap_status=admitted_scope")
             if row["runtime_execution"] is not True:
                 blockers.append(f"{row_id}: admitted row must have runtime_execution=true")
             if "no_benchmark_claim" not in str(row["performance_equivalence_status"]):
@@ -174,6 +186,20 @@ def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
         if row_id in REQUIRED_GAP_ROWS:
             if row["parity_status"] != "front_door_gap":
                 blockers.append(f"{row_id}: gap row must be front_door_gap")
+            runtime_gap_status = str(row["runtime_gap_status"])
+            if runtime_gap_status not in PRECISE_RUNTIME_GAP_STATUSES:
+                blockers.append(
+                    f"{row_id}: gap row must use a precise runtime_gap_status, got "
+                    f"{runtime_gap_status!r}"
+                )
+            if runtime_gap_status.lower() in GENERIC_GAP_TERMS:
+                blockers.append(f"{row_id}: gap row must not use generic runtime_gap_status")
+            support_status = str(row["support_status"]).lower()
+            if support_status in GENERIC_GAP_TERMS:
+                blockers.append(f"{row_id}: gap support_status must be a concrete pending label")
+            shared_runtime_path = str(row["shared_runtime_path"]).lower()
+            if shared_runtime_path.strip() in GENERIC_GAP_TERMS:
+                blockers.append(f"{row_id}: shared_runtime_path must not be generic unsupported prose")
             if not row["blocker_id"]:
                 blockers.append(f"{row_id}: gap row must name blocker_id")
 
@@ -185,6 +211,8 @@ def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
         blockers.append("scoped_local_front_door_parity_supported must be true")
     if matrix.all_no_fallback_no_external_engine is not True:
         blockers.append("all_no_fallback_no_external_engine must be true")
+    if matrix.all_broad_gaps_have_precise_runtime_status is not True:
+        blockers.append("all_broad_gaps_have_precise_runtime_status must be true")
 
     return rows, blockers
 
@@ -210,12 +238,18 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "performance_equivalence_claim_allowed": matrix.performance_equivalence_claim_allowed,
         "all_no_fallback_no_external_engine": matrix.all_no_fallback_no_external_engine,
         "row_count": len(rows),
+        "runtime_gap_status_vocabulary": [
+            ADMITTED_RUNTIME_GAP_STATUS,
+            *sorted(PRECISE_RUNTIME_GAP_STATUSES),
+        ],
+        "runtime_gap_status_counts": dict(matrix.runtime_gap_status_counts),
         "admitted_row_count": len(
             [row for row in rows if row["parity_status"] == "equivalent_admitted_scope"]
         ),
         "remaining_gap_count": len(remaining_gaps),
         "remaining_gap_row_ids": [str(row["row_id"]) for row in remaining_gaps],
         "rows": rows,
+        "all_broad_gaps_have_precise_runtime_status": matrix.all_broad_gaps_have_precise_runtime_status,
         "vortex_normalization_contract": (
             "User inputs are front doors into ShardLoom's Vortex-backed runtime path: native "
             ".vortex sources start at the Vortex boundary, while compatibility files, generated "
