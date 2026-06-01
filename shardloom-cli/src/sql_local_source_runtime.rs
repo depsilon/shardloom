@@ -844,6 +844,42 @@ struct ParsedInSubquery {
     values: Vec<ScalarValue>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParsedQuantifiedSubqueryQuantifier {
+    Any,
+    All,
+}
+
+impl ParsedQuantifiedSubqueryQuantifier {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Any => "any",
+            Self::All => "all",
+        }
+    }
+
+    const fn binary_op(self) -> BinaryOp {
+        match self {
+            Self::Any => BinaryOp::Or,
+            Self::All => BinaryOp::And,
+        }
+    }
+
+    const fn empty_result(self) -> bool {
+        match self {
+            Self::Any => false,
+            Self::All => true,
+        }
+    }
+
+    const fn null_semantics(self) -> &'static str {
+        match self {
+            Self::Any => "sql_any_three_valued_where_filter",
+            Self::All => "sql_all_three_valued_where_filter",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedRowValueInSubquery {
     source_columns: Vec<String>,
@@ -995,6 +1031,12 @@ enum ParsedPredicate {
     },
     InSubquery {
         column: String,
+        subquery: Box<ParsedInSubquery>,
+    },
+    QuantifiedSubquery {
+        column: String,
+        comparison: ComparisonOp,
+        quantifier: ParsedQuantifiedSubqueryQuantifier,
         subquery: Box<ParsedInSubquery>,
     },
     ExistsSubquery {
@@ -5916,7 +5958,8 @@ fn materialize_in_subquery_predicates(
     predicate: &mut ParsedPredicate,
 ) -> Result<(), ShardLoomError> {
     match predicate {
-        ParsedPredicate::InSubquery { subquery, .. } => materialize_in_subquery(subquery),
+        ParsedPredicate::InSubquery { subquery, .. }
+        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => materialize_in_subquery(subquery),
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
             materialize_row_value_in_subquery(subquery)
         }
@@ -6410,6 +6453,7 @@ fn apply_in_subquery_date_literal_column_coercions(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -6485,6 +6529,7 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -8569,6 +8614,7 @@ fn apply_temporal_difference_predicate_coercions(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
     }
@@ -8614,6 +8660,14 @@ fn apply_date_literal_predicate_coercions(
     source: &mut CsvSourceData,
     mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
+    if apply_materialized_subquery_date_column_coercions(
+        predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )? {
+        return Ok(());
+    }
     match predicate {
         ParsedPredicate::Compare {
             column,
@@ -8685,8 +8739,48 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn apply_materialized_subquery_date_column_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<bool, ShardLoomError> {
+    match predicate {
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::Date32(_))) =>
+        {
+            coerce_date_literal_column(column, parsed, source, right_source)?;
+            Ok(true)
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) {
+                coerce_date_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -8696,6 +8790,14 @@ fn apply_timestamp_literal_predicate_coercions(
     source: &mut CsvSourceData,
     mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
+    if apply_materialized_subquery_timestamp_column_coercions(
+        predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )? {
+        return Ok(());
+    }
     match predicate {
         ParsedPredicate::Compare {
             column,
@@ -8772,8 +8874,48 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::RowValueInSubquery { .. }
         | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn apply_materialized_subquery_timestamp_column_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<bool, ShardLoomError> {
+    match predicate {
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::TimestampMicros(_))) =>
+        {
+            coerce_timestamp_literal_column(column, parsed, source, right_source)?;
+            Ok(true)
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) {
+                coerce_timestamp_literal_column(
+                    &columns[column_index],
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                )?;
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -11155,6 +11297,86 @@ impl ParsedSqlLocalSource {
         self.having.uses_in_subquery()
     }
 
+    fn uses_quantified_subquery(&self) -> bool {
+        self.predicate.uses_quantified_subquery() || self.having.uses_quantified_subquery()
+    }
+
+    fn quantified_subquery_source_columns(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.quantified_subquery_source_columns(),
+            self.having.quantified_subquery_source_columns(),
+        ])
+    }
+
+    fn quantified_subquery_source_formats(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.quantified_subquery_source_formats(),
+            self.having.quantified_subquery_source_formats(),
+        ])
+    }
+
+    fn quantified_subquery_quantifiers(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.quantified_subquery_quantifiers(),
+            self.having.quantified_subquery_quantifiers(),
+        ])
+    }
+
+    fn quantified_subquery_comparison_operators(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.quantified_subquery_comparison_operators(),
+            self.having.quantified_subquery_comparison_operators(),
+        ])
+    }
+
+    fn quantified_subquery_value_count(&self) -> usize {
+        self.predicate.quantified_subquery_value_count()
+            + self.having.quantified_subquery_value_count()
+    }
+
+    fn quantified_subquery_null_value_count(&self) -> usize {
+        self.predicate.quantified_subquery_null_value_count()
+            + self.having.quantified_subquery_null_value_count()
+    }
+
+    fn quantified_subquery_input_row_count(&self) -> usize {
+        self.predicate.quantified_subquery_input_row_count()
+            + self.having.quantified_subquery_input_row_count()
+    }
+
+    fn quantified_subquery_filtered_row_count(&self) -> usize {
+        self.predicate.quantified_subquery_filtered_row_count()
+            + self.having.quantified_subquery_filtered_row_count()
+    }
+
+    fn quantified_subquery_filter_runtime_execution(&self) -> bool {
+        self.predicate
+            .quantified_subquery_filter_runtime_execution()
+            || self.having.quantified_subquery_filter_runtime_execution()
+    }
+
+    fn quantified_subquery_order_by_runtime_execution(&self) -> bool {
+        self.predicate
+            .quantified_subquery_order_by_runtime_execution()
+            || self.having.quantified_subquery_order_by_runtime_execution()
+    }
+
+    fn quantified_subquery_limit_runtime_execution(&self) -> bool {
+        self.predicate.quantified_subquery_limit_runtime_execution()
+            || self.having.quantified_subquery_limit_runtime_execution()
+    }
+
+    fn quantified_subquery_null_semantics(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.quantified_subquery_null_semantics(),
+            self.having.quantified_subquery_null_semantics(),
+        ])
+    }
+
+    fn having_quantified_subquery_runtime_execution(&self) -> bool {
+        self.having.uses_quantified_subquery()
+    }
+
     fn uses_exists_subquery(&self) -> bool {
         self.predicate.uses_exists_subquery() || self.having.uses_exists_subquery()
     }
@@ -13041,6 +13263,97 @@ impl ParsedJoinOnPredicateFamily {
     }
 }
 
+fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}",
+        subquery.source_path.display(),
+        subquery.source_column,
+        subquery
+            .source_digest
+            .as_deref()
+            .unwrap_or("not_materialized"),
+        subquery.values.len(),
+        subquery.predicate.family(),
+        subquery
+            .order_by
+            .as_ref()
+            .map_or("not_ordered", ParsedOrderBy::operator_family_label),
+        subquery
+            .limit
+            .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+    )
+}
+
+fn row_value_in_subquery_plan_digest_fragment(subquery: &ParsedRowValueInSubquery) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}",
+        subquery.source_path.display(),
+        subquery.source_columns.join("+"),
+        subquery
+            .source_digest
+            .as_deref()
+            .unwrap_or("not_materialized"),
+        subquery.tuples.len(),
+        subquery.predicate.family(),
+        subquery
+            .order_by
+            .as_ref()
+            .map_or("not_ordered", ParsedOrderBy::operator_family_label),
+        subquery
+            .limit
+            .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+    )
+}
+
+fn quantified_subquery_plan_digest_fragment(
+    subquery: &ParsedInSubquery,
+    comparison: ComparisonOp,
+    quantifier: ParsedQuantifiedSubqueryQuantifier,
+) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        subquery.source_path.display(),
+        subquery.source_column,
+        comparison_op_label(comparison),
+        quantifier.as_str(),
+        subquery
+            .source_digest
+            .as_deref()
+            .unwrap_or("not_materialized"),
+        subquery.values.len(),
+        subquery.predicate.family(),
+        subquery
+            .order_by
+            .as_ref()
+            .map_or("not_ordered", ParsedOrderBy::operator_family_label),
+        subquery
+            .limit
+            .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+    )
+}
+
+fn exists_subquery_plan_digest_fragment(subquery: &ParsedExistsSubquery) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}:{}",
+        subquery.source_path.display(),
+        subquery.projection_kind.as_str(),
+        subquery
+            .source_digest
+            .as_deref()
+            .unwrap_or("not_materialized"),
+        subquery.bounded_row_count,
+        subquery.exists,
+        subquery.predicate.family(),
+        subquery
+            .order_by
+            .as_ref()
+            .map_or("not_ordered", ParsedOrderBy::operator_family_label),
+        subquery
+            .limit
+            .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+    )
+}
+
 impl ParsedPredicate {
     const fn is_all(&self) -> bool {
         matches!(self, Self::All)
@@ -13069,6 +13382,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
             | Self::InSubquery { column, .. }
+            | Self::QuantifiedSubquery { column, .. }
             | Self::StringMatch { column, .. } => columns.push(column),
             Self::RowValueInList {
                 columns: row_columns,
@@ -13176,6 +13490,12 @@ impl ParsedPredicate {
                 row_value_in_subquery_expression(columns, subquery)
             }
             Self::InSubquery { column, subquery } => in_subquery_expression(column, subquery),
+            Self::QuantifiedSubquery {
+                column,
+                comparison,
+                quantifier,
+                subquery,
+            } => quantified_subquery_expression(column, *comparison, *quantifier, subquery),
             Self::ExistsSubquery { subquery } => exists_subquery_expression(subquery),
             Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
             Self::Logical { op, left, right } => Ok(Expression::new(
@@ -13279,6 +13599,7 @@ impl ParsedPredicate {
             Self::RowValueInList { .. } => "row_value_in_predicate",
             Self::RowValueInSubquery { .. } => "row_value_in_subquery",
             Self::InSubquery { .. } => "in_subquery",
+            Self::QuantifiedSubquery { .. } => "quantified_subquery",
             Self::ExistsSubquery { .. } => "exists_subquery",
             Self::StringMatch { .. } => "string_predicate",
             Self::Logical { .. } | Self::Not { .. } => "logical_predicate",
@@ -13312,6 +13633,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13356,6 +13678,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13399,6 +13722,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13432,6 +13756,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13495,6 +13820,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13539,6 +13865,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13599,6 +13926,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13633,6 +13961,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. } => false,
         }
     }
@@ -13677,6 +14006,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. } => {}
         }
     }
@@ -13709,6 +14039,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13753,6 +14084,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13799,6 +14131,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13832,6 +14165,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -13878,6 +14212,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13924,6 +14259,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -13957,6 +14293,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14001,6 +14338,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14047,6 +14385,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14093,6 +14432,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14139,6 +14479,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14172,6 +14513,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14216,6 +14558,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14260,6 +14603,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14306,6 +14650,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14339,6 +14684,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14383,6 +14729,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14429,6 +14776,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14462,6 +14810,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14506,6 +14855,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14550,6 +14900,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14596,6 +14947,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14629,6 +14981,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14675,6 +15028,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14723,6 +15077,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14760,6 +15115,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -14806,6 +15162,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14838,6 +15195,10 @@ impl ParsedPredicate {
                 .flatten()
                 .any(|value| matches!(value, ScalarValue::Date32(_))),
             Self::InSubquery { subquery, .. } => subquery
+                .values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::Date32(_))),
+            Self::QuantifiedSubquery { subquery, .. } => subquery
                 .values
                 .iter()
                 .any(|value| matches!(value, ScalarValue::Date32(_))),
@@ -14894,6 +15255,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -14934,6 +15296,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -14980,6 +15343,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15024,6 +15388,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15059,6 +15424,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => "not_applicable",
         }
@@ -15092,6 +15458,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => 1,
         }
@@ -15102,7 +15469,8 @@ impl ParsedPredicate {
             Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
-            | Self::InSubquery { .. } => true,
+            | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. } => true,
             Self::Logical { left, right, .. } => left.uses_in_list() || right.uses_in_list(),
             Self::Not { inner } => inner.uses_in_list(),
             Self::All
@@ -15157,6 +15525,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15206,6 +15575,7 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15237,6 +15607,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -15287,6 +15658,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15332,6 +15704,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -15366,6 +15739,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -15399,6 +15773,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -15441,6 +15816,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
@@ -15475,6 +15851,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15517,6 +15894,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15550,6 +15928,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15583,6 +15962,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => 0,
         }
     }
@@ -15617,6 +15997,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -15651,6 +16032,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -15685,6 +16067,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -15718,12 +16101,254 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
 
     fn uses_subquery_predicate(&self) -> bool {
-        self.uses_in_subquery() || self.uses_exists_subquery()
+        self.uses_in_subquery() || self.uses_exists_subquery() || self.uses_quantified_subquery()
+    }
+
+    fn uses_quantified_subquery(&self) -> bool {
+        match self {
+            Self::QuantifiedSubquery { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_quantified_subquery() || right.uses_quantified_subquery()
+            }
+            Self::Not { inner } => inner.uses_quantified_subquery(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn quantified_subquery_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_quantified_subquery_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_quantified_subquery_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => columns.push(&subquery.source_column),
+            Self::Logical { left, right, .. } => {
+                left.push_quantified_subquery_source_columns(columns);
+                right.push_quantified_subquery_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_quantified_subquery_source_columns(columns),
+            _ => {}
+        }
+    }
+
+    fn quantified_subquery_source_formats(&self) -> String {
+        let mut formats = Vec::new();
+        self.push_quantified_subquery_source_formats(&mut formats);
+        if formats.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            formats.join(",")
+        }
+    }
+
+    fn push_quantified_subquery_source_formats(&self, formats: &mut Vec<&'static str>) {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => {
+                formats.push(
+                    subquery
+                        .source_format
+                        .map_or("not_materialized", LocalSourceFormat::as_str),
+                );
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_quantified_subquery_source_formats(formats);
+                right.push_quantified_subquery_source_formats(formats);
+            }
+            Self::Not { inner } => inner.push_quantified_subquery_source_formats(formats),
+            _ => {}
+        }
+    }
+
+    fn quantified_subquery_quantifiers(&self) -> String {
+        let mut quantifiers = Vec::new();
+        self.push_quantified_subquery_quantifiers(&mut quantifiers);
+        if quantifiers.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            quantifiers.join(",")
+        }
+    }
+
+    fn push_quantified_subquery_quantifiers(&self, quantifiers: &mut Vec<&'static str>) {
+        match self {
+            Self::QuantifiedSubquery { quantifier, .. } => quantifiers.push(quantifier.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_quantified_subquery_quantifiers(quantifiers);
+                right.push_quantified_subquery_quantifiers(quantifiers);
+            }
+            Self::Not { inner } => inner.push_quantified_subquery_quantifiers(quantifiers),
+            _ => {}
+        }
+    }
+
+    fn quantified_subquery_comparison_operators(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_quantified_subquery_comparison_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_quantified_subquery_comparison_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::QuantifiedSubquery { comparison, .. } => {
+                operators.push(comparison_op_label(*comparison));
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_quantified_subquery_comparison_operators(operators);
+                right.push_quantified_subquery_comparison_operators(operators);
+            }
+            Self::Not { inner } => inner.push_quantified_subquery_comparison_operators(operators),
+            _ => {}
+        }
+    }
+
+    fn quantified_subquery_value_count(&self) -> usize {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery.values.len(),
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_value_count() + right.quantified_subquery_value_count()
+            }
+            Self::Not { inner } => inner.quantified_subquery_value_count(),
+            _ => 0,
+        }
+    }
+
+    fn quantified_subquery_null_value_count(&self) -> usize {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery
+                .values
+                .iter()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_null_value_count()
+                    + right.quantified_subquery_null_value_count()
+            }
+            Self::Not { inner } => inner.quantified_subquery_null_value_count(),
+            _ => 0,
+        }
+    }
+
+    fn quantified_subquery_input_row_count(&self) -> usize {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery.input_row_count,
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_input_row_count()
+                    + right.quantified_subquery_input_row_count()
+            }
+            Self::Not { inner } => inner.quantified_subquery_input_row_count(),
+            _ => 0,
+        }
+    }
+
+    fn quantified_subquery_filtered_row_count(&self) -> usize {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery.filtered_row_count,
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_filtered_row_count()
+                    + right.quantified_subquery_filtered_row_count()
+            }
+            Self::Not { inner } => inner.quantified_subquery_filtered_row_count(),
+            _ => 0,
+        }
+    }
+
+    fn quantified_subquery_filter_runtime_execution(&self) -> bool {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => !subquery.predicate.is_all(),
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_filter_runtime_execution()
+                    || right.quantified_subquery_filter_runtime_execution()
+            }
+            Self::Not { inner } => inner.quantified_subquery_filter_runtime_execution(),
+            _ => false,
+        }
+    }
+
+    fn quantified_subquery_order_by_runtime_execution(&self) -> bool {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery.order_by.is_some(),
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_order_by_runtime_execution()
+                    || right.quantified_subquery_order_by_runtime_execution()
+            }
+            Self::Not { inner } => inner.quantified_subquery_order_by_runtime_execution(),
+            _ => false,
+        }
+    }
+
+    fn quantified_subquery_limit_runtime_execution(&self) -> bool {
+        match self {
+            Self::QuantifiedSubquery { subquery, .. } => subquery.limit.is_some(),
+            Self::Logical { left, right, .. } => {
+                left.quantified_subquery_limit_runtime_execution()
+                    || right.quantified_subquery_limit_runtime_execution()
+            }
+            Self::Not { inner } => inner.quantified_subquery_limit_runtime_execution(),
+            _ => false,
+        }
+    }
+
+    fn quantified_subquery_null_semantics(&self) -> String {
+        let mut semantics = Vec::new();
+        self.push_quantified_subquery_null_semantics(&mut semantics);
+        if semantics.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            semantics.join(",")
+        }
+    }
+
+    fn push_quantified_subquery_null_semantics(&self, semantics: &mut Vec<&'static str>) {
+        match self {
+            Self::QuantifiedSubquery { quantifier, .. } => {
+                semantics.push(quantifier.null_semantics());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_quantified_subquery_null_semantics(semantics);
+                right.push_quantified_subquery_null_semantics(semantics);
+            }
+            Self::Not { inner } => inner.push_quantified_subquery_null_semantics(semantics),
+            _ => {}
+        }
     }
 
     fn uses_in_subquery(&self) -> bool {
@@ -15754,6 +16379,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -15800,6 +16426,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -15850,6 +16477,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -16012,6 +16640,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -16068,6 +16697,7 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -16080,61 +16710,25 @@ impl ParsedPredicate {
 
     fn push_in_subquery_plan_digest_fragments(&self, fragments: &mut Vec<String>) {
         match self {
-            Self::InSubquery { subquery, .. } => fragments.push(format!(
-                "{}:{}:{}:{}:{}:{}:{}",
-                subquery.source_path.display(),
-                subquery.source_column,
-                subquery
-                    .source_digest
-                    .as_deref()
-                    .unwrap_or("not_materialized"),
-                subquery.values.len(),
-                subquery.predicate.family(),
-                subquery
-                    .order_by
-                    .as_ref()
-                    .map_or("not_ordered", ParsedOrderBy::operator_family_label),
-                subquery
-                    .limit
-                    .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
+            Self::InSubquery { subquery, .. } => {
+                fragments.push(scalar_in_subquery_plan_digest_fragment(subquery));
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                fragments.push(row_value_in_subquery_plan_digest_fragment(subquery));
+            }
+            Self::QuantifiedSubquery {
+                comparison,
+                quantifier,
+                subquery,
+                ..
+            } => fragments.push(quantified_subquery_plan_digest_fragment(
+                subquery,
+                *comparison,
+                *quantifier,
             )),
-            Self::RowValueInSubquery { subquery, .. } => fragments.push(format!(
-                "{}:{}:{}:{}:{}:{}:{}",
-                subquery.source_path.display(),
-                subquery.source_columns.join("+"),
-                subquery
-                    .source_digest
-                    .as_deref()
-                    .unwrap_or("not_materialized"),
-                subquery.tuples.len(),
-                subquery.predicate.family(),
-                subquery
-                    .order_by
-                    .as_ref()
-                    .map_or("not_ordered", ParsedOrderBy::operator_family_label),
-                subquery
-                    .limit
-                    .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
-            )),
-            Self::ExistsSubquery { subquery } => fragments.push(format!(
-                "{}:{}:{}:{}:{}:{}:{}:{}",
-                subquery.source_path.display(),
-                subquery.projection_kind.as_str(),
-                subquery
-                    .source_digest
-                    .as_deref()
-                    .unwrap_or("not_materialized"),
-                subquery.bounded_row_count,
-                subquery.exists,
-                subquery.predicate.family(),
-                subquery
-                    .order_by
-                    .as_ref()
-                    .map_or("not_ordered", ParsedOrderBy::operator_family_label),
-                subquery
-                    .limit
-                    .map_or_else(|| "unbounded".to_string(), |limit| limit.to_string())
-            )),
+            Self::ExistsSubquery { subquery } => {
+                fragments.push(exists_subquery_plan_digest_fragment(subquery));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_in_subquery_plan_digest_fragments(fragments);
                 right.push_in_subquery_plan_digest_fragments(fragments);
@@ -16192,6 +16786,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -16236,6 +16831,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16280,6 +16876,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16312,6 +16909,10 @@ impl ParsedPredicate {
                 .flatten()
                 .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
             Self::InSubquery { subquery, .. } => subquery
+                .values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
+            Self::QuantifiedSubquery { subquery, .. } => subquery
                 .values
                 .iter()
                 .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
@@ -16370,6 +16971,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -16414,6 +17016,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16458,6 +17061,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16491,6 +17095,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -16535,6 +17140,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16581,6 +17187,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16625,6 +17232,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16658,6 +17266,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -16702,6 +17311,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16746,6 +17356,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -16790,6 +17401,7 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -17373,6 +17985,62 @@ fn in_subquery_expression(
         ));
     }
     in_list_expression(column, &subquery.values)
+}
+
+fn quantified_subquery_expression(
+    column: &str,
+    comparison: ComparisonOp,
+    quantifier: ParsedQuantifiedSubqueryQuantifier,
+    subquery: &ParsedInSubquery,
+) -> Result<Expression, ShardLoomError> {
+    let mut values = subquery.values.iter().enumerate();
+    let Some((first_index, first_value)) = values.next() else {
+        return Ok(Expression::literal(
+            ExprId::new("where.quantified_subquery.empty")?,
+            ScalarValue::Boolean(quantifier.empty_result()),
+        ));
+    };
+    let mut expression =
+        quantified_subquery_compare_expression(column, comparison, first_value, first_index)?;
+    for (index, value) in values {
+        expression = Expression::new(
+            ExprId::new(format!(
+                "where.quantified_subquery.{}.{}",
+                quantifier.as_str(),
+                index
+            ))?,
+            ExpressionKind::Binary {
+                left: Box::new(expression),
+                op: quantifier.binary_op(),
+                right: Box::new(quantified_subquery_compare_expression(
+                    column, comparison, value, index,
+                )?),
+            },
+        );
+    }
+    Ok(expression)
+}
+
+fn quantified_subquery_compare_expression(
+    column: &str,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+    index: usize,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("where.quantified_subquery.compare.{index}"))?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(
+                ExprId::new(format!("where.quantified_subquery.{column}.{index}"))?,
+                ColumnRef::new(column.to_string())?,
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new(format!("where.quantified_subquery.literal.{index}"))?,
+                value.clone(),
+            )),
+        },
+    ))
 }
 
 fn row_value_in_subquery_expression(
@@ -19168,6 +19836,92 @@ impl SqlLocalSourceReport {
                 "having_in_subquery_runtime_execution".to_string(),
                 self.parsed
                     .having_in_subquery_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_runtime_execution".to_string(),
+                self.parsed.uses_quantified_subquery().to_string(),
+            ),
+            (
+                "quantified_subquery_quantifier".to_string(),
+                self.parsed.quantified_subquery_quantifiers(),
+            ),
+            (
+                "quantified_subquery_comparison_operator".to_string(),
+                self.parsed.quantified_subquery_comparison_operators(),
+            ),
+            (
+                "quantified_subquery_source_column".to_string(),
+                self.parsed.quantified_subquery_source_columns(),
+            ),
+            (
+                "quantified_subquery_source_format".to_string(),
+                self.parsed.quantified_subquery_source_formats(),
+            ),
+            (
+                "quantified_subquery_filter_runtime_execution".to_string(),
+                self.parsed
+                    .quantified_subquery_filter_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_order_by_runtime_execution".to_string(),
+                self.parsed
+                    .quantified_subquery_order_by_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_limit_runtime_execution".to_string(),
+                self.parsed
+                    .quantified_subquery_limit_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_input_row_count".to_string(),
+                self.parsed
+                    .quantified_subquery_input_row_count()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_filtered_row_count".to_string(),
+                self.parsed
+                    .quantified_subquery_filtered_row_count()
+                    .to_string(),
+            ),
+            (
+                "quantified_subquery_materialization_bound".to_string(),
+                if self.parsed.uses_quantified_subquery() {
+                    MAX_IN_LIST_VALUES.to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "quantified_subquery_materialized_value_count".to_string(),
+                if self.parsed.uses_quantified_subquery() {
+                    self.parsed.quantified_subquery_value_count().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "quantified_subquery_materialized_null_value_count".to_string(),
+                if self.parsed.uses_quantified_subquery() {
+                    self.parsed
+                        .quantified_subquery_null_value_count()
+                        .to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "quantified_subquery_null_semantics".to_string(),
+                self.parsed.quantified_subquery_null_semantics(),
+            ),
+            (
+                "having_quantified_subquery_runtime_execution".to_string(),
+                self.parsed
+                    .having_quantified_subquery_runtime_execution()
                     .to_string(),
             ),
             (
@@ -21414,7 +22168,6 @@ fn parse_sql_local_source_union_statement(
     let statement = normalize_sql_statement(raw)?;
     validate_advanced_scalar_policy_boundaries(&statement)?;
     validate_complex_dtype_policy_boundaries_with_sql_union(&statement, true)?;
-    validate_advanced_subquery_policy_boundaries(&statement)?;
 
     let operators = top_level_sql_union_operators(&statement)?;
     if operators.is_empty() {
@@ -21726,7 +22479,6 @@ fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomEr
     let statement = normalize_sql_statement(raw)?;
     validate_advanced_scalar_policy_boundaries(&statement)?;
     validate_complex_dtype_policy_boundaries_with_sql_union(&statement, false)?;
-    validate_advanced_subquery_policy_boundaries(&statement)?;
     Ok(statement)
 }
 
@@ -21925,17 +22677,6 @@ fn target_is_union_dtype(target_dtype: &str) -> bool {
 
 fn target_is_binary_dtype(target_dtype: &str) -> bool {
     target_dtype_matches_any(target_dtype, &["binary", "blob", "varbinary"])
-}
-
-fn validate_advanced_subquery_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
-    if contains_keyword_followed_by_char_outside_quotes(statement, "any", '(')
-        || contains_keyword_followed_by_char_outside_quotes(statement, "all", '(')
-    {
-        return Err(unsupported_sql_error(
-            "ANY and ALL subquery predicates are not admitted by the current advanced predicate profile; use bounded scalar IN subqueries or scoped EXISTS where available",
-        ));
-    }
-    Ok(())
 }
 
 fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool {
@@ -25143,6 +25884,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_logical_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_quantified_subquery_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_exists_subquery_predicate(raw)? {
         return Ok(predicate);
     }
@@ -26652,6 +27396,73 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
     })
 }
 
+fn parse_quantified_subquery_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let Some((comparison_index, comparison_raw)) = find_top_level_comparison_operator(raw)? else {
+        return Ok(None);
+    };
+    let column = raw[..comparison_index].trim();
+    let tail = raw[comparison_index + comparison_raw.len()..].trim_start();
+    let Some((quantifier, quantifier_len)) = parse_quantified_subquery_quantifier_prefix(tail)
+    else {
+        return Ok(None);
+    };
+    validate_sql_column_ref(column).map_err(|_| {
+        unsupported_sql_error(
+            "ANY and ALL subquery predicates admit <column> <comparison> ANY|ALL (SELECT <column> FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>]) only",
+        )
+    })?;
+    let tail = tail[quantifier_len..].trim_start();
+    if !tail.starts_with('(') {
+        return Err(unsupported_sql_error(
+            "ANY and ALL subquery predicates require ANY|ALL (SELECT <column> FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>])",
+        ));
+    }
+    let Some(close_index) = matching_closing_parenthesis(tail, 0)? else {
+        return Err(unsupported_sql_error(
+            "ANY and ALL subquery predicate parentheses must be balanced",
+        ));
+    };
+    if close_index != tail.len() - 1 {
+        return Err(unsupported_sql_error(
+            "ANY and ALL subquery predicates admit one parenthesized SELECT subquery only",
+        ));
+    }
+    let comparison = parse_comparison_op(comparison_raw)?;
+    let parsed_subquery = parse_in_subquery_predicate(column, &tail[1..close_index])?;
+    let ParsedPredicate::InSubquery { subquery, .. } = parsed_subquery else {
+        return Err(ShardLoomError::InvalidOperation(
+            "internal error: quantified subquery parser did not produce a scalar subquery"
+                .to_string(),
+        ));
+    };
+    Ok(Some(ParsedPredicate::QuantifiedSubquery {
+        column: column.to_string(),
+        comparison,
+        quantifier,
+        subquery,
+    }))
+}
+
+fn parse_quantified_subquery_quantifier_prefix(
+    raw: &str,
+) -> Option<(ParsedQuantifiedSubqueryQuantifier, usize)> {
+    for (keyword, quantifier) in [
+        ("any", ParsedQuantifiedSubqueryQuantifier::Any),
+        ("all", ParsedQuantifiedSubqueryQuantifier::All),
+    ] {
+        if raw
+            .get(..keyword.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+            && keyword_boundary(raw, 0, keyword.len())
+        {
+            return Some((quantifier, keyword.len()));
+        }
+    }
+    None
+}
+
 fn parse_exists_subquery_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim_start();
     if !trimmed
@@ -27097,7 +27908,7 @@ fn parse_quantified_subquery_blocker(raw: &str) -> Result<(), ShardLoomError> {
                 && keyword_boundary(inner, 0, "select".len())
             {
                 return Err(unsupported_sql_error(
-                    "ANY and ALL subquery predicates are not admitted by the current advanced predicate profile; use bounded scalar IN subqueries or scoped EXISTS where available",
+                    "ANY and ALL subquery predicates admit only <column> <comparison> ANY|ALL (SELECT <column> FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>]) in this scoped runtime slice",
                 ));
             }
         }
@@ -30453,6 +31264,73 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_quantified_subquery_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= ALL (SELECT threshold FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 5",
+        )
+        .expect("quantified subquery predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::QuantifiedSubquery {
+                ref column,
+                comparison: ComparisonOp::GtEq,
+                quantifier: ParsedQuantifiedSubqueryQuantifier::All,
+                ref subquery,
+            } if column == "amount"
+                && subquery.source_column == "threshold"
+                && subquery.source_path == Path::new("target/allowed.csv")
+                && matches!(
+                    subquery.predicate.as_ref(),
+                    ParsedPredicate::BooleanPredicate {
+                        column,
+                        expected: true,
+                        null_is_false: true,
+                        negated: false
+                    } if column == "active"
+                )
+                && subquery
+                    .order_by
+                    .as_ref()
+                    .is_some_and(|order_by| order_by.columns_label() == "score"
+                        && order_by.directions_label() == "desc")
+                && subquery.limit == Some(2)
+        ));
+        assert_eq!(parsed.predicate.family(), "quantified_subquery");
+        assert!(parsed.predicate.uses_quantified_subquery());
+        assert!(parsed.predicate.uses_subquery_predicate());
+        assert_eq!(parsed.predicate.quantified_subquery_quantifiers(), "all");
+        assert_eq!(
+            parsed.predicate.quantified_subquery_comparison_operators(),
+            "gte"
+        );
+        assert_eq!(
+            parsed.predicate.quantified_subquery_source_columns(),
+            "threshold"
+        );
+        assert_eq!(
+            parsed.predicate.quantified_subquery_source_formats(),
+            "not_materialized"
+        );
+        assert!(
+            parsed
+                .predicate
+                .quantified_subquery_filter_runtime_execution()
+        );
+        assert!(
+            parsed
+                .predicate
+                .quantified_subquery_order_by_runtime_execution()
+        );
+        assert!(
+            parsed
+                .predicate
+                .quantified_subquery_limit_runtime_execution()
+        );
+    }
+
+    #[test]
     fn parses_scoped_exists_subquery_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,label FROM 'target/input.csv' WHERE EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 5",
@@ -30646,6 +31524,276 @@ mod tests {
         fs::remove_file(&allowed_path).expect("remove allowed csv");
     }
 
+    fn write_quantified_subquery_csv_fixtures() -> (PathBuf, PathBuf, PathBuf) {
+        let source_path = sql_local_source_test_path("source.csv");
+        let allowed_path = sql_local_source_test_path("allowed.csv");
+        let thresholds_path = sql_local_source_test_path("thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n5,epsilon,34\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_id,active,score\n1,true,20\n3,true,40\n5,false,50\n2,true,10\n",
+        )
+        .expect("write allowed csv");
+        fs::write(
+            &thresholds_path,
+            "threshold,active,score\n10,true,10\n20,true,20\n99,false,30\n",
+        )
+        .expect("write thresholds csv");
+        (source_path, allowed_path, thresholds_path)
+    }
+
+    #[test]
+    fn runs_scoped_quantified_any_subquery_csv_statement() {
+        let (source_path, allowed_path, thresholds_path) = write_quantified_subquery_csv_fixtures();
+        let any_request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id = ANY (SELECT allowed_id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let any_report =
+            run_sql_local_source_smoke_single(&any_request).expect("run ANY subquery smoke");
+        let any_fields = field_map(any_report.fields());
+
+        assert_eq!(
+            any_report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &any_fields,
+            "predicate_operator_family",
+            "quantified_subquery",
+        );
+        assert_field_eq(&any_fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&any_fields, "quantified_subquery_quantifier", "any");
+        assert_field_eq(&any_fields, "quantified_subquery_comparison_operator", "eq");
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_source_column",
+            "allowed_id",
+        );
+        assert_field_eq(&any_fields, "quantified_subquery_source_format", "csv");
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_filter_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_limit_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&any_fields, "quantified_subquery_input_row_count", "4");
+        assert_field_eq(&any_fields, "quantified_subquery_filtered_row_count", "3");
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_materialization_bound",
+            "32",
+        );
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_materialized_value_count",
+            "3",
+        );
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_materialized_null_value_count",
+            "0",
+        );
+        assert_field_eq(
+            &any_fields,
+            "quantified_subquery_null_semantics",
+            "sql_any_three_valued_where_filter",
+        );
+        assert_field_eq(
+            &any_fields,
+            "having_quantified_subquery_runtime_execution",
+            "false",
+        );
+        assert_field_eq(&any_fields, "selected_row_count", "3");
+        assert_field_eq(&any_fields, "fallback_attempted", "false");
+        assert_field_eq(&any_fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+    }
+
+    #[test]
+    fn runs_scoped_quantified_all_subquery_csv_statement() {
+        let (source_path, allowed_path, thresholds_path) = write_quantified_subquery_csv_fixtures();
+        let all_request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT threshold FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let all_report =
+            run_sql_local_source_smoke_single(&all_request).expect("run ALL subquery smoke");
+        let all_fields = field_map(all_report.fields());
+
+        assert_eq!(
+            all_report.result_jsonl,
+            "{\"id\":3,\"label\":\"gamma\"}\n{\"id\":5,\"label\":\"epsilon\"}\n"
+        );
+        assert_field_eq(
+            &all_fields,
+            "predicate_operator_family",
+            "quantified_subquery",
+        );
+        assert_field_eq(&all_fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&all_fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&all_fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(
+            &all_fields,
+            "quantified_subquery_source_column",
+            "threshold",
+        );
+        assert_field_eq(
+            &all_fields,
+            "quantified_subquery_materialized_value_count",
+            "2",
+        );
+        assert_field_eq(
+            &all_fields,
+            "quantified_subquery_null_semantics",
+            "sql_all_three_valued_where_filter",
+        );
+        assert_field_eq(&all_fields, "selected_row_count", "2");
+        assert_field_eq(&all_fields, "fallback_attempted", "false");
+        assert_field_eq(&all_fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+    }
+
+    #[test]
+    fn runs_scoped_quantified_date_subquery_csv_statement() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let thresholds_path = sql_local_source_test_path("thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,event_date\n1,2026-01-01\n2,2026-01-02\n3,2026-01-03\n4,\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "allowed_date,active,score\n2026-01-02,true,10\n2026-01-03,true,20\n2026-01-04,false,30\n",
+        )
+        .expect("write threshold csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_date FROM '{}' WHERE event_date = ANY (SELECT allowed_date FROM '{}' WHERE allowed_date >= DATE '2026-01-02' ORDER BY score ASC LIMIT 2) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run date ANY subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"event_date\":\"2026-01-02\"}\n{\"id\":3,\"event_date\":\"2026-01-03\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "any");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "eq");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "allowed_date");
+        assert_field_eq(&fields, "quantified_subquery_source_format", "csv");
+        assert_field_eq(&fields, "quantified_subquery_materialized_value_count", "2");
+        assert_field_eq(
+            &fields,
+            "quantified_subquery_null_semantics",
+            "sql_any_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove threshold csv");
+    }
+
+    #[test]
+    fn runs_scoped_quantified_timestamp_subquery_csv_statement() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let thresholds_path = sql_local_source_test_path("thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,event_ts\n1,2026-01-01T00:00:00Z\n2,2026-01-01T00:00:10Z\n3,2026-01-01T00:00:20Z\n4,\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "threshold_ts,active,score\n2026-01-01T00:00:05Z,true,10\n2026-01-01T00:00:15Z,true,20\n2026-01-01T00:00:30Z,false,30\n",
+        )
+        .expect("write threshold csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_ts FROM '{}' WHERE event_ts > ALL (SELECT threshold_ts FROM '{}' WHERE threshold_ts >= TIMESTAMP '2026-01-01T00:00:05Z' ORDER BY score ASC LIMIT 2) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run timestamp ALL subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":3,\"event_ts\":\"2026-01-01T00:00:20Z\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "threshold_ts");
+        assert_field_eq(&fields, "quantified_subquery_materialized_value_count", "2");
+        assert_field_eq(
+            &fields,
+            "quantified_subquery_null_semantics",
+            "sql_all_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "selected_row_count", "1");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove threshold csv");
+    }
+
     #[test]
     fn in_subquery_counts_stay_separate_from_literal_in_counts() {
         let predicate = ParsedPredicate::Logical {
@@ -30773,12 +31921,8 @@ mod tests {
                 "correlated or qualified IN subquery predicates are not admitted",
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE id = ANY (SELECT id FROM 'target/allowed.csv') LIMIT 5",
-                "ANY and ALL subquery predicates are not admitted",
-            ),
-            (
-                "SELECT id FROM 'target/input.csv' WHERE id > ALL (SELECT id FROM 'target/allowed.csv') LIMIT 5",
-                "ANY and ALL subquery predicates are not admitted",
+                "SELECT id FROM 'target/input.csv' WHERE id > ANY (SELECT id FROM 'target/allowed.csv' WHERE id IN (SELECT id FROM 'target/nested.csv')) LIMIT 5",
+                "nested IN subqueries are not admitted",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

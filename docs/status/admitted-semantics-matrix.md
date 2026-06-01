@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=44
-executable_fixture_count=26
-unsupported_diagnostic_count=18
+executable_fixture_count=27
+unsupported_diagnostic_count=17
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -63,6 +63,7 @@ Covered fixture rows:
 - `row_value_in_predicate_semantics`
 - `row_value_in_subquery_semantics`
 - `exists_subquery_semantics`
+- `quantified_subquery_semantics`
 - `sql_union_composition_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
@@ -92,10 +93,9 @@ Covered fixture rows:
 - `unsupported_joined_in_subquery`
 - `unsupported_grouped_having_in_subquery`
 - `unsupported_correlated_in_subquery`
-- `unsupported_any_all_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery,
-row-value IN-subquery, and scoped EXISTS fixtures, external-oracle result artifact population, and
+row-value IN-subquery, scoped EXISTS, and scoped quantified ANY/ALL fixtures, external-oracle result artifact population, and
 fuzz execution beyond the deterministic seeded property lane. Decimal precision/scale, non-UTC
 timestamp/timezone database semantics, interval arithmetic, regex, locale/collation, complex dtype
 families, and remaining unsupported advanced subquery shapes now have deterministic unsupported

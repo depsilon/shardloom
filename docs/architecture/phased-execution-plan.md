@@ -459,10 +459,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   fields. The remaining broad
   grammar blockers are explicit rows in `docs/status/admitted-semantics-matrix.json`: decimal casts,
   non-UTC/timezone/interval semantics, regex/collation, complex/list/struct/variant/union-dtype/
-  binary shapes, scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated/
-  ANY/ALL subquery families.
-  Next slice outcome: choose the next broad SQL grammar family after scoped EXISTS/NOT EXISTS CI
-  evidence lands; likely candidates are complex dtype blocker refinement, broader subquery shape
+  binary shapes, scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated
+  subquery families. Scoped quantified `ANY` / `ALL` subquery predicates over bounded local scalar
+  sources are now part of the admitted ShardLoom-owned route with SQL three-valued null-semantics,
+  materialization-bound, source-format, filter/order/limit, Python helper, and no-fallback evidence.
+  Next slice outcome: choose the next broad SQL grammar family after scoped quantified `ANY` / `ALL`
+  CI evidence lands; likely candidates are complex dtype blocker refinement, broader subquery shape
   parity, or additional front-door parity over the newly admitted subquery route.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
