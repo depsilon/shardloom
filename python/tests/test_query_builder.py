@@ -1560,6 +1560,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("id").isin_source("target/allowed.csv", "id")),
             "id IN (SELECT id FROM 'target/allowed.csv')",
         )
+        self.assertEqual(str(sl.outer("id")), "outer.id")
         self.assertEqual(
             str(
                 sl.col("id").isin_source(
@@ -1572,6 +1573,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
             ),
             "id IN (SELECT id FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2)",
+        )
+        self.assertEqual(
+            str(
+                sl.col("id").isin_source(
+                    "target/allowed.csv",
+                    "allowed_id",
+                    where=sl.col("allowed_id") == sl.outer("id"),
+                )
+            ),
+            "id IN (SELECT allowed_id FROM 'target/allowed.csv' WHERE allowed_id = outer.id)",
         )
         self.assertEqual(
             str(sl.col("id").not_in_source("target/blocked.csv", "id")),
@@ -1597,6 +1608,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2)",
         )
         self.assertEqual(
+            str(
+                sl.col("amount").all_source(
+                    ">",
+                    "target/thresholds.csv",
+                    "threshold",
+                    where=sl.outer("group_id") == sl.col("group_id"),
+                )
+            ),
+            "amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE outer.group_id = group_id)",
+        )
+        self.assertEqual(
             str(sl.row_in(["id", "label"], [(1, "alpha"), (3, "gamma"), (5, None)])),
             "(id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL))",
         )
@@ -1617,6 +1639,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
             ),
             "(id,label) IN (SELECT allowed_id,allowed_label FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 3)",
+        )
+        self.assertEqual(
+            str(
+                sl.row_in_source(
+                    ("id", "label"),
+                    "target/allowed.csv",
+                    ("allowed_id", "allowed_label"),
+                    where=sl.col("allowed_id") == sl.outer("id"),
+                )
+            ),
+            "(id,label) IN (SELECT allowed_id,allowed_label FROM 'target/allowed.csv' WHERE allowed_id = outer.id)",
         )
         self.assertEqual(
             str(
@@ -1641,9 +1674,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1)",
         )
         self.assertEqual(
+            str(
+                sl.exists_source(
+                    "target/allowed.csv",
+                    where=sl.col("allowed_id") == sl.outer("id"),
+                )
+            ),
+            "EXISTS (SELECT * FROM 'target/allowed.csv' WHERE allowed_id = outer.id)",
+        )
+        self.assertEqual(
             str(sl.not_exists_source("target/blocked.csv", select=1, limit=0)),
             "NOT EXISTS (SELECT 1 FROM 'target/blocked.csv' LIMIT 0)",
         )
+        with self.assertRaises(ValueError):
+            sl.outer("outer.id")
         self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
@@ -3289,6 +3333,110 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.result_jsonl,
             '{"id":3,"label":"gamma"}\n{"id":5,"label":"epsilon"}\n',
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_correlated_subquery_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT allowed_id FROM 'target/allowed.csv' WHERE allowed_id = outer.id ORDER BY score DESC LIMIT 2) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "predicate_operator_family", "value": "in_subquery,correlated_subquery"},
+                        {"key": "in_predicate_runtime_execution", "value": "true"},
+                        {"key": "in_list_value_count", "value": "2"},
+                        {"key": "in_list_null_value_count", "value": "0"},
+                        {"key": "in_subquery_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_source_column", "value": "allowed_id"},
+                        {"key": "in_subquery_source_format", "value": "csv"},
+                        {"key": "in_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_input_row_count", "value": "4"},
+                        {"key": "in_subquery_filtered_row_count", "value": "3"},
+                        {"key": "in_subquery_materialization_bound", "value": "32"},
+                        {"key": "in_subquery_materialized_value_count", "value": "2"},
+                        {"key": "in_subquery_materialized_null_value_count", "value": "0"},
+                        {"key": "correlated_subquery_runtime_execution", "value": "true"},
+                        {"key": "correlated_subquery_outer_alias", "value": "outer"},
+                        {"key": "correlated_subquery_outer_column", "value": "id"},
+                        {"key": "correlated_subquery_evaluation_strategy", "value": "per_outer_row_bounded_subquery_materialization"},
+                        {"key": "correlated_subquery_outer_row_evaluation_count", "value": "4"},
+                        {"key": "in_predicate_null_semantics", "value": "not_applicable"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        allowed = ctx.read_csv("target/allowed.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(
+                sl.col("id").isin_source(
+                    allowed,
+                    "allowed_id",
+                    where=sl.col("allowed_id") == sl.outer("id"),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.predicate_operator_family,
+            "in_subquery,correlated_subquery",
+        )
+        self.assertTrue(report.in_predicate_runtime_execution)
+        self.assertTrue(report.in_subquery_runtime_execution)
+        self.assertEqual(report.in_subquery_source_columns, ("allowed_id",))
+        self.assertTrue(report.in_subquery_filter_runtime_execution)
+        self.assertTrue(report.correlated_subquery_runtime_execution)
+        self.assertEqual(report.correlated_subquery_outer_aliases, ("outer",))
+        self.assertEqual(report.correlated_subquery_outer_columns, ("id",))
+        self.assertEqual(
+            report.correlated_subquery_evaluation_strategy,
+            "per_outer_row_bounded_subquery_materialization",
+        )
+        self.assertEqual(report.correlated_subquery_outer_row_evaluation_count, 4)
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

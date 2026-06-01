@@ -2544,6 +2544,50 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def correlated_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted correlated source subquery."""
+
+        return (
+            self.envelope.field_bool("correlated_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def correlated_subquery_outer_aliases(self) -> tuple[str, ...]:
+        """Return outer-row aliases used by admitted correlated subqueries."""
+
+        value = self.envelope.field("correlated_subquery_outer_alias", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def correlated_subquery_outer_columns(self) -> tuple[str, ...]:
+        """Return outer-row columns referenced by admitted correlated subqueries."""
+
+        value = self.envelope.field("correlated_subquery_outer_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def correlated_subquery_evaluation_strategy(self) -> str | None:
+        """Return the correlated-subquery evaluation strategy evidence label."""
+
+        return self.envelope.field("correlated_subquery_evaluation_strategy")
+
+    @property
+    def correlated_subquery_outer_row_evaluation_count(self) -> int:
+        """Return the number of outer rows evaluated by correlated subqueries."""
+
+        return (
+            self.envelope.field_int(
+                "correlated_subquery_outer_row_evaluation_count", 0
+            )
+            or 0
+        )
+
+    @property
     def quantified_subquery_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted ANY/ALL-subquery predicate path."""
 

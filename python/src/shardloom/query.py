@@ -4732,6 +4732,12 @@ def col(name: object) -> ColumnExpression:
     return ColumnExpression(_normalize_expression_column(name))
 
 
+def outer(column: object) -> ColumnExpression:
+    """Return the reserved outer-row column expression for correlated source predicates."""
+
+    return ColumnExpression(f"outer.{_normalize_output_column_name(column)}")
+
+
 def interval_days(value: object) -> IntervalLiteral:
     """Return a scoped `INTERVAL '<n>' DAY` literal."""
 
