@@ -7267,6 +7267,99 @@ fn sql_local_source_smoke_executes_filtered_ordered_limited_in_subquery_without_
 }
 
 #[test]
+fn sql_local_source_smoke_executes_exists_subquery_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-exists-subquery-source", "csv");
+    let allowed_path = unique_path("sql-local-source-exists-subquery-allowed", "csv");
+    let blocked_path = unique_path("sql-local-source-not-exists-subquery-blocked", "csv");
+    fs::write(&source_path, "id,label\n1,alpha\n2,beta\n3,gamma\n").expect("write source csv");
+    fs::write(&allowed_path, "active,score\nfalse,10\ntrue,30\ntrue,20\n")
+        .expect("write allowed csv");
+    fs::write(&blocked_path, "active\nfalse\nfalse\n").expect("write blocked csv");
+
+    let exists_statement = format!(
+        "SELECT id,label FROM '{}' WHERE EXISTS (SELECT * FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &exists_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        exists_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&exists_output.stdout),
+        String::from_utf8_lossy(&exists_output.stderr)
+    );
+    let stdout = String::from_utf8(exists_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "exists_subquery")));
+    assert!(stdout.contains(&field("exists_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_projection_kind", "wildcard")));
+    assert!(stdout.contains(&field("exists_subquery_source_format", "csv")));
+    assert!(stdout.contains(&field("exists_subquery_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_input_row_count", "3")));
+    assert!(stdout.contains(&field("exists_subquery_filtered_row_count", "2")));
+    assert!(stdout.contains(&field("exists_subquery_bounded_row_count", "1")));
+    assert!(stdout.contains(&field("exists_subquery_result", "true")));
+    assert!(stdout.contains(&field(
+        "exists_subquery_null_semantics",
+        "sql_exists_two_valued_presence_test"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let not_exists_statement = format!(
+        "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT 1 FROM '{}' WHERE active IS TRUE LIMIT 1) LIMIT 10",
+        source_path.display(),
+        blocked_path.display()
+    );
+    let not_exists_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &not_exists_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        not_exists_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&not_exists_output.stdout),
+        String::from_utf8_lossy(&not_exists_output.stderr)
+    );
+    let stdout = String::from_utf8(not_exists_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("exists_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_projection_kind", "literal")));
+    assert!(stdout.contains(&field("exists_subquery_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("exists_subquery_filtered_row_count", "0")));
+    assert!(stdout.contains(&field("exists_subquery_bounded_row_count", "0")));
+    assert!(stdout.contains(&field("exists_subquery_result", "false")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+    fs::remove_file(blocked_path).expect("remove blocked csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_having_in_subquery_without_fallback() {
     let source_path = unique_path("sql-local-source-having-in-subquery-source", "csv");
     let allowed_path = unique_path("sql-local-source-having-in-subquery-allowed", "csv");

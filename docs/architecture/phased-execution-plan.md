@@ -453,14 +453,17 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `UNION` and `UNION ALL` composition is now promoted over already-admitted local-source branch
   `SELECT` plans, with matching output-column/dtype checks, fail-closed branch bounds, optional
   global `ORDER BY`, global `LIMIT`, Python/DataFrame `union(...)` / `union_all(...)` lowering,
-  and no-fallback evidence fields. The remaining broad
+  and no-fallback evidence fields. Scoped local `EXISTS` / `NOT EXISTS` predicates are now
+  promoted as bounded two-valued presence tests over admitted local sources, with projection kind,
+  source-format, filter/order/limit, row-count, result, Python helper, and no-fallback evidence
+  fields. The remaining broad
   grammar blockers are explicit rows in `docs/status/admitted-semantics-matrix.json`: decimal casts,
   non-UTC/timezone/interval semantics, regex/collation, complex/list/struct/variant/union-dtype/
   binary shapes, scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated/
-  EXISTS/ANY/ALL subquery families.
-  Next slice outcome: choose the next broad SQL grammar family after scoped row-value IN-subquery
-  CI evidence lands; likely candidates are EXISTS/NOT EXISTS admission, complex dtype blocker
-  refinement, or additional front-door parity over the newly admitted subquery route.
+  ANY/ALL subquery families.
+  Next slice outcome: choose the next broad SQL grammar family after scoped EXISTS/NOT EXISTS CI
+  evidence lands; likely candidates are complex dtype blocker refinement, broader subquery shape
+  parity, or additional front-door parity over the newly admitted subquery route.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

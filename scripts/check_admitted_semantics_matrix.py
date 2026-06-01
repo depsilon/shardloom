@@ -500,6 +500,49 @@ def row_value_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="exists_subquery_semantics",
+        source_name="exists-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE EXISTS ("
+            "SELECT * FROM '{allowed}' WHERE active IS TRUE ORDER BY score DESC LIMIT 1"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "exists_subquery",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "wildcard",
+            "exists_subquery_source_column": "not_applicable",
+            "exists_subquery_source_format": "csv",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_input_row_count": "3",
+            "exists_subquery_filtered_row_count": "2",
+            "exists_subquery_bounded_row_count": "1",
+            "exists_subquery_scan_bound": "50000",
+            "exists_subquery_result": "true",
+            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
+            "selected_row_count": "3",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "exists-subquery-allowed.csv",
+                "active,score\nfalse,10\ntrue,30\ntrue,20\n",
+            ),
+        ),
+    )
+
+
 def sql_union_composition_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="sql_union_composition_semantics",
@@ -1138,6 +1181,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),
+        exists_subquery_case(),
         sql_union_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
@@ -1321,15 +1365,15 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="correlated or qualified IN subquery predicates are not admitted",
         ),
         UnsupportedCase(
-            case_id="unsupported_exists_any_all_subquery",
-            source_name="exists-subquery-unsupported.csv",
+            case_id="unsupported_any_all_subquery",
+            source_name="any-all-subquery-unsupported.csv",
             source_text="id,label\n1,alpha\n",
             statement_template=(
-                "SELECT id FROM '{source}' WHERE EXISTS "
+                "SELECT id FROM '{source}' WHERE id = ANY "
                 "(SELECT id FROM '{source}') LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="EXISTS, ANY, and ALL subquery predicates are not admitted",
+            diagnostic_fragment="ANY and ALL subquery predicates are not admitted",
         ),
     ]
 

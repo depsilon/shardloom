@@ -2544,6 +2544,117 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def exists_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted EXISTS-subquery predicate path."""
+
+        return (
+            self.envelope.field_bool("exists_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def exists_subquery_projection_kind(self) -> tuple[str, ...]:
+        """Return projection kinds used by admitted EXISTS-subquery predicates."""
+
+        value = self.envelope.field("exists_subquery_projection_kind", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def exists_subquery_source_columns(self) -> tuple[str, ...]:
+        """Return selected source columns used by admitted EXISTS-subquery predicates."""
+
+        value = self.envelope.field("exists_subquery_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def exists_subquery_source_formats(self) -> tuple[str, ...]:
+        """Return subquery source formats used by admitted EXISTS-subquery predicates."""
+
+        value = self.envelope.field("exists_subquery_source_format", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def exists_subquery_filter_runtime_execution(self) -> bool:
+        """Whether an admitted EXISTS-subquery evaluated its own WHERE predicate."""
+
+        return (
+            self.envelope.field_bool("exists_subquery_filter_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def exists_subquery_order_by_runtime_execution(self) -> bool:
+        """Whether an admitted EXISTS-subquery applied ORDER BY before presence testing."""
+
+        return (
+            self.envelope.field_bool("exists_subquery_order_by_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def exists_subquery_limit_runtime_execution(self) -> bool:
+        """Whether an admitted EXISTS-subquery applied LIMIT before presence testing."""
+
+        return (
+            self.envelope.field_bool("exists_subquery_limit_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def exists_subquery_input_row_count(self) -> int:
+        """Return the number of source rows read by admitted EXISTS-subqueries."""
+
+        return self.envelope.field_int("exists_subquery_input_row_count", 0) or 0
+
+    @property
+    def exists_subquery_filtered_row_count(self) -> int:
+        """Return EXISTS-subquery rows selected before ORDER BY/LIMIT."""
+
+        return self.envelope.field_int("exists_subquery_filtered_row_count", 0) or 0
+
+    @property
+    def exists_subquery_bounded_row_count(self) -> int:
+        """Return EXISTS-subquery rows remaining after ORDER BY/LIMIT."""
+
+        return self.envelope.field_int("exists_subquery_bounded_row_count", 0) or 0
+
+    @property
+    def exists_subquery_scan_bound(self) -> int:
+        """Return the deterministic source-row scan bound for EXISTS subqueries."""
+
+        return self.envelope.field_int("exists_subquery_scan_bound", 0) or 0
+
+    @property
+    def exists_subquery_result(self) -> tuple[bool, ...]:
+        """Return the two-valued presence result for admitted EXISTS subqueries."""
+
+        value = self.envelope.field("exists_subquery_result", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part == "true" for part in value.split(",") if part)
+
+    @property
+    def exists_subquery_null_semantics(self) -> str | None:
+        """Return the EXISTS null-semantics evidence label."""
+
+        return self.envelope.field("exists_subquery_null_semantics")
+
+    @property
+    def having_exists_subquery_runtime_execution(self) -> bool:
+        """Whether HAVING used an admitted EXISTS-subquery predicate."""
+
+        return (
+            self.envelope.field_bool("having_exists_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
     def in_predicate_null_semantics(self) -> str | None:
         """Return the null-semantics contract for admitted IN predicates."""
 

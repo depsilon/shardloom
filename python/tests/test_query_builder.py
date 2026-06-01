@@ -1610,6 +1610,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "(id,label) NOT IN (SELECT blocked_id,blocked_label FROM 'target/blocked.csv')",
         )
         self.assertEqual(
+            str(
+                sl.exists_source(
+                    "target/allowed.csv",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=1,
+                )
+            ),
+            "EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1)",
+        )
+        self.assertEqual(
+            str(sl.not_exists_source("target/blocked.csv", select=1, limit=0)),
+            "NOT EXISTS (SELECT 1 FROM 'target/blocked.csv' LIMIT 0)",
+        )
+        self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
         )
@@ -2897,6 +2913,103 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.result_jsonl,
             '{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_exists_subquery_filter_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "predicate_operator_family", "value": "exists_subquery"},
+                        {"key": "exists_subquery_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_projection_kind", "value": "wildcard"},
+                        {"key": "exists_subquery_source_column", "value": "not_applicable"},
+                        {"key": "exists_subquery_source_format", "value": "csv"},
+                        {"key": "exists_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "exists_subquery_input_row_count", "value": "4"},
+                        {"key": "exists_subquery_filtered_row_count", "value": "3"},
+                        {"key": "exists_subquery_bounded_row_count", "value": "1"},
+                        {"key": "exists_subquery_scan_bound", "value": "50000"},
+                        {"key": "exists_subquery_result", "value": "true"},
+                        {"key": "exists_subquery_null_semantics", "value": "sql_exists_two_valued_presence_test"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        allowed = ctx.read_csv("target/allowed.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(
+                sl.exists_source(
+                    allowed,
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=1,
+                )
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "exists_subquery")
+        self.assertTrue(report.exists_subquery_runtime_execution)
+        self.assertEqual(report.exists_subquery_projection_kind, ("wildcard",))
+        self.assertEqual(report.exists_subquery_source_columns, ())
+        self.assertEqual(report.exists_subquery_source_formats, ("csv",))
+        self.assertTrue(report.exists_subquery_filter_runtime_execution)
+        self.assertTrue(report.exists_subquery_order_by_runtime_execution)
+        self.assertTrue(report.exists_subquery_limit_runtime_execution)
+        self.assertEqual(report.exists_subquery_input_row_count, 4)
+        self.assertEqual(report.exists_subquery_filtered_row_count, 3)
+        self.assertEqual(report.exists_subquery_bounded_row_count, 1)
+        self.assertEqual(report.exists_subquery_scan_bound, 50000)
+        self.assertEqual(report.exists_subquery_result, (True,))
+        self.assertEqual(
+            report.exists_subquery_null_semantics,
+            "sql_exists_two_valued_presence_test",
+        )
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":1,"label":"alpha"}\n{"id":2,"label":"beta"}\n',
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

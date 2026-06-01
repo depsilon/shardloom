@@ -62,6 +62,7 @@ Current runtime support is intentionally scoped and evidence-gated:
   scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
   predicates including scalar and row-value literal `IN`/`NOT IN`, bounded scalar and row-value
   local-source `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
+  `EXISTS (SELECT ...)` / `NOT EXISTS (...)` presence predicates, scoped local-source
   inner/outer/semi/anti equi-joins, cross joins, scoped
   column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
   over joined rows, scoped scalar/grouped join aggregates, and post-aggregate `HAVING` filters over
@@ -144,7 +145,8 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 `.distinct()`, `.drop_duplicates()`, `.unique()`, `.union(...)`, and `.union_all(...)` are accepted
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, join/window,
-row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
+source-backed `IN` / `EXISTS`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and
+bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

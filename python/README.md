@@ -560,21 +560,27 @@ bounded `IN (...)` / `NOT IN (...)`, scoped literal row-value
 `(<column>,...) IN ((...),...)` / `NOT IN` predicates, scoped local
 `IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` scalar subquery predicates,
 scoped row-value `IN (SELECT <column>,...)` / `NOT IN (...)` subquery predicates, direct SQL
-`BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
+`EXISTS (SELECT <projection> FROM '<local-source>' ...)` / `NOT EXISTS (...)` subquery
+predicates, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
 `LENGTH(column)` comparisons against integer literals, string `LIKE` / `NOT LIKE`, null, logical
 `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted leaves. `where(...)` is a
 familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
 including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
 semantics. Row-value literal predicates admit up to 32 literal tuples with arity/type checks and
 SQL three-valued row comparison semantics. Scoped local `IN` subqueries materialize a bounded scalar
-column or row-value tuple set from another admitted local source and keep scalar-left multi-column,
-nested, joined, grouped/HAVING-internal, correlated, and EXISTS/ANY/ALL subqueries blocked.
+column or row-value tuple set from another admitted local source. Scoped local `EXISTS` subqueries
+evaluate a two-valued bounded presence test over another admitted local source. Scalar-left
+multi-column, nested, joined, grouped/HAVING-internal, correlated, and `ANY`/`ALL` subqueries remain
+deterministic blockers.
 Typed reports expose `in_predicate_runtime_execution`,
 `in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
 `row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
 `in_predicate_null_semantics`,
 `in_subquery_runtime_execution`, `in_subquery_source_columns`, `in_subquery_source_formats`,
-`in_subquery_materialized_value_count`, and `in_subquery_materialized_null_value_count`, plus
+`in_subquery_materialized_value_count`, `in_subquery_materialized_null_value_count`,
+`exists_subquery_runtime_execution`, `exists_subquery_projection_kind`,
+`exists_subquery_source_formats`, `exists_subquery_bounded_row_count`, and
+`exists_subquery_result`, plus
 `numeric_arithmetic_runtime_execution`,
 `numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
 `numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
@@ -598,7 +604,9 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `sl.row_not_in(...)`, local source-backed
 `isin_source(source, column)` / `not_in_source(source, column)`, row-value source-backed
 `sl.row_in_source(columns, source, source_columns)` /
-`sl.row_not_in_source(columns, source, source_columns)`, `cast(dtype)`,
+`sl.row_not_in_source(columns, source, source_columns)`, source-backed
+`sl.exists_source(source, where=..., order_by=..., limit=...)` /
+`sl.not_exists_source(source, ...)`, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
@@ -726,10 +734,10 @@ id,label,amount
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
 @"
-id
-1
-3
-NULL
+id,active,score
+1,true,30
+3,true,20
+NULL,false,10
 "@ | Set-Content -Encoding utf8 target\sql-local-source-allowed.csv
 @'
 {"id":1,"label":"alpha","amount":8}
@@ -840,6 +848,22 @@ row_source_subquery_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
     .filter(sl.row_in_source(["id", "label"], allowed_pairs, ["allowed_id", "allowed_label"]))
+    .limit(10)
+    .collect()
+)
+active_allowed = ctx.read_csv("target/sql-local-source-allowed.csv")
+exists_subquery_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(
+        sl.exists_source(
+            active_allowed,
+            where=sl.col("active").is_true(),
+            order_by="score",
+            descending=True,
+            limit=1,
+        )
+    )
     .limit(10)
     .collect()
 )
@@ -985,6 +1009,12 @@ print(
     source_subquery_filtered.in_subquery_materialized_value_count,
     source_subquery_filtered.in_subquery_materialized_null_value_count,
 )
+print(
+    exists_subquery_filtered.exists_subquery_runtime_execution,
+    exists_subquery_filtered.exists_subquery_projection_kind,
+    exists_subquery_filtered.exists_subquery_bounded_row_count,
+    exists_subquery_filtered.exists_subquery_result,
+)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.first_result_row)
 print(aggregate.aggregate_operator_family)
@@ -1031,6 +1061,12 @@ sql_in_subquery_rows = ctx.sql(
     "WHERE id IN (SELECT id FROM 'target/sql-local-source-allowed.csv') LIMIT 10"
 ).collect()
 
+sql_exists_rows = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE EXISTS (SELECT * FROM 'target/sql-local-source-allowed.csv' "
+    "WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 10"
+).collect()
+
 sql_written = ctx.sql(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 10 LIMIT 2"
@@ -1052,6 +1088,11 @@ print(
     sql_in_subquery_rows.in_subquery_runtime_execution,
     sql_in_subquery_rows.in_subquery_source_formats,
     sql_in_subquery_rows.in_subquery_materialized_value_count,
+)
+print(
+    sql_exists_rows.exists_subquery_runtime_execution,
+    sql_exists_rows.exists_subquery_source_formats,
+    sql_exists_rows.exists_subquery_result,
 )
 print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
@@ -1230,7 +1271,8 @@ print(join_grouped_topn.top_n_limit)
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
 null ordering, collation parity,
-broad ANSI subquery parity beyond admitted bounded local scalar and row-value IN-subqueries, arbitrary predicate-tree completeness
+broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
+IN-subqueries, and scoped local EXISTS predicates, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
