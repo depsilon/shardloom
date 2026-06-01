@@ -58,6 +58,46 @@ class ReleaseScriptTests(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def _shardloom_benchmark_route_fields(self) -> dict[str, object]:
+        return {
+            "route_lane_id": "prepare_once_first_query",
+            "route_display_name": "ShardLoom Prepare-Once First Query",
+            "route_runtime_status": "scoped_runtime_supported",
+            "start_state": "raw_compat_source",
+            "end_state": "result_sink",
+            "includes_preparation": True,
+            "includes_query": True,
+            "includes_output": True,
+            "includes_evidence": True,
+            "route_comparable_to_external_end_to_end": True,
+            "preparation_included": True,
+            "query_timing_starts_after_preparation": False,
+            "prepared_state_reused": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "spark_replacement_claim_allowed": False,
+        }
+
+    def _external_benchmark_route_fields(self, engine: str) -> dict[str, object]:
+        return {
+            "route_lane_id": "external_baseline_end_to_end",
+            "route_display_name": f"{engine} End-to-End",
+            "route_runtime_status": "external_baseline_only",
+            "start_state": "raw_compat_source",
+            "end_state": "result_sink",
+            "includes_preparation": False,
+            "includes_query": True,
+            "includes_output": True,
+            "includes_evidence": True,
+            "route_comparable_to_external_end_to_end": True,
+            "preparation_included": False,
+            "query_timing_starts_after_preparation": False,
+            "prepared_state_reused": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "spark_replacement_claim_allowed": False,
+        }
+
     def test_foundry_style_dataset_rewrite_removes_stale_parts(self) -> None:
         module = self._load_module_from_path(
             REPO_ROOT / "examples" / "foundry-lightweight-transform" / "run.py",
@@ -835,6 +875,7 @@ class ReleaseScriptTests(unittest.TestCase):
                         "claim_grade_requirements_met": True,
                         "fallback_attempted": False,
                         "external_engine_invoked": False,
+                        **self._shardloom_benchmark_route_fields(),
                         **capillary_fields,
                         **runtime_fields,
                     }
@@ -852,6 +893,7 @@ class ReleaseScriptTests(unittest.TestCase):
                     "external_baseline_only": True,
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
+                    **self._external_benchmark_route_fields(engine),
                 }
             )
         manifest = {

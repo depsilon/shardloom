@@ -211,8 +211,14 @@ const benchmarks = read("benchmarks.html");
 for (const required of [
   "Benchmark Evidence, Not a Leaderboard",
   "Route timing dashboard",
-  "Certified cold ingest/stage route",
-  "Prepared warm query route",
+  "Route lanes are the comparison surface.",
+  "ShardLoom Prepare-Once First Query",
+  "ShardLoom Cold Certified Route",
+  "ShardLoom Warm Prepared Query",
+  "Stage attribution",
+  "Runtime support is separate from claim readiness.",
+  "ShardLoom unsupported rows",
+  "External baseline unsupported rows",
   "Artifact lane availability",
   "full_local",
   "full_local_plus_spark",
@@ -249,12 +255,43 @@ const summaryRows = Array.isArray(benchmarkEvidence.published_benchmark_rows)
   ? benchmarkEvidence.published_benchmark_rows
   : [];
 const shardloomSummaryRows = summaryRows.filter((row) => String(row.engine ?? "").startsWith("shardloom"));
-for (const field of ["vortex_scan_millis", "operator_compute_millis", "result_sink_write_millis"]) {
+for (const field of [
+  "route_runtime_status",
+  "route_lane_id",
+  "route_display_name",
+  "start_state",
+  "end_state",
+  "includes_preparation",
+  "includes_query",
+  "includes_output",
+  "includes_evidence",
+  "route_comparable_to_external_end_to_end",
+  "performance_claim_allowed",
+  "production_claim_allowed",
+  "spark_replacement_claim_allowed",
+  "vortex_scan_millis",
+  "operator_compute_millis",
+  "result_sink_write_millis",
+]) {
   assert(
     shardloomSummaryRows.every((row) => Object.prototype.hasOwnProperty.call(row, field)),
     `summary ShardLoom benchmark rows must retain ${field} for detailed timing tables`,
   );
 }
+assert(
+  shardloomSummaryRows.every((row) => row.route_runtime_status !== "external_baseline_only"),
+  "ShardLoom summary rows must not be labeled external_baseline_only",
+);
+assert(
+  shardloomSummaryRows.filter((row) => row.status === "unsupported" || row.route_runtime_status === "unsupported")
+    .length === 0,
+  "published ShardLoom summary rows must not contain unsupported route gaps",
+);
+const externalSummaryRows = summaryRows.filter((row) => !String(row.engine ?? "").startsWith("shardloom"));
+assert(
+  externalSummaryRows.every((row) => row.route_runtime_status === "external_baseline_only"),
+  "external summary rows must be labeled route_runtime_status=external_baseline_only",
+);
 for (const chunk of benchmarkEvidence.published_benchmark_row_chunks) {
   assert(chunk.path, "benchmark row chunk missing path");
   const chunkPath = chunk.path.replace(/^website\//, "");
