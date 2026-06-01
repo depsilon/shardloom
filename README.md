@@ -178,15 +178,15 @@ prepared warm route timing and keeps external engines labeled as baseline contex
 
 Public rows should be read through these fields before comparing numbers:
 
-- `route_runtime_status` says whether the user workflow is scoped-runtime-supported,
-  smoke-supported, feature-gated, blocked, unsupported, or external-baseline-only.
+- `route_runtime_status` says whether the user workflow is a scoped runtime route, fixture smoke,
+  gated feature, external baseline, or deterministic policy/no-route diagnostic.
 - `claim_gate_status` says whether the evidence for that row is claim-grade; it is not a synonym
   for production readiness or a speed claim.
 - `performance_claim_allowed`, `production_claim_allowed`, and
   `spark_replacement_claim_allowed` must remain explicit and false unless a later claim gate
   authorizes them.
-- ShardLoom rows and external baseline rows are separate. An unsupported external baseline row is
-  not a ShardLoom runtime gap.
+- ShardLoom route rows and external baseline rows are separate. Baseline gaps are not ShardLoom
+  runtime gaps.
 
 The route labels to expect are `ShardLoom Cold Certified Route`,
 `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
