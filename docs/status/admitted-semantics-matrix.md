@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=37
-executable_fixture_count=18
-unsupported_diagnostic_count=19
+executable_fixture_count=19
+unsupported_diagnostic_count=18
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -60,6 +60,7 @@ Covered fixture rows:
 - `temporal_arithmetic_difference_utc`
 - `conditional_projection_case_when`
 - `in_predicate_literal_null_semantics`
+- `row_value_in_predicate_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
 - `having_in_subquery_semantics`
@@ -79,7 +80,6 @@ Covered fixture rows:
 - `unsupported_variant_access`
 - `unsupported_union_construct`
 - `unsupported_binary_literal_source`
-- `unsupported_row_value_in_predicate`
 - `unsupported_multi_column_in_subquery`
 - `unsupported_nested_in_subquery`
 - `unsupported_joined_in_subquery`

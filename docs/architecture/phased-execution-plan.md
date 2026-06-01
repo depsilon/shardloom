@@ -444,14 +444,16 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,
   row-level `SELECT DISTINCT` deduplication over projection, aggregate/HAVING, join, and window
   output rows, joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded
-  collect. The remaining broad grammar blockers are explicit rows in
-  `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone/interval semantics,
-  regex/collation, complex/list/struct/variant/union/binary shapes, row-value predicates, and
-  broader subquery families.
-  Next slice outcome: promote the next highest-value remaining admitted-semantics matrix blocker
-  into an executable ShardLoom-owned runtime path, starting with the highest user-surface value among
-  row-value predicates, broader subquery forms, or UNION-like composition; keep any non-promoted
-  shapes as deterministic blockers with updated matrix rows.
+  collect. Row-value literal `IN` / `NOT IN` predicates such as
+  `(id, label) IN ((1, 'alpha'), (3, 'gamma'))` are now promoted through the same executable
+  ShardLoom-owned runtime path with SQL three-valued row comparison evidence. The remaining broad
+  grammar blockers are explicit rows in `docs/status/admitted-semantics-matrix.json`: decimal casts,
+  non-UTC/timezone/interval semantics, regex/collation, complex/list/struct/variant/union/binary
+  shapes, row-value or multi-column IN-subqueries, nested/joined/grouped/correlated/EXISTS subquery
+  families, and UNION-like composition.
+  Next slice outcome: choose the next broad SQL grammar family only after row-value literal IN CI
+  evidence lands; likely candidates are scoped UNION diagnostics/runtime planning, broader subquery
+  classification, or complex dtype blocker refinement.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

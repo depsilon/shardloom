@@ -4570,6 +4570,18 @@ def col(name: object) -> ColumnExpression:
     return ColumnExpression(_normalize_expression_column(name))
 
 
+def row_in(columns: object, rows: object) -> PredicateExpression:
+    """Return a scoped bounded row-value `IN ((...),...)` predicate."""
+
+    return _row_value_in_predicate(columns, rows, negated=False)
+
+
+def row_not_in(columns: object, rows: object) -> PredicateExpression:
+    """Return a scoped bounded row-value `NOT IN ((...),...)` predicate."""
+
+    return _row_value_in_predicate(columns, rows, negated=True)
+
+
 def row_number(
     *,
     order_by: object,
@@ -6837,6 +6849,55 @@ def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
     if len(normalized) > 32:
         raise ValueError("IN predicates admit at most 32 values")
     return normalized
+
+
+def _row_value_in_predicate(
+    columns: object, rows: object, *, negated: bool
+) -> PredicateExpression:
+    normalized_columns = _normalize_row_value_columns(columns)
+    normalized_rows = _normalize_row_value_in_rows(rows, arity=len(normalized_columns))
+    column_sql = ",".join(normalized_columns)
+    row_sql = ",".join(
+        "(" + ",".join(_sql_in_literal(value) for value in row) + ")"
+        for row in normalized_rows
+    )
+    operator = "NOT IN" if negated else "IN"
+    return PredicateExpression(f"({column_sql}) {operator} ({row_sql})")
+
+
+def _normalize_row_value_columns(columns: object) -> tuple[str, ...]:
+    if _is_non_string_sequence(columns):
+        raw_columns = tuple(columns)
+    else:
+        raw_columns = (columns,)
+    normalized = tuple(_normalize_expression_column(column) for column in raw_columns)
+    if len(normalized) < 2:
+        raise ValueError("row-value IN predicates require at least two columns")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("row-value IN predicate columns must be unique")
+    return normalized
+
+
+def _normalize_row_value_in_rows(
+    rows: object, *, arity: int
+) -> tuple[tuple[object, ...], ...]:
+    if not _is_non_string_sequence(rows):
+        raise TypeError("row-value IN predicates require a sequence of literal rows")
+    normalized_rows: list[tuple[object, ...]] = []
+    for row in rows:
+        if not _is_non_string_sequence(row):
+            raise TypeError("row-value IN literal rows must be sequences")
+        normalized_row = tuple(row)
+        if len(normalized_row) != arity:
+            raise ValueError(
+                "row-value IN literal row arity must match the source column count"
+            )
+        normalized_rows.append(normalized_row)
+    if not normalized_rows:
+        raise ValueError("row-value IN predicates require at least one literal row")
+    if len(normalized_rows) > 32:
+        raise ValueError("row-value IN predicates admit at most 32 literal rows")
+    return tuple(normalized_rows)
 
 
 def _sql_in_subquery_source(source: object) -> str:

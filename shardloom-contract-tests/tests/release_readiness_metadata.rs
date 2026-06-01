@@ -60,6 +60,25 @@ fn yaml_top_level_section_item_count(content: &str, section: &str) -> usize {
     count
 }
 
+fn yaml_top_level_section_item_ids(content: &str, section: &str) -> Vec<String> {
+    let section_header = format!("{section}:");
+    let mut in_section = false;
+    let mut ids = Vec::new();
+    for line in content.lines() {
+        if line == section_header {
+            in_section = true;
+            continue;
+        }
+        if in_section && !line.starts_with(' ') && !line.is_empty() {
+            break;
+        }
+        if in_section && let Some(id) = line.strip_prefix("  - id:") {
+            ids.push(id.trim().to_string());
+        }
+    }
+    ids
+}
+
 #[test]
 fn completed_report_lanes_are_not_left_unchecked_in_global_review() {
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
@@ -2545,7 +2564,7 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "unsupported_variant_access",
         "unsupported_union_construct",
         "unsupported_binary_literal_source",
-        "unsupported_row_value_in_predicate",
+        "row_value_in_predicate_semantics",
         "unsupported_multi_column_in_subquery",
         "unsupported_nested_in_subquery",
         "unsupported_joined_in_subquery",
@@ -2568,8 +2587,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
         "matrix_row_count=37",
-        "executable_fixture_count=18",
-        "unsupported_diagnostic_count=19",
+        "executable_fixture_count=19",
+        "unsupported_diagnostic_count=18",
         "property_execution_performed=true",
         "decoded_reference_differential_execution_performed=true",
         "semantic_conformance_suite_status=passed",
@@ -3497,15 +3516,20 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
     }
 
     let generated_dir = repo_root().join("docs/use-cases/generated");
-    let expected_generated_count = yaml_top_level_section_item_count(&index, "use_cases");
-    let generated_count = fs::read_dir(&generated_dir)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", generated_dir.display()))
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "md"))
+    let generated_ids = yaml_top_level_section_item_ids(&index, "use_cases");
+    assert_eq!(
+        generated_ids.len(),
+        yaml_top_level_section_item_count(&index, "use_cases"),
+        "use-case index id extraction must match item count"
+    );
+    let generated_count = generated_ids
+        .iter()
+        .filter(|id| generated_dir.join(format!("{id}.md")).exists())
         .count();
     assert_eq!(
-        generated_count, expected_generated_count,
-        "generated use-case docs must match use-case index count"
+        generated_count,
+        generated_ids.len(),
+        "canonical generated use-case docs must match use-case index count"
     );
 
     let glossary = read_repo_file("docs/use-cases/field-guide/README.md");
