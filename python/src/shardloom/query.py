@@ -3086,6 +3086,26 @@ class LazyFrame:
 
         return self._append(WorkflowOperation("distinct", ()))
 
+    def union(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped SQL `UNION` workflow over two local-source plans."""
+
+        return self._union(other, union_all=False, check=check)
+
+    def union_all(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped SQL `UNION ALL` workflow over two local-source plans."""
+
+        return self._union(other, union_all=True, check=check)
+
     def drop_duplicates(self) -> "LazyFrame":
         """Alias for `distinct()` using familiar DataFrame naming."""
 
@@ -3992,6 +4012,28 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
+    def _union(
+        self,
+        other: "LazyFrame",
+        *,
+        union_all: bool,
+        check: bool,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        operation = "union-all" if union_all else "union"
+        if isinstance(other, LazyFrame):
+            left = self._sql_local_source_union_branch_statement()
+            right = other._sql_local_source_union_branch_statement()
+            if left is not None and right is not None:
+                keyword = "UNION ALL" if union_all else "UNION"
+                return SqlWorkflow(
+                    statement=f"{left} {keyword} {right}",
+                    client=self.client,
+                )
+            target = f"{self.operation_summary};{other.operation_summary}"
+        else:
+            target = str(other)
+        return self._unsupported_operation(operation, target, check=check)
+
     def _unsupported_operation(
         self,
         operation: str,
@@ -4475,6 +4517,15 @@ class LazyFrame:
             f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
             f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
         )
+
+    def _sql_local_source_union_branch_statement(self) -> str | None:
+        if any(operation.kind in {"limit", "sort"} for operation in self.operations):
+            return None
+        statement = self._sql_local_source_statement(default_limit=1)
+        suffix = " LIMIT 1"
+        if statement is None or not statement.endswith(suffix):
+            return None
+        return statement[: -len(suffix)]
 
 
 @dataclass(frozen=True, slots=True)

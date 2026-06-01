@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL UNION composition slice
+  - Date: 2026-06-01
+  - Branch/PR: `codex/sql-union-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to row-value literal `IN` predicates and row-level DISTINCT front-door support:
+      top-level `UNION` / `UNION ALL` remained a familiar SQL/DataFrame composition shape that was
+      parser-blocked rather than runtime-supported.
+  - Scope:
+    - Added scoped top-level SQL `UNION` / `UNION ALL` over already-admitted bounded local-source
+      `SELECT` branches. The runtime executes each branch through the ShardLoom-owned local-source
+      path, rejects branch-local ordering/limits, validates compatible output schemas, applies
+      `UNION` row deduplication with SQL-style null equality, and applies optional global
+      `ORDER BY` and `LIMIT` after branch composition.
+    - Added union route evidence fields, typed Python client accessors, and DataFrame
+      `.union(...)` / `.union_all(...)` aliases that lower compatible local-source workflows into
+      the same ShardLoom SQL runtime without pandas, Polars, DuckDB, DataFusion, Spark, or another
+      execution fallback.
+    - Updated admitted semantics matrix rows, release-readiness markers, README/Python README,
+      compute-flow reference, phase plan status, and RFC traceability so scoped union composition is
+      runtime-supported while union dtype casts and complex dtype policy shapes remain explicit
+      blockers.
+  - Evidence:
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-cli sql_union -- --nocapture` passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_union_all_invokes_sql_smoke`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py`
+      passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-union.json`
+      passed with `matrix_row_count=42`, `executable_fixture_count=24`, and
+      `unsupported_diagnostic_count=18`.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped top-level union composition for bounded local-source branches already
+      admitted by ShardLoom. It does not claim arbitrary SQL set operations, recursive set
+      expressions, nested union branches, branch-local ordering/limits, automatic dtype coercion,
+      union dtype support, object-store/table SQL, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - The route stays inside `sql-local-source-smoke` and reports no external engine execution.
+      External engines remain baselines/oracles only and are not used for execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D row-level DISTINCT output route slice
   - Date: 2026-06-01
   - Branch/PR: `codex/distinct-output-front-door` / pending PR.

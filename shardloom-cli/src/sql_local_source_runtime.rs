@@ -1942,6 +1942,116 @@ struct SqlLocalSourceReport {
     total_runtime_millis: u128,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum SqlLocalSourceRunReport {
+    Single(Box<SqlLocalSourceReport>),
+    Union(Box<SqlLocalSourceUnionReport>),
+}
+
+impl SqlLocalSourceRunReport {
+    fn output_row_count(&self) -> usize {
+        match self {
+            Self::Single(report) => report.output_rows.len(),
+            Self::Union(report) => report.output_rows.len(),
+        }
+    }
+
+    fn fields(&self) -> Vec<(String, String)> {
+        match self {
+            Self::Single(report) => report.fields(),
+            Self::Union(report) => report.fields(),
+        }
+    }
+
+    fn to_text(&self) -> String {
+        match self {
+            Self::Single(report) => report.to_text(),
+            Self::Union(report) => report.to_text(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlUnionMode {
+    Distinct,
+    All,
+}
+
+impl SqlUnionMode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Distinct => "distinct",
+            Self::All => "all",
+        }
+    }
+
+    const fn sql_keyword(self) -> &'static str {
+        match self {
+            Self::Distinct => "UNION",
+            Self::All => "UNION ALL",
+        }
+    }
+
+    const fn statement_kind(self) -> &'static str {
+        match self {
+            Self::Distinct => "local_source_union_distinct_limit",
+            Self::All => "local_source_union_all_limit",
+        }
+    }
+
+    const fn operator_family(self) -> &'static str {
+        match self {
+            Self::Distinct => "union_distinct",
+            Self::All => "union_all",
+        }
+    }
+
+    const fn null_semantics(self) -> &'static str {
+        match self {
+            Self::Distinct => "sql_union_distinct_groups_nulls",
+            Self::All => "not_applicable_union_all_preserves_rows",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SqlUnionOperator {
+    index: usize,
+    len: usize,
+    mode: SqlUnionMode,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedSqlLocalSourceUnion {
+    normalized_statement: String,
+    mode: SqlUnionMode,
+    branch_statements: Vec<String>,
+    branches: Vec<ParsedSqlLocalSource>,
+    order_by: Option<ParsedOrderBy>,
+    limit: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SqlLocalSourceUnionReport {
+    request: SqlLocalSourceRequest,
+    parsed: ParsedSqlLocalSourceUnion,
+    branch_reports: Vec<SqlLocalSourceReport>,
+    output_rows: Vec<Vec<(String, ScalarValue)>>,
+    result_jsonl: String,
+    plan_digest: String,
+    source_schema_digest: String,
+    result_digest: String,
+    output_digest: String,
+    output_write_millis: u128,
+    output_bytes: u64,
+    written_outputs: Vec<SqlWrittenOutput>,
+    operator_compute_millis: u128,
+    evidence_render_millis: u128,
+    total_runtime_millis: u128,
+    union_input_row_count: usize,
+    union_distinct_input_row_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct VortexIngestRequest {
     source_path: PathBuf,
@@ -2022,7 +2132,7 @@ pub(crate) fn handle_sql_local_source_smoke(
         CommandStatus::Success,
         format!(
             "SQL local-source smoke returned {} bounded row(s)",
-            report.output_rows.len()
+            report.output_row_count()
         ),
         report.to_text(),
         Vec::new(),
@@ -5283,6 +5393,20 @@ fn push_window_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTr
 
 fn run_sql_local_source_smoke(
     request: &SqlLocalSourceRequest,
+) -> Result<SqlLocalSourceRunReport, ShardLoomError> {
+    let statement = normalize_sql_statement(&request.statement)?;
+    if !top_level_sql_union_operators(&statement)?.is_empty() {
+        return run_sql_local_source_union_smoke(request)
+            .map(Box::new)
+            .map(SqlLocalSourceRunReport::Union);
+    }
+    run_sql_local_source_smoke_single(request)
+        .map(Box::new)
+        .map(SqlLocalSourceRunReport::Single)
+}
+
+fn run_sql_local_source_smoke_single(
+    request: &SqlLocalSourceRequest,
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
     let mut parsed = parse_sql_local_source_statement(&request.statement)?;
@@ -5374,6 +5498,242 @@ fn run_sql_local_source_smoke(
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
     })
+}
+
+fn run_sql_local_source_union_smoke(
+    request: &SqlLocalSourceRequest,
+) -> Result<SqlLocalSourceUnionReport, ShardLoomError> {
+    let total_start = Instant::now();
+    let parsed = parse_sql_local_source_union_statement(&request.statement)?;
+    let branch_reports = parsed
+        .branch_statements
+        .iter()
+        .map(|statement| {
+            let branch_request = SqlLocalSourceRequest {
+                statement: statement.clone(),
+                output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+                output_path: None,
+                fanout_outputs: Vec::new(),
+                allow_overwrite: false,
+            };
+            run_sql_local_source_smoke_single(&branch_request)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    validate_sql_union_branch_boundaries(&branch_reports)?;
+
+    let compute_start = Instant::now();
+    let output_columns = sql_union_output_columns(&branch_reports)?;
+    validate_sql_union_column_dtypes(&branch_reports)?;
+    let union_input_row_count = branch_reports
+        .iter()
+        .map(|report| report.output_rows.len())
+        .sum::<usize>();
+    let mut output_rows = sql_union_output_rows(parsed.mode, &branch_reports);
+    let union_distinct_input_row_count = output_rows.len();
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        let ordered =
+            ordered_output_row_indexes(&output_rows, order_by, "UNION ORDER BY output column")?;
+        output_rows = ordered
+            .into_iter()
+            .map(|index| output_rows[index].clone())
+            .collect();
+    }
+    output_rows.truncate(parsed.limit);
+    let operator_compute_millis = compute_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let result_jsonl = rows_to_jsonl(&output_rows);
+    let result_digest = fnv64_digest(&result_jsonl);
+    let inline_output_content = request
+        .output_format
+        .inline_result_rows(&output_columns, &output_rows)?;
+    let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
+    let prepared_outputs = prepare_sql_outputs(request, &output_columns, &output_rows)?;
+    let source_schema_digest = fnv64_digest(&csv_or_not_applicable(
+        branch_reports
+            .iter()
+            .map(|report| report.source_schema_digest.clone()),
+    ));
+    let plan_digest = sql_local_source_union_plan_digest(
+        &parsed,
+        &branch_reports,
+        request,
+        &source_schema_digest,
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+    let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
+    preflight_sql_output_writes(request)?;
+    let written_outputs = write_sql_outputs(
+        prepared_outputs,
+        &output_columns,
+        &output_rows,
+        request.allow_overwrite,
+    )?;
+    let output_write_millis = written_outputs
+        .iter()
+        .map(|output| output.write_millis)
+        .sum::<u128>();
+    let (output_digest, output_bytes) = primary_output_evidence(
+        request,
+        &written_outputs,
+        &inline_output_digest,
+        inline_output_bytes,
+    );
+
+    Ok(SqlLocalSourceUnionReport {
+        request: request.clone(),
+        parsed,
+        branch_reports,
+        output_rows,
+        result_jsonl,
+        plan_digest,
+        source_schema_digest,
+        result_digest,
+        output_digest,
+        output_write_millis,
+        output_bytes,
+        written_outputs,
+        operator_compute_millis,
+        evidence_render_millis,
+        total_runtime_millis: total_start.elapsed().as_millis(),
+        union_input_row_count,
+        union_distinct_input_row_count,
+    })
+}
+
+fn validate_sql_union_branch_boundaries(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<(), ShardLoomError> {
+    for (index, report) in branch_reports.iter().enumerate() {
+        if report.output_rows.len() >= MAX_LIMIT_ROWS {
+            return Err(unsupported_sql_error(&format!(
+                "SQL UNION branch {} reached the scoped branch row bound of {MAX_LIMIT_ROWS}; add a selective predicate before UNION so composition does not silently truncate branch rows",
+                index + 1
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn sql_union_output_columns(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<Vec<String>, ShardLoomError> {
+    let Some(first) = branch_reports.first() else {
+        return Err(unsupported_sql_error(
+            "SQL UNION requires at least two SELECT branches",
+        ));
+    };
+    let first_columns = output_column_names(&first.parsed, &first.source);
+    for (index, report) in branch_reports.iter().enumerate().skip(1) {
+        let columns = output_column_names(&report.parsed, &report.source);
+        if columns != first_columns {
+            return Err(unsupported_sql_error(&format!(
+                "SQL UNION branch {} output columns {:?} do not match first branch columns {:?}; use matching aliases before UNION",
+                index + 1,
+                columns,
+                first_columns
+            )));
+        }
+    }
+    Ok(first_columns)
+}
+
+fn validate_sql_union_column_dtypes(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<(), ShardLoomError> {
+    let Some(first) = branch_reports.first() else {
+        return Ok(());
+    };
+    let width = first.output_rows.first().map_or_else(
+        || output_column_names(&first.parsed, &first.source).len(),
+        Vec::len,
+    );
+    let mut dtypes: Vec<Option<LogicalDType>> = vec![None; width];
+    for (branch_index, report) in branch_reports.iter().enumerate() {
+        for row in &report.output_rows {
+            if row.len() != width {
+                return Err(unsupported_sql_error(&format!(
+                    "SQL UNION branch {} row width {} does not match first branch width {}; use matching projections before UNION",
+                    branch_index + 1,
+                    row.len(),
+                    width
+                )));
+            }
+            for (column_index, (_column, value)) in row.iter().enumerate() {
+                if value.is_null() {
+                    continue;
+                }
+                let dtype = value.dtype();
+                match &dtypes[column_index] {
+                    Some(expected) if expected != &dtype => {
+                        return Err(unsupported_sql_error(&format!(
+                            "SQL UNION column {} mixes {} and {} values; scoped UNION requires matching non-null dtypes before coercion is admitted",
+                            column_index + 1,
+                            expected.as_str(),
+                            dtype.as_str()
+                        )));
+                    }
+                    Some(_) => {}
+                    None => dtypes[column_index] = Some(dtype),
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn sql_union_output_rows(
+    mode: SqlUnionMode,
+    branch_reports: &[SqlLocalSourceReport],
+) -> Vec<Vec<(String, ScalarValue)>> {
+    let mut output_rows = Vec::new();
+    let mut distinct_keys = BTreeSet::new();
+    for row in branch_reports
+        .iter()
+        .flat_map(|report| report.output_rows.iter().cloned())
+    {
+        if matches!(mode, SqlUnionMode::Distinct) && !distinct_keys.insert(row_distinct_key(&row)) {
+            continue;
+        }
+        output_rows.push(row);
+    }
+    output_rows
+}
+
+fn sql_local_source_union_plan_digest(
+    parsed: &ParsedSqlLocalSourceUnion,
+    branch_reports: &[SqlLocalSourceReport],
+    request: &SqlLocalSourceRequest,
+    source_schema_digest: &str,
+) -> String {
+    let order_by = parsed.order_by.as_ref().map_or_else(
+        || "none".to_string(),
+        |order_by| {
+            format!(
+                "{}:{}",
+                order_by.columns_label(),
+                order_by.directions_label()
+            )
+        },
+    );
+    let branch_plan_digests = csv_or_not_applicable(
+        branch_reports
+            .iter()
+            .map(|report| report.plan_digest.clone()),
+    );
+    fnv64_digest(&format!(
+        "sql_union|mode={}|statement={}|branches={}|branch_plans={branch_plan_digests}|order_by={order_by}|limit={}|output_format={}|output_path={}|fanout={}|schema={source_schema_digest}",
+        parsed.mode.as_str(),
+        parsed.normalized_statement,
+        parsed.branch_statements.len(),
+        parsed.limit,
+        request.output_format.sink_format(),
+        request
+            .output_path
+            .as_ref()
+            .map_or_else(|| "inline".to_string(), |path| path.display().to_string()),
+        fanout_plan_digest_fragment(request),
+    ))
 }
 
 fn evaluate_sql_local_source_output(
@@ -16173,6 +16533,620 @@ fn in_list_equality_expression(
 }
 
 #[allow(clippy::too_many_lines)]
+impl SqlLocalSourceUnionReport {
+    fn fields(&self) -> Vec<(String, String)> {
+        let output_columns = self.output_columns();
+        let source_bytes = self
+            .branch_reports
+            .iter()
+            .map(|report| report.source.source_bytes)
+            .sum::<u64>();
+        vec![
+            ("schema_version".to_string(), SCHEMA_VERSION.to_string()),
+            (
+                "execution_mode".to_string(),
+                "direct_compatibility_transient".to_string(),
+            ),
+            ("engine_mode".to_string(), "batch".to_string()),
+            ("runtime_execution".to_string(), "true".to_string()),
+            (
+                "support_status".to_string(),
+                "fixture_smoke_supported".to_string(),
+            ),
+            (
+                "route_runtime_status".to_string(),
+                "scoped_runtime_supported".to_string(),
+            ),
+            (
+                "sql_statement_kind".to_string(),
+                self.parsed.mode.statement_kind().to_string(),
+            ),
+            ("sql_statement".to_string(), self.request.statement.clone()),
+            ("sql_parser_executed".to_string(), "true".to_string()),
+            ("sql_binder_executed".to_string(), "true".to_string()),
+            ("sql_planner_executed".to_string(), "true".to_string()),
+            ("sql_runtime_execution".to_string(), "true".to_string()),
+            (
+                "user_surface_runtime_scope".to_string(),
+                "format_neutral_sql_python_runtime".to_string(),
+            ),
+            (
+                "format_specific_boundary_scope".to_string(),
+                "read_ingest_and_write_only".to_string(),
+            ),
+            (
+                "format_specific_compute_path".to_string(),
+                "false".to_string(),
+            ),
+            ("source_io_performed".to_string(), "true".to_string()),
+            ("source_format".to_string(), self.branch_source_formats()),
+            ("source_formats".to_string(), self.branch_source_formats()),
+            (
+                "source_kind".to_string(),
+                "local_non_vortex_file".to_string(),
+            ),
+            ("source_path".to_string(), self.branch_source_paths()),
+            ("source_paths".to_string(), self.branch_source_paths()),
+            ("source_bytes".to_string(), source_bytes.to_string()),
+            ("source_digest".to_string(), self.branch_source_digests()),
+            (
+                "source_state_id".to_string(),
+                self.branch_source_state_ids(),
+            ),
+            (
+                "source_state_digest".to_string(),
+                self.branch_source_state_digests(),
+            ),
+            (
+                "source_state_contract_schema_version".to_string(),
+                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "local_input_adapter_registry_version".to_string(),
+                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
+            ),
+            (
+                "source_state_read_plan".to_string(),
+                self.branch_read_plans(),
+            ),
+            (
+                "source_state_projection_pushdown_status".to_string(),
+                self.branch_projection_pushdown_statuses(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                self.branch_materialization_layouts(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                self.branch_parse_normalizations(),
+            ),
+            (
+                "source_state_runtime_consumption_layout".to_string(),
+                "scalar_row_map_expression_runtime".to_string(),
+            ),
+            (
+                "source_state_scalar_runtime_materialization_required".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "selected_execution_mode".to_string(),
+                "direct_compatibility_transient".to_string(),
+            ),
+            (
+                "execution_route_label".to_string(),
+                "Direct one-shot UNION route".to_string(),
+            ),
+            ("timing_scope".to_string(), "direct_one_shot".to_string()),
+            (
+                "certification_policy".to_string(),
+                "scoped_compatibility_source_execution".to_string(),
+            ),
+            (
+                "certification_status".to_string(),
+                "fixture_smoke_certified".to_string(),
+            ),
+            (
+                "certification_blocker_id".to_string(),
+                "not_claim_grade_fixture_smoke".to_string(),
+            ),
+            (
+                "sql_union_runtime_execution".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "sql_union_mode".to_string(),
+                self.parsed.mode.as_str().to_string(),
+            ),
+            (
+                "sql_union_operator".to_string(),
+                self.parsed.mode.sql_keyword().to_string(),
+            ),
+            (
+                "sql_union_operator_family".to_string(),
+                self.parsed.mode.operator_family().to_string(),
+            ),
+            (
+                "sql_union_branch_count".to_string(),
+                self.branch_reports.len().to_string(),
+            ),
+            (
+                "sql_union_branch_bound_rows".to_string(),
+                MAX_LIMIT_ROWS.to_string(),
+            ),
+            (
+                "sql_union_branch_bound_status".to_string(),
+                "enforced_fail_closed_before_truncation".to_string(),
+            ),
+            (
+                "sql_union_branch_statement_kinds".to_string(),
+                self.branch_statement_kinds(),
+            ),
+            (
+                "sql_union_branch_source_paths".to_string(),
+                self.branch_source_paths(),
+            ),
+            (
+                "sql_union_branch_source_formats".to_string(),
+                self.branch_source_formats(),
+            ),
+            (
+                "sql_union_branch_source_row_count".to_string(),
+                self.branch_source_row_counts(),
+            ),
+            (
+                "sql_union_branch_selected_row_count".to_string(),
+                self.branch_selected_row_counts(),
+            ),
+            (
+                "sql_union_branch_output_row_count".to_string(),
+                self.branch_output_row_counts(),
+            ),
+            (
+                "sql_union_input_row_count".to_string(),
+                self.union_input_row_count.to_string(),
+            ),
+            (
+                "sql_union_distinct_input_row_count".to_string(),
+                self.union_distinct_input_row_count.to_string(),
+            ),
+            (
+                "sql_union_output_row_count".to_string(),
+                self.output_rows.len().to_string(),
+            ),
+            ("sql_union_limit".to_string(), self.parsed.limit.to_string()),
+            (
+                "sql_union_limit_applied_after_composition".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "sql_union_null_semantics".to_string(),
+                self.parsed.mode.null_semantics().to_string(),
+            ),
+            (
+                "sql_union_dtype_coercion_policy".to_string(),
+                "matching_non_null_branch_dtypes_required".to_string(),
+            ),
+            (
+                "sql_union_order_by_runtime_execution".to_string(),
+                self.parsed.order_by.is_some().to_string(),
+            ),
+            (
+                "order_by_runtime_execution".to_string(),
+                self.parsed.order_by.is_some().to_string(),
+            ),
+            (
+                "sort_operator_family".to_string(),
+                self.sort_operator_family(),
+            ),
+            ("sort_keys".to_string(), self.sort_keys()),
+            ("sort_direction".to_string(), self.sort_directions()),
+            (
+                "projected_columns".to_string(),
+                csv_or_not_applicable(output_columns.iter().cloned()),
+            ),
+            (
+                "output_columns".to_string(),
+                csv_or_not_applicable(output_columns.iter().cloned()),
+            ),
+            (
+                "selected_row_count".to_string(),
+                self.branch_reports
+                    .iter()
+                    .map(|report| report.selected_row_count)
+                    .sum::<usize>()
+                    .to_string(),
+            ),
+            (
+                "output_row_count".to_string(),
+                self.output_rows.len().to_string(),
+            ),
+            ("result_jsonl".to_string(), self.result_jsonl.clone()),
+            ("result_digest".to_string(), self.result_digest.clone()),
+            ("correctness_digest".to_string(), self.result_digest.clone()),
+            ("output_digest".to_string(), self.output_digest.clone()),
+            ("output_bytes".to_string(), self.output_bytes.to_string()),
+            (
+                "output_write_millis".to_string(),
+                self.output_write_millis.to_string(),
+            ),
+            ("plan_digest".to_string(), self.plan_digest.clone()),
+            (
+                "source_schema_digest".to_string(),
+                self.source_schema_digest.clone(),
+            ),
+            (
+                "operator_compute_millis".to_string(),
+                self.operator_compute_millis.to_string(),
+            ),
+            (
+                "evidence_render_millis".to_string(),
+                self.evidence_render_millis.to_string(),
+            ),
+            (
+                "total_runtime_millis".to_string(),
+                self.total_runtime_millis.to_string(),
+            ),
+            (
+                "output_format".to_string(),
+                self.request.output_format.sink_format().to_string(),
+            ),
+            ("output_path".to_string(), self.output_path()),
+            (
+                "output_io_performed".to_string(),
+                self.output_io_performed().to_string(),
+            ),
+            (
+                "result_replay_verified".to_string(),
+                self.result_replay_verified().to_string(),
+            ),
+            (
+                "output_replay_status".to_string(),
+                self.output_replay_status(),
+            ),
+            (
+                "sink_artifact_count".to_string(),
+                self.written_outputs.len().to_string(),
+            ),
+            ("sink_artifact_ref".to_string(), self.sink_artifact_ref()),
+            ("sink_artifact_refs".to_string(), self.sink_artifact_refs()),
+            (
+                "sink_artifact_digest".to_string(),
+                self.sink_artifact_digest(),
+            ),
+            (
+                "sink_artifact_digests".to_string(),
+                self.sink_artifact_digests(),
+            ),
+            (
+                "sink_artifact_formats".to_string(),
+                self.sink_artifact_formats(),
+            ),
+            (
+                "output_workspace_path_safety_status".to_string(),
+                self.output_workspace_safety_status(),
+            ),
+            ("output_commit_mode".to_string(), self.output_commit_mode()),
+            (
+                "output_commit_status".to_string(),
+                self.output_commit_status(),
+            ),
+            (
+                "output_native_io_certificate_status".to_string(),
+                self.output_native_io_certificate_status(),
+            ),
+            (
+                "execution_certificate_ref".to_string(),
+                self.execution_certificate_ref(),
+            ),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "external_query_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "benchmark_constitution_claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            ("production_claim_allowed".to_string(), "false".to_string()),
+            ("ansi_sql_claim_allowed".to_string(), "false".to_string()),
+            ("performance_claim_allowed".to_string(), "false".to_string()),
+            (
+                "public_release_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "public_package_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "package_publication_performed".to_string(),
+                "false".to_string(),
+            ),
+            ("publication_attempted".to_string(), "false".to_string()),
+            ("tag_created".to_string(), "false".to_string()),
+            ("secrets_required".to_string(), "false".to_string()),
+            (
+                "sql_dataframe_runtime_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "object_store_lakehouse_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+        ]
+    }
+
+    fn to_text(&self) -> String {
+        let output = self.request.output_path.as_ref().map_or_else(
+            || "not requested".to_string(),
+            |path| path.display().to_string(),
+        );
+        format!(
+            "SQL local-source UNION smoke\nschema_version: {SCHEMA_VERSION}\nbranches: {}\nmode: {}\nrows input: {}\nrows output: {}\noutput: {output}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            self.branch_reports.len(),
+            self.parsed.mode.as_str(),
+            self.union_input_row_count,
+            self.output_rows.len(),
+            self.result_jsonl,
+        )
+    }
+
+    fn output_columns(&self) -> Vec<String> {
+        self.branch_reports.first().map_or_else(Vec::new, |report| {
+            output_column_names(&report.parsed, &report.source)
+        })
+    }
+
+    fn branch_statement_kinds(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.parsed.statement_kind()),
+        )
+    }
+
+    fn branch_source_paths(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.parsed.source_path.display().to_string()),
+        )
+    }
+
+    fn branch_source_formats(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.source_format.as_str().to_string()),
+        )
+    }
+
+    fn branch_source_digests(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.source_digest.clone()),
+        )
+    }
+
+    fn branch_source_state_ids(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| SqlLocalSourceReport::source_state_id(&report.source)),
+        )
+    }
+
+    fn branch_source_state_digests(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source_state_digest(&report.source)),
+        )
+    }
+
+    fn branch_read_plans(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.read_plan.status().to_string()),
+        )
+    }
+
+    fn branch_projection_pushdown_statuses(&self) -> String {
+        csv_or_not_applicable(self.branch_reports.iter().map(|report| {
+            report
+                .source
+                .projection_pushdown_status
+                .as_str()
+                .to_string()
+        }))
+    }
+
+    fn branch_materialization_layouts(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.materialization_layout().to_string()),
+        )
+    }
+
+    fn branch_parse_normalizations(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.parse_normalization().to_string()),
+        )
+    }
+
+    fn branch_source_row_counts(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.source.rows.len().to_string()),
+        )
+    }
+
+    fn branch_selected_row_counts(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.selected_row_count.to_string()),
+        )
+    }
+
+    fn branch_output_row_counts(&self) -> String {
+        csv_or_not_applicable(
+            self.branch_reports
+                .iter()
+                .map(|report| report.output_rows.len().to_string()),
+        )
+    }
+
+    fn sort_operator_family(&self) -> String {
+        self.parsed.order_by.as_ref().map_or_else(
+            || "not_applicable".to_string(),
+            |order_by| order_by.operator_family_label().to_string(),
+        )
+    }
+
+    fn sort_keys(&self) -> String {
+        self.parsed.order_by.as_ref().map_or_else(
+            || "not_applicable".to_string(),
+            ParsedOrderBy::columns_label,
+        )
+    }
+
+    fn sort_directions(&self) -> String {
+        self.parsed.order_by.as_ref().map_or_else(
+            || "not_applicable".to_string(),
+            ParsedOrderBy::directions_label,
+        )
+    }
+
+    fn output_path(&self) -> String {
+        self.request
+            .output_path
+            .as_ref()
+            .map_or_else(String::new, |path| path.display().to_string())
+    }
+
+    fn output_io_performed(&self) -> bool {
+        !self.written_outputs.is_empty()
+    }
+
+    fn result_replay_verified(&self) -> bool {
+        self.output_io_performed()
+            && self
+                .written_outputs
+                .iter()
+                .all(|output| output.replay.verified)
+    }
+
+    fn output_replay_status(&self) -> String {
+        if !self.output_io_performed() {
+            return "not_applicable_inline_result".to_string();
+        }
+        if self.result_replay_verified() {
+            "verified_local_sink_artifacts".to_string()
+        } else {
+            "blocked_unverified_local_sink_artifact".to_string()
+        }
+    }
+
+    fn sink_artifact_ref(&self) -> String {
+        if self.written_outputs.is_empty() {
+            return "not_requested".to_string();
+        }
+        if self.written_outputs.len() == 1 {
+            return self.written_outputs[0].path.display().to_string();
+        }
+        self.sink_artifact_refs()
+    }
+
+    fn sink_artifact_refs(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.path.display())),
+        )
+    }
+
+    fn sink_artifact_digest(&self) -> String {
+        if self.written_outputs.is_empty() {
+            return "not_requested".to_string();
+        }
+        if self.written_outputs.len() == 1 {
+            return self.written_outputs[0].digest.clone();
+        }
+        self.sink_artifact_digests()
+    }
+
+    fn sink_artifact_digests(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.digest)),
+        )
+    }
+
+    fn sink_artifact_formats(&self) -> String {
+        csv_or_not_applicable(
+            self.written_outputs
+                .iter()
+                .map(|output| output.format.sink_format().to_string()),
+        )
+    }
+
+    fn output_workspace_safety_status(&self) -> String {
+        if self.output_io_performed() {
+            "enforced".to_string()
+        } else {
+            "not_applicable_inline_result".to_string()
+        }
+    }
+
+    fn output_commit_mode(&self) -> String {
+        self.written_outputs.first().map_or_else(
+            || "not_applicable_inline_result".to_string(),
+            |output| output.workspace_write_report.commit_mode.clone(),
+        )
+    }
+
+    fn output_commit_status(&self) -> String {
+        self.written_outputs.first().map_or_else(
+            || "not_applicable_inline_result".to_string(),
+            |output| output.workspace_write_report.commit_status.clone(),
+        )
+    }
+
+    fn output_native_io_certificate_status(&self) -> String {
+        if self.output_io_performed() {
+            "certified_local_sql_union_sink".to_string()
+        } else {
+            "not_applicable_inline_result".to_string()
+        }
+    }
+
+    fn execution_certificate_ref(&self) -> String {
+        format!(
+            "sql-local-source.union.{}.execution.v1",
+            self.parsed.mode.as_str()
+        )
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 impl SqlLocalSourceReport {
     fn fields(&self) -> Vec<(String, String)> {
         let mut fields = vec![
@@ -19475,6 +20449,135 @@ fn validate_sql_local_source_clause_order(
     Ok(())
 }
 
+fn parse_sql_local_source_union_statement(
+    raw: &str,
+) -> Result<ParsedSqlLocalSourceUnion, ShardLoomError> {
+    let statement = normalize_sql_statement(raw)?;
+    validate_advanced_scalar_policy_boundaries(&statement)?;
+    validate_complex_dtype_policy_boundaries_with_sql_union(&statement, true)?;
+    validate_advanced_subquery_policy_boundaries(&statement)?;
+
+    let operators = top_level_sql_union_operators(&statement)?;
+    if operators.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL UNION runtime requires at least two SELECT branches",
+        ));
+    }
+    let mode = operators[0].mode;
+    if operators.iter().any(|operator| operator.mode != mode) {
+        return Err(unsupported_sql_error(
+            "Mixed UNION and UNION ALL chains are not admitted in this scoped local-source runtime; use one UNION mode per statement",
+        ));
+    }
+    let last_union_index = operators.last().expect("operators checked non-empty").index;
+    let limit_indexes = top_level_keyword_indexes(&statement, "limit")?;
+    let Some(&limit_index) = limit_indexes.last() else {
+        return Err(unsupported_sql_error(
+            "SQL UNION local-source runtime requires one global LIMIT <n> clause",
+        ));
+    };
+    if limit_indexes.iter().any(|index| *index < last_union_index) || limit_indexes.len() > 1 {
+        return Err(unsupported_sql_error(
+            "SQL UNION branch-local LIMIT clauses are not admitted; apply one global LIMIT after the UNION chain",
+        ));
+    }
+    let order_by_indexes = top_level_keyword_indexes(&statement, "order by")?;
+    if order_by_indexes
+        .iter()
+        .any(|index| *index < last_union_index)
+        || order_by_indexes.len() > 1
+    {
+        return Err(unsupported_sql_error(
+            "SQL UNION branch-local ORDER BY clauses are not admitted; apply one global ORDER BY after the UNION chain",
+        ));
+    }
+    let order_by_index = order_by_indexes.first().copied();
+    if order_by_index.is_some_and(|index| index > limit_index) {
+        return Err(unsupported_sql_error(
+            "SQL UNION global ORDER BY must appear before the global LIMIT clause",
+        ));
+    }
+    if limit_index < last_union_index {
+        return Err(unsupported_sql_error(
+            "SQL UNION global LIMIT must appear after the UNION branches",
+        ));
+    }
+
+    let limit_raw = statement[limit_index + "limit".len()..].trim();
+    if limit_raw.is_empty() || limit_clause_contains_sql_clause_keyword(limit_raw) {
+        return Err(unsupported_sql_error(
+            "SQL UNION global LIMIT admits one non-negative integer literal only",
+        ));
+    }
+    let limit = parse_limit(limit_raw)?;
+    let union_body_end = order_by_index.unwrap_or(limit_index);
+    let order_by = order_by_index
+        .map(|index| {
+            let raw = statement[index + "order by".len()..limit_index].trim();
+            parse_order_by(Some(raw))
+        })
+        .transpose()?
+        .flatten();
+    let branch_statements = sql_union_branch_statements(&statement, &operators, union_body_end)?;
+    let branches = branch_statements
+        .iter()
+        .map(|branch| parse_sql_local_source_statement(branch))
+        .collect::<Result<Vec<_>, _>>()?;
+    if branches.len() < 2 {
+        return Err(unsupported_sql_error(
+            "SQL UNION requires at least two SELECT branches",
+        ));
+    }
+
+    Ok(ParsedSqlLocalSourceUnion {
+        normalized_statement: statement,
+        mode,
+        branch_statements,
+        branches,
+        order_by,
+        limit,
+    })
+}
+
+fn sql_union_branch_statements(
+    statement: &str,
+    operators: &[SqlUnionOperator],
+    union_body_end: usize,
+) -> Result<Vec<String>, ShardLoomError> {
+    let mut branches = Vec::with_capacity(operators.len() + 1);
+    let mut branch_start = 0;
+    for operator in operators {
+        if operator.index >= union_body_end {
+            return Err(unsupported_sql_error(
+                "SQL UNION operator must appear before the global ORDER BY/LIMIT tail",
+            ));
+        }
+        let branch = statement[branch_start..operator.index].trim();
+        branches.push(sql_union_bounded_branch_statement(branch)?);
+        branch_start = operator.index + operator.len;
+    }
+    let branch = statement[branch_start..union_body_end].trim();
+    branches.push(sql_union_bounded_branch_statement(branch)?);
+    Ok(branches)
+}
+
+fn sql_union_bounded_branch_statement(branch: &str) -> Result<String, ShardLoomError> {
+    if branch.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL UNION branches must not be empty",
+        ));
+    }
+    if !branch
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
+    {
+        return Err(unsupported_sql_error(
+            "SQL UNION branches must be SELECT local-source statements",
+        ));
+    }
+    Ok(format!("{branch} LIMIT {MAX_LIMIT_ROWS}"))
+}
+
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
     let statement = normalize_and_validate_sql_statement(raw)?;
     if !statement
@@ -19663,7 +20766,7 @@ fn parse_select_distinct_marker(select_list: &str) -> Result<(bool, &str), Shard
 fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
     validate_advanced_scalar_policy_boundaries(&statement)?;
-    validate_complex_dtype_policy_boundaries(&statement)?;
+    validate_complex_dtype_policy_boundaries_with_sql_union(&statement, false)?;
     validate_advanced_subquery_policy_boundaries(&statement)?;
     Ok(statement)
 }
@@ -19785,7 +20888,10 @@ fn target_dtype_matches_any(target_dtype: &str, dtypes: &[&str]) -> bool {
     })
 }
 
-fn validate_complex_dtype_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
+fn validate_complex_dtype_policy_boundaries_with_sql_union(
+    statement: &str,
+    allow_sql_union: bool,
+) -> Result<(), ShardLoomError> {
     if contains_keyword_followed_by_char_outside_quotes(statement, "array", '[')
         || contains_function_call_outside_quotes(statement, "array")
         || contains_function_call_outside_quotes(statement, "list_value")
@@ -19815,9 +20921,16 @@ fn validate_complex_dtype_policy_boundaries(statement: &str) -> Result<(), Shard
             "variant access semantics are not admitted by the current complex dtype profile",
         ));
     }
-    if contains_keyword_outside_quotes(statement, "union") {
+    if contains_cast_target_matching(statement, "cast", target_is_union_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_union_dtype)?
+    {
         return Err(unsupported_sql_error(
-            "SQL UNION and union dtype semantics are not admitted by the current complex dtype profile",
+            "union dtype casts are not admitted by the current complex dtype profile",
+        ));
+    }
+    if !allow_sql_union && contains_keyword_outside_quotes(statement, "union") {
+        return Err(unsupported_sql_error(
+            "SQL UNION is not admitted in single SELECT branch parsing; use the scoped top-level UNION runtime path",
         ));
     }
     if contains_keyword_followed_by_char_outside_quotes(statement, "binary", '\'')
@@ -19845,6 +20958,10 @@ fn target_is_struct_dtype(target_dtype: &str) -> bool {
 
 fn target_is_variant_dtype(target_dtype: &str) -> bool {
     target_dtype_matches_any(target_dtype, &["variant"])
+}
+
+fn target_is_union_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(target_dtype, &["union"])
 }
 
 fn target_is_binary_dtype(target_dtype: &str) -> bool {
@@ -25127,6 +26244,131 @@ fn find_keyword_outside_quotes(raw: &str, keyword: &str) -> Option<usize> {
     None
 }
 
+fn top_level_sql_union_operators(raw: &str) -> Result<Vec<SqlUnionOperator>, ShardLoomError> {
+    let mut operators = Vec::new();
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth != 0 {
+            continue;
+        }
+        let remaining = &raw[index..];
+        if !remaining
+            .get(.."union".len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("union"))
+            || !keyword_boundary(raw, index, "union".len())
+        {
+            continue;
+        }
+        let mut len = "union".len();
+        let tail = &raw[index + len..];
+        let whitespace_len = tail.len() - tail.trim_start().len();
+        let tail_trimmed = &tail[whitespace_len..];
+        let mode = if starts_with_keyword(tail_trimmed, "all") {
+            len += whitespace_len + "all".len();
+            SqlUnionMode::All
+        } else if starts_with_keyword(tail_trimmed, "distinct") {
+            len += whitespace_len + "distinct".len();
+            SqlUnionMode::Distinct
+        } else {
+            SqlUnionMode::Distinct
+        };
+        operators.push(SqlUnionOperator { index, len, mode });
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "WHERE predicate grouping parentheses must be balanced",
+        ));
+    }
+    Ok(operators)
+}
+
+fn top_level_keyword_indexes(raw: &str, keyword: &str) -> Result<Vec<usize>, ShardLoomError> {
+    let lower_keyword = keyword.to_ascii_lowercase();
+    let mut indexes = Vec::new();
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == 0 {
+            let remaining = &raw[index..];
+            if remaining.len() >= lower_keyword.len()
+                && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
+                && keyword_boundary(raw, index, lower_keyword.len())
+            {
+                indexes.push(index);
+            }
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "WHERE predicate grouping parentheses must be balanced",
+        ));
+    }
+    Ok(indexes)
+}
+
+fn starts_with_keyword(raw: &str, keyword: &str) -> bool {
+    raw.len() >= keyword.len()
+        && raw[..keyword.len()].eq_ignore_ascii_case(keyword)
+        && keyword_boundary(raw, 0, keyword.len())
+}
+
 fn find_keyword_outside_quotes_and_parentheses(
     raw: &str,
     keyword: &str,
@@ -25722,7 +26964,7 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run sql smoke");
+        let report = run_sql_local_source_smoke_single(&request).expect("run sql smoke");
         let fields = field_map(report.fields());
 
         assert_field_eq(&fields, "source_format", "arrow_ipc");
@@ -27530,7 +28772,8 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let report = run_sql_local_source_smoke(&request).expect("run multi-key top-N smoke");
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run multi-key top-N smoke");
         let fields = field_map(report.fields());
 
         assert_eq!(
@@ -28378,8 +29621,8 @@ mod tests {
                 "variant access semantics are not admitted",
             ),
             (
-                "SELECT id FROM 'target/input.csv' UNION SELECT id FROM 'target/other.csv' LIMIT 5",
-                "SQL UNION and union dtype semantics are not admitted",
+                "SELECT CAST(payload AS union) AS payload FROM 'target/input.csv' LIMIT 5",
+                "union dtype casts are not admitted",
             ),
             (
                 "SELECT id,X'00ff' AS payload FROM 'target/input.csv' LIMIT 5",
@@ -28395,6 +29638,140 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
+    }
+
+    #[test]
+    fn parses_scoped_sql_union_all_statement() {
+        let parsed = parse_sql_local_source_union_statement(
+            "SELECT id,label FROM 'target/left.csv' WHERE amount >= 10 UNION ALL SELECT id,label FROM 'target/right.csv' WHERE amount >= 20 ORDER BY id DESC LIMIT 3",
+        )
+        .expect("scoped union statement parses");
+
+        assert_eq!(parsed.mode, SqlUnionMode::All);
+        assert_eq!(parsed.branches.len(), 2);
+        assert_eq!(parsed.branch_statements.len(), 2);
+        assert!(parsed.branch_statements[0].ends_with("LIMIT 10000"));
+        assert_eq!(parsed.limit, 3);
+        let order_by = parsed.order_by.expect("global order by parsed");
+        assert_eq!(order_by.columns_label(), "id");
+        assert_eq!(order_by.directions_label(), "desc");
+    }
+
+    #[test]
+    fn parser_blocks_union_branch_local_limit_without_fallback() {
+        let error = parse_sql_local_source_union_statement(
+            "SELECT id FROM 'target/left.csv' LIMIT 2 UNION SELECT id FROM 'target/right.csv' LIMIT 5",
+        )
+        .expect_err("branch-local limit remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("SQL UNION branch-local LIMIT clauses are not admitted"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn runs_scoped_sql_union_distinct_csv_statement() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(
+            &left,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n",
+        )
+        .expect("write left csv");
+        fs::write(
+            &right,
+            "id,label,amount\n2,beta,20\n4,delta,40\n5,epsilon,5\n",
+        )
+        .expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount >= 10 UNION SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY id ASC LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run union smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected union report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "sql_union_runtime_execution", "true");
+        assert_field_eq(&fields, "sql_union_mode", "distinct");
+        assert_field_eq(&fields, "sql_union_branch_count", "2");
+        assert_field_eq(&fields, "sql_union_input_row_count", "5");
+        assert_field_eq(&fields, "sql_union_distinct_input_row_count", "4");
+        assert_field_eq(&fields, "sql_union_output_row_count", "4");
+        assert_field_eq(&fields, "sql_union_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "sort_keys", "id");
+        assert_field_eq(&fields, "sort_direction", "asc");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn runs_scoped_sql_union_all_csv_statement() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n").expect("write left csv");
+        fs::write(&right, "id,label\n2,beta\n3,gamma\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' UNION ALL SELECT id,label FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run union all smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected union report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "sql_union_mode", "all");
+        assert_field_eq(&fields, "sql_union_input_row_count", "4");
+        assert_field_eq(&fields, "sql_union_output_row_count", "4");
+        assert_field_eq(
+            &fields,
+            "sql_union_null_semantics",
+            "not_applicable_union_all_preserves_rows",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
     }
 
     #[test]

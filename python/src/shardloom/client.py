@@ -2079,6 +2079,48 @@ class SqlLocalSourceSmokeReport:
         return value
 
     @property
+    def sql_union_runtime_execution(self) -> bool:
+        """Whether this smoke executed scoped SQL UNION composition."""
+
+        return self.envelope.field_bool("sql_union_runtime_execution", False) is True
+
+    @property
+    def sql_union_mode(self) -> str | None:
+        """Return the scoped SQL UNION mode, when present."""
+
+        return self.envelope.field("sql_union_mode")
+
+    @property
+    def sql_union_branch_count(self) -> int:
+        """Return the number of SELECT branches composed by SQL UNION."""
+
+        return self.envelope.field_int("sql_union_branch_count", 0) or 0
+
+    @property
+    def sql_union_input_row_count(self) -> int:
+        """Return rows entering SQL UNION composition after branch filters."""
+
+        return self.envelope.field_int("sql_union_input_row_count", 0) or 0
+
+    @property
+    def sql_union_distinct_input_row_count(self) -> int:
+        """Return rows remaining after UNION DISTINCT deduplication before LIMIT."""
+
+        return self.envelope.field_int("sql_union_distinct_input_row_count", 0) or 0
+
+    @property
+    def sql_union_output_row_count(self) -> int:
+        """Return rows emitted by the SQL UNION result."""
+
+        return self.envelope.field_int("sql_union_output_row_count", 0) or 0
+
+    @property
+    def sql_union_null_semantics(self) -> str | None:
+        """Return scoped SQL UNION null-semantics evidence."""
+
+        return self.envelope.field("sql_union_null_semantics")
+
+    @property
     def computed_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted computed projection path."""
 

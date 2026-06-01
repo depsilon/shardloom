@@ -140,9 +140,10 @@ Scoped local-source Python/DataFrame and SQL workflows can use either `.limit(n)
 returns a deterministic no-fallback diagnostic instead of accidentally reading an unbounded result.
 For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_columns(...)`,
 `.assign(...)`, `.groupby(...)`, `.order_by(...)`, `.sort_by(...)`, `.sort_values(...)`,
-`.distinct()`, `.drop_duplicates()`, and `.unique()` are accepted only as thin names over
+`.distinct()`, `.drop_duplicates()`, `.unique()`, `.union(...)`, and `.union_all(...)` are accepted
+only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, join/window,
-row-level `SELECT DISTINCT`, and bounded terminal paths.
+row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable
