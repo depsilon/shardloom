@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: User-surface runtime gap inventory gate
+  - Date: 2026-06-01
+  - Branch/PR: `codex/user-surface-runtime-gap-inventory` / #998.
+  - Source:
+    - User request to remove confusing unsupported posture before continuing runtime work.
+    - `GAR-RUNTIME-IMPL-6D Runtime-Ready User Surface And Benchmark-Range Completion`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`,
+      `docs/status/runs-today-support-matrix.json`, website status content, and promoted benchmark
+      artifacts.
+  - Scope:
+    - Added a deterministic user-surface runtime gap inventory validator and artifact at
+      `target/user-surface-runtime-gap-inventory.json`.
+    - Classified benchmark-range user-surface gaps as
+      `runtime_available_needs_front_door`, `runtime_available_needs_output_route`,
+      `runtime_available_needs_claim_evidence`, `true_runtime_expansion_item`, or
+      `policy_rejected`.
+    - Required each inventoried route to carry a Vortex normalization point, runtime route,
+      output/evidence route or owner, claim boundary, and no-fallback/no-external-engine boundary.
+    - Wired the inventory into release-readiness, CI-gate, and test coverage so future unsupported,
+      blocked, not-complete, or front-door-gap wording must be classified instead of drifting into
+      user-facing surfaces.
+    - Clarified README, quickstart, local benchmark docs, and benchmark lane labels so internal
+      ShardLoom modes are not presented as generic unsupported runtime gaps.
+  - Evidence:
+    - Inventory artifact reported 31 classified rows, including zero unclassified user-surface gaps,
+      zero ShardLoom unsupported benchmark rows, and six external DataFusion baseline unsupported
+      rows classified as external baseline limitations.
+    - Local validation covered the inventory validator, SQL/Python/DataFrame parity gate,
+      Python user-surface completion gate, release-readiness gate with `--allow-blocked`, compile
+      checks, diff whitespace, formatting, and release-readiness metadata contract tests.
+    - PR CI passed, and post-merge `main` CI run `26729436012` passed.
+  - Claim boundary:
+    - This is a runtime-safety inventory and validator. It proves classification and evidence-shape
+      coverage for current user-surface gaps, not broad SQL/Python/DataFrame runtime completion,
+      package publication, production readiness, or performance equivalence.
+    - `not_claim_grade` remains valid for rows that lack correctness, benchmark, production,
+      replacement, or performance evidence.
+  - Fallback boundary:
+    - ShardLoom benchmark rows remain no-fallback rows with `fallback_attempted=false` and
+      `external_engine_invoked=false`. External engines remain baselines only and unsupported
+      external rows are not ShardLoom runtime gaps.
+
 - [x] Session label: Benchmark route runtime status and route-lane presentation cleanup
   - Date: 2026-06-01
   - Branch/PR: `codex/benchmark-route-runtime-status` / #997.

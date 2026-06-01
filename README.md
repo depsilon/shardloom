@@ -126,6 +126,21 @@ no-fallback evidence internally. Lower-level helpers such as explicit `prepare_v
 runtime-envelope inspection, and session evidence are engine-development and diagnostic surfaces,
 not the normal path for using ShardLoom.
 
+For route selection, use the side-effect-free route capability report instead of guessing from
+benchmark lane names or scattered status text:
+
+```python
+routes = ctx.user_route_capability_report()
+route = routes.route("local_file_prepare_once_first_query")
+print(route.vortex_normalization_point)
+print(route.execution_mode, route.output_route)
+print(route.claim_gate_status, route.fallback_attempted, route.external_engine_invoked)
+```
+
+The report answers which route to use for a declared input/output pair, where the input crosses
+into Vortex-preparable or Vortex-native state, what executes, what may be decoded or materialized,
+and which evidence/claim boundary applies.
+
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can
 opt into explicit decoded containers through the Python materialization helpers:

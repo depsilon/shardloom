@@ -85,6 +85,8 @@ from .context import (
     TableFormatBoundaryMatrixRow,
     UniversalCompatibilityRow,
     UniversalCompatibilityScoreboard,
+    UserRouteCapabilityReport,
+    UserRouteCapabilityRow,
     context,
     session,
 )
@@ -240,6 +242,8 @@ __all__ = [
     "TableFormatBoundaryMatrixRow",
     "UniversalCompatibilityRow",
     "UniversalCompatibilityScoreboard",
+    "UserRouteCapabilityReport",
+    "UserRouteCapabilityRow",
     "CompatibilitySourcePlan",
     "CompatibilitySourceSmokeReport",
     "ContextCapabilities",

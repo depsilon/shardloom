@@ -364,6 +364,179 @@ class FrontDoorParityMatrix:
         raise KeyError(f"front-door parity row {row_id!r} is not in the matrix")
 
 
+@dataclass(frozen=True, slots=True)
+class UserRouteCapabilityRow:
+    """User/agent route-selection row for one input/output workflow family."""
+
+    route_id: str
+    route_display_name: str
+    input_family: str
+    input_examples: tuple[str, ...]
+    front_doors: tuple[str, ...]
+    desired_outputs: tuple[str, ...]
+    recommended_user_surface: str
+    start_state: str
+    vortex_normalization_point: str
+    source_route: str
+    preparation_route: str
+    execution_mode: str
+    execution_route: str
+    output_route: str
+    evidence_route: str
+    materialization_decode_boundary: str
+    route_runtime_status: str
+    benchmark_range: bool
+    route_comparable_to_external_end_to_end: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    blocker_id: str | None
+    owner: str
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str
+    performance_claim_allowed: bool
+    production_claim_allowed: bool
+    spark_replacement_claim_allowed: bool
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the route preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether the route is admitted for scoped runtime use."""
+
+        return self.route_runtime_status == "scoped_runtime_supported"
+
+
+@dataclass(frozen=True, slots=True)
+class UserRouteCapabilityReport:
+    """Side-effect-free route-selection report for users and LLM agents."""
+
+    rows: tuple[UserRouteCapabilityRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.user_route_capability_report.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "gar-runtime-impl-6d.user_route_capability_report"
+
+    @property
+    def route_order(self) -> tuple[str, ...]:
+        """Return route ids in stable route-selection order."""
+
+        return tuple(row.route_id for row in self.rows)
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the route-report claim gate status."""
+
+        return "not_claim_grade"
+
+    @property
+    def flexible_anything_claim_allowed(self) -> bool:
+        """Whether broad arbitrary SQL/Python/DataFrame support can be claimed."""
+
+        return False
+
+    @property
+    def performance_equivalence_claim_allowed(self) -> bool:
+        """Whether front-door performance equivalence can be claimed."""
+
+        return False
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether production readiness can be claimed from this route report."""
+
+        return False
+
+    @property
+    def spark_replacement_claim_allowed(self) -> bool:
+        """Whether Spark replacement can be claimed from this route report."""
+
+        return False
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves no fallback and no external engine invocation."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def local_benchmark_range_routes(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return routes in the local benchmark-range user surface."""
+
+        return tuple(row for row in self.rows if row.benchmark_range)
+
+    @property
+    def unsupported_local_benchmark_route_ids(self) -> tuple[str, ...]:
+        """Return benchmark-range routes that are still generically unsupported."""
+
+        return tuple(
+            row.route_id
+            for row in self.local_benchmark_range_routes
+            if row.route_runtime_status == "unsupported"
+        )
+
+    @property
+    def route_runtime_status_counts(self) -> Mapping[str, int]:
+        """Return route runtime status counts in deterministic insertion order."""
+
+        counts: dict[str, int] = {}
+        for row in self.rows:
+            counts[row.route_runtime_status] = counts.get(row.route_runtime_status, 0) + 1
+        return counts
+
+    @property
+    def vortex_normalization_contract(self) -> str:
+        """Return the route-normalization contract shared by report rows."""
+
+        return (
+            "Native .vortex sources start at the Vortex boundary; compatibility local files "
+            "enter through SourceState and either transient Vortex-preparable execution or "
+            "vortex_ingest into VortexPreparedState; generated rows become Vortex-preparable "
+            "batches; materialized pandas/Arrow/NumPy snapshots are explicit materialized inputs "
+            "that must re-enter through a Vortex-preparable route before runtime-ready claims."
+        )
+
+    def route(self, route_id: str) -> UserRouteCapabilityRow:
+        """Return one route row by id."""
+
+        normalized = route_id.strip()
+        for row in self.rows:
+            if row.route_id == normalized:
+                return row
+        raise KeyError(f"user route {route_id!r} is not in the capability report")
+
+    def routes_for(
+        self,
+        *,
+        input_family: str | None = None,
+        desired_output: str | None = None,
+    ) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return routes matching an input family and/or desired output token."""
+
+        input_token = input_family.strip() if input_family is not None else None
+        output_token = desired_output.strip() if desired_output is not None else None
+        matches: list[UserRouteCapabilityRow] = []
+        for row in self.rows:
+            if input_token is not None and row.input_family != input_token:
+                continue
+            if output_token is not None and output_token not in row.desired_outputs:
+                continue
+            matches.append(row)
+        return tuple(matches)
+
+
 def _df_method(
     method: str,
     family: str,
@@ -433,6 +606,69 @@ def _front_door_row(
         external_engine_invoked=False,
         blocker_id=blocker_id,
         required_evidence=tuple(required_evidence),
+        claim_boundary=claim_boundary,
+    )
+
+
+def _user_route(
+    route_id: str,
+    route_display_name: str,
+    input_family: str,
+    *,
+    input_examples: Sequence[str],
+    front_doors: Sequence[str],
+    desired_outputs: Sequence[str],
+    recommended_user_surface: str,
+    start_state: str,
+    vortex_normalization_point: str,
+    source_route: str,
+    preparation_route: str,
+    execution_mode: str,
+    execution_route: str,
+    output_route: str,
+    evidence_route: str,
+    materialization_decode_boundary: str,
+    route_runtime_status: str,
+    benchmark_range: bool,
+    route_comparable_to_external_end_to_end: bool,
+    owner: str,
+    required_evidence: Sequence[str],
+    claim_boundary: str,
+    blocker_id: str | None = None,
+    claim_gate_status: str = "not_claim_grade",
+    performance_claim_allowed: bool = False,
+    production_claim_allowed: bool = False,
+    spark_replacement_claim_allowed: bool = False,
+) -> UserRouteCapabilityRow:
+    return UserRouteCapabilityRow(
+        route_id=route_id,
+        route_display_name=route_display_name,
+        input_family=input_family,
+        input_examples=tuple(input_examples),
+        front_doors=tuple(front_doors),
+        desired_outputs=tuple(desired_outputs),
+        recommended_user_surface=recommended_user_surface,
+        start_state=start_state,
+        vortex_normalization_point=vortex_normalization_point,
+        source_route=source_route,
+        preparation_route=preparation_route,
+        execution_mode=execution_mode,
+        execution_route=execution_route,
+        output_route=output_route,
+        evidence_route=evidence_route,
+        materialization_decode_boundary=materialization_decode_boundary,
+        route_runtime_status=route_runtime_status,
+        benchmark_range=benchmark_range,
+        route_comparable_to_external_end_to_end=route_comparable_to_external_end_to_end,
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        blocker_id=blocker_id,
+        owner=owner,
+        required_evidence=tuple(required_evidence),
+        claim_gate_status=claim_gate_status,
+        performance_claim_allowed=performance_claim_allowed,
+        production_claim_allowed=production_claim_allowed,
+        spark_replacement_claim_allowed=spark_replacement_claim_allowed,
         claim_boundary=claim_boundary,
     )
 
@@ -1669,6 +1905,497 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "Shared runtime paths support a scoped expectation that overhead should converge, but "
             "performance equivalence is not claim-grade until equivalent front-door benchmarks "
             "show the same Vortex-normalized runtime boundary and are published and reproducible."
+        ),
+    ),
+)
+
+
+_ALL_USER_FRONT_DOORS = ("SQL", "Python", "DataFrame", "context", "session", "CLI")
+_PYTHON_FRONT_DOORS = ("Python", "DataFrame", "context", "session")
+
+USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
+    _user_route(
+        "local_file_direct_transient_route",
+        "ShardLoom Direct Transient Route",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl", "flat.json", "local.parquet"),
+        front_doors=_ALL_USER_FRONT_DOORS,
+        desired_outputs=(
+            "machine_readable_report",
+            "bounded_preview",
+            "local_compat_output",
+            "feature_gated_local_vortex_output",
+        ),
+        recommended_user_surface="ctx.read(path).filter(...).select(...).limit(...).collect()/write_*",
+        start_state="raw_compat_source",
+        vortex_normalization_point=(
+            "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
+            "no persistent VortexPreparedState is created on this route"
+        ),
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="direct_compatibility_transient_no_persistent_preparation",
+        execution_mode="direct_compatibility_transient",
+        execution_route="sql-local-source-smoke local-source ShardLoom runtime",
+        output_route="bounded report, local JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex sink",
+        evidence_route="OutputEnvelope fields plus execution, Native I/O, replay, and no-fallback evidence",
+        materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.local_file_direct_transient_route",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "execution_certificate",
+            "native_io_certificate",
+            "output_fidelity_report_status",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY,
+    ),
+    _user_route(
+        "local_file_cold_certified_route",
+        "ShardLoom Cold Certified Route",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        front_doors=_ALL_USER_FRONT_DOORS,
+        desired_outputs=("machine_readable_report", "evidence_certificate", "result_sink"),
+        recommended_user_surface="ctx.prepare_vortex(..., certification_depth='certified') or benchmark cold route",
+        start_state="raw_compat_source",
+        vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState -> reopen/scan verification",
+        source_route="compatibility_import_certified",
+        preparation_route="vortex_ingest_certified",
+        execution_mode="compatibility_import_certified",
+        execution_route="certified cold prepare, reopen/scan, query, and evidence route",
+        output_route="result sink plus certificate/evidence report",
+        evidence_route="route-runtime fields, VortexPreparedState evidence, stage timings, and no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only at declared result sink or bounded report",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.local_file_cold_certified_route",
+        required_evidence=(
+            "source_state",
+            "vortex_prepared_state",
+            "compatibility_import_certified",
+            "execution_certificate",
+            "route_stage_timing",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Cold certified route evidence covers raw compatibility input through certified "
+            "Vortex preparation, reopen/scan, query, and evidence for local benchmark-range rows. "
+            "It is not a production or performance-superiority claim."
+        ),
+    ),
+    _user_route(
+        "local_file_prepare_once_first_query",
+        "ShardLoom Prepare-Once First Query",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        front_doors=_ALL_USER_FRONT_DOORS,
+        desired_outputs=("prepared_query_result", "machine_readable_report", "result_sink"),
+        recommended_user_surface="ctx.prepare_vortex(path).query(...).collect()/write_*",
+        start_state="raw_compat_source",
+        vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState before first query",
+        source_route="compatibility input adapter",
+        preparation_route="vortex_ingest_prepare_once",
+        execution_mode="prepared_vortex",
+        execution_route="prepared_vortex first query after preparation",
+        output_route="prepared query result, bounded report, or local result sink",
+        evidence_route="prepared-state creation evidence, preparation_included=true, first-query route fields",
+        materialization_decode_boundary="decode/materialization only after prepared query output is declared",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.local_file_prepare_once_first_query",
+        required_evidence=(
+            "vortex_ingest",
+            "VortexPreparedState",
+            "prepared_state_lookup_or_create_ms",
+            "prepared_query_execution",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Prepare-once first-query route is the primary raw compatibility input to prepared "
+            "Vortex user route. It includes preparation in the route boundary and remains "
+            "local evidence only until broader correctness, claim, and benchmark evidence lands."
+        ),
+    ),
+    _user_route(
+        "local_file_prepare_once_batch",
+        "ShardLoom Prepare-Once Batch",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl", "orders.parquet", "events.arrow"),
+        front_doors=_ALL_USER_FRONT_DOORS,
+        desired_outputs=("amortized_prepared_queries", "machine_readable_report", "result_sink"),
+        recommended_user_surface="ctx.prepare_vortex(path).run_batch([...]) or benchmark prepare-batch lane",
+        start_state="raw_compat_source",
+        vortex_normalization_point="SourceState -> vortex_ingest once -> reused VortexPreparedState",
+        source_route="compatibility input adapter",
+        preparation_route="vortex_ingest_prepare_once_reused_for_batch",
+        execution_mode="shardloom-prepare-batch",
+        execution_route="prepared_vortex batch scenarios in one ShardLoom process",
+        output_route="one report/result per prepared scenario plus amortization evidence",
+        evidence_route="prepare_batch_scale_route, prepared_state_reused=true, batch stage timing, no-fallback evidence",
+        materialization_decode_boundary="decode/materialization only for each declared result sink",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.local_file_prepare_once_batch",
+        required_evidence=(
+            "VortexPreparedState",
+            "prepared_state_reused",
+            "batch_scenario_manifest",
+            "route_stage_timing",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Prepare-once batch evidence shows realistic local prepared-state reuse. It does not "
+            "authorize production, distributed, or performance-superiority claims."
+        ),
+    ),
+    _user_route(
+        "prepared_vortex_warm_query",
+        "ShardLoom Warm Prepared Query",
+        "prepared_vortex_artifact",
+        input_examples=("target/prepared/orders.vortex-prepared", "VortexPreparedState"),
+        front_doors=("Python", "context", "session", "CLI"),
+        desired_outputs=("prepared_query_result", "machine_readable_report", "result_sink"),
+        recommended_user_surface="prepared.query(...).collect()/write_*",
+        start_state="VortexPreparedState",
+        vortex_normalization_point="already_prepared_vortex_state",
+        source_route="prepared Vortex state lookup",
+        preparation_route="not_included_existing_VortexPreparedState",
+        execution_mode="prepared_vortex",
+        execution_route="prepared_vortex warm query",
+        output_route="prepared query result, bounded report, or local result sink",
+        evidence_route="prepared_state_reused=true, preparation_included=false, route-runtime fields",
+        materialization_decode_boundary="decode/materialization only after warm prepared query output is declared",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D.prepared_vortex_warm_query",
+        required_evidence=(
+            "VortexPreparedState",
+            "prepared_state_reused",
+            "preparation_included=false",
+            "prepared_query_execution",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Warm prepared query evidence starts after VortexPreparedState exists. It is useful "
+            "runtime evidence but is not a raw-source end-to-end comparison by itself."
+        ),
+    ),
+    _user_route(
+        "native_vortex_query",
+        "ShardLoom Native Vortex Query",
+        "local_vortex_file",
+        input_examples=("orders.vortex", "local .vortex artifact"),
+        front_doors=_ALL_USER_FRONT_DOORS,
+        desired_outputs=("machine_readable_report", "native_vortex_result", "result_sink"),
+        recommended_user_surface="ctx.read_vortex(path).filter(...).select(...).collect()/write_vortex(...)",
+        start_state="native_vortex_file",
+        vortex_normalization_point="native_vortex_boundary",
+        source_route="Vortex-native local file/source",
+        preparation_route="not_required_native_vortex_input",
+        execution_mode="native_vortex",
+        execution_route="ShardLoom native/prepared Vortex runtime family",
+        output_route="primitive report, native Vortex output, or declared result sink",
+        evidence_route="Vortex local primitive or native route envelope, Native I/O, no-fallback evidence",
+        materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D.native_vortex_query",
+        required_evidence=(
+            "vortex_local_primitive_runtime",
+            "native_vortex_input",
+            "native_io_certificate",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY,
+    ),
+    _user_route(
+        "local_vortex_primitive_report",
+        "ShardLoom Local Vortex Primitive Report",
+        "local_vortex_file",
+        input_examples=("orders.vortex",),
+        front_doors=("SQL", "Python", "DataFrame", "context", "CLI"),
+        desired_outputs=("count_report", "filter_report", "project_report", "bounded_preview"),
+        recommended_user_surface="ctx.sql(\"SELECT ... FROM 'local.vortex'\").collect() or ctx.read_vortex(...).count/filter/select",
+        start_state="native_vortex_file",
+        vortex_normalization_point="native_vortex_boundary",
+        source_route="Vortex local primitive source",
+        preparation_route="not_required_native_vortex_input",
+        execution_mode="native_vortex",
+        execution_route="vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project",
+        output_route="machine-readable primitive report and bounded scoped collect output",
+        evidence_route="local primitive command envelope, execution certificate, Native I/O, no-fallback evidence",
+        materialization_decode_boundary="primitive report boundary; no broad decoded row materialization",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D.local_vortex_primitive_report",
+        required_evidence=(
+            "vortex_count",
+            "vortex_count_where",
+            "vortex_filter",
+            "vortex_project",
+            "vortex_filter_project",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY,
+    ),
+    _user_route(
+        "generated_rows_local_output",
+        "ShardLoom Generated Rows Local Output",
+        "generated_rows",
+        input_examples=("from_rows([...])", "range(0, 10)", "sql_values(...)"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "CLI"),
+        desired_outputs=("local_jsonl", "local_csv", "feature_gated_local_vortex_output", "fanout"),
+        recommended_user_surface="ctx.from_rows(...).write_* or ctx.sql_values(...).write_*",
+        start_state="source_free_generated_rows",
+        vortex_normalization_point="generated rows -> Vortex-preparable batch",
+        source_route="generated-source user rows/range/sequence/calendar/SQL literal source",
+        preparation_route="generated_source_to_vortex_preparable_batch",
+        execution_mode="generated_source_smoke",
+        execution_route="generated-source-* local output smoke family",
+        output_route="local JSONL/CSV and feature-gated local Vortex output/fanout",
+        evidence_route="generated-source certificate, OutputPlan, output Native I/O, replay evidence",
+        materialization_decode_boundary="generated rows are materialized input rows; output decode only at declared sink",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.generated_rows_local_output",
+        required_evidence=(
+            "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
+            "result_replay_verified",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
+    ),
+    _user_route(
+        "materialized_python_snapshot_reentry",
+        "ShardLoom Materialized Python Snapshot Re-Entry",
+        "materialized_python_arrow_numpy",
+        input_examples=("from_pandas(df)", "from_arrow_table(table)", "from_arrow_ipc(bytes)"),
+        front_doors=_PYTHON_FRONT_DOORS,
+        desired_outputs=("local_jsonl", "local_csv", "machine_readable_report", "generated_rows_reentry"),
+        recommended_user_surface="ctx.from_pandas(df).write_* or ctx.from_arrow_table(table).write_*",
+        start_state="materialized_python_or_arrow_snapshot",
+        vortex_normalization_point="materialized snapshot -> generated rows -> Vortex-preparable route",
+        source_route="explicit materialized input boundary",
+        preparation_route="materialized_input_snapshot_to_generated_source_user_rows",
+        execution_mode="generated_source_smoke",
+        execution_route="generated-source user rows local output smoke",
+        output_route="local JSONL/CSV report and generated-source evidence",
+        evidence_route="materialized input boundary, generated-source certificate, no-fallback evidence",
+        materialization_decode_boundary="materialized input is explicit; no hidden pandas/Arrow execution engine",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D.materialized_python_snapshot_reentry",
+        required_evidence=(
+            "materialized_input_boundary",
+            "generated_source_user_rows",
+            "input_fidelity_boundary",
+            "optional_dependency_policy",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _user_route(
+        "bounded_decoded_preview",
+        "ShardLoom Bounded Decoded Preview",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session"),
+        desired_outputs=("bounded_preview", "python_objects", "pandas_optional", "arrow_optional", "numpy_optional"),
+        recommended_user_surface="ctx.read(path).limit(n).to_python_objects()/to_pandas()/to_arrow()/display()",
+        start_state="raw_compat_source",
+        vortex_normalization_point="local source -> SourceState -> ShardLoom runtime result -> bounded decoded container",
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="route_specific_direct_or_prepared_source_state",
+        execution_mode="direct_compatibility_transient",
+        execution_route="sql-local-source-smoke inline bounded result",
+        output_route="bounded decoded preview or optional container",
+        evidence_route="bounded materialization policy, optional dependency policy, no-fallback evidence",
+        materialization_decode_boundary="bounded explicit decode only after ShardLoom runtime result",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D.bounded_decoded_preview",
+        required_evidence=(
+            "bounded_materialization_runtime",
+            "decoded_materialization_policy",
+            "optional_dependency_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_MATERIALIZATION_BOUNDARY,
+    ),
+    _user_route(
+        "schema_quality_preview",
+        "ShardLoom Schema And Data-Quality Preview",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session"),
+        desired_outputs=("schema_report", "validation_report", "data_quality_report", "preview"),
+        recommended_user_surface="ctx.read(path).schema()/validate_schema()/data_quality()/preview()",
+        start_state="raw_compat_source",
+        vortex_normalization_point="local source -> SourceState -> ShardLoom runtime bounded evidence rows",
+        source_route="UniversalIngress/InputAdapter local compatibility source",
+        preparation_route="route_specific_direct_or_prepared_source_state",
+        execution_mode="direct_compatibility_transient",
+        execution_route="sql-local-source-smoke inline bounded schema/data-quality result",
+        output_route="machine-readable schema, validation, data-quality, preview report",
+        evidence_route="schema/data-quality report fields, execution certificate, no-fallback evidence",
+        materialization_decode_boundary="bounded decoded report rows only",
+        route_runtime_status="scoped_runtime_supported",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D.schema_quality_preview",
+        required_evidence=(
+            "sql_schema_quality_surface",
+            "schema_report_contract",
+            "data_quality_report_contract",
+            "front_door_equivalence_tests",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=_LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY,
+    ),
+    _user_route(
+        "quarantine_output_route",
+        "ShardLoom Quarantine Output Route",
+        "local_compat_file",
+        input_examples=("orders.csv", "events.jsonl"),
+        front_doors=("Python", "DataFrame", "context", "session", "CLI"),
+        desired_outputs=("quarantine_output", "policy_report"),
+        recommended_user_surface="ctx.read(path).quarantine(...) once sink policy lands",
+        start_state="raw_compat_source",
+        vortex_normalization_point="local source or generated rows -> Vortex-preparable rows",
+        source_route="local source or generated rows",
+        preparation_route="pending_quarantine_sink_policy",
+        execution_mode="pending_output_route",
+        execution_route="admitted local rows exist; quarantine sink write policy is pending",
+        output_route="output_route_pending",
+        evidence_route="deterministic output-route blocker until quarantine sink evidence lands",
+        materialization_decode_boundary="no quarantine materialization or write until sink policy is admitted",
+        route_runtime_status="output_route_pending",
+        benchmark_range=False,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D:last_order.quarantine_output_route",
+        blocker_id="cg21.workflow.quarantine.output_unsupported",
+        required_evidence=("quarantine_policy", "sink_write_evidence", "commit_evidence"),
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _user_route(
+        "broad_sql_python_dataframe_runtime",
+        "ShardLoom Broad SQL/Python/DataFrame Runtime Expansion",
+        "arbitrary_user_expression",
+        input_examples=("arbitrary SQL", "multi-stage DataFrame pipeline", "typed Python expression"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session"),
+        desired_outputs=("any_supported_result", "native_vortex_output", "compatibility_output"),
+        recommended_user_surface="GAR-RUNTIME-IMPL-6D broad language surface after semantic coverage lands",
+        start_state="user_expression",
+        vortex_normalization_point="front-door expression -> ShardLoom plan -> Vortex-normalized runtime path pending",
+        source_route="pending broad parser/binder/expression registry route",
+        preparation_route="pending route-specific Vortex preparation",
+        execution_mode="pending_broad_language_runtime",
+        execution_route="broad SQL grammar, expression registry, DataFrame API, UDF, and effect policy pending",
+        output_route="deterministic diagnostic until broad output route evidence lands",
+        evidence_route="semantic conformance, execution certificate, Native I/O, benchmark evidence pending",
+        materialization_decode_boundary="must be explicit per operator/output; hidden materialization is not allowed",
+        route_runtime_status="runtime_expansion_pending",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+        blocker_id="cg20.cg21.broad_language_surface_missing",
+        required_evidence=(
+            "sql_grammar_coverage",
+            "expression_kernel_registry",
+            "semantic_conformance_suite",
+            "front_door_equivalence_tests",
+            "benchmark_evidence",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "The broad 'build anything' claim remains not-claim-grade until SQL, Python, "
+            "DataFrame, function/UDF, semantic conformance, and benchmark evidence converge on "
+            "the same Vortex-normalized ShardLoom-native execution plan."
+        ),
+    ),
+    _user_route(
+        "object_store_lakehouse_runtime",
+        "ShardLoom Object-Store And Lakehouse Runtime Expansion",
+        "object_store_lakehouse_catalog",
+        input_examples=("s3://bucket/table", "Iceberg table", "Delta-compatible table"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session", "CLI"),
+        desired_outputs=("remote_result", "table_commit", "native_vortex_output", "compatibility_output"),
+        recommended_user_surface="object-store/table helpers after credential, commit, and recovery evidence lands",
+        start_state="remote_or_table_source",
+        vortex_normalization_point="object-store or table source -> Vortex-normalized runtime path pending",
+        source_route="pending object-store/table/catalog source route",
+        preparation_route="pending table/object-source to Vortex preparation and commit protocol",
+        execution_mode="pending_production_io_runtime",
+        execution_route="object-store/table runtime, catalog, commit, rollback, retry, and recovery pending",
+        output_route="blocked diagnostic or report-only evidence until production I/O runtime lands",
+        evidence_route="credential policy, table/runtime evidence, commit/recovery evidence pending",
+        materialization_decode_boundary="remote output transfer and table commit boundaries must be explicit",
+        route_runtime_status="runtime_expansion_pending",
+        benchmark_range=False,
+        route_comparable_to_external_end_to_end=False,
+        owner="GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",
+        blocker_id="cg9.cg10.cg21.production_io_front_door_missing",
+        required_evidence=(
+            "vortex_input_normalization_boundary",
+            "object_store_runtime",
+            "credential_policy",
+            "catalog_table_runtime",
+            "commit_protocol",
+            "retry_recovery_evidence",
+        ),
+        claim_boundary=(
+            "Object-store, lakehouse/table, catalog, commit, rollback, and remote result "
+            "delivery remain runtime-expansion work and cannot be claimed from local smokes."
+        ),
+    ),
+    _user_route(
+        "performance_equivalence_evidence",
+        "ShardLoom Front-Door Performance Equivalence Evidence",
+        "equivalent_front_door_workload",
+        input_examples=("same workload expressed in SQL, Python, and DataFrame APIs"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session"),
+        desired_outputs=("benchmark_evidence", "claim_evidence"),
+        recommended_user_surface="front-door equivalent benchmark manifest after GAR-RUNTIME-IMPL-6D runtime routes land",
+        start_state="equivalent_workload_manifest",
+        vortex_normalization_point="route-specific Vortex boundary must be recorded in each benchmark row",
+        source_route="front-door workload manifest",
+        preparation_route="route-specific direct, cold, prepare-once, warm, or native preparation",
+        execution_mode="claim_evidence_pending",
+        execution_route="scoped runtime paths exist; equivalent front-door benchmark publication pending",
+        output_route="benchmark publication and claim evidence pending",
+        evidence_route="correctness, execution certificate, no-fallback, route timings, benchmark manifest pending",
+        materialization_decode_boundary="must match across front doors or be declared as timing scope difference",
+        route_runtime_status="claim_evidence_pending",
+        benchmark_range=True,
+        route_comparable_to_external_end_to_end=True,
+        owner="GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
+        blocker_id="cg6.front_door_performance_equivalence_benchmark_missing",
+        required_evidence=(
+            "front_door_equivalent_workload_manifest",
+            "correctness_evidence",
+            "benchmark_manifest",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Performance equivalence is not claim-grade until equivalent SQL, Python, and "
+            "DataFrame workloads publish reproducible results with the same route boundaries."
         ),
     ),
 )
@@ -5222,6 +5949,12 @@ class ContextCapabilities:
         return self.dataframe.dataframe_method_matrix
 
     @property
+    def user_route_capability_report(self) -> UserRouteCapabilityReport:
+        """Return user/agent route-selection and Vortex-normalization posture."""
+
+        return UserRouteCapabilityReport(rows=USER_ROUTE_CAPABILITY_ROWS)
+
+    @property
     def dataframe_notebook_package_readiness(
         self,
     ) -> DataFrameNotebookPackageReadinessReport:
@@ -5446,6 +6179,16 @@ class ShardLoomContext:
 
         _ = check
         return FrontDoorParityMatrix(rows=FRONT_DOOR_PARITY_ROWS)
+
+    def user_route_capability_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> UserRouteCapabilityReport:
+        """Return user/agent route choices with Vortex normalization boundaries."""
+
+        _ = check
+        return UserRouteCapabilityReport(rows=USER_ROUTE_CAPABILITY_ROWS)
 
     def dataframe_notebook_package_readiness(
         self,

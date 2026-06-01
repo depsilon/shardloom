@@ -44,6 +44,9 @@ The gate aggregates:
   proof, deterministic unsupported-path blockers, and no-fallback/no-external-engine fields
 - SQL/Python/DataFrame front-door parity report for scoped shared-runtime rows, broad parity gap
   rows, and performance-equivalence claim blockers
+- user route capability report for input/output route selection, Vortex-normalization boundaries,
+  materialization/decode boundaries, output/evidence routes, and local benchmark-range route
+  posture
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -69,6 +72,7 @@ python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_python_user_surface_completion.py
 python scripts\check_sql_python_dataframe_parity.py
 python scripts\check_user_surface_runtime_gap_inventory.py
+python scripts\check_user_route_capability_report.py
 python scripts\check_pre_5j_dependency_freshness.py
 python scripts\check_golden_workflows.py
 python scripts\check_admitted_semantics_matrix.py
@@ -207,6 +211,39 @@ external_engine_invoked=false
 
 Passing this gate means the user surface is machine-readable about remaining runtime gaps. It does
 not close the gaps or authorize broad runtime, production, or performance claims.
+
+The user route capability report uses schema
+`shardloom.user_route_capability_report.v1`:
+
+```powershell
+python scripts\check_user_route_capability_report.py
+```
+
+It writes:
+
+```text
+target/user-route-capability-report.json
+```
+
+The report is the agent-facing route selector for scoped local ShardLoom workflows. Each row names
+the input family, desired outputs, start state, Vortex normalization point, execution mode,
+execution route, output route, evidence route, materialization/decode boundary, runtime status,
+claim boundary, and no-fallback/no-external-engine fields. It intentionally keeps:
+
+```text
+all_no_fallback_no_external_engine=true
+flexible_anything_claim_allowed=false
+performance_equivalence_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+claim_gate_status=not_claim_grade
+unsupported_local_benchmark_route_ids=[]
+```
+
+Passing this gate means agents and users can choose a scoped route without inferring from scattered
+parity, benchmark, and inventory artifacts. It does not authorize broad arbitrary
+SQL/Python/DataFrame runtime, production readiness, package publication, performance equivalence,
+or Spark replacement claims.
 
 The pre-5J dependency freshness gate uses schema
 `shardloom.pre_5j_dependency_freshness_gate.v1`:

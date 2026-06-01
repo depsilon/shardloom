@@ -117,6 +117,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/user-surface-runtime-gap-inventory.json"),
     )
     parser.add_argument(
+        "--user-route-capability-report",
+        type=Path,
+        default=Path("target/user-route-capability-report.json"),
+    )
+    parser.add_argument(
         "--pre-5j-dependency-report",
         type=Path,
         default=Path("target/pre-5j-dependency-freshness-gate.json"),
@@ -173,6 +178,7 @@ def main() -> int:
         repo_root,
         args.user_surface_runtime_gap_inventory_report,
     )
+    user_route_capability_report_path = resolve(repo_root, args.user_route_capability_report)
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
 
     checks: list[dict[str, Any]] = []
@@ -1017,6 +1023,89 @@ def main() -> int:
         )
     )
 
+    user_route_capability = load_json(user_route_capability_report_path)
+    user_route_capability_blockers: list[str] = []
+    if user_route_capability is None:
+        user_route_capability_blockers.append("missing user route capability report")
+    else:
+        if (
+            user_route_capability.get("schema_version")
+            != "shardloom.user_route_capability_report.v1"
+        ):
+            user_route_capability_blockers.append(
+                "user route capability schema_version="
+                + str(user_route_capability.get("schema_version", "missing"))
+            )
+        if user_route_capability.get("status") != "passed":
+            user_route_capability_blockers.extend(
+                user_route_capability.get(
+                    "blockers", ["user route capability report blocked"]
+                )
+            )
+        if user_route_capability.get("all_no_fallback_no_external_engine") is not True:
+            user_route_capability_blockers.append(
+                "user route capability all_no_fallback_no_external_engine must be true"
+            )
+        if user_route_capability.get("unsupported_local_benchmark_route_ids"):
+            user_route_capability_blockers.append(
+                "user route capability must report zero unsupported local benchmark-range routes"
+            )
+        for field in [
+            "flexible_anything_claim_allowed",
+            "performance_equivalence_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ]:
+            if user_route_capability.get(field) is not False:
+                user_route_capability_blockers.append(
+                    f"user route capability {field} must be false"
+                )
+        if user_route_capability.get("claim_gate_status") != "not_claim_grade":
+            user_route_capability_blockers.append(
+                "user route capability claim_gate_status="
+                + str(user_route_capability.get("claim_gate_status", "missing"))
+            )
+        acceptance = user_route_capability.get("acceptance_summary")
+        if not isinstance(acceptance, dict):
+            user_route_capability_blockers.append(
+                "user route capability missing acceptance_summary"
+            )
+        else:
+            for field in [
+                "all_routes_have_vortex_normalization",
+                "all_routes_have_output_and_evidence",
+                "all_routes_have_materialization_decode_boundary",
+                "no_generic_unsupported_local_benchmark_route",
+                "all_no_fallback_no_external_engine",
+            ]:
+                if acceptance.get(field) is not True:
+                    user_route_capability_blockers.append(
+                        f"user route capability {field} must be true"
+                    )
+            for field in [
+                "performance_claim_allowed",
+                "production_claim_allowed",
+                "spark_replacement_claim_allowed",
+                "fallback_attempted",
+                "external_engine_invoked",
+            ]:
+                if acceptance.get(field) is not False:
+                    user_route_capability_blockers.append(
+                        f"user route capability {field} must be false"
+                    )
+            if acceptance.get("claim_gate_status") != "not_claim_grade":
+                user_route_capability_blockers.append(
+                    "user route capability acceptance claim_gate_status="
+                    + str(acceptance.get("claim_gate_status", "missing"))
+                )
+    checks.append(
+        check(
+            "user_route_capability_report",
+            str(args.user_route_capability_report).replace("\\", "/"),
+            user_route_capability_blockers,
+        )
+    )
+
     pre_5j_dependency = load_json(pre_5j_dependency_report_path)
     pre_5j_dependency_blockers: list[str] = []
     if pre_5j_dependency is None:
@@ -1081,6 +1170,7 @@ def main() -> int:
         "python scripts/check_python_user_surface_completion.py",
         "python scripts/check_sql_python_dataframe_parity.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
+        "python scripts/check_user_route_capability_report.py",
     ]
     validation_blockers = []
     if validation_evidence is None:
