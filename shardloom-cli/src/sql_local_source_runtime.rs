@@ -51,6 +51,7 @@ const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_IN_LIST_VALUES: usize = 32;
+const OUTER_CORRELATION_ALIAS: &str = "outer";
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
 const MAX_TIMESTAMP_ARITHMETIC_SECONDS: i64 = (MAX_DATE_ARITHMETIC_DAYS as i64) * 86_400;
 const ADMITTED_LOCAL_SOURCE_EXTENSIONS: &str =
@@ -5463,6 +5464,9 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
     for column in parsed.predicate.columns() {
         columns.insert(column.to_string());
     }
+    parsed
+        .predicate
+        .push_outer_correlation_columns(&mut columns);
     push_projection_required_columns(parsed, &mut columns);
     push_window_required_columns(parsed, &mut columns);
 
@@ -6047,11 +6051,27 @@ fn materialize_in_subquery_predicates(
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
-        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => materialize_in_subquery(subquery),
-        ParsedPredicate::RowValueInSubquery { subquery, .. } => {
-            materialize_row_value_in_subquery(subquery)
+        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
+            if subquery.predicate.uses_outer_correlation() {
+                Ok(())
+            } else {
+                materialize_in_subquery(subquery)
+            }
         }
-        ParsedPredicate::ExistsSubquery { subquery } => materialize_exists_subquery(subquery),
+        ParsedPredicate::RowValueInSubquery { subquery, .. } => {
+            if subquery.predicate.uses_outer_correlation() {
+                Ok(())
+            } else {
+                materialize_row_value_in_subquery(subquery)
+            }
+        }
+        ParsedPredicate::ExistsSubquery { subquery } => {
+            if subquery.predicate.uses_outer_correlation() {
+                Ok(())
+            } else {
+                materialize_exists_subquery(subquery)
+            }
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             materialize_in_subquery_predicates(left)?;
             materialize_in_subquery_predicates(right)
@@ -6079,6 +6099,278 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
+}
+
+fn materialize_correlated_subquery_predicates(
+    predicate: &mut ParsedPredicate,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    match predicate {
+        ParsedPredicate::InSubquery { subquery, .. }
+        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
+            if subquery.predicate.uses_outer_correlation() {
+                materialize_in_subquery_for_outer_row(subquery, outer_row)
+            } else {
+                materialize_in_subquery(subquery)
+            }
+        }
+        ParsedPredicate::RowValueInSubquery { subquery, .. } => {
+            if subquery.predicate.uses_outer_correlation() {
+                materialize_row_value_in_subquery_for_outer_row(subquery, outer_row)
+            } else {
+                materialize_row_value_in_subquery(subquery)
+            }
+        }
+        ParsedPredicate::ExistsSubquery { subquery } => {
+            if subquery.predicate.uses_outer_correlation() {
+                materialize_exists_subquery_for_outer_row(subquery, outer_row)
+            } else {
+                materialize_exists_subquery(subquery)
+            }
+        }
+        ParsedPredicate::Logical { left, right, .. } => {
+            materialize_correlated_subquery_predicates(left, outer_row)?;
+            materialize_correlated_subquery_predicates(right, outer_row)
+        }
+        ParsedPredicate::Not { inner } => {
+            materialize_correlated_subquery_predicates(inner, outer_row)
+        }
+        ParsedPredicate::All
+        | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::ColumnCompare { .. }
+        | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::NumericArithmeticCompare { .. }
+        | ParsedPredicate::NumericAbsCompare { .. }
+        | ParsedPredicate::NumericRoundingCompare { .. }
+        | ParsedPredicate::GenericExpressionCompare { .. }
+        | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampArithmeticCompare { .. }
+        | ParsedPredicate::DateExtractCompare { .. }
+        | ParsedPredicate::StringLengthCompare { .. }
+        | ParsedPredicate::TimestampExtractCompare { .. }
+        | ParsedPredicate::BooleanPredicate { .. }
+        | ParsedPredicate::IsNull { .. }
+        | ParsedPredicate::IsNotNull { .. }
+        | ParsedPredicate::InList { .. }
+        | ParsedPredicate::RowValueInList { .. }
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
+    }
+}
+
+fn materialize_in_subquery_for_outer_row(
+    subquery: &mut ParsedInSubquery,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    let mut scoped = subquery.clone();
+    scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
+        scoped.predicate.as_ref(),
+        outer_row,
+    )?);
+    scoped.source_format = None;
+    scoped.source_digest = None;
+    scoped.input_row_count = 0;
+    scoped.filtered_row_count = 0;
+    scoped.values.clear();
+    materialize_in_subquery(&mut scoped)?;
+    *subquery = scoped;
+    Ok(())
+}
+
+fn materialize_row_value_in_subquery_for_outer_row(
+    subquery: &mut ParsedRowValueInSubquery,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    let mut scoped = subquery.clone();
+    scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
+        scoped.predicate.as_ref(),
+        outer_row,
+    )?);
+    scoped.source_format = None;
+    scoped.source_digest = None;
+    scoped.input_row_count = 0;
+    scoped.filtered_row_count = 0;
+    scoped.tuples.clear();
+    materialize_row_value_in_subquery(&mut scoped)?;
+    *subquery = scoped;
+    Ok(())
+}
+
+fn materialize_exists_subquery_for_outer_row(
+    subquery: &mut ParsedExistsSubquery,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    let mut scoped = subquery.clone();
+    scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
+        scoped.predicate.as_ref(),
+        outer_row,
+    )?);
+    scoped.source_format = None;
+    scoped.source_digest = None;
+    scoped.input_row_count = 0;
+    scoped.filtered_row_count = 0;
+    scoped.bounded_row_count = 0;
+    scoped.exists = false;
+    materialize_exists_subquery(&mut scoped)?;
+    *subquery = scoped;
+    Ok(())
+}
+
+fn rewrite_outer_correlated_predicate(
+    predicate: &ParsedPredicate,
+    outer_row: &ExpressionInputRow,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    match predicate {
+        ParsedPredicate::ColumnCompare {
+            left_column,
+            op,
+            right_column,
+        } => rewrite_outer_correlated_column_compare(left_column, *op, right_column, outer_row),
+        ParsedPredicate::Logical { op, left, right } => Ok(ParsedPredicate::Logical {
+            op: *op,
+            left: Box::new(rewrite_outer_correlated_predicate(left, outer_row)?),
+            right: Box::new(rewrite_outer_correlated_predicate(right, outer_row)?),
+        }),
+        ParsedPredicate::Not { inner } => Ok(ParsedPredicate::Not {
+            inner: Box::new(rewrite_outer_correlated_predicate(inner, outer_row)?),
+        }),
+        ParsedPredicate::InSubquery { column, subquery } => {
+            let mut subquery = (**subquery).clone();
+            subquery.predicate = Box::new(rewrite_outer_correlated_predicate(
+                subquery.predicate.as_ref(),
+                outer_row,
+            )?);
+            Ok(ParsedPredicate::InSubquery {
+                column: column.clone(),
+                subquery: Box::new(subquery),
+            })
+        }
+        ParsedPredicate::QuantifiedSubquery {
+            column,
+            comparison,
+            quantifier,
+            subquery,
+        } => {
+            let mut subquery = (**subquery).clone();
+            subquery.predicate = Box::new(rewrite_outer_correlated_predicate(
+                subquery.predicate.as_ref(),
+                outer_row,
+            )?);
+            Ok(ParsedPredicate::QuantifiedSubquery {
+                column: column.clone(),
+                comparison: *comparison,
+                quantifier: *quantifier,
+                subquery: Box::new(subquery),
+            })
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery } => {
+            let mut subquery = (**subquery).clone();
+            subquery.predicate = Box::new(rewrite_outer_correlated_predicate(
+                subquery.predicate.as_ref(),
+                outer_row,
+            )?);
+            Ok(ParsedPredicate::RowValueInSubquery {
+                columns: columns.clone(),
+                subquery: Box::new(subquery),
+            })
+        }
+        ParsedPredicate::ExistsSubquery { subquery } => {
+            let mut subquery = (**subquery).clone();
+            subquery.predicate = Box::new(rewrite_outer_correlated_predicate(
+                subquery.predicate.as_ref(),
+                outer_row,
+            )?);
+            Ok(ParsedPredicate::ExistsSubquery {
+                subquery: Box::new(subquery),
+            })
+        }
+        _ if predicate.uses_outer_correlation() => Err(unsupported_sql_error(
+            "correlated subquery predicates admit outer.<column> references only in column-to-column comparisons",
+        )),
+        _ => Ok(predicate.clone()),
+    }
+}
+
+fn rewrite_outer_correlated_column_compare(
+    left_column: &str,
+    op: ComparisonOp,
+    right_column: &str,
+    outer_row: &ExpressionInputRow,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    let left_outer = outer_correlation_column(left_column)?;
+    let right_outer = outer_correlation_column(right_column)?;
+    match (left_outer, right_outer) {
+        (Some(outer_column), None) => {
+            let value = outer_row_value(outer_row, &outer_column)?;
+            Ok(ParsedPredicate::Compare {
+                column: right_column.to_string(),
+                op: reverse_comparison_op(op),
+                value,
+            })
+        }
+        (None, Some(outer_column)) => {
+            let value = outer_row_value(outer_row, &outer_column)?;
+            Ok(ParsedPredicate::Compare {
+                column: left_column.to_string(),
+                op,
+                value,
+            })
+        }
+        (Some(_), Some(_)) => Err(unsupported_sql_error(
+            "correlated subquery column comparisons require exactly one outer.<column> reference",
+        )),
+        (None, None) => Ok(ParsedPredicate::ColumnCompare {
+            left_column: left_column.to_string(),
+            op,
+            right_column: right_column.to_string(),
+        }),
+    }
+}
+
+fn outer_row_value(
+    outer_row: &ExpressionInputRow,
+    outer_column: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    outer_row.get(outer_column).cloned().ok_or_else(|| {
+        unsupported_sql_error(&format!(
+            "correlated subquery outer column {outer_column:?} is not present in the outer row"
+        ))
+    })
+}
+
+fn reverse_comparison_op(op: ComparisonOp) -> ComparisonOp {
+    match op {
+        ComparisonOp::Eq => ComparisonOp::Eq,
+        ComparisonOp::NotEq => ComparisonOp::NotEq,
+        ComparisonOp::Lt => ComparisonOp::Gt,
+        ComparisonOp::LtEq => ComparisonOp::GtEq,
+        ComparisonOp::Gt => ComparisonOp::Lt,
+        ComparisonOp::GtEq => ComparisonOp::LtEq,
+    }
+}
+
+fn outer_correlation_column(column: &str) -> Result<Option<String>, ShardLoomError> {
+    if !column.contains('.') {
+        return Ok(None);
+    }
+    let qualified = parse_qualified_column_ref(column)?;
+    if qualified.alias == OUTER_CORRELATION_ALIAS {
+        Ok(Some(qualified.column))
+    } else {
+        Err(unsupported_sql_error(
+            "correlated subquery predicates admit only outer.<column> qualified references; source aliases inside simple local subqueries are not admitted",
+        ))
+    }
+}
+
+fn is_outer_correlation_ref(column: &str) -> bool {
+    outer_correlation_ref_column(column).is_some()
+}
+
+fn outer_correlation_ref_column(column: &str) -> Option<String> {
+    let qualified = parse_qualified_column_ref(column).ok()?;
+    (qualified.alias == OUTER_CORRELATION_ALIAS).then_some(qualified.column)
 }
 
 fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardLoomError> {
@@ -6445,72 +6737,33 @@ fn selected_in_subquery_row_indexes(
     subquery: &ParsedInSubquery,
     source: &CsvSourceData,
 ) -> Result<Vec<usize>, ShardLoomError> {
-    if subquery.predicate.is_all() {
-        return Ok((0..source.rows.len()).collect());
-    }
-    let predicate_expression = subquery.predicate.to_expression()?;
-    let filter = evaluate_filter(&predicate_expression, &source.rows);
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source IN subquery predicate evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .reason
-                    .as_deref()
-                    .unwrap_or(diagnostic.message.as_str()))
-        )));
-    }
-    Ok(filter.selected_row_indexes)
+    selected_subquery_row_indexes(
+        subquery.predicate.as_ref(),
+        source,
+        "SQL local-source IN subquery predicate evaluation failed",
+    )
 }
 
 fn selected_row_value_in_subquery_row_indexes(
     subquery: &ParsedRowValueInSubquery,
     source: &CsvSourceData,
 ) -> Result<Vec<usize>, ShardLoomError> {
-    if subquery.predicate.is_all() {
-        return Ok((0..source.rows.len()).collect());
-    }
-    let predicate_expression = subquery.predicate.to_expression()?;
-    let filter = evaluate_filter(&predicate_expression, &source.rows);
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source row-value IN subquery predicate evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .reason
-                    .as_deref()
-                    .unwrap_or(diagnostic.message.as_str()))
-        )));
-    }
-    Ok(filter.selected_row_indexes)
+    selected_subquery_row_indexes(
+        subquery.predicate.as_ref(),
+        source,
+        "SQL local-source row-value IN subquery predicate evaluation failed",
+    )
 }
 
 fn selected_exists_subquery_row_indexes(
     subquery: &ParsedExistsSubquery,
     source: &CsvSourceData,
 ) -> Result<Vec<usize>, ShardLoomError> {
-    if subquery.predicate.is_all() {
-        return Ok((0..source.rows.len()).collect());
-    }
-    let predicate_expression = subquery.predicate.to_expression()?;
-    let filter = evaluate_filter(&predicate_expression, &source.rows);
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source EXISTS subquery predicate evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .reason
-                    .as_deref()
-                    .unwrap_or(diagnostic.message.as_str()))
-        )));
-    }
-    Ok(filter.selected_row_indexes)
+    selected_subquery_row_indexes(
+        subquery.predicate.as_ref(),
+        source,
+        "SQL local-source EXISTS subquery predicate evaluation failed",
+    )
 }
 
 fn ordered_in_subquery_row_indexes(
@@ -6734,14 +6987,87 @@ fn selected_row_indexes(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
 ) -> Result<Vec<usize>, ShardLoomError> {
-    if parsed.predicate.is_all() {
+    selected_predicate_row_indexes(
+        &parsed.predicate,
+        &source.rows,
+        "SQL local-source predicate evaluation failed",
+    )
+}
+
+fn selected_predicate_row_indexes(
+    predicate: &ParsedPredicate,
+    rows: &[ExpressionInputRow],
+    diagnostic_context: &str,
+) -> Result<Vec<usize>, ShardLoomError> {
+    if predicate.is_all() {
+        return Ok((0..rows.len()).collect());
+    }
+    if predicate.uses_outer_correlation() {
+        return selected_correlated_predicate_row_indexes(predicate, rows, diagnostic_context);
+    }
+    let predicate_expression = predicate.to_expression()?;
+    let filter = evaluate_filter(&predicate_expression, rows);
+    if filter.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{}: {}",
+            diagnostic_context,
+            filter
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .reason
+                    .as_deref()
+                    .unwrap_or(diagnostic.message.as_str()))
+        )));
+    }
+    Ok(filter.selected_row_indexes)
+}
+
+fn selected_correlated_predicate_row_indexes(
+    predicate: &ParsedPredicate,
+    rows: &[ExpressionInputRow],
+    diagnostic_context: &str,
+) -> Result<Vec<usize>, ShardLoomError> {
+    let mut selected = Vec::new();
+    for (row_index, row) in rows.iter().enumerate() {
+        let mut row_predicate = predicate.clone();
+        materialize_correlated_subquery_predicates(&mut row_predicate, row)?;
+        let predicate_expression = row_predicate.to_expression()?;
+        let filter = evaluate_filter(&predicate_expression, std::slice::from_ref(row));
+        if filter.has_errors() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{}: {}",
+                diagnostic_context,
+                filter
+                    .diagnostics
+                    .first()
+                    .map_or("unknown diagnostic", |diagnostic| diagnostic
+                        .reason
+                        .as_deref()
+                        .unwrap_or(diagnostic.message.as_str()))
+            )));
+        }
+        if !filter.selected_row_indexes.is_empty() {
+            selected.push(row_index);
+        }
+    }
+    Ok(selected)
+}
+
+fn selected_subquery_row_indexes(
+    predicate: &ParsedPredicate,
+    source: &CsvSourceData,
+    diagnostic_context: &str,
+) -> Result<Vec<usize>, ShardLoomError> {
+    if predicate.is_all() {
         return Ok((0..source.rows.len()).collect());
     }
-    let predicate_expression = parsed.predicate.to_expression()?;
+    let predicate_expression = predicate.to_expression()?;
     let filter = evaluate_filter(&predicate_expression, &source.rows);
     if filter.has_errors() {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source predicate evaluation failed: {}",
+            "{}: {}",
+            diagnostic_context,
             filter
                 .diagnostics
                 .first()
@@ -9516,26 +9842,17 @@ fn apply_having_filter(
     if !parsed.has_having() {
         return Ok((0, 0, output_rows));
     }
-    let predicate_expression = parsed.having.to_expression()?;
     let expression_rows = output_rows
         .iter()
         .map(|row| row.iter().cloned().collect::<ExpressionInputRow>())
         .collect::<Vec<_>>();
-    let filter = evaluate_filter(&predicate_expression, &expression_rows);
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source HAVING evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .reason
-                    .as_deref()
-                    .unwrap_or(diagnostic.message.as_str()))
-        )));
-    }
-    let mut selected_rows = Vec::with_capacity(filter.selected_row_count());
-    for row_index in filter.selected_row_indexes {
+    let selected_row_indexes = selected_predicate_row_indexes(
+        &parsed.having,
+        &expression_rows,
+        "SQL local-source HAVING evaluation failed",
+    )?;
+    let mut selected_rows = Vec::with_capacity(selected_row_indexes.len());
+    for row_index in selected_row_indexes {
         let row = output_rows.get(row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("HAVING row index is out of bounds".to_string())
         })?;
@@ -10614,6 +10931,20 @@ fn validate_predicate_source_columns(
             )));
         }
     }
+    let mut outer_correlation_columns = BTreeSet::new();
+    parsed
+        .predicate
+        .push_outer_correlation_columns(&mut outer_correlation_columns);
+    for predicate_column in outer_correlation_columns {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &predicate_column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "correlated subquery outer column {predicate_column:?} is not present in the CSV header"
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -11316,6 +11647,17 @@ impl ParsedSqlLocalSource {
 
     fn has_having(&self) -> bool {
         !self.having.is_all()
+    }
+
+    fn uses_outer_correlation(&self) -> bool {
+        self.predicate.uses_outer_correlation() || self.having.uses_outer_correlation()
+    }
+
+    fn outer_correlation_columns(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.outer_correlation_columns(),
+            self.having.outer_correlation_columns(),
+        ])
     }
 
     fn has_distinct_projection(&self) -> bool {
@@ -13698,6 +14040,92 @@ impl ParsedPredicate {
         let mut columns = Vec::new();
         self.push_columns(&mut columns);
         columns
+    }
+
+    fn uses_outer_correlation(&self) -> bool {
+        match self {
+            Self::Compare { column, .. }
+            | Self::CastCompare { column, .. }
+            | Self::NumericArithmeticCompare { column, .. }
+            | Self::NumericAbsCompare { column, .. }
+            | Self::NumericRoundingCompare { column, .. }
+            | Self::DateArithmeticCompare { column, .. }
+            | Self::TimestampArithmeticCompare { column, .. }
+            | Self::DateExtractCompare { column, .. }
+            | Self::TimestampExtractCompare { column, .. }
+            | Self::BooleanPredicate { column, .. }
+            | Self::IsNull { column }
+            | Self::IsNotNull { column }
+            | Self::InList { column, .. }
+            | Self::StringMatch { column, .. } => is_outer_correlation_ref(column),
+            Self::ColumnCompare {
+                left_column,
+                right_column,
+                ..
+            } => is_outer_correlation_ref(left_column) || is_outer_correlation_ref(right_column),
+            Self::StringLengthCompare { source_columns, .. }
+            | Self::StringTransformCompare { source_columns, .. }
+            | Self::StringFunctionCompare { source_columns, .. }
+            | Self::GenericExpressionCompare { source_columns, .. } => source_columns
+                .iter()
+                .any(|column| is_outer_correlation_ref(column)),
+            Self::RowValueInList { columns, .. } => columns
+                .iter()
+                .any(|column| is_outer_correlation_ref(column)),
+            Self::RowValueInSubquery { columns, subquery } => {
+                columns
+                    .iter()
+                    .any(|column| is_outer_correlation_ref(column))
+                    || subquery.predicate.uses_outer_correlation()
+            }
+            Self::Logical { left, right, .. } => {
+                left.uses_outer_correlation() || right.uses_outer_correlation()
+            }
+            Self::Not { inner } => inner.uses_outer_correlation(),
+            Self::ExistsSubquery { subquery } => subquery.predicate.uses_outer_correlation(),
+            Self::InSubquery {
+                column, subquery, ..
+            }
+            | Self::QuantifiedSubquery {
+                column, subquery, ..
+            } => is_outer_correlation_ref(column) || subquery.predicate.uses_outer_correlation(),
+            Self::All => false,
+        }
+    }
+
+    fn outer_correlation_columns(&self) -> String {
+        let mut columns = BTreeSet::new();
+        self.push_outer_correlation_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.into_iter().collect::<Vec<_>>().join(",")
+        }
+    }
+
+    fn push_outer_correlation_columns(&self, columns: &mut BTreeSet<String>) {
+        for column in self.columns() {
+            if let Some(outer_column) = outer_correlation_ref_column(column) {
+                columns.insert(outer_column);
+            }
+        }
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                subquery.predicate.push_outer_correlation_columns(columns);
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                subquery.predicate.push_outer_correlation_columns(columns);
+            }
+            Self::ExistsSubquery { subquery } => {
+                subquery.predicate.push_outer_correlation_columns(columns);
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_outer_correlation_columns(columns);
+                right.push_outer_correlation_columns(columns);
+            }
+            Self::Not { inner } => inner.push_outer_correlation_columns(columns),
+            _ => {}
+        }
     }
 
     fn push_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
@@ -20530,6 +20958,50 @@ impl SqlLocalSourceReport {
                     .to_string(),
             ),
             (
+                "correlated_subquery_runtime_execution".to_string(),
+                self.parsed.uses_outer_correlation().to_string(),
+            ),
+            (
+                "correlated_subquery_outer_alias".to_string(),
+                if self.parsed.uses_outer_correlation() {
+                    OUTER_CORRELATION_ALIAS
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "correlated_subquery_outer_column".to_string(),
+                self.parsed.outer_correlation_columns(),
+            ),
+            (
+                "correlated_subquery_evaluation_strategy".to_string(),
+                if self.parsed.uses_outer_correlation() {
+                    "per_outer_row_bounded_subquery_materialization"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "correlated_subquery_outer_row_evaluation_count".to_string(),
+                if self.parsed.uses_outer_correlation() {
+                    let predicate_count = if self.parsed.predicate.uses_outer_correlation() {
+                        self.source.rows.len()
+                    } else {
+                        0
+                    };
+                    let having_count = if self.parsed.having.uses_outer_correlation() {
+                        self.having_input_row_count
+                    } else {
+                        0
+                    };
+                    predicate_count.saturating_add(having_count).to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
                 "projected_subquery_runtime_execution".to_string(),
                 self.parsed.uses_projected_subquery().to_string(),
             ),
@@ -26676,7 +27148,17 @@ fn parse_literal_or_pattern_predicate(
         });
     }
     let op = parse_comparison_op(op_raw)?;
-    let value = parse_sql_literal(literal_raw)?;
+    let value = match parse_sql_literal(literal_raw) {
+        Ok(value) => value,
+        Err(_) if validate_sql_column_ref(literal_raw).is_ok() => {
+            return Ok(ParsedPredicate::ColumnCompare {
+                left_column: column.to_string(),
+                op,
+                right_column: literal_raw.to_string(),
+            });
+        }
+        Err(error) => return Err(error),
+    };
     Ok(ParsedPredicate::Compare {
         column: column.to_string(),
         op,
@@ -28830,15 +29312,7 @@ fn validate_exists_subquery_filter_predicate(
             "EXISTS subquery WHERE predicates do not admit generic expression trees in this scoped runtime slice",
         ));
     }
-    if predicate
-        .columns()
-        .iter()
-        .any(|column| column.contains('.'))
-    {
-        return Err(unsupported_sql_error(
-            "correlated or qualified EXISTS subquery predicates are not admitted by the current advanced predicate profile",
-        ));
-    }
+    validate_subquery_qualified_columns(predicate, "EXISTS")?;
     Ok(())
 }
 
@@ -28850,16 +29324,67 @@ fn validate_in_subquery_filter_predicate(
             "IN subquery WHERE predicates do not admit generic expression trees in this scoped runtime slice",
         ));
     }
-    if predicate
-        .columns()
-        .iter()
-        .any(|column| column.contains('.'))
-    {
-        return Err(unsupported_sql_error(
-            "correlated or qualified IN subquery predicates are not admitted by the current advanced predicate profile",
-        ));
-    }
+    validate_subquery_qualified_columns(predicate, "IN")?;
     Ok(())
+}
+
+fn validate_subquery_qualified_columns(
+    predicate: &ParsedPredicate,
+    subquery_kind: &str,
+) -> Result<(), ShardLoomError> {
+    for column in predicate.columns() {
+        if !column.contains('.') {
+            continue;
+        }
+        let qualified = parse_qualified_column_ref(column)?;
+        if qualified.alias != OUTER_CORRELATION_ALIAS {
+            return Err(unsupported_sql_error(&format!(
+                "correlated or qualified {subquery_kind} subquery predicates admit only outer.<column> references in this scoped runtime slice"
+            )));
+        }
+    }
+    validate_outer_correlation_shapes(predicate, subquery_kind)
+}
+
+fn validate_outer_correlation_shapes(
+    predicate: &ParsedPredicate,
+    subquery_kind: &str,
+) -> Result<(), ShardLoomError> {
+    match predicate {
+        ParsedPredicate::ColumnCompare {
+            left_column,
+            right_column,
+            ..
+        } => {
+            let left_outer = is_outer_correlation_ref(left_column);
+            let right_outer = is_outer_correlation_ref(right_column);
+            if left_outer && right_outer {
+                return Err(unsupported_sql_error(&format!(
+                    "correlated {subquery_kind} subquery predicates require exactly one outer.<column> reference per column comparison"
+                )));
+            }
+            Ok(())
+        }
+        ParsedPredicate::Logical { left, right, .. } => {
+            validate_outer_correlation_shapes(left, subquery_kind)?;
+            validate_outer_correlation_shapes(right, subquery_kind)
+        }
+        ParsedPredicate::Not { inner } => validate_outer_correlation_shapes(inner, subquery_kind),
+        ParsedPredicate::InSubquery { subquery, .. }
+        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
+            validate_outer_correlation_shapes(&subquery.predicate, subquery_kind)
+        }
+        ParsedPredicate::RowValueInSubquery { subquery, .. } => {
+            validate_outer_correlation_shapes(&subquery.predicate, subquery_kind)
+        }
+        ParsedPredicate::ExistsSubquery { subquery } => {
+            validate_outer_correlation_shapes(&subquery.predicate, subquery_kind)
+        }
+        _ if predicate.uses_outer_correlation() => Err(unsupported_sql_error(&format!(
+            "correlated {subquery_kind} subquery predicates admit outer.<column> references only in column-to-column comparisons"
+        ))),
+        _ => Ok(()),
+    }
 }
 
 fn parse_quantified_subquery_blocker(raw: &str) -> Result<(), ShardLoomError> {
@@ -33545,6 +34070,229 @@ mod tests {
     }
 
     #[test]
+    fn runs_correlated_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-in-source.csv");
+        let allowed_path = sql_local_source_test_path("correlated-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run correlated IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-exists-source.csv");
+        let allowed_path = sql_local_source_test_path("correlated-exists-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT * FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount LIMIT 1) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_row_value_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-row-value-in-source.csv");
+        let allowed_path = sql_local_source_test_path("correlated-row-value-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,label,min_amount,active\n1,alpha,5,true\n1,alpha,99,true\n2,beta,25,true\n3,gamma,25,false\n3,gamma,20,true\n5,epsilon,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT id,label FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated row-value IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "predicate_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_quantified_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-quantified-source.csv");
+        let thresholds_path = sql_local_source_test_path("correlated-quantified-thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "id,min_amount\n1,5\n1,9\n2,25\n3,20\n3,29\n5,1\n",
+        )
+        .expect("write thresholds csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT min_amount FROM '{}' WHERE id = outer.id ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated quantified subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "3");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+    }
+
+    #[test]
     fn in_predicate_blocks_unadmitted_literal_lists_without_fallback() {
         let empty_error = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.csv' WHERE label IN () LIMIT 5",
@@ -33627,8 +34375,8 @@ mod tests {
                 "row-value IN subquery selected-column arity must match the source column count",
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.id = 1) LIMIT 5",
-                "correlated or qualified IN subquery predicates are not admitted",
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE allowed.id = id) LIMIT 5",
+                "correlated or qualified IN subquery predicates admit only outer.<column>",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

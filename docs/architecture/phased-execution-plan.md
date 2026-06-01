@@ -463,7 +463,8 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
   complex/list/struct/variant/union-dtype shapes, binary source decoding/casts/helper functions,
-  scalar-left multi-column IN-subqueries, and correlated subquery families.
+  scalar-left multi-column IN-subqueries, and non-`outer` qualified or broad correlated subquery
+  families.
   Scoped quantified `ANY` / `ALL` subquery
   predicates over bounded local scalar
   sources are now part of the admitted ShardLoom-owned route with SQL three-valued null-semantics,
@@ -482,6 +483,13 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   arity matches the left operand. Report rows expose `projected_subquery_runtime_execution`,
   statement kind, output-column count, and join/group/HAVING execution flags so these are visible
   runtime-supported routes rather than hidden mini-evaluators.
+  Scoped correlated local-source subquery filters are now admitted when the subquery predicate uses
+  the reserved `outer.<column>` alias in column-to-column comparisons. The admitted runtime family
+  covers scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates through
+  per-outer-row bounded materialization, with correlated runtime, outer-column, evaluation-strategy,
+  and no-fallback evidence fields. Arbitrary source aliases, outer references outside
+  column-to-column predicates, broad projected correlated plans, and scalar-left multi-column
+  subqueries remain deterministic blockers.
   Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
   `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
   malformed escape literals, trailing escapes, and escape misuse. Case-folding and
@@ -491,9 +499,9 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
   scalar values with exact byte-count/hex evidence and no fallback; binary source decoding, binary
   casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
-  Next slice outcome: choose the next broad SQL grammar family; likely candidates are correlated
-  subquery shape parity, complex dtype blocker refinement, or additional front-door parity over
-  admitted routes.
+  Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
+  blocker refinement, scalar-left multi-column subquery ergonomics, additional front-door parity over
+  admitted routes, or broader correlated/projected subquery shape parity.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
