@@ -16,6 +16,89 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Local Vortex primitive front-door route completion
+  - Date: 2026-06-01
+  - Branch/PR: `codex/local-vortex-front-door-routes` / #1000.
+  - Source:
+    - User request that ShardLoom local benchmark-range routes be runtime-ready and not hidden
+      behind vague unsupported wording.
+    - `GAR-RUNTIME-IMPL-6D-2 local Vortex primitive front-door route completion`.
+    - #999 user route capability report and the existing scoped local Vortex primitive command
+      family.
+  - Scope:
+    - Added `ShardLoomContext.local_vortex_primitive_route_report()` and
+      `ContextCapabilities.local_vortex_primitive_route_report` as a side-effect-free,
+      operation-level route map for local `.vortex` primitive workflows.
+    - Covered count-all, count-where, filter collect, filter limit collect, project collect,
+      project limit collect, select-star limit collect, filter-project collect, and
+      filter-project limit collect across SQL, Python, DataFrame-style, context, session, and CLI
+      surfaces.
+    - Tightened the native Vortex user route so scoped primitive guidance no longer advertises a
+      broad `write_vortex(...)` result-sink path that is not part of the primitive route.
+    - Extended the user-route validator and release-readiness gate to require local Vortex
+      primitive route coverage, command coverage, source-order limit coverage, native Vortex start
+      state, no-fallback/no-external-engine evidence, and strict claim boundaries.
+    - Updated README and front-door parity docs to point users and agents at the route report
+      instead of requiring inference from command names.
+  - Evidence:
+    - `target/user-route-capability-report.json` reports 15 user route rows, nine local Vortex
+      primitive operation rows, all five primitive CLI commands covered, four source-order limit
+      route ids, zero generic unsupported local benchmark-range ShardLoom routes, and no blockers.
+    - Focused Python tests cover the route report, validator rejection paths, SQL/Python/session
+      primitive routing, select-star limit routing, and filter-project limit routing.
+    - Local validation covered user route, SQL/Python/DataFrame parity, user-surface gap inventory,
+      Python user-surface completion, release readiness with `--allow-blocked`, Python unit
+      discovery, compile checks, CI gate matrix, whitespace, Rust formatting, clippy, and full
+      workspace Rust tests.
+  - Claim boundary:
+    - This closes scoped local `.vortex` primitive user-route readiness. It does not claim broad
+      Vortex read-transform-write parity, object-store/lakehouse runtime, package publication,
+      production readiness, performance equivalence, or Spark displacement.
+  - Fallback boundary:
+    - Every local Vortex primitive route row preserves `fallback_attempted=false` and
+      `external_engine_invoked=false`. Upstream Vortex scan/read concepts remain admitted native
+      provider boundaries, not external query-engine fallback.
+
+- [x] Session label: User route capability report and Vortex normalization evidence
+  - Date: 2026-06-01
+  - Branch/PR: `codex/user-route-capability-report` / #999.
+  - Source:
+    - User request to make ShardLoom route readiness clear for SQL/Python/DataFrame users before
+      continuing runtime work.
+    - `GAR-RUNTIME-IMPL-6D Runtime-Ready User Surface And Benchmark-Range Completion`.
+    - #997 benchmark route-runtime status fields and #998 user-surface runtime gap inventory.
+  - Scope:
+    - Added a deterministic user/agent-facing route capability report at
+      `ShardLoomContext.user_route_capability_report()` and through
+      `ContextCapabilities.user_route_capability_report`.
+    - Added route rows for local files, local `.vortex`, prepared Vortex, generated rows,
+      materialized Python snapshots, bounded previews, schema-quality previews, quarantine output,
+      broad SQL/Python/DataFrame expansion, object-store/lakehouse expansion, and performance
+      evidence boundaries.
+    - Required every route row to carry route identity, input family, recommended user surface,
+      start state, Vortex normalization point, execution/output/evidence route, decode or
+      materialization boundary, runtime support status, benchmark-range scope, claim boundary,
+      blocker owner, and no-fallback/no-external-engine fields.
+    - Added `scripts/check_user_route_capability_report.py`, release-readiness wiring, CI-gate
+      matrix coverage, README and architecture-doc pointers, and focused Python tests.
+  - Evidence:
+    - The generated `target/user-route-capability-report.json` reported 15 route rows, 13 local
+      benchmark-range routes, and zero unsupported local ShardLoom benchmark-range routes.
+    - Local validation covered the route report, user-surface inventory, SQL/Python/DataFrame
+      parity gate, Python user-surface completion gate, release-readiness with `--allow-blocked`,
+      Python unit tests, compile checks, whitespace checks, Rust formatting, clippy, and full
+      workspace Rust tests.
+    - PR CI passed, including release readiness, and the PR was merged as #999.
+  - Claim boundary:
+    - This is route guidance, evidence-shape validation, and runtime-readiness classification for
+      explicitly admitted benchmark-range workflows. It does not prove broad arbitrary
+      SQL/Python/DataFrame runtime support, performance equivalence, production readiness, Spark
+      displacement, object-store/lakehouse runtime, or package publication readiness.
+  - Fallback boundary:
+    - ShardLoom route rows preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`. External engines remain baselines only and are never
+      ShardLoom runtime fallback.
+
 - [x] Session label: User-surface runtime gap inventory gate
   - Date: 2026-06-01
   - Branch/PR: `codex/user-surface-runtime-gap-inventory` / #998.

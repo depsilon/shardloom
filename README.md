@@ -135,11 +135,16 @@ route = routes.route("local_file_prepare_once_first_query")
 print(route.vortex_normalization_point)
 print(route.execution_mode, route.output_route)
 print(route.claim_gate_status, route.fallback_attempted, route.external_engine_invoked)
+
+vortex_primitives = ctx.local_vortex_primitive_route_report()
+print(vortex_primitives.route("vortex_filter_project_limit_collect").cli_command)
 ```
 
 The report answers which route to use for a declared input/output pair, where the input crosses
 into Vortex-preparable or Vortex-native state, what executes, what may be decoded or materialized,
-and which evidence/claim boundary applies.
+and which evidence/claim boundary applies. For local `.vortex` inputs, the primitive route report
+maps each scoped SQL/Python/DataFrame/session form to the exact ShardLoom Vortex primitive command
+instead of implying a broad read-transform-write or result-sink route.
 
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can

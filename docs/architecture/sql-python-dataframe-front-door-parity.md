@@ -94,6 +94,13 @@ The SQL/Python/DataFrame-style Vortex front doors now admit a scoped local primi
 - `ctx.sql("SELECT metric FROM 'local.vortex' WHERE value >= 3 LIMIT 5").collect()` lowers to
   `vortex-filter-project --limit`.
 
+The Python package exposes the operation-level map as
+`ShardLoomContext.local_vortex_primitive_route_report()` with schema
+`shardloom.local_vortex_primitive_route_report.v1`. That report is the source of truth for the
+local `.vortex` primitive route ids, SQL/Python/DataFrame/context/session forms, CLI command
+mapping, source-order limit coverage, Vortex-native start state, output route, evidence route, and
+no-fallback boundary.
+
 All admitted Vortex primitive terminal paths use explicit local primitive execution flags and emit
 no-fallback ShardLoom/Vortex evidence. This is intentionally a scoped parity row, not a full
 front-door parity claim: general Vortex SQL, broad read-transform-write workflows, decoded row

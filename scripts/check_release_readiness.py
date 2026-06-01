@@ -1050,6 +1050,33 @@ def main() -> int:
             user_route_capability_blockers.append(
                 "user route capability must report zero unsupported local benchmark-range routes"
             )
+        if user_route_capability.get("local_vortex_primitive_all_runtime_supported") is not True:
+            user_route_capability_blockers.append(
+                "user route capability local Vortex primitive routes must all be runtime-supported"
+            )
+        if (
+            user_route_capability.get(
+                "local_vortex_primitive_all_no_fallback_no_external_engine"
+            )
+            is not True
+        ):
+            user_route_capability_blockers.append(
+                "user route capability local Vortex primitive routes must preserve no fallback"
+            )
+        required_primitive_commands = {
+            "vortex-run",
+            "vortex-count-where",
+            "vortex-filter",
+            "vortex-project",
+            "vortex-filter-project",
+        }
+        primitive_commands = set(
+            user_route_capability.get("local_vortex_primitive_command_coverage", [])
+        )
+        if primitive_commands != required_primitive_commands:
+            user_route_capability_blockers.append(
+                "user route capability local Vortex primitive command coverage mismatch"
+            )
         for field in [
             "flexible_anything_claim_allowed",
             "performance_equivalence_claim_allowed",
@@ -1076,6 +1103,9 @@ def main() -> int:
                 "all_routes_have_output_and_evidence",
                 "all_routes_have_materialization_decode_boundary",
                 "no_generic_unsupported_local_benchmark_route",
+                "all_local_vortex_primitive_routes_supported",
+                "all_local_vortex_primitive_routes_start_at_native_boundary",
+                "all_local_vortex_primitive_commands_covered",
                 "all_no_fallback_no_external_engine",
             ]:
                 if acceptance.get(field) is not True:
