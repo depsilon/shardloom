@@ -204,6 +204,38 @@ Use friendlier route labels in user-facing prose while keeping the canonical fie
 | Generated-source reports | Source-free generated-output route | No input dataset exists and ShardLoom generates rows. | Generation plus output write and evidence; source-read timing is zero. | No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support. |
 | Output/fanout reports | Multi-output fanout route | One admitted source/result needs multiple local outputs. | Query/reuse timing plus per-output planning, write, replay, and evidence. | Object-store/table commit or production sink support. |
 
+Route lanes and stage pieces are separate views:
+
+```text
+Route lanes = what users compare end to end.
+Stage pieces = why a route took that time.
+```
+
+The public route lane roster is:
+
+| Public lane | Start state | Includes preparation? | Comparable to raw-source external baselines? | Claim boundary |
+| --- | --- | --- | --- | --- |
+| ShardLoom Cold Certified Route | Raw compatibility source | Yes, plus certification evidence | Yes, with cold-route scope visible | Ingest/stage, query, output, and evidence for the measured local route. |
+| ShardLoom Prepare-Once First Query | Raw compatibility source | Yes, once | Yes | Primary non-Vortex user route: prepare once, run first prepared query, emit output/evidence. |
+| ShardLoom Prepare-Once Batch | Raw compatibility source | Once per batch | Yes, with amortization count visible | Reuse route: prepare once, run multiple prepared scenarios in one process. |
+| ShardLoom Warm Prepared Query | `VortexPreparedState` | No | No | Runtime query slice after preparation exists. |
+| ShardLoom Native Vortex Query | Existing Vortex artifact | No | No, unless external baselines also start from Vortex | Native-input route and operator maturity evidence. |
+| ShardLoom Direct Transient Route | Raw compatibility source | No persistent Vortex preparation | Limited to its direct one-shot scope | Quick local route without Vortex-native persistence. |
+| External Baseline End-to-End | External engine raw-source path | Not applicable | Baseline context only | Never fallback evidence for ShardLoom. |
+
+Every public row should expose route readiness separately from evidence and claim posture:
+
+```text
+route_runtime_status=scoped_runtime_supported|smoke_supported|feature_gated|blocked|unsupported|external_baseline_only
+claim_gate_status=claim_grade|not_claim_grade|fixture_smoke_only|external_baseline_only
+performance_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+```
+
+`claim_grade` means the row's evidence package is strong enough for its scoped claim. It does not
+mean production support, speed superiority, broad SQL/DataFrame support, or Spark-displacement.
+
 ## UniversalIngress And `vortex_ingest`
 
 The architecture must not model `prepared_vortex` as a second reader for normal files. The reader
@@ -533,6 +565,7 @@ flowchart TD
     PREPARED["prepared_vortex<br/>warm route from VortexPreparedState"]
     NATIVE["native_vortex<br/>current scoped native-artifact lane"]
     DIRECT["direct_compatibility_transient<br/>scoped local adapter paths + unsupported diagnostics"]
+    BASELINE["external_baseline_only<br/>comparison context, never fallback"]
 
     UNIVERSAL_INGRESS["UniversalIngress<br/>InputAdapter -> SourceState"]
     VORTEX_INGEST["vortex_ingest<br/>SourceState -> VortexPreparedState"]
@@ -543,6 +576,17 @@ flowchart TD
 
     PROVIDER["Provider admission<br/>Vortex provider / ShardLoom kernel / diagnostic"]
     SELECTIVE_BLOCKER["Scoped filter providers<br/>selective filter + filter/project/limit evidence"]
+    ROUTE_VIEW["Route lane view<br/>what users compare end to end"]
+    STAGE_VIEW["Stage attribution view<br/>why route time was spent"]
+    STATUS_VIEW["Readiness and claim view<br/>runtime status + evidence + claim booleans"]
+
+    COLD_ROUTE["ShardLoom Cold Certified Route<br/>raw source -> prepare -> query -> output/evidence"]
+    FIRST_QUERY["ShardLoom Prepare-Once First Query<br/>raw source -> prepare once -> first prepared query"]
+    BATCH_ROUTE["ShardLoom Prepare-Once Batch<br/>raw source -> prepare once -> N prepared queries"]
+    WARM_ROUTE["ShardLoom Warm Prepared Query<br/>VortexPreparedState -> query"]
+    NATIVE_ROUTE["ShardLoom Native Vortex Query<br/>existing Vortex -> query"]
+    DIRECT_ROUTE["ShardLoom Direct Transient Route<br/>raw source -> direct one-shot compute"]
+    EXTERNAL_ROUTE["External Baseline End-to-End<br/>external engine raw-source path"]
 
     REQUESTED --> AUTO --> SELECTED
     REQUESTED --> COMPAT
@@ -559,15 +603,42 @@ flowchart TD
     NATIVE --> NATIVE_BOUNDARY --> PROVIDER
     DIRECT --> DIRECT_BOUNDARY --> PROVIDER
     PROVIDER -->|"scoped CSV filter paths today"| SELECTIVE_BLOCKER
+
+    COMPAT --> COLD_ROUTE
+    VORTEX_INGEST --> FIRST_QUERY
+    VORTEX_INGEST --> BATCH_ROUTE
+    PREPARED --> WARM_ROUTE
+    NATIVE --> NATIVE_ROUTE
+    DIRECT --> DIRECT_ROUTE
+    BASELINE -.-> EXTERNAL_ROUTE
+
+    COLD_ROUTE --> ROUTE_VIEW
+    FIRST_QUERY --> ROUTE_VIEW
+    BATCH_ROUTE --> ROUTE_VIEW
+    WARM_ROUTE --> ROUTE_VIEW
+    NATIVE_ROUTE --> ROUTE_VIEW
+    DIRECT_ROUTE --> ROUTE_VIEW
+    EXTERNAL_ROUTE -.-> ROUTE_VIEW
+    ROUTE_VIEW --> STAGE_VIEW --> STATUS_VIEW
 ```
 
 Mode timing fields must stay visible:
 
 ```text
+route_lane_id
+route_display_name
+start_state
+end_state
+route_runtime_status
+route_comparable_to_external_end_to_end
+route_timing_scope
+route_total_formula
 source_stat_millis
 source_read_millis
 source_parse_millis
 compatibility_parse_millis
+source_admission_millis
+source_state_build_millis
 source_to_columnar_millis
 compatibility_to_vortex_import_millis
 compatibility_to_vortex_import_timing_scope
@@ -589,9 +660,14 @@ result_sink_write_millis
 evidence_render_millis
 evidence_render_timing_status
 total_runtime_millis
+preparation_timing_included_in_total
+query_timing_included_in_total
+output_timing_included_in_total
+evidence_timing_included_in_total
 timing_scope
 preparation_included
 query_timing_starts_after_preparation
+prepared_state_reused
 certification_level
 ```
 
@@ -1605,12 +1681,26 @@ unsupported diagnostics. They must not be sent to external engines.
 Every benchmark row should say exactly where time went.
 
 ```text
+route_lane_id
+route_display_name
+route_runtime_status
+start_state
+end_state
+includes_preparation
+includes_query
+includes_output
+includes_evidence
+route_comparable_to_external_end_to_end
+route_total_formula
+route_timing_scope
 total_runtime_millis
   process_start_millis
+  source_admission_millis
   source_stat_millis
   source_read_millis
   source_parse_millis
   compatibility_parse_millis
+  source_state_build_millis
   source_to_columnar_millis
   compatibility_to_vortex_import_millis
   compatibility_to_vortex_import_timing_scope
@@ -1633,33 +1723,44 @@ total_runtime_millis
   evidence_render_timing_status
   timing_scope
   preparation_included
+  preparation_timing_included_in_total
+  query_timing_included_in_total
+  output_timing_included_in_total
+  evidence_timing_included_in_total
   query_timing_starts_after_preparation
+  prepared_state_reused
   certification_level
 ```
 
 Route interpretation:
 
 ```text
-cold certified route =
+ShardLoom Cold Certified Route =
   compatibility_import_certified end-to-end total
 
-vortex_ingest / prepare once route =
-  SourceState -> VortexPreparedState, with preparation timing separated
+ShardLoom Prepare-Once First Query =
+  raw compatibility source -> SourceState -> VortexPreparedState -> first prepared query -> output/evidence
 
-warm prepared route =
+ShardLoom Prepare-Once Batch =
+  raw compatibility source -> SourceState -> VortexPreparedState -> N prepared queries -> outputs/evidence
+
+ShardLoom Warm Prepared Query =
   prepared_vortex query + output + evidence only, from VortexPreparedState
 
-already-Vortex route =
+ShardLoom Native Vortex Query =
   native_vortex query + output + evidence only
 
-direct one-shot route =
+ShardLoom Direct Transient Route =
   direct parse + ShardLoom compute + output; not Vortex-native
 
-source-free generated-output route =
+Source-free generated-output route =
   generated rows + output + evidence; source-read timing is zero
 
-multi-output fanout route =
+Multi-output fanout route =
   query once + per-output planning/write/replay/evidence
+
+External Baseline End-to-End =
+  external engine raw-source path; baseline only, never fallback
 
 batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
@@ -1670,6 +1771,10 @@ Compare routes, not front doors. `ctx.sql(...)`, Python query-builder calls, CLI
 future DataFrame methods can enter the same route model. The benchmark question is where time and
 evidence were spent, not whether the user typed SQL or Python. Prepared rows must disclose that
 their query timing starts after `VortexPreparedState` exists.
+
+Rows must also say whether each stage contributes to `total_runtime_millis`. Stage timings may be
+diagnostic context, route-total components, or both; a public route table must not imply visible
+stage fields sum to a row total unless `route_total_formula` and the inclusion booleans say so.
 
 The benchmark artifact must also carry
 `execution_mode_attribution_contract`, including the canonical mode vocabulary,
@@ -2146,7 +2251,10 @@ readers can see the actual runtime path.
 
 ## Benchmark Lanes
 
-### Lane A - Compatibility Import Certified
+Benchmark reports must present route lanes first and stage pieces second. Route lanes answer what
+a user can compare. Stage pieces explain where the route spent time.
+
+### Route A - ShardLoom Cold Certified Route
 
 ```text
 compatibility file -> UniversalIngress -> certified vortex_ingest -> Vortex write/reopen every measured scenario -> compute -> result sink/evidence
@@ -2155,15 +2263,17 @@ compatibility file -> UniversalIngress -> certified vortex_ingest -> Vortex writ
 Use for ingest/stage certification, universal I/O proof, and result-sink proof. Do not use it as
 the primary pure query-speed comparison.
 
-### Lane B - Prepared Vortex
+### Route B - ShardLoom Prepare-Once First Query
 
 ```text
-compatibility file -> UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> run many measured scenarios from prepared_vortex
+compatibility file -> UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> first prepared_vortex query -> result sink/evidence
 ```
 
-Use for primary ShardLoom runtime-development comparison, warm-query evaluation, and Vortex-backed
-workflow proof. The lane starts from `VortexPreparedState`; source read and preparation timing must
-be reported separately when available.
+Use as the primary raw-source-to-prepared-Vortex comparison route. It includes preparation once and
+the first prepared query, so it is comparable to raw-source external end-to-end baselines when the
+row also exposes route scope, output scope, and claim boundaries.
+
+### Route C - ShardLoom Prepare-Once Batch
 
 The `shardloom-prepare-batch` benchmark lane is the single-process version of the same lifecycle:
 it runs `UniversalIngress`, `SourceState`, `vortex_ingest`, `VortexPreparedState`, and a prepared
@@ -2171,7 +2281,20 @@ scenario batch in one ShardLoom process while keeping preparation timing separat
 timing. Full local benchmark profiles must include this lane so public evidence covers the
 prepare-once runtime route, not only the warm prepared replay route.
 
-### Lane C - Native Vortex
+Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
+and `N=100` when the artifact contains enough child query evidence. If an amortization count is
+synthetic or not available, the row must say so rather than implying a measured batch.
+
+### Route D - ShardLoom Warm Prepared Query
+
+```text
+VortexPreparedState -> prepared_vortex query -> result sink/evidence
+```
+
+Use for warm-query evaluation after preparation already exists. This route is important runtime
+evidence, but it is not a raw-source end-to-end comparison by itself.
+
+### Route E - ShardLoom Native Vortex Query
 
 ```text
 existing .vortex -> native scan/operator
@@ -2180,7 +2303,7 @@ existing .vortex -> native scan/operator
 Use for clean native runtime comparison, operator maturity tracking, and encoded/native execution
 proof.
 
-### Lane D - Direct Transient
+### Route F - ShardLoom Direct Transient Route
 
 ```text
 compatibility file -> direct ShardLoom-native transient compute
@@ -2190,7 +2313,7 @@ Use for small one-shot local workloads, traditional-compute-like UX, and quick d
 Never claim Vortex-native, Native Vortex, or encoded-native unless a separate certificate explicitly
 proves the relevant property.
 
-### Lane E - Benchmark Baseline Comparison
+### Route G - External Baseline End-to-End
 
 ```text
 local comparison engine -> baseline timing/correctness row -> external_baseline_only coverage row
@@ -2202,7 +2325,27 @@ local or platform baselines, migration references, or oracle references. They mu
 unsupported ShardLoom work as fallback, and their rows cannot satisfy ShardLoom-native,
 Vortex-native, Native I/O, execution-certificate, or no-fallback claim gates.
 
+### Stage Attribution Rows
+
+Stage rows or stage fields are allowed only as attribution. They must not look like competing
+products. A prepared-Vortex query slice can be excellent runtime evidence while still starting
+after `VortexPreparedState` exists. A Vortex ingest/write/reopen slice can explain cold-route cost
+without being a user-comparable query route.
+
 ## Claim Gate Flow
+
+Runtime support, evidence quality, and public claims are separate axes:
+
+```text
+row executed successfully
+row has claim-grade route evidence
+route is runtime-supported for a user workflow
+performance/production/replacement claim is allowed
+```
+
+A public row must not force readers to infer runtime readiness from `claim_gate_status`. Use
+`route_runtime_status` for workflow support, `claim_gate_status` for evidence quality, and explicit
+claim booleans for public claims.
 
 ```mermaid
 flowchart TD

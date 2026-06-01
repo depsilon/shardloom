@@ -1120,6 +1120,230 @@ Implementation checklist, in required order:
   `external_engine_invoked=false`.
   Ledger rule: move completed details and validation output to the completed ledger.
 
+#### GAR-RUNTIME-IMPL-6F - Bidirectional Format Conversion And Output Fanout Performance Promotion
+
+Source: user-approved follow-through on output-conversion bottlenecks;
+`docs/architecture/io-reuse-and-fanout-architecture.md`,
+`docs/architecture/universal-input-contract.md`,
+`docs/architecture/compute-engine-flow-reference.md`, `docs/skills/translation-layer.md`,
+`docs/skills/streaming-zero-copy.md`, `docs/skills/vortex/vortex-native-output.md`, and
+`docs/skills/vortex/vortex-arrow-interop.md`.
+
+Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vortex, and
+feature-gated Parquet/Arrow IPC/Avro/ORC, but the compatibility-output path is still row-shaped in
+key places. `SqlLocalSourceOutputFormat::render_rows` and `encode_*_output_rows` repeatedly walk
+`Vec<Vec<(String, ScalarValue)>>` for each output target. Vortex output has a separate writer path,
+but downstream compatibility conversion can still pay repeated scalar formatting, repeated schema
+normalization, and duplicate per-sink materialization.
+
+Runtime enablement: this section promotes the output side of the route:
+
+```text
+VortexPreparedState / ResultState
+  -> ResultBatchState
+  -> sink-driven OutputPlan
+  -> shared fanout conversion DAG
+  -> SinkFormatState
+  -> SinkArtifact + replay/certificate/evidence
+```
+
+Performance objective: reduce repeated row rendering, repeated scalar conversion, duplicate fanout
+work, unnecessary materialization, sink write stalls, and metadata-loss ambiguity. These items may
+improve measured runtime only after benchmark evidence lands; until then they are
+optimization-enabling runtime work, not public speed claims.
+
+Implementation checklist, in required order:
+
+- [ ] GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary.
+  Source: output-conversion bottleneck review, translation-layer skill, streaming/zero-decode
+  skill, and Vortex-native output skill.
+  Current state: local result output is primarily row-shaped before compatibility sinks, causing
+  every sink to re-walk rows and re-normalize scalar values. Vortex output remains separate and
+  higher fidelity, but there is no shared columnar result boundary for all local sinks.
+  Next slice outcome: add a `ResultBatchState` or equivalent internal columnar result boundary
+  after execution and before output conversion. Compatibility sinks consume that boundary when
+  supported; CSV/JSONL remain late text materialization targets.
+  Runtime enablement: local SQL/Python/generated-output routes can produce one columnar result
+  state, then write Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, or JSONL from that state without
+  rebuilding the logical result per sink.
+  User-visible surface: evidence fields report `result_batch_state_status`,
+  `result_batch_state_digest`, `result_batch_state_layout`,
+  `result_batch_state_materialization_required`, `result_batch_state_decode_required`, and
+  per-sink conversion timing.
+  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
+  `shardloom-vortex/src/universal_format_io.rs`, `shardloom-vortex/src/vortex_ingest.rs` where
+  useful, Python result models, benchmark artifacts, and contract tests.
+  Evidence required: one-output and fanout fixtures proving identical output digests before/after;
+  row-shaped blocker evidence for unsupported schemas; no-fallback fields; per-sink timing
+  attribution.
+  Acceptance: at least one local flat scalar route writes multiple formats from one shared result
+  boundary; Vortex remains the highest-fidelity sink; unsupported nested/wide shapes block or
+  report explicitly.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io universal_format_io --lib
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no external engine writer, no Arrow-as-default execution substrate, no broad
+  nested-schema claim, no performance claim.
+  Dependencies/blockers: depends on stable result schema/digest semantics, existing local
+  SQL/Python/generated-output result rows, Vortex and universal-format writer coverage, Python
+  result model compatibility, and static artifact validators that can reject mixed row/columnar
+  evidence.
+  Claim boundary: may claim only a scoped local columnar output boundary with correctness
+  evidence.
+  Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements.
+  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
+  `docs/skills/streaming-zero-copy.md`, and the compute-flow route model.
+  Current state: output planning records useful sink artifact fields, but execution does not yet
+  use sink requirements early enough to avoid producing unused or prematurely materialized
+  representations.
+  Next slice outcome: make every local sink declare required columns, ordering, type/nullability
+  support, dictionary/statistics needs, compression/encoding posture, replay depth, and
+  materialization requirements before result conversion begins.
+  Runtime enablement: planner can avoid building byte payloads, formatted strings, or decoded
+  scalar rows that no requested sink needs.
+  User-visible surface: `output_plan_materialization_required`, `output_plan_required_columns`,
+  `output_plan_ordering_required`, `output_plan_statistics_required`,
+  `output_plan_text_materialization_boundary`, and `output_plan_conversion_blocker`.
+  Implementation scope: OutputPlan evidence structs/helpers in CLI runtime, fanout planning,
+  Python fields, benchmark route rows, and static validators.
+  Evidence required: fixture where Parquet/Arrow/Vortex sinks avoid text rendering; fixture where
+  CSV/JSONL explicitly require late text materialization; unsupported schema diagnostics.
+  Acceptance: output plans explain why materialization happened or was avoided; sinks never
+  silently coerce unsupported data; route timing separates planning, conversion, write, replay, and
+  evidence.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_plan
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no object-store/table commit planning, no Iceberg/Delta transaction semantics, no
+  production sink claim.
+  Dependencies/blockers: depends on ResultBatchState or equivalent output boundary, existing
+  OutputPlan evidence fields, per-sink capability declarations, replay/certificate requirements,
+  and deterministic blockers for unsupported sink/type/materialization combinations.
+  Claim boundary: may claim only deterministic local sink materialization planning.
+  Fallback boundary: compatibility export is translation, never fallback execution.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG.
+  Source: fanout architecture, output-conversion bottleneck review, and translation-layer skill.
+  Current state: multi-output fanout can write several local sink artifacts, but each sink can
+  still trigger independent conversion/rendering work.
+  Next slice outcome: replace per-output independent rendering with a shared conversion DAG: one
+  result state, one schema/type normalization pass, one optional cast/nullability pass, then
+  format-specific terminal encoders.
+  Runtime enablement: `prepared_vortex` or local result routes can write Vortex + Parquet + Arrow
+  IPC + CSV/JSONL fanout while sharing all conversion stages that are semantically identical.
+  User-visible surface: `fanout_conversion_dag_status`, `fanout_shared_stage_count`,
+  `fanout_terminal_sink_count`, `fanout_shared_conversion_millis`,
+  `fanout_terminal_conversion_millis`, and `fanout_duplicate_conversion_avoided`.
+  Implementation scope: `prepare_sql_outputs`, `write_sql_outputs`, format encoders, sink artifact
+  evidence, benchmark fanout rows, Python fanout result envelopes.
+  Evidence required: fanout fixture proving shared stages are used; digest parity with old
+  per-sink rendering; one blocked fixture where sinks require incompatible materialization.
+  Acceptance: repeated schema/scalar normalization is done once per fanout plan where safe;
+  terminal sinks still emit separate artifacts, digests, replay statuses, and certificate
+  statuses.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no remote fanout, no table/lakehouse commits, no hidden sink batching that changes
+  output semantics.
+  Dependencies/blockers: depends on shared result boundary, sink-driven OutputPlan requirements,
+  terminal encoder parity tests, per-sink artifact/digest/replay evidence, and compatibility
+  blockers for sinks that require incompatible materialization.
+  Claim boundary: may claim scoped local shared fanout conversion, not benchmark speedup.
+  Fallback boundary: no DuckDB/Polars/Spark/DataFusion/Velox or Vortex query-engine integration.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission.
+  Source: `docs/architecture/pulseweave-runtime-control.md`, capillary I/O work, and output fanout
+  bottleneck review.
+  Current state: PulseWeave and capillary task evidence exist for prepared/local and
+  cold-preparation surfaces, but output conversion/write/replay stages are not yet first-class
+  scheduled capillary tasks.
+  Next slice outcome: represent output conversion as typed tasks: schema map, columnar export,
+  terminal encode, compression, local write, digest, replay, and evidence render.
+  Runtime enablement: large or multi-sink local outputs can use bounded output windows controlled
+  by FlowInventory, ScarcityLedger, EndoPulse, and ProofBound instead of unbounded per-sink
+  conversion.
+  User-visible surface: `output_capillary_status`, `output_capillary_task_roles`,
+  `output_capillary_window_count`, `output_sink_pressure_status`,
+  `output_memory_pressure_status`, and `pulseweave_output_policy_applied`.
+  Implementation scope: PulseWeave input task shapes, CLI output writer, shardloom-vortex format
+  encoders, benchmark output timing fields, Python envelope validation.
+  Evidence required: small-output fixture where capillary remains below threshold; large/fanout
+  fixture where output capillary scheduling applies; blocked fixture when certificates or replay
+  evidence are incomplete.
+  Acceptance: at least one local fanout route proves output conversion/write windows are actually
+  governed by capillary scheduling; blocked policy preserves existing safe behavior or fails
+  explicitly.
+  Verification:
+  ```bash
+  cargo test -p shardloom-exec pulseweave --lib
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_capillary
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  git diff --check
+  ```
+  Non-goals: no distributed writer, no object-store sink, no real query-data spill, no performance
+  claim.
+  Dependencies/blockers: depends on output task shape definitions, PulseWeave ProofBound admission,
+  FlowInventory/ScarcityLedger/EndoPulse task-window controls, result/fanout conversion evidence,
+  and bounded-memory estimates for conversion/write/replay stages.
+  Claim boundary: may claim only certificate-gated local output work shaping.
+  Fallback boundary: PulseWeave cannot authorize external engine execution.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor.
+  Source: Vortex-native output skill, translation-layer skill, Parquet/ORC/Arrow
+  compatibility-output research, and existing layout/write advisor posture.
+  Current state: cold-ingest layout/write advisor exists, but compatibility-output writers do not
+  yet expose enough target-specific layout choices or metadata-preservation accounting to optimize
+  downstream conversion.
+  Next slice outcome: add an output-side layout/write advisor that starts advisory/report-only,
+  then admits one narrow local route when provider support, correctness, replay, and benchmark
+  evidence exist.
+  Runtime enablement: OutputPlan can choose or report safe settings for Vortex
+  chunk/layout/statistics, Parquet row groups/dictionary/statistics/compression, ORC stripe/index
+  posture, Arrow IPC batch/dictionary posture, and CSV/JSONL streaming chunk size.
+  User-visible surface: `output_layout_write_advisor_status`,
+  `output_layout_write_advisor_selected_strategy`,
+  `output_layout_write_advisor_runtime_decision_applied`, `output_metadata_preservation_map`, and
+  `output_metadata_loss`.
+  Implementation scope: output plan structs/evidence, Vortex writer request fields where
+  supported, universal-format encoders, benchmark markdown/artifact rows, Python result surfaces.
+  Evidence required: advisory rows for all local sink formats; one applied local route with
+  correctness/replay proof; blocked rows for unsupported provider choices; metadata-loss reports
+  for compatibility targets.
+  Acceptance: advisor never silently changes output semantics; one supported local route can apply
+  a write/layout choice; all other strategies remain explicit advisory or blocked statuses.
+  Verification:
+  ```bash
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_layout
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  git diff --check
+  ```
+  Non-goals: no fitted Bayesian runtime model, no arbitrary layout rewrite, no broad
+  format-fidelity claim, no public benchmark claim.
+  Dependencies/blockers: depends on sink-driven OutputPlan requirements, provider capability
+  checks, Vortex/universal-format writer knobs that are actually supported, replay/correctness
+  fixtures, metadata-preservation accounting, and explicit blockers for advisory-only strategies.
+  Claim boundary: may claim only scoped local advisor evidence and one admitted route if
+  implemented.
+  Fallback boundary: unsupported layout/write choices block before execution.
+  Ledger rule: move completed details to the completed ledger.
+
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 Current runtime ordering note (2026-05-26): prioritize engine-internal completion first. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator

@@ -10,7 +10,7 @@ source admission, Vortex preparation, execution mode, output planning, certifica
 status, and claim gate status.
 
 ShardLoom is not an official Vortex project and is not Vortex-endorsed. It does not claim
-production readiness, public performance superiority, Apache Spark replacement, production
+production readiness, public performance superiority, Apache Spark-displacement, production
 SQL/DataFrame support, production object-store/lakehouse support, production Foundry support,
 package publication readiness, or hidden external fallback.
 
@@ -37,6 +37,18 @@ UniversalIngress / InputAdapter
 `prepared_vortex` executes from `VortexPreparedState`; it does not read CSV, JSONL, Parquet,
 database rows, object-store objects, or generated rows directly. Compatibility import is the
 certified cold ingest/stage route, not a pure query-speed route.
+
+Public benchmark and evidence surfaces use two views:
+
+| View | Meaning |
+| --- | --- |
+| Route lanes | What users compare end to end: raw source to result, prepare-once to result, warm prepared query, native Vortex query, direct transient route, or external baseline. |
+| Stage pieces | Why a route took that time: admission, read, parse/decode, SourceState build, Vortex array build/write/reopen, prepared-state lookup, scan, operator compute, sink write, and evidence render. |
+
+The primary local non-Vortex route is `ShardLoom Prepare-Once First Query`: raw compatibility input
+is admitted into `SourceState`, prepared once into `VortexPreparedState`, queried, and written with
+evidence. `ShardLoom Warm Prepared Query` starts after that prepared state already exists, so it is
+useful runtime evidence but not a raw-source end-to-end comparison by itself.
 
 ## What Is Usable Today
 
@@ -163,6 +175,23 @@ getting-started docs.
 
 Benchmarks are evidence, not a leaderboard. ShardLoom separates certified cold route timing from
 prepared warm route timing and keeps external engines labeled as baseline context only.
+
+Public rows should be read through these fields before comparing numbers:
+
+- `route_runtime_status` says whether the user workflow is a scoped runtime route, fixture smoke,
+  gated feature, external baseline, or deterministic policy/no-route diagnostic.
+- `claim_gate_status` says whether the evidence for that row is claim-grade; it is not a synonym
+  for production readiness or a speed claim.
+- `performance_claim_allowed`, `production_claim_allowed`, and
+  `spark_replacement_claim_allowed` must remain explicit and false unless a later claim gate
+  authorizes them.
+- ShardLoom route rows and external baseline rows are separate. Baseline gaps are not ShardLoom
+  runtime gaps.
+
+The route labels to expect are `ShardLoom Cold Certified Route`,
+`ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
+`ShardLoom Warm Prepared Query`, `ShardLoom Native Vortex Query`,
+`ShardLoom Direct Transient Route`, and `External Baseline End-to-End`.
 
 Use:
 

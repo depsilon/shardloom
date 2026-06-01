@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Human-readable ShardLoom route architecture from UniversalIngress to claim gates."><meta name="robots" content="index,follow"><link rel="canonical" href="https://shardloom.io/compute-engine-flow"><link rel="icon" href="/assets/logo/shardloom-favicon.png"><meta property="og:title" content="Architecture | ShardLoom"><meta property="og:description" content="Human-readable ShardLoom route architecture from UniversalIngress to claim gates."><meta property="og:type" content="website"><meta property="og:url" content="https://shardloom.io/compute-engine-flow"><title>Architecture | ShardLoom</title><link rel="stylesheet" href="/assets/site.css"><script type="module" src="/_astro/page.B_tncCx8.js"></script></head> <body> <header class="site-header"> <a class="brand" href="/" aria-label="ShardLoom home"> <img src="/assets/logo/shardloom-favicon.png" width="40" height="40" alt="" aria-hidden="true"> <span>ShardLoom</span> </a> <nav aria-label="Primary navigation"> <a href="/">Home</a><a href="/start">Start</a><a href="/field-guide">Field Guide</a><a href="/use-cases">Use Cases</a><a href="/benchmarks">Benchmarks</a><a href="/architecture" class="active">Architecture</a><a href="/status">Status</a><a href="/docs">Docs</a><a href="https://github.com/depsilon/shardloom">GitHub</a> </nav> </header> <main>  <section class="page-hero"> <p class="eyebrow">Architecture</p> <h1>SQL and Python are front doors.</h1> <p class="lede">
 The route is source admission, SourceState, vortex_ingest, VortexPreparedState, prepared_vortex or native_vortex execution, OutputPlan, SinkArtifact, evidence, and claim gate.
-</p> </section> <section> <div class="route compact-route"> <article class="route-step"><span>Access</span><h3>Python / SQL / CLI</h3><p>User surfaces express work; they are not the execution route.</p></article> <article class="route-step"><span>Ingress</span><h3>UniversalIngress</h3><p>Recognizes sources and emits SourceState or deterministic blockers.</p></article> <article class="route-step"><span>Prepare once</span><h3>vortex_ingest</h3><p>Non-Vortex input reaches prepared_vortex only through VortexPreparedState.</p></article> <article class="route-step"><span>Execute</span><h3>prepared_vortex / native_vortex</h3><p>compatibility_import_certified is the certified cold ingest/stage route.</p></article> <article class="route-step"><span>Output</span><h3>OutputPlan / SinkArtifact</h3><p>Output format and input format remain independent.</p></article> <article class="route-step"><span>Boundary</span><h3>External engines are baselines only</h3><p>They never satisfy ShardLoom fallback or claim gates.</p></article> </div> </section> <section class="section-grid"> <div> <p class="eyebrow">What must never happen</p> <h2>What must never happen</h2> <p class="narrow">The website must not imply production support, Spark displacement, external fallback execution, object-store/lakehouse runtime, Foundry production support, or package publication.</p> </div> <ul class="boundary-list as-list"> <li>External engines are baseline-only.</li> <li>Blocked and report-only paths remain visible.</li> <li>Benchmark timing remains evidence, not a leaderboard.</li> </ul> </section> <section> <p class="eyebrow">Rendered architecture diagrams</p> <h2>Rendered architecture diagrams</h2> <div class="diagram-gallery"> <article class="flow-diagram" data-rendered-diagram="diagram-1"> <p class="diagram-kicker">Diagram 1</p> <h3>Human-Readable Mental Model</h3> <div class="diagram-track">  <div class="diagram-node"> <span>ACCESS</span> <strong>1. Access</strong> <p>CLI / Python / benchmark / adapter</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REQUEST</span> <strong>2. Typed request</strong> <p>workload + source + output intent</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADMISSION</span> <strong>3. Admission</strong> <p>policy + capability + semantics</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MODE</span> <strong>4. Explicit modes</strong> <p>execution mode + engine mode</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PROVIDER</span> <strong>5. Provider path</strong> <p>Vortex / ShardLoom kernel / diagnostic</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OUTPUT</span> <strong>6. Output path</strong> <p>result ref / sink artifact / unsupported status</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>EVIDENCE</span> <strong>7. Evidence and claim gate</strong> <p>certificates + no-fallback + claim status</p> </div>  </div>  </article><article class="flow-diagram" data-rendered-diagram="diagram-2"> <p class="diagram-kicker">Diagram 2</p> <h3>View 1 - Access And Users</h3> <div class="diagram-track">  <div class="diagram-node"> <span>PEOPLE</span> <strong>People and automation</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>USER</span> <strong>End users</strong> <p>analyst / engineer / app developer</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADAPTER_AUTHOR</span> <strong>Adapter authors</strong> <p>DB / orchestration / BI / notebook</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OPERATOR</span> <strong>Operators and agents</strong> <p>CI / release gates / automation</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ACCESS</span> <strong>Access surfaces</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CLI</span> <strong>CLI</strong> <p>current canonical entrypoint</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PYTHON</span> <strong>Python client</strong> <p>typed wrapper over CLI protocol</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>BENCH</span> <strong>Benchmark harness</strong> <p>comparison reports and evidence</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REST</span> <strong>REST / event API</strong> <p>report-only contract</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>SDK / notebook clients</strong><em>SDK</em></span><span><strong>Thin adapters</strong><em>ADAPTER</em></span><span><strong>Shared protocol</strong><em>CONTRACT</em></span><span><strong>Typed request envelope</strong><em>REQUEST</em></span><span><strong>Typed output envelope</strong><em>OUTPUT</em></span><span><strong>CLI text / JSON / artifacts</strong><em>CLI_RESULT</em></span><span><strong>Python typed models / artifact refs</strong><em>PY_RESULT</em></span><span><strong>Adapter-facing result refs</strong><em>ADAPTER_RESULT</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-3"> <p class="diagram-kicker">Diagram 3</p> <h3>View 2 - Runtime Contract</h3> <div class="diagram-track">  <div class="diagram-node"> <span>SOURCE</span> <strong>Source descriptors</strong> <p>format / schema / URI / pushdown</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>POLICY</span> <strong>Policy</strong> <p>governance / credentials / no fallback</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CAPABILITY</span> <strong>Capability matrix</strong> <p>source + operator + sink + feature gates</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>INGRESS</span> <strong>UniversalIngress</strong> <p>InputAdapter -&gt; SourceState or blocker</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX_INGEST</span> <strong>vortex_ingest</strong> <p>SourceState -&gt; VortexPreparedState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SEMANTICS</span> <strong>Semantic profile</strong> <p>schema / expression / workload constitution</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MODE</span> <strong>Explicit execution mode</strong> <p>requested + selected + reason</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE</span> <strong>Engine mode</strong> <p>batch / live / hybrid / auto</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>1. Request binding</strong><em>REQUEST_PHASE</em></span><span><strong>Typed request</strong><em>REQUEST</em></span><span><strong>Generated source declaration</strong><em>GENERATED_SOURCE</em></span><span><strong>Output intent</strong><em>OUTPUT_INTENT</em></span><span><strong>2. Admission before execution</strong><em>ADMISSION_PHASE</em></span><span><strong>3. Provider decision</strong><em>EXECUTION_PHASE</em></span><span><strong>Source or preparation boundary</strong><em>BOUNDARY</em></span><span><strong>Plan IR and physical plan</strong><em>PLAN</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-4"> <p class="diagram-kicker">Diagram 4</p> <h3>View 3 - Execution Mode Lanes</h3> <div class="diagram-track">  <div class="diagram-node"> <span>COMPAT</span> <strong>compatibility_import_certified</strong> <p>certified cold ingest/stage lane</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>UNIVERSAL_INGRESS</span> <strong>UniversalIngress</strong> <p>InputAdapter -&gt; SourceState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX_INGEST</span> <strong>vortex_ingest</strong> <p>SourceState -&gt; VortexPreparedState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>COMPAT_BOUNDARY</span> <strong>Certified ingest boundary</strong> <p>UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PROVIDER</span> <strong>Provider admission</strong> <p>Vortex provider / ShardLoom kernel / diagnostic</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>requested_execution_mode</strong><em>REQUESTED</em></span><span><strong>auto</strong><em>AUTO</em></span><span><strong>selected_execution_mode</strong><em>SELECTED</em></span><span><strong>prepared_vortex</strong><em>PREPARED</em></span><span><strong>native_vortex</strong><em>NATIVE</em></span><span><strong>direct_compatibility_transient</strong><em>DIRECT</em></span><span><strong>Prepared boundary</strong><em>PREPARED_BOUNDARY</em></span><span><strong>Native Vortex boundary</strong><em>NATIVE_BOUNDARY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-5"> <p class="diagram-kicker">Diagram 5</p> <h3>View 4 - Engine Fabric Layer</h3> <div class="diagram-track">  <div class="diagram-node"> <span>REQUEST</span> <strong>Typed request</strong> <p>workload + source + output intent</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE_REQUEST</span> <strong>requested_engine_mode</strong> <p>auto / batch / live / hybrid</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE_SELECTION</span> <strong>engine-selection-plan</strong> <p>selected_engine_mode + allowed/rejected modes</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MATRIX</span> <strong>engine-capability-matrix</strong> <p>batch/live/hybrid rows</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>GAR-0013 streaming capability matrix</strong><em>STREAM_MATRIX</em></span><span><strong>Current scoped engine surfaces</strong><em>CURRENT</em></span><span><strong>batch</strong><em>BATCH</em></span><span><strong>live-change-contract-plan</strong><em>LIVE_CONTRACT</em></span><span><strong>live-fixture-run</strong><em>LIVE_FIXTURE</em></span><span><strong>hybrid-overlay-run</strong><em>HYBRID_FIXTURE</em></span><span><strong>streaming-plan / streaming-batch-plan / backpressure-plan</strong><em>STREAM_REPORTS</em></span><span><strong>Claim and effect boundary</strong><em>CLAIM_BOUNDARY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-6"> <p class="diagram-kicker">Diagram 6</p> <h3>View 5 - I/O And Downstream Use</h3> <div class="diagram-track">  <div class="diagram-node"> <span>SOURCES</span> <strong>Input families</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>LOCAL</span> <strong>Local compatibility files</strong> <p>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX</span> <strong>Existing Vortex artifacts</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>GENERATED</span> <strong>Generated sources</strong> <p>range / sequence / values / literal rows / calendar</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REMOTE</span> <strong>Remote/table/stream refs</strong> <p>object-store / catalog / event stream</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>DECISION</span> <strong>Runtime decision</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADMIT</span> <strong>Admitted local path</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>BLOCK</span> <strong>Deterministic diagnostic</strong> <p>support_status=unsupported</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SINKS</span> <strong>Output and sink paths</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>Typed result/ref only</strong><em>RESULT</em></span><span><strong>Vortex result artifact</strong><em>VORTEX_OUT</em></span><span><strong>Local compatibility export</strong><em>LOCAL_EXPORT</em></span><span><strong>Table/object-store/REST/event delivery</strong><em>PLATFORM_OUT</em></span><span><strong>Consumers</strong><em>CONSUMERS</em></span><span><strong>CLI text / JSON / artifacts</strong><em>CLI_OUT</em></span><span><strong>Python typed models</strong><em>PY_OUT</em></span><span><strong>Adapter consumers</strong><em>ADAPTER_OUT</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-7"> <p class="diagram-kicker">Diagram 7</p> <h3>View 6 - Evidence, Observability, And Claims</h3> <div class="diagram-track">  <div class="diagram-node"> <span>OUTCOME</span> <strong>Execution result or unsupported diagnostic</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>RUNTIME_EVIDENCE</span> <strong>Runtime evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CERTS</span> <strong>Certificates</strong> <p>execution / Native I/O / generated-source</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MATERIALIZATION</span> <strong>Materialization and decode boundary</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>POLICY</span> <strong>Policy evidence</strong> <p>fallback_attempted=false external_engine_invoked=false</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SOURCE_SINK</span> <strong>Source/sink evidence</strong> <p>SourceState / PreparedState / OutputPlan</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OPTIMIZATION_EVIDENCE</span> <strong>Optimization and timing evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>TIMING</span> <strong>Stage timing ledger</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SCAN</span> <strong>Vortex Scan pushdown evidence</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>Encoded-kernel admission evidence</strong><em>ENCODED</em></span><span><strong>Fused residual pipeline evidence</strong><em>FUSED</em></span><span><strong>Session and reuse evidence</strong><em>SESSION</em></span><span><strong>Resource/build profile evidence</strong><em>RESOURCE</em></span><span><strong>Native microbenchmark rows</strong><em>MICRO</em></span><span><strong>Optional exports</strong><em>OPTIONAL_EXPORTS</em></span><span><strong>OpenLineage facets</strong><em>LINEAGE</em></span><span><strong>OpenTelemetry spans</strong><em>TELEMETRY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-8"> <p class="diagram-kicker">Diagram 8</p> <h3>Claim Gate Flow</h3> <div class="diagram-track">  <div class="diagram-node"> <span>A</span> <strong>Execution result</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>B</span> <strong>Correctness evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>C</span> <strong>Benchmark evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>D</span> <strong>Execution certificate</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>E</span> <strong>Native I/O certificate</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>F</span> <strong>Materialization/decode evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>G</span> <strong>No-fallback evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>H</span> <strong>All required evidence present?</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>I</span> <strong>claim_grade</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>not_claim_grade</strong><em>J</em></span><span><strong>support_status=unsupported</strong><em>K</em></span><span><strong>not claimable</strong><em>L</em></span><span><strong>fixture_smoke_only</strong><em>M</em></span><span><strong>external_baseline_only</strong><em>N</em></span> </div> </article> </div> </section> <section> <details class="drawer"> <summary>Raw Mermaid source</summary> <pre><code># ShardLoom Compute Engine Flow Reference
+</p> </section> <section> <div class="route compact-route"> <article class="route-step"><span>Access</span><h3>Python / SQL / CLI</h3><p>User surfaces express work; they are not the execution route.</p></article> <article class="route-step"><span>Ingress</span><h3>UniversalIngress</h3><p>Recognizes sources and emits SourceState or deterministic blockers.</p></article> <article class="route-step"><span>Prepare once</span><h3>vortex_ingest</h3><p>Non-Vortex input reaches prepared_vortex only through VortexPreparedState.</p></article> <article class="route-step"><span>Execute</span><h3>prepared_vortex / native_vortex</h3><p>compatibility_import_certified is the certified cold ingest/stage route.</p></article> <article class="route-step"><span>Output</span><h3>OutputPlan / SinkArtifact</h3><p>Output format and input format remain independent.</p></article> <article class="route-step"><span>Boundary</span><h3>External engines are baselines only</h3><p>They never satisfy ShardLoom fallback or claim gates.</p></article> </div> </section> <section class="section-grid"> <div> <p class="eyebrow">What must never happen</p> <h2>What must never happen</h2> <p class="narrow">The website must not imply production support, Spark displacement, external fallback execution, object-store/lakehouse runtime, Foundry production support, or package publication.</p> </div> <ul class="boundary-list as-list"> <li>External engines are baseline-only.</li> <li>Blocked and report-only paths remain visible.</li> <li>Benchmark timing remains evidence, not a leaderboard.</li> </ul> </section> <section> <p class="eyebrow">Rendered architecture diagrams</p> <h2>Rendered architecture diagrams</h2> <div class="diagram-gallery"> <article class="flow-diagram" data-rendered-diagram="diagram-1"> <p class="diagram-kicker">Diagram 1</p> <h3>Human-Readable Mental Model</h3> <div class="diagram-track">  <div class="diagram-node"> <span>ACCESS</span> <strong>1. Access</strong> <p>CLI / Python / benchmark / adapter</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REQUEST</span> <strong>2. Typed request</strong> <p>workload + source + output intent</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADMISSION</span> <strong>3. Admission</strong> <p>policy + capability + semantics</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MODE</span> <strong>4. Explicit modes</strong> <p>execution mode + engine mode</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PROVIDER</span> <strong>5. Provider path</strong> <p>Vortex / ShardLoom kernel / diagnostic</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OUTPUT</span> <strong>6. Output path</strong> <p>result ref / sink artifact / unsupported status</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>EVIDENCE</span> <strong>7. Evidence and claim gate</strong> <p>certificates + no-fallback + claim status</p> </div>  </div>  </article><article class="flow-diagram" data-rendered-diagram="diagram-2"> <p class="diagram-kicker">Diagram 2</p> <h3>View 1 - Access And Users</h3> <div class="diagram-track">  <div class="diagram-node"> <span>PEOPLE</span> <strong>People and automation</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>USER</span> <strong>End users</strong> <p>analyst / engineer / app developer</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADAPTER_AUTHOR</span> <strong>Adapter authors</strong> <p>DB / orchestration / BI / notebook</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OPERATOR</span> <strong>Operators and agents</strong> <p>CI / release gates / automation</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ACCESS</span> <strong>Access surfaces</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CLI</span> <strong>CLI</strong> <p>current canonical entrypoint</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PYTHON</span> <strong>Python client</strong> <p>typed wrapper over CLI protocol</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>BENCH</span> <strong>Benchmark harness</strong> <p>comparison reports and evidence</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REST</span> <strong>REST / event API</strong> <p>report-only contract</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>SDK / notebook clients</strong><em>SDK</em></span><span><strong>Thin adapters</strong><em>ADAPTER</em></span><span><strong>Shared protocol</strong><em>CONTRACT</em></span><span><strong>Typed request envelope</strong><em>REQUEST</em></span><span><strong>Typed output envelope</strong><em>OUTPUT</em></span><span><strong>CLI text / JSON / artifacts</strong><em>CLI_RESULT</em></span><span><strong>Python typed models / artifact refs</strong><em>PY_RESULT</em></span><span><strong>Adapter-facing result refs</strong><em>ADAPTER_RESULT</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-3"> <p class="diagram-kicker">Diagram 3</p> <h3>View 2 - Runtime Contract</h3> <div class="diagram-track">  <div class="diagram-node"> <span>SOURCE</span> <strong>Source descriptors</strong> <p>format / schema / URI / pushdown</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>POLICY</span> <strong>Policy</strong> <p>governance / credentials / no fallback</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CAPABILITY</span> <strong>Capability matrix</strong> <p>source + operator + sink + feature gates</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>INGRESS</span> <strong>UniversalIngress</strong> <p>InputAdapter -&gt; SourceState or blocker</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX_INGEST</span> <strong>vortex_ingest</strong> <p>SourceState -&gt; VortexPreparedState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SEMANTICS</span> <strong>Semantic profile</strong> <p>schema / expression / workload constitution</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MODE</span> <strong>Explicit execution mode</strong> <p>requested + selected + reason</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE</span> <strong>Engine mode</strong> <p>batch / live / hybrid / auto</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>1. Request binding</strong><em>REQUEST_PHASE</em></span><span><strong>Typed request</strong><em>REQUEST</em></span><span><strong>Generated source declaration</strong><em>GENERATED_SOURCE</em></span><span><strong>Output intent</strong><em>OUTPUT_INTENT</em></span><span><strong>2. Admission before execution</strong><em>ADMISSION_PHASE</em></span><span><strong>3. Provider decision</strong><em>EXECUTION_PHASE</em></span><span><strong>Source or preparation boundary</strong><em>BOUNDARY</em></span><span><strong>Plan IR and physical plan</strong><em>PLAN</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-4"> <p class="diagram-kicker">Diagram 4</p> <h3>View 3 - Execution Mode Lanes</h3> <div class="diagram-track">  <div class="diagram-node"> <span>COMPAT</span> <strong>compatibility_import_certified</strong> <p>certified cold ingest/stage lane</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>UNIVERSAL_INGRESS</span> <strong>UniversalIngress</strong> <p>InputAdapter -&gt; SourceState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX_INGEST</span> <strong>vortex_ingest</strong> <p>SourceState -&gt; VortexPreparedState</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>COMPAT_BOUNDARY</span> <strong>Certified ingest boundary</strong> <p>UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>PROVIDER</span> <strong>Provider admission</strong> <p>Vortex provider / ShardLoom kernel / diagnostic</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>requested_execution_mode</strong><em>REQUESTED</em></span><span><strong>auto</strong><em>AUTO</em></span><span><strong>selected_execution_mode</strong><em>SELECTED</em></span><span><strong>prepared_vortex</strong><em>PREPARED</em></span><span><strong>native_vortex</strong><em>NATIVE</em></span><span><strong>direct_compatibility_transient</strong><em>DIRECT</em></span><span><strong>external_baseline_only</strong><em>BASELINE</em></span><span><strong>Prepared boundary</strong><em>PREPARED_BOUNDARY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-5"> <p class="diagram-kicker">Diagram 5</p> <h3>View 4 - Engine Fabric Layer</h3> <div class="diagram-track">  <div class="diagram-node"> <span>REQUEST</span> <strong>Typed request</strong> <p>workload + source + output intent</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE_REQUEST</span> <strong>requested_engine_mode</strong> <p>auto / batch / live / hybrid</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ENGINE_SELECTION</span> <strong>engine-selection-plan</strong> <p>selected_engine_mode + allowed/rejected modes</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MATRIX</span> <strong>engine-capability-matrix</strong> <p>batch/live/hybrid rows</p> </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>GAR-0013 streaming capability matrix</strong><em>STREAM_MATRIX</em></span><span><strong>Current scoped engine surfaces</strong><em>CURRENT</em></span><span><strong>batch</strong><em>BATCH</em></span><span><strong>live-change-contract-plan</strong><em>LIVE_CONTRACT</em></span><span><strong>live-fixture-run</strong><em>LIVE_FIXTURE</em></span><span><strong>hybrid-overlay-run</strong><em>HYBRID_FIXTURE</em></span><span><strong>streaming-plan / streaming-batch-plan / backpressure-plan</strong><em>STREAM_REPORTS</em></span><span><strong>Claim and effect boundary</strong><em>CLAIM_BOUNDARY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-6"> <p class="diagram-kicker">Diagram 6</p> <h3>View 5 - I/O And Downstream Use</h3> <div class="diagram-track">  <div class="diagram-node"> <span>SOURCES</span> <strong>Input families</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>LOCAL</span> <strong>Local compatibility files</strong> <p>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>VORTEX</span> <strong>Existing Vortex artifacts</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>GENERATED</span> <strong>Generated sources</strong> <p>range / sequence / values / literal rows / calendar</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>REMOTE</span> <strong>Remote/table/stream refs</strong> <p>object-store / catalog / event stream</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>DECISION</span> <strong>Runtime decision</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>ADMIT</span> <strong>Admitted local path</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>BLOCK</span> <strong>Deterministic diagnostic</strong> <p>support_status=unsupported</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SINKS</span> <strong>Output and sink paths</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>Typed result/ref only</strong><em>RESULT</em></span><span><strong>Vortex result artifact</strong><em>VORTEX_OUT</em></span><span><strong>Local compatibility export</strong><em>LOCAL_EXPORT</em></span><span><strong>Table/object-store/REST/event delivery</strong><em>PLATFORM_OUT</em></span><span><strong>Consumers</strong><em>CONSUMERS</em></span><span><strong>CLI text / JSON / artifacts</strong><em>CLI_OUT</em></span><span><strong>Python typed models</strong><em>PY_OUT</em></span><span><strong>Adapter consumers</strong><em>ADAPTER_OUT</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-7"> <p class="diagram-kicker">Diagram 7</p> <h3>View 6 - Evidence, Observability, And Claims</h3> <div class="diagram-track">  <div class="diagram-node"> <span>OUTCOME</span> <strong>Execution result or unsupported diagnostic</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>RUNTIME_EVIDENCE</span> <strong>Runtime evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>CERTS</span> <strong>Certificates</strong> <p>execution / Native I/O / generated-source</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>MATERIALIZATION</span> <strong>Materialization and decode boundary</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>POLICY</span> <strong>Policy evidence</strong> <p>fallback_attempted=false external_engine_invoked=false</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SOURCE_SINK</span> <strong>Source/sink evidence</strong> <p>SourceState / PreparedState / OutputPlan</p> </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>OPTIMIZATION_EVIDENCE</span> <strong>Optimization and timing evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>TIMING</span> <strong>Stage timing ledger</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>SCAN</span> <strong>Vortex Scan pushdown evidence</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>Encoded-kernel admission evidence</strong><em>ENCODED</em></span><span><strong>Fused residual pipeline evidence</strong><em>FUSED</em></span><span><strong>Session and reuse evidence</strong><em>SESSION</em></span><span><strong>Resource/build profile evidence</strong><em>RESOURCE</em></span><span><strong>Native microbenchmark rows</strong><em>MICRO</em></span><span><strong>Optional exports</strong><em>OPTIONAL_EXPORTS</em></span><span><strong>OpenLineage facets</strong><em>LINEAGE</em></span><span><strong>OpenTelemetry spans</strong><em>TELEMETRY</em></span> </div> </article><article class="flow-diagram" data-rendered-diagram="diagram-8"> <p class="diagram-kicker">Diagram 8</p> <h3>Claim Gate Flow</h3> <div class="diagram-track">  <div class="diagram-node"> <span>A</span> <strong>Execution result</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>B</span> <strong>Correctness evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>C</span> <strong>Benchmark evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>D</span> <strong>Execution certificate</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>E</span> <strong>Native I/O certificate</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>F</span> <strong>Materialization/decode evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>G</span> <strong>No-fallback evidence</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>H</span> <strong>All required evidence present?</strong>  </div> <div class="diagram-arrow" aria-hidden="true">-&gt;</div> <div class="diagram-node"> <span>I</span> <strong>claim_grade</strong>  </div>  </div> <div class="diagram-branches" aria-label="Related branches"> <span><strong>not_claim_grade</strong><em>J</em></span><span><strong>support_status=unsupported</strong><em>K</em></span><span><strong>not claimable</strong><em>L</em></span><span><strong>fixture_smoke_only</strong><em>M</em></span><span><strong>external_baseline_only</strong><em>N</em></span> </div> </article> </div> </section> <section> <details class="drawer"> <summary>Raw Mermaid source</summary> <pre><code># ShardLoom Compute Engine Flow Reference
 
 ## Purpose
 
@@ -205,6 +205,38 @@ Use friendlier route labels in user-facing prose while keeping the canonical fie
 | `direct_compatibility_transient` | Direct one-shot route | Quick local work without persistent Vortex staging. | Source read/parse plus ShardLoom-native compute and optional output. | Vortex-native execution or hidden fallback. |
 | Generated-source reports | Source-free generated-output route | No input dataset exists and ShardLoom generates rows. | Generation plus output write and evidence; source-read timing is zero. | No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support. |
 | Output/fanout reports | Multi-output fanout route | One admitted source/result needs multiple local outputs. | Query/reuse timing plus per-output planning, write, replay, and evidence. | Object-store/table commit or production sink support. |
+
+Route lanes and stage pieces are separate views:
+
+```text
+Route lanes = what users compare end to end.
+Stage pieces = why a route took that time.
+```
+
+The public route lane roster is:
+
+| Public lane | Start state | Includes preparation? | Comparable to raw-source external baselines? | Claim boundary |
+| --- | --- | --- | --- | --- |
+| ShardLoom Cold Certified Route | Raw compatibility source | Yes, plus certification evidence | Yes, with cold-route scope visible | Ingest/stage, query, output, and evidence for the measured local route. |
+| ShardLoom Prepare-Once First Query | Raw compatibility source | Yes, once | Yes | Primary non-Vortex user route: prepare once, run first prepared query, emit output/evidence. |
+| ShardLoom Prepare-Once Batch | Raw compatibility source | Once per batch | Yes, with amortization count visible | Reuse route: prepare once, run multiple prepared scenarios in one process. |
+| ShardLoom Warm Prepared Query | `VortexPreparedState` | No | No | Runtime query slice after preparation exists. |
+| ShardLoom Native Vortex Query | Existing Vortex artifact | No | No, unless external baselines also start from Vortex | Native-input route and operator maturity evidence. |
+| ShardLoom Direct Transient Route | Raw compatibility source | No persistent Vortex preparation | Limited to its direct one-shot scope | Quick local route without Vortex-native persistence. |
+| External Baseline End-to-End | External engine raw-source path | Not applicable | Baseline context only | Never fallback evidence for ShardLoom. |
+
+Every public row should expose route readiness separately from evidence and claim posture:
+
+```text
+route_runtime_status=scoped_runtime_supported|smoke_supported|feature_gated|blocked|unsupported|external_baseline_only
+claim_gate_status=claim_grade|not_claim_grade|fixture_smoke_only|external_baseline_only
+performance_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+```
+
+`claim_grade` means the row&#39;s evidence package is strong enough for its scoped claim. It does not
+mean production support, speed superiority, broad SQL/DataFrame support, or Spark-displacement.
 
 ## UniversalIngress And `vortex_ingest`
 
@@ -535,6 +567,7 @@ flowchart TD
     PREPARED[&quot;prepared_vortex&lt;br/&gt;warm route from VortexPreparedState&quot;]
     NATIVE[&quot;native_vortex&lt;br/&gt;current scoped native-artifact lane&quot;]
     DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped local adapter paths + unsupported diagnostics&quot;]
+    BASELINE[&quot;external_baseline_only&lt;br/&gt;comparison context, never fallback&quot;]
 
     UNIVERSAL_INGRESS[&quot;UniversalIngress&lt;br/&gt;InputAdapter -&gt; SourceState&quot;]
     VORTEX_INGEST[&quot;vortex_ingest&lt;br/&gt;SourceState -&gt; VortexPreparedState&quot;]
@@ -545,6 +578,17 @@ flowchart TD
 
     PROVIDER[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
     SELECTIVE_BLOCKER[&quot;Scoped filter providers&lt;br/&gt;selective filter + filter/project/limit evidence&quot;]
+    ROUTE_VIEW[&quot;Route lane view&lt;br/&gt;what users compare end to end&quot;]
+    STAGE_VIEW[&quot;Stage attribution view&lt;br/&gt;why route time was spent&quot;]
+    STATUS_VIEW[&quot;Readiness and claim view&lt;br/&gt;runtime status + evidence + claim booleans&quot;]
+
+    COLD_ROUTE[&quot;ShardLoom Cold Certified Route&lt;br/&gt;raw source -&gt; prepare -&gt; query -&gt; output/evidence&quot;]
+    FIRST_QUERY[&quot;ShardLoom Prepare-Once First Query&lt;br/&gt;raw source -&gt; prepare once -&gt; first prepared query&quot;]
+    BATCH_ROUTE[&quot;ShardLoom Prepare-Once Batch&lt;br/&gt;raw source -&gt; prepare once -&gt; N prepared queries&quot;]
+    WARM_ROUTE[&quot;ShardLoom Warm Prepared Query&lt;br/&gt;VortexPreparedState -&gt; query&quot;]
+    NATIVE_ROUTE[&quot;ShardLoom Native Vortex Query&lt;br/&gt;existing Vortex -&gt; query&quot;]
+    DIRECT_ROUTE[&quot;ShardLoom Direct Transient Route&lt;br/&gt;raw source -&gt; direct one-shot compute&quot;]
+    EXTERNAL_ROUTE[&quot;External Baseline End-to-End&lt;br/&gt;external engine raw-source path&quot;]
 
     REQUESTED --&gt; AUTO --&gt; SELECTED
     REQUESTED --&gt; COMPAT
@@ -561,15 +605,42 @@ flowchart TD
     NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
     DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
     PROVIDER --&gt;|&quot;scoped CSV filter paths today&quot;| SELECTIVE_BLOCKER
+
+    COMPAT --&gt; COLD_ROUTE
+    VORTEX_INGEST --&gt; FIRST_QUERY
+    VORTEX_INGEST --&gt; BATCH_ROUTE
+    PREPARED --&gt; WARM_ROUTE
+    NATIVE --&gt; NATIVE_ROUTE
+    DIRECT --&gt; DIRECT_ROUTE
+    BASELINE -.-&gt; EXTERNAL_ROUTE
+
+    COLD_ROUTE --&gt; ROUTE_VIEW
+    FIRST_QUERY --&gt; ROUTE_VIEW
+    BATCH_ROUTE --&gt; ROUTE_VIEW
+    WARM_ROUTE --&gt; ROUTE_VIEW
+    NATIVE_ROUTE --&gt; ROUTE_VIEW
+    DIRECT_ROUTE --&gt; ROUTE_VIEW
+    EXTERNAL_ROUTE -.-&gt; ROUTE_VIEW
+    ROUTE_VIEW --&gt; STAGE_VIEW --&gt; STATUS_VIEW
 ```
 
 Mode timing fields must stay visible:
 
 ```text
+route_lane_id
+route_display_name
+start_state
+end_state
+route_runtime_status
+route_comparable_to_external_end_to_end
+route_timing_scope
+route_total_formula
 source_stat_millis
 source_read_millis
 source_parse_millis
 compatibility_parse_millis
+source_admission_millis
+source_state_build_millis
 source_to_columnar_millis
 compatibility_to_vortex_import_millis
 compatibility_to_vortex_import_timing_scope
@@ -591,9 +662,14 @@ result_sink_write_millis
 evidence_render_millis
 evidence_render_timing_status
 total_runtime_millis
+preparation_timing_included_in_total
+query_timing_included_in_total
+output_timing_included_in_total
+evidence_timing_included_in_total
 timing_scope
 preparation_included
 query_timing_starts_after_preparation
+prepared_state_reused
 certification_level
 ```
 
@@ -1607,12 +1683,26 @@ unsupported diagnostics. They must not be sent to external engines.
 Every benchmark row should say exactly where time went.
 
 ```text
+route_lane_id
+route_display_name
+route_runtime_status
+start_state
+end_state
+includes_preparation
+includes_query
+includes_output
+includes_evidence
+route_comparable_to_external_end_to_end
+route_total_formula
+route_timing_scope
 total_runtime_millis
   process_start_millis
+  source_admission_millis
   source_stat_millis
   source_read_millis
   source_parse_millis
   compatibility_parse_millis
+  source_state_build_millis
   source_to_columnar_millis
   compatibility_to_vortex_import_millis
   compatibility_to_vortex_import_timing_scope
@@ -1635,33 +1725,44 @@ total_runtime_millis
   evidence_render_timing_status
   timing_scope
   preparation_included
+  preparation_timing_included_in_total
+  query_timing_included_in_total
+  output_timing_included_in_total
+  evidence_timing_included_in_total
   query_timing_starts_after_preparation
+  prepared_state_reused
   certification_level
 ```
 
 Route interpretation:
 
 ```text
-cold certified route =
+ShardLoom Cold Certified Route =
   compatibility_import_certified end-to-end total
 
-vortex_ingest / prepare once route =
-  SourceState -&gt; VortexPreparedState, with preparation timing separated
+ShardLoom Prepare-Once First Query =
+  raw compatibility source -&gt; SourceState -&gt; VortexPreparedState -&gt; first prepared query -&gt; output/evidence
 
-warm prepared route =
+ShardLoom Prepare-Once Batch =
+  raw compatibility source -&gt; SourceState -&gt; VortexPreparedState -&gt; N prepared queries -&gt; outputs/evidence
+
+ShardLoom Warm Prepared Query =
   prepared_vortex query + output + evidence only, from VortexPreparedState
 
-already-Vortex route =
+ShardLoom Native Vortex Query =
   native_vortex query + output + evidence only
 
-direct one-shot route =
+ShardLoom Direct Transient Route =
   direct parse + ShardLoom compute + output; not Vortex-native
 
-source-free generated-output route =
+Source-free generated-output route =
   generated rows + output + evidence; source-read timing is zero
 
-multi-output fanout route =
+Multi-output fanout route =
   query once + per-output planning/write/replay/evidence
+
+External Baseline End-to-End =
+  external engine raw-source path; baseline only, never fallback
 
 batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
@@ -1672,6 +1773,10 @@ Compare routes, not front doors. `ctx.sql(...)`, Python query-builder calls, CLI
 future DataFrame methods can enter the same route model. The benchmark question is where time and
 evidence were spent, not whether the user typed SQL or Python. Prepared rows must disclose that
 their query timing starts after `VortexPreparedState` exists.
+
+Rows must also say whether each stage contributes to `total_runtime_millis`. Stage timings may be
+diagnostic context, route-total components, or both; a public route table must not imply visible
+stage fields sum to a row total unless `route_total_formula` and the inclusion booleans say so.
 
 The benchmark artifact must also carry
 `execution_mode_attribution_contract`, including the canonical mode vocabulary,
@@ -2148,7 +2253,10 @@ readers can see the actual runtime path.
 
 ## Benchmark Lanes
 
-### Lane A - Compatibility Import Certified
+Benchmark reports must present route lanes first and stage pieces second. Route lanes answer what
+a user can compare. Stage pieces explain where the route spent time.
+
+### Route A - ShardLoom Cold Certified Route
 
 ```text
 compatibility file -&gt; UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen every measured scenario -&gt; compute -&gt; result sink/evidence
@@ -2157,15 +2265,17 @@ compatibility file -&gt; UniversalIngress -&gt; certified vortex_ingest -&gt; Vo
 Use for ingest/stage certification, universal I/O proof, and result-sink proof. Do not use it as
 the primary pure query-speed comparison.
 
-### Lane B - Prepared Vortex
+### Route B - ShardLoom Prepare-Once First Query
 
 ```text
-compatibility file -&gt; UniversalIngress -&gt; SourceState -&gt; vortex_ingest -&gt; VortexPreparedState -&gt; run many measured scenarios from prepared_vortex
+compatibility file -&gt; UniversalIngress -&gt; SourceState -&gt; vortex_ingest -&gt; VortexPreparedState -&gt; first prepared_vortex query -&gt; result sink/evidence
 ```
 
-Use for primary ShardLoom runtime-development comparison, warm-query evaluation, and Vortex-backed
-workflow proof. The lane starts from `VortexPreparedState`; source read and preparation timing must
-be reported separately when available.
+Use as the primary raw-source-to-prepared-Vortex comparison route. It includes preparation once and
+the first prepared query, so it is comparable to raw-source external end-to-end baselines when the
+row also exposes route scope, output scope, and claim boundaries.
+
+### Route C - ShardLoom Prepare-Once Batch
 
 The `shardloom-prepare-batch` benchmark lane is the single-process version of the same lifecycle:
 it runs `UniversalIngress`, `SourceState`, `vortex_ingest`, `VortexPreparedState`, and a prepared
@@ -2173,7 +2283,20 @@ scenario batch in one ShardLoom process while keeping preparation timing separat
 timing. Full local benchmark profiles must include this lane so public evidence covers the
 prepare-once runtime route, not only the warm prepared replay route.
 
-### Lane C - Native Vortex
+Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
+and `N=100` when the artifact contains enough child query evidence. If an amortization count is
+synthetic or not available, the row must say so rather than implying a measured batch.
+
+### Route D - ShardLoom Warm Prepared Query
+
+```text
+VortexPreparedState -&gt; prepared_vortex query -&gt; result sink/evidence
+```
+
+Use for warm-query evaluation after preparation already exists. This route is important runtime
+evidence, but it is not a raw-source end-to-end comparison by itself.
+
+### Route E - ShardLoom Native Vortex Query
 
 ```text
 existing .vortex -&gt; native scan/operator
@@ -2182,7 +2305,7 @@ existing .vortex -&gt; native scan/operator
 Use for clean native runtime comparison, operator maturity tracking, and encoded/native execution
 proof.
 
-### Lane D - Direct Transient
+### Route F - ShardLoom Direct Transient Route
 
 ```text
 compatibility file -&gt; direct ShardLoom-native transient compute
@@ -2192,7 +2315,7 @@ Use for small one-shot local workloads, traditional-compute-like UX, and quick d
 Never claim Vortex-native, Native Vortex, or encoded-native unless a separate certificate explicitly
 proves the relevant property.
 
-### Lane E - Benchmark Baseline Comparison
+### Route G - External Baseline End-to-End
 
 ```text
 local comparison engine -&gt; baseline timing/correctness row -&gt; external_baseline_only coverage row
@@ -2204,7 +2327,27 @@ local or platform baselines, migration references, or oracle references. They mu
 unsupported ShardLoom work as fallback, and their rows cannot satisfy ShardLoom-native,
 Vortex-native, Native I/O, execution-certificate, or no-fallback claim gates.
 
+### Stage Attribution Rows
+
+Stage rows or stage fields are allowed only as attribution. They must not look like competing
+products. A prepared-Vortex query slice can be excellent runtime evidence while still starting
+after `VortexPreparedState` exists. A Vortex ingest/write/reopen slice can explain cold-route cost
+without being a user-comparable query route.
+
 ## Claim Gate Flow
+
+Runtime support, evidence quality, and public claims are separate axes:
+
+```text
+row executed successfully
+row has claim-grade route evidence
+route is runtime-supported for a user workflow
+performance/production/replacement claim is allowed
+```
+
+A public row must not force readers to infer runtime readiness from `claim_gate_status`. Use
+`route_runtime_status` for workflow support, `claim_gate_status` for evidence quality, and explicit
+claim booleans for public claims.
 
 ```mermaid
 flowchart TD
