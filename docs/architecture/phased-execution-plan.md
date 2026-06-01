@@ -474,6 +474,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no superiority claim, no new external execution provider, and no hiding cold
   preparation costs.
+  Dependencies/blockers: depends on the current benchmark route identity fields, prepared-batch
+  lane artifacts, public manifest schema, website benchmark asset promotion path, and a laptop-safe
+  sequential smoke harness with unique output/data paths.
   Claim boundary: this item only makes route timing interpretable and comparable by scope. It does
   not claim ShardLoom beats an external engine.
   Fallback boundary: external engines remain benchmark/correctness baselines only.
@@ -526,6 +529,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no benchmark-result refresh is required unless the artifact contract changes, and no
   unsupported source format becomes supported by labeling it.
+  Dependencies/blockers: depends on the route timing ledger in 6D-4, current local compatibility
+  source readers, Vortex preparation/reopen evidence fields, benchmark scenario fixtures, and
+  stable stage names shared by CLI artifacts and website rendering.
   Claim boundary: bottleneck attribution explains current behavior; it is not proof of competitive
   superiority.
   Fallback boundary: source parsing/import is ShardLoom preparation work, not delegation to an
@@ -570,6 +576,9 @@ Implementation checklist, in required order:
   git diff --check
   ```
   Non-goals: no new public performance claim and no automatic repair or fallback execution.
+  Dependencies/blockers: depends on UniversalIngress/InputAdapter route metadata, SourceState and
+  VortexPreparedState fingerprint surfaces, feature-gate metadata, blocked-route diagnostics, and
+  route capability report validators staying aligned with benchmark artifacts.
   Claim boundary: diagnostics may say a route is runnable only when runtime evidence exists for
   that route.
   Fallback boundary: "nearest runnable route" is guidance, not hidden delegation.
@@ -612,6 +621,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no benchmark-number manipulation, no removal of cold route evidence, and no public
   superiority claim.
+  Dependencies/blockers: depends on 6D-4 route timing ledger fields, 6D-5 bottleneck/stage
+  categories where present, current website benchmark data loaders, static asset validators, and a
+  responsive visual QA pass for route cards and badges.
   Claim boundary: the website may describe route scope and readiness. It must not claim ShardLoom
   beats an external engine unless the claim gates explicitly allow it.
   Fallback boundary: baseline rows remain external context only.
@@ -651,6 +663,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no weakening of claim-grade evidence and no hidden async evidence path for unlinked
   rows.
+  Dependencies/blockers: depends on execution-certificate linkage, route timing ledger inclusion
+  metadata, result-sink timing fields, evidence renderer timing fields, and claim-gate validators
+  rejecting unlinked or scope-ambiguous rows.
   Claim boundary: fast-path timing may be reported only with explicit scope labels.
   Fallback boundary: evidence generation must not invoke external query engines as runtime
   providers.
@@ -692,6 +707,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no broad kernel rewrite, no GPU/FPGA requirement, and no claim that all benchmark rows
   are encoded-native.
+  Dependencies/blockers: depends on benchmark operator-path metadata, encoded execution capability
+  registry coverage, decoded-reference correctness tests, residual/materialized mode diagnostics,
+  and selecting one hot path that fits the active phase boundary.
   Claim boundary: runtime-supported and encoded-native are separate claims.
   Fallback boundary: external engines remain baselines/testing oracles only.
 - [ ] GAR-RUNTIME-IMPL-6D-10 benchmark publish doctor and agent route packet.
@@ -729,6 +747,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no automatic website publish, no automatic benchmark rerun, and no mutation of
   benchmark results.
+  Dependencies/blockers: depends on benchmark artifact completeness checks, benchmark publication
+  claim gate checks, website latest-manifest metadata, route timing ledger validators, and stable
+  route/status vocabulary shared with user-surface runtime reports.
   Claim boundary: doctor may certify artifact completeness and claim-gate consistency only. It must
   not create performance claims.
   Fallback boundary: doctor checks metadata and files only; it must not run external engines except
@@ -929,6 +950,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no daemon, no process-global cache, no persistent learning database, no object-store
   cache, and no performance claim.
+  Dependencies/blockers: depends on SourceState/VortexPreparedState fingerprint stability,
+  artifact-adjacent or workspace-scoped manifest storage, Vortex write/read certificate evidence,
+  Python result model compatibility, and invalidation diagnostics for source/schema/plan drift.
   Claim boundary: may claim only scoped local prepared-state reuse with manifest/certificate
   evidence.
   Fallback boundary: reuse never invokes DuckDB, Polars, Spark, DataFusion, Velox, pandas, or a
@@ -981,6 +1005,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no broad parallel engine, no object-store execution, no distributed runtime, no real
   query-data spill, and no performance claim.
+  Dependencies/blockers: depends on capillary activation policy thresholds, PulseWeave
+  batch-window decisions, FlowInventory WIP limits, existing local preparation correctness
+  digests, Native I/O/certificate evidence, and bounded-memory task estimates.
   Claim boundary: may claim only that a scoped local cold-preparation route used certified
   capillary work shaping.
   Fallback boundary: capillary work shaping must never delegate to external engines or Vortex
@@ -1029,6 +1056,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no fitted Bayesian runtime model, no arbitrary Vortex layout rewrite, no compaction,
   no object-store write, and no performance claim.
+  Dependencies/blockers: depends on Vortex provider capability checks, current local writer/reopen
+  support, layout/write advisor evidence, certificate-backed reopen verification, and explicit
+  blockers for unsupported dictionary/statistics/chunking/layout choices.
   Claim boundary: may claim only scoped local runtime admission of one writer strategy with
   certificate evidence.
   Fallback boundary: unsupported layout/write strategies block before execution and never delegate
@@ -1080,6 +1110,9 @@ Implementation checklist, in required order:
   ```
   Non-goals: no broad CDC/table transaction support, no deletes/updates/upserts, no object-store
   manifests, no production incremental-processing claim, and no performance claim.
+  Dependencies/blockers: depends on prepared-state reuse manifests from 6E-1, differential
+  preparation report fields, append-only source-change detection, overlay manifest semantics, and a
+  narrow prepared consumer that can validate base-plus-delta correctness without fallback.
   Claim boundary: may claim only scoped local append-only prepared-state refinement for the
   admitted scenario family.
   Fallback boundary: decoded/full-reprepare reference paths may be used in tests only; runtime
