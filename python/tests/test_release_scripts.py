@@ -1570,12 +1570,17 @@ class ReleaseScriptTests(unittest.TestCase):
             "benchmark_publish_doctor_pass_for_test",
         )
 
-        report, packet = module.build_report(
-            manifest_path=REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
-            repo_root=REPO_ROOT,
-            require_current_git=False,
-            allow_dirty_worktree=True,
-        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            pre_5j_report = Path(tempdir) / "pre-5j-dependency-freshness-gate.json"
+            self._write_passing_pre_5j_dependency_report(pre_5j_report)
+
+            report, packet = module.build_report(
+                manifest_path=REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
+                repo_root=REPO_ROOT,
+                pre_5j_dependency_report_path=pre_5j_report,
+                require_current_git=False,
+                allow_dirty_worktree=True,
+            )
 
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertFalse(report["benchmark_run_performed"])
@@ -2033,6 +2038,36 @@ class ReleaseScriptTests(unittest.TestCase):
             "html_url": f"https://github.com/depsilon/shardloom/pull/{number}",
             "user": {"login": "dependabot[bot]"},
         }
+
+    def _write_passing_pre_5j_dependency_report(self, path: Path) -> None:
+        payload = {
+            "schema_version": "shardloom.pre_5j_dependency_freshness_gate.v1",
+            "status": "passed",
+            "gate_id": "gar-runtime-impl-5j.pre_5j_dependency_freshness",
+            "require_live_github": True,
+            "open_dependabot_check_status": "loaded_from_file",
+            "open_dependabot_check_error": None,
+            "open_dependabot_prs": [
+                self._dependabot_pr(
+                    979,
+                    "Bump vortex from 0.72.0 to 0.73.0 in the vortex-upstream group",
+                ),
+                self._dependabot_pr(980, "Bump rusqlite from 0.37.0 to 0.40.0"),
+            ],
+            "open_dependabot_pr_count": 2,
+            "admitted_open_dependabot_prs": [979, 980],
+            "unknown_open_dependabot_prs": [],
+            "benchmark_refresh_dependency_gate_status": "passed",
+            "benchmark_refresh_allowed": True,
+            "benchmark_run_performed": False,
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "blockers": [],
+        }
+        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
