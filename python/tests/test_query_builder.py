@@ -3846,6 +3846,68 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_union_all_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/left.csv' UNION ALL SELECT id,label FROM 'target/right.csv' LIMIT 4",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source union all",
+                    "human_text": "sql local source union all",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_union_all_limit"},
+                        {"key": "sql_union_runtime_execution", "value": "true"},
+                        {"key": "sql_union_mode", "value": "all"},
+                        {"key": "sql_union_branch_count", "value": "2"},
+                        {"key": "sql_union_input_row_count", "value": "4"},
+                        {"key": "sql_union_distinct_input_row_count", "value": "4"},
+                        {"key": "sql_union_output_row_count", "value": "4"},
+                        {"key": "sql_union_null_semantics", "value": "not_applicable_union_all_preserves_rows"},
+                        {"key": "output_row_count", "value": "4"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/left.csv").select("id", "label").union_all(
+            ctx.read_csv("target/right.csv").select("id", "label")
+        )
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        report = workflow.collect(limit=4)
+
+        self.assertTrue(report.sql_union_runtime_execution)
+        self.assertEqual(report.sql_union_mode, "all")
+        self.assertEqual(report.sql_union_branch_count, 2)
+        self.assertEqual(report.sql_union_input_row_count, 4)
+        self.assertEqual(report.sql_union_distinct_input_row_count, 4)
+        self.assertEqual(report.sql_union_output_row_count, 4)
+        self.assertEqual(
+            report.sql_union_null_semantics,
+            "not_applicable_union_all_preserves_rows",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_distinct_aggregate_having_invokes_sql_smoke(
         self,
     ) -> None:

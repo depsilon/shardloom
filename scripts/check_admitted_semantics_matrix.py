@@ -448,6 +448,44 @@ def row_value_in_predicate_case() -> SqlFixtureCase:
     )
 
 
+def sql_union_composition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_union_composition_semantics",
+        source_name="union-left.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n",
+        auxiliary_sources=(
+            (
+                "right",
+                "union-right.csv",
+                "id,label,amount\n2,beta,20\n4,delta,40\n5,epsilon,5\n",
+            ),
+        ),
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE amount >= 10 "
+            "UNION SELECT id,label FROM '{right}' WHERE amount >= 10 "
+            "ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "sql_union_runtime_execution": "true",
+            "sql_union_mode": "distinct",
+            "sql_union_branch_count": "2",
+            "sql_union_input_row_count": "5",
+            "sql_union_distinct_input_row_count": "4",
+            "sql_union_output_row_count": "4",
+            "sql_union_order_by_runtime_execution": "true",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_subquery_scalar_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_subquery_scalar_semantics",
@@ -1047,6 +1085,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         conditional_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
+        sql_union_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
         having_in_subquery_case(),
@@ -1157,14 +1196,12 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="variant access semantics are not admitted",
         ),
         UnsupportedCase(
-            case_id="unsupported_union_construct",
-            source_name="union-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id FROM '{source}' UNION SELECT id FROM '{source}' LIMIT 10"
-            ),
+            case_id="unsupported_union_dtype_cast",
+            source_name="union-dtype-unsupported.csv",
+            source_text="id,payload\n1,alpha\n",
+            statement_template="SELECT CAST(payload AS union) AS payload FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="SQL UNION and union dtype semantics are not admitted",
+            diagnostic_fragment="union dtype casts are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_binary_literal_source",
