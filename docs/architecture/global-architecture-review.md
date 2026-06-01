@@ -599,14 +599,16 @@ plan before coding.
   `TIMESTAMP_ADD_SECONDS` / `TIMESTAMP_SUB_SECONDS` predicate/projection execution for admitted
   local-source SQL/Python paths, emits `timestamp_arithmetic_*` and
   `timestamp_arithmetic_projection_*` evidence, preserves null-propagating timestamp-micros
-  semantics, and keeps invalid second counts, non-timestamp operands, and unsupported interval
-  shapes deterministic blockers with no fallback/external engine invocation.
+  semantics, admits scoped `INTERVAL '<n>' SECOND|MINUTE|HOUR|DAY` literals inside those helper
+  functions, and keeps invalid counts, non-timestamp operands, malformed literals, unsupported
+  units, and arbitrary interval arithmetic deterministic blockers with no fallback/external engine
+  invocation.
 - [x] GAR-RUNTIME-IMPL-4D scoped temporal-difference expressions add native
   `DATE_DIFF_DAYS` and `TIMESTAMP_DIFF_SECONDS` predicate/projection execution through the generic
   expression evidence path for admitted local-source SQL/Python paths, preserve null-propagating
   Date32/UTC timestamp delta semantics, coerce admitted ISO/UTC timestamp source strings, and keep
-  arity/type/unsupported interval or timezone shapes deterministic blockers with no fallback/
-  external engine invocation.
+  arity/type/arbitrary interval or timezone shapes deterministic blockers with no fallback/external
+  engine invocation.
 - [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source join aggregates admit scalar and grouped
   aggregates over the existing single-/multi-key inner equi-join runtime, emit
   `join_aggregate_runtime_execution`, `join_aggregate_operator_family`, and
@@ -633,10 +635,11 @@ plan before coding.
   mixed window, and multi-key join fixtures without fallback or external runtime engines.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
-  timezone database conversion, ANSI interval literals/arithmetic, and locale-aware collation.
-  Scoped UTF-8 regex predicates were later promoted through ShardLoom-owned `RLIKE` / `REGEXP` /
-  `REGEXP_LIKE` evaluation, while the remaining advanced scalar blockers still fail through shared
-  policy guards before execution with no fallback/external engine invocation.
+  timezone database conversion, interval arithmetic outside scoped temporal helpers, and
+  locale-aware collation. Scoped ANSI interval literals inside temporal helper functions and scoped
+  UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation, while the remaining
+  advanced scalar blockers still fail through shared policy guards before execution with no
+  fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout adds executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
   variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,

@@ -2380,7 +2380,8 @@ phase plan first.
       timestamp_micros, Date32, case-sensitive UTF-8, and binary-equality behavior.
     - Expanded the admitted semantics matrix from 18 rows / 2 unsupported diagnostics to 23 rows /
       7 unsupported diagnostics. The new rows cover non-UTC timestamp literals, timezone database
-      conversion, interval literals/arithmetic, regex predicates, and locale-aware collation.
+      conversion, interval arithmetic outside scoped temporal helpers, regex predicates, and
+      locale-aware collation.
     - Moved `GAR-RUNTIME-IMPL-4D-F1` out of the live Planned queue; the next live internal-engine
       items start at complex dtype semantics, advanced predicate/subquery semantics, and broad
       encoded-kernel/operator coverage.
@@ -9986,7 +9987,7 @@ phase plan first.
     - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback`
     - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
   - Claim boundary: scoped local Date32 day-add/day-sub predicate runtime only. This does not add
-    timestamp/timezone completeness, ANSI interval arithmetic, broad SQL/DataFrame runtime,
+    timestamp/timezone completeness, arbitrary interval arithmetic, broad SQL/DataFrame runtime,
     object-store/lakehouse support, Foundry support, package publication, performance/superiority
     claims, or Spark-displacement claims.
 

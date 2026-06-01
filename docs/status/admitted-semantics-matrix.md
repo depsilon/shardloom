@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=45
-executable_fixture_count=29
-unsupported_diagnostic_count=16
+executable_fixture_count=30
+unsupported_diagnostic_count=15
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -60,6 +60,7 @@ Covered fixture rows:
 - `aggregate_having_output_rows`
 - `string_function_composition_utf8`
 - `temporal_arithmetic_difference_utc`
+- `interval_literal_temporal_arithmetic`
 - `conditional_projection_case_when`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
@@ -82,7 +83,6 @@ Covered fixture rows:
 - `unsupported_cast_decimal128`
 - `unsupported_non_utc_timestamp_literal`
 - `unsupported_timezone_database_policy`
-- `unsupported_interval_literal`
 - `unsupported_locale_collation`
 - `unsupported_list_literal`
 - `unsupported_struct_literal`
@@ -96,14 +96,17 @@ Covered fixture rows:
 - `unsupported_correlated_in_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery,
-row-value IN-subquery, scoped EXISTS, and scoped quantified ANY/ALL fixtures, external-oracle result artifact population, and
-fuzz execution beyond the deterministic seeded property lane. Decimal precision/scale, non-UTC
-timestamp/timezone database semantics, interval arithmetic, locale/collation, complex dtype
-families, and remaining unsupported advanced subquery shapes now have deterministic unsupported
-diagnostics with no fallback. Scoped UTF-8 `LIKE` predicates with `%` and `_` wildcards are
-executable through ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are
-executable through `RLIKE`/`REGEXP`/`REGEXP_LIKE`; custom `ESCAPE`, case-folding, and
-locale-aware regex/collation semantics remain outside the claim boundary.
+row-value IN-subquery, scoped EXISTS, and scoped quantified ANY/ALL fixtures,
+external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
+property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
+locale/collation, complex dtype families, and remaining unsupported advanced subquery shapes now
+have deterministic unsupported diagnostics with no fallback. Scoped ANSI interval literals are
+executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
+`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
+the claim boundary. Scoped UTF-8 `LIKE` predicates with `%` and `_` wildcards are executable through
+ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through
+`RLIKE`/`REGEXP`/`REGEXP_LIKE`; custom `ESCAPE`, case-folding, and locale-aware regex/collation
+semantics remain outside the claim boundary.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance

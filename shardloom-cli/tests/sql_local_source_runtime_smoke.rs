@@ -8473,6 +8473,73 @@ fn sql_local_source_smoke_executes_numeric_rounding_predicate_without_fallback()
 }
 
 #[test]
+fn sql_local_source_smoke_executes_interval_literal_temporal_arithmetic_without_fallback() {
+    let source_path = unique_path("sql-local-source-interval-temporal-arithmetic", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,event_ts\n\
+         1,2026-05-19,2026-05-19T12:34:45Z\n\
+         2,2026-01-01,2026-01-01T00:00:00Z\n\
+         3,,\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS next_day,DATE_SUB_DAYS(event_date, INTERVAL '2' DAYS) AS prior_two,TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '90' SECOND) AS shifted_ts,TIMESTAMP_SUB_SECONDS(event_ts, INTERVAL '1' MINUTE) AS prior_minute FROM '{}' WHERE TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' HOUR) >= TIMESTAMP '2026-01-01T01:00:00Z' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_operator_family", "timestamp_arithmetic")));
+    assert!(stdout.contains(&field("timestamp_arithmetic_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_operator",
+        "timestamp_add_seconds"
+    )));
+    assert!(stdout.contains(&field("timestamp_arithmetic_seconds", "3600")));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_operator",
+        "date_add_days,date_sub_days"
+    )));
+    assert!(stdout.contains(&field("date_arithmetic_projection_days", "1,2")));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_operator",
+        "timestamp_add_seconds,timestamp_sub_seconds"
+    )));
+    assert!(stdout.contains(&field("timestamp_arithmetic_projection_seconds", "90,60")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,next_day,prior_two,shifted_ts,prior_minute"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"next_day\\\":\\\"2026-05-20\\\",\\\"prior_two\\\":\\\"2026-05-17\\\",\\\"shifted_ts\\\":\\\"2026-05-19T12:36:15Z\\\",\\\"prior_minute\\\":\\\"2026-05-19T12:33:45Z\\\"}\\n{\\\"id\\\":2,\\\"next_day\\\":\\\"2026-01-02\\\",\\\"prior_two\\\":\\\"2025-12-30\\\",\\\"shifted_ts\\\":\\\"2026-01-01T00:01:30Z\\\",\\\"prior_minute\\\":\\\"2025-12-31T23:59:00Z\\\"}\\n\""
+    ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-arithmetic", "csv");
     fs::write(

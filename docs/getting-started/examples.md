@@ -186,8 +186,9 @@ executes `DATE_ADD_DAYS(column, days)` / `DATE_SUB_DAYS(column, days)` compariso
 ShardLoom-owned expression semantics, emits `predicate_operator_family=date_arithmetic`,
 `date_arithmetic_runtime_execution=true`, `date_arithmetic_operator`, `date_arithmetic_days`, and
 `date_arithmetic_source_column`, and blocks unsupported day counts or non-Date32 shapes before
-fallback. It is not timestamp/timezone completeness, interval arithmetic, broad SQL function
-support, object-store/lakehouse support, or a performance claim.
+fallback. Scoped `INTERVAL '<n>' DAY` literals are also admitted inside these helper functions. It
+is not timestamp/timezone completeness, arbitrary interval arithmetic, broad SQL function support,
+object-store/lakehouse support, or a performance claim.
 
 ## SQL Local CSV Date Extract Smoke
 
