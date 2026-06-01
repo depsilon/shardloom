@@ -1661,6 +1661,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "DATE_ADD_DAYS(event_dt, 7) >= DATE '2026-05-26'",
         )
         self.assertEqual(
+            str(
+                sl.col("event_dt").date_add_days(sl.interval_days(1))
+                >= date(2026, 5, 20)
+            ),
+            "DATE_ADD_DAYS(event_dt, INTERVAL '1' DAY) >= DATE '2026-05-20'",
+        )
+        self.assertEqual(
             str(sl.col("event_dt").date_sub_days("1") == date(2026, 5, 18)),
             "DATE_SUB_DAYS(event_dt, 1) = DATE '2026-05-18'",
         )
@@ -1674,6 +1681,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
             ),
             "TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z'",
+        )
+        self.assertEqual(
+            str(
+                sl.col("event_ts").timestamp_add_seconds(sl.interval_minutes(1))
+                >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
+            ),
+            "TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MINUTE) >= TIMESTAMP '2026-05-19T12:35:45Z'",
         )
         self.assertEqual(
             str(
@@ -1812,7 +1826,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days("1 day")
         with self.assertRaises(ValueError):
+            sl.col("event_dt").date_add_days(sl.interval_seconds(1))
+        with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days(366_001)
+        with self.assertRaises(ValueError):
+            sl.interval_days(True)
+        with self.assertRaises(ValueError):
+            sl.interval_seconds("1 second")
         with self.assertRaises(ValueError):
             sl.col("event_ts").timestamp_add_seconds(True)
         with self.assertRaises(ValueError):
@@ -7360,7 +7380,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), 7) AS next_week,DATE_SUB_DAYS(CAST(event_date AS date32), 1) AS prior_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), INTERVAL '7' DAY) AS next_week,DATE_SUB_DAYS(CAST(event_date AS date32), 1) AS prior_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -7397,7 +7417,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.read_csv("target/input.csv")
             .select("id")
             .with_column(
-                "next_week", sl.col("event_date").cast("date32").date_add_days(7)
+                "next_week",
+                sl.col("event_date")
+                .cast("date32")
+                .date_add_days(sl.interval_days(7)),
             )
             .with_column(
                 "prior_day", sl.col("event_date").cast("date32").date_sub_days(1)
@@ -7436,7 +7459,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), 90) AS shifted_ts,TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) AS prior_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
+                    "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), INTERVAL '90' SECOND) AS shifted_ts,TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) AS prior_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MINUTE) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -7480,7 +7503,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 "shifted_ts",
                 sl.col("event_ts")
                 .cast("timestamp")
-                .timestamp_add_seconds(90),
+                .timestamp_add_seconds(sl.interval_seconds(90)),
             )
             .with_column(
                 "prior_ts",
@@ -7489,7 +7512,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 .timestamp_sub_seconds(45),
             )
             .filter(
-                sl.col("event_ts").timestamp_add_seconds(60)
+                sl.col("event_ts").timestamp_add_seconds(sl.interval_minutes(1))
                 >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
             )
             .limit(10)

@@ -26,6 +26,14 @@ from .client import (
 from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
+MAX_DATE_ARITHMETIC_DAYS = 366_000
+MAX_TIMESTAMP_ARITHMETIC_SECONDS = MAX_DATE_ARITHMETIC_DAYS * 86_400
+_INTERVAL_SECOND_MULTIPLIERS = {
+    "DAY": 86_400,
+    "HOUR": 3_600,
+    "MINUTE": 60,
+    "SECOND": 1,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +108,23 @@ class WindowExpression:
     """A scoped SQL window expression for ShardLoom local-source smokes."""
 
     sql: str
+
+    def __str__(self) -> str:
+        return self.sql
+
+
+@dataclass(frozen=True, slots=True)
+class IntervalLiteral:
+    """A scoped ANSI interval literal for admitted temporal helper functions."""
+
+    value: int
+    unit: str
+
+    @property
+    def sql(self) -> str:
+        """Return the SQL rendering accepted by ShardLoom temporal helpers."""
+
+        return f"INTERVAL '{self.value}' {self.unit}"
 
     def __str__(self) -> str:
         return self.sql
@@ -4702,6 +4727,30 @@ def col(name: object) -> ColumnExpression:
     return ColumnExpression(_normalize_expression_column(name))
 
 
+def interval_days(value: object) -> IntervalLiteral:
+    """Return a scoped `INTERVAL '<n>' DAY` literal."""
+
+    return _interval_literal(value, "DAY")
+
+
+def interval_hours(value: object) -> IntervalLiteral:
+    """Return a scoped `INTERVAL '<n>' HOUR` literal."""
+
+    return _interval_literal(value, "HOUR")
+
+
+def interval_minutes(value: object) -> IntervalLiteral:
+    """Return a scoped `INTERVAL '<n>' MINUTE` literal."""
+
+    return _interval_literal(value, "MINUTE")
+
+
+def interval_seconds(value: object) -> IntervalLiteral:
+    """Return a scoped `INTERVAL '<n>' SECOND` literal."""
+
+    return _interval_literal(value, "SECOND")
+
+
 def row_in(columns: object, rows: object) -> PredicateExpression:
     """Return a scoped bounded row-value `IN ((...),...)` predicate."""
 
@@ -6273,7 +6322,38 @@ def _normalize_cast_dtype(value: object) -> str:
     return dtype
 
 
-def _normalize_date_arithmetic_days(value: object) -> int:
+def _interval_literal(value: object, unit: str) -> IntervalLiteral:
+    interval_value = _normalize_interval_integer(value)
+    multiplier = _INTERVAL_SECOND_MULTIPLIERS[unit]
+    if builtins.abs(interval_value * multiplier) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
+        raise ValueError(
+            "interval literal admits absolute values within the scoped temporal arithmetic bound"
+        )
+    return IntervalLiteral(interval_value, unit)
+
+
+def _normalize_interval_integer(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError("interval literal value must be a signed integer literal")
+    if isinstance(value, int):
+        return value
+    text = _require_non_empty("interval literal value", value)
+    if text in {"+", "-"} or not all(
+        ch.isdigit() or (index == 0 and ch in {"+", "-"})
+        for index, ch in enumerate(text)
+    ):
+        raise ValueError("interval literal value must be a signed integer literal")
+    return int(text)
+
+
+def _normalize_date_arithmetic_days(value: object) -> str:
+    interval = _coerce_interval_literal(value)
+    if interval is not None:
+        if interval.unit != "DAY":
+            raise ValueError("date arithmetic interval literals admit DAY units only")
+        if builtins.abs(interval.value) > MAX_DATE_ARITHMETIC_DAYS:
+            raise ValueError("date arithmetic days admits absolute values <= 366000")
+        return interval.sql
     if isinstance(value, bool):
         raise ValueError("date arithmetic days must be a signed integer literal")
     if isinstance(value, int):
@@ -6286,12 +6366,20 @@ def _normalize_date_arithmetic_days(value: object) -> int:
         ):
             raise ValueError("date arithmetic days must be a signed integer literal")
         days = int(text)
-    if builtins.abs(days) > 366_000:
+    if builtins.abs(days) > MAX_DATE_ARITHMETIC_DAYS:
         raise ValueError("date arithmetic days admits absolute values <= 366000")
-    return days
+    return str(days)
 
 
-def _normalize_timestamp_arithmetic_seconds(value: object) -> int:
+def _normalize_timestamp_arithmetic_seconds(value: object) -> str:
+    interval = _coerce_interval_literal(value)
+    if interval is not None:
+        seconds = interval.value * _INTERVAL_SECOND_MULTIPLIERS[interval.unit]
+        if builtins.abs(seconds) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
+            raise ValueError(
+                "timestamp arithmetic seconds admits absolute values <= 31622400000"
+            )
+        return interval.sql
     if isinstance(value, bool):
         raise ValueError("timestamp arithmetic seconds must be a signed integer literal")
     if isinstance(value, int):
@@ -6306,11 +6394,58 @@ def _normalize_timestamp_arithmetic_seconds(value: object) -> int:
                 "timestamp arithmetic seconds must be a signed integer literal"
             )
         seconds = int(text)
-    if builtins.abs(seconds) > 31_622_400_000:
+    if builtins.abs(seconds) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
         raise ValueError(
             "timestamp arithmetic seconds admits absolute values <= 31622400000"
         )
-    return seconds
+    return str(seconds)
+
+
+def _coerce_interval_literal(value: object) -> IntervalLiteral | None:
+    if isinstance(value, IntervalLiteral):
+        return value
+    if isinstance(value, str):
+        return _parse_interval_literal_sql(value)
+    return None
+
+
+def _parse_interval_literal_sql(value: str) -> IntervalLiteral | None:
+    text = value.strip()
+    lowered = text.lower()
+    if not lowered.startswith("interval"):
+        return None
+    if len(text) > len("interval") and not text[len("interval")].isspace():
+        return None
+    parts = text.split(maxsplit=2)
+    if len(parts) != 3 or parts[0].lower() != "interval":
+        raise ValueError(
+            "interval SQL literals must use INTERVAL '<signed integer>' DAY|HOUR|MINUTE|SECOND"
+        )
+    literal = parts[1]
+    if len(literal) < 3 or not literal.startswith("'") or not literal.endswith("'"):
+        raise ValueError("interval SQL literal value must be single quoted")
+    unit = _normalize_interval_unit(parts[2])
+    return _interval_literal(literal[1:-1], unit)
+
+
+def _normalize_interval_unit(value: object) -> str:
+    unit = _require_non_empty("interval unit", value).upper()
+    aliases = {
+        "DAY": "DAY",
+        "DAYS": "DAY",
+        "HOUR": "HOUR",
+        "HOURS": "HOUR",
+        "MINUTE": "MINUTE",
+        "MINUTES": "MINUTE",
+        "SECOND": "SECOND",
+        "SECONDS": "SECOND",
+    }
+    try:
+        return aliases[unit]
+    except KeyError as exc:
+        raise ValueError(
+            "interval unit must be one of DAY, HOUR, MINUTE, or SECOND"
+        ) from exc
 
 
 def _sql_temporal_difference_arg(value: object, dtype: str) -> str:

@@ -456,11 +456,15 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   and no-fallback evidence fields. Scoped local `EXISTS` / `NOT EXISTS` predicates are now
   promoted as bounded two-valued presence tests over admitted local sources, with projection kind,
   source-format, filter/order/limit, row-count, result, Python helper, and no-fallback evidence
-  fields. The remaining broad
-  grammar blockers are explicit rows in `docs/status/admitted-semantics-matrix.json`: decimal casts,
-  non-UTC/timezone/interval semantics, locale/collation, complex/list/struct/variant/union-dtype/
-  binary shapes, scalar-left multi-column IN-subqueries, and nested/joined/grouped/correlated
-  subquery families. Scoped quantified `ANY` / `ALL` subquery predicates over bounded local scalar
+  fields. Scoped ANSI interval literals are now admitted only inside
+  `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`, with
+  malformed literals, unsupported units, and out-of-range values blocked before fallback. The
+  remaining broad grammar blockers are explicit rows in
+  `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
+  interval arithmetic outside scoped temporal helpers, locale/collation,
+  complex/list/struct/variant/union-dtype/binary shapes, scalar-left multi-column IN-subqueries,
+  and nested/joined/grouped/correlated subquery families. Scoped quantified `ANY` / `ALL` subquery
+  predicates over bounded local scalar
   sources are now part of the admitted ShardLoom-owned route with SQL three-valued null-semantics,
   materialization-bound, source-format, filter/order/limit, Python helper, and no-fallback evidence.
   Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes through ShardLoom-owned

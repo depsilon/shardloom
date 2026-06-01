@@ -363,6 +363,50 @@ def temporal_arithmetic_difference_case() -> SqlFixtureCase:
     )
 
 
+def interval_literal_temporal_arithmetic_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="interval_literal_temporal_arithmetic",
+        source_name="interval-temporal-arithmetic.csv",
+        source_text=(
+            "id,event_date,event_ts\n"
+            "1,2026-05-19,2026-05-19T12:34:45Z\n"
+            "2,2026-01-01,2026-01-01T00:00:00Z\n"
+            "3,,\n"
+        ),
+        statement_template=(
+            "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS next_day,"
+            "DATE_SUB_DAYS(event_date, INTERVAL '2' DAYS) AS prior_two,"
+            "TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '90' SECOND) AS shifted_ts,"
+            "TIMESTAMP_SUB_SECONDS(event_ts, INTERVAL '1' MINUTE) AS prior_minute "
+            "FROM '{source}' WHERE TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' HOUR) "
+            ">= TIMESTAMP '2026-01-01T01:00:00Z' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"next_day":"2026-05-20","prior_two":"2026-05-17",'
+            '"shifted_ts":"2026-05-19T12:36:15Z","prior_minute":"2026-05-19T12:33:45Z"}\n'
+            '{"id":2,"next_day":"2026-01-02","prior_two":"2025-12-30",'
+            '"shifted_ts":"2026-01-01T00:01:30Z","prior_minute":"2025-12-31T23:59:00Z"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "timestamp_arithmetic",
+            "timestamp_arithmetic_runtime_execution": "true",
+            "timestamp_arithmetic_operator": "timestamp_add_seconds",
+            "timestamp_arithmetic_seconds": "3600",
+            "timestamp_arithmetic_source_column": "event_ts",
+            "date_arithmetic_projection_runtime_execution": "true",
+            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
+            "date_arithmetic_projection_days": "1,2",
+            "date_arithmetic_projection_output_column": "next_day,prior_two",
+            "timestamp_arithmetic_projection_runtime_execution": "true",
+            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds,timestamp_sub_seconds",
+            "timestamp_arithmetic_projection_seconds": "90,60",
+            "timestamp_arithmetic_projection_output_column": "shifted_ts,prior_minute",
+            "projected_columns": "id,next_day,prior_two,shifted_ts,prior_minute",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def conditional_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="conditional_projection_case_when",
@@ -1271,6 +1315,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         ),
         string_function_composition_case(),
         temporal_arithmetic_difference_case(),
+        interval_literal_temporal_arithmetic_case(),
         conditional_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
@@ -1331,17 +1376,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="timezone database and non-UTC timestamp semantics are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_interval_literal",
-            source_name="interval-unsupported.csv",
-            source_text="id,event_date\n1,2026-05-19\n",
-            statement_template=(
-                "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS unsupported "
-                "FROM '{source}' LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="ANSI INTERVAL literals and interval arithmetic are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_locale_collation",

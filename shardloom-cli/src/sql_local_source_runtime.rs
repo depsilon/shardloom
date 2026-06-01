@@ -1148,6 +1148,14 @@ enum TimestampArithmeticOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlIntervalUnit {
+    Day,
+    Hour,
+    Minute,
+    Second,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DateExtractOp {
     Year,
     Month,
@@ -1194,6 +1202,35 @@ impl TimestampArithmeticOp {
             Self::SubSeconds => "timestamp_sub_seconds",
         }
     }
+}
+
+impl SqlIntervalUnit {
+    fn parse(raw: &str) -> Result<Self, ShardLoomError> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "day" | "days" => Ok(Self::Day),
+            "hour" | "hours" => Ok(Self::Hour),
+            "minute" | "minutes" => Ok(Self::Minute),
+            "second" | "seconds" => Ok(Self::Second),
+            _ => Err(unsupported_sql_error(
+                "ANSI INTERVAL literals in scoped temporal arithmetic admit DAY, HOUR, MINUTE, or SECOND units only",
+            )),
+        }
+    }
+
+    const fn seconds_multiplier(self) -> i64 {
+        match self {
+            Self::Day => 86_400,
+            Self::Hour => 3_600,
+            Self::Minute => 60,
+            Self::Second => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SqlIntervalLiteral {
+    value: i64,
+    unit: SqlIntervalUnit,
 }
 
 impl DateExtractOp {
@@ -22506,11 +22543,6 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
 }
 
 fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
-    if contains_keyword_outside_quotes(statement, "interval") {
-        return Err(unsupported_sql_error(
-            "ANSI INTERVAL literals and interval arithmetic are not admitted; use DATE_ADD_DAYS, DATE_SUB_DAYS, TIMESTAMP_ADD_SECONDS, or TIMESTAMP_SUB_SECONDS for the scoped UTC runtime slice",
-        ));
-    }
     if contains_keyword_outside_quotes(statement, "at time zone")
         || contains_keyword_outside_quotes(statement, "with time zone")
     {
@@ -26554,6 +26586,23 @@ fn parse_date_arithmetic_column_arg(raw: &str) -> Result<String, ShardLoomError>
 
 fn parse_date_arithmetic_days(raw: &str) -> Result<i32, ShardLoomError> {
     let trimmed = raw.trim();
+    if starts_with_interval_keyword(trimmed) {
+        let interval = parse_sql_interval_literal(trimmed)?;
+        if interval.unit != SqlIntervalUnit::Day {
+            return Err(unsupported_sql_error(
+                "date arithmetic interval literals admit DAY units only",
+            ));
+        }
+        let value = i32::try_from(interval.value).map_err(|_| {
+            unsupported_sql_error("date arithmetic day count must fit in signed 32-bit days")
+        })?;
+        if i64::from(value).abs() > i64::from(MAX_DATE_ARITHMETIC_DAYS) {
+            return Err(unsupported_sql_error(&format!(
+                "date arithmetic day count admits absolute values <= {MAX_DATE_ARITHMETIC_DAYS}"
+            )));
+        }
+        return Ok(value);
+    }
     if trimmed.is_empty()
         || !trimmed
             .chars()
@@ -26578,6 +26627,26 @@ fn parse_date_arithmetic_days(raw: &str) -> Result<i32, ShardLoomError> {
 
 fn parse_timestamp_arithmetic_seconds(raw: &str) -> Result<i64, ShardLoomError> {
     let trimmed = raw.trim();
+    if starts_with_interval_keyword(trimmed) {
+        let interval = parse_sql_interval_literal(trimmed)?;
+        let value = interval
+            .value
+            .checked_mul(interval.unit.seconds_multiplier())
+            .ok_or_else(|| {
+                unsupported_sql_error(
+                    "timestamp arithmetic interval literal must fit in signed 64-bit seconds",
+                )
+            })?;
+        if value
+            .checked_abs()
+            .is_none_or(|abs| abs > MAX_TIMESTAMP_ARITHMETIC_SECONDS)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "timestamp arithmetic second count admits absolute values <= {MAX_TIMESTAMP_ARITHMETIC_SECONDS}"
+            )));
+        }
+        return Ok(value);
+    }
     if trimmed.is_empty()
         || !trimmed
             .chars()
@@ -26601,6 +26670,51 @@ fn parse_timestamp_arithmetic_seconds(raw: &str) -> Result<i64, ShardLoomError> 
         )));
     }
     Ok(value)
+}
+
+fn starts_with_interval_keyword(raw: &str) -> bool {
+    let keyword = "interval";
+    raw.len() >= keyword.len()
+        && raw[..keyword.len()].eq_ignore_ascii_case(keyword)
+        && keyword_boundary(raw, 0, keyword.len())
+}
+
+fn parse_sql_interval_literal(raw: &str) -> Result<SqlIntervalLiteral, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let [keyword, value_raw, unit_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "ANSI INTERVAL literals in scoped temporal arithmetic must use INTERVAL '<signed integer>' <unit>",
+        ));
+    };
+    if !keyword.eq_ignore_ascii_case("interval") {
+        return Err(unsupported_sql_error(
+            "ANSI INTERVAL literals in scoped temporal arithmetic must start with INTERVAL",
+        ));
+    }
+    let value_text = parse_sql_string_literal(value_raw)?;
+    let value = parse_interval_literal_integer(&value_text)?;
+    Ok(SqlIntervalLiteral {
+        value,
+        unit: SqlIntervalUnit::parse(unit_raw)?,
+    })
+}
+
+fn parse_interval_literal_integer(raw: &str) -> Result<i64, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !trimmed
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| ch.is_ascii_digit() || (index == 0 && matches!(ch, '+' | '-')))
+        || matches!(trimmed, "+" | "-")
+    {
+        return Err(unsupported_sql_error(
+            "ANSI INTERVAL literal value must be a signed integer string literal",
+        ));
+    }
+    trimmed.parse::<i64>().map_err(|_| {
+        unsupported_sql_error("ANSI INTERVAL literal value must fit in signed 64-bit units")
+    })
 }
 
 fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
@@ -29935,6 +30049,43 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_interval_literal_temporal_arithmetic_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS next_day,DATE_SUB_DAYS(event_date, INTERVAL '2' DAYS) AS prior_two,TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '90' SECOND) AS shifted_ts,TIMESTAMP_SUB_SECONDS(event_ts, INTERVAL '1' MINUTE) AS prior_minute FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' HOUR) >= TIMESTAMP '2026-05-19T13:34:45Z' LIMIT 5",
+        )
+        .expect("scoped interval literal temporal arithmetic parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.date_arithmetic_projections.len(), 2);
+        assert_eq!(parsed.date_arithmetic_projection_days(), "1,2");
+        assert_eq!(
+            parsed.date_arithmetic_projection_operators(),
+            "date_add_days,date_sub_days"
+        );
+        assert_eq!(parsed.timestamp_arithmetic_projections.len(), 2);
+        assert_eq!(parsed.timestamp_arithmetic_projection_seconds(), "90,60");
+        assert_eq!(
+            parsed.timestamp_arithmetic_projection_operators(),
+            "timestamp_add_seconds,timestamp_sub_seconds"
+        );
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::TimestampArithmeticCompare {
+                ref column,
+                op: TimestampArithmeticOp::AddSeconds,
+                second_count: 3600,
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::TimestampMicros(_),
+            } if column == "event_ts"
+        ));
+        assert_eq!(parsed.predicate.timestamp_arithmetic_seconds(), "3600");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_null_coalesce_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,COALESCE(label, 'unknown') AS label_clean,COALESCE(event_date, DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -32186,10 +32337,6 @@ mod tests {
     fn parser_blocks_advanced_scalar_policy_constructs_without_fallback() {
         for (statement, expected) in [
             (
-                "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS next_day FROM 'target/input.csv' LIMIT 5",
-                "ANSI INTERVAL literals and interval arithmetic are not admitted",
-            ),
-            (
                 "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' AS local_ts FROM 'target/input.csv' LIMIT 5",
                 "timezone database and non-UTC timestamp semantics are not admitted",
             ),
@@ -32204,6 +32351,33 @@ mod tests {
         ] {
             let error = parse_sql_local_source_statement(statement)
                 .expect_err("advanced scalar policy construct remains blocked");
+
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn parser_blocks_unscoped_interval_literal_shapes_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' HOUR) AS next_hour FROM 'target/input.csv' LIMIT 5",
+                "date arithmetic interval literals admit DAY units only",
+            ),
+            (
+                "SELECT id,TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1.5' SECOND) AS shifted FROM 'target/input.csv' LIMIT 5",
+                "ANSI INTERVAL literal value must be a signed integer string literal",
+            ),
+            (
+                "SELECT id,TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MONTH) AS shifted FROM 'target/input.csv' LIMIT 5",
+                "ANSI INTERVAL literals in scoped temporal arithmetic admit DAY, HOUR, MINUTE, or SECOND units only",
+            ),
+        ] {
+            let error =
+                parse_sql_local_source_statement(statement).expect_err("interval shape is blocked");
 
             assert!(
                 error.to_string().contains(expected),

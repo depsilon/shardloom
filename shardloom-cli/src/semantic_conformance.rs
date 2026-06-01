@@ -312,7 +312,7 @@ fn timezone_interval_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
             "interval/date-time completeness",
             "scalar_expressions",
             "unsupported_diagnostic_certified",
-            "ANSI interval literals and calendar interval arithmetic fail deterministically outside scoped day/second functions",
+            "calendar interval arithmetic fails deterministically outside scoped day/second temporal helper functions",
             SemanticBlockerEvidence {
                 blocker_id: "gar-runtime-impl-4d-f1.interval_semantics_unsupported",
                 required_future_evidence: "interval_dtype_policy,calendar_arithmetic_fixture,overflow_diagnostic",

@@ -59,9 +59,11 @@ Current runtime support is intentionally scoped and evidence-gated:
   Vortex, and feature-gated Parquet/Arrow IPC/Avro/ORC runtime paths;
 - scoped SQL local-source execution for projection, row-level `SELECT DISTINCT` over projection,
   aggregate/HAVING, join, and window output rows, filter, limit,
-  scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/LIKE/regex/IN
-  predicates including scalar and row-value literal `IN`/`NOT IN`, bounded scalar and row-value
-  local-source `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
+  scalar aggregates, multi-key group-by, single-key top-N, selected
+  casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped
+  `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
+  row-value literal `IN`/`NOT IN`, bounded scalar and row-value local-source
+  `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
   `EXISTS (SELECT ...)` / `NOT EXISTS (...)` presence predicates, scoped quantified
   `ANY` / `ALL (SELECT ...)` predicates over bounded local scalar sources, scoped local-source
   inner/outer/semi/anti equi-joins, cross joins, scoped
@@ -146,8 +148,8 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 `.distinct()`, `.drop_duplicates()`, `.unique()`, `.union(...)`, and `.union_all(...)` are accepted
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, LIKE/regex/string
-predicates, join/window, source-backed `IN` / `EXISTS`, row-level `SELECT DISTINCT`, scoped SQL
-`UNION` / `UNION ALL`, and bounded terminal paths.
+predicates, interval-backed temporal helper predicates, join/window, source-backed `IN` /
+`EXISTS`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable
