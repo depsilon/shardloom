@@ -4696,6 +4696,9 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("assign", dataframe_methods.unsupported_methods)
         self.assertNotIn("order_by", dataframe_methods.unsupported_methods)
         self.assertNotIn("sort_values", dataframe_methods.unsupported_methods)
+        self.assertNotIn("distinct", dataframe_methods.unsupported_methods)
+        self.assertNotIn("drop_duplicates", dataframe_methods.unsupported_methods)
+        self.assertNotIn("unique", dataframe_methods.unsupported_methods)
         self.assertNotIn("window", dataframe_methods.unsupported_methods)
         self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
         self.assertNotIn("schema_contract", dataframe_methods.unsupported_methods)
@@ -4810,6 +4813,23 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "sort_operator",
             dataframe_methods.row("sort_values").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("distinct").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("distinct").runtime_execution)
+        self.assertIn(
+            "distinct_projection_operator",
+            dataframe_methods.row("distinct").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("drop_duplicates").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("unique").support_status,
+            "fixture_smoke_supported",
         )
         self.assertEqual(
             dataframe_methods.row("window").support_status,

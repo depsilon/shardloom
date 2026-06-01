@@ -581,6 +581,39 @@ def distinct_count_grouped_case() -> SqlFixtureCase:
     )
 
 
+def select_distinct_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="select_distinct_projection",
+        source_name="select-distinct.csv",
+        source_text=(
+            "id,region,label,amount\n"
+            "1,east,alpha,10\n"
+            "2,east,alpha,12\n"
+            "3,west,beta,8\n"
+            "4,west,beta,14\n"
+            "5,north,gamma,20\n"
+        ),
+        statement_template=(
+            "SELECT DISTINCT region,label FROM '{source}' "
+            "WHERE amount >= 8 ORDER BY region,label LIMIT 2"
+        ),
+        expected_jsonl=(
+            '{"region":"east","label":"alpha"}\n'
+            '{"region":"north","label":"gamma"}\n'
+        ),
+        expected_fields={
+            "distinct_projection_runtime_execution": "true",
+            "distinct_projection_output_columns": "region,label",
+            "distinct_projection_input_row_count": "5",
+            "distinct_projection_output_row_count": "2",
+            "distinct_projection_limit_applied_after_deduplication": "true",
+            "distinct_projection_null_semantics": "sql_select_distinct_groups_nulls",
+            "projected_columns": "region,label",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def having_hidden_aggregate_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="having_hidden_aggregate_expression",
@@ -874,6 +907,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_subquery_filtered_ordered_limited_case(),
         having_in_subquery_case(),
         distinct_count_grouped_case(),
+        select_distinct_projection_case(),
         having_hidden_aggregate_case(),
         window_mixed_case(),
         join_multi_key_case(),
@@ -938,6 +972,20 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT id,label FROM '{source}' WHERE label REGEXP '^a' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="regex and regexp pattern semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_select_distinct_aggregate_shape",
+            source_name="select-distinct-unsupported.csv",
+            source_text="id,region,amount\n1,east,10\n2,east,12\n3,west,8\n",
+            statement_template=(
+                "SELECT DISTINCT region,count(*) AS rows FROM '{source}' "
+                "GROUP BY region LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "row-level SELECT DISTINCT cannot be mixed with aggregate, GROUP BY, "
+                "or HAVING clauses"
+            ),
         ),
         UnsupportedCase(
             case_id="unsupported_locale_collation",

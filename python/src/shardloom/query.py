@@ -3081,6 +3081,21 @@ class LazyFrame:
 
         return self.select(*columns)
 
+    def distinct(self) -> "LazyFrame":
+        """Return a lazy plan with row-level duplicate removal."""
+
+        return self._append(WorkflowOperation("distinct", ()))
+
+    def drop_duplicates(self) -> "LazyFrame":
+        """Alias for `distinct()` using familiar DataFrame naming."""
+
+        return self.distinct()
+
+    def unique(self) -> "LazyFrame":
+        """Alias for `distinct()` using familiar DataFrame naming."""
+
+        return self.distinct()
+
     def with_column(
         self,
         name: str,
@@ -3270,6 +3285,7 @@ class LazyFrame:
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
                 "select(...), optional filter(...), sort(...), and limit(...) operations, "
+                "select(...), optional filter(...), distinct(), optional sort(...), and limit(...) operations, "
                 "with_column(...), optional filter(...), and limit(...) operations, or "
                 "select(...), optional filter(...), window(...), and limit(...) operations, or "
                 "a scoped local-source join with select(...), optional filter(...), and limit(...)"
@@ -4273,20 +4289,25 @@ class LazyFrame:
         window_expressions: list[str] = []
         join_info: tuple[str, ...] | None = None
         sort_key: tuple[str, tuple[str, ...]] | None = None
+        distinct_requested = False
         predicate: str | None = None
         having: str | None = None
         limit: str | None = None
         for operation in self.operations:
             if operation.kind == "select" and projection_list is None:
-                if window_expressions:
+                if window_expressions or distinct_requested:
                     return None
                 projection_list = operation.values
             elif operation.kind == "aggregate" and aggregate_list is None:
+                if distinct_requested:
+                    return None
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
+                if distinct_requested:
+                    return None
                 group_by_list = operation.values
             elif operation.kind == "with_column":
-                if window_expressions:
+                if window_expressions or distinct_requested:
                     return None
                 literal_columns.append((operation.values[0], operation.values[1]))
             elif operation.kind == "window":
@@ -4296,6 +4317,7 @@ class LazyFrame:
                     or literal_columns
                     or join_info is not None
                     or sort_key is not None
+                    or distinct_requested
                     or having is not None
                     or limit is not None
                 ):
@@ -4306,13 +4328,26 @@ class LazyFrame:
                     return None
                 sort_key = (operation.values[0], operation.values[1:])
             elif operation.kind == "join" and join_info is None:
-                if aggregate_list is not None or group_by_list is not None:
+                if aggregate_list is not None or group_by_list is not None or distinct_requested:
                     return None
                 join_info = operation.values  # type: ignore[assignment]
+            elif operation.kind == "distinct" and not distinct_requested:
+                if (
+                    aggregate_list is not None
+                    or group_by_list is not None
+                    or window_expressions
+                    or join_info is not None
+                    or sort_key is not None
+                    or having is not None
+                    or limit is not None
+                ):
+                    return None
+                distinct_requested = True
             elif operation.kind == "filter" and predicate is None:
                 if (
                     aggregate_list is not None
                     or group_by_list is not None
+                    or distinct_requested
                     or having is not None
                     or sort_key is not None
                     or window_expressions
@@ -4335,6 +4370,8 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
+            if distinct_requested:
+                return None
             if len(join_info) == 6:
                 right_uri, left_key, right_key, how, left_alias, right_alias = join_info
                 join_condition = ""
@@ -4441,8 +4478,9 @@ class LazyFrame:
             direction, columns = sort_key
             order_by_clause = _format_order_by_clause(columns, direction)
         source_uri = _quote_sql_local_source_path(self.source.uri)
+        select_keyword = "SELECT DISTINCT" if distinct_requested else "SELECT"
         return (
-            f"SELECT {select_clause} FROM {source_uri}"
+            f"{select_keyword} {select_clause} FROM {source_uri}"
             f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
             f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
         )

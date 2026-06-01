@@ -2029,6 +2029,56 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("selected_row_count", 0) or 0
 
     @property
+    def distinct_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed row-level SELECT DISTINCT projection."""
+
+        return (
+            self.envelope.field_bool("distinct_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def distinct_projection_output_columns(self) -> tuple[str, ...]:
+        """Return output columns covered by row-level DISTINCT projection evidence."""
+
+        value = self.envelope.field("distinct_projection_output_columns")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def distinct_projection_input_row_count(self) -> int:
+        """Return row count considered by row-level DISTINCT before deduplication."""
+
+        return self.envelope.field_int("distinct_projection_input_row_count", 0) or 0
+
+    @property
+    def distinct_projection_output_row_count(self) -> int:
+        """Return row count emitted after row-level DISTINCT deduplication."""
+
+        return self.envelope.field_int("distinct_projection_output_row_count", 0) or 0
+
+    @property
+    def distinct_projection_limit_applied_after_deduplication(self) -> bool:
+        """Whether LIMIT was applied after row-level DISTINCT deduplication."""
+
+        return (
+            self.envelope.field_bool(
+                "distinct_projection_limit_applied_after_deduplication", False
+            )
+            is True
+        )
+
+    @property
+    def distinct_projection_null_semantics(self) -> str | None:
+        """Return row-level DISTINCT null-semantics evidence."""
+
+        value = self.envelope.field("distinct_projection_null_semantics")
+        if value == "not_applicable":
+            return None
+        return value
+
+    @property
     def computed_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted computed projection path."""
 
