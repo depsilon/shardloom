@@ -804,6 +804,122 @@ def having_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def having_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_exists_subquery_semantics",
+        source_name="having-exists-subquery-source.csv",
+        source_text=(
+            "region,id,amount\n"
+            "east,1,10\n"
+            "east,2,13\n"
+            "west,3,20\n"
+            "north,4,12\n"
+            "north,5,15\n"
+            "north,6,18\n"
+        ),
+        statement_template=(
+            "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{source}' "
+            "GROUP BY region HAVING EXISTS ("
+            "SELECT * FROM '{allowed}' WHERE active IS TRUE ORDER BY score DESC LIMIT 1"
+            ") ORDER BY total DESC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"region":"north","rows":3,"total":45}\n'
+            '{"region":"east","rows":2,"total":23}\n'
+            '{"region":"west","rows":1,"total":20}\n'
+        ),
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "having_runtime_execution": "true",
+            "having_operator_family": "exists_subquery",
+            "having_exists_subquery_runtime_execution": "true",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "wildcard",
+            "exists_subquery_source_format": "csv",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_input_row_count": "3",
+            "exists_subquery_filtered_row_count": "2",
+            "exists_subquery_bounded_row_count": "1",
+            "exists_subquery_result": "true",
+            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
+            "having_input_row_count": "3",
+            "having_selected_row_count": "3",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "having-exists-subquery-allowed.csv",
+                "active,score\nfalse,10\ntrue,30\ntrue,20\n",
+            ),
+        ),
+    )
+
+
+def having_quantified_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_quantified_subquery_semantics",
+        source_name="having-quantified-subquery-source.csv",
+        source_text=(
+            "region,id,amount\n"
+            "east,1,10\n"
+            "east,2,13\n"
+            "west,3,20\n"
+            "north,4,12\n"
+            "north,5,15\n"
+            "north,6,18\n"
+        ),
+        statement_template=(
+            "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{source}' "
+            "GROUP BY region HAVING total > ALL ("
+            "SELECT threshold FROM '{thresholds}' WHERE active IS TRUE "
+            "ORDER BY score DESC LIMIT 2"
+            ") ORDER BY total DESC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"region":"north","rows":3,"total":45}\n'
+            '{"region":"east","rows":2,"total":23}\n'
+        ),
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "having_runtime_execution": "true",
+            "having_operator_family": "quantified_subquery",
+            "having_source_column": "total",
+            "having_quantified_subquery_runtime_execution": "true",
+            "quantified_subquery_runtime_execution": "true",
+            "quantified_subquery_quantifier": "all",
+            "quantified_subquery_comparison_operator": "gt",
+            "quantified_subquery_source_column": "threshold",
+            "quantified_subquery_source_format": "csv",
+            "quantified_subquery_filter_runtime_execution": "true",
+            "quantified_subquery_order_by_runtime_execution": "true",
+            "quantified_subquery_limit_runtime_execution": "true",
+            "quantified_subquery_input_row_count": "3",
+            "quantified_subquery_filtered_row_count": "2",
+            "quantified_subquery_materialization_bound": "32",
+            "quantified_subquery_materialized_value_count": "2",
+            "quantified_subquery_materialized_null_value_count": "0",
+            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
+            "having_input_row_count": "3",
+            "having_selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "thresholds",
+                "having-quantified-subquery-thresholds.csv",
+                "threshold,active,score\n20,true,10\n22,true,20\n99,false,30\n",
+            ),
+        ),
+    )
+
+
 def distinct_count_grouped_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="distinct_count_grouped",
@@ -1326,6 +1442,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
         having_in_subquery_case(),
+        having_exists_subquery_case(),
+        having_quantified_subquery_case(),
         distinct_count_grouped_case(),
         select_distinct_projection_case(),
         select_distinct_aggregate_having_case(),

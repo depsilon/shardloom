@@ -30927,6 +30927,101 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_having_exists_subquery_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1) ORDER BY total DESC LIMIT 10",
+        )
+        .expect("HAVING EXISTS subquery statement parses");
+
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.having.family(), "exists_subquery");
+        assert!(matches!(
+            parsed.having,
+            ParsedPredicate::ExistsSubquery { ref subquery }
+                if subquery.projection_kind == ParsedExistsSubqueryProjectionKind::Wildcard
+                    && subquery.source_path == Path::new("target/allowed.csv")
+                    && matches!(
+                        subquery.predicate.as_ref(),
+                        ParsedPredicate::BooleanPredicate {
+                            column,
+                            expected: true,
+                            null_is_false: true,
+                            negated: false
+                        } if column == "active"
+                    )
+                    && subquery
+                        .order_by
+                        .as_ref()
+                        .is_some_and(|order_by| order_by.columns_label() == "score"
+                            && order_by.directions_label() == "desc")
+                    && subquery.limit == Some(1)
+        ));
+        assert!(parsed.has_having());
+        assert!(parsed.having_exists_subquery_runtime_execution());
+        assert!(parsed.uses_exists_subquery());
+        assert_eq!(parsed.exists_subquery_projection_kind(), "wildcard");
+        assert_eq!(parsed.exists_subquery_source_formats(), "not_materialized");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_order_by_topn_limit_having"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "group-by-aggregate-order-by-topn-limit-having"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_having_quantified_subquery_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS rows,sum(amount) AS total FROM 'target/input.csv' GROUP BY region HAVING total > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY total DESC LIMIT 10",
+        )
+        .expect("HAVING quantified subquery statement parses");
+
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.having.family(), "quantified_subquery");
+        assert!(matches!(
+            parsed.having,
+            ParsedPredicate::QuantifiedSubquery {
+                ref column,
+                comparison: ComparisonOp::Gt,
+                quantifier: ParsedQuantifiedSubqueryQuantifier::All,
+                ref subquery,
+            } if column == "total"
+                && subquery.source_column == "threshold"
+                && subquery.source_path == Path::new("target/thresholds.csv")
+                && matches!(
+                    subquery.predicate.as_ref(),
+                    ParsedPredicate::BooleanPredicate {
+                        column,
+                        expected: true,
+                        null_is_false: true,
+                        negated: false
+                    } if column == "active"
+                )
+                && subquery
+                    .order_by
+                    .as_ref()
+                    .is_some_and(|order_by| order_by.columns_label() == "score"
+                        && order_by.directions_label() == "desc")
+                && subquery.limit == Some(2)
+        ));
+        assert!(parsed.has_having());
+        assert_eq!(parsed.having_source_columns(), "total");
+        assert!(parsed.having_quantified_subquery_runtime_execution());
+        assert!(parsed.uses_quantified_subquery());
+        assert_eq!(parsed.quantified_subquery_quantifiers(), "all");
+        assert_eq!(parsed.quantified_subquery_comparison_operators(), "gt");
+        assert_eq!(parsed.quantified_subquery_source_columns(), "threshold");
+        assert_eq!(
+            parsed.quantified_subquery_source_formats(),
+            "not_materialized"
+        );
+    }
+
+    #[test]
     fn parses_scoped_having_unprojected_aggregate_functions() {
         let parsed = parse_sql_local_source_statement(
             "SELECT region,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 AND count(*) >= 2 AND count(DISTINCT id) >= 2 LIMIT 10",
