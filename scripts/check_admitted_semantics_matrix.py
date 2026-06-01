@@ -441,6 +441,31 @@ def conditional_projection_case() -> SqlFixtureCase:
     )
 
 
+def binary_hex_literal_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_hex_literal_projection",
+        source_name="binary-hex-literal.csv",
+        source_text="id,label\n1,alpha\n2,beta\n",
+        statement_template="SELECT id,X'00ff10' AS payload FROM '{source}' LIMIT 10",
+        expected_jsonl=(
+            '{"id":1,"payload":"binary[hex=00ff10]"}\n'
+            '{"id":2,"payload":"binary[hex=00ff10]"}\n'
+        ),
+        expected_fields={
+            "literal_projection_runtime_execution": "true",
+            "literal_projection_columns": "payload",
+            "literal_projection_count": "1",
+            "literal_projection_dtype": "binary",
+            "binary_literal_projection_runtime_execution": "true",
+            "binary_literal_projection_columns": "payload",
+            "binary_literal_projection_byte_count": "3",
+            "binary_literal_projection_hex_value": "00ff10",
+            "projected_columns": "id,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_predicate_literal_null_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_predicate_literal_null_semantics",
@@ -1451,6 +1476,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         temporal_arithmetic_difference_case(),
         interval_literal_temporal_arithmetic_case(),
         conditional_projection_case(),
+        binary_hex_literal_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),
@@ -1556,14 +1582,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT CAST(payload AS union) AS payload FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="union dtype casts are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_binary_literal_source",
-            source_name="binary-literal-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template="SELECT id,X'00ff' AS payload FROM '{source}' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="binary source literals and binary input decoding are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_scalar_multi_column_in_subquery",

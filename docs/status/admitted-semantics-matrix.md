@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=48
-executable_fixture_count=33
-unsupported_diagnostic_count=15
+executable_fixture_count=34
+unsupported_diagnostic_count=14
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -63,6 +63,7 @@ Covered fixture rows:
 - `temporal_arithmetic_difference_utc`
 - `interval_literal_temporal_arithmetic`
 - `conditional_projection_case_when`
+- `binary_hex_literal_projection`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
 - `row_value_in_subquery_semantics`
@@ -91,7 +92,6 @@ Covered fixture rows:
 - `unsupported_struct_literal`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
-- `unsupported_binary_literal_source`
 - `unsupported_scalar_multi_column_in_subquery`
 - `unsupported_nested_in_subquery`
 - `unsupported_joined_in_subquery`
@@ -103,14 +103,17 @@ row-value IN-subquery, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-leve
 admitted local subquery fixtures,
 external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
 property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
-locale/collation, complex dtype families, and remaining unsupported advanced subquery shapes now
-have deterministic unsupported diagnostics with no fallback. Scoped ANSI interval literals are
+locale/collation, complex list/struct/variant/union dtype families, binary source decoding,
+binary casts/helper functions, and remaining unsupported advanced subquery shapes now have
+deterministic unsupported diagnostics with no fallback. Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
-the claim boundary. Scoped UTF-8 `LIKE` predicates with `%` and `_` wildcards are executable through
+the claim boundary. Scoped SQL `X'<hex>'` binary literal projections are executable with exact
+hex evidence, while binary source decoding remains outside the claim boundary. Scoped UTF-8 `LIKE`
+predicates with `%`, `_`, and single-character `ESCAPE` clauses are executable through
 ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through
-`RLIKE`/`REGEXP`/`REGEXP_LIKE`; custom `ESCAPE`, case-folding, and locale-aware regex/collation
-semantics remain outside the claim boundary.
+`RLIKE`/`REGEXP`/`REGEXP_LIKE`; case-folding and locale-aware regex/collation semantics remain
+outside the claim boundary.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance
