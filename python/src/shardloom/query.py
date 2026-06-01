@@ -767,6 +767,11 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             source_kind=self.source_kind,
         )
 
+    def project(self, *columns: object) -> "GeneratedRowsSource":
+        """Alias for `select(...)` using familiar DataFrame/project naming."""
+
+        return self.select(*columns)
+
     def with_column(self, name: object, expression: object) -> "GeneratedRowsSource":
         """Add or replace one deterministic literal column before local output.
 
@@ -788,6 +793,27 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             client=self.client,
             source_kind=self.source_kind,
         )
+
+    def with_columns(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        **named_expressions: object,
+    ) -> "GeneratedRowsSource":
+        """Alias over repeated generated-row `with_column(...)` calls."""
+
+        source = self
+        for name, expression in _normalize_named_projection_items(
+            "generated rows with_columns",
+            columns,
+            named_expressions,
+        ):
+            source = source.with_column(name, expression)
+        return source
+
+    def assign(self, **named_expressions: object) -> "GeneratedRowsSource":
+        """Alias for `with_columns(...)` using pandas-style naming."""
+
+        return self.with_columns(**named_expressions)
 
     def _column_names(self) -> tuple[str, ...]:
         if not self.rows:
@@ -896,6 +922,11 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
 
         return self._query().select(*columns)
 
+    def project(self, *columns: object) -> "GeneratedRangeQuerySource":
+        """Alias for `select(...)` using familiar DataFrame/project naming."""
+
+        return self.select(*columns)
+
     def with_column(
         self,
         name: object,
@@ -905,6 +936,27 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
 
         return self._query().with_column(name, expression)
 
+    def with_columns(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        **named_expressions: object,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias over repeated generated-range `with_column(...)` calls."""
+
+        query = self._query()
+        for name, expression in _normalize_named_projection_items(
+            "generated range with_columns",
+            columns,
+            named_expressions,
+        ):
+            query = query.with_column(name, expression)
+        return query
+
+    def assign(self, **named_expressions: object) -> "GeneratedRangeQuerySource":
+        """Alias for `with_columns(...)` using pandas-style naming."""
+
+        return self.with_columns(**named_expressions)
+
     def sort(
         self,
         *columns: object,
@@ -913,6 +965,33 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
         """Return a scoped generated-range SQL query with one ORDER BY clause."""
 
         return self._query().sort(*columns, descending=descending)
+
+    def order_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using SQL-style naming."""
+
+        return self.sort(*columns, descending=descending)
+
+    def sort_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using familiar DataFrame naming."""
+
+        return self.sort(*columns, descending=descending)
+
+    def sort_values(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using pandas-style naming."""
+
+        return self.sort(*columns, descending=descending)
 
     def limit(self, count: int) -> "GeneratedRangeSource":
         """Limit an engine-native range/sequence before writing local output."""
@@ -1108,6 +1187,11 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             limit_count=self.limit_count,
         )
 
+    def project(self, *columns: object) -> "GeneratedRangeQuerySource":
+        """Alias for `select(...)` using familiar DataFrame/project naming."""
+
+        return self.select(*columns)
+
     def with_column(
         self,
         name: object,
@@ -1138,6 +1222,27 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             limit_count=self.limit_count,
         )
 
+    def with_columns(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        **named_expressions: object,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias over repeated generated-range query `with_column(...)` calls."""
+
+        query = self
+        for name, expression in _normalize_named_projection_items(
+            "generated range query with_columns",
+            columns,
+            named_expressions,
+        ):
+            query = query.with_column(name, expression)
+        return query
+
+    def assign(self, **named_expressions: object) -> "GeneratedRangeQuerySource":
+        """Alias for `with_columns(...)` using pandas-style naming."""
+
+        return self.with_columns(**named_expressions)
+
     def sort(
         self,
         *columns: object,
@@ -1161,6 +1266,33 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             sort_key=(direction, sort_columns),
             limit_count=self.limit_count,
         )
+
+    def order_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using SQL-style naming."""
+
+        return self.sort(*columns, descending=descending)
+
+    def sort_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using familiar DataFrame naming."""
+
+        return self.sort(*columns, descending=descending)
+
+    def sort_values(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Alias for `sort(...)` using pandas-style naming."""
+
+        return self.sort(*columns, descending=descending)
 
     def limit(self, count: int) -> "GeneratedRangeQuerySource":
         """Return this generated-range query with a SQL LIMIT clause."""
@@ -1373,6 +1505,7 @@ class SqlWorkflow:
     def collect(
         self,
         *,
+        limit: int | None = None,
         check: bool = False,
         memory_gb: int = 4,
         max_parallelism: int = 1,
@@ -1383,6 +1516,12 @@ class SqlWorkflow:
     ):
         """Collect rows or run admitted local Vortex SQL primitives."""
 
+        if limit is not None:
+            return self.limit(limit).collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         if _is_source_free_sql_statement(self.statement):
             return self._unsupported_operation(
                 "sql-source-free-projection",
@@ -1395,9 +1534,21 @@ class SqlWorkflow:
             max_parallelism=max_parallelism,
         ):
             return report
+        if statement := self._bounded_local_source_statement(default_limit=None):
+            return self.client.sql_local_source_smoke(statement, check=check)
         if _is_local_source_sql_statement(self.statement):
-            return self.client.sql_local_source_smoke(self.statement, check=check)
+            return self._unsupported_operation(
+                "sql-local-source-collect",
+                "local_source_sql_collect_requires_explicit_limit",
+                check=check,
+            )
         return self._unsupported_operation("sql", self.statement, check=check)
+
+    def limit(self, count: int) -> "SqlWorkflow":
+        """Return this SQL workflow with an explicit LIMIT when one is absent."""
+
+        statement = _sql_statement_with_limit(self.statement, count)
+        return SqlWorkflow(statement=statement, client=self.client)
 
     def schema(
         self,
@@ -1436,6 +1587,16 @@ class SqlWorkflow:
             return _validate_workflow_schema(report, normalized)
         target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
         return self._unsupported_operation("validate-schema", target, check=check)
+
+    def schema_contract(
+        self,
+        schema: Mapping[str, object],
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
+        """Alias for exact bounded schema validation over admitted local-source SQL."""
+
+        return self.validate_schema(schema, check=check)
 
     def data_quality_check(
         self,
@@ -1478,6 +1639,58 @@ class SqlWorkflow:
             self.statement,
             check=check,
         )
+
+    def profile(
+        self,
+        limit: int = 100,
+        *,
+        check: bool = False,
+    ) -> WorkflowProfileReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded runtime profile for admitted local-source SQL."""
+
+        _validate_positive_row_count("profile limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            workflow = self._report_workflow()
+            return WorkflowProfileReport(
+                workflow=workflow,
+                smoke_report=report,
+                schema_report=_workflow_schema_report(workflow, report),
+                limit=limit,
+            )
+        return self._unsupported_operation("profile", self.statement, check=check)
+
+    def quarantine(
+        self,
+        target_uri: str | os.PathLike[str] | None = None,
+        *checks: object,
+        output_format: str | None = None,
+        limit: int = 100,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> WorkflowQuarantineReport | UnsupportedWorkflowOperationReport:
+        """Return bounded quarantine evidence for admitted local-source SQL."""
+
+        _validate_positive_row_count("quarantine limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            workflow = self._report_workflow()
+            schema_report = _workflow_schema_report(workflow, report)
+            parsed_checks = _workflow_quarantine_checks(schema_report, checks)
+            quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
+            return WorkflowQuarantineReport(
+                workflow=workflow,
+                quality_report=quality_report,
+                checks=tuple(raw for _kind, _column, raw in parsed_checks),
+                rows=_workflow_quarantine_rows(schema_report, parsed_checks),
+                limit=limit,
+                target_uri=None if target_uri is None else str(target_uri),
+                output_format=_normalize_optional_quarantine_output_format(
+                    target_uri,
+                    output_format,
+                ),
+                sink_report=None,
+            )
+        target = "none" if target_uri is None else str(target_uri)
+        return self._unsupported_operation("quarantine", target, check=check)
 
     def preview(
         self,
@@ -2484,6 +2697,234 @@ class WorkflowDataQualityReport:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkflowProfileReport:
+    """Bounded runtime profile over an admitted local-source workflow."""
+
+    workflow: "LazyFrame"
+    smoke_report: SqlLocalSourceSmokeReport
+    schema_report: WorkflowSchemaReport
+    limit: int
+
+    @property
+    def profile_kind(self) -> str:
+        """Return the profile contract label."""
+
+        return "bounded_local_source_runtime_profile"
+
+    @property
+    def materialization_boundary(self) -> str:
+        """Return the explicit decoded materialization boundary."""
+
+        return "bounded_inline_jsonl_profile"
+
+    @property
+    def row_count(self) -> int:
+        """Return the bounded row count inspected by the profile."""
+
+        return self.schema_report.observed_row_count
+
+    @property
+    def field_count(self) -> int:
+        """Return the number of observed fields."""
+
+        return len(self.schema_report.fields)
+
+    @property
+    def null_counts(self) -> dict[str, int]:
+        """Return observed null-or-missing counts by field."""
+
+        return {field.name: field.null_count for field in self.schema_report.fields}
+
+    @property
+    def rows(self) -> tuple[Mapping[str, Any], ...]:
+        """Return bounded rows used to build the profile."""
+
+        return self.smoke_report.result_rows
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the backing runtime smoke executed."""
+
+        return True
+
+    @property
+    def data_read(self) -> bool:
+        """Whether the backing runtime smoke read source data."""
+
+        return True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether profile collection wrote output."""
+
+        return False
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether profile collection attempted fallback execution."""
+
+        return self.smoke_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether profile collection invoked an external execution engine."""
+
+        return self.smoke_report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the backing runtime smoke claim-gate status."""
+
+        return self.smoke_report.claim_gate_status
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return compact evidence from the backing runtime smoke."""
+
+        return self.smoke_report.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return compact claim posture from the backing runtime smoke."""
+
+        return self.smoke_report.claim_summary
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowQuarantineReport:
+    """Bounded quarantine report over an admitted local-source workflow."""
+
+    workflow: "LazyFrame"
+    quality_report: WorkflowDataQualityReport
+    checks: tuple[str, ...]
+    rows: tuple[Mapping[str, Any], ...]
+    limit: int
+    target_uri: str | None
+    output_format: str | None
+    sink_report: SqlLocalSourceSmokeReport | None = None
+
+    @property
+    def quarantine_policy(self) -> str:
+        """Return the scoped quarantine policy label."""
+
+        return "bounded_local_source_quarantine.v1"
+
+    @property
+    def materialization_boundary(self) -> str:
+        """Return the explicit decoded classification boundary."""
+
+        return "bounded_inline_jsonl_quarantine_classification"
+
+    @property
+    def quarantine_status(self) -> str:
+        """Return the bounded quarantine outcome status."""
+
+        if self.sink_report is not None:
+            return "written"
+        if not self.rows:
+            return "not_emitted_no_quarantine_rows"
+        if self.target_uri is not None:
+            return "not_emitted_non_pushdown_check"
+        return "report_only"
+
+    @property
+    def row_count(self) -> int:
+        """Return the bounded row count inspected by the report."""
+
+        return self.quality_report.row_count
+
+    @property
+    def quarantined_row_count(self) -> int:
+        """Return the number of bounded rows selected for quarantine."""
+
+        return len(self.rows)
+
+    @property
+    def output_path(self) -> str | None:
+        """Return the quarantine sink path when a local sink was written."""
+
+        return None if self.sink_report is None else self.sink_report.output_path
+
+    @property
+    def output_commit_status(self) -> str | None:
+        """Return the local sink commit status when emitted."""
+
+        return None if self.sink_report is None else self.sink_report.output_commit_status
+
+    @property
+    def output_native_io_certificate_status(self) -> str | None:
+        """Return the local sink Native I/O certificate status when emitted."""
+
+        if self.sink_report is None:
+            return None
+        return self.sink_report.output_native_io_certificate_status
+
+    @property
+    def result_replay_verified(self) -> bool:
+        """Whether a written quarantine sink was replay verified."""
+
+        return self.sink_report is not None and self.sink_report.result_replay_verified
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the backing runtime smoke executed."""
+
+        return True
+
+    @property
+    def data_read(self) -> bool:
+        """Whether the backing runtime smoke read source data."""
+
+        return True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether quarantine emitted a local sink through ShardLoom."""
+
+        return self.sink_report is not None and self.sink_report.output_path is not None
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether quarantine attempted fallback execution."""
+
+        return self.quality_report.fallback_attempted or (
+            self.sink_report.fallback_attempted if self.sink_report is not None else False
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether quarantine invoked an external execution engine."""
+
+        return self.quality_report.external_engine_invoked or (
+            self.sink_report.external_engine_invoked if self.sink_report is not None else False
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the most specific backing claim-gate status."""
+
+        if self.sink_report is not None:
+            return self.sink_report.claim_gate_status
+        return self.quality_report.claim_gate_status
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return compact evidence from the sink or classification runtime."""
+
+        if self.sink_report is not None:
+            return self.sink_report.evidence_summary
+        return self.quality_report.schema_report.evidence_summary
+
+    @property
+    def claim_summary(self) -> ClaimSummary:
+        """Return compact claim posture from the backing runtime."""
+
+        if self.sink_report is not None:
+            return self.sink_report.claim_summary
+        return self.quality_report.schema_report.smoke_report.claim_summary
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowNotebookPreview:
     """Bounded notebook/display preview with explicit materialization evidence."""
 
@@ -2635,6 +3076,11 @@ class LazyFrame:
 
         return self._append(WorkflowOperation("select", _normalize_columns(columns)))
 
+    def project(self, *columns: object) -> "LazyFrame":
+        """Alias for `select(...)` using familiar DataFrame/project naming."""
+
+        return self.select(*columns)
+
     def with_column(
         self,
         name: str,
@@ -2666,6 +3112,39 @@ class LazyFrame:
             check=check,
         )
 
+    def with_columns(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        *,
+        check: bool = False,
+        **named_expressions: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a workflow with multiple scoped computed columns.
+
+        This is a convenience alias over repeated `with_column(...)` calls. It
+        does not widen expression semantics or introduce another execution path.
+        """
+
+        items = _normalize_named_projection_items(
+            "with_columns",
+            columns,
+            named_expressions,
+        )
+        workflow: LazyFrame | UnsupportedWorkflowOperationReport = self
+        for name, expression in items:
+            if isinstance(workflow, UnsupportedWorkflowOperationReport):
+                return workflow
+            workflow = workflow.with_column(name, expression, check=check)
+        return workflow
+
+    def assign(
+        self,
+        **named_expressions: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for `with_columns(...)` using pandas-style naming."""
+
+        return self.with_columns(**named_expressions)
+
     def limit(self, count: int) -> "LazyFrame":
         """Return a lazy plan with an added limit."""
 
@@ -2696,14 +3175,28 @@ class LazyFrame:
 
         return self.client.estimate(self.operation_summary, check=check)
 
-    def profile(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for runtime profile collection."""
+    def profile(
+        self,
+        limit: int = 100,
+        *,
+        check: bool = False,
+    ) -> WorkflowProfileReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded runtime profile for admitted local-source workflows."""
 
-        return self._unsupported_operation("profile", check=check)
+        _validate_positive_row_count("profile limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            return WorkflowProfileReport(
+                workflow=self,
+                smoke_report=report,
+                schema_report=_workflow_schema_report(self, report),
+                limit=limit,
+            )
+        return self._unsupported_operation("profile", str(limit), check=check)
 
     def collect(
         self,
         *,
+        limit: int | None = None,
         check: bool = False,
         memory_gb: int = 4,
         max_parallelism: int = 1,
@@ -2714,6 +3207,13 @@ class LazyFrame:
     ):
         """Collect admitted local file rows or run admitted local Vortex primitives."""
 
+        if limit is not None:
+            frame = self if _workflow_has_limit(self.operations) else self.limit(limit)
+            return frame.collect(
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         if report := self._vortex_local_primitive_collect_report(
             check=check,
             memory_gb=memory_gb,
@@ -3142,6 +3642,11 @@ class LazyFrame:
             columns=_normalize_columns(columns),
         )
 
+    def groupby(self, *columns: object) -> "GroupedLazyFrame":
+        """Alias for `group_by(...)` using pandas-style naming."""
+
+        return self.group_by(*columns)
+
     def aggregate(
         self,
         *expressions: object,
@@ -3194,6 +3699,36 @@ class LazyFrame:
             return self._append(WorkflowOperation("sort", (direction, *normalized_columns)))
         return self._unsupported_operation("sort", target, check=check)
 
+    def order_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for `sort(...)` using SQL-style naming."""
+
+        return self.sort(*columns, descending=descending, check=check)
+
+    def sort_by(
+        self,
+        *columns: object,
+        descending: bool = False,
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for `sort(...)` using familiar DataFrame naming."""
+
+        return self.sort(*columns, descending=descending, check=check)
+
+    def sort_values(
+        self,
+        *columns: object,
+        descending: bool = False,
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for `sort(...)` using pandas-style naming."""
+
+        return self.sort(*columns, descending=descending, check=check)
+
     def window(
         self,
         *expressions: object,
@@ -3212,14 +3747,10 @@ class LazyFrame:
         schema: Mapping[str, object],
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for schema contract enforcement."""
+    ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
+        """Alias for exact bounded schema validation over admitted local-source workflows."""
 
-        normalized = _normalize_schema(schema)
-        if not normalized:
-            raise ValueError("schema contract must not be empty")
-        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
-        return self._unsupported_operation("schema-contract", target, check=check)
+        return self.validate_schema(schema, check=check)
 
     def schema(
         self,
@@ -3300,11 +3831,45 @@ class LazyFrame:
     def quarantine(
         self,
         target_uri: str | os.PathLike[str] | None = None,
-        *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for data-quality quarantine output."""
+        *checks: object,
+        output_format: str | None = None,
+        limit: int = 100,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> WorkflowQuarantineReport | UnsupportedWorkflowOperationReport:
+        """Return bounded quarantine evidence for admitted local-source workflows."""
 
+        _validate_positive_row_count("quarantine limit", limit)
+        if report := self._bounded_materialization_report(limit=limit, check=check):
+            schema_report = _workflow_schema_report(self, report)
+            parsed_checks = _workflow_quarantine_checks(schema_report, checks)
+            quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
+            rows = _workflow_quarantine_rows(schema_report, parsed_checks)
+            normalized_output_format = _normalize_optional_quarantine_output_format(
+                target_uri,
+                output_format,
+            )
+            sink_report: SqlLocalSourceSmokeReport | None = None
+            if target_uri is not None and rows:
+                statement = self._quarantine_pushdown_statement(parsed_checks, limit=limit)
+                if statement is not None and normalized_output_format is not None:
+                    sink_report = self.client.sql_local_source_smoke(
+                        statement,
+                        output_path=target_uri,
+                        output_format=normalized_output_format,
+                        allow_overwrite=allow_overwrite,
+                        check=check,
+                    )
+            return WorkflowQuarantineReport(
+                workflow=self,
+                quality_report=quality_report,
+                checks=tuple(raw for _kind, _column, raw in parsed_checks),
+                rows=rows,
+                limit=limit,
+                target_uri=None if target_uri is None else str(target_uri),
+                output_format=normalized_output_format,
+                sink_report=sink_report,
+            )
         target = "none" if target_uri is None else str(target_uri)
         return self._unsupported_operation("quarantine", target, check=check)
 
@@ -3645,6 +4210,43 @@ class LazyFrame:
             return None
         return smoke_report
 
+    def _quarantine_pushdown_statement(
+        self,
+        checks: tuple[tuple[str, str, str], ...],
+        *,
+        limit: int,
+    ) -> str | None:
+        predicate = _quarantine_pushdown_predicate(checks)
+        if predicate is None:
+            return None
+        operations: list[WorkflowOperation] = []
+        filters: list[str] = []
+        saw_select = False
+        for operation in self.operations:
+            if operation.kind == "select" and not saw_select:
+                operations.append(operation)
+                saw_select = True
+            elif operation.kind == "filter":
+                filters.append(operation.values[0])
+            elif operation.kind == "limit":
+                continue
+            else:
+                return None
+        filters.append(predicate)
+        operations.append(
+            WorkflowOperation(
+                "filter",
+                (" AND ".join(f"({value})" for value in filters),),
+            )
+        )
+        operations.append(WorkflowOperation("limit", (str(limit),)))
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=tuple(operations),
+            engine_mode=self.engine_mode,
+        )._sql_local_source_statement(default_limit=None)
+
     def _append_group_by_aggregate(
         self,
         columns: tuple[str, ...],
@@ -3903,6 +4505,16 @@ class GroupedLazyFrame:
         """Alias for grouped `agg`."""
 
         return self.agg(*expressions, check=check, **named_expressions)
+
+    def count(
+        self,
+        *,
+        alias: object = "rows",
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a grouped `count(*)` workflow using a familiar aggregation shortcut."""
+
+        return self.agg(**{_normalize_output_column_name(alias): "count(*)"}, check=check)
 
 
 def read_vortex(
@@ -5222,6 +5834,44 @@ def _normalize_columns(columns: Sequence[object]) -> tuple[str, ...]:
     return tuple(values)
 
 
+def _normalize_named_projection_items(
+    context: str,
+    columns: Mapping[str, object] | Sequence[tuple[object, object]] | None,
+    named_expressions: Mapping[str, object],
+) -> tuple[tuple[str, object], ...]:
+    """Normalize ordered alias/expression pairs for multi-column projection helpers."""
+
+    raw_items: list[tuple[object, object]] = []
+    if columns is not None:
+        if isinstance(columns, Mapping):
+            raw_items.extend(columns.items())
+        elif _is_non_string_sequence(columns):
+            for item in columns:
+                if not _is_non_string_sequence(item) or len(item) != 2:
+                    raise ValueError(
+                        f"{context} sequence entries must be (name, expression) pairs"
+                    )
+                name, expression = item
+                raw_items.append((name, expression))
+        else:
+            raise TypeError(
+                f"{context} columns must be a mapping or sequence of (name, expression) pairs"
+            )
+    raw_items.extend(named_expressions.items())
+    if not raw_items:
+        raise ValueError(f"{context} expressions must not be empty")
+
+    normalized: list[tuple[str, object]] = []
+    seen: set[str] = set()
+    for name, expression in raw_items:
+        column_name = _normalize_output_column_name(name)
+        if column_name in seen:
+            raise ValueError(f"{context} output column names must be unique")
+        seen.add(column_name)
+        normalized.append((column_name, expression))
+    return tuple(normalized)
+
+
 def _normalize_optional_columns(columns: object | None) -> tuple[str, ...]:
     if columns is None:
         return ()
@@ -6245,6 +6895,24 @@ def _is_local_source_sql_statement(statement: str) -> bool:
     )
 
 
+def _sql_statement_with_limit(statement: str, count: int) -> str:
+    """Return a normalized SQL statement with an explicit LIMIT clause."""
+
+    _validate_positive_row_count("SQL LIMIT", count)
+    normalized = statement.strip().rstrip(";").strip()
+    if not normalized:
+        raise ValueError("SQL statement must not be empty")
+    if _contains_sql_keyword_outside_quotes(normalized, "limit"):
+        return normalized
+    return f"{normalized} LIMIT {count}"
+
+
+def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
+    """Whether a lazy workflow already carries a limit operation."""
+
+    return any(operation.kind == "limit" for operation in operations)
+
+
 def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
@@ -6907,6 +7575,97 @@ def _workflow_data_quality_report(
         schema_report=schema_report,
         checks=tuple(results),
     )
+
+
+def _workflow_quarantine_checks(
+    schema_report: WorkflowSchemaReport,
+    checks: tuple[object, ...],
+) -> tuple[tuple[str, str, str], ...]:
+    if checks:
+        normalized_checks = _normalize_columns(checks)
+        parsed = _parse_data_quality_checks(normalized_checks)
+        if parsed is None:
+            raise ValueError(
+                "quarantine checks must use supported data-quality forms such as "
+                "'not_null:column' or 'unique:column'"
+            )
+        return parsed
+    return tuple(
+        ("not_null", field.name, f"not_null:{field.name}")
+        for field in schema_report.fields
+    )
+
+
+def _workflow_quarantine_rows(
+    schema_report: WorkflowSchemaReport,
+    checks: tuple[tuple[str, str, str], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    rows = schema_report.smoke_report.result_rows
+    if not rows or not checks:
+        return ()
+    field_names = set(schema_report.field_names)
+    unique_value_counts: dict[str, dict[str, int]] = {}
+    for kind, column, _raw_check in checks:
+        if kind != "unique" or column not in field_names:
+            continue
+        counts: dict[str, int] = {}
+        for row in rows:
+            key = _stable_quality_value_key(row.get(column))
+            counts[key] = counts.get(key, 0) + 1
+        unique_value_counts[column] = counts
+
+    quarantined: list[Mapping[str, Any]] = []
+    for row in rows:
+        failed = False
+        for kind, column, _raw_check in checks:
+            if column not in field_names:
+                failed = True
+            elif kind == "not_null":
+                failed = row.get(column) is None
+            elif kind == "unique":
+                key = _stable_quality_value_key(row.get(column))
+                failed = unique_value_counts.get(column, {}).get(key, 0) > 1
+            if failed:
+                quarantined.append(row)
+                break
+    return tuple(quarantined)
+
+
+def _quarantine_pushdown_predicate(
+    checks: tuple[tuple[str, str, str], ...],
+) -> str | None:
+    if not checks or any(kind != "not_null" for kind, _column, _raw in checks):
+        return None
+    predicates = []
+    for _kind, column, _raw in checks:
+        if not _is_sql_identifier(column):
+            return None
+        predicates.append(f"{column} IS NULL")
+    return " OR ".join(predicates) if predicates else None
+
+
+def _normalize_optional_quarantine_output_format(
+    target_uri: str | os.PathLike[str] | None,
+    output_format: str | None,
+) -> str | None:
+    if output_format is not None:
+        return _normalize_local_output_format(output_format)
+    if target_uri is None:
+        return None
+    suffix = Path(str(target_uri)).suffix.lower()
+    if suffix in {".vortex", ".vtx"}:
+        return "vortex"
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix in {".arrow", ".ipc", ".feather"}:
+        return "arrow-ipc"
+    if suffix == ".avro":
+        return "avro"
+    if suffix == ".orc":
+        return "orc"
+    return "jsonl"
 
 
 def _optional_module(module_name: str) -> object | None:

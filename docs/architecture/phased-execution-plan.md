@@ -317,6 +317,59 @@ Current state:
   operation-level count, count-where, filter, project, select-star, filter-project, and
   source-order limit route coverage across SQL, Python, DataFrame-style, context, session, and CLI
   surfaces.
+- The third 6D child slice adds `ShardLoomContext.local_file_benchmark_route_report()` and
+  release-readiness validation for scenario-level local compatibility-file benchmark route coverage.
+  Selective filter and filter/projection/limit are mapped to scoped direct transient routes; group,
+  multi-key aggregate, join aggregate, sort/top-k, row-number window, top-N per group, dirty
+  clean/cast/filter/write, partition-pruning, many-small-files, null-heavy aggregate,
+  high-cardinality group/distinct, nested JSON fixture, and CDC overlay fixture rows are mapped to
+  prepare-once ShardLoom routes with explicit Vortex normalization, output/evidence, no-fallback,
+  and claim-boundary fields.
+- The fourth 6D child slice adds the additive benchmark route timing ledger, first-class
+  `ShardLoom Prepare-Once First Query` route rows, and `N=1/5/10/50/100` prepared-route
+  amortization summaries. Public benchmark artifacts now publish 600 ShardLoom scoped-runtime rows
+  across cold certified, prepare-once first query, prepare-once batch, warm prepared, and native
+  Vortex routes. Each published row records `route_total_formula`, `route_timing_scope`,
+  `stage_parent_id`, included/excluded timing stage IDs, timing-inclusion booleans, and a
+  zero-delta route-total reproduction check.
+- The fifth 6D child slice adds `shardloom.traditional_analytics.cold_bottleneck.v1` row fields
+  and website summaries for cold certified and prepare-once routes. Cold rows now expose primary
+  and secondary bottleneck stages, diagnostic-only optimization hints, source split/open/read
+  pressure, projection posture, and prepared-state fingerprint/reuse fields. Warm prepared/native
+  rows explicitly report cold bottlenecks as not applicable instead of inheriting cold labels.
+- The sixth 6D child slice adds source/prepared route diagnostics to user-route packets and
+  benchmark rows: source-state fingerprint, schema fingerprint, parse-plan ID, split-manifest ID,
+  anomaly/quarantine posture, prepared-state fingerprint, nearest runnable route, required feature
+  gate, and deterministic runtime blocker code. These fields are guidance and evidence pointers;
+  they do not execute fallback work.
+- The seventh 6D child slice makes the benchmark website route-first. The page now leads with
+  route cards for cold certified, prepare-once first query, prepare-once batch, warm prepared,
+  native Vortex, and external baseline end-to-end rows; stage attribution follows the cards; route
+  filters separate comparable end-to-end, prepared-state steady-state, native Vortex, and
+  diagnostic/stage views. Runtime, evidence, and claim badges are visually distinct and covered by
+  website/static validators so warm prepared sub-ms rows cannot be mistaken for cold raw-source
+  end-to-end timing.
+- The eighth 6D child slice adds `shardloom.route_fast_path_attribution.v1` to promoted benchmark
+  rows and website summaries. Route evidence now separates `runtime_execution_ms`,
+  `output_delivery_ms`, `evidence_capture_ms`, `evidence_render_ms`, and `certificate_link_ms`;
+  claim-grade ShardLoom rows must carry `evidence_required_for_claim=true`,
+  `certificate_link_status=linked_certified_runtime_execution`, and a certified
+  runtime-execution certificate when evidence rendering is excluded from route totals. The
+  benchmark page now shows runtime/evidence attribution after stage attribution so sub-ms
+  prepared/native query rows are not visually charged for publication-only evidence work.
+- The ninth 6D child slice adds `shardloom.operator_mode_inventory.v1` to promoted benchmark rows
+  and website summaries. Public rows now distinguish `operator_execution_mode` from
+  route-runtime support and publish `encoded_native_operators`, `residual_native_operators`,
+  `materialized_temporary_operators`, `operator_blocker_code`, and
+  `operator_hot_path_candidate`. Current ShardLoom benchmark rows remain residual-native or
+  materialized-temporary, not encoded-native; the selected first promotion candidate is
+  `selective_filter_selection_vector_metric_aggregation` with deterministic blocker
+  `blocked_selection_vector_metric_aggregation_not_admitted`.
+- The tenth 6D child slice adds `scripts/check_benchmark_publish_doctor.py`, a static
+  publication/handoff doctor that wraps benchmark artifact completeness, publication claim-gate,
+  website mirror-drift, route row counts, route-runtime-status, operator-mode, timing-ledger, and
+  nearest-next-command checks. It also writes compact JSON/Markdown route packets for agent
+  handoff without pulling the full benchmark corpus into prompt context.
 - Some user-facing capability/parity surfaces still say `unsupported`, `blocked`, or `not complete`
   where the accurate problem is front-door connection, output ergonomics, claim-grade evidence, or
   benchmark publication rather than engine impossibility.
@@ -349,454 +402,243 @@ attached.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6D-3 local file benchmark-route front-door completion.
-  Source: #997 benchmark route-runtime fields, #998 user-surface runtime gap inventory, #999 user
-  route capability report, #1000 local Vortex primitive route report,
-  `docs/architecture/sql-python-dataframe-front-door-parity.md`,
-  `docs/architecture/benchmark-suite-catalog.md`, `benchmarks/common/scenario_catalog.json`,
-  `benchmarks/traditional_analytics/run.py`, and
-  `docs/rfcs/0033-user-data-workflow-etl-surface.md`.
-  Current state: local CSV/JSON/Parquet/Arrow IPC/Avro/ORC input routes already have scoped
-  ShardLoom SQL/Python/DataFrame runtime evidence for many local-source operations, and benchmark
-  lanes exercise broader scenario families. Users still need a deterministic operation-level map
-  that says which local file benchmark scenario has an admitted front door, which route remains a
-  compatibility-transient route, which route crosses through SourceState/vortex_ingest into
-  VortexPreparedState, which output route is available, and which scenarios are true runtime
-  expansion items rather than generic unsupported shapes.
-  Next slice outcome: add or update one source-controlled, side-effect-free local file benchmark
-  route report that covers selective filter, filter/projection/limit, group aggregate, multi-key
-  aggregate, join aggregate, sort/top-k, row-number window, top-N per group,
-  dirty clean/cast/filter/write, partition-pruning fixture, many-small-files fixture, null-heavy
-  aggregate, high-cardinality string group/distinct, nested JSON field scan, and CDC overlay. The
-  report must classify each scenario as `scoped_runtime_supported`, `prepared_route_supported`,
-  `front_door_connection_pending`, `output_route_pending`, `claim_evidence_pending`, or
-  `runtime_expansion_pending`, not `unsupported` because of missing wiring.
-  Runtime enablement: this completes the local compatibility-file user-route map for benchmark
-  scenario families that already execute through ShardLoom runtime evidence and protects users from
-  confusing external-baseline or internal-stage labels. It does not create a fallback execution
-  engine.
-  User-visible surface: `ShardLoomContext`, `ShardLoomClient`, `ShardLoomSession`, SQL/Python/
-  DataFrame-style helpers, `user_route_capability_report`, front-door parity report, benchmark
-  route/status artifacts, README/quickstart docs, and release-readiness evidence.
-  Implementation scope: `python/src/shardloom/context.py`, `python/src/shardloom/query.py`,
-  `python/src/shardloom/session.py`, Python tests, route/parity/release validators, README/docs,
-  and only the CLI or benchmark harness files needed if the audit finds an actual missing route
-  connection.
-  Evidence required: operation-level route rows with stable route ids, front-door examples,
-  scenario ids, start state, Vortex normalization/preparation point, selected execution mode,
-  output route, evidence route, materialization/decode boundary, claim boundary, and
-  `fallback_attempted=false` / `external_engine_invoked=false`; focused tests for representative
-  SQL/Python/session routes; route validator output; parity/inventory/release-readiness output; and
-  benchmark-route linkage where scenario names already exist.
-  Acceptance: every local benchmark scenario family listed above is either mapped to a runnable
-  ShardLoom SQL/Python/DataFrame/context/session/CLI route or reclassified as a precise runtime
-  expansion item with owner, blocker id, required evidence, and next verifier. No local ShardLoom
-  benchmark-range scenario may be generically `unsupported` because the user front door, output
-  route, or benchmark publication label is incomplete.
-  Verification:
-  ```bash
-  python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json
-  python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
-  python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory.json
-  python3 scripts/check_release_readiness.py --allow-blocked
-  python3 -m unittest discover -s python/tests
-  python3 -m compileall -q python/src python/tests scripts examples
-  cargo fmt --all -- --check
-  cargo clippy --workspace --all-targets -- -D warnings
-  cargo test --workspace --all-targets
-  git diff --check
-  ```
-  Non-goals: no Spark/DataFusion/DuckDB/Polars/Velox fallback, no benchmark rerun, no broad
-  arbitrary SQL/DataFrame claim, no object-store/lakehouse runtime, no package publication, no
-  performance superiority claim, and no production-readiness claim.
-  Dependencies/blockers: depends on #997 through #1000 route and user-surface validators, current
-  local-source query-builder coverage, benchmark scenario catalog names, and Vortex-normalization
-  policy for non-Vortex inputs.
-  Claim boundary: local compatibility-file route discoverability and scoped route readiness only.
-  Performance equivalence, production support, Spark displacement, broad arbitrary language
-  support, and nonlocal input families remain blocked until their own correctness, Native I/O,
-  execution-certificate, no-fallback, and benchmark evidence lands.
-  Fallback boundary: every row and evidence artifact for this slice must preserve
-  `fallback_attempted=false` and `external_engine_invoked=false`; external engines remain baseline
-  or oracle-only.
-  Ledger rule: when complete, move this child slice to the completed ledger and keep only remaining
-  6D work in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D-4 additive route timing ledger and prepare-once first-query route.
-  Source: user bottleneck review on cold ingest / website benchmark interpretation,
-  `benchmarks/traditional_analytics/README.md`, and current public artifact route fields.
-  Current state: public rows expose route identity fields, but timing fields are not consistently
-  additive. Some rows report `total_route_ms` that is smaller than the visible stage fields, so
-  users cannot tell which stage timings are included in the route total versus diagnostic context.
-  The prepare-once batch lane exists, but the user-facing "prepare once, then first prepared query"
-  mental model is still not first-class enough.
-  Next slice outcome: every benchmark row has a deterministic route timing ledger that explains
-  exactly what is included in `total_route_ms`, what is excluded, and why. Publish explicit route
-  rows for raw local/compat source -> SourceState -> vortex_ingest -> VortexPreparedState -> first
-  prepared execution; raw local/compat source -> SourceState -> vortex_ingest ->
-  VortexPreparedState -> repeated prepared execution; VortexPreparedState -> warm prepared
-  execution; and native Vortex source -> native Vortex execution.
-  Runtime enablement: this does not add a new execution fallback. It enables claim-safe route
-  interpretation for the existing raw-source-to-prepared-Vortex runtime path by making route
-  totals, preparation timing, query timing, output timing, and evidence timing mechanically
-  auditable.
-  User-visible surface: add `ShardLoom Prepare-Once First Query` as a named route, add amortized
-  route summaries for `N=1`, `N=5`, `N=10`, `N=50`, and `N=100` prepared executions, and keep
-  `ShardLoom Warm Prepared Query` visible as a stage/steady-state route rather than the whole
-  prepared story.
-  Implementation scope: benchmark harness route schema adds `route_total_formula`,
-  `route_timing_scope`, `stage_parent_id`, per-stage inclusion booleans or equivalent structured
-  ledger entries for source read, source parse/decode, SourceState build, Vortex array build,
-  Vortex write, digest, reopen/verify, prepared-state lookup/create, scan, operator compute, sink
-  write, and evidence render. Add `preparation_timing_included_in_total`,
-  `query_timing_included_in_total`, `output_timing_included_in_total`, and
-  `evidence_timing_included_in_total`. Benchmark promotion must reject rows where included stage
-  totals cannot reproduce `total_route_ms` within tolerance or where visible stage fields have no
-  inclusion/scope metadata. Website artifacts publish both route totals and stage-attribution
-  fields and never imply diagnostic fields sum to route total unless the ledger says they do.
-  Evidence required: focused benchmark artifact with all ShardLoom lanes and at least one external
-  baseline; contract test proving `total_route_ms` equals the sum of included stages for every
-  ShardLoom route row; contract test proving excluded stages remain visible as diagnostic context
-  but are not used in route-total comparisons; and snapshot/JSON fixture proving first-query and
-  amortized route rows are generated.
-  Acceptance: no row can be promoted to public benchmark artifacts without a valid route timing
-  ledger; `ShardLoom Prepare-Once First Query` appears as a first-class route label; warm prepared
-  timings remain visible but cannot be mistaken for cold end-to-end timings; external baseline rows
-  remain baseline-only and cannot be used as ShardLoom runtime fallback evidence.
-  Verification:
-  ```bash
-  python3 benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepare-batch,shardloom-prepared-vortex,shardloom-vortex,polars-lazy --iterations 1 --no-markdown --output target/benchmark-ledger-smoke/manifest.json
-  python3 scripts/check_benchmark_artifact_completeness.py --manifest target/benchmark-ledger-smoke/manifest.json
-  python3 scripts/check_benchmark_publication_claim_gate.py --manifest target/benchmark-ledger-smoke/manifest.json
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  cargo test -p shardloom-contract-tests --test benchmark_evidence_manifest
-  python3 -m unittest python/tests/test_release_scripts.py
-  git diff --check
-  ```
-  Non-goals: no superiority claim, no new external execution provider, and no hiding cold
-  preparation costs.
-  Dependencies/blockers: depends on the current benchmark route identity fields, prepared-batch
-  lane artifacts, public manifest schema, website benchmark asset promotion path, and a laptop-safe
-  sequential smoke harness with unique output/data paths.
-  Claim boundary: this item only makes route timing interpretable and comparable by scope. It does
-  not claim ShardLoom beats an external engine.
-  Fallback boundary: external engines remain benchmark/correctness baselines only.
-  Ledger rule: any row with non-empty stage timings must declare whether each stage is included in
-  `total_route_ms`.
-- [ ] GAR-RUNTIME-IMPL-6D-5 cold preparation bottleneck attribution for raw compatibility sources.
-  Source: user bottleneck review,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`, and
-  `benchmarks/traditional_analytics/README.md`.
-  Current state: the cold compatibility lane is the most important practical route for non-Vortex
-  users, but its timing is still hard to explain. The path includes source admission, raw source
-  read, parse/decode, SourceState construction, Vortex array build, Vortex write, digest,
-  reopen/verify, query execution, sink output, and evidence render. Users see a large cold geomean
-  but cannot cleanly identify which leg dominates by format, scale, or file layout.
-  Next slice outcome: cold preparation becomes a structured, diagnosable route with stable
-  bottleneck categories and actionable next work. The route should answer: "Where did the cold
-  ingest time go, and which piece is ShardLoom responsible for improving next?"
-  Runtime enablement: strengthens the admitted local raw compatibility source -> SourceState ->
-  `vortex_ingest` -> `VortexPreparedState` path. Unsupported source features still fail explicitly
-  with diagnostics.
-  User-visible surface: add cold route bottleneck labels for `source_admission`, `source_read`,
-  `source_parse_or_decode`, `source_state_build`, `vortex_array_build`, `vortex_write`,
-  `vortex_digest`, `vortex_reopen_verify`, `prepared_query`, `sink_output`, and
-  `evidence_render`; add per-row `cold_bottleneck_primary_stage`,
-  `cold_bottleneck_secondary_stage`, and `cold_route_optimization_hint`.
-  Implementation scope: emit complete stage attribution from the CLI benchmark runtime for cold
-  certified and prepare-once routes; preserve format-specific distinctions for CSV, JSONL, Parquet,
-  Arrow IPC, and Vortex; preserve many-small-files distinctions separately from single-file source
-  parsing; add `source_split_count`, `source_open_count`, `source_bytes_read`,
-  `source_columns_requested`, and `source_projection_applied` where available; add
-  `vortex_prepared_state_reusable=true/false` and stable prepared-state fingerprint fields; keep
-  preparation evidence separate from query evidence while linking both to the same route
-  certificate.
-  Evidence required: cold route rows for representative CSV, JSONL, Parquet, Arrow IPC, and native
-  Vortex inputs; at least one many-small-files fixture; contract tests proving every cold route has
-  a primary bottleneck category; and contract tests proving bottleneck hints are diagnostics only
-  and do not mutate runtime behavior.
-  Acceptance: a user can look at any cold ShardLoom row and identify whether the dominant cost is
-  source read, parse/decode, Vortex array build, Vortex write, reopen/verify, query, sink, or
-  evidence. Prepared/native routes do not inherit irrelevant cold bottleneck labels.
-  Many-small-files cold rows expose split/open/read pressure instead of collapsing everything into
-  "parse".
-  Verification:
-  ```bash
-  python3 benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepare-batch,shardloom-prepared-vortex,shardloom-vortex --iterations 1 --no-markdown --output target/cold-bottleneck-smoke/manifest.json
-  python3 scripts/check_benchmark_artifact_completeness.py --manifest target/cold-bottleneck-smoke/manifest.json
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  cargo test -p shardloom-contract-tests --test benchmark_claim_evidence
-  git diff --check
-  ```
-  Non-goals: no benchmark-result refresh is required unless the artifact contract changes, and no
-  unsupported source format becomes supported by labeling it.
-  Dependencies/blockers: depends on the route timing ledger in 6D-4, current local compatibility
-  source readers, Vortex preparation/reopen evidence fields, benchmark scenario fixtures, and
-  stable stage names shared by CLI artifacts and website rendering.
-  Claim boundary: bottleneck attribution explains current behavior; it is not proof of competitive
-  superiority.
-  Fallback boundary: source parsing/import is ShardLoom preparation work, not delegation to an
-  external query engine.
-- [ ] GAR-RUNTIME-IMPL-6D-6 SourceState reuse, prepared-state fingerprints, and feature-gate
-  diagnostics.
-  Source: user bottleneck review, universal input contract, and diagnostics/capabilities
-  guardrails.
-  Current state: `SourceState` is conceptually the bridge from raw local/compatibility input into
-  reusable Vortex preparation, but the public route story does not yet make reuse, fingerprints,
-  parse plans, quarantine/anomaly posture, and nearest runnable routes clear enough for humans or
-  agents.
-  Next slice outcome: source admission produces a reusable, machine-readable route packet that
-  explains whether the source can become a prepared Vortex state, what feature gates are required,
-  and which route is runnable now.
-  Runtime enablement: improves the raw local/compat source front door without broadening runtime
-  support. If a route is blocked by a missing feature, missing format support, or unsupported
-  operator, the diagnostic points to the exact blocker and nearest supported route.
-  User-visible surface: route diagnostics include `source_state_fingerprint`,
-  `source_schema_fingerprint`, `source_parse_plan_id`, `source_split_manifest_id`,
-  `source_anomaly_count`, `source_quarantine_required`, `prepared_state_fingerprint`,
-  `nearest_runnable_route`, `required_feature_gate`, and `runtime_blocker_code`. Agent-facing
-  reports distinguish runtime supported, smoke supported, claim-grade evidence,
-  performance-claim allowed, and production-claim allowed.
-  Implementation scope: extend route capability reports and benchmark evidence payloads with
-  SourceState/prepared-state identity fields; add deterministic diagnostics for blocked source
-  routes; add nearest-runnable-route suggestions without executing fallback work; keep feature
-  gates explicit for Vortex write/reopen, universal-format IO, compatibility imports, and native
-  Vortex paths.
-  Evidence required: fixture rows for supported, smoke-supported, and blocked source routes;
-  contract tests proving blocked routes fail explicitly; and contract tests proving diagnostics do
-  not invoke external engines or fallback execution.
-  Acceptance: a human or agent can answer "what do I run next?" from the route packet without
-  reading the whole phase plan; `claim_grade` is never used as a synonym for runtime readiness;
-  unsupported rows expose deterministic blocker codes.
-  Verification:
-  ```bash
-  cargo test -p shardloom-contract-tests --test user_route_capability_report
-  cargo test -p shardloom-contract-tests --test release_readiness_metadata
-  python3 scripts/check_user_route_capability_report.py
-  python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json
-  git diff --check
-  ```
-  Non-goals: no new public performance claim and no automatic repair or fallback execution.
-  Dependencies/blockers: depends on UniversalIngress/InputAdapter route metadata, SourceState and
-  VortexPreparedState fingerprint surfaces, feature-gate metadata, blocked-route diagnostics, and
-  route capability report validators staying aligned with benchmark artifacts.
-  Claim boundary: diagnostics may say a route is runnable only when runtime evidence exists for
-  that route.
-  Fallback boundary: "nearest runnable route" is guidance, not hidden delegation.
-- [ ] GAR-RUNTIME-IMPL-6D-7 benchmark website route cards, stage attribution, and readiness badges.
-  Source: user website painpoint review and current benchmark publication runbook.
-  Current state: the website has route fields, but the top-level experience can still read as if
-  one internal "ShardLoom" lane is the canonical comparison. This makes cold certified, prepared,
-  native Vortex, and external baseline rows easy to misinterpret.
-  Next slice outcome: the benchmark page leads with route cards, then stage attribution. Users
-  first see end-to-end comparable routes, then drill into preparation/query/output/evidence legs.
-  Runtime enablement: this is a publication-safety item. It prevents unsupported or non-comparable
-  route rows from being visually promoted as runtime-ready or superior.
-  User-visible surface: primary cards for `ShardLoom Cold Certified Route`,
-  `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
-  `ShardLoom Warm Prepared Query`, `ShardLoom Native Vortex Query`, and external end-to-end
-  baselines. Badges distinguish runtime (`runtime_supported`, `scoped_runtime_supported`,
-  `smoke_supported`, `blocked`, `unsupported`), evidence (`claim_grade`,
-  `external_baseline_only`, `diagnostic_only`), and claims
-  (`performance_claim_allowed`, `production_claim_allowed`,
-  `spark_replacement_claim_allowed`). Stage view separates preparation, query, output, evidence,
-  and diagnostic context.
-  Implementation scope: replace internal-engine-first benchmark tables with route-first cards; keep
-  external baselines visible but clearly baseline-only; add route comparability filters for
-  comparable end-to-end, prepared-state steady-state, native Vortex only, and diagnostic/stage rows;
-  add visual warnings when a row is not comparable to external end-to-end baselines; make route
-  names canonical and avoid rendering raw internal lane IDs as public labels.
-  Evidence required: static build with latest artifact, website fixture proving all route badge
-  states render, artifact completeness check proving required route fields exist, and manual or
-  automated screenshot review for desktop and mobile benchmark page.
-  Acceptance: a user cannot reasonably read warm prepared sub-ms timing as cold end-to-end timing;
-  the cold certified route remains visible and honest, even when slower; external rows are visually
-  marked as baselines, not fallback providers; unsupported or blocked rows are not hidden, but they
-  are not mixed into the main comparative roster unless admitted.
-  Verification:
-  ```bash
-  python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json
-  python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json
-  cd website-src && npm run build
-  git diff --check
-  ```
-  Non-goals: no benchmark-number manipulation, no removal of cold route evidence, and no public
-  superiority claim.
-  Dependencies/blockers: depends on 6D-4 route timing ledger fields, 6D-5 bottleneck/stage
-  categories where present, current website benchmark data loaders, static asset validators, and a
-  responsive visual QA pass for route cards and badges.
-  Claim boundary: the website may describe route scope and readiness. It must not claim ShardLoom
-  beats an external engine unless the claim gates explicitly allow it.
-  Fallback boundary: baseline rows remain external context only.
-- [ ] GAR-RUNTIME-IMPL-6D-8 runtime fast path versus evidence render path attribution.
-  Source: user bottleneck review and benchmark evidence overhead concerns.
-  Current state: for sub-ms prepared/native query paths, result sink writing and evidence rendering
-  can be larger than the query itself. Current artifacts expose some fields, but the runtime path
-  and evidence path still need a stricter contract so query-speed work is not confused with
-  publication/certification overhead.
-  Next slice outcome: benchmark evidence separates runtime execution, output delivery, and
-  certificate/evidence rendering while preserving a certificate link back to the exact route
-  execution.
-  Runtime enablement: keeps the certified path reproducible while allowing the runtime fast path to
-  be measured without folding in unrelated evidence serialization cost.
-  User-visible surface: add explicit timing buckets `runtime_execution_ms`, `output_delivery_ms`,
-  `evidence_capture_ms`, `evidence_render_ms`, and `certificate_link_ms`; add
-  `evidence_required_for_claim=true/false` and
-  `evidence_render_included_in_route_total=true/false`.
-  Implementation scope: update benchmark runtime emitters to distinguish execution certificate
-  capture from later human-readable evidence rendering; update promotion checks to require
-  certificate linkage when evidence render is excluded from route total; update website to show
-  evidence overhead as a separate stage; keep claim-grade rows strict: evidence may be rendered off
-  the critical timing path only if the certificate proves it belongs to the measured execution.
-  Evidence required: fixture proving query timing can be reported separately from evidence render
-  timing; contract test proving evidence-excluded rows still carry certificate linkage; contract
-  test rejecting claim-grade rows that exclude evidence render without a valid certificate link.
-  Acceptance: warm prepared/native route timing no longer visually absorbs publication-only work;
-  claim-grade evidence remains reproducible; the benchmark page can explain why sub-ms query work
-  and larger evidence/render work coexist.
-  Verification:
-  ```bash
-  cargo test -p shardloom-contract-tests --test benchmark_evidence_manifest
-  cargo test -p shardloom-contract-tests --test benchmark_claim_evidence
-  python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json
-  python3 -m unittest python/tests/test_release_scripts.py
-  git diff --check
-  ```
-  Non-goals: no weakening of claim-grade evidence and no hidden async evidence path for unlinked
-  rows.
-  Dependencies/blockers: depends on execution-certificate linkage, route timing ledger inclusion
-  metadata, result-sink timing fields, evidence renderer timing fields, and claim-gate validators
-  rejecting unlinked or scope-ambiguous rows.
-  Claim boundary: fast-path timing may be reported only with explicit scope labels.
-  Fallback boundary: evidence generation must not invoke external query engines as runtime
-  providers.
-- [ ] GAR-RUNTIME-IMPL-6D-9 encoded-native hot-path blocker inventory and first promotion slice.
-  Source: user bottleneck review, current residual/materialized temporary execution concern, and
-  encoded execution guardrails.
-  Current state: prepared/native route timings are promising, but some routes can still depend on
-  residual-native or materialized temporary behavior. Those rows should not be over-marketed as
-  encoded-native execution until the hot-path operators are certified.
-  Next slice outcome: produce a benchmark-linked inventory of hot-path operators that are
-  encoded-native, residual-native, materialized-temporary, or blocked; then promote one narrow
-  high-value hot path to encoded-native execution with tests.
-  Runtime enablement: moves one admitted prepared/native benchmark route closer to true
-  encoded-columnar execution without adding fallback.
-  User-visible surface: add per-row execution-mode fields `operator_execution_mode`,
-  `encoded_native_operators`, `residual_native_operators`, `materialized_temporary_operators`, and
-  `operator_blocker_code`. Website and benchmark artifacts distinguish encoded-native, native
-  residual, materialized temporary, and unsupported/blocked.
-  Implementation scope: inventory current benchmark scenario operator paths; select the first
-  promotion slice from the most common prepared/native hot path; add explicit diagnostics when a row
-  is runtime-supported but not encoded-native; implement the selected encoded-native operator path
-  only if it fits current phase boundaries; add correctness checks against decoded reference
-  behavior.
-  Evidence required: operator-mode inventory artifact; contract tests proving rows cannot claim
-  encoded-native when residual/materialized operators are present; correctness tests for the
-  promoted hot path; benchmark smoke proving route metadata reflects the promoted path.
-  Acceptance: the benchmark page can explain which ShardLoom rows are encoded-native versus merely
-  runtime-supported; at least one selected hot path moves from residual/materialized to
-  encoded-native, or the item records a deterministic blocker and defers implementation to the
-  correct phase; no unsupported operator delegates to DuckDB, Polars, DataFusion, Spark, Velox, or
-  another external engine.
-  Verification:
-  ```bash
-  cargo test --workspace --all-targets
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  cargo test -p shardloom-contract-tests --test benchmark_claim_evidence
-  python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json
-  git diff --check
-  ```
-  Non-goals: no broad kernel rewrite, no GPU/FPGA requirement, and no claim that all benchmark rows
-  are encoded-native.
-  Dependencies/blockers: depends on benchmark operator-path metadata, encoded execution capability
-  registry coverage, decoded-reference correctness tests, residual/materialized mode diagnostics,
-  and selecting one hot path that fits the active phase boundary.
-  Claim boundary: runtime-supported and encoded-native are separate claims.
-  Fallback boundary: external engines remain baselines/testing oracles only.
-- [ ] GAR-RUNTIME-IMPL-6D-10 benchmark publish doctor and agent route packet.
-  Source: user human/agent touchpoint review and current multi-step benchmark publication workflow.
-  Current state: benchmark publication requires several scripts and docs, and agent handoff context
-  can become too large. This makes it easy to miss stale artifacts, route-field gaps, unsupported
-  rows, or claim-boundary drift.
-  Next slice outcome: add one benchmark publish doctor and one compact route packet that summarize
-  readiness, blockers, stale artifacts, and next commands.
-  Runtime enablement: this is a release/process safety item. It gates benchmark publication and
-  handoff clarity without changing engine execution.
-  User-visible surface: benchmark publish doctor report includes artifact SHA / generated-at /
-  source command, route field completeness, unsupported/blocked row counts, external baseline-only
-  row counts, claim-grade row counts, route-runtime-status distribution, stale website asset
-  detection, timing-ledger validity, and nearest next validation command. Agent route packet
-  includes current route status, primary bottleneck, relevant files, required validators, forbidden
-  claims, and next implementation slice.
-  Implementation scope: consolidate existing artifact completeness and claim-gate checks behind a
-  single doctor command or script; generate compact Markdown and JSON route packets from the latest
-  benchmark manifest; keep output deterministic and machine-readable; add docs showing when to run
-  the doctor before website publication or phase handoff.
-  Evidence required: doctor fixture for passing artifact, stale/missing route fields, unsupported
-  rows in the comparative roster, and route packet fixture for the current local benchmark artifact.
-  Acceptance: a single command tells a human or agent whether benchmark artifacts are publishable;
-  doctor fails closed on missing route ledger, missing readiness fields, stale generated metadata,
-  or claim-gate drift; route packet is small enough to paste into a handoff without pulling the
-  whole benchmark corpus.
-  Verification:
-  ```bash
-  python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json
-  python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json
-  python3 -m unittest python/tests/test_release_scripts.py
-  cargo test -p shardloom-contract-tests --test benchmark_evidence_manifest
-  git diff --check
-  ```
-  Non-goals: no automatic website publish, no automatic benchmark rerun, and no mutation of
-  benchmark results.
-  Dependencies/blockers: depends on benchmark artifact completeness checks, benchmark publication
-  claim gate checks, website latest-manifest metadata, route timing ledger validators, and stable
-  route/status vocabulary shared with user-surface runtime reports.
-  Claim boundary: doctor may certify artifact completeness and claim-gate consistency only. It must
-  not create performance claims.
-  Fallback boundary: doctor checks metadata and files only; it must not run external engines except
-  through explicit benchmark commands.
-- [ ] For compatibility imports, expose an intuitive user route for
+- [x] For compatibility imports, expose an intuitive user route for
   `compatibility_import_certified -> prepared_vortex` and `shardloom-prepare-batch` so users can
   start from CSV/JSONL/Parquet/Arrow IPC/Avro/ORC, prepare once, run benchmark-range scenarios from
   prepared Vortex artifacts, and understand whether timing includes preparation. This is the primary
   non-Vortex input-to-Vortex transition and should be visible in reports instead of hidden behind a
-  generic read helper.
-- [ ] For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
+  generic read helper. Closed by the context/session `prepare_vortex(..., workspace=...)` route
+  handle and `CompatibilityPreparedVortexRoute`/`PreparedVortexQuery` tests.
+- [x] For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
   runtime family used by benchmark rows, not piecemeal artificial helpers. The surface must make
   source, selected execution mode, scenario/operator, memory/parallelism, and result-sink choice
-  explicit.
-- [ ] For outputs, ensure every admitted benchmark-range route has at least one clear output option:
+  explicit. Closed by `ctx.native_vortex_route(...)` / `session.native_vortex_route(...)`,
+  `NativeVortexRoute`/`NativeVortexQuery`, and CLI/client resource-policy arguments for
+  `traditional-analytics-vortex-run` and `traditional-analytics-vortex-batch-run`.
+- [x] For outputs, ensure every admitted benchmark-range route has at least one clear output option:
   machine-readable report, bounded preview, local compatibility output, native Vortex output,
   result-sink replay proof, or fanout. Missing output wiring is a runtime-output checklist item, not
-  a vague unsupported user surface.
-- [ ] Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
+  a vague unsupported user surface. Closed by the user-route capability output-option classifier,
+  admitted-route output maps, and fail-closed route-report regression tests.
+- [x] Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
   in the Python context matrices, parity validator payload, benchmark coverage table, and docs.
   Use precise labels such as `front_door_connection_pending`, `output_route_pending`,
-  `claim_evidence_pending`, or `benchmark_publication_pending`.
-- [ ] Add regression tests that fail if any benchmark-range local ShardLoom route reports
-  `unsupported` merely because SQL/Python/DataFrame/context/session wiring is missing.
-- [ ] Keep claim boundaries strict: performance equivalence, production support, Spark
+  `claim_evidence_pending`, or `benchmark_publication_pending`. Closed by
+  `FrontDoorParityRow.runtime_gap_status`, parity/user-route/gap-inventory report fields, the
+  `benchmark_publication_pending` route status, and docs that distinguish front-door gaps from
+  unsupported engine paths.
+- [x] Add regression tests that fail if any benchmark-range local ShardLoom route reports
+  `unsupported` merely because SQL/Python/DataFrame/context/session wiring is missing. Closed by
+  user-route, local-file benchmark, parity, and runtime-gap inventory fail-closed tests.
+- [x] Keep claim boundaries strict: performance equivalence, production support, Spark
   displacement, object-store/table runtime, and broad arbitrary language support remain
   `not_claim_grade` until their correctness, Native I/O, execution-certificate, no-fallback, and
-  benchmark evidence exists.
+  benchmark evidence exists. Closed by the parity and route validators requiring
+  `claim_gate_status=not_claim_grade` and false performance/production/Spark replacement claim
+  flags while these rows remain pending.
 
 Last-order runtime expansion checklist, not to be left as vague unsupported prose:
 
-- [ ] Broad SQL grammar over Vortex-normalized runtime paths: arbitrary `ORDER BY`, grouped
-  aggregates, joins, windows, expressions, casts, functions, subqueries, aliases, and planner/binder
-  coverage routed to ShardLoom-native execution instead of external engines.
-- [ ] Full Python/DataFrame API breadth: expression registry parity, computed columns, multi-stage
-  pipelines, joins, aggregations, windows, sorting, UDF-safe policy, and predictable method aliases
-  across supported input/output families.
-- [ ] Object-store, lakehouse/table, catalog, partition discovery, commit, rollback, recovery, and
-  remote result delivery runtime.
-- [ ] Effectful operations: UDFs, LLM/API calls, embeddings, vector search, external writes,
-  credentials, sandboxing, and deterministic effect budgets.
-- [ ] Live/hybrid runtime state, incremental processing, CDC beyond scoped overlay fixtures,
-  freshness/snapshot contracts, state cleanup, cancellation, retry, and recovery.
-- [ ] Distributed/shuffle/spill/OOM production runtime, including resource governance and
-  deterministic pre-OOM diagnostics.
-- [ ] Claim-grade performance-equivalence benchmark publication across equivalent SQL, Python, and
-  DataFrame workloads, including reproducibility floors and laptop-safe sequential execution.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
+  Vortex-normalized runtime paths.
+  Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,
+  joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded collect; broad
+  arbitrary SQL grammar still has report-only or gated pockets.
+  Next slice outcome: promote one coherent binder/planner grammar expansion that routes newly
+  admitted syntax into ShardLoom-native runtime paths or stable unsupported diagnostics.
+  User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
+  capability matrices, docs, and benchmark-range route reports.
+  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
+  lowering, SQL/DataFrame parity validators, route capability reports, and docs.
+  Evidence required: positive SQL fixtures, unsupported diagnostics, parity rows, no-fallback fields,
+  and claim gates for every newly admitted syntax family.
+  Acceptance: admitted SQL grammar reaches an existing ShardLoom runtime route; non-admitted grammar
+  fails deterministically without external engines.
+  Verification: focused Rust CLI tests, Python parity tests, `scripts/check_sql_python_dataframe_parity.py`,
+  `scripts/check_user_route_capability_report.py`, and `git diff --check`.
+  Non-goals: no external SQL engine, no broad optimizer/performance claim, no object-store/table SQL
+  runtime.
+  Dependencies/blockers: parser/binder coverage, expression capability mapping, runtime operator
+  evidence, and deterministic diagnostics.
+  Claim boundary: scoped grammar/runtime admission only; no production SQL, performance,
+  Spark-replacement, or external-fallback claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth: Full Python/DataFrame API
+  breadth.
+  Current state: familiar aliases lower to admitted ShardLoom runtime paths where available;
+  `schema_contract(...)`, `profile(...)`, and scoped `quarantine(...)` have bounded local-source
+  evidence, while broad DataFrame parity remains gated.
+  Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
+  existing ShardLoom runtime evidence or returns deterministic unsupported diagnostics.
+  User-visible surface: `shardloom` Python package, session/query builders, docs, parity matrix, and
+  route capability report.
+  Implementation scope: `python/src/shardloom/query.py`, `context.py`, `session.py`, Python tests,
+  CLI lowering where needed, and docs.
+  Evidence required: Python tests proving alias/canonical equivalence, no hidden pandas/Polars
+  execution, fallback/external-engine false fields, and capability rows.
+  Acceptance: the new API family is intuitive from Python while still mapping to real ShardLoom
+  runtime or explicit unsupported output.
+  Verification: `python3 -m unittest python/tests/test_query_builder.py`,
+  `python3 -m unittest python/tests/test_sql_python_dataframe_parity.py`,
+  `scripts/check_python_user_surface_completion.py`, and `git diff --check`.
+  Non-goals: no broad pandas/Polars backend, no production DataFrame claim, no unbounded
+  materialization convenience.
+  Dependencies/blockers: SQL/runtime capability coverage, output-plan support, and typed Python
+  result models.
+  Claim boundary: scoped Python ergonomic surface only; no performance, production DataFrame, or
+  external-fallback claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime: Object-store,
+  lakehouse/table, catalog, partition discovery, commit, rollback, recovery, and remote result
+  delivery runtime.
+  Current state: object-store URI parsing, public/no-credential fixture reads, local-emulator
+  read/write smokes, and table/lakehouse boundary reports exist; live providers and table commits are
+  gated.
+  Next slice outcome: add the next local or credential-safe runtime promotion with explicit
+  admission, commit/recovery evidence, and no-fallback diagnostics.
+  User-visible surface: CLI object-store/table commands, Python helpers, capability matrices,
+  docs, and release gates.
+  Implementation scope: object-store runtime modules, table boundary reports, credential policy,
+  output/replay validators, and docs.
+  Evidence required: local or isolated provider fixture, commit/rollback/recovery proof,
+  credential/effect policy fields, Native I/O evidence, and no-fallback status.
+  Acceptance: one previously gated object-store/table workflow executes through ShardLoom-native
+  boundaries or fails with deterministic diagnostics.
+  Verification: object-store/table smoke tests, credential/effect validators, release readiness
+  checks, and `git diff --check`.
+  Non-goals: no live cloud write by default, no hidden credential probing, no table production claim.
+  Dependencies/blockers: credential policy, commit protocol, replay verification, cleanup semantics,
+  and Native I/O certificates.
+  Claim boundary: scoped fixture/local runtime only; no production lakehouse/object-store,
+  performance, or fallback claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime: Promote the remaining
+  generated-output platform routes only after their effect boundary is real.
+  Current state: generated rows can write local outputs; local-emulator object-store and
+  Foundry-style dev-stack proofs exist, while live platform APIs remain gated.
+  Next slice outcome: promote the next generated-output platform route only with explicit effect,
+  credential, output, and replay evidence.
+  User-visible surface: Python generated-output helpers, CLI generated-source commands, Foundry and
+  object-store proof docs, capability rows, and release checks.
+  Implementation scope: generated-source runtime, output/fanout helpers, platform boundary reports,
+  validators, and docs.
+  Evidence required: generated-source certificate, output artifact proof, replay/fidelity evidence,
+  effect policy, and no-fallback fields.
+  Acceptance: promoted generated-output route writes through an admitted ShardLoom boundary and
+  reports the exact platform/effect scope.
+  Verification: generated-source runtime smokes, platform proof scripts, production usability gate,
+  and `git diff --check`.
+  Non-goals: no real Foundry/cloud write without explicit approval, no Marketplace/package claim.
+  Dependencies/blockers: effect budget, credential policy, output-plan support, and platform-specific
+  boundary reports.
+  Claim boundary: scoped generated-output proof only; no production platform, performance, or
+  fallback claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.data_quality_quarantine_profile_runtime: Promote
+  remaining data-quality observability and quarantine surfaces only where they are backed by
+  ShardLoom runtime evidence.
+  Current state: bounded local-source `profile(...)` and scoped `quarantine(...)` use admitted
+  local-source runtime evidence; broader table/object-store remediation remains gated.
+  Next slice outcome: add the next bounded data-quality check or quarantine action with ShardLoom
+  runtime proof and explicit unsupported diagnostics for non-admitted checks.
+  User-visible surface: Python query builder, CLI local-source smoke, output/fanout reports, docs,
+  and capability matrices.
+  Implementation scope: Python query API, CLI runtime fields, local sink outputs, validators, and
+  docs.
+  Evidence required: positive bounded checks, no-fallback fields, output/replay evidence where a sink
+  is written, and report-only classification for blocked checks.
+  Acceptance: users can run the promoted check without external profiling engines, and unsupported
+  checks remain explicit.
+  Verification: Python query tests, SQL/DataFrame parity validator, user-surface completion checker,
+  and `git diff --check`.
+  Non-goals: no production governance workflow, no object-store/table quarantine, no broad profiling
+  claim.
+  Dependencies/blockers: expression capability mapping, output-plan replay proof, and data-quality
+  diagnostic vocabulary.
+  Claim boundary: scoped bounded data-quality runtime only; no production governance, performance,
+  or fallback claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.effectful_operations: Effectful operations: UDFs, LLM/API
+  calls, embeddings, vector search, external writes, credentials, sandboxing, and deterministic
+  effect budgets.
+  Current state: effectful-operation admission reports and local deterministic UDF/SQLite fixture
+  boundaries exist; arbitrary effects remain blocked.
+  Next slice outcome: promote one effect family through explicit policy, capability, sandbox, and
+  no-fallback evidence.
+  User-visible surface: CLI effect/extension reports, Python helpers, docs, capability matrices, and
+  security/release validators.
+  Implementation scope: effect budget plan, extension/UDF boundaries, credential policy, diagnostics,
+  tests, and docs.
+  Evidence required: side-effect declaration, permission policy, deterministic diagnostics, sandbox
+  status, no-fallback fields, and security review where needed.
+  Acceptance: admitted effects are explicit and inspectable; non-admitted effects cannot execute
+  silently.
+  Verification: effect-budget tests, security/effect validators, relevant Python/CLI tests, and
+  `git diff --check`.
+  Non-goals: no hidden network/API calls, no arbitrary plugin execution, no credential discovery by
+  default.
+  Dependencies/blockers: sandbox policy, credential governance, extension manifests, and security
+  review.
+  Claim boundary: scoped effect admission only; no production UDF/LLM/vector/platform claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime: Live/hybrid runtime state, incremental
+  processing, CDC beyond scoped overlay fixtures, freshness/snapshot contracts, state cleanup,
+  cancellation, retry, and recovery.
+  Current state: engine-selection and hybrid overlay reports exist with fixture-scoped evidence; no
+  production broker/state-store or exactly-once runtime is admitted.
+  Next slice outcome: promote the next bounded live/hybrid state transition with freshness,
+  cancellation/retry, cleanup, and no-fallback evidence.
+  User-visible surface: engine capability matrix, Python/CLI hybrid reports, docs, and release gates.
+  Implementation scope: hybrid runtime reports, state cleanup/recovery logic, diagnostics, tests, and
+  docs.
+  Evidence required: bounded state fixture, freshness/snapshot proof, retry/cancellation evidence,
+  cleanup proof, and fallback/external-engine false fields.
+  Acceptance: one live/hybrid workflow has explicit runtime state and deterministic failure behavior.
+  Verification: hybrid/runtime tests, capability validators, release readiness checks, and
+  `git diff --check`.
+  Non-goals: no broker-backed production runtime, no exactly-once claim, no object-store/table commit
+  promotion.
+  Dependencies/blockers: state store semantics, commit/recovery model, cleanup policy, and
+  correctness fixtures.
+  Claim boundary: fixture-scoped live/hybrid evidence only; no production streaming or Spark
+  replacement claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime: Distributed/shuffle/spill/OOM
+  production runtime, including resource governance and deterministic pre-OOM diagnostics.
+  Current state: spill/OOM plans, memory declarations, and blocked diagnostics exist; real query-data
+  spill and distributed execution remain gated.
+  Next slice outcome: promote the next local bounded memory/spill guard that fails before process OOM
+  or writes admitted ShardLoom-native spill evidence.
+  User-visible surface: CLI diagnostics, benchmark rows, memory/spill reports, docs, and release
+  readiness gates.
+  Implementation scope: memory reservation, spill diagnostics, operator declarations, tests,
+  validators, and docs.
+  Evidence required: bounded-memory fixture, deterministic pre-OOM/blocker evidence, cleanup proof,
+  and no-fallback fields.
+  Acceptance: memory pressure is explicit and deterministic for the promoted path.
+  Verification: memory/spill tests, release readiness checks, focused benchmark artifact validators
+  when rows change, and `git diff --check`.
+  Non-goals: no distributed runtime, no broad shuffle support, no performance claim.
+  Dependencies/blockers: reservation model, spill format/persistence policy, cleanup semantics, and
+  correctness parity.
+  Claim boundary: scoped memory/spill safety only; no production distributed/spill or performance
+  claim.
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication: Claim-grade
+  performance-equivalence benchmark publication across equivalent SQL, Python, and DataFrame
+  workloads.
+  Current state: route-first benchmark artifacts and publication validators exist, but front-door
+  performance equivalence remains not claim-grade.
+  Next slice outcome: publish a laptop-safe, reproducible front-door equivalence artifact only after
+  SQL/Python/DataFrame route parity and benchmark safety gates are satisfied.
+  User-visible surface: benchmark artifacts, website benchmark page, README/docs, Python examples,
+  and release gates.
+  Implementation scope: benchmark harness, promotion scripts, website data/components, docs, and
+  validators.
+  Evidence required: reproducible artifact, route parity, correctness digests, hardware/runtime
+  context, sequential/safety controls, and no-fallback fields.
+  Acceptance: published rows distinguish runtime support, evidence grade, and performance claims
+  without unsupported ShardLoom gaps or external fallback.
+  Verification: benchmark artifact validators, website readiness/static checks, focused benchmark
+  smoke when approved, and `git diff --check`.
+  Non-goals: no broad benchmark suite on an unsafe laptop path, no superiority/Spark-replacement
+  claim without CG-5/CG-6 evidence.
+  Dependencies/blockers: route parity, claim gates, benchmark safety redesign, current generated
+  artifacts, and documentation alignment.
+  Claim boundary: no performance-equivalence claim until the artifact is claim-grade and published
+  through approved gates.
 
 User-visible surface: `shardloom` Python package (`context`, `session`, `sql`, `read_*`,
 `read_vortex`, output helpers), ShardLoom CLI Vortex/local-source/runtime commands, benchmark
@@ -876,9 +718,11 @@ Current state:
   layout/write advisor, copy-budget, differential-preparation, and PulseWeave evidence surfaces.
 - PulseWeave is deterministic, local, certificate-gated, and already scoped to prepared/local and
   capillary preparation evidence.
-- Several dynamic ideas are still evidence-first rather than fully automatic runtime behavior:
-  prepared-state reuse is visible but not yet the default automatic reuse spine; capillary task
-  evidence does not yet drive enough actual cold-preparation task windows; layout/write advice is
+- Several dynamic ideas are still only partially promoted from evidence into runtime behavior:
+  prepared-state reuse is visible and has scoped manifest-backed paths, but is not yet the default
+  higher-level `auto` front-door reuse spine; capillary pre-write work shaping now drives the first
+  local scalar/columnar SourceState -> `vortex_ingest` route before local array build/write, while
+  broader object-store/distributed/spill shaping remains gated; layout/write advice is
   report/advisory-only; differential preparation is explicit but not yet a cracking-style automatic
   refinement path for changed local sources.
 - The next work must preserve automatic behavior without adding required user knobs, hidden global
@@ -913,6 +757,37 @@ Implementation checklist, in required order:
   invalidation, and fingerprint fields. The runtime can create scoped prepared Vortex artifacts,
   but repeated local workflows still do too much explicit preparation unless callers manually keep
   track of the prepared artifact.
+  In-progress update: Python `CompatibilityPreparedVortexRoute` handles now write an explicit
+  workspace manifest at `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json` after a
+  successful local compatibility preparation. A repeated compatible `ctx.prepare_vortex(...,
+  workspace=...).run_batch(...)` or session route call can skip compatibility preparation and run
+  `traditional-analytics-vortex-batch-run` over the existing local Vortex artifacts when source,
+  artifact, and prepare-policy fingerprints match. Source or artifact drift invalidates the
+  manifest and re-enters the normal prepare/batch route. The user-route capability report and
+  local-file benchmark route report now expose the prepared-state reuse scope, manifest path,
+  reuse policy, runtime hit/reason placeholders, manifest digest placeholder, and invalidation
+  reason placeholder, and release readiness requires that prepared route rows keep the workspace
+  manifest contract visible. Benchmark promotion now also preserves prepared-state reuse
+  diagnostics in public rows and rejects reuse rows whose scope, reason, digest, or invalidation
+  evidence is missing; in-process prepared-batch reuse, explicit warm-prepared reuse, and workspace
+  manifest reuse are labeled as distinct scopes. Rust/CLI traditional analytics reports now emit the
+  same first-class reuse fields for cold first-preparation rows
+  (`prepared_state_created_not_reused`), caller-supplied warm/prepared Vortex rows
+  (`explicit_prepared_state_input`), native Vortex rows (`not_applicable_native_vortex_input`), and
+  single-process prepare/batch rows (`in_process_prepared_batch_vortex_artifacts`). The typed
+  `compute_flow_evidence` envelope includes those reuse fields so CLI JSON consumers no longer need
+  benchmark-promotion inference to determine scope, policy, hit status, digest, or invalidation
+  reason. Rust/CLI `vortex-ingest-smoke` now adds a real artifact-adjacent prepared-state reuse
+  path: successful local `.vortex` preparation writes a deterministic
+  `.shardloom/<artifact>.prepared-state-reuse.manifest`, repeated identical local ingest emits a
+  dedicated reuse report instead of rewriting the artifact, and source/artifact/plan/policy drift
+  invalidates reuse before any prepared-state claim. Rust/CLI
+  `traditional-analytics-prepare-batch-run` now also participates in workspace-manifest reuse
+  outside the Python handle: it validates
+  `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`, skips compatibility preparation on
+  fingerprint/policy/artifact hits, calls the prepared Vortex batch route over existing local
+  artifacts, and records workspace hit/reason/digest/invalidation evidence. Remaining 6E-1 work is
+  broader local-source auto-route wiring across the higher-level `auto` front doors.
   Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
   workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
   source/schema/plan/output-policy drift.
@@ -959,60 +834,6 @@ Implementation checklist, in required order:
   Vortex query-engine integration.
   Ledger rule: move completed details and validation output to
   `docs/architecture/phased-execution-completed-ledger.md`.
-- [ ] GAR-RUNTIME-IMPL-6E-2 applied capillary cold-ingest work shaping.
-  Source: `docs/architecture/pulseweave-runtime-control.md`,
-  `docs/architecture/dynamic-work-shaping.md`,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`, and Vortex
-  Source/Sink/Split design references.
-  Current state: `vortex_ingest` emits capillary task evidence and PulseWeave reports for local
-  cold preparation. The current path still largely reads, normalizes, writes, and verifies through
-  a simple local flow; capillary evidence is not yet the primary task-windowing mechanism for cold
-  preparation.
-  Next slice outcome: make capillary task manifests drive actual local cold-preparation work
-  windows for the first admitted local route, while preserving old behavior when ProofBound blocks
-  policy application.
-  Runtime enablement: activated local capillary tasks become the automatic execution plan for
-  SourceState -> `vortex_ingest` -> VortexPreparedState when source size, split count, width,
-  memory pressure, or sink/evidence requirements cross deterministic thresholds.
-  User-visible surface: benchmark and CLI rows show `capillary_execution_window_count`,
-  `capillary_scheduler_applied`, `flow_inventory_wip_limit`,
-  `scarcity_ledger_selected_action`, `endopulse_adjustment_applied`, and `proofbound_*` fields tied
-  to the actual cold-preparation route.
-  Implementation scope: convert capillary task manifests in `shardloom-vortex/src/vortex_ingest.rs`
-  from evidence-only task lists into a bounded local work plan for admitted local source chunks /
-  columnar batches / writer windows; use PulseWeave's `batch_window_size()` and FlowInventory WIP
-  limit to choose actual local work windows; start with local flat scalar and columnar SourceState
-  inputs only; preserve deterministic ordering unless the task explicitly declares reorder-safe
-  behavior; keep `memory_gb` and `max_parallelism` as caps rather than required user tuning; add
-  blocked fields when Native I/O, execution certificate, output digest, or task estimates are
-  incomplete.
-  Evidence required: large or many-split local fixture where capillary scheduling applies; small
-  local fixture where capillary reports `not_requested_below_threshold`; blocked fixture where
-  missing Native I/O or missing task manifest preserves the existing path; correctness digest
-  parity between capillary-windowed preparation and the existing local preparation path.
-  Acceptance: at least one cold local route uses capillary windows to drive real preparation work;
-  PulseWeave-applied rows prove that the policy affected the actual work plan, not just a report
-  field; blocked rows continue through an already admitted ShardLoom-native path or fail
-  explicitly.
-  Verification:
-  ```bash
-  cargo test -p shardloom-exec pulseweave --lib
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io capillary_preparation --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
-  python3 -m unittest python/tests/test_cli_client.py
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no broad parallel engine, no object-store execution, no distributed runtime, no real
-  query-data spill, and no performance claim.
-  Dependencies/blockers: depends on capillary activation policy thresholds, PulseWeave
-  batch-window decisions, FlowInventory WIP limits, existing local preparation correctness
-  digests, Native I/O/certificate evidence, and bounded-memory task estimates.
-  Claim boundary: may claim only that a scoped local cold-preparation route used certified
-  capillary work shaping.
-  Fallback boundary: capillary work shaping must never delegate to external engines or Vortex
-  query-engine integrations.
-  Ledger rule: move completed details and validation output to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route.
   Source: `docs/architecture/bayesian-performance-layout-advisor.md`,
   `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,

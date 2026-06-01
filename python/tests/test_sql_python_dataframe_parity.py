@@ -39,6 +39,11 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertFalse(report["performance_equivalence_claim_allowed"])
         self.assertEqual(report["admitted_row_count"], 6)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
+        self.assertTrue(report["all_broad_gaps_have_precise_runtime_status"])
+        self.assertIn(
+            "benchmark_publication_pending",
+            report["runtime_gap_status_vocabulary"],
+        )
         self.assertIn(
             "Vortex-backed runtime path",
             report["vortex_normalization_contract"],
@@ -77,7 +82,20 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             if row["row_id"] == "local_vortex_primitive_runtime"
         )
         self.assertEqual(vortex["parity_status"], "equivalent_admitted_scope")
+        self.assertEqual(vortex["runtime_gap_status"], "admitted_scope")
         self.assertIn("Vortex-normalized", vortex["claim_boundary"])
+        native = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "native_vortex_general_runtime"
+        )
+        self.assertEqual(native["runtime_gap_status"], "front_door_connection_pending")
+        performance = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "performance_equivalence"
+        )
+        self.assertEqual(performance["runtime_gap_status"], "benchmark_publication_pending")
 
     def test_parity_validator_rejects_overclaimed_or_fallback_rows(self) -> None:
         module = load_parity_module()
@@ -86,6 +104,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
                 row_id=row_id,
                 workflow=row_id,
                 support_status="scoped_runtime_supported",
+                runtime_gap_status="admitted_scope",
                 sql_surface="sql",
                 python_surface="python",
                 dataframe_surface="dataframe",
@@ -109,6 +128,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
                 row_id="arbitrary_sql_python_dataframe_breadth",
                 workflow="broad",
                 support_status="blocked",
+                runtime_gap_status="unsupported",
                 sql_surface="sql",
                 python_surface="python",
                 dataframe_surface="dataframe",
@@ -132,12 +152,16 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             performance_equivalence_claim_allowed=True,
             scoped_local_front_door_parity_supported=True,
             all_no_fallback_no_external_engine=False,
+            all_broad_gaps_have_precise_runtime_status=False,
         )
 
         _, blockers = module.validate_matrix(matrix)
 
         self.assertTrue(any("fallback_attempted must be false" in b for b in blockers))
         self.assertTrue(any("gap row must be front_door_gap" in b for b in blockers))
+        self.assertTrue(any("precise runtime_gap_status" in b for b in blockers))
+        self.assertTrue(any("concrete pending label" in b for b in blockers))
+        self.assertTrue(any("shared_runtime_path must not be generic" in b for b in blockers))
         self.assertTrue(any("flexible_anything_claim_allowed" in b for b in blockers))
         self.assertTrue(any("performance_equivalence_claim_allowed" in b for b in blockers))
 

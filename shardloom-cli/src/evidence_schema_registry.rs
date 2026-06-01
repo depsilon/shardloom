@@ -460,6 +460,7 @@ fn is_boolean_field(field_key: &str) -> bool {
         || field_key.ends_with("_written")
         || field_key.ends_with("_requested")
         || field_key.ends_with("_eligible")
+        || field_key.ends_with("_hit")
         || field_key.ends_with("_used")
         || field_key.ends_with("_enabled")
         || field_key.ends_with("_implemented")

@@ -63,6 +63,35 @@ const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.runtime_evidence_level.v1";
+const PREPARED_STATE_REUSE_SCOPE_CREATED_NOT_REUSED: &str = "prepared_state_created_not_reused";
+const PREPARED_STATE_REUSE_SCOPE_EXPLICIT_INPUT: &str = "explicit_prepared_state_input";
+const PREPARED_STATE_REUSE_SCOPE_IN_PROCESS: &str = "in_process_prepared_batch_vortex_artifacts";
+const PREPARED_STATE_REUSE_SCOPE_NATIVE_VORTEX: &str = "not_applicable_native_vortex_input";
+const PREPARED_STATE_REUSE_SCOPE_WORKSPACE: &str = "workspace_manifest_local_vortex_artifacts";
+const PREPARED_STATE_REUSE_PATH_FIRST_PREPARATION: &str = "not_applicable_first_preparation";
+const PREPARED_STATE_REUSE_PATH_EXPLICIT_INPUT: &str = "not_required_existing_prepared_state";
+const PREPARED_STATE_REUSE_PATH_IN_PROCESS: &str = "not_required_in_process_prepared_batch";
+const PREPARED_STATE_REUSE_PATH_NATIVE_VORTEX: &str = "not_applicable_native_vortex_input";
+const PREPARED_STATE_REUSE_PATH_WORKSPACE: &str =
+    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json";
+const PREPARED_STATE_REUSE_POLICY_FIRST_PREPARATION: &str =
+    "first_preparation_creates_vortex_prepared_state.v1";
+const PREPARED_STATE_REUSE_POLICY_EXPLICIT_INPUT: &str = "explicit_prepared_state_admission.v1";
+const PREPARED_STATE_REUSE_POLICY_IN_PROCESS: &str = "in_process_prepared_batch_reuse.v1";
+const PREPARED_STATE_REUSE_POLICY_NATIVE_VORTEX: &str = "not_applicable_native_vortex_input";
+const PREPARED_STATE_REUSE_POLICY_WORKSPACE: &str =
+    "shardloom.python.prepared_vortex_reuse_manifest.v1";
+const PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION: &str =
+    "not_applicable_prepared_state_created_this_run";
+const PREPARED_STATE_REUSE_INVALIDATION_EXPLICIT_INPUT: &str =
+    "not_applicable_existing_prepared_state_input_lifetime";
+const PREPARED_STATE_REUSE_INVALIDATION_IN_PROCESS: &str =
+    "not_applicable_same_process_artifact_lifetime";
+const PREPARED_STATE_REUSE_INVALIDATION_NATIVE_VORTEX: &str = "not_applicable_native_vortex_input";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const PREPARED_STATE_REUSE_MANIFEST_DIR: &str = ".shardloom";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const PREPARED_STATE_REUSE_MANIFEST_FILE: &str = "prepared-vortex-reuse-manifest.json";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
@@ -3675,8 +3704,32 @@ impl TraditionalAnalyticsReport {
             ("prepared_state_reused".to_string(), "false".to_string()),
             ("prepared_state_reuse_hit".to_string(), "false".to_string()),
             (
+                "prepared_state_reuse_scope".to_string(),
+                PREPARED_STATE_REUSE_SCOPE_CREATED_NOT_REUSED.to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_path".to_string(),
+                PREPARED_STATE_REUSE_PATH_FIRST_PREPARATION.to_string(),
+            ),
+            (
+                "prepared_state_reuse_policy".to_string(),
+                PREPARED_STATE_REUSE_POLICY_FIRST_PREPARATION.to_string(),
+            ),
+            (
+                "prepared_state_reuse_reason".to_string(),
+                "prepared_state_created_this_run_no_prior_reuse_requested".to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_digest".to_string(),
+                prepared_state_digest.clone(),
+            ),
+            (
+                "prepared_state_invalidation_reason".to_string(),
+                PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION.to_string(),
+            ),
+            (
                 "invalidation_reason".to_string(),
-                "not_applicable_prepared_state_created_this_run".to_string(),
+                PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION.to_string(),
             ),
             (
                 "prepared_artifact_dim_ref".to_string(),
@@ -4641,18 +4694,95 @@ pub struct TraditionalAnalyticsVortexBatchReport {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraditionalAnalyticsPreparedBatchReport {
     pub preparation_scenario: TraditionalAnalyticsScenario,
-    pub prepare_report: TraditionalAnalyticsReport,
+    pub prepare_report: Option<TraditionalAnalyticsReport>,
     pub batch_report: TraditionalAnalyticsVortexBatchReport,
+    prepared_state_reuse: TraditionalPreparedBatchReuseReport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalPreparedBatchReuseReport {
+    hit: bool,
+    reason: String,
+    invalidation_reason: String,
+    manifest_digest: String,
+    manifest_actual_path: PathBuf,
+    manifest_written: bool,
+    prepare_fields: Vec<(String, String)>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedBatchReuseReport {
+    fn first_preparation(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        prior_reason: String,
+    ) -> Self {
+        Self {
+            hit: false,
+            reason: prior_reason.clone(),
+            invalidation_reason: prior_reason,
+            manifest_digest,
+            manifest_actual_path: manifest_path,
+            manifest_written: true,
+            prepare_fields: Vec::new(),
+        }
+    }
+
+    fn no_manifest_yet(manifest_path: PathBuf, reason: String) -> Self {
+        Self {
+            hit: false,
+            reason,
+            invalidation_reason: PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION.to_string(),
+            manifest_digest: "none".to_string(),
+            manifest_actual_path: manifest_path,
+            manifest_written: false,
+            prepare_fields: Vec::new(),
+        }
+    }
+
+    fn hit(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        prepare_fields: Vec<(String, String)>,
+    ) -> Self {
+        Self {
+            hit: true,
+            reason: "manifest_fingerprints_match".to_string(),
+            invalidation_reason: "none".to_string(),
+            manifest_digest,
+            manifest_actual_path: manifest_path,
+            manifest_written: false,
+            prepare_fields,
+        }
+    }
 }
 
 impl TraditionalAnalyticsPreparedBatchReport {
+    fn prepare_fields(&self) -> Vec<(String, String)> {
+        self.prepare_report.as_ref().map_or_else(
+            || self.prepared_state_reuse.prepare_fields.clone(),
+            TraditionalAnalyticsReport::fields,
+        )
+    }
+
+    fn prepare_field(&self, key: &str) -> String {
+        self.prepare_fields()
+            .into_iter()
+            .find_map(|(field_key, value)| (field_key == key).then_some(value))
+            .unwrap_or_default()
+    }
+
+    fn workspace_reuse_hit(&self) -> bool {
+        self.prepared_state_reuse.hit
+    }
+
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
             "ShardLoom compatibility prepare-once plus prepared Vortex batch\nprepared scenario: {}\nscenarios: {}\nprep micros: {}\nbatch scenario compute micros: {}\nfallback execution: disabled\nclaim boundary: scoped single-process local prepare/batch route only",
             self.preparation_scenario.as_str(),
             self.batch_report.scenario_order().join(","),
-            self.prepare_report.total_runtime_micros,
+            self.prepare_field("total_runtime_micros"),
             self.batch_report.total_scenario_compute_micros
         )
     }
@@ -4661,18 +4791,19 @@ impl TraditionalAnalyticsPreparedBatchReport {
     #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
         let mut fields = self.batch_report.fields();
-        let prepare_fields = self.prepare_report.fields();
+        let prepare_fields = self.prepare_fields();
         let prepare_field = |key: &str| -> String {
             prepare_fields
                 .iter()
                 .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
                 .unwrap_or_default()
         };
-        let prepare_batch_scale_data_volume_bytes = self
-            .prepare_report
-            .fact_vortex_bytes
-            .saturating_add(self.prepare_report.dim_vortex_bytes)
-            .saturating_add(self.prepare_report.cdc_delta_vortex_bytes);
+        let prepare_field_u64 =
+            |key: &str| -> u64 { prepare_field(key).parse::<u64>().unwrap_or_default() };
+        let prepare_field_bool = |key: &str| -> bool { prepare_field(key) == "true" };
+        let prepare_batch_scale_data_volume_bytes = prepare_field_u64("fact_vortex_bytes")
+            .saturating_add(prepare_field_u64("dim_vortex_bytes"))
+            .saturating_add(prepare_field_u64("cdc_delta_vortex_bytes"));
         let prepare_batch_scale_split_manifest_digests = self
             .batch_report
             .reports
@@ -4905,9 +5036,89 @@ impl TraditionalAnalyticsPreparedBatchReport {
                     .claim_allowed
             })
             .count();
+        let prepare_batch_source_state_digest = prepare_field("source_state_digest");
+        let prepare_batch_prepared_state_digest = prepare_field("prepared_state_digest");
+        let prepare_batch_prepared_artifact_reuse_count = self
+            .batch_report
+            .session_evidence
+            .prepared_artifact_reuse_count
+            .to_string();
+        let prepare_batch_reuse_manifest_digest = route_evidence_digest(&[
+            "in_process_prepared_batch_reuse",
+            &prepare_batch_source_state_digest,
+            &prepare_batch_prepared_state_digest,
+            &self.batch_report.scenario_order().join(","),
+            &prepare_batch_prepared_artifact_reuse_count,
+        ]);
         let prepare_batch_lifecycle_status = self.prepare_batch_lifecycle_status();
         let prepare_batch_lifecycle_output_status = self.prepare_batch_lifecycle_output_status();
         let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
+        let workspace_reuse_hit = self.workspace_reuse_hit();
+        let prepare_batch_runtime_status = if workspace_reuse_hit {
+            "workspace_prepared_state_reused_then_prepared_batch_supported"
+        } else {
+            "single_process_compatibility_prepare_then_prepared_batch_supported"
+        };
+        let prepare_batch_route = if workspace_reuse_hit {
+            "compatibility_import_certified_manifest_reuse_to_prepared_vortex_batch"
+        } else {
+            "compatibility_import_certified_to_prepared_vortex_batch"
+        };
+        let prepare_batch_lifecycle_route = if workspace_reuse_hit {
+            "UniversalIngress->SourceState->workspace_manifest_reuse->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
+        } else {
+            "UniversalIngress->SourceState->vortex_ingest->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
+        };
+        let prepare_batch_lifecycle_preparation_status = if workspace_reuse_hit {
+            "prepared_state_reused_from_workspace_manifest"
+        } else {
+            "source_state_created_and_vortex_prepared_state_written"
+        };
+        let prepare_batch_lifecycle_write_reopen_status = if workspace_reuse_hit {
+            "prepared_artifacts_reused_manifest_fingerprints_verified"
+        } else if prepare_field_bool("vortex_file_written")
+            && prepare_field_bool("vortex_file_read")
+            && prepare_field_bool("upstream_vortex_scan_called")
+        {
+            "prepared_artifacts_written_reopened_scanned"
+        } else {
+            "prepared_artifact_write_reopen_incomplete"
+        };
+        let prepare_batch_preparation_command = if workspace_reuse_hit {
+            "prepared-vortex-reuse-manifest"
+        } else {
+            "traditional-analytics-run"
+        };
+        let prepare_batch_preparation_timing_scope = if workspace_reuse_hit {
+            "workspace_manifest_reuse_skips_compatibility_prepare".to_string()
+        } else {
+            prepare_field("timing_scope")
+        };
+        let prepare_batch_preparation_micros = if workspace_reuse_hit {
+            "0".to_string()
+        } else {
+            prepare_field("total_runtime_micros")
+        };
+        let prepare_batch_source_to_columnar_micros = if workspace_reuse_hit {
+            "0".to_string()
+        } else {
+            prepare_field("source_to_columnar_micros")
+        };
+        let prepare_batch_vortex_array_build_micros = if workspace_reuse_hit {
+            "0".to_string()
+        } else {
+            prepare_field("vortex_array_build_micros")
+        };
+        let prepare_batch_vortex_write_micros = if workspace_reuse_hit {
+            "0".to_string()
+        } else {
+            prepare_field("vortex_write_micros")
+        };
+        let prepare_batch_vortex_reopen_verify_micros = if workspace_reuse_hit {
+            "0".to_string()
+        } else {
+            prepare_field("vortex_reopen_verify_micros")
+        };
         let prepare_batch_lifecycle_pushdown_statuses = self
             .batch_report
             .reports
@@ -4944,11 +5155,11 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_runtime_status".to_string(),
-                "single_process_compatibility_prepare_then_prepared_batch_supported".to_string(),
+                prepare_batch_runtime_status.to_string(),
             ),
             (
                 "prepare_batch_route".to_string(),
-                "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+                prepare_batch_route.to_string(),
             ),
             (
                 "prepare_batch_lifecycle_schema_version".to_string(),
@@ -4967,7 +5178,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_lifecycle_route".to_string(),
-                "UniversalIngress->SourceState->vortex_ingest->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested".to_string(),
+                prepare_batch_lifecycle_route.to_string(),
             ),
             (
                 "prepare_batch_lifecycle_stage_order".to_string(),
@@ -4979,7 +5190,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_lifecycle_source_state_digest".to_string(),
-                prepare_field("source_state_digest"),
+                prepare_batch_source_state_digest.clone(),
             ),
             (
                 "prepare_batch_lifecycle_prepared_state_id".to_string(),
@@ -4987,47 +5198,33 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_lifecycle_prepared_state_digest".to_string(),
-                prepare_field("prepared_state_digest"),
+                prepare_batch_prepared_state_digest.clone(),
             ),
             (
                 "prepare_batch_lifecycle_artifact_refs".to_string(),
                 format!(
                     "fact={},dim={},cdc_delta={}",
-                    self.prepare_report.fact_vortex_path.display(),
-                    self.prepare_report.dim_vortex_path.display(),
-                    self.prepare_report
-                        .cdc_delta_vortex_path
-                        .as_ref()
-                        .map_or_else(|| "none".to_string(), |path| path.display().to_string())
+                    prepare_field("fact_vortex_path"),
+                    prepare_field("dim_vortex_path"),
+                    empty_to_none(&prepare_field("cdc_delta_vortex_path"))
                 ),
             ),
             (
                 "prepare_batch_lifecycle_artifact_digests".to_string(),
                 format!(
                     "fact={},dim={},cdc_delta={}",
-                    self.prepare_report.fact_vortex_digest,
-                    self.prepare_report.dim_vortex_digest,
-                    self.prepare_report
-                        .cdc_delta_vortex_digest
-                        .clone()
-                        .unwrap_or_else(|| "none".to_string())
+                    prepare_field("fact_vortex_digest"),
+                    prepare_field("dim_vortex_digest"),
+                    empty_to_none(&prepare_field("cdc_delta_vortex_digest"))
                 ),
             ),
             (
                 "prepare_batch_lifecycle_preparation_status".to_string(),
-                "source_state_created_and_vortex_prepared_state_written".to_string(),
+                prepare_batch_lifecycle_preparation_status.to_string(),
             ),
             (
                 "prepare_batch_lifecycle_write_reopen_status".to_string(),
-                if self.prepare_report.vortex_file_written
-                    && self.prepare_report.vortex_file_read
-                    && self.prepare_report.upstream_vortex_scan_called
-                {
-                    "prepared_artifacts_written_reopened_scanned"
-                } else {
-                    "prepared_artifact_write_reopen_incomplete"
-                }
-                .to_string(),
+                prepare_batch_lifecycle_write_reopen_status.to_string(),
             ),
             (
                 "prepare_batch_lifecycle_scan_status".to_string(),
@@ -5096,7 +5293,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_scale_route".to_string(),
-                "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+                prepare_batch_route.to_string(),
             ),
             (
                 "prepare_batch_scale_runtime_status".to_string(),
@@ -5220,7 +5417,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_preparation_command".to_string(),
-                "traditional-analytics-run".to_string(),
+                prepare_batch_preparation_command.to_string(),
             ),
             (
                 "prepare_batch_batch_command".to_string(),
@@ -5232,31 +5429,31 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_preparation_input_format".to_string(),
-                self.prepare_report.input_format.as_str().to_string(),
+                prepare_field("input_format"),
             ),
             (
                 "prepare_batch_preparation_timing_scope".to_string(),
-                self.prepare_report.timing_scope.clone(),
+                prepare_batch_preparation_timing_scope,
             ),
             (
                 "prepare_batch_preparation_micros".to_string(),
-                self.prepare_report.total_runtime_micros.to_string(),
+                prepare_batch_preparation_micros,
             ),
             (
                 "prepare_batch_source_to_columnar_micros".to_string(),
-                self.prepare_report.source_to_columnar_micros.to_string(),
+                prepare_batch_source_to_columnar_micros,
             ),
             (
                 "prepare_batch_vortex_array_build_micros".to_string(),
-                self.prepare_report.vortex_array_build_micros.to_string(),
+                prepare_batch_vortex_array_build_micros,
             ),
             (
                 "prepare_batch_vortex_write_micros".to_string(),
-                self.prepare_report.vortex_write_micros.to_string(),
+                prepare_batch_vortex_write_micros,
             ),
             (
                 "prepare_batch_vortex_reopen_verify_micros".to_string(),
-                self.prepare_report.vortex_reopen_verify_micros.to_string(),
+                prepare_batch_vortex_reopen_verify_micros,
             ),
             (
                 "prepare_batch_preparation_included_in_batch_timing".to_string(),
@@ -5268,7 +5465,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_prepared_state_created".to_string(),
-                "true".to_string(),
+                (!workspace_reuse_hit).to_string(),
             ),
             (
                 "prepare_batch_prepared_state_reused".to_string(),
@@ -5284,7 +5481,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_prepared_state_digest".to_string(),
-                prepare_field("prepared_state_digest"),
+                prepare_batch_prepared_state_digest.clone(),
             ),
             (
                 "prepare_batch_source_state_id".to_string(),
@@ -5292,14 +5489,11 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_source_state_digest".to_string(),
-                prepare_field("source_state_digest"),
+                prepare_batch_source_state_digest.clone(),
             ),
             (
                 "prepare_batch_prepared_artifact_reuse_count".to_string(),
-                self.batch_report
-                    .session_evidence
-                    .prepared_artifact_reuse_count
-                    .to_string(),
+                prepare_batch_prepared_artifact_reuse_count,
             ),
             (
                 "prepare_batch_prepared_artifact_cleanup_policy".to_string(),
@@ -5311,85 +5505,67 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_source_state_columnar_preserved".to_string(),
-                self.prepare_report
-                    .source_state_columnar_preserved
-                    .to_string(),
+                prepare_field("source_state_columnar_preserved"),
             ),
             (
                 "prepare_batch_source_state_record_batch_count".to_string(),
-                self.prepare_report
-                    .source_state_record_batch_count
-                    .to_string(),
+                prepare_field("source_state_record_batch_count"),
             ),
             (
                 "prepare_batch_vortex_array_build_provider_kind".to_string(),
-                self.prepare_report.vortex_array_build_provider_kind.clone(),
+                prepare_field("vortex_array_build_provider_kind"),
             ),
             (
                 "prepare_batch_vortex_array_build_provider_surface".to_string(),
-                self.prepare_report
-                    .vortex_array_build_provider_surface
-                    .clone(),
+                prepare_field("vortex_array_build_provider_surface"),
             ),
             (
                 "prepare_batch_vortex_array_build_strategy".to_string(),
-                self.prepare_report.vortex_array_build_strategy.clone(),
+                prepare_field("vortex_array_build_strategy"),
             ),
             (
                 "prepare_batch_vortex_array_build_input_layout".to_string(),
-                self.prepare_report
-                    .vortex_array_build_input_layout
-                    .clone(),
+                prepare_field("vortex_array_build_input_layout"),
             ),
             (
                 "prepare_batch_vortex_array_build_record_batch_count".to_string(),
-                self.prepare_report
-                    .vortex_array_build_record_batch_count
-                    .to_string(),
+                prepare_field("vortex_array_build_record_batch_count"),
             ),
             (
                 "prepare_batch_vortex_array_build_manual_scalar_copy_avoided".to_string(),
-                self.prepare_report
-                    .vortex_array_build_manual_scalar_copy_avoided
-                    .to_string(),
+                prepare_field("vortex_array_build_manual_scalar_copy_avoided"),
             ),
             (
                 "prepare_batch_fact_vortex_path".to_string(),
-                self.prepare_report.fact_vortex_path.display().to_string(),
+                prepare_field("fact_vortex_path"),
             ),
             (
                 "prepare_batch_dim_vortex_path".to_string(),
-                self.prepare_report.dim_vortex_path.display().to_string(),
+                prepare_field("dim_vortex_path"),
             ),
             (
                 "prepare_batch_cdc_delta_vortex_path".to_string(),
-                self.prepare_report
-                    .cdc_delta_vortex_path
-                    .as_ref()
-                    .map_or_else(String::new, |path| path.display().to_string()),
+                prepare_field("cdc_delta_vortex_path"),
             ),
             (
                 "prepare_batch_fact_vortex_digest".to_string(),
-                self.prepare_report.fact_vortex_digest.clone(),
+                prepare_field("fact_vortex_digest"),
             ),
             (
                 "prepare_batch_dim_vortex_digest".to_string(),
-                self.prepare_report.dim_vortex_digest.clone(),
+                prepare_field("dim_vortex_digest"),
             ),
             (
                 "prepare_batch_cdc_delta_vortex_digest".to_string(),
-                self.prepare_report
-                    .cdc_delta_vortex_digest
-                    .clone()
-                    .unwrap_or_default(),
+                prepare_field("cdc_delta_vortex_digest"),
             ),
             (
                 "prepare_batch_source_native_io_certificate_status".to_string(),
-                self.prepare_report.native_io_certificate.status().to_string(),
+                prepare_field("native_io_certificate_status"),
             ),
             (
                 "prepare_batch_source_native_io_certificate_id".to_string(),
-                self.prepare_report.native_io_certificate.certificate_id.clone(),
+                prepare_field("native_io_certificate_id"),
             ),
             (
                 "prepare_batch_fallback_attempted".to_string(),
@@ -5406,6 +5582,96 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_claim_boundary".to_string(),
                 "Scoped local compatibility prepare-once plus prepared/native batch evidence only; not a hidden fast mode, persistent cache, performance claim, production claim, SQL/DataFrame support, object-store/lakehouse support, Foundry support, package readiness, or Spark-displacement claim".to_string(),
+            ),
+        ]);
+        let (
+            reuse_scope,
+            reuse_manifest_path,
+            reuse_policy,
+            reuse_reason,
+            reuse_digest,
+            reuse_invalidation,
+        ) = if workspace_reuse_hit {
+            (
+                PREPARED_STATE_REUSE_SCOPE_WORKSPACE,
+                PREPARED_STATE_REUSE_PATH_WORKSPACE,
+                PREPARED_STATE_REUSE_POLICY_WORKSPACE,
+                self.prepared_state_reuse.reason.as_str(),
+                self.prepared_state_reuse.manifest_digest.as_str(),
+                self.prepared_state_reuse.invalidation_reason.as_str(),
+            )
+        } else {
+            (
+                PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+                PREPARED_STATE_REUSE_PATH_IN_PROCESS,
+                PREPARED_STATE_REUSE_POLICY_IN_PROCESS,
+                "prepared_state_reused_in_same_process_after_single_compatibility_preparation",
+                prepare_batch_reuse_manifest_digest.as_str(),
+                PREPARED_STATE_REUSE_INVALIDATION_IN_PROCESS,
+            )
+        };
+        set_prepared_state_reuse_fields(
+            &mut fields,
+            "",
+            reuse_scope,
+            reuse_manifest_path,
+            reuse_policy,
+            true,
+            reuse_reason,
+            reuse_digest,
+            reuse_invalidation,
+        );
+        set_prepared_state_reuse_fields(
+            &mut fields,
+            "prepare_batch_",
+            reuse_scope,
+            reuse_manifest_path,
+            reuse_policy,
+            true,
+            reuse_reason,
+            reuse_digest,
+            reuse_invalidation,
+        );
+        set_field(&mut fields, "prepared_state_reused", "true");
+        fields.extend([
+            (
+                "workspace_prepared_state_reuse_scope".to_string(),
+                PREPARED_STATE_REUSE_SCOPE_WORKSPACE.to_string(),
+            ),
+            (
+                "workspace_prepared_state_reuse_manifest_path".to_string(),
+                PREPARED_STATE_REUSE_PATH_WORKSPACE.to_string(),
+            ),
+            (
+                "workspace_prepared_state_reuse_manifest_actual_path".to_string(),
+                self.prepared_state_reuse
+                    .manifest_actual_path
+                    .display()
+                    .to_string(),
+            ),
+            (
+                "workspace_prepared_state_reuse_policy".to_string(),
+                PREPARED_STATE_REUSE_POLICY_WORKSPACE.to_string(),
+            ),
+            (
+                "workspace_prepared_state_reuse_hit".to_string(),
+                self.prepared_state_reuse.hit.to_string(),
+            ),
+            (
+                "workspace_prepared_state_reuse_reason".to_string(),
+                self.prepared_state_reuse.reason.clone(),
+            ),
+            (
+                "workspace_prepared_state_reuse_manifest_digest".to_string(),
+                self.prepared_state_reuse.manifest_digest.clone(),
+            ),
+            (
+                "workspace_prepared_state_invalidation_reason".to_string(),
+                self.prepared_state_reuse.invalidation_reason.clone(),
+            ),
+            (
+                "workspace_prepared_state_reuse_manifest_written".to_string(),
+                self.prepared_state_reuse.manifest_written.to_string(),
             ),
         ]);
         fields.extend(
@@ -5456,12 +5722,12 @@ impl TraditionalAnalyticsPreparedBatchReport {
 
     #[must_use]
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        self.prepare_report
-            .diagnostics
-            .iter()
-            .chain(self.batch_report.diagnostics.iter())
-            .cloned()
-            .collect()
+        let mut diagnostics = self
+            .prepare_report
+            .as_ref()
+            .map_or_else(Vec::new, |report| report.diagnostics.clone());
+        diagnostics.extend(self.batch_report.diagnostics.iter().cloned());
+        diagnostics
     }
 }
 
@@ -5479,6 +5745,8 @@ impl TraditionalAnalyticsVortexBatchReport {
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
+        let scenario_order = self.scenario_order();
+        let scenario_order_csv = scenario_order.join(",");
         let selected_modes = self
             .reports
             .iter()
@@ -5490,6 +5758,69 @@ impl TraditionalAnalyticsVortexBatchReport {
                     .to_string()
             })
             .collect::<Vec<_>>();
+        let selected_modes_csv = selected_modes.join(",");
+        let all_prepared_modes = self.reports.iter().all(|report| {
+            report.execution_mode_selection.selected_execution_mode
+                == ShardLoomExecutionMode::PreparedVortex
+        });
+        let all_native_modes = self.reports.iter().all(|report| {
+            report.execution_mode_selection.selected_execution_mode
+                == ShardLoomExecutionMode::NativeVortex
+        });
+        let prepared_artifact_reuse_count = self
+            .session_evidence
+            .prepared_artifact_reuse_count
+            .to_string();
+        let prepared_state_reuse_digest = route_evidence_digest(&[
+            "prepared_state_reuse",
+            &self.source_state_digest,
+            &selected_modes_csv,
+            &scenario_order_csv,
+            &prepared_artifact_reuse_count,
+        ]);
+        let (
+            prepared_state_reuse_scope,
+            prepared_state_reuse_path,
+            prepared_state_reuse_policy,
+            prepared_state_reuse_hit,
+            prepared_state_reuse_reason,
+            prepared_state_invalidation_reason,
+        ) = if all_prepared_modes {
+            (
+                PREPARED_STATE_REUSE_SCOPE_EXPLICIT_INPUT,
+                PREPARED_STATE_REUSE_PATH_EXPLICIT_INPUT,
+                PREPARED_STATE_REUSE_POLICY_EXPLICIT_INPUT,
+                true,
+                "caller_supplied_prepared_vortex_artifacts_reused_across_requested_scenarios",
+                PREPARED_STATE_REUSE_INVALIDATION_EXPLICIT_INPUT,
+            )
+        } else if all_native_modes {
+            (
+                PREPARED_STATE_REUSE_SCOPE_NATIVE_VORTEX,
+                PREPARED_STATE_REUSE_PATH_NATIVE_VORTEX,
+                PREPARED_STATE_REUSE_POLICY_NATIVE_VORTEX,
+                false,
+                "native_vortex_input_not_a_prepared_state_route",
+                PREPARED_STATE_REUSE_INVALIDATION_NATIVE_VORTEX,
+            )
+        } else {
+            (
+                "mixed_prepared_native_vortex_inputs",
+                "not_required_mixed_prepared_native_batch",
+                "mixed_prepared_native_vortex_input_admission.v1",
+                self.reports.iter().any(|report| {
+                    report.execution_mode_selection.selected_execution_mode
+                        == ShardLoomExecutionMode::PreparedVortex
+                }),
+                "mixed prepared/native Vortex batch input classified without external fallback",
+                "not_applicable_mixed_batch_input_lifetime",
+            )
+        };
+        let prepared_state_reuse_manifest_digest = if all_native_modes {
+            PREPARED_STATE_REUSE_SCOPE_NATIVE_VORTEX
+        } else {
+            &prepared_state_reuse_digest
+        };
         let mut fields = vec![
             (
                 "schema_version".to_string(),
@@ -5603,7 +5934,7 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "scenario_count".to_string(),
                 self.reports.len().to_string(),
             ),
-            ("scenario_order".to_string(), self.scenario_order().join(",")),
+            ("scenario_order".to_string(), scenario_order_csv),
             (
                 "typed_envelope_preserved".to_string(),
                 "true".to_string(),
@@ -5621,6 +5952,22 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "scoped single-process batch runner only; not a daemon, service, hidden fast mode, or performance claim".to_string(),
             ),
         ];
+        set_prepared_state_reuse_fields(
+            &mut fields,
+            "",
+            prepared_state_reuse_scope,
+            prepared_state_reuse_path,
+            prepared_state_reuse_policy,
+            prepared_state_reuse_hit,
+            prepared_state_reuse_reason,
+            prepared_state_reuse_manifest_digest,
+            prepared_state_invalidation_reason,
+        );
+        set_field(
+            &mut fields,
+            "prepared_state_reused",
+            prepared_state_reuse_hit.to_string(),
+        );
         fields.extend(self.session_evidence.fields());
         fields.extend([
             (
@@ -9912,6 +10259,765 @@ pub fn run_traditional_analytics_prepared_batch_benchmark(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
+struct TraditionalPreparedBatchWorkspaceReuseDecision {
+    hit: bool,
+    reason: String,
+    manifest_digest: String,
+    manifest_path: PathBuf,
+    manifest_payload: Option<serde_json::Value>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedBatchWorkspaceReuseDecision {
+    fn miss(manifest_path: PathBuf, reason: impl Into<String>) -> Self {
+        let reason = reason.into();
+        Self {
+            hit: false,
+            reason,
+            manifest_digest: "none".to_string(),
+            manifest_path,
+            manifest_payload: None,
+        }
+    }
+
+    fn miss_with_manifest(
+        manifest_path: PathBuf,
+        reason: impl Into<String>,
+        manifest_digest: String,
+        manifest_payload: serde_json::Value,
+    ) -> Self {
+        let reason = reason.into();
+        Self {
+            hit: false,
+            reason,
+            manifest_digest,
+            manifest_path,
+            manifest_payload: Some(manifest_payload),
+        }
+    }
+
+    fn hit(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        manifest_payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            hit: true,
+            reason: "manifest_fingerprints_match".to_string(),
+            manifest_digest,
+            manifest_path,
+            manifest_payload: Some(manifest_payload),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_batch_reuse_manifest_path(workspace_dir: &std::path::Path) -> PathBuf {
+    workspace_dir
+        .join(PREPARED_STATE_REUSE_MANIFEST_DIR)
+        .join(PREPARED_STATE_REUSE_MANIFEST_FILE)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn evaluate_traditional_prepared_batch_workspace_reuse(
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalPreparedBatchWorkspaceReuseDecision> {
+    let manifest_path = traditional_prepared_batch_reuse_manifest_path(workspace_dir);
+    let request_payload = traditional_prepared_batch_reuse_request_payload(
+        fact_input,
+        dim_input,
+        cdc_delta_input,
+        workspace_dir,
+        input_format,
+        resource_policy,
+    )?;
+    let request_digest =
+        json_string_field(&request_payload, "route_request_digest").unwrap_or_default();
+    if !manifest_path.exists() {
+        return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
+            manifest_path,
+            "no_reuse_manifest",
+        ));
+    }
+    let manifest_text = match std::fs::read_to_string(&manifest_path) {
+        Ok(text) => text,
+        Err(error) => {
+            return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
+                manifest_path,
+                format!("reuse_manifest_unreadable:{error}"),
+            ));
+        }
+    };
+    let manifest_payload: serde_json::Value = match serde_json::from_str(&manifest_text) {
+        Ok(payload) => payload,
+        Err(error) => {
+            return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
+                manifest_path,
+                format!("reuse_manifest_unparseable:{error}"),
+            ));
+        }
+    };
+    let manifest_digest =
+        json_string_field(&manifest_payload, "manifest_digest").unwrap_or_default();
+    if json_string_field(&manifest_payload, "schema_version").as_deref()
+        != Some(PREPARED_STATE_REUSE_POLICY_WORKSPACE)
+    {
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                "reuse_manifest_schema_mismatch",
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    if manifest_digest != prepared_batch_manifest_digest(&manifest_payload) {
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                "reuse_manifest_digest_mismatch",
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    if json_string_field(&manifest_payload, "route_request_digest").as_deref()
+        != Some(request_digest.as_str())
+    {
+        let reason =
+            prepared_batch_request_invalidation_reason(&manifest_payload, &request_payload);
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                reason,
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    let artifact_reason = prepared_batch_artifact_invalidation_reason(&manifest_payload)?;
+    if artifact_reason != "none" {
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                artifact_reason,
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    if json_bool_field(&manifest_payload, "fallback_attempted") {
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                "reuse_manifest_fallback_attempted",
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    if json_bool_field(&manifest_payload, "external_engine_invoked") {
+        return Ok(
+            TraditionalPreparedBatchWorkspaceReuseDecision::miss_with_manifest(
+                manifest_path,
+                "reuse_manifest_external_engine_invoked",
+                manifest_digest,
+                manifest_payload,
+            ),
+        );
+    }
+    Ok(TraditionalPreparedBatchWorkspaceReuseDecision::hit(
+        manifest_path,
+        manifest_digest,
+        manifest_payload,
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments)]
+fn traditional_prepared_batch_reuse_request_payload(
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<serde_json::Value> {
+    let mut payload = serde_json::json!({
+        "schema_version": PREPARED_STATE_REUSE_POLICY_WORKSPACE,
+        "route_id": "local_file_prepare_once_first_query",
+        "batch_route_id": "local_file_prepare_once_batch",
+        "fact_input": local_reuse_path_fingerprint(fact_input, "fact input")?,
+        "dim_input": local_reuse_path_fingerprint(dim_input, "dimension input")?,
+        "cdc_delta_input": match cdc_delta_input {
+            Some(path) => local_reuse_path_fingerprint(path, "CDC delta input")?,
+            None => serde_json::Value::Null,
+        },
+        "prepare_policy": {
+            "input_format": input_format.as_str(),
+            "artifact_root": normalize_manifest_path(workspace_dir),
+            "artifact_layout": "fact.vortex,dim.vortex,optional_cdc_delta.vortex",
+            "artifact_output_policy": "caller_owned_workspace_local_vortex_artifacts",
+            "cdc_delta_present": cdc_delta_input.is_some(),
+            "memory_gb": resource_policy.requested_memory_gb,
+            "max_parallelism": resource_policy.requested_max_parallelism,
+            "vortex_normalization_point": "SourceState -> vortex_ingest -> VortexPreparedState",
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+        },
+    });
+    let route_request_digest = stable_json_value_digest(&payload);
+    json_object_insert(
+        &mut payload,
+        "route_request_digest",
+        serde_json::Value::String(route_request_digest),
+    );
+    Ok(payload)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn write_traditional_prepared_batch_workspace_reuse_manifest(
+    prepare_report: &TraditionalAnalyticsReport,
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    workspace_dir: &std::path::Path,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    prior_reuse_reason: &str,
+) -> Result<TraditionalPreparedBatchReuseReport> {
+    let manifest_path = traditional_prepared_batch_reuse_manifest_path(workspace_dir);
+    let prepare_fields = prepare_report.fields();
+    if prepare_field_bool_from_slice(&prepare_fields, "fallback_attempted")
+        || prepare_field_bool_from_slice(&prepare_fields, "external_engine_invoked")
+    {
+        return Ok(TraditionalPreparedBatchReuseReport::no_manifest_yet(
+            manifest_path,
+            "prepare_report_not_reuse_eligible".to_string(),
+        ));
+    }
+    let request_payload = traditional_prepared_batch_reuse_request_payload(
+        fact_input,
+        dim_input,
+        cdc_delta_input,
+        workspace_dir,
+        prepare_report.input_format,
+        resource_policy,
+    )?;
+    let fact_artifact = prepared_batch_artifact_manifest(
+        &prepare_report.fact_vortex_path,
+        "fact",
+        &prepare_report.fact_vortex_digest,
+    )?;
+    let dim_artifact = prepared_batch_artifact_manifest(
+        &prepare_report.dim_vortex_path,
+        "dimension",
+        &prepare_report.dim_vortex_digest,
+    )?;
+    let cdc_delta_artifact = prepare_report
+        .cdc_delta_vortex_path
+        .as_ref()
+        .zip(prepare_report.cdc_delta_vortex_digest.as_ref())
+        .map(|(path, digest)| prepared_batch_artifact_manifest(path, "CDC delta", digest))
+        .transpose()?;
+    let mut prepared_artifacts = serde_json::Map::new();
+    prepared_artifacts.insert("fact".to_string(), fact_artifact);
+    prepared_artifacts.insert("dim".to_string(), dim_artifact);
+    prepared_artifacts.insert(
+        "cdc_delta".to_string(),
+        cdc_delta_artifact.unwrap_or(serde_json::Value::Null),
+    );
+    let mut manifest_payload = request_payload;
+    json_object_insert(
+        &mut manifest_payload,
+        "created_unix_seconds",
+        serde_json::Value::Number(serde_json::Number::from(current_unix_seconds())),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "manifest_path",
+        serde_json::Value::String(manifest_path.display().to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepare_command",
+        serde_json::Value::String("traditional-analytics-run".to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepare_fields",
+        field_pairs_to_json_object(&prepare_fields),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_artifacts",
+        serde_json::Value::Object(prepared_artifacts),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_state_id",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "source_state_id")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_state_digest",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "source_state_digest",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_id",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "prepared_state_id",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_digest",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "prepared_state_digest",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "fallback_attempted",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "external_engine_invoked",
+        serde_json::Value::Bool(false),
+    );
+    let manifest_digest = stable_json_value_digest(&manifest_payload);
+    json_object_insert(
+        &mut manifest_payload,
+        "manifest_digest",
+        serde_json::Value::String(manifest_digest.clone()),
+    );
+    write_json_manifest_atomically(&manifest_path, &manifest_payload)?;
+    Ok(TraditionalPreparedBatchReuseReport::first_preparation(
+        manifest_path,
+        manifest_digest,
+        prior_reuse_reason.to_string(),
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_reuse_prepare_fields(
+    manifest_payload: &serde_json::Value,
+) -> Vec<(String, String)> {
+    manifest_payload
+        .get("prepare_fields")
+        .and_then(serde_json::Value::as_object)
+        .map_or_else(Vec::new, |fields| {
+            fields
+                .iter()
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        value
+                            .as_str()
+                            .map_or_else(|| value.to_string(), ToString::to_string),
+                    )
+                })
+                .collect()
+        })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_reuse_artifact_path(
+    manifest_payload: &serde_json::Value,
+    role: &str,
+) -> Result<PathBuf> {
+    manifest_payload
+        .get("prepared_artifacts")
+        .and_then(|artifacts| artifacts.get(role))
+        .and_then(|artifact| artifact.get("path"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "prepared-state reuse manifest is missing {role} artifact path; fallback execution was not attempted"
+            ))
+        })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_reuse_optional_artifact_path(
+    manifest_payload: &serde_json::Value,
+    role: &str,
+) -> Option<PathBuf> {
+    manifest_payload
+        .get("prepared_artifacts")
+        .and_then(|artifacts| artifacts.get(role))
+        .and_then(|artifact| artifact.get("path"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_artifact_manifest(
+    path: &std::path::Path,
+    role: &str,
+    digest: &str,
+) -> Result<serde_json::Value> {
+    Ok(serde_json::json!({
+        "path": path.display().to_string(),
+        "fingerprint": local_reuse_path_fingerprint(path, role)?,
+        "digest": digest,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_artifact_invalidation_reason(
+    manifest_payload: &serde_json::Value,
+) -> Result<String> {
+    let Some(artifacts) = manifest_payload
+        .get("prepared_artifacts")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return Ok("reuse_manifest_missing_prepared_artifacts".to_string());
+    };
+    let cdc_required = manifest_payload
+        .get("prepare_policy")
+        .and_then(|policy| policy.get("cdc_delta_present"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    for role in ["fact", "dim", "cdc_delta"] {
+        let stored = artifacts.get(role);
+        if role == "cdc_delta" && stored.is_none_or(serde_json::Value::is_null) {
+            if cdc_required {
+                return Ok("cdc_delta_prepared_artifact_manifest_missing".to_string());
+            }
+            continue;
+        }
+        let Some(stored) = stored.and_then(serde_json::Value::as_object) else {
+            return Ok(format!("{role}_prepared_artifact_manifest_missing"));
+        };
+        let Some(path) = stored
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .filter(|path| !path.is_empty())
+        else {
+            return Ok(format!("{role}_prepared_artifact_path_missing"));
+        };
+        let current = local_reuse_path_fingerprint(std::path::Path::new(path), role)?;
+        if stored.get("fingerprint") != Some(&current) {
+            return Ok(format!("{role}_prepared_artifact_fingerprint_changed"));
+        }
+    }
+    Ok("none".to_string())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_request_invalidation_reason(
+    manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+) -> String {
+    for key in ["fact_input", "dim_input", "cdc_delta_input"] {
+        if manifest_payload.get(key) != request_payload.get(key) {
+            return format!("{key}_fingerprint_changed");
+        }
+    }
+    if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy") {
+        return "prepare_policy_changed".to_string();
+    }
+    "route_request_digest_mismatch".to_string()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_manifest_digest(manifest_payload: &serde_json::Value) -> String {
+    let mut payload_without_digest = manifest_payload.clone();
+    if let Some(object) = payload_without_digest.as_object_mut() {
+        object.remove("manifest_digest");
+    }
+    stable_json_value_digest(&payload_without_digest)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn stable_json_value_digest(value: &serde_json::Value) -> String {
+    let encoded = serde_json::to_string(value).unwrap_or_else(|_| "invalid-json".to_string());
+    route_evidence_digest(&[&encoded])
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn field_pairs_to_json_object(fields: &[(String, String)]) -> serde_json::Value {
+    let mut object = serde_json::Map::new();
+    for (key, value) in fields {
+        object.insert(key.clone(), serde_json::Value::String(value.clone()));
+    }
+    serde_json::Value::Object(object)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn json_object_insert(value: &mut serde_json::Value, key: &str, field_value: serde_json::Value) {
+    if let Some(object) = value.as_object_mut() {
+        object.insert(key.to_string(), field_value);
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn json_string_field(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn json_bool_field(value: &serde_json::Value, key: &str) -> bool {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepare_field_from_slice(fields: &[(String, String)], key: &str) -> String {
+    fields
+        .iter()
+        .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
+        .unwrap_or_default()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepare_field_bool_from_slice(fields: &[(String, String)], key: &str) -> bool {
+    prepare_field_from_slice(fields, key) == "true"
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_json_manifest_atomically(
+    manifest_path: &std::path::Path,
+    payload: &serde_json::Value,
+) -> Result<()> {
+    use std::io::Write as _;
+
+    let Some(parent) = manifest_path.parent() else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared-state reuse manifest path '{}' has no parent directory; fallback execution was not attempted",
+            manifest_path.display()
+        )));
+    };
+    std::fs::create_dir_all(parent).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create prepared-state reuse manifest directory '{}': {error}; fallback execution was not attempted",
+            parent.display()
+        ))
+    })?;
+    let tmp_path = manifest_path.with_extension("json.tmp");
+    let mut file = std::fs::File::create(&tmp_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create prepared-state reuse manifest temp file '{}': {error}; fallback execution was not attempted",
+            tmp_path.display()
+        ))
+    })?;
+    let encoded = serde_json::to_string_pretty(payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to encode prepared-state reuse manifest '{}': {error}; fallback execution was not attempted",
+            manifest_path.display()
+        ))
+    })?;
+    file.write_all(encoded.as_bytes()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write prepared-state reuse manifest '{}': {error}; fallback execution was not attempted",
+            tmp_path.display()
+        ))
+    })?;
+    file.write_all(b"\n").map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write prepared-state reuse manifest '{}': {error}; fallback execution was not attempted",
+            tmp_path.display()
+        ))
+    })?;
+    file.sync_all().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to sync prepared-state reuse manifest '{}': {error}; fallback execution was not attempted",
+            tmp_path.display()
+        ))
+    })?;
+    std::fs::rename(&tmp_path, manifest_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to publish prepared-state reuse manifest '{}' to '{}': {error}; fallback execution was not attempted",
+            tmp_path.display(),
+            manifest_path.display()
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<serde_json::Value> {
+    let normalized = normalize_manifest_path(path);
+    if path.is_file() {
+        let metadata = std::fs::metadata(path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat {label} '{}' for prepared-state reuse: {error}; fallback execution was not attempted",
+                path.display()
+            ))
+        })?;
+        return Ok(serde_json::json!({
+            "path": normalized,
+            "exists": true,
+            "kind": "local_file_fnv1a64_size_mtime",
+            "size_bytes": metadata.len(),
+            "mtime_ns": metadata_mtime_ns(&metadata),
+            "content_digest": file_digest(path, label)?,
+        }));
+    }
+    if path.is_dir() {
+        let directory = directory_reuse_fingerprint(path, label)?;
+        return Ok(serde_json::json!({
+            "path": normalized,
+            "exists": true,
+            "kind": "local_directory_tree_fnv1a64_size_mtime",
+            "size_bytes": directory.size_bytes,
+            "mtime_ns": directory.mtime_ns,
+            "content_digest": directory.content_digest,
+        }));
+    }
+    Ok(serde_json::json!({
+        "path": normalized,
+        "exists": false,
+        "kind": "local_path_missing",
+        "size_bytes": serde_json::Value::Null,
+        "mtime_ns": serde_json::Value::Null,
+        "content_digest": serde_json::Value::Null,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DirectoryReuseFingerprint {
+    size_bytes: u64,
+    mtime_ns: u64,
+    content_digest: String,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn directory_reuse_fingerprint(
+    path: &std::path::Path,
+    label: &str,
+) -> Result<DirectoryReuseFingerprint> {
+    let mut files = Vec::new();
+    collect_manifest_files(path, &mut files, label)?;
+    files.sort();
+    let mut total_size = 0_u64;
+    let mut max_mtime_ns = 0_u64;
+    let mut digest = Fnv1a64::new();
+    for file_path in files {
+        let metadata = std::fs::metadata(&file_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat {label} part '{}' for prepared-state reuse: {error}; fallback execution was not attempted",
+                file_path.display()
+            ))
+        })?;
+        let relative_path = file_path.strip_prefix(path).map_or_else(
+            |_| file_path.display().to_string(),
+            |relative| relative.display().to_string(),
+        );
+        let file_digest = file_digest(&file_path, label)?;
+        total_size = total_size.checked_add(metadata.len()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "{label} directory '{}' byte count overflow during prepared-state reuse fingerprinting; fallback execution was not attempted",
+                path.display()
+            ))
+        })?;
+        max_mtime_ns = max_mtime_ns.max(metadata_mtime_ns(&metadata));
+        digest.update(relative_path.as_bytes());
+        digest.update(b"\0");
+        digest.update(metadata.len().to_string().as_bytes());
+        digest.update(b"\0");
+        digest.update(metadata_mtime_ns(&metadata).to_string().as_bytes());
+        digest.update(b"\0");
+        digest.update(file_digest.as_bytes());
+        digest.update(b"\0");
+    }
+    Ok(DirectoryReuseFingerprint {
+        size_bytes: total_size,
+        mtime_ns: max_mtime_ns,
+        content_digest: format!(
+            "{}:{:016x}",
+            OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+            digest.finish()
+        ),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn collect_manifest_files(
+    path: &std::path::Path,
+    files: &mut Vec<PathBuf>,
+    label: &str,
+) -> Result<()> {
+    for entry in std::fs::read_dir(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} directory '{}' for prepared-state reuse: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })? {
+        let entry = entry.map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} directory entry in '{}' for prepared-state reuse: {error}; fallback execution was not attempted",
+                path.display()
+            ))
+        })?;
+        let child = entry.path();
+        if child.is_dir() {
+            collect_manifest_files(&child, files, label)?;
+        } else if child.is_file() {
+            files.push(child);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn normalize_manifest_path(path: &std::path::Path) -> String {
+    std::fs::canonicalize(path)
+        .unwrap_or_else(|_| {
+            if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(path)
+            }
+        })
+        .display()
+        .to_string()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn metadata_mtime_ns(metadata: &std::fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|mtime| mtime.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |duration| {
+            u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX)
+        })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn current_unix_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone)]
 struct TraditionalFactRow {
     id: u64,
     group_key: u32,
@@ -14104,17 +15210,72 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     } else {
         TraditionalAnalyticsScenario::CsvFileIngest
     };
+    let reuse_decision = evaluate_traditional_prepared_batch_workspace_reuse(
+        &fact_input,
+        &dim_input,
+        cdc_delta_input.as_deref(),
+        &workspace_dir,
+        input_format,
+        resource_policy,
+    )?;
+    if reuse_decision.hit {
+        let manifest_payload = reuse_decision.manifest_payload.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "prepared-state reuse hit is missing manifest payload; fallback execution was not attempted"
+                    .to_string(),
+            )
+        })?;
+        let batch_request = TraditionalAnalyticsVortexBatchRequest::new(
+            scenarios,
+            prepared_batch_reuse_artifact_path(manifest_payload, "fact")?,
+            prepared_batch_reuse_artifact_path(manifest_payload, "dim")?,
+        )
+        .with_cdc_delta_vortex(prepared_batch_reuse_optional_artifact_path(
+            manifest_payload,
+            "cdc_delta",
+        ))
+        .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+        .with_resource_policy(resource_policy)
+        .with_result_workspace_dir(result_workspace_dir)
+        .with_result_vortex_write(write_result_vortex);
+        let batch_request = if let Some(evidence_level) = requested_evidence_level {
+            batch_request.with_evidence_level(evidence_level)
+        } else {
+            batch_request
+        };
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
+        return Ok(TraditionalAnalyticsPreparedBatchReport {
+            preparation_scenario,
+            prepare_report: None,
+            batch_report,
+            prepared_state_reuse: TraditionalPreparedBatchReuseReport::hit(
+                reuse_decision.manifest_path,
+                reuse_decision.manifest_digest,
+                prepared_batch_reuse_prepare_fields(manifest_payload),
+            ),
+        });
+    }
+
     let prepare_report = run_traditional_analytics_benchmark_enabled(
         TraditionalAnalyticsRequest::new(
             preparation_scenario,
-            fact_input,
-            dim_input,
-            workspace_dir,
+            fact_input.clone(),
+            dim_input.clone(),
+            workspace_dir.clone(),
         )
         .with_input_format(input_format)
-        .with_cdc_delta_csv(cdc_delta_input)
+        .with_cdc_delta_csv(cdc_delta_input.clone())
         .with_requested_execution_mode(ShardLoomExecutionMode::CompatibilityImportCertified)
         .with_resource_policy(resource_policy),
+    )?;
+    let prepared_state_reuse = write_traditional_prepared_batch_workspace_reuse_manifest(
+        &prepare_report,
+        &fact_input,
+        &dim_input,
+        cdc_delta_input.as_deref(),
+        &workspace_dir,
+        resource_policy,
+        &reuse_decision.reason,
     )?;
 
     let batch_request = TraditionalAnalyticsVortexBatchRequest::new(
@@ -14136,8 +15297,9 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
 
     Ok(TraditionalAnalyticsPreparedBatchReport {
         preparation_scenario,
-        prepare_report,
+        prepare_report: Some(prepare_report),
         batch_report,
+        prepared_state_reuse,
     })
 }
 
@@ -15246,6 +16408,71 @@ fn route_evidence_digest(parts: &[&str]) -> String {
         OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
         digest.finish()
     )
+}
+
+fn set_field(fields: &mut Vec<(String, String)>, key: &str, value: impl Into<String>) {
+    if let Some((_, existing)) = fields.iter_mut().find(|(field, _)| field == key) {
+        *existing = value.into();
+    } else {
+        fields.push((key.to_string(), value.into()));
+    }
+}
+
+fn empty_to_none(value: &str) -> String {
+    if value.is_empty() {
+        "none".to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn set_prepared_state_reuse_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    scope: &str,
+    manifest_path: &str,
+    policy: &str,
+    hit: bool,
+    reason: &str,
+    manifest_digest: &str,
+    invalidation_reason: &str,
+) {
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_scope"),
+        scope,
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_manifest_path"),
+        manifest_path,
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_policy"),
+        policy,
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_hit"),
+        hit.to_string(),
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_reason"),
+        reason,
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_reuse_manifest_digest"),
+        manifest_digest,
+    );
+    set_field(
+        fields,
+        &format!("{prefix}prepared_state_invalidation_reason"),
+        invalidation_reason,
+    );
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -21797,6 +23024,26 @@ mod tests {
         assert_field_eq(&fields, "prepared_state_created", "true");
         assert_field_eq(&fields, "prepared_state_reused", "false");
         assert_field_eq(&fields, "prepared_state_reuse_hit", "false");
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_CREATED_NOT_REUSED,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_manifest_path",
+            PREPARED_STATE_REUSE_PATH_FIRST_PREPARATION,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_policy",
+            PREPARED_STATE_REUSE_POLICY_FIRST_PREPARATION,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_invalidation_reason",
+            PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION,
+        );
         assert_field_contains(
             &fields,
             "source_state_id",
@@ -22906,6 +24153,33 @@ mod tests {
         );
         assert_field_eq(&fields, "support_status", "runtime_supported");
         assert_field_eq(&fields, "claim_gate_status", "fixture_smoke_only");
+        assert_field_eq(&fields, "prepared_state_reused", "true");
+        assert_field_eq(&fields, "prepared_state_reuse_hit", "true");
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_EXPLICIT_INPUT,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_manifest_path",
+            PREPARED_STATE_REUSE_PATH_EXPLICIT_INPUT,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_policy",
+            PREPARED_STATE_REUSE_POLICY_EXPLICIT_INPUT,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_invalidation_reason",
+            PREPARED_STATE_REUSE_INVALIDATION_EXPLICIT_INPUT,
+        );
+        assert!(
+            fields
+                .get("prepared_state_reuse_manifest_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
         assert_field_eq(
             &fields,
             "persistent_runner_status",
@@ -23277,8 +24551,9 @@ mod tests {
             ShardLoomExecutionMode::PreparedVortex
         );
         assert_eq!(report.batch_report.reports.len(), 2);
-        assert!(report.prepare_report.fact_vortex_path.exists());
-        assert!(report.prepare_report.dim_vortex_path.exists());
+        let prepare_report = report.prepare_report.as_ref().expect("first run prepares");
+        assert!(prepare_report.fact_vortex_path.exists());
+        assert!(prepare_report.dim_vortex_path.exists());
         assert_field_eq(
             &fields,
             "prepare_batch_schema_version",
@@ -23311,6 +24586,57 @@ mod tests {
         );
         assert_field_eq(&fields, "prepare_batch_prepared_state_reused", "true");
         assert_field_eq(&fields, "prepare_batch_prepared_state_reuse_hit", "true");
+        assert_field_eq(&fields, "prepared_state_reused", "true");
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_manifest_path",
+            PREPARED_STATE_REUSE_PATH_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_policy",
+            PREPARED_STATE_REUSE_POLICY_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_reuse_reason",
+            "prepared_state_reused_in_same_process_after_single_compatibility_preparation",
+        );
+        assert!(
+            fields
+                .get("prepared_state_reuse_manifest_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(
+            &fields,
+            "prepared_state_invalidation_reason",
+            PREPARED_STATE_REUSE_INVALIDATION_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_state_reuse_manifest_path",
+            PREPARED_STATE_REUSE_PATH_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_state_reuse_policy",
+            PREPARED_STATE_REUSE_POLICY_IN_PROCESS,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_state_invalidation_reason",
+            PREPARED_STATE_REUSE_INVALIDATION_IN_PROCESS,
+        );
         assert_field_eq(&fields, "prepare_batch_prepared_artifact_reuse_count", "1");
         assert!(
             fields
@@ -23407,6 +24733,149 @@ mod tests {
             &fields,
             "prepare_batch_claim_gate_status",
             "not_claim_grade",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_batch_run_reuses_workspace_manifest_on_second_run() {
+        use std::io::Write as _;
+
+        let root = traditional_analytics_test_root("prepared-batch-workspace-reuse");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("prepare-workspace");
+        let scenarios = vec![TraditionalAnalyticsScenario::SelectiveFilter];
+
+        let first = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios.clone(),
+                fact_csv.clone(),
+                dim_csv.clone(),
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let first_fields = field_map(first.fields());
+        let manifest_path = traditional_prepared_batch_reuse_manifest_path(&workspace);
+        assert!(manifest_path.exists());
+        assert!(first.prepare_report.is_some());
+        assert_field_eq(
+            &first_fields,
+            "workspace_prepared_state_reuse_manifest_written",
+            "true",
+        );
+        assert_field_eq(
+            &first_fields,
+            "workspace_prepared_state_reuse_reason",
+            "no_reuse_manifest",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+        );
+
+        let second = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios.clone(),
+                fact_csv.clone(),
+                dim_csv.clone(),
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let second_fields = field_map(second.fields());
+        assert!(second.prepare_report.is_none());
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_runtime_status",
+            "workspace_prepared_state_reused_then_prepared_batch_supported",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_route",
+            "compatibility_import_certified_manifest_reuse_to_prepared_vortex_batch",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_preparation_command",
+            "prepared-vortex-reuse-manifest",
+        );
+        assert_field_eq(&second_fields, "prepare_batch_preparation_micros", "0");
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_created",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_lifecycle_preparation_status",
+            "prepared_state_reused_from_workspace_manifest",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_lifecycle_write_reopen_status",
+            "prepared_artifacts_reused_manifest_fingerprints_verified",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_WORKSPACE,
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepared_state_reuse_manifest_path",
+            PREPARED_STATE_REUSE_PATH_WORKSPACE,
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepared_state_reuse_policy",
+            PREPARED_STATE_REUSE_POLICY_WORKSPACE,
+        );
+        assert_field_eq(&second_fields, "prepared_state_reuse_hit", "true");
+        assert_field_eq(
+            &second_fields,
+            "prepared_state_reuse_reason",
+            "manifest_fingerprints_match",
+        );
+        assert_field_eq(&second_fields, "prepared_state_invalidation_reason", "none");
+        assert_field_eq(&second_fields, "fallback_attempted", "false");
+        assert_field_eq(&second_fields, "external_engine_invoked", "false");
+
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&fact_csv)
+            .unwrap()
+            .write_all(b"999,1,10,7,1.0,1,alpha,2024-01-01,,{},2024-01-01T00:00:00Z,7,true\n")
+            .unwrap();
+        let third = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(scenarios, fact_csv, dim_csv, workspace)
+                .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+                .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let third_fields = field_map(third.fields());
+        assert!(third.prepare_report.is_some());
+        assert_field_eq(
+            &third_fields,
+            "workspace_prepared_state_reuse_manifest_written",
+            "true",
+        );
+        assert_field_eq(
+            &third_fields,
+            "workspace_prepared_state_reuse_reason",
+            "fact_input_fingerprint_changed",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepared_state_reuse_scope",
+            PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
         );
 
         let _ = std::fs::remove_dir_all(root);

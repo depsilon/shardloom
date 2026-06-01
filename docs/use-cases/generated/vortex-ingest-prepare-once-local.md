@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `vortex_ingest_to_prepared_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only; default builds block deterministically. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest with no-standalone-lane evidence. Malformed or unsupported sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before unsupported runtime claims. Capillary evidence includes source split, read chunk, encode/write/reopen/sink evidence, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold-lane side lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
+- **Claim boundary:** Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Vortex ingest prepare-once local smoke has a scoped local path. Treat it as tech
 
 ## Claim Boundary
 
-Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only; default builds block deterministically. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest with no-standalone-lane evidence. Malformed or unsupported sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before unsupported runtime claims. Capillary evidence includes source split, read chunk, encode/write/reopen/sink evidence, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold-lane side lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
+Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
 
 ## How To Try It
 
@@ -80,6 +80,16 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `vortex_capillary_preparation_activation_observed_rows`
 - `vortex_capillary_preparation_activation_observed_split_count`
 - `vortex_capillary_preparation_task_roles`
+- `vortex_capillary_preparation_execution_window_count`
+- `vortex_capillary_preparation_execution_window_ids`
+- `vortex_capillary_preparation_scheduler_applied`
+- `vortex_capillary_preparation_prewrite_status`
+- `vortex_capillary_preparation_prewrite_scheduler_applied`
+- `vortex_capillary_preparation_prewrite_execution_window_count`
+- `vortex_capillary_preparation_prewrite_array_build_gate_status`
+- `vortex_capillary_preparation_prewrite_write_gate_status`
+- `vortex_capillary_preparation_prewrite_reopen_gate_status`
+- `vortex_capillary_preparation_prewrite_sink_evidence_gate_status`
 - `vortex_capillary_preparation_read_chunk_byte_range_refs`
 - `vortex_capillary_preparation_row_range_refs`
 - `vortex_capillary_preparation_vortex_segment_refs`

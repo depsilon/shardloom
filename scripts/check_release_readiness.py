@@ -1077,6 +1077,52 @@ def main() -> int:
             user_route_capability_blockers.append(
                 "user route capability local Vortex primitive command coverage mismatch"
             )
+        required_local_file_benchmark_scenarios = {
+            "selective_filter",
+            "filter_projection_limit",
+            "group_by_aggregation",
+            "multi_key_group_by",
+            "join_aggregate",
+            "sort_top_k",
+            "row_number_window",
+            "top_n_per_group",
+            "clean_cast_filter_write",
+            "partition_pruning",
+            "many_small_files_scan",
+            "null_heavy_aggregate",
+            "high_cardinality_string_group_distinct",
+            "nested_json_field_scan",
+            "small_change_over_large_base",
+        }
+        local_file_scenarios = set(
+            user_route_capability.get("local_file_benchmark_scenario_ids", [])
+        )
+        if local_file_scenarios != required_local_file_benchmark_scenarios:
+            user_route_capability_blockers.append(
+                "user route capability local file benchmark scenario coverage mismatch"
+            )
+        if user_route_capability.get("local_file_benchmark_unsupported_scenario_ids"):
+            user_route_capability_blockers.append(
+                "user route capability local file benchmark scenarios must not be unsupported"
+            )
+        if (
+            user_route_capability.get(
+                "local_file_benchmark_all_no_fallback_no_external_engine"
+            )
+            is not True
+        ):
+            user_route_capability_blockers.append(
+                "user route capability local file benchmark routes must preserve no fallback"
+            )
+        if (
+            user_route_capability.get(
+                "local_file_benchmark_all_mapped_without_generic_unsupported"
+            )
+            is not True
+        ):
+            user_route_capability_blockers.append(
+                "user route capability local file benchmark routes must avoid generic unsupported"
+            )
         for field in [
             "flexible_anything_claim_allowed",
             "performance_equivalence_claim_allowed",
@@ -1106,6 +1152,13 @@ def main() -> int:
                 "all_local_vortex_primitive_routes_supported",
                 "all_local_vortex_primitive_routes_start_at_native_boundary",
                 "all_local_vortex_primitive_commands_covered",
+                "all_required_local_file_benchmark_scenarios_mapped",
+                "no_generic_unsupported_local_file_benchmark_scenario",
+                "all_local_file_benchmark_routes_have_vortex_normalization",
+                "all_local_file_benchmark_routes_have_output_and_evidence",
+                "all_prepared_routes_expose_workspace_manifest_reuse_contract",
+                "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract",
+                "all_local_file_benchmark_routes_preserve_no_fallback",
                 "all_no_fallback_no_external_engine",
             ]:
                 if acceptance.get(field) is not True:

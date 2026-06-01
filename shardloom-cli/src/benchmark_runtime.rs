@@ -458,19 +458,19 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_vortex) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
@@ -478,6 +478,8 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
     let mut workspace_dir: Option<PathBuf> = None;
     let mut cdc_delta_vortex: Option<PathBuf> = None;
     let mut write_result_vortex = false;
+    let mut memory_gb: Option<u32> = None;
+    let mut max_parallelism: Option<usize> = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--cdc-delta-vortex" => {
@@ -504,7 +506,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
             "--execution-mode" => {
                 let Some(value) = args.next() else {
                     eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex]"
+                        "usage: shardloom traditional-analytics-vortex-run ... [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
                     );
                     return ExitCode::from(2);
                 };
@@ -534,6 +536,48 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
                             format,
                             "traditional analytics native Vortex run failed",
                             &error,
+                        );
+                    }
+                }
+            }
+            "--memory-gb" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-run ... --memory-gb <cap>"
+                    );
+                    return ExitCode::from(2);
+                };
+                match value.parse::<u32>() {
+                    Ok(parsed) if parsed > 0 => memory_gb = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-vortex-run",
+                            format,
+                            "traditional analytics native Vortex run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-run invalid --memory-gb value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
+            "--max-parallelism" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-run ... --max-parallelism <cap>"
+                    );
+                    return ExitCode::from(2);
+                };
+                match value.parse::<usize>() {
+                    Ok(parsed) if parsed > 0 => max_parallelism = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-vortex-run",
+                            format,
+                            "traditional analytics native Vortex run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-run invalid --max-parallelism value: {value}"
+                            )),
                         );
                     }
                 }
@@ -568,7 +612,13 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
     .with_cdc_delta_vortex(cdc_delta_vortex)
     .with_requested_execution_mode(requested_execution_mode)
     .with_result_workspace_dir(workspace_dir)
-    .with_result_vortex_write(write_result_vortex);
+    .with_result_vortex_write(write_result_vortex)
+    .with_resource_policy(
+        shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(
+            memory_gb,
+            max_parallelism,
+        ),
+    );
     let report = match shardloom_vortex::run_traditional_analytics_vortex_benchmark(request) {
         Ok(report) => report,
         Err(error) => {
@@ -601,7 +651,7 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
-    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay]";
+    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay] [--memory-gb <cap>] [--max-parallelism <cap>]";
     let Some(scenario_list) = args.next() else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
@@ -619,6 +669,8 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     let mut workspace_dir: Option<PathBuf> = None;
     let mut cdc_delta_vortex: Option<PathBuf> = None;
     let mut write_result_vortex = false;
+    let mut memory_gb: Option<u32> = None;
+    let mut max_parallelism: Option<usize> = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--cdc-delta-vortex" => {
@@ -696,6 +748,48 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
                     }
                 }
             }
+            "--memory-gb" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-batch-run ... --memory-gb <cap>"
+                    );
+                    return ExitCode::from(2);
+                };
+                match value.parse::<u32>() {
+                    Ok(parsed) if parsed > 0 => memory_gb = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-vortex-batch-run",
+                            format,
+                            "traditional analytics native Vortex batch run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-batch-run invalid --memory-gb value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
+            "--max-parallelism" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-vortex-batch-run ... --max-parallelism <cap>"
+                    );
+                    return ExitCode::from(2);
+                };
+                match value.parse::<usize>() {
+                    Ok(parsed) if parsed > 0 => max_parallelism = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-vortex-batch-run",
+                            format,
+                            "traditional analytics native Vortex batch run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-vortex-batch-run invalid --max-parallelism value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
             extra => {
                 return emit_error(
                     "traditional-analytics-vortex-batch-run",
@@ -726,7 +820,13 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     .with_cdc_delta_vortex(cdc_delta_vortex)
     .with_requested_execution_mode(requested_execution_mode)
     .with_result_workspace_dir(workspace_dir)
-    .with_result_vortex_write(write_result_vortex);
+    .with_result_vortex_write(write_result_vortex)
+    .with_resource_policy(
+        shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(
+            memory_gb,
+            max_parallelism,
+        ),
+    );
     let request = if let Some(evidence_level) = requested_evidence_level {
         request.with_evidence_level(evidence_level)
     } else {

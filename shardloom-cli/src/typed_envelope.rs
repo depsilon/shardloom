@@ -188,6 +188,13 @@ const COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS: &[&str] = &[
     "prepared_artifact_cleanup_policy",
     "prepared_artifact_reuse_eligible",
     "prepared_artifact_workspace",
+    "prepared_state_reuse_scope",
+    "prepared_state_reuse_manifest_path",
+    "prepared_state_reuse_policy",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
     "fact_vortex_path",
     "dim_vortex_path",
     "fact_vortex_digest",
@@ -1766,6 +1773,16 @@ mod tests {
             "fact_vortex_path".to_string(),
             "evidence_incomplete".to_string()
         )));
+        assert!(compute_flow.payload.fields.contains(&(
+            "prepared_state_reuse_scope".to_string(),
+            "prepared_state_created_not_reused".to_string()
+        )));
+        assert!(
+            compute_flow
+                .payload
+                .fields
+                .contains(&("prepared_state_reuse_hit".to_string(), "false".to_string()))
+        );
     }
 
     fn execution_mode_selection_test_fields() -> Vec<(String, String)> {
@@ -1841,6 +1858,31 @@ mod tests {
             ),
             ("fallback_attempted".to_string(), "false".to_string()),
             ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "prepared_state_reuse_scope".to_string(),
+                "prepared_state_created_not_reused".to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_path".to_string(),
+                "not_applicable_first_preparation".to_string(),
+            ),
+            (
+                "prepared_state_reuse_policy".to_string(),
+                "first_preparation_creates_vortex_prepared_state.v1".to_string(),
+            ),
+            ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "prepared_state_reuse_reason".to_string(),
+                "prepared_state_created_this_run_no_prior_reuse_requested".to_string(),
+            ),
+            (
+                "prepared_state_reuse_manifest_digest".to_string(),
+                "fnv1a64:test".to_string(),
+            ),
+            (
+                "prepared_state_invalidation_reason".to_string(),
+                "not_applicable_prepared_state_created_this_run".to_string(),
+            ),
         ]
     }
 

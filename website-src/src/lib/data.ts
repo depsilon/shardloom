@@ -80,11 +80,14 @@ export function siteStatus(value: string): string {
     blocked: "blocked",
     unsupported: "unsupported",
     runtime_supported: "runtime_supported",
+    scoped_runtime_supported: "scoped_runtime_supported",
     fixture_smoke_only: "fixture_smoke_only",
     not_planned: "not_planned",
     executable: "executable",
     feature_gated: "feature_gated",
     diagnostic_only: "diagnostic_only",
+    claim_grade: "claim_grade",
+    external_baseline_only: "external_baseline_only",
     future: "future",
   };
   return labels[value] ?? value;

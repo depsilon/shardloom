@@ -65,6 +65,19 @@ REQUIRED_QUERY_BUILDER_METHODS = [
     "write_jsonl",
     "fanout",
     "to_python_objects",
+    "profile",
+    "quarantine",
+]
+
+REQUIRED_ALIAS_METHODS = [
+    "project",
+    "with_columns",
+    "assign",
+    "groupby",
+    "order_by",
+    "sort_by",
+    "sort_values",
+    "schema_contract",
 ]
 
 REQUIRED_GENERATED_METHODS = [
@@ -75,6 +88,8 @@ REQUIRED_GENERATED_METHODS = [
     "sequence",
     "sql_values",
     "sql_literal_select",
+    "object_store_generated_output",
+    "foundry_generated_output",
 ]
 
 REQUIRED_MATERIALIZATION_METHODS = [
@@ -89,11 +104,7 @@ REQUIRED_MATERIALIZATION_METHODS = [
     "display",
 ]
 
-REQUIRED_UNSUPPORTED_METHODS = [
-    "schema_contract",
-    "quarantine",
-    "profile",
-]
+REQUIRED_UNSUPPORTED_METHODS: list[str] = []
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
@@ -425,6 +436,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
 
     for method in [
         *REQUIRED_QUERY_BUILDER_METHODS,
+        *REQUIRED_ALIAS_METHODS,
         *REQUIRED_GENERATED_METHODS,
         "sql",
         *REQUIRED_MATERIALIZATION_METHODS,
@@ -444,7 +456,12 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if not isinstance(row.get("claim_boundary"), str) or not row["claim_boundary"].strip():
             blockers.append(f"{method}: missing claim_boundary")
 
-    for method in [*REQUIRED_QUERY_BUILDER_METHODS, *REQUIRED_GENERATED_METHODS, "sql"]:
+    for method in [
+        *REQUIRED_QUERY_BUILDER_METHODS,
+        *REQUIRED_ALIAS_METHODS,
+        *REQUIRED_GENERATED_METHODS,
+        "sql",
+    ]:
         row = by_method.get(method)
         if not row:
             continue
@@ -491,6 +508,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_QUERY_BUILDER_METHODS)
+                or any(f"{method}:" in blocker for method in REQUIRED_ALIAS_METHODS)
                 or "DataFrame method matrix missing method" in blocker
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],

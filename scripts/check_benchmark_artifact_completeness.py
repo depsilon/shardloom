@@ -54,6 +54,119 @@ ROUTE_RUNTIME_STATUSES = {
     "unsupported",
     "external_baseline_only",
 }
+ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
+FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
+OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
+OPERATOR_EXECUTION_MODES = {
+    "encoded_native",
+    "residual_native",
+    "materialized_temporary",
+    "unsupported",
+    "external_baseline_only",
+}
+PREPARED_ROUTE_AMORTIZATION_COUNTS = {1, 5, 10, 50, 100}
+DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS = "derived_from_prepare_once_batch_route_timing"
+COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottleneck.v1"
+COLD_BOTTLENECK_ROUTE_LANES = {
+    "cold_certified_route",
+    "prepare_once_first_query",
+    "prepare_once_batch",
+}
+COLD_BOTTLENECK_STAGES = {
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_state_build",
+    "vortex_array_build",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_query",
+    "sink_output",
+    "evidence_render",
+}
+COLD_BOTTLENECK_REQUIRED_FIELDS = {
+    "cold_bottleneck_schema_version",
+    "cold_bottleneck_status",
+    "cold_bottleneck_stage_labels",
+    "cold_bottleneck_primary_stage",
+    "cold_bottleneck_secondary_stage",
+    "cold_route_optimization_hint",
+    "cold_route_optimization_hint_scope",
+    "cold_route_bottleneck_claim_boundary",
+    "source_split_count",
+    "source_open_count",
+    "source_bytes_read",
+    "source_columns_requested",
+    "source_projection_applied",
+    "source_pressure_profile",
+    "vortex_prepared_state_reusable",
+    "vortex_prepared_state_fingerprint",
+    "vortex_prepared_state_fingerprint_status",
+}
+ROUTE_DIAGNOSTIC_REQUIRED_FIELDS = {
+    "source_state_fingerprint",
+    "source_schema_fingerprint",
+    "source_parse_plan_id",
+    "source_split_manifest_id",
+    "source_anomaly_count",
+    "source_quarantine_required",
+    "prepared_state_fingerprint",
+    "prepared_state_reuse_scope",
+    "prepared_state_reuse_manifest_path",
+    "prepared_state_reuse_policy",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
+    "nearest_runnable_route",
+    "required_feature_gate",
+    "runtime_blocker_code",
+}
+PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
+PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
+    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+)
+PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
+    "shardloom.python.prepared_vortex_reuse_manifest.v1"
+)
+FAST_PATH_REQUIRED_FIELDS = {
+    "fast_path_attribution_schema_version",
+    "runtime_execution_ms",
+    "output_delivery_ms",
+    "evidence_capture_ms",
+    "evidence_render_ms",
+    "certificate_link_ms",
+    "runtime_execution_timing_scope",
+    "output_delivery_timing_scope",
+    "evidence_capture_timing_status",
+    "certificate_link_timing_status",
+    "runtime_execution_certificate_id",
+    "runtime_execution_certificate_status",
+    "runtime_execution_certificate_plan_ref",
+    "certificate_link_status",
+    "evidence_required_for_claim",
+    "evidence_render_included_in_route_total",
+    "fast_path_claim_boundary",
+}
+OPERATOR_MODE_REQUIRED_FIELDS = {
+    "operator_mode_inventory_schema_version",
+    "operator_execution_class",
+    "operator_admission_status",
+    "operator_encoded_native_claim_allowed",
+    "operator_residual_native_used",
+    "operator_temporary_materialization_used",
+    "operator_blocker_matrix_ref",
+    "operator_execution_mode",
+    "encoded_native_operators",
+    "residual_native_operators",
+    "materialized_temporary_operators",
+    "operator_blocker_code",
+    "operator_hot_path_candidate",
+    "operator_hot_path_candidate_status",
+    "operator_hot_path_next_step",
+    "operator_mode_claim_boundary",
+}
 REQUIRED_ROUTE_FIELDS = {
     "route_lane_id",
     "route_display_name",
@@ -68,9 +181,25 @@ REQUIRED_ROUTE_FIELDS = {
     "preparation_included",
     "query_timing_starts_after_preparation",
     "prepared_state_reused",
+    "route_timing_ledger_schema_version",
+    "route_timing_ledger_status",
+    "route_total_formula",
+    "route_timing_scope",
+    "stage_parent_id",
+    "route_timing_included_stage_ids",
+    "route_timing_excluded_stage_ids",
+    "route_timing_included_stage_total_ms",
+    "route_timing_total_delta_ms",
+    "preparation_timing_included_in_total",
+    "query_timing_included_in_total",
+    "output_timing_included_in_total",
+    "evidence_timing_included_in_total",
     "performance_claim_allowed",
     "production_claim_allowed",
     "spark_replacement_claim_allowed",
+    *ROUTE_DIAGNOSTIC_REQUIRED_FIELDS,
+    *FAST_PATH_REQUIRED_FIELDS,
+    *OPERATOR_MODE_REQUIRED_FIELDS,
 }
 
 
@@ -235,9 +364,59 @@ def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
     return fields
 
 
+def _numeric_value(value: Any) -> float | None:
+    if isinstance(value, bool) or value in (None, ""):
+        return None
+    try:
+        return float(str(value).strip())
+    except ValueError:
+        return None
+
+
+def _certified_status(value: Any) -> bool:
+    text = str(value or "").lower()
+    return "certified" in text or text == "passed"
+
+
+def _meaningful_operator_blocker(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    return text not in {
+        "",
+        "none",
+        "missing",
+        "not_reported",
+        "not_applicable",
+        "external_baseline_only",
+    }
+
+
+def _meaningful_reuse_evidence(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    return text not in {
+        "",
+        "none",
+        "missing",
+        "not_reported",
+        "not_requested",
+        "not_available",
+        "not_applicable",
+        "not_applicable_no_prepared_state",
+        "not_applicable_no_reuse_manifest_for_route",
+    }
+
+
+def _boolish_true(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
+
+
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
+    route_lane_counts: Counter[str] = Counter()
     for index, row in enumerate(result_rows(payload)):
         engine = str(row.get("engine", ""))
+        route_lane_id = str(row.get("route_lane_id") or "")
+        route_lane_counts[route_lane_id] += 1
         missing_route_fields = sorted(REQUIRED_ROUTE_FIELDS - set(row))
         if missing_route_fields:
             blockers.append(
@@ -248,6 +427,53 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(
                 f"benchmark row {index} has invalid route_runtime_status={route_status!r}"
             )
+        if row.get("route_timing_ledger_schema_version") != ROUTE_TIMING_LEDGER_SCHEMA_VERSION:
+            blockers.append(f"benchmark row {index} has invalid route timing ledger schema")
+        if row.get("fast_path_attribution_schema_version") != FAST_PATH_ATTRIBUTION_SCHEMA_VERSION:
+            blockers.append(f"benchmark row {index} has invalid fast-path attribution schema")
+        if (
+            row.get("operator_mode_inventory_schema_version")
+            != OPERATOR_MODE_INVENTORY_SCHEMA_VERSION
+        ):
+            blockers.append(f"benchmark row {index} has invalid operator-mode inventory schema")
+        operator_mode = str(row.get("operator_execution_mode") or "")
+        if operator_mode not in OPERATOR_EXECUTION_MODES:
+            blockers.append(
+                f"benchmark row {index} has invalid operator_execution_mode={operator_mode!r}"
+            )
+        if row.get("route_timing_ledger_status") != "valid":
+            blockers.append(f"benchmark row {index} route timing ledger is not valid")
+        if not str(row.get("route_total_formula") or "").strip():
+            blockers.append(f"benchmark row {index} is missing route_total_formula")
+        if not str(row.get("route_timing_scope") or "").strip():
+            blockers.append(f"benchmark row {index} is missing route_timing_scope")
+        included_total = _numeric_value(row.get("route_timing_included_stage_total_ms"))
+        total_route = _numeric_value(row.get("total_route_ms"))
+        delta = _numeric_value(row.get("route_timing_total_delta_ms"))
+        if included_total is None or total_route is None or delta is None:
+            blockers.append(f"benchmark row {index} route timing ledger has non-numeric totals")
+        elif abs(included_total - total_route) > 0.001 or delta > 0.001:
+            blockers.append(
+                f"benchmark row {index} route timing ledger does not reproduce total_route_ms"
+            )
+        for timing_field in (
+            "runtime_execution_ms",
+            "output_delivery_ms",
+            "evidence_capture_ms",
+            "evidence_render_ms",
+            "certificate_link_ms",
+        ):
+            value = _numeric_value(row.get(timing_field))
+            if value is None or value < 0:
+                blockers.append(
+                    f"benchmark row {index} has invalid fast-path timing field {timing_field}"
+                )
+        if row.get("evidence_render_included_in_route_total") != row.get(
+            "evidence_timing_included_in_total"
+        ):
+            blockers.append(
+                f"benchmark row {index} evidence render inclusion disagrees with route ledger"
+            )
         for claim_field in (
             "performance_claim_allowed",
             "production_claim_allowed",
@@ -255,7 +481,61 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
         ):
             if row.get(claim_field) is not False:
                 blockers.append(f"benchmark row {index} must set {claim_field}=false")
+        for diagnostic_field in ROUTE_DIAGNOSTIC_REQUIRED_FIELDS:
+            value = row.get(diagnostic_field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                blockers.append(
+                    f"benchmark row {index} is missing route diagnostic field {diagnostic_field}"
+                )
         if engine.startswith("shardloom"):
+            reuse_hit = _boolish_true(row.get("prepared_state_reuse_hit"))
+            reused = _boolish_true(row.get("prepared_state_reused"))
+            reuse_scope = str(row.get("prepared_state_reuse_scope") or "")
+            if reuse_hit or reused:
+                for reuse_field in (
+                    "prepared_state_reuse_scope",
+                    "prepared_state_reuse_reason",
+                    "prepared_state_reuse_manifest_digest",
+                    "prepared_state_invalidation_reason",
+                ):
+                    if not _meaningful_reuse_evidence(row.get(reuse_field)):
+                        blockers.append(
+                            f"ShardLoom reuse row {index} is missing {reuse_field}"
+                        )
+            if reuse_scope == PREPARED_STATE_REUSE_WORKSPACE_SCOPE:
+                if (
+                    row.get("prepared_state_reuse_manifest_path")
+                    != PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH
+                ):
+                    blockers.append(
+                        f"ShardLoom workspace reuse row {index} has invalid manifest path"
+                    )
+                if (
+                    row.get("prepared_state_reuse_policy")
+                    != PREPARED_STATE_REUSE_WORKSPACE_POLICY
+                ):
+                    blockers.append(
+                        f"ShardLoom workspace reuse row {index} has invalid reuse policy"
+                    )
+            if row.get("status") == "success" and row.get("runtime_blocker_code") != "none":
+                blockers.append(
+                    f"successful ShardLoom row {index} must set runtime_blocker_code=none"
+                )
+            if row.get("claim_gate_status") == "claim_grade":
+                if row.get("evidence_required_for_claim") is not True:
+                    blockers.append(
+                        f"ShardLoom claim-grade row {index} must require evidence for claim"
+                    )
+                if row.get("certificate_link_status") != "linked_certified_runtime_execution":
+                    blockers.append(
+                        f"ShardLoom claim-grade row {index} must link certified runtime execution"
+                    )
+                if not _certified_status(row.get("runtime_execution_certificate_status")):
+                    blockers.append(
+                        f"ShardLoom claim-grade row {index} missing certified runtime certificate"
+                    )
+            if not str(row.get("nearest_runnable_route") or "").strip():
+                blockers.append(f"ShardLoom row {index} is missing nearest_runnable_route")
             if route_status == "external_baseline_only":
                 blockers.append(
                     f"ShardLoom row {index} must not use external_baseline_only route status"
@@ -263,6 +543,101 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             if row.get("status") == "success" and route_status == "unsupported":
                 blockers.append(
                     f"successful ShardLoom row {index} must not report route_runtime_status=unsupported"
+                )
+            if operator_mode == "external_baseline_only":
+                blockers.append(
+                    f"ShardLoom row {index} must not use external_baseline_only operator mode"
+                )
+            if row.get("status") == "success" and operator_mode == "unsupported":
+                blockers.append(
+                    f"successful ShardLoom row {index} must not report operator_execution_mode=unsupported"
+                )
+            encoded_claim = row.get("operator_encoded_native_claim_allowed")
+            residual_used = row.get("operator_residual_native_used")
+            temporary_used = row.get("operator_temporary_materialization_used")
+            blocker_code = row.get("operator_blocker_code")
+            if operator_mode == "encoded_native":
+                if encoded_claim is not True:
+                    blockers.append(
+                        f"encoded-native ShardLoom row {index} must set "
+                        "operator_encoded_native_claim_allowed=true"
+                    )
+                if residual_used is True or temporary_used is True:
+                    blockers.append(
+                        f"encoded-native ShardLoom row {index} must not report residual/materialized operators"
+                    )
+                if str(blocker_code or "") != "none":
+                    blockers.append(
+                        f"encoded-native ShardLoom row {index} must set operator_blocker_code=none"
+                    )
+            elif operator_mode in {"residual_native", "materialized_temporary", "unsupported"}:
+                if encoded_claim is not False:
+                    blockers.append(
+                        f"non-encoded ShardLoom row {index} must set "
+                        "operator_encoded_native_claim_allowed=false"
+                    )
+                if not _meaningful_operator_blocker(blocker_code):
+                    blockers.append(
+                        f"non-encoded ShardLoom row {index} must publish a deterministic "
+                        "operator_blocker_code"
+                    )
+                if row.get("encoded_native_operators") != "none":
+                    blockers.append(
+                        f"non-encoded ShardLoom row {index} must set encoded_native_operators=none"
+                    )
+            if (
+                route_lane_id == "prepare_once_first_query"
+                and row.get("route_row_derivation_status")
+                != DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS
+            ):
+                blockers.append(
+                    f"ShardLoom prepare-once first-query row {index} must declare "
+                    f"route_row_derivation_status={DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS}"
+                )
+            missing_cold_fields = sorted(COLD_BOTTLENECK_REQUIRED_FIELDS - set(row))
+            if missing_cold_fields:
+                blockers.append(
+                    f"ShardLoom row {index} is missing cold bottleneck fields: {missing_cold_fields}"
+                )
+            elif route_lane_id in COLD_BOTTLENECK_ROUTE_LANES:
+                if row.get("cold_bottleneck_schema_version") != COLD_BOTTLENECK_SCHEMA_VERSION:
+                    blockers.append(
+                        f"ShardLoom cold row {index} has invalid cold bottleneck schema"
+                    )
+                if row.get("cold_bottleneck_status") != "complete":
+                    blockers.append(
+                        f"ShardLoom cold row {index} has incomplete cold bottleneck status: "
+                        f"{row.get('cold_bottleneck_status')}"
+                    )
+                primary_stage = str(row.get("cold_bottleneck_primary_stage") or "")
+                if primary_stage not in COLD_BOTTLENECK_STAGES:
+                    blockers.append(
+                        f"ShardLoom cold row {index} has invalid primary bottleneck stage: "
+                        f"{primary_stage!r}"
+                    )
+                if not str(row.get("cold_route_optimization_hint") or "").strip():
+                    blockers.append(
+                        f"ShardLoom cold row {index} is missing cold_route_optimization_hint"
+                    )
+                for pressure_field in (
+                    "source_split_count",
+                    "source_open_count",
+                    "source_bytes_read",
+                    "source_columns_requested",
+                ):
+                    if _numeric_value(row.get(pressure_field)) is None:
+                        blockers.append(
+                            f"ShardLoom cold row {index} has non-numeric {pressure_field}"
+                        )
+                if row.get("source_projection_applied") not in {True, False}:
+                    blockers.append(
+                        f"ShardLoom cold row {index} must set source_projection_applied boolean"
+                    )
+            elif not str(row.get("cold_bottleneck_status") or "").startswith(
+                "not_applicable"
+            ):
+                blockers.append(
+                    f"ShardLoom non-cold row {index} must not inherit cold bottleneck labels"
                 )
             if engine == "shardloom" and row.get("route_display_name") == "shardloom":
                 blockers.append(
@@ -299,6 +674,15 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"external row {index} ({engine}) must set route_runtime_status=external_baseline_only"
                 )
+            if operator_mode != "external_baseline_only":
+                blockers.append(
+                    f"external row {index} ({engine}) must set "
+                    "operator_execution_mode=external_baseline_only"
+                )
+            if row.get("operator_encoded_native_claim_allowed") is not False:
+                blockers.append(
+                    f"external row {index} ({engine}) must not allow encoded-native operator claims"
+                )
             if (
                 row.get("external_baseline_only") is not True
                 and row.get("row_classification") != "external_baseline_only"
@@ -306,6 +690,79 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"external row {index} ({engine}) is missing external_baseline_only marker"
                 )
+    for required_lane in (
+        "cold_certified_route",
+        "prepare_once_first_query",
+        "prepare_once_batch",
+        "warm_prepared_query",
+        "native_vortex_query",
+    ):
+        if route_lane_counts[required_lane] == 0:
+            blockers.append(
+                f"published benchmark artifact missing ShardLoom route lane: {required_lane}"
+            )
+
+
+def validate_prepared_route_amortization(
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    dashboard = payload.get("comparative_dashboard")
+    table = dashboard.get("prepared_route_amortization") if isinstance(dashboard, dict) else None
+    if not isinstance(table, dict):
+        blockers.append("comparative_dashboard missing prepared_route_amortization table")
+        return
+    if table.get("schema_version") != "shardloom.website.prepared_route_amortization.v1":
+        blockers.append("prepared_route_amortization schema_version mismatch")
+    counts = {
+        int(row[0])
+        for row in table.get("rows", [])
+        if isinstance(row, list) and row and _numeric_value(row[0]) is not None
+    }
+    missing_counts = sorted(PREPARED_ROUTE_AMORTIZATION_COUNTS - counts)
+    if missing_counts:
+        blockers.append(
+            f"prepared_route_amortization missing query-count rows: {missing_counts}"
+        )
+    for row in table.get("rows", []):
+        if not isinstance(row, list) or len(row) < 3:
+            blockers.append("prepared_route_amortization contains malformed row")
+            continue
+        row_count = _numeric_value(row[1])
+        if row_count is None or row_count <= 0:
+            blockers.append(
+                f"prepared_route_amortization query-count {row[0]} has no route rows"
+            )
+
+
+def validate_cold_lane_attribution(
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    dashboard = payload.get("comparative_dashboard")
+    table = dashboard.get("cold_lane_attribution") if isinstance(dashboard, dict) else None
+    if not isinstance(table, dict):
+        blockers.append("comparative_dashboard missing cold_lane_attribution table")
+        return
+    if table.get("cold_bottleneck_schema_version") != COLD_BOTTLENECK_SCHEMA_VERSION:
+        blockers.append("cold_lane_attribution cold_bottleneck_schema_version mismatch")
+    if table.get("status") != "passed":
+        blockers.append("cold_lane_attribution table is blocked")
+    headers = table.get("headers")
+    if not isinstance(headers, list) or "Primary bottleneck" not in headers:
+        blockers.append("cold_lane_attribution table must include Primary bottleneck")
+    primary_index = headers.index("Primary bottleneck") if isinstance(headers, list) and "Primary bottleneck" in headers else -1
+    cold_primary_counts: Counter[str] = Counter()
+    for row in table.get("rows", []):
+        if not isinstance(row, list) or len(row) <= primary_index:
+            blockers.append("cold_lane_attribution contains malformed row")
+            continue
+        if primary_index >= 0:
+            primary = str(row[primary_index])
+            if primary in COLD_BOTTLENECK_STAGES:
+                cold_primary_counts[primary] += int(_numeric_value(row[4]) or 0)
+    if not cold_primary_counts:
+        blockers.append("cold_lane_attribution has no cold rows with primary bottleneck stages")
 
 
 def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list[str], dict[str, Any]]:
@@ -387,6 +844,8 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
             payload = load_json(json_path)
             if isinstance(payload, dict):
                 validate_rows(payload, blockers)
+                validate_prepared_route_amortization(payload, blockers)
+                validate_cold_lane_attribution(payload, blockers)
                 validate_profile_scope(payload, profile, blockers)
                 if recursive_text_contains(payload, "spark-retire"):
                     blockers.append(

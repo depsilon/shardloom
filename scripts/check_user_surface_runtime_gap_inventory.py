@@ -97,40 +97,12 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
 }
 
 DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
-    "object_store_generated_output": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "generated_rows_to_vortex_preparable_batch_then_object_store_sink_pending",
-        "runtime_route": "object-store write and commit protocol pending",
-        "output_or_evidence_route": "deterministic unsupported diagnostic until object-store output route lands",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_output",
-    },
-    "foundry_generated_output": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "generated_rows_to_vortex_preparable_batch_then_foundry_boundary_pending",
-        "runtime_route": "Foundry integration pack runtime pending",
-        "output_or_evidence_route": "deterministic unsupported diagnostic until Foundry output evidence lands",
-        "owner": "CG-18/CG-21/CG-23/RFC-0036.foundry_integration_pack",
-    },
     "schema_contract": {
         "classification": "true_runtime_expansion_item",
         "vortex_normalization_point": "local_source_or_vortex_schema_to_contract_runtime_pending",
         "runtime_route": "schema contract enforcement runtime pending",
         "output_or_evidence_route": "diagnostic report until contract enforcement evidence lands",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.schema_contract_runtime",
-    },
-    "quarantine": {
-        "classification": "runtime_available_needs_output_route",
-        "vortex_normalization_point": "local_source_or_generated_rows_to_vortex_preparable_rows",
-        "runtime_route": "admitted local rows exist; quarantine sink policy and commit evidence pending",
-        "output_or_evidence_route": "quarantine output route pending",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.quarantine_output_route",
-    },
-    "profile": {
-        "classification": "runtime_available_needs_claim_evidence",
-        "vortex_normalization_point": "runtime_route_specific",
-        "runtime_route": "runtime routes exist for scoped local rows; profile/observability evidence pending",
-        "output_or_evidence_route": "profile report evidence pending",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.runtime_profile_evidence",
     },
 }
 
@@ -289,6 +261,41 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
     ),
     (
+        "runtime_gap_status",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "precise front-door runtime gap status",
+        "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
+    ),
+    (
+        "benchmark_publication_pending",
+        "runtime_available_needs_claim_evidence",
+        "route_specific_vortex_boundary_required",
+        "front-door benchmark publication evidence pending",
+        "GAR-RUNTIME-IMPL-6D:last_order.claim_evidence",
+    ),
+    (
+        "generic `unsupported`",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "generic unsupported language rejected by validator",
+        "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
+    ),
+    (
+        "generic unsupported or",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "generic unsupported language rejected by validator",
+        "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
+    ),
+    (
+        "blocked posture",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "generic blocked posture rejected by validator",
+        "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
+    ),
+    (
         "claims remain blocked until evidence exists",
         "runtime_available_needs_claim_evidence",
         "route_specific_vortex_boundary_required",
@@ -417,7 +424,7 @@ def front_door_gap_rows(repo_root: Path) -> tuple[list[dict[str, Any]], list[str
                 source="front_door_parity_matrix",
                 row_id=row_id,
                 surface=str(row["workflow"]),
-                observed_status=str(row["parity_status"]),
+                observed_status=str(row.get("runtime_gap_status") or row["parity_status"]),
                 classification=route["classification"],
                 vortex_normalization_point=route["vortex_normalization_point"],
                 runtime_route=route["runtime_route"],
@@ -748,6 +755,14 @@ def validate_inventory(rows: list[dict[str, Any]], benchmark: dict[str, Any]) ->
             blockers.append(
                 f"{identity[0]}:{identity[1]} is benchmark-range and should not use generic "
                 "unsupported for a front-door/output-route gap"
+            )
+        if (
+            row.get("source") == "front_door_parity_matrix"
+            and observed_status in {"unsupported", "blocked", "not complete", "not_complete"}
+        ):
+            blockers.append(
+                f"{identity[0]}:{identity[1]} front-door gap must use a precise runtime gap "
+                "status instead of generic unsupported/blocked language"
             )
     if benchmark["shardloom_unsupported_row_count"] != 0:
         blockers.append("benchmark summary must report zero ShardLoom unsupported rows")

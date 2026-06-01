@@ -214,6 +214,13 @@ successful rows should report `route_runtime_status=scoped_runtime_supported`, w
 baseline rows should report `route_runtime_status=external_baseline_only`. Unsupported external
 baseline rows are allowed when they represent an external engine limitation; they must not be
 reported as ShardLoom unsupported rows.
+All rows must also carry prepared-state reuse diagnostics:
+`prepared_state_reuse_scope`, `prepared_state_reuse_manifest_path`,
+`prepared_state_reuse_policy`, `prepared_state_reuse_hit`,
+`prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
+`prepared_state_invalidation_reason`. Reuse rows cannot be promoted with only a boolean hit flag;
+workspace-manifest reuse must expose the workspace manifest path/policy, while in-process batch
+reuse and explicit warm-prepared reuse must use distinct non-workspace scopes.
 Format declarations are not enough for publication: every required ShardLoom publication lane
 (`shardloom`, `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`) must
 have actual published rows for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC. External baseline rows
@@ -251,3 +258,34 @@ runtime-envelope proof, omits independent reproducibility/correctness/timing/rep
 contains local workstation artifact paths, ShardLoom rows that are blocked, unsupported,
 not claim-grade, fixture-smoke-only, or missing no-fallback/no-external-engine proof. These gates
 read committed artifacts and GitHub dependency state only; they do not run benchmarks.
+
+## Benchmark Publish Doctor
+
+Before handing benchmark artifacts to a reviewer, website refresh, release gate, or next agent,
+run the publication doctor:
+
+```bash
+python3 scripts/check_benchmark_publish_doctor.py \
+  --manifest website/assets/benchmarks/latest/manifest.json \
+  --allow-stale-git \
+  --allow-dirty-worktree \
+  --output target/benchmark-publish-doctor.json \
+  --packet-json target/benchmark-route-packet.json \
+  --packet-md target/benchmark-route-packet.md
+```
+
+Drop `--allow-stale-git` and `--allow-dirty-worktree` for a true publication gate against the
+current checkout. Keep those flags only when inspecting a historical local artifact during active
+worktree edits.
+
+The doctor is static and fail-closed. It runs the artifact-completeness and publication claim-gate
+logic, checks website/public/source benchmark mirror hashes, reports artifact SHA and generated
+metadata, row counts, unsupported/baseline counts, route-runtime-status distribution,
+operator-execution-mode distribution, timing-ledger validity, and the nearest next validation
+command. It also writes a compact route packet with relevant files, required validators, forbidden
+claims, primary bottleneck, operator inventory status, and the next phase-plan item. The route
+packet is safe to paste into a handoff; it avoids pulling the full benchmark corpus into prompt
+context.
+
+The doctor does not run benchmarks, publish the website, refresh dependencies, import external
+engines, or create performance claims.

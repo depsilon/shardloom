@@ -173,11 +173,14 @@ sequence, and source-free SQL JSONL/CSV smokes, not for Foundry:
 local-output-only posture, and Foundry/object-store blockers visible without treating Foundry
 generated-output runtime as supported.
 
-For typed Python diagnostics, `ctx.foundry_generated_output("foundry://dataset/output")` now returns
-the same deterministic unsupported report without invoking Foundry, Spark, object-store I/O, output
-dataset writes, fallback, or external engines. It is a no-effect planning surface only; real Foundry
+For typed Python usage, `ctx.foundry_generated_output("target/foundry/result-dataset", ...)` now
+uses the same local dev-stack proof boundary: generated rows are written through ShardLoom into a
+local result dataset-shaped directory, and an evidence dataset-shaped directory records the
+generated-source envelope, evidence summary, and claim summary. `foundry://...` references still
+return the deterministic unsupported report without staging rows, invoking Foundry, Spark,
+object-store I/O, real output dataset writes, fallback, or external engines. Real Foundry
 generated-output proof still requires a transform wrapper that writes both the output dataset and an
-evidence dataset.
+evidence dataset through real Foundry output APIs.
 
 ```text
 input_dataset_count=0

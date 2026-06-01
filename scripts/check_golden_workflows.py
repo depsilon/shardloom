@@ -601,6 +601,36 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_capillary_preparation_task_count": "0",
                 "vortex_capillary_preparation_task_manifest_id": "none",
                 "vortex_capillary_preparation_task_roles": "none",
+                "vortex_capillary_preparation_execution_window_count": "0",
+                "vortex_capillary_preparation_execution_window_ids": "none",
+                "vortex_capillary_preparation_scheduler_applied": "false",
+                "vortex_capillary_preparation_prewrite_status": (
+                    "not_requested_below_threshold"
+                ),
+                "vortex_capillary_preparation_prewrite_source_report_status": (
+                    "not_requested_below_threshold"
+                ),
+                "vortex_capillary_preparation_prewrite_activation_result": "skipped",
+                "vortex_capillary_preparation_prewrite_activation_reason": (
+                    "below_threshold_small_local_fixture"
+                ),
+                "vortex_capillary_preparation_prewrite_scheduler_applied": "false",
+                "vortex_capillary_preparation_prewrite_execution_window_count": "0",
+                "vortex_capillary_preparation_prewrite_execution_window_ids": "none",
+                "vortex_capillary_preparation_prewrite_array_build_gate_status": (
+                    "not_applicable_scheduler_not_applied"
+                ),
+                "vortex_capillary_preparation_prewrite_write_gate_status": (
+                    "not_applicable_scheduler_not_applied"
+                ),
+                "vortex_capillary_preparation_prewrite_reopen_gate_status": (
+                    "not_applicable_scheduler_not_applied"
+                ),
+                "vortex_capillary_preparation_prewrite_sink_evidence_gate_status": (
+                    "not_applicable_scheduler_not_applied"
+                ),
+                "vortex_capillary_preparation_prewrite_fallback_attempted": "false",
+                "vortex_capillary_preparation_prewrite_external_engine_invoked": "false",
                 "vortex_capillary_preparation_read_chunk_byte_range_refs": "none",
                 "vortex_capillary_preparation_vortex_segment_refs": "none",
                 "vortex_capillary_preparation_native_io_certificate_status": "certified",
@@ -646,6 +676,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_scout_ingress_status",
                 "vortex_layout_write_advisor_status",
                 "vortex_preparation_spine_native_io_certificate_status",
+                "vortex_capillary_preparation_prewrite_status",
                 "vortex_copy_budget_status",
             ),
         ),
