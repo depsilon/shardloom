@@ -838,6 +838,7 @@ struct ParsedInSubquery {
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
+    projected_plan: Option<Box<ParsedSqlLocalSource>>,
     source_format: Option<LocalSourceFormat>,
     source_digest: Option<String>,
     input_row_count: usize,
@@ -888,6 +889,7 @@ struct ParsedRowValueInSubquery {
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
+    projected_plan: Option<Box<ParsedSqlLocalSource>>,
     source_format: Option<LocalSourceFormat>,
     source_digest: Option<String>,
     input_row_count: usize,
@@ -2052,6 +2054,15 @@ struct SqlLocalSourceEvaluationOutput {
     unmatched_right_row_count: usize,
     distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SqlLocalSourcePreparedEvaluation {
+    parsed: ParsedSqlLocalSource,
+    source: CsvSourceData,
+    right_source: Option<CsvSourceData>,
+    evaluated_output: SqlLocalSourceEvaluationOutput,
+    operator_compute_millis: u128,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -5549,30 +5560,15 @@ fn run_sql_local_source_smoke_single(
     request: &SqlLocalSourceRequest,
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
-    let mut parsed = parse_sql_local_source_statement(&request.statement)?;
-    let source_read_plan = source_read_plan_for_sql(&parsed);
-    let mut source = read_local_source_with_plan(&parsed.source_path, &source_read_plan)?;
-    let mut right_source = parsed
-        .join
-        .as_ref()
-        .map(|join| read_local_source(&join.right_source_path))
-        .transpose()?;
-    bind_sql_local_source(
-        &parsed,
-        &source.header,
-        right_source.as_ref().map(|source| source.header.as_slice()),
-    )?;
-    materialize_in_subquery_predicates(&mut parsed.predicate)?;
-    materialize_in_subquery_predicates(&mut parsed.having)?;
-    apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
-    resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
-    validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
-    validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
-
-    let compute_start = Instant::now();
-    let evaluated_output =
-        evaluate_sql_local_source_output(&parsed, &source, right_source.as_ref())?;
-    let operator_compute_millis = compute_start.elapsed().as_millis();
+    let parsed = parse_sql_local_source_statement(&request.statement)?;
+    let prepared = prepare_sql_local_source_evaluation(parsed)?;
+    let SqlLocalSourcePreparedEvaluation {
+        parsed,
+        source,
+        right_source,
+        evaluated_output,
+        operator_compute_millis,
+    } = prepared;
 
     let evidence_start = Instant::now();
     let output_columns = output_column_names(&parsed, &source);
@@ -5637,6 +5633,42 @@ fn run_sql_local_source_smoke_single(
         operator_compute_millis,
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
+    })
+}
+
+fn prepare_sql_local_source_evaluation(
+    mut parsed: ParsedSqlLocalSource,
+) -> Result<SqlLocalSourcePreparedEvaluation, ShardLoomError> {
+    let source_read_plan = source_read_plan_for_sql(&parsed);
+    let mut source = read_local_source_with_plan(&parsed.source_path, &source_read_plan)?;
+    let mut right_source = parsed
+        .join
+        .as_ref()
+        .map(|join| read_local_source(&join.right_source_path))
+        .transpose()?;
+    bind_sql_local_source(
+        &parsed,
+        &source.header,
+        right_source.as_ref().map(|source| source.header.as_slice()),
+    )?;
+    materialize_in_subquery_predicates(&mut parsed.predicate)?;
+    materialize_in_subquery_predicates(&mut parsed.having)?;
+    apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
+    resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
+    validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
+    validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
+
+    let compute_start = Instant::now();
+    let evaluated_output =
+        evaluate_sql_local_source_output(&parsed, &source, right_source.as_ref())?;
+    let operator_compute_millis = compute_start.elapsed().as_millis();
+
+    Ok(SqlLocalSourcePreparedEvaluation {
+        parsed,
+        source,
+        right_source,
+        evaluated_output,
+        operator_compute_millis,
     })
 }
 
@@ -5932,6 +5964,18 @@ fn sql_local_source_plan_digest(
     ))
 }
 
+fn sql_source_digest(source: &CsvSourceData, right_source: Option<&CsvSourceData>) -> String {
+    right_source.map_or_else(
+        || source.source_digest.clone(),
+        |right_source| {
+            fnv64_digest(&format!(
+                "left={}|right={}",
+                source.source_digest, right_source.source_digest
+            ))
+        },
+    )
+}
+
 fn evaluate_non_join_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
@@ -6041,6 +6085,9 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
     if subquery.source_format.is_some() {
         return Ok(());
     }
+    if subquery.projected_plan.is_some() {
+        return materialize_projected_in_subquery(subquery);
+    }
     materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
         in_subquery_required_columns(subquery),
@@ -6084,11 +6131,67 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
     Ok(())
 }
 
+fn materialize_projected_in_subquery(
+    subquery: &mut ParsedInSubquery,
+) -> Result<(), ShardLoomError> {
+    let plan = subquery.projected_plan.take().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "projected scalar IN subquery materializer called without a projected plan".to_string(),
+        )
+    })?;
+    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let SqlLocalSourcePreparedEvaluation {
+        parsed,
+        source,
+        right_source,
+        evaluated_output,
+        ..
+    } = prepared;
+    let output_columns = projected_subquery_output_columns(&parsed)?;
+    let [source_column] = output_columns.as_slice() else {
+        return Err(unsupported_sql_error(
+            "scalar IN projected subqueries must produce exactly one output column",
+        ));
+    };
+    if evaluated_output.output_rows.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "IN projected subqueries admit at most {MAX_IN_LIST_VALUES} materialized values in this scoped runtime slice"
+        )));
+    }
+    subquery.source_column.clone_from(source_column);
+    *subquery.predicate = parsed.predicate.clone();
+    subquery.order_by.clone_from(&parsed.order_by);
+    subquery.limit = Some(parsed.limit);
+    subquery.input_row_count = source.rows.len();
+    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.values = evaluated_output
+        .output_rows
+        .iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            let Some((_column, value)) = row.first() else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "projected scalar IN subquery row {} did not produce an output value",
+                    row_index + 1
+                )));
+            };
+            Ok(value.clone())
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    subquery.source_format = Some(source.source_format);
+    subquery.source_digest = Some(sql_source_digest(&source, right_source.as_ref()));
+    subquery.projected_plan = Some(Box::new(parsed));
+    Ok(())
+}
+
 fn materialize_row_value_in_subquery(
     subquery: &mut ParsedRowValueInSubquery,
 ) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
+    }
+    if subquery.projected_plan.is_some() {
+        return materialize_projected_row_value_in_subquery(subquery);
     }
     materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
@@ -6135,6 +6238,51 @@ fn materialize_row_value_in_subquery(
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
     subquery.source_format = Some(source.source_format);
     subquery.source_digest = Some(source.source_digest);
+    Ok(())
+}
+
+fn materialize_projected_row_value_in_subquery(
+    subquery: &mut ParsedRowValueInSubquery,
+) -> Result<(), ShardLoomError> {
+    let plan = subquery.projected_plan.take().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "projected row-value IN subquery materializer called without a projected plan"
+                .to_string(),
+        )
+    })?;
+    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let SqlLocalSourcePreparedEvaluation {
+        parsed,
+        source,
+        right_source,
+        evaluated_output,
+        ..
+    } = prepared;
+    let output_columns = projected_subquery_output_columns(&parsed)?;
+    if output_columns.len() != subquery.source_columns.len() {
+        return Err(unsupported_sql_error(
+            "row-value IN projected subquery output arity must match the source column count",
+        ));
+    }
+    if evaluated_output.output_rows.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "row-value IN projected subqueries admit at most {MAX_IN_LIST_VALUES} materialized tuples in this scoped runtime slice"
+        )));
+    }
+    subquery.source_columns = output_columns;
+    *subquery.predicate = parsed.predicate.clone();
+    subquery.order_by.clone_from(&parsed.order_by);
+    subquery.limit = Some(parsed.limit);
+    subquery.input_row_count = source.rows.len();
+    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.tuples = evaluated_output
+        .output_rows
+        .iter()
+        .map(|row| row.iter().map(|(_column, value)| value.clone()).collect())
+        .collect();
+    subquery.source_format = Some(source.source_format);
+    subquery.source_digest = Some(sql_source_digest(&source, right_source.as_ref()));
+    subquery.projected_plan = Some(Box::new(parsed));
     Ok(())
 }
 
@@ -11155,7 +11303,7 @@ impl ParsedSqlLocalSource {
     }
 
     fn is_aggregate(&self) -> bool {
-        !self.aggregates.is_empty()
+        !self.aggregates.is_empty() || !self.having_aggregates.is_empty()
     }
 
     fn is_grouped_aggregate(&self) -> bool {
@@ -11350,6 +11498,40 @@ impl ParsedSqlLocalSource {
 
     fn having_in_subquery_runtime_execution(&self) -> bool {
         self.having.uses_in_subquery()
+    }
+
+    fn uses_projected_subquery(&self) -> bool {
+        self.predicate.uses_projected_subquery() || self.having.uses_projected_subquery()
+    }
+
+    fn projected_subquery_statement_kinds(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.projected_subquery_statement_kinds(),
+            self.having.projected_subquery_statement_kinds(),
+        ])
+    }
+
+    fn projected_subquery_output_column_counts(&self) -> String {
+        joined_not_applicable(&[
+            self.predicate.projected_subquery_output_column_counts(),
+            self.having.projected_subquery_output_column_counts(),
+        ])
+    }
+
+    fn projected_subquery_join_runtime_execution(&self) -> bool {
+        self.predicate.projected_subquery_join_runtime_execution()
+            || self.having.projected_subquery_join_runtime_execution()
+    }
+
+    fn projected_subquery_group_by_runtime_execution(&self) -> bool {
+        self.predicate
+            .projected_subquery_group_by_runtime_execution()
+            || self.having.projected_subquery_group_by_runtime_execution()
+    }
+
+    fn projected_subquery_having_runtime_execution(&self) -> bool {
+        self.predicate.projected_subquery_having_runtime_execution()
+            || self.having.projected_subquery_having_runtime_execution()
     }
 
     fn uses_quantified_subquery(&self) -> bool {
@@ -13402,8 +13584,12 @@ impl ParsedJoinOnPredicateFamily {
 }
 
 fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> String {
+    let projected_plan = subquery.projected_plan.as_ref().map_or_else(
+        || "simple_single_source".to_string(),
+        |plan| format!("projected:{}", plan.statement_kind()),
+    );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
         subquery.source_column,
         subquery
@@ -13412,6 +13598,7 @@ fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> Strin
             .unwrap_or("not_materialized"),
         subquery.values.len(),
         subquery.predicate.family(),
+        projected_plan,
         subquery
             .order_by
             .as_ref()
@@ -13423,8 +13610,12 @@ fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> Strin
 }
 
 fn row_value_in_subquery_plan_digest_fragment(subquery: &ParsedRowValueInSubquery) -> String {
+    let projected_plan = subquery.projected_plan.as_ref().map_or_else(
+        || "simple_single_source".to_string(),
+        |plan| format!("projected:{}", plan.statement_kind()),
+    );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
         subquery.source_columns.join("+"),
         subquery
@@ -13433,6 +13624,7 @@ fn row_value_in_subquery_plan_digest_fragment(subquery: &ParsedRowValueInSubquer
             .unwrap_or("not_materialized"),
         subquery.tuples.len(),
         subquery.predicate.family(),
+        projected_plan,
         subquery
             .order_by
             .as_ref()
@@ -13448,8 +13640,12 @@ fn quantified_subquery_plan_digest_fragment(
     comparison: ComparisonOp,
     quantifier: ParsedQuantifiedSubqueryQuantifier,
 ) -> String {
+    let projected_plan = subquery.projected_plan.as_ref().map_or_else(
+        || "simple_single_source".to_string(),
+        |plan| format!("projected:{}", plan.statement_kind()),
+    );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
         subquery.source_column,
         comparison_op_label(comparison),
@@ -13460,6 +13656,7 @@ fn quantified_subquery_plan_digest_fragment(
             .unwrap_or("not_materialized"),
         subquery.values.len(),
         subquery.predicate.family(),
+        projected_plan,
         subquery
             .order_by
             .as_ref()
@@ -17081,6 +17278,135 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_projected_subquery(&self) -> bool {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                subquery.projected_plan.is_some()
+            }
+            Self::RowValueInSubquery { subquery, .. } => subquery.projected_plan.is_some(),
+            Self::Logical { left, right, .. } => {
+                left.uses_projected_subquery() || right.uses_projected_subquery()
+            }
+            Self::Not { inner } => inner.uses_projected_subquery(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn projected_subquery_statement_kinds(&self) -> String {
+        let mut kinds = Vec::new();
+        self.push_projected_subquery_statement_kinds(&mut kinds);
+        if kinds.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            kinds.join(",")
+        }
+    }
+
+    fn push_projected_subquery_statement_kinds(&self, kinds: &mut Vec<String>) {
+        self.for_each_projected_subquery_plan(&mut |plan| kinds.push(plan.statement_kind()));
+    }
+
+    fn projected_subquery_output_column_counts(&self) -> String {
+        let mut counts = Vec::new();
+        self.for_each_projected_subquery_plan(&mut |plan| {
+            let count = projected_subquery_output_columns(plan).map_or(0, |columns| columns.len());
+            counts.push(count.to_string());
+        });
+        if counts.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            counts.join(",")
+        }
+    }
+
+    fn projected_subquery_join_runtime_execution(&self) -> bool {
+        let mut executed = false;
+        self.for_each_projected_subquery_plan(&mut |plan| executed |= plan.is_join());
+        executed
+    }
+
+    fn projected_subquery_group_by_runtime_execution(&self) -> bool {
+        let mut executed = false;
+        self.for_each_projected_subquery_plan(&mut |plan| executed |= !plan.group_by.is_empty());
+        executed
+    }
+
+    fn projected_subquery_having_runtime_execution(&self) -> bool {
+        let mut executed = false;
+        self.for_each_projected_subquery_plan(&mut |plan| executed |= plan.has_having());
+        executed
+    }
+
+    fn for_each_projected_subquery_plan<F>(&self, visit: &mut F)
+    where
+        F: FnMut(&ParsedSqlLocalSource),
+    {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    visit(plan);
+                    plan.predicate.for_each_projected_subquery_plan(visit);
+                    plan.having.for_each_projected_subquery_plan(visit);
+                }
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    visit(plan);
+                    plan.predicate.for_each_projected_subquery_plan(visit);
+                    plan.having.for_each_projected_subquery_plan(visit);
+                }
+            }
+            Self::Logical { left, right, .. } => {
+                left.for_each_projected_subquery_plan(visit);
+                right.for_each_projected_subquery_plan(visit);
+            }
+            Self::Not { inner } => inner.for_each_projected_subquery_plan(visit),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
     fn in_subquery_plan_digest_fragment(&self) -> String {
         let mut fragments = Vec::new();
         self.push_in_subquery_plan_digest_fragments(&mut fragments);
@@ -20201,6 +20527,36 @@ impl SqlLocalSourceReport {
                 "in_subquery_limit_runtime_execution".to_string(),
                 self.parsed
                     .in_subquery_limit_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "projected_subquery_runtime_execution".to_string(),
+                self.parsed.uses_projected_subquery().to_string(),
+            ),
+            (
+                "projected_subquery_statement_kind".to_string(),
+                self.parsed.projected_subquery_statement_kinds(),
+            ),
+            (
+                "projected_subquery_output_column_count".to_string(),
+                self.parsed.projected_subquery_output_column_counts(),
+            ),
+            (
+                "projected_subquery_join_runtime_execution".to_string(),
+                self.parsed
+                    .projected_subquery_join_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "projected_subquery_group_by_runtime_execution".to_string(),
+                self.parsed
+                    .projected_subquery_group_by_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "projected_subquery_having_runtime_execution".to_string(),
+                self.parsed
+                    .projected_subquery_having_runtime_execution()
                     .to_string(),
             ),
             (
@@ -27641,6 +27997,10 @@ fn parse_row_value_in_subquery_predicate(
     raw: &str,
     negated: bool,
 ) -> Result<ParsedPredicate, ShardLoomError> {
+    let raw = raw.trim();
+    if is_projected_local_source_subquery(raw)? {
+        return parse_projected_row_value_in_subquery_predicate(columns, raw, negated);
+    }
     validate_in_subquery_shape(raw)?;
     let from_clause = find_keyword_outside_quotes_and_parentheses(raw, "from")?.ok_or_else(|| {
         unsupported_sql_error(
@@ -27675,6 +28035,44 @@ fn parse_row_value_in_subquery_predicate(
             predicate: Box::new(predicate),
             order_by,
             limit,
+            projected_plan: None,
+            source_format: None,
+            source_digest: None,
+            input_row_count: 0,
+            filtered_row_count: 0,
+            tuples: Vec::new(),
+        }),
+    };
+    if negated {
+        Ok(ParsedPredicate::Not {
+            inner: Box::new(predicate),
+        })
+    } else {
+        Ok(predicate)
+    }
+}
+
+fn parse_projected_row_value_in_subquery_predicate(
+    columns: Vec<String>,
+    raw: &str,
+    negated: bool,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    let projected_plan = parse_projected_subquery_plan(raw)?;
+    let source_columns = projected_subquery_output_columns(&projected_plan)?;
+    if source_columns.len() != columns.len() {
+        return Err(unsupported_sql_error(
+            "row-value IN projected subquery output arity must match the source column count",
+        ));
+    }
+    let predicate = ParsedPredicate::RowValueInSubquery {
+        columns,
+        subquery: Box::new(ParsedRowValueInSubquery {
+            source_columns,
+            source_path: projected_plan.source_path.clone(),
+            predicate: Box::new(ParsedPredicate::All),
+            order_by: projected_plan.order_by.clone(),
+            limit: Some(projected_plan.limit),
+            projected_plan: Some(Box::new(projected_plan)),
             source_format: None,
             source_digest: None,
             input_row_count: 0,
@@ -27815,6 +28213,9 @@ fn validate_row_value_in_literal_tuples(tuples: &[Vec<ScalarValue>]) -> Result<(
 
 fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     let raw = raw.trim();
+    if is_projected_local_source_subquery(raw)? {
+        return parse_projected_in_subquery_predicate(column, raw);
+    }
     validate_in_subquery_shape(raw)?;
     let from_clause = find_keyword_outside_quotes_and_parentheses(raw, "from")?.ok_or_else(|| {
         unsupported_sql_error(
@@ -27844,6 +28245,7 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
             predicate: Box::new(predicate),
             order_by,
             limit,
+            projected_plan: None,
             source_format: None,
             source_digest: None,
             input_row_count: 0,
@@ -27851,6 +28253,120 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
             values: Vec::new(),
         }),
     })
+}
+
+fn parse_projected_in_subquery_predicate(
+    column: &str,
+    raw: &str,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    let projected_plan = parse_projected_subquery_plan(raw)?;
+    let output_columns = projected_subquery_output_columns(&projected_plan)?;
+    let [source_column] = output_columns.as_slice() else {
+        return Err(unsupported_sql_error(
+            "scalar IN projected subqueries must produce exactly one output column",
+        ));
+    };
+    Ok(ParsedPredicate::InSubquery {
+        column: column.to_string(),
+        subquery: Box::new(ParsedInSubquery {
+            source_column: source_column.clone(),
+            source_path: projected_plan.source_path.clone(),
+            predicate: Box::new(ParsedPredicate::All),
+            order_by: projected_plan.order_by.clone(),
+            limit: Some(projected_plan.limit),
+            projected_plan: Some(Box::new(projected_plan)),
+            source_format: None,
+            source_digest: None,
+            input_row_count: 0,
+            filtered_row_count: 0,
+            values: Vec::new(),
+        }),
+    })
+}
+
+fn is_projected_local_source_subquery(raw: &str) -> Result<bool, ShardLoomError> {
+    validate_in_subquery_select_prefix(raw)?;
+    Ok(
+        find_keyword_outside_quotes_and_parentheses(raw, "join")?.is_some()
+            || find_keyword_outside_quotes_and_parentheses(raw, "group by")?.is_some()
+            || find_keyword_outside_quotes_and_parentheses(raw, "having")?.is_some(),
+    )
+}
+
+fn parse_projected_subquery_plan(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
+    let statement = bounded_projected_subquery_statement(raw)?;
+    let projected_plan = parse_sql_local_source_statement(&statement)?;
+    if projected_plan.limit > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "IN projected subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows in this scoped runtime slice"
+        )));
+    }
+    let _output_columns = projected_subquery_output_columns(&projected_plan)?;
+    Ok(projected_plan)
+}
+
+fn bounded_projected_subquery_statement(raw: &str) -> Result<String, ShardLoomError> {
+    let statement = normalize_and_validate_sql_statement(raw)?;
+    if find_keyword_outside_quotes_and_parentheses(&statement, "limit")?.is_some() {
+        Ok(statement)
+    } else {
+        Ok(format!("{statement} LIMIT {MAX_IN_LIST_VALUES}"))
+    }
+}
+
+fn projected_subquery_output_columns(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<Vec<String>, ShardLoomError> {
+    if parsed
+        .projection_order
+        .iter()
+        .any(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column == "*"))
+    {
+        return Err(unsupported_sql_error(
+            "projected IN subqueries require explicit output columns; SELECT * is not admitted for membership materialization",
+        ));
+    }
+    let columns = if parsed.is_grouped_aggregate() {
+        parsed
+            .group_by
+            .iter()
+            .cloned()
+            .chain(parsed.aggregates.iter().map(ParsedAggregate::output_name))
+            .collect()
+    } else if parsed.is_aggregate() {
+        parsed
+            .aggregates
+            .iter()
+            .map(ParsedAggregate::output_name)
+            .collect()
+    } else {
+        parsed
+            .projection_order
+            .iter()
+            .map(|output| match output {
+                ParsedProjectionOutput::Raw(column)
+                | ParsedProjectionOutput::Literal(column)
+                | ParsedProjectionOutput::Cast(column)
+                | ParsedProjectionOutput::NullCoalesce(column)
+                | ParsedProjectionOutput::NullIf(column)
+                | ParsedProjectionOutput::Conditional(column)
+                | ParsedProjectionOutput::Predicate(column)
+                | ParsedProjectionOutput::NumericArithmetic(column)
+                | ParsedProjectionOutput::NumericAbs(column)
+                | ParsedProjectionOutput::NumericRounding(column)
+                | ParsedProjectionOutput::GenericExpression(column)
+                | ParsedProjectionOutput::DateArithmetic(column)
+                | ParsedProjectionOutput::TimestampArithmetic(column)
+                | ParsedProjectionOutput::StringLength(column)
+                | ParsedProjectionOutput::StringTransform(column)
+                | ParsedProjectionOutput::StringFunction(column)
+                | ParsedProjectionOutput::DateExtract(column)
+                | ParsedProjectionOutput::TimestampExtract(column)
+                | ParsedProjectionOutput::Window(column) => column.clone(),
+            })
+            .collect()
+    };
+    Ok(columns)
 }
 
 fn parse_quantified_subquery_predicate(
@@ -27992,6 +28508,28 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
 }
 
 fn validate_in_subquery_shape(raw: &str) -> Result<(), ShardLoomError> {
+    validate_in_subquery_select_prefix(raw)?;
+    if find_keyword_outside_quotes_and_parentheses(&raw["select".len()..], "select")?.is_some() {
+        return Err(unsupported_sql_error(
+            "nested IN subqueries are not admitted by the current advanced predicate profile",
+        ));
+    }
+    if find_keyword_outside_quotes_and_parentheses(raw, "join")?.is_some() {
+        return Err(unsupported_sql_error(
+            "non-projected joined IN subqueries are not admitted by the current advanced predicate profile; use an explicit projected local-source SELECT with matching output arity",
+        ));
+    }
+    if find_keyword_outside_quotes_and_parentheses(raw, "group by")?.is_some()
+        || find_keyword_outside_quotes_and_parentheses(raw, "having")?.is_some()
+    {
+        return Err(unsupported_sql_error(
+            "non-projected grouped or HAVING IN subqueries are not admitted by the current advanced predicate profile; use an explicit projected local-source SELECT with matching output arity",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_in_subquery_select_prefix(raw: &str) -> Result<(), ShardLoomError> {
     if !raw
         .get(.."select".len())
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
@@ -28003,19 +28541,7 @@ fn validate_in_subquery_shape(raw: &str) -> Result<(), ShardLoomError> {
     }
     if find_keyword_outside_quotes_and_parentheses(&raw["select".len()..], "select")?.is_some() {
         return Err(unsupported_sql_error(
-            "nested IN subqueries are not admitted by the current advanced predicate profile",
-        ));
-    }
-    if find_keyword_outside_quotes_and_parentheses(raw, "join")?.is_some() {
-        return Err(unsupported_sql_error(
-            "joined IN subqueries are not admitted by the current advanced predicate profile; materialize the joined source explicitly before this scoped runtime path",
-        ));
-    }
-    if find_keyword_outside_quotes_and_parentheses(raw, "group by")?.is_some()
-        || find_keyword_outside_quotes_and_parentheses(raw, "having")?.is_some()
-    {
-        return Err(unsupported_sql_error(
-            "grouped and HAVING subqueries are not admitted by the current advanced predicate profile; only bounded scalar projection subqueries are admitted",
+            "top-level multiple SELECT subqueries are not admitted by the current advanced predicate profile",
         ));
     }
     Ok(())
@@ -32682,6 +33208,7 @@ mod tests {
                     predicate: Box::new(ParsedPredicate::All),
                     order_by: None,
                     limit: None,
+                    projected_plan: None,
                     source_format: Some(LocalSourceFormat::Csv),
                     source_digest: Some("digest".to_string()),
                     input_row_count: 2,
@@ -32768,6 +33295,256 @@ mod tests {
     }
 
     #[test]
+    fn runs_joined_projected_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("joined-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("joined-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,false,20\n3,true,40\n5,true,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "a.id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "false",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_grouped_having_projected_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("grouped-subquery-source.csv");
+        let grouped_path = sql_local_source_test_path("grouped-subquery-values.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(&grouped_path, "id,amount\n1,10\n1,20\n2,5\n3,7\n3,9\n4,1\n")
+            .expect("write grouped csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run grouped HAVING projected IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_join_runtime_execution",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "6");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn runs_joined_projected_row_value_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("joined-row-value-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("joined-row-value-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,false,20\n3,true,40\n5,true,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT s.id,s.label FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected row-value IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "predicate_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "s.id,s.label");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "row_value_in_tuple_count", "2");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_joined_projected_quantified_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("joined-quantified-subquery-source.csv");
+        let thresholds_path =
+            sql_local_source_test_path("joined-quantified-subquery-thresholds.csv");
+        let allowed_path = sql_local_source_test_path("joined-quantified-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n5,epsilon,34\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "threshold_id,threshold,score\n10,10,20\n20,20,30\n30,99,40\n",
+        )
+        .expect("write thresholds csv");
+        fs::write(
+            &allowed_path,
+            "threshold_id,enabled\n10,true\n20,true\n30,false\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT t.threshold FROM '{}' AS t INNER JOIN '{}' AS a ON t.threshold_id = a.threshold_id WHERE a.enabled IS TRUE ORDER BY t.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected quantified subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":3,\"label\":\"gamma\"}\n{\"id\":5,\"label\":\"epsilon\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "t.threshold");
+        assert_field_eq(&fields, "quantified_subquery_source_format", "csv");
+        assert_field_eq(&fields, "quantified_subquery_input_row_count", "3");
+        assert_field_eq(&fields, "quantified_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "quantified_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
     fn in_predicate_blocks_unadmitted_literal_lists_without_fallback() {
         let empty_error = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.csv' WHERE label IN () LIMIT 5",
@@ -32848,14 +33625,6 @@ mod tests {
             (
                 "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id FROM 'target/allowed.csv') LIMIT 5",
                 "row-value IN subquery selected-column arity must match the source column count",
-            ),
-            (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' JOIN 'target/other.csv' ON id = id) LIMIT 5",
-                "joined IN subqueries are not admitted",
-            ),
-            (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' GROUP BY id) LIMIT 5",
-                "grouped and HAVING subqueries are not admitted",
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.id = 1) LIMIT 5",
