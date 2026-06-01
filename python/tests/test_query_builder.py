@@ -1741,9 +1741,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").like("a%a")), "label LIKE 'a%a'")
         self.assertEqual(str(sl.col("label").like("_l%")), "label LIKE '_l%'")
+        self.assertEqual(
+            str(sl.col("label").like("al!_%", escape="!")),
+            "label LIKE 'al!_%' ESCAPE '!'",
+        )
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
         self.assertEqual(str(sl.col("label").not_like("%tmp%")), "label NOT LIKE '%tmp%'")
+        self.assertEqual(
+            str(sl.col("label").not_like("tmp!_%", escape="!")),
+            "label NOT LIKE 'tmp!_%' ESCAPE '!'",
+        )
         self.assertEqual(str(sl.col("label").rlike("^a.*a$")), "label RLIKE '^a.*a$'")
         self.assertEqual(str(sl.col("label").regex("^a.*a$")), "label RLIKE '^a.*a$'")
         self.assertEqual(str(sl.col("label").matches("^a.*a$")), "label RLIKE '^a.*a$'")
@@ -1772,6 +1780,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             str(sl.right(sl.col("label"), "2") == "ha"), "RIGHT(label, 2) = 'ha'"
         )
+        with self.assertRaisesRegex(
+            ValueError, "LIKE escape character must be exactly one character"
+        ):
+            sl.col("label").like("al!_%", escape="!!")
         self.assertEqual(
             str(sl.col("label").replace(" ", "_") == "alpha_beta"),
             "REPLACE(label, ' ', '_') = 'alpha_beta'",
@@ -2337,6 +2349,65 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.predicate_operator_family, "string_predicate")
         self.assertTrue(report.string_predicate_runtime_execution)
         self.assertEqual(report.string_predicate_operator, ("regex_match",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_like_escape_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"al_pha\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "string_predicate"},
+                        {"key": "string_predicate_runtime_execution", "value": "true"},
+                        {"key": "string_predicate_operator", "value": "like_pattern"},
+                        {"key": "string_predicate_like_escape_runtime_execution", "value": "true"},
+                        {"key": "string_predicate_like_escape_character", "value": "!"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .where(sl.col("label").like("al!_%", escape="!"))
+            .select("id", "label")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "al_pha"},))
+        self.assertEqual(report.predicate_operator_family, "string_predicate")
+        self.assertTrue(report.string_predicate_runtime_execution)
+        self.assertEqual(report.string_predicate_operator, ("like_pattern",))
+        self.assertTrue(report.string_predicate_like_escape_runtime_execution)
+        self.assertEqual(report.string_predicate_like_escape_character, ("!",))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

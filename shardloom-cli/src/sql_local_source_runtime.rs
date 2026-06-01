@@ -1047,6 +1047,7 @@ enum ParsedPredicate {
         column: String,
         op: StringPredicateOp,
         value: String,
+        like_escape: Option<char>,
     },
     StringTransformCompare {
         expression: Box<Expression>,
@@ -13540,7 +13541,7 @@ impl ParsedPredicate {
                 subquery,
             } => quantified_subquery_expression(column, *comparison, *quantifier, subquery),
             Self::ExistsSubquery { subquery } => exists_subquery_expression(subquery),
-            Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
+            Self::StringMatch { .. } => self.string_match_expression(),
             Self::Logical { op, left, right } => Ok(Expression::new(
                 ExprId::new(format!("where.logical.{}", op.as_str()))?,
                 ExpressionKind::Binary {
@@ -13557,6 +13558,16 @@ impl ParsedPredicate {
                 },
             )),
         }
+    }
+
+    fn string_match_expression(&self) -> Result<Expression, ShardLoomError> {
+        let Self::StringMatch {
+            column, op, value, ..
+        } = self
+        else {
+            unreachable!("string_match_expression called for non-string-match predicate")
+        };
+        string_match_expression(column, *op, value)
     }
 
     fn string_compare_expression(&self) -> Result<Expression, ShardLoomError> {
@@ -14051,6 +14062,93 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. } => {}
+        }
+    }
+
+    fn uses_like_escape(&self) -> bool {
+        match self {
+            Self::StringMatch {
+                like_escape: Some(_),
+                ..
+            } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_like_escape() || right.uses_like_escape()
+            }
+            Self::Not { inner } => inner.uses_like_escape(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn like_escape_characters(&self) -> String {
+        let mut escapes = Vec::new();
+        self.push_like_escape_characters(&mut escapes);
+        if escapes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            escapes.join(",")
+        }
+    }
+
+    fn push_like_escape_characters(&self, escapes: &mut Vec<String>) {
+        match self {
+            Self::StringMatch {
+                like_escape: Some(ch),
+                ..
+            } => escapes.push(ch.to_string()),
+            Self::Logical { left, right, .. } => {
+                left.push_like_escape_characters(escapes);
+                right.push_like_escape_characters(escapes);
+            }
+            Self::Not { inner } => inner.push_like_escape_characters(escapes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => {}
         }
     }
 
@@ -19658,6 +19756,14 @@ impl SqlLocalSourceReport {
             (
                 "string_predicate_operator".to_string(),
                 self.parsed.predicate.string_operator(),
+            ),
+            (
+                "string_predicate_like_escape_runtime_execution".to_string(),
+                self.parsed.predicate.uses_like_escape().to_string(),
+            ),
+            (
+                "string_predicate_like_escape_character".to_string(),
+                self.parsed.predicate.like_escape_characters(),
             ),
             (
                 "string_transform_runtime_execution".to_string(),
@@ -25851,24 +25957,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         return Ok(predicate);
     }
     parse_quantified_subquery_blocker(raw)?;
-    parse_like_escape_clause_blocker(raw)?;
     parse_token_predicate(raw)
-}
-
-fn parse_like_escape_clause_blocker(raw: &str) -> Result<(), ShardLoomError> {
-    let tokens = split_whitespace_outside_quotes(raw)?;
-    let has_like = tokens
-        .iter()
-        .any(|token| token.eq_ignore_ascii_case("like"));
-    let has_escape = tokens
-        .iter()
-        .any(|token| token.eq_ignore_ascii_case("escape"));
-    if has_like && has_escape {
-        return Err(unsupported_sql_error(
-            "LIKE ESCAPE clauses are not admitted in this scoped UTF-8 LIKE runtime slice; use unescaped %/_ wildcards or an explicit RLIKE/REGEXP predicate",
-        ));
-    }
-    Ok(())
 }
 
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
@@ -25923,11 +26012,35 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         [column, op_raw, literal_raw] => {
             parse_literal_or_pattern_predicate(column, op_raw, literal_raw)
         }
+        [
+            column,
+            like_keyword,
+            literal_raw,
+            escape_keyword,
+            escape_raw,
+        ] if like_keyword.eq_ignore_ascii_case("like")
+            && escape_keyword.eq_ignore_ascii_case("escape") =>
+        {
+            parse_like_predicate(column, literal_raw, Some(escape_raw))
+        }
         [column, not_keyword, like_keyword, literal_raw]
             if not_keyword.eq_ignore_ascii_case("not")
                 && like_keyword.eq_ignore_ascii_case("like") =>
         {
-            parse_negated_like_predicate(column, literal_raw)
+            parse_negated_like_predicate(column, literal_raw, None)
+        }
+        [
+            column,
+            not_keyword,
+            like_keyword,
+            literal_raw,
+            escape_keyword,
+            escape_raw,
+        ] if not_keyword.eq_ignore_ascii_case("not")
+            && like_keyword.eq_ignore_ascii_case("like")
+            && escape_keyword.eq_ignore_ascii_case("escape") =>
+        {
+            parse_negated_like_predicate(column, literal_raw, Some(escape_raw))
         }
         [column, not_keyword, regex_op_raw, literal_raw]
             if not_keyword.eq_ignore_ascii_case("not")
@@ -25946,19 +26059,14 @@ fn parse_literal_or_pattern_predicate(
 ) -> Result<ParsedPredicate, ShardLoomError> {
     validate_sql_column_ref(column)?;
     if op_raw.eq_ignore_ascii_case("like") {
-        let pattern = parse_sql_string_literal(literal_raw)?;
-        let (op, value) = parse_like_string_predicate(&pattern)?;
-        return Ok(ParsedPredicate::StringMatch {
-            column: column.to_string(),
-            op,
-            value,
-        });
+        return parse_like_predicate(column, literal_raw, None);
     }
     if is_regex_predicate_operator(op_raw) {
         return Ok(ParsedPredicate::StringMatch {
             column: column.to_string(),
             op: StringPredicateOp::RegexMatch,
             value: parse_regex_pattern_literal(literal_raw)?,
+            like_escape: None,
         });
     }
     let op = parse_comparison_op(op_raw)?;
@@ -25970,18 +26078,54 @@ fn parse_literal_or_pattern_predicate(
     })
 }
 
-fn parse_negated_like_predicate(
+fn parse_like_predicate(
     column: &str,
     literal_raw: &str,
+    escape_raw: Option<&str>,
 ) -> Result<ParsedPredicate, ShardLoomError> {
     validate_sql_column_ref(column)?;
     let pattern = parse_sql_string_literal(literal_raw)?;
-    let (op, value) = parse_like_string_predicate(&pattern)?;
+    let like_escape = escape_raw.map(parse_like_escape_character).transpose()?;
+    let (op, value) = parse_like_string_predicate(&pattern, like_escape)?;
+    Ok(ParsedPredicate::StringMatch {
+        column: column.to_string(),
+        op,
+        value,
+        like_escape,
+    })
+}
+
+fn parse_like_escape_character(raw: &str) -> Result<char, ShardLoomError> {
+    let value = parse_sql_string_literal(raw)?;
+    let mut chars = value.chars();
+    let Some(ch) = chars.next() else {
+        return Err(unsupported_sql_error(
+            "LIKE ESCAPE clause requires a single-character string literal",
+        ));
+    };
+    if chars.next().is_some() {
+        return Err(unsupported_sql_error(
+            "LIKE ESCAPE clause requires a single-character string literal",
+        ));
+    }
+    Ok(ch)
+}
+
+fn parse_negated_like_predicate(
+    column: &str,
+    literal_raw: &str,
+    escape_raw: Option<&str>,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_sql_column_ref(column)?;
+    let pattern = parse_sql_string_literal(literal_raw)?;
+    let like_escape = escape_raw.map(parse_like_escape_character).transpose()?;
+    let (op, value) = parse_like_string_predicate(&pattern, like_escape)?;
     Ok(ParsedPredicate::Not {
         inner: Box::new(ParsedPredicate::StringMatch {
             column: column.to_string(),
             op,
             value,
+            like_escape,
         }),
     })
 }
@@ -25996,13 +26140,14 @@ fn parse_negated_regex_predicate(
             column: column.to_string(),
             op: StringPredicateOp::RegexMatch,
             value: parse_regex_pattern_literal(literal_raw)?,
+            like_escape: None,
         }),
     })
 }
 
 fn unsupported_where_predicate_shape_error() -> ShardLoomError {
     unsupported_sql_error(
-        "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> [NOT] RLIKE|REGEXP <regex-pattern>, REGEXP_LIKE(<column>, <regex-pattern>), <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+        "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern> [ESCAPE <single-character-string-literal>], <column> [NOT] RLIKE|REGEXP <regex-pattern>, REGEXP_LIKE(<column>, <regex-pattern>), <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
     )
 }
 
@@ -28044,6 +28189,7 @@ fn parse_regex_function_predicate(raw: &str) -> Result<Option<ParsedPredicate>, 
         column: column.to_string(),
         op: StringPredicateOp::RegexMatch,
         value: parse_regex_pattern_literal(pattern_raw)?,
+        like_escape: None,
     }))
 }
 
@@ -28077,9 +28223,10 @@ fn validate_regex_pattern(pattern: &str) -> Result<(), ShardLoomError> {
 
 fn parse_like_string_predicate(
     pattern: &str,
+    escape: Option<char>,
 ) -> Result<(StringPredicateOp, String), ShardLoomError> {
     let percent_count = pattern.chars().filter(|ch| *ch == '%').count();
-    if !pattern.contains('_') {
+    if escape.is_none() && !pattern.contains('_') {
         match (
             pattern.strip_prefix('%'),
             pattern.strip_suffix('%'),
@@ -28100,12 +28247,27 @@ fn parse_like_string_predicate(
             _ => {}
         }
     }
-    like_pattern_to_regex(pattern).map(|regex| (StringPredicateOp::LikePattern, regex))
+    like_pattern_to_regex(pattern, escape).map(|regex| (StringPredicateOp::LikePattern, regex))
 }
 
-fn like_pattern_to_regex(pattern: &str) -> Result<String, ShardLoomError> {
+fn like_pattern_to_regex(pattern: &str, escape: Option<char>) -> Result<String, ShardLoomError> {
     let mut regex = String::from(r"\A");
-    for ch in pattern.chars() {
+    let mut chars = pattern.chars();
+    while let Some(ch) = chars.next() {
+        if escape.is_some_and(|escape| ch == escape) {
+            let Some(next) = chars.next() else {
+                return Err(unsupported_sql_error(
+                    "LIKE ESCAPE pattern cannot end with the escape character",
+                ));
+            };
+            if next != '%' && next != '_' && Some(next) != escape {
+                return Err(unsupported_sql_error(
+                    "LIKE ESCAPE may only escape %, _, or the escape character",
+                ));
+            }
+            push_regex_escaped_char(&mut regex, next);
+            continue;
+        }
         match ch {
             '%' => regex.push_str("(?s:.*)"),
             '_' => regex.push_str("(?s:.)"),
@@ -31164,6 +31326,44 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_like_escape_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,label\n1,alpha\n2,al_pha\n3,al%pha\n4,alxpha\n5,\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request).expect("run LIKE ESCAPE smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(report.result_jsonl, "{\"id\":2,\"label\":\"al_pha\"}\n");
+        assert_field_eq(&fields, "predicate_operator_family", "string_predicate");
+        assert_field_eq(&fields, "string_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "string_predicate_operator", "like_pattern");
+        assert_field_eq(
+            &fields,
+            "string_predicate_like_escape_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "string_predicate_like_escape_character", "!");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn parses_scoped_cast_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,amount FROM 'target/input.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 5",
@@ -32500,7 +32700,9 @@ mod tests {
         )
         .expect("scoped LIKE multi-wildcard predicate is admitted");
         match parsed.predicate {
-            ParsedPredicate::StringMatch { column, op, value } => {
+            ParsedPredicate::StringMatch {
+                column, op, value, ..
+            } => {
                 assert_eq!(column, "label");
                 assert_eq!(op, StringPredicateOp::LikePattern);
                 assert_eq!(value, r"\Aa(?s:.*)a\z");
@@ -32513,7 +32715,9 @@ mod tests {
         )
         .expect("scoped LIKE single-character wildcard predicate is admitted");
         match parsed.predicate {
-            ParsedPredicate::StringMatch { column, op, value } => {
+            ParsedPredicate::StringMatch {
+                column, op, value, ..
+            } => {
                 assert_eq!(column, "label");
                 assert_eq!(op, StringPredicateOp::LikePattern);
                 assert_eq!(value, r"\A(?s:.)l(?s:.*)\z");
@@ -32527,7 +32731,9 @@ mod tests {
         .expect("scoped NOT LIKE wildcard predicate is admitted");
         match parsed.predicate {
             ParsedPredicate::Not { inner } => match *inner {
-                ParsedPredicate::StringMatch { column, op, value } => {
+                ParsedPredicate::StringMatch {
+                    column, op, value, ..
+                } => {
                     assert_eq!(column, "label");
                     assert_eq!(op, StringPredicateOp::LikePattern);
                     assert_eq!(value, r"\Aa(?s:.)p(?s:.*)\z");
@@ -32539,18 +32745,78 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_like_escape_clauses_without_fallback() {
-        let error = parse_sql_local_source_statement(
+    fn parser_admits_scoped_like_escape_predicates_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!_%' ESCAPE '!' LIMIT 5",
         )
-        .expect_err("LIKE ESCAPE remains outside the scoped LIKE claim");
+        .expect("scoped LIKE ESCAPE predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::StringMatch {
+                column,
+                op,
+                value,
+                like_escape,
+            } => {
+                assert_eq!(column, "label");
+                assert_eq!(op, StringPredicateOp::LikePattern);
+                assert_eq!(value, r"\Aa_(?s:.*)\z");
+                assert_eq!(like_escape, Some('!'));
+            }
+            other => panic!("expected LIKE ESCAPE StringMatch predicate, got {other:?}"),
+        }
 
-        assert!(
-            error
-                .to_string()
-                .contains("LIKE ESCAPE clauses are not admitted")
-        );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label NOT LIKE 'a!_%' ESCAPE '!' LIMIT 5",
+        )
+        .expect("scoped NOT LIKE ESCAPE predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::Not { inner } => match *inner {
+                ParsedPredicate::StringMatch {
+                    column,
+                    op,
+                    value,
+                    like_escape,
+                } => {
+                    assert_eq!(column, "label");
+                    assert_eq!(op, StringPredicateOp::LikePattern);
+                    assert_eq!(value, r"\Aa_(?s:.*)\z");
+                    assert_eq!(like_escape, Some('!'));
+                }
+                other => panic!("expected inner LIKE ESCAPE StringMatch predicate, got {other:?}"),
+            },
+            other => panic!("expected negated LIKE ESCAPE predicate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_blocks_malformed_like_escape_clauses_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!_%' ESCAPE '' LIMIT 5",
+                "LIKE ESCAPE clause requires a single-character string literal",
+            ),
+            (
+                "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!_%' ESCAPE '!!' LIMIT 5",
+                "LIKE ESCAPE clause requires a single-character string literal",
+            ),
+            (
+                "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!' ESCAPE '!' LIMIT 5",
+                "LIKE ESCAPE pattern cannot end with the escape character",
+            ),
+            (
+                "SELECT id,label FROM 'target/input.csv' WHERE label LIKE 'a!x%' ESCAPE '!' LIMIT 5",
+                "LIKE ESCAPE may only escape %, _, or the escape character",
+            ),
+        ] {
+            let error =
+                parse_sql_local_source_statement(statement).expect_err("malformed ESCAPE blocks");
+
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
     }
 
     #[test]
@@ -32560,7 +32826,9 @@ mod tests {
         )
         .expect("scoped RLIKE predicate is admitted");
         match parsed.predicate {
-            ParsedPredicate::StringMatch { column, op, value } => {
+            ParsedPredicate::StringMatch {
+                column, op, value, ..
+            } => {
                 assert_eq!(column, "label");
                 assert_eq!(op, StringPredicateOp::RegexMatch);
                 assert_eq!(value, "^(alpha|gamma)$");
@@ -32575,7 +32843,9 @@ mod tests {
         assert_eq!(parsed.predicate_projections.len(), 1);
         assert_eq!(parsed.predicate_projections[0].alias, "matched");
         match &parsed.predicate_projections[0].predicate {
-            ParsedPredicate::StringMatch { column, op, value } => {
+            ParsedPredicate::StringMatch {
+                column, op, value, ..
+            } => {
                 assert_eq!(column, "label");
                 assert_eq!(*op, StringPredicateOp::RegexMatch);
                 assert_eq!(value, "^a");

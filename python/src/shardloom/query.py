@@ -254,20 +254,25 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} IS NOT FALSE")
 
-    def like(self, pattern: object) -> PredicateExpression:
+    def like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
 
         The runtime admits scoped UTF-8 SQL LIKE patterns with `%` and `_`
-        wildcards. Custom ESCAPE clauses, locale-aware collation, and
-        case-folding semantics remain outside this helper's claim boundary.
+        wildcards and optional single-character ESCAPE clauses. Locale-aware
+        collation and case-folding semantics remain outside this helper's claim
+        boundary.
         """
 
-        return PredicateExpression(f"{self.sql} LIKE {_sql_string_literal(pattern)}")
+        return PredicateExpression(
+            f"{self.sql} LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}"
+        )
 
-    def not_like(self, pattern: object) -> PredicateExpression:
+    def not_like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL NOT LIKE predicate."""
 
-        return PredicateExpression(f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}")
+        return PredicateExpression(
+            f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}"
+        )
 
     def rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate lowered to SQL `RLIKE`."""
@@ -7248,6 +7253,15 @@ def _like_needle(name: str, value: object) -> str:
     if "%" in text or "_" in text:
         raise ValueError(f"{name} must not contain SQL LIKE wildcard characters")
     return text
+
+
+def _like_escape_clause(escape: object | None) -> str:
+    if escape is None:
+        return ""
+    text = _require_non_empty("LIKE escape character", escape)
+    if len(text) != 1:
+        raise ValueError("LIKE escape character must be exactly one character")
+    return f" ESCAPE {_sql_string_literal(text)}"
 
 
 def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
