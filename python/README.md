@@ -659,11 +659,11 @@ For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.sele
 `.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
 projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
 `.sort_by(...)`, and `.sort_values(...)` are aliases for `.sort(...)`. Row-level duplicate removal
-is admitted for bounded local-source projections through SQL `SELECT DISTINCT` and Python/DataFrame
-`.distinct()`, `.drop_duplicates()`, and `.unique()` aliases; LIMIT is applied after duplicate
-removal and reports `distinct_projection_*` evidence. These aliases do not widen the expression
-registry or execution providers; they lower to the same scoped ShardLoom runtime routes and
-evidence fields as the canonical methods.
+is admitted for bounded local-source projection, aggregate/HAVING, join, and window output rows
+through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`, `.drop_duplicates()`, and
+`.unique()` aliases; LIMIT is applied after duplicate removal and reports `distinct_projection_*`
+evidence. These aliases do not widen the expression registry or execution providers; they lower to
+the same scoped ShardLoom runtime routes and evidence fields as the canonical methods.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,

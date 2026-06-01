@@ -442,19 +442,24 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
   Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,
-  joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded collect; broad
-  arbitrary SQL grammar still has report-only or gated pockets.
-  Next slice outcome: promote row-level `SELECT DISTINCT` projection syntax for bounded
-  local-source routes, expose matching Python/DataFrame `distinct`/`drop_duplicates`/`unique`
-  aliases, and emit explicit distinct-projection evidence while keeping aggregate/window/join or
-  semantically ambiguous distinct shapes deterministic blockers.
+  row-level `SELECT DISTINCT` deduplication over projection, aggregate/HAVING, join, and window
+  output rows, joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded
+  collect. The remaining broad grammar blockers are explicit rows in
+  `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone/interval semantics,
+  regex/collation, complex/list/struct/variant/union/binary shapes, row-value predicates, and
+  broader subquery families.
+  Next slice outcome: promote the next highest-value remaining admitted-semantics matrix blocker
+  into an executable ShardLoom-owned runtime path, starting with the highest user-surface value among
+  row-value predicates, broader subquery forms, or UNION-like composition; keep any non-promoted
+  shapes as deterministic blockers with updated matrix rows.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
   lowering, SQL/DataFrame parity validators, route capability reports, and docs.
-  Evidence required: positive SQL fixtures for dedupe-before-limit semantics, unsupported
-  diagnostics for non-admitted distinct shapes, Python/DataFrame alias tests, parity docs,
-  no-fallback fields, and claim gates for every newly admitted syntax family.
+  Evidence required: positive SQL fixtures and decoded-reference expectations for every newly
+  admitted syntax family; unsupported diagnostics for still-non-admitted shapes; Python/DataFrame
+  alias/lowering tests where a familiar user surface exists; parity docs; no-fallback fields; and
+  claim gates for every newly admitted syntax family.
   Acceptance: admitted SQL grammar reaches an existing ShardLoom runtime route; non-admitted grammar
   fails deterministically without external engines.
   Verification: focused Rust CLI tests, Python parity tests, `scripts/check_sql_python_dataframe_parity.py`,

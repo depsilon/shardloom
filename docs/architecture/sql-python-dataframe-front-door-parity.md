@@ -50,9 +50,10 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   local-source `collect()` returns a deterministic no-fallback diagnostic. Familiar aliases
   `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and `sort_values` lower to
   the same admitted ShardLoom operations instead of creating separate runtime paths. Row-level
-  duplicate removal is admitted for bounded local-source projection rows through SQL
-  `SELECT DISTINCT` and Python/DataFrame `.distinct()`, `.drop_duplicates()`, and `.unique()`;
-  the runtime deduplicates before applying `LIMIT` and emits `distinct_projection_*` evidence.
+  duplicate removal is admitted for bounded local-source projection, aggregate/HAVING, join, and
+  window output rows through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`,
+  `.drop_duplicates()`, and `.unique()`; the runtime deduplicates before applying `LIMIT` and emits
+  `distinct_projection_*` evidence.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
   and window workflows lower to `sql-local-source-smoke`.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
@@ -179,8 +180,8 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
 - `arbitrary_sql_python_dataframe_breadth`
   (`runtime_gap_status=front_door_connection_pending`): arbitrary SQL grammar, Python expressions,
   DataFrame API parity, UDFs, and effectful operations. Scoped row-level `SELECT DISTINCT` over
-  bounded local-source projection rows is now admitted, but aggregate/window/join distinct shapes
-  and arbitrary expression/DataFrame breadth remain pending until their runtime evidence lands.
+  bounded local-source projection, aggregate/HAVING, join, and window output rows is now admitted;
+  arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

@@ -2163,7 +2163,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         runtime_execution=True,
         data_read=True,
-        claim_boundary="Scoped row-level duplicate removal over bounded local-source projection rows; aggregate/window/join DISTINCT shapes remain blocked unless separately admitted.",
+        claim_boundary="Scoped row-level duplicate removal over bounded local-source projection, aggregate/HAVING, window, and join output rows; broader arbitrary DISTINCT grammar remains explicitly gated.",
     ),
     _df_method(
         "drop_duplicates",
