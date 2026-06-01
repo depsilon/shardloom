@@ -103,6 +103,40 @@ aggregate scenarios. The benchmark remains local pre-release evidence, not a
 leaderboard, performance claim, superiority claim, production claim, or Spark
 replacement claim.
 
+## Route-First Presentation Contract
+
+Benchmark pages and release packets should lead with route-level rows, then show stage
+attribution. Public lane names are:
+
+| Lane | Starts from | Includes preparation? | Use |
+| --- | --- | --- | --- |
+| ShardLoom Cold Certified Route | Raw compatibility source | Yes, plus certified evidence | Cold ingest/stage/query/output proof. |
+| ShardLoom Prepare-Once First Query | Raw compatibility source | Yes, once | Primary raw-source-to-prepared-Vortex user route. |
+| ShardLoom Prepare-Once Batch | Raw compatibility source | Once per batch | Reuse/amortization evidence for multiple prepared queries. |
+| ShardLoom Warm Prepared Query | `VortexPreparedState` | No | Warm query/runtime evidence after preparation exists. |
+| ShardLoom Native Vortex Query | Existing Vortex artifact | No | Native input and operator maturity evidence. |
+| ShardLoom Direct Transient Route | Raw compatibility source | No persistent Vortex preparation | Scoped one-shot local compatibility work. |
+| External Baseline End-to-End | External engine raw-source path | Not applicable | Baseline context only, never fallback evidence. |
+
+Stage pieces such as source admission, source read, parse/decode, Vortex array build, Vortex write,
+reopen/verify, scan, operator compute, sink write, and evidence render explain route timing. They
+must not be rendered as competing products or as end-to-end rows unless the route timing ledger says
+they are included in `total_route_ms` / `total_runtime_millis`.
+
+Readiness fields also stay separate:
+
+```text
+route_runtime_status=scoped_runtime_supported|smoke_supported|feature_gated|blocked|unsupported|external_baseline_only
+claim_gate_status=claim_grade|not_claim_grade|fixture_smoke_only|external_baseline_only
+performance_claim_allowed=false
+production_claim_allowed=false
+spark_replacement_claim_allowed=false
+```
+
+An unsupported external baseline row is an external-engine limitation. It is not a ShardLoom
+runtime gap unless the corresponding ShardLoom route row reports its own `route_runtime_status` as
+blocked or unsupported.
+
 `GAR-SCALE-1A` adds a fail-closed scale claim-gate contract to the benchmark artifact. Rows now
 include `scale_contract_schema_version=shardloom.traditional_analytics.scale_claim_gate.v1`,
 `scale_profile`, `scale_claim_status`, `data_volume_bytes`, `row_count_estimate`, `file_count`,
