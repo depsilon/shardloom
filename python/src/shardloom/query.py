@@ -243,6 +243,36 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}")
 
+    def rlike(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex predicate lowered to SQL `RLIKE`."""
+
+        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}")
+
+    def not_rlike(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex negation lowered to SQL `NOT RLIKE`."""
+
+        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}")
+
+    def regex(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex predicate."""
+
+        return self.rlike(pattern)
+
+    def not_regex(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex negation."""
+
+        return self.not_rlike(pattern)
+
+    def matches(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex predicate."""
+
+        return self.rlike(pattern)
+
+    def not_matches(self, pattern: object) -> PredicateExpression:
+        """Return a scoped UTF-8 regex negation."""
+
+        return self.not_rlike(pattern)
+
     def contains(self, needle: object) -> PredicateExpression:
         """Return a scoped substring predicate lowered to `LIKE '%needle%'`."""
 

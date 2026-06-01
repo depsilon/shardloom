@@ -6578,6 +6578,78 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_regex_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-regex", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+
+    let regex_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label RLIKE '^(alpha|gamma)$' LIMIT 10",
+        source_path.display()
+    );
+    let regex_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &regex_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        regex_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&regex_output.stdout),
+        String::from_utf8_lossy(&regex_output.stderr)
+    );
+    let stdout = String::from_utf8(regex_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_predicate")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_predicate_operator", "regex_match")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let invalid_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label REGEXP '[' LIMIT 10",
+        source_path.display()
+    );
+    let invalid_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &invalid_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !invalid_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&invalid_output.stdout),
+        String::from_utf8_lossy(&invalid_output.stderr)
+    );
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&invalid_output.stdout),
+        String::from_utf8_lossy(&invalid_output.stderr)
+    );
+    assert!(blocked_output.contains("regex pattern is invalid"));
+    assert!(blocked_output.contains("\"fallback\":{\"attempted\":false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-string-transform", "csv");
     fs::write(

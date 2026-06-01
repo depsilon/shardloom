@@ -20,6 +20,7 @@ use std::{
     time::Instant,
 };
 
+use regex::Regex;
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
     ExpressionKind, LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp,
@@ -1099,6 +1100,7 @@ enum StringPredicateOp {
     StartsWith,
     Contains,
     EndsWith,
+    RegexMatch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1241,6 +1243,7 @@ impl StringPredicateOp {
             Self::StartsWith => "utf8_starts_with",
             Self::Contains => "utf8_contains",
             Self::EndsWith => "utf8_ends_with",
+            Self::RegexMatch => "utf8_regex_match",
         }
     }
 
@@ -1249,6 +1252,7 @@ impl StringPredicateOp {
             Self::StartsWith => "starts_with",
             Self::Contains => "contains",
             Self::EndsWith => "ends_with",
+            Self::RegexMatch => "regex_match",
         }
     }
 }
@@ -22517,16 +22521,6 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
             "SQL COLLATE and locale-aware collation semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice",
         ));
     }
-    if contains_function_call_outside_quotes(statement, "regexp_like")
-        || contains_function_call_outside_quotes(statement, "regexp")
-        || contains_function_call_outside_quotes(statement, "regex")
-        || contains_function_call_outside_quotes(statement, "rlike")
-        || contains_regex_pattern_operator_outside_quotes(statement)
-    {
-        return Err(unsupported_sql_error(
-            "regex and regexp pattern semantics are not admitted; use scoped LIKE prefix, suffix, or contains predicates",
-        ));
-    }
     if contains_advanced_decimal_cast_target(statement)? {
         return Err(unsupported_sql_error(
             "decimal precision/scale casts are not admitted by the current scalar semantics profile",
@@ -22696,124 +22690,6 @@ fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool
         search_start = name_index + function_name.len();
     }
     false
-}
-
-fn contains_regex_pattern_operator_outside_quotes(raw: &str) -> bool {
-    ["regexp", "rlike"]
-        .iter()
-        .any(|operator| contains_binary_operator_outside_quotes(raw, operator))
-}
-
-fn contains_binary_operator_outside_quotes(raw: &str, operator: &str) -> bool {
-    let mut search_start = 0;
-    while search_start < raw.len() {
-        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], operator)
-        else {
-            return false;
-        };
-        let operator_index = search_start + relative_index;
-        if has_sql_operand_before(raw, operator_index)
-            && has_sql_operand_after(raw, operator_index + operator.len())
-        {
-            return true;
-        }
-        search_start = operator_index + operator.len();
-    }
-    false
-}
-
-fn has_sql_operand_before(raw: &str, index: usize) -> bool {
-    let before = raw[..index].trim_end();
-    if before.is_empty() {
-        return false;
-    }
-    let Some(last) = before.chars().next_back() else {
-        return false;
-    };
-    if !(last == ')' || last == '\'' || is_identifier_char(last)) {
-        return false;
-    }
-    let token = trailing_identifier_token(before);
-    !matches!(
-        token.as_deref(),
-        Some(
-            "select"
-                | "where"
-                | "having"
-                | "on"
-                | "and"
-                | "or"
-                | "not"
-                | "as"
-                | "from"
-                | "join"
-                | "left"
-                | "right"
-                | "inner"
-                | "outer"
-                | "full"
-                | "cross"
-                | "case"
-                | "when"
-                | "then"
-                | "else"
-                | "in"
-                | "like"
-        )
-    )
-}
-
-fn has_sql_operand_after(raw: &str, index: usize) -> bool {
-    let after = raw[index..].trim_start();
-    if after.is_empty() {
-        return false;
-    }
-    let token = leading_identifier_token(after);
-    !matches!(
-        token.as_deref(),
-        Some(
-            "from"
-                | "where"
-                | "group"
-                | "order"
-                | "having"
-                | "limit"
-                | "as"
-                | "and"
-                | "or"
-                | "then"
-                | "else"
-                | "end"
-        )
-    )
-}
-
-fn trailing_identifier_token(raw: &str) -> Option<String> {
-    let token = raw
-        .chars()
-        .rev()
-        .take_while(|ch| is_identifier_char(*ch))
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<String>();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token.to_ascii_lowercase())
-    }
-}
-
-fn leading_identifier_token(raw: &str) -> Option<String> {
-    let token = raw
-        .chars()
-        .take_while(|ch| is_identifier_char(*ch))
-        .collect::<String>();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token.to_ascii_lowercase())
-    }
 }
 
 fn contains_keyword_followed_by_char_outside_quotes(
@@ -23956,6 +23832,9 @@ fn parse_predicate_projection(
 }
 
 fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
+    if parse_regex_function_prefix(raw.trim()).is_some() {
+        return Ok(true);
+    }
     let tokens = split_whitespace_outside_quotes(raw)?;
     if tokens.len() <= 1 {
         return Ok(false);
@@ -23973,6 +23852,8 @@ fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomEr
                 | "not"
                 | "in"
                 | "like"
+                | "rlike"
+                | "regexp"
                 | "between"
                 | "and"
                 | "or"
@@ -25929,6 +25810,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_string_function_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_regex_function_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_in_list_predicate(raw)? {
         return Ok(predicate);
     }
@@ -25986,44 +25870,89 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         [column, op_raw, literal_raw] => {
-            validate_sql_column_ref(column)?;
-            if op_raw.eq_ignore_ascii_case("like") {
-                let pattern = parse_sql_string_literal(literal_raw)?;
-                let (op, value) = parse_like_string_predicate(&pattern)?;
-                Ok(ParsedPredicate::StringMatch {
-                    column: (*column).clone(),
-                    op,
-                    value,
-                })
-            } else {
-                let op = parse_comparison_op(op_raw)?;
-                let value = parse_sql_literal(literal_raw)?;
-                Ok(ParsedPredicate::Compare {
-                    column: (*column).clone(),
-                    op,
-                    value,
-                })
-            }
+            parse_literal_or_pattern_predicate(column, op_raw, literal_raw)
         }
         [column, not_keyword, like_keyword, literal_raw]
             if not_keyword.eq_ignore_ascii_case("not")
                 && like_keyword.eq_ignore_ascii_case("like") =>
         {
-            validate_sql_column_ref(column)?;
-            let pattern = parse_sql_string_literal(literal_raw)?;
-            let (op, value) = parse_like_string_predicate(&pattern)?;
-            Ok(ParsedPredicate::Not {
-                inner: Box::new(ParsedPredicate::StringMatch {
-                    column: (*column).clone(),
-                    op,
-                    value,
-                }),
-            })
+            parse_negated_like_predicate(column, literal_raw)
         }
-        _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
-        )),
+        [column, not_keyword, regex_op_raw, literal_raw]
+            if not_keyword.eq_ignore_ascii_case("not")
+                && is_regex_predicate_operator(regex_op_raw) =>
+        {
+            parse_negated_regex_predicate(column, literal_raw)
+        }
+        _ => Err(unsupported_where_predicate_shape_error()),
     }
+}
+
+fn parse_literal_or_pattern_predicate(
+    column: &str,
+    op_raw: &str,
+    literal_raw: &str,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_sql_column_ref(column)?;
+    if op_raw.eq_ignore_ascii_case("like") {
+        let pattern = parse_sql_string_literal(literal_raw)?;
+        let (op, value) = parse_like_string_predicate(&pattern)?;
+        return Ok(ParsedPredicate::StringMatch {
+            column: column.to_string(),
+            op,
+            value,
+        });
+    }
+    if is_regex_predicate_operator(op_raw) {
+        return Ok(ParsedPredicate::StringMatch {
+            column: column.to_string(),
+            op: StringPredicateOp::RegexMatch,
+            value: parse_regex_pattern_literal(literal_raw)?,
+        });
+    }
+    let op = parse_comparison_op(op_raw)?;
+    let value = parse_sql_literal(literal_raw)?;
+    Ok(ParsedPredicate::Compare {
+        column: column.to_string(),
+        op,
+        value,
+    })
+}
+
+fn parse_negated_like_predicate(
+    column: &str,
+    literal_raw: &str,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_sql_column_ref(column)?;
+    let pattern = parse_sql_string_literal(literal_raw)?;
+    let (op, value) = parse_like_string_predicate(&pattern)?;
+    Ok(ParsedPredicate::Not {
+        inner: Box::new(ParsedPredicate::StringMatch {
+            column: column.to_string(),
+            op,
+            value,
+        }),
+    })
+}
+
+fn parse_negated_regex_predicate(
+    column: &str,
+    literal_raw: &str,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_sql_column_ref(column)?;
+    Ok(ParsedPredicate::Not {
+        inner: Box::new(ParsedPredicate::StringMatch {
+            column: column.to_string(),
+            op: StringPredicateOp::RegexMatch,
+            value: parse_regex_pattern_literal(literal_raw)?,
+        }),
+    })
+}
+
+fn unsupported_where_predicate_shape_error() -> ShardLoomError {
+    unsupported_sql_error(
+        "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> [NOT] RLIKE|REGEXP <regex-pattern>, REGEXP_LIKE(<column>, <regex-pattern>), <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+    )
 }
 
 fn parse_boolean_predicate_tokens(
@@ -27954,6 +27883,65 @@ fn parse_in_list_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     parse_sql_literal(trimmed)
 }
 
+fn parse_regex_function_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((function_name, open_index)) = parse_regex_function_prefix(trimmed) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "regex predicates must use REGEXP_LIKE(<column>, <regex-pattern>) or REGEXP(<column>, <regex-pattern>)",
+        )
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} regex predicate must be a single function call"
+        )));
+    }
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [column_raw, pattern_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} regex predicate requires exactly two arguments: <column>, <regex-pattern>"
+        )));
+    };
+    let column = column_raw.trim();
+    validate_sql_column_ref(column)?;
+    Ok(Some(ParsedPredicate::StringMatch {
+        column: column.to_string(),
+        op: StringPredicateOp::RegexMatch,
+        value: parse_regex_pattern_literal(pattern_raw)?,
+    }))
+}
+
+fn parse_regex_function_prefix(raw: &str) -> Option<(&'static str, usize)> {
+    ["regexp_like", "regex_match", "regexp", "regex", "rlike"]
+        .into_iter()
+        .find_map(|name| {
+            raw.get(..name.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+                .then_some(())
+                .filter(|()| raw.as_bytes().get(name.len()) == Some(&b'('))
+                .map(|()| (name, name.len()))
+        })
+}
+
+fn is_regex_predicate_operator(raw: &str) -> bool {
+    raw.eq_ignore_ascii_case("rlike") || raw.eq_ignore_ascii_case("regexp")
+}
+
+fn parse_regex_pattern_literal(raw: &str) -> Result<String, ShardLoomError> {
+    let pattern = parse_sql_string_literal(raw)?;
+    validate_regex_pattern(&pattern)?;
+    Ok(pattern)
+}
+
+fn validate_regex_pattern(pattern: &str) -> Result<(), ShardLoomError> {
+    Regex::new(pattern)
+        .map(|_| ())
+        .map_err(|error| unsupported_sql_error(&format!("regex pattern is invalid: {error}")))
+}
+
 fn parse_like_string_predicate(
     pattern: &str,
 ) -> Result<(StringPredicateOp, String), ShardLoomError> {
@@ -28852,15 +28840,20 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
 mod tests {
     use super::*;
 
+    static SQL_LOCAL_SOURCE_TEST_PATH_COUNTER: std::sync::atomic::AtomicU64 =
+        std::sync::atomic::AtomicU64::new(0);
+
     fn sql_local_source_test_path(extension: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock")
             .as_nanos();
+        let counter =
+            SQL_LOCAL_SOURCE_TEST_PATH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         path.push(format!(
-            "shardloom-sql-local-source-{}-{nanos}.{extension}",
-            std::process::id()
+            "shardloom-sql-local-source-{}-{nanos}-{counter}.{extension}",
+            std::process::id(),
         ));
         path
     }
@@ -32166,10 +32159,6 @@ mod tests {
                 "timezone database and non-UTC timestamp semantics are not admitted",
             ),
             (
-                "SELECT id,label FROM 'target/input.csv' WHERE label REGEXP '^a' LIMIT 5",
-                "regex and regexp pattern semantics are not admitted",
-            ),
-            (
                 "SELECT id,label COLLATE nocase AS folded FROM 'target/input.csv' LIMIT 5",
                 "SQL COLLATE and locale-aware collation semantics are not admitted",
             ),
@@ -32190,7 +32179,7 @@ mod tests {
     }
 
     #[test]
-    fn parser_allows_regex_named_columns_without_enabling_regex_semantics() {
+    fn parser_allows_regex_named_columns_without_treating_identifiers_as_regex() {
         let parsed = parse_sql_local_source_statement(
             "SELECT regex, regexp FROM 'target/input.csv' WHERE regex = 'alpha' LIMIT 5",
         )
@@ -32201,22 +32190,45 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_regex_functions_and_pattern_operators_without_fallback() {
-        for statement in [
-            "SELECT id,REGEXP(label, '^a') AS matched FROM 'target/input.csv' LIMIT 5",
-            "SELECT id,label FROM 'target/input.csv' WHERE label RLIKE '^a' LIMIT 5",
-        ] {
-            let error = parse_sql_local_source_statement(statement)
-                .expect_err("regex pattern semantics remain blocked");
-
-            assert!(
-                error
-                    .to_string()
-                    .contains("regex and regexp pattern semantics are not admitted"),
-                "got {error}"
-            );
-            assert!(error.to_string().contains("external_engine_invoked=false"));
+    fn parser_admits_scoped_regex_predicates_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label RLIKE '^(alpha|gamma)$' LIMIT 5",
+        )
+        .expect("scoped RLIKE predicate is admitted");
+        match parsed.predicate {
+            ParsedPredicate::StringMatch { column, op, value } => {
+                assert_eq!(column, "label");
+                assert_eq!(op, StringPredicateOp::RegexMatch);
+                assert_eq!(value, "^(alpha|gamma)$");
+            }
+            other => panic!("expected regex StringMatch predicate, got {other:?}"),
         }
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,REGEXP_LIKE(label, '^a') AS matched FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("scoped REGEXP_LIKE predicate projection is admitted");
+        assert_eq!(parsed.predicate_projections.len(), 1);
+        assert_eq!(parsed.predicate_projections[0].alias, "matched");
+        match &parsed.predicate_projections[0].predicate {
+            ParsedPredicate::StringMatch { column, op, value } => {
+                assert_eq!(column, "label");
+                assert_eq!(*op, StringPredicateOp::RegexMatch);
+                assert_eq!(value, "^a");
+            }
+            other => panic!("expected regex predicate projection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_blocks_invalid_regex_patterns_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label REGEXP '[' LIMIT 5",
+        )
+        .expect_err("invalid regex pattern remains blocked");
+
+        assert!(error.to_string().contains("regex pattern is invalid"));
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

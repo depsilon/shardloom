@@ -1728,6 +1728,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
         self.assertEqual(str(sl.col("label").not_like("%tmp%")), "label NOT LIKE '%tmp%'")
+        self.assertEqual(str(sl.col("label").rlike("^a.*a$")), "label RLIKE '^a.*a$'")
+        self.assertEqual(str(sl.col("label").regex("^a.*a$")), "label RLIKE '^a.*a$'")
+        self.assertEqual(str(sl.col("label").matches("^a.*a$")), "label RLIKE '^a.*a$'")
+        self.assertEqual(str(sl.col("label").not_rlike("^tmp")), "label NOT RLIKE '^tmp'")
+        self.assertEqual(str(sl.col("label").not_regex("^tmp")), "label NOT RLIKE '^tmp'")
+        self.assertEqual(str(sl.col("label").not_matches("^tmp")), "label NOT RLIKE '^tmp'")
         self.assertEqual(str(sl.col("label").not_contains("tmp")), "label NOT LIKE '%tmp%'")
         self.assertEqual(str(sl.col("label").not_startswith("tmp")), "label NOT LIKE 'tmp%'")
         self.assertEqual(str(sl.col("label").not_endswith("tmp")), "label NOT LIKE '%tmp'")
@@ -2251,6 +2257,64 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.logical_predicate_leaf_count, 2)
         self.assertTrue(report.in_predicate_runtime_execution)
         self.assertTrue(report.string_predicate_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_regex_predicate_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE label RLIKE '^(alpha|gamma)$' LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "predicate_operator_family", "value": "string_predicate"},
+                        {"key": "string_predicate_runtime_execution", "value": "true"},
+                        {"key": "string_predicate_operator", "value": "regex_match"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .where(sl.col("label").matches("^(alpha|gamma)$"))
+            .select("id", "label")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_rows,
+            ({"id": 1, "label": "alpha"}, {"id": 3, "label": "gamma"}),
+        )
+        self.assertEqual(report.predicate_operator_family, "string_predicate")
+        self.assertTrue(report.string_predicate_runtime_execution)
+        self.assertEqual(report.string_predicate_operator, ("regex_match",))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

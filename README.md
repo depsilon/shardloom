@@ -59,7 +59,7 @@ Current runtime support is intentionally scoped and evidence-gated:
   Vortex, and feature-gated Parquet/Arrow IPC/Avro/ORC runtime paths;
 - scoped SQL local-source execution for projection, row-level `SELECT DISTINCT` over projection,
   aggregate/HAVING, join, and window output rows, filter, limit,
-  scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
+  scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/regex/IN
   predicates including scalar and row-value literal `IN`/`NOT IN`, bounded scalar and row-value
   local-source `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
   `EXISTS (SELECT ...)` / `NOT EXISTS (...)` presence predicates, scoped quantified
@@ -145,9 +145,9 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 `.assign(...)`, `.groupby(...)`, `.order_by(...)`, `.sort_by(...)`, `.sort_values(...)`,
 `.distinct()`, `.drop_duplicates()`, `.unique()`, `.union(...)`, and `.union_all(...)` are accepted
 only as thin names over
-the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, join/window,
-source-backed `IN` / `EXISTS`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and
-bounded terminal paths.
+the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, regex/string
+predicates, join/window, source-backed `IN` / `EXISTS`, row-level `SELECT DISTINCT`, scoped SQL
+`UNION` / `UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

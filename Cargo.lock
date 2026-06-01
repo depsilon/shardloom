@@ -2335,6 +2335,7 @@ dependencies = [
  "arrow-schema",
  "orc-rust",
  "parquet",
+ "regex",
  "rusqlite",
  "shardloom-core",
  "shardloom-exec",
@@ -2355,6 +2356,9 @@ dependencies = [
 [[package]]
 name = "shardloom-core"
 version = "0.1.0"
+dependencies = [
+ "regex",
+]
 
 [[package]]
 name = "shardloom-exec"
