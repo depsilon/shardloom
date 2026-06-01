@@ -307,6 +307,11 @@ Current state:
   `target/user-surface-runtime-gap-inventory.json` validator/artifact, classified 31 current
   user-surface gap rows, separated ShardLoom runtime posture from six external DataFusion baseline
   limitations, and wired the inventory into release-readiness/CI checks.
+- The second 6D child slice landed in #999. It added the deterministic
+  `target/user-route-capability-report.json` validator/artifact and the
+  `ShardLoomContext.user_route_capability_report()` surface so users and agents can ask which
+  ShardLoom route applies, where it normalizes to Vortex, what output/evidence it emits, and what
+  claim boundary applies.
 - Some user-facing capability/parity surfaces still say `unsupported`, `blocked`, or `not complete`
   where the accurate problem is front-door connection, output ergonomics, claim-grade evidence, or
   benchmark publication rather than engine impossibility.
@@ -339,55 +344,66 @@ attached.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6D-1 user route capability report and Vortex-normalization evidence.
-  Source: #998 inventory artifact, `docs/rfcs/0012-diagnostics-explain-estimate-capabilities.md`,
+- [ ] GAR-RUNTIME-IMPL-6D-2 local Vortex primitive front-door route completion.
+  Source: #999 user route capability report, `docs/architecture/sql-python-dataframe-front-door-parity.md`,
+  `docs/rfcs/0012-diagnostics-explain-estimate-capabilities.md`,
   `docs/rfcs/0033-user-data-workflow-etl-surface.md`,
-  `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`, and the current
-  SQL/Python/DataFrame parity matrices. Current state: the inventory validator proves all current
-  user-surface gaps are classified, but an agent or user still has to infer the recommended route
-  from multiple artifacts. Next slice outcome: add one deterministic user/agent-facing route
-  capability report that answers "given input X and desired output Y, which ShardLoom route should I
-  use, where does it normalize to Vortex, what executes, what may be decoded/materialized, what
-  output/evidence is emitted, and what claim boundary applies?" User-visible surface: Python/agent
-  capability report, source-controlled validator artifact, README/quickstart or architecture docs
-  that point users at the report instead of generic unsupported language. Runtime enablement: this
-  is a runtime-safety and admission/reporting gate for already-admitted benchmark-range routes; it
-  does not add a new execution engine, but it prevents engine-capable local routes from being hidden
-  behind missing front-door or output-route wording. Implementation scope:
-  `python/src/shardloom/context.py`, `python/src/shardloom/client.py`,
-  `scripts/check_user_surface_runtime_gap_inventory.py`,
-  `scripts/check_sql_python_dataframe_parity.py`, focused Python tests, README/quickstart/docs, and
-  release-readiness wiring if the new report has an independent validator. Evidence required:
-  generated route-report JSON, focused tests for route lookup/report fields, inventory/parity gate
-  output, no-fallback/no-external-engine fields, and release-readiness gate coverage if a new check
-  is added. Acceptance: every SQL/Python/DataFrame/context/session route in the benchmark-local
-  range has a stable route id, start state, Vortex normalization point, execution mode, output
-  options, evidence route, materialization/decode boundary, runtime status, claim boundary, and
-  precise blocker/owner if missing; native `.vortex` routes start at the Vortex boundary;
-  compatibility local files import or prepare into Vortex; generated rows become
-  Vortex-preparable batches; materialized pandas/Arrow/NumPy snapshots are explicit materialized
-  inputs that re-enter through a Vortex-preparable route before runtime-ready claims; and no
-  ShardLoom local benchmark-range route is generically labeled `unsupported` because wiring is
-  missing. Verification:
-  `python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory.json`,
-  `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json`,
-  `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json`,
-  focused Python tests covering the route report, `python -m compileall -q python/src python/tests scripts examples`,
-  `cargo fmt --all -- --check`, and `git diff --check`. Non-goals: no Spark/DataFusion/DuckDB/Polars/Velox
-  fallback, no broad arbitrary SQL/DataFrame execution, no package publication, and no performance
-  or production claim. Dependencies/blockers: depends on #997 route-runtime benchmark fields, #998
-  inventory classification, current `FRONT_DOOR_PARITY_ROWS`, current DataFrame method capability
-  rows, and release-readiness/CI gate wiring; broad runtime rows remain blocked by the last-order
-  runtime expansion checklist until execution, correctness, Native I/O, output, and benchmark
-  evidence lands. Claim boundary: route guidance and runtime-readiness evidence only for explicitly
-  admitted benchmark-range workflows; performance equivalence, production support, Spark
-  displacement, and broad arbitrary language support remain blocked. Fallback boundary: ShardLoom
-  route rows must continue to report `fallback_attempted=false` and
-  `external_engine_invoked=false`. Ledger rule: when complete, move this child slice to the
-  completed ledger and keep only remaining 6D work in Planned.
-- [ ] For local `.vortex` input, make SQL/Python/DataFrame front doors cover the primitive range
-  already exposed by ShardLoom/Vortex commands: count, count-where, filter, project, filter-project,
-  select-star reports, and source-order limit where the engine path supports it.
+  `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`,
+  `docs/skills/vortex-internals.md`, and the detailed Vortex skills required by `AGENTS.md`.
+  Current state: local `.vortex` input is classified as a scoped runtime-supported native Vortex
+  route, and command-level Vortex primitive reports exist, but the SQL/Python/DataFrame/context
+  surface still needs an end-to-end route audit and any missing connections so users do not have to
+  assemble count, count-where, filter, project, filter-project, select-star, or source-order limit
+  workflows from low-level command names.
+  Next slice outcome: local `.vortex` users can reach the primitive benchmark-range operations
+  through a deliberate ShardLoom user surface that starts at the Vortex-native boundary, selects the
+  real ShardLoom/Vortex route, emits structured evidence, exposes output/preview options, and keeps
+  unsupported language reserved only for true runtime-expansion items.
+  Runtime enablement: this completes the native `.vortex` input route for the primitive operation
+  range already admitted by ShardLoom rather than creating piecemeal artificial helpers or invoking
+  external engines.
+  User-visible surface: `ShardLoomContext`, `ShardLoomClient`, DataFrame/query helpers where they
+  already exist or are the intended high-level surface, CLI help/command metadata, route capability
+  report, SQL/Python/DataFrame parity artifact, README/quickstart, and release-readiness evidence.
+  Implementation scope: `python/src/shardloom/context.py`, `python/src/shardloom/client.py`,
+  `python/src/shardloom/query.py` or `python/src/shardloom/session.py` only if the route audit shows
+  missing high-level wiring, focused Python tests, route/parity validators, and docs/examples.
+  Evidence required: focused tests proving each admitted local Vortex primitive route is reachable
+  from the intended user surface, generated route/parity artifacts, command metadata or help
+  evidence where CLI routing changes, output/decode/materialization boundary fields, and
+  `fallback_attempted=false` / `external_engine_invoked=false`.
+  Acceptance: every local `.vortex` primitive route named above has a stable route id, user-facing
+  entrypoint, selected execution mode, output/evidence route, decode/materialization boundary,
+  deterministic diagnostic for parameter errors, and no generic `unsupported` status caused by
+  missing front-door wiring. Any primitive not actually implemented by the engine must be moved to a
+  precise runtime-expansion child with owner and verifier before this item is checked.
+  Verification:
+  ```bash
+  python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json
+  python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
+  python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory.json
+  python3 -m unittest python/tests/test_user_route_capability_report.py
+  python3 -m unittest discover -s python/tests
+  python3 -m compileall -q python/src python/tests scripts examples
+  cargo fmt --all -- --check
+  cargo clippy --workspace --all-targets -- -D warnings
+  cargo test --workspace --all-targets
+  git diff --check
+  ```
+  Non-goals: no Spark/DataFusion/DuckDB/Polars/Velox fallback, no broad arbitrary SQL grammar, no
+  object-store/lakehouse runtime, no package publication, no performance superiority claim, and no
+  production-readiness claim.
+  Dependencies/blockers: depends on #999 route capability rows, current Vortex primitive command
+  evidence, current SQL/Python/DataFrame parity rows, and Vortex-first provider checks before
+  inventing any new abstraction.
+  Claim boundary: scoped native Vortex primitive user-route readiness only. Performance equivalence,
+  production support, Spark displacement, broad arbitrary language support, and nonlocal input
+  families remain blocked until their own evidence lands.
+  Fallback boundary: every runtime row and evidence artifact for this slice must preserve
+  `fallback_attempted=false` and `external_engine_invoked=false`; Vortex provider use is allowed
+  only inside admitted ShardLoom-native boundaries.
+  Ledger rule: when complete, move this child slice to the completed ledger and keep only remaining
+  6D work in Planned.
 - [ ] For local file input, confirm SQL/Python/DataFrame routes cover the local benchmark scenario
   families with a clear user path: selective filter, filter/projection/limit, group aggregate,
   multi-key aggregate, join aggregate, sort/top-k, row-number window, top-N per group, dirty

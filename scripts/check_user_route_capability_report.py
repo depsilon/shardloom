@@ -69,10 +69,37 @@ REQUIRED_OUTPUT_TOKENS = {
     "local_compat_output",
     "prepared_query_result",
     "amortized_prepared_queries",
-    "native_vortex_result",
+    "feature_gated_local_vortex_output",
     "local_jsonl",
     "schema_report",
     "benchmark_evidence",
+}
+
+REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
+    "vortex_count_all",
+    "vortex_count_where",
+    "vortex_filter_collect",
+    "vortex_filter_limit_collect",
+    "vortex_project_collect",
+    "vortex_project_limit_collect",
+    "vortex_select_star_limit_collect",
+    "vortex_filter_project_collect",
+    "vortex_filter_project_limit_collect",
+}
+
+REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS = {
+    "vortex-run",
+    "vortex-count-where",
+    "vortex-filter",
+    "vortex-project",
+    "vortex-filter-project",
+}
+
+REQUIRED_LOCAL_VORTEX_LIMIT_ROUTE_IDS = {
+    "vortex_filter_limit_collect",
+    "vortex_project_limit_collect",
+    "vortex_select_star_limit_collect",
+    "vortex_filter_project_limit_collect",
 }
 
 
@@ -132,6 +159,127 @@ def row_payload(row: Any) -> dict[str, Any]:
         "spark_replacement_claim_allowed": row.spark_replacement_claim_allowed,
         "claim_boundary": row.claim_boundary,
     }
+
+
+def primitive_row_payload(row: Any) -> dict[str, Any]:
+    return {
+        "route_id": row.route_id,
+        "primitive": row.primitive,
+        "sql_surface": row.sql_surface,
+        "python_surface": row.python_surface,
+        "dataframe_surface": row.dataframe_surface,
+        "context_surface": row.context_surface,
+        "session_surface": row.session_surface,
+        "cli_command": row.cli_command,
+        "cli_args_template": row.cli_args_template,
+        "start_state": row.start_state,
+        "vortex_normalization_point": row.vortex_normalization_point,
+        "execution_mode": row.execution_mode,
+        "output_route": row.output_route,
+        "evidence_route": row.evidence_route,
+        "materialization_decode_boundary": row.materialization_decode_boundary,
+        "supports_source_order_limit": row.supports_source_order_limit,
+        "route_runtime_status": row.route_runtime_status,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
+        "required_evidence": list(row.required_evidence),
+        "claim_gate_status": row.claim_gate_status,
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def validate_local_vortex_primitives(
+    report: Any,
+    primitive_rows: list[dict[str, Any]],
+) -> list[str]:
+    blockers: list[str] = []
+    by_id = {str(row["route_id"]): row for row in primitive_rows}
+
+    missing = sorted(REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS - by_id.keys())
+    if missing:
+        blockers.append("local Vortex primitive route report missing rows: " + ",".join(missing))
+
+    extra = sorted(by_id.keys() - REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS)
+    if extra:
+        blockers.append(
+            "local Vortex primitive route report has unclassified extra rows: " + ",".join(extra)
+        )
+
+    if len(primitive_rows) != len(by_id):
+        blockers.append(
+            "local Vortex primitive route report has duplicate route ids: "
+            f"{len(primitive_rows) - len(by_id)}"
+        )
+
+    for row in primitive_rows:
+        route_id = str(row["route_id"])
+        for field in (
+            "primitive",
+            "sql_surface",
+            "python_surface",
+            "dataframe_surface",
+            "context_surface",
+            "session_surface",
+            "cli_command",
+            "cli_args_template",
+            "start_state",
+            "vortex_normalization_point",
+            "execution_mode",
+            "output_route",
+            "evidence_route",
+            "materialization_decode_boundary",
+            "claim_boundary",
+        ):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                blockers.append(f"{route_id}: missing {field}")
+        if row.get("cli_command") not in REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS:
+            blockers.append(f"{route_id}: unrecognized cli_command={row.get('cli_command')!r}")
+        if row.get("start_state") != "native_vortex_file":
+            blockers.append(f"{route_id}: start_state must be native_vortex_file")
+        if row.get("vortex_normalization_point") != "native_vortex_boundary":
+            blockers.append(f"{route_id}: vortex_normalization_point must be native_vortex_boundary")
+        if row.get("execution_mode") != "native_vortex":
+            blockers.append(f"{route_id}: execution_mode must be native_vortex")
+        if row.get("route_runtime_status") != "scoped_runtime_supported":
+            blockers.append(f"{route_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{route_id}: fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{route_id}: external_engine_invoked must be false")
+        if row.get("claim_gate_status") != "not_claim_grade":
+            blockers.append(f"{route_id}: claim_gate_status must be not_claim_grade")
+        required_evidence = row.get("required_evidence")
+        if not isinstance(required_evidence, list) or not required_evidence:
+            blockers.append(f"{route_id}: missing required_evidence")
+        for surface in ("sql_surface", "python_surface", "dataframe_surface", "context_surface", "session_surface"):
+            text = str(row.get(surface, ""))
+            if "write_vortex" in text:
+                blockers.append(f"{route_id}: primitive surface must not advertise write_vortex")
+
+    commands = set(report.command_coverage)
+    missing_commands = sorted(REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS - commands)
+    if missing_commands:
+        blockers.append(
+            "local Vortex primitive route report missing command coverage: "
+            + ",".join(missing_commands)
+        )
+
+    limit_ids = set(report.source_order_limit_route_ids)
+    missing_limit_ids = sorted(REQUIRED_LOCAL_VORTEX_LIMIT_ROUTE_IDS - limit_ids)
+    if missing_limit_ids:
+        blockers.append(
+            "local Vortex primitive route report missing source-order limit routes: "
+            + ",".join(missing_limit_ids)
+        )
+
+    if report.all_runtime_supported is not True:
+        blockers.append("local Vortex primitive route report all_runtime_supported must be true")
+    if report.all_no_fallback_no_external_engine is not True:
+        blockers.append(
+            "local Vortex primitive route report all_no_fallback_no_external_engine must be true"
+        )
+    return blockers
 
 
 def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
@@ -219,6 +367,10 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
     for row in native_rows:
         if row.get("vortex_normalization_point") != "native_vortex_boundary":
             blockers.append(f"{row['route_id']}: native Vortex rows must start at native_vortex_boundary")
+        if "write_vortex" in str(row.get("recommended_user_surface", "")):
+            blockers.append(
+                f"{row['route_id']}: scoped native Vortex primitive route must not advertise write_vortex"
+            )
 
     prepared_rows = [
         row
@@ -268,8 +420,20 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
 
 def build_report(repo_root: Path) -> dict[str, Any]:
     route_report = load_report(repo_root)
+    from shardloom import ShardLoomContext
+
+    local_vortex_report = ShardLoomContext(client=None).local_vortex_primitive_route_report()
     rows = [row_payload(row) for row in route_report.rows]
+    local_vortex_primitive_rows = [
+        primitive_row_payload(row) for row in local_vortex_report.rows
+    ]
     blockers = validate_rows(route_report, rows)
+    blockers.extend(
+        validate_local_vortex_primitives(
+            local_vortex_report,
+            local_vortex_primitive_rows,
+        )
+    )
     runtime_status_counts = dict(route_report.route_runtime_status_counts)
     local_benchmark_route_ids = [
         row["route_id"] for row in rows if row["benchmark_range"] is True
@@ -279,7 +443,13 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "gate_id": GATE_ID,
         "status": "passed" if not blockers else "blocked",
-        "covered_phase_items": ["GAR-RUNTIME-IMPL-6D", "GAR-RUNTIME-IMPL-6D-1", "CG-20", "CG-21"],
+        "covered_phase_items": [
+            "GAR-RUNTIME-IMPL-6D",
+            "GAR-RUNTIME-IMPL-6D-1",
+            "GAR-RUNTIME-IMPL-6D-2",
+            "CG-20",
+            "CG-21",
+        ],
         "route_runtime_status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
         "route_count": len(rows),
         "route_order": list(route_report.route_order),
@@ -287,6 +457,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "local_benchmark_range_route_ids": local_benchmark_route_ids,
         "local_benchmark_range_route_count": len(local_benchmark_route_ids),
         "unsupported_local_benchmark_route_ids": list(route_report.unsupported_local_benchmark_route_ids),
+        "local_vortex_primitive_schema_version": local_vortex_report.schema_version,
+        "local_vortex_primitive_route_count": len(local_vortex_primitive_rows),
+        "local_vortex_primitive_route_order": list(local_vortex_report.route_order),
+        "local_vortex_primitive_command_coverage": list(local_vortex_report.command_coverage),
+        "local_vortex_primitive_source_order_limit_route_ids": list(
+            local_vortex_report.source_order_limit_route_ids
+        ),
+        "local_vortex_primitive_all_runtime_supported": local_vortex_report.all_runtime_supported,
+        "local_vortex_primitive_all_no_fallback_no_external_engine": (
+            local_vortex_report.all_no_fallback_no_external_engine
+        ),
         "all_no_fallback_no_external_engine": route_report.all_no_fallback_no_external_engine,
         "flexible_anything_claim_allowed": route_report.flexible_anything_claim_allowed,
         "performance_equivalence_claim_allowed": route_report.performance_equivalence_claim_allowed,
@@ -295,6 +476,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "claim_gate_status": route_report.claim_gate_status,
         "vortex_normalization_contract": route_report.vortex_normalization_contract,
         "rows": rows,
+        "local_vortex_primitive_rows": local_vortex_primitive_rows,
         "acceptance_summary": {
             "all_routes_have_vortex_normalization": all(
                 bool(str(row["vortex_normalization_point"]).strip()) for row in rows
@@ -307,6 +489,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 bool(str(row["materialization_decode_boundary"]).strip()) for row in rows
             ),
             "no_generic_unsupported_local_benchmark_route": not route_report.unsupported_local_benchmark_route_ids,
+            "all_local_vortex_primitive_routes_supported": (
+                local_vortex_report.all_runtime_supported
+            ),
+            "all_local_vortex_primitive_routes_start_at_native_boundary": all(
+                row["vortex_normalization_point"] == "native_vortex_boundary"
+                for row in local_vortex_primitive_rows
+            ),
+            "all_local_vortex_primitive_commands_covered": (
+                set(local_vortex_report.command_coverage)
+                == REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS
+            ),
             "all_no_fallback_no_external_engine": route_report.all_no_fallback_no_external_engine,
             "claim_gate_status": route_report.claim_gate_status,
             "performance_claim_allowed": False,

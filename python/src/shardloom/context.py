@@ -537,6 +537,106 @@ class UserRouteCapabilityReport:
         return tuple(matches)
 
 
+@dataclass(frozen=True, slots=True)
+class LocalVortexPrimitiveRouteRow:
+    """Operation-level route row for scoped local Vortex primitive front doors."""
+
+    route_id: str
+    primitive: str
+    sql_surface: str
+    python_surface: str
+    dataframe_surface: str
+    context_surface: str
+    session_surface: str
+    cli_command: str
+    cli_args_template: str
+    start_state: str
+    vortex_normalization_point: str
+    execution_mode: str
+    output_route: str
+    evidence_route: str
+    materialization_decode_boundary: str
+    supports_source_order_limit: bool
+    route_runtime_status: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this primitive route preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether this primitive route is admitted for scoped runtime use."""
+
+        return self.route_runtime_status == "scoped_runtime_supported"
+
+
+@dataclass(frozen=True, slots=True)
+class LocalVortexPrimitiveRouteReport:
+    """Side-effect-free operation map for local Vortex primitive user routes."""
+
+    rows: tuple[LocalVortexPrimitiveRouteRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.local_vortex_primitive_route_report.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "gar-runtime-impl-6d.local_vortex_primitive_routes"
+
+    @property
+    def route_order(self) -> tuple[str, ...]:
+        """Return primitive route ids in stable order."""
+
+        return tuple(row.route_id for row in self.rows)
+
+    @property
+    def all_runtime_supported(self) -> bool:
+        """Whether every primitive route is scoped runtime-supported."""
+
+        return all(row.runtime_supported for row in self.rows)
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every primitive route preserves no fallback and no external engine use."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def command_coverage(self) -> tuple[str, ...]:
+        """Return CLI commands covered by the primitive route map."""
+
+        return tuple(dict.fromkeys(row.cli_command for row in self.rows))
+
+    @property
+    def source_order_limit_route_ids(self) -> tuple[str, ...]:
+        """Return primitive routes that expose source-order LIMIT."""
+
+        return tuple(
+            row.route_id for row in self.rows if row.supports_source_order_limit
+        )
+
+    def route(self, route_id: str) -> LocalVortexPrimitiveRouteRow:
+        """Return one primitive route row by id."""
+
+        normalized = route_id.strip()
+        for row in self.rows:
+            if row.route_id == normalized:
+                return row
+        raise KeyError(f"local Vortex primitive route {route_id!r} is not in the report")
+
+
 def _df_method(
     method: str,
     family: str,
@@ -673,6 +773,46 @@ def _user_route(
     )
 
 
+def _local_vortex_primitive_route(
+    route_id: str,
+    primitive: str,
+    *,
+    sql_surface: str,
+    python_surface: str,
+    dataframe_surface: str,
+    context_surface: str,
+    session_surface: str,
+    cli_command: str,
+    cli_args_template: str,
+    supports_source_order_limit: bool = False,
+    required_evidence: Sequence[str],
+) -> LocalVortexPrimitiveRouteRow:
+    return LocalVortexPrimitiveRouteRow(
+        route_id=route_id,
+        primitive=primitive,
+        sql_surface=sql_surface,
+        python_surface=python_surface,
+        dataframe_surface=dataframe_surface,
+        context_surface=context_surface,
+        session_surface=session_surface,
+        cli_command=cli_command,
+        cli_args_template=cli_args_template,
+        start_state="native_vortex_file",
+        vortex_normalization_point="native_vortex_boundary",
+        execution_mode="native_vortex",
+        output_route="machine-readable primitive report and bounded scoped collect output",
+        evidence_route="local primitive command envelope, execution certificate, Native I/O, no-fallback evidence",
+        materialization_decode_boundary="primitive report boundary; decoded rows only when the bounded collect surface explicitly asks for them",
+        supports_source_order_limit=supports_source_order_limit,
+        route_runtime_status="scoped_runtime_supported",
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        required_evidence=tuple(required_evidence),
+        claim_gate_status="not_claim_grade",
+        claim_boundary=_LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY,
+    )
+
+
 _LAZY_DECLARATION_BOUNDARY = (
     "Side-effect-free lazy declaration only; no data read, runtime execution, "
     "write I/O, DataFrame runtime, or performance claim."
@@ -721,6 +861,215 @@ _LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY = (
     "Scoped bounded Python object materialization from ShardLoom-emitted inline JSONL for admitted "
     "local-source query-builder workflows only; object-store/table source, external engine, "
     "fallback, or production notebook/DataFrame claim."
+)
+
+LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
+    _local_vortex_primitive_route(
+        "vortex_count_all",
+        "count_all",
+        sql_surface="ctx.sql(\"SELECT COUNT(*) FROM 'orders.vortex'\").collect()",
+        python_surface="read_vortex('orders.vortex').count()",
+        dataframe_surface="read_vortex('orders.vortex').count()",
+        context_surface="ctx.read_vortex('orders.vortex').count()",
+        session_surface="session.read_vortex('orders.vortex').count()",
+        cli_command="vortex-run",
+        cli_args_template="vortex-run <dataset.vortex> count <memory_gb> <max_parallelism> --format json",
+        required_evidence=("vortex_run_count", "execution_certificate", "native_io_certificate"),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_count_where",
+        "count_where",
+        sql_surface=(
+            "ctx.sql(\"SELECT COUNT(*) FROM 'orders.vortex' WHERE value >= 3\").collect()"
+        ),
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').count()",
+        dataframe_surface="read_vortex('orders.vortex').where(col('value') >= 3).count()",
+        context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').count()",
+        session_surface="session.read_vortex('orders.vortex').filter('gte:value:3').count()",
+        cli_command="vortex-count-where",
+        cli_args_template=(
+            "vortex-count-where <dataset.vortex> <tiny-predicate> --execute-local-primitive "
+            "<memory_gb> <max_parallelism> --format json"
+        ),
+        required_evidence=(
+            "vortex_count_where",
+            "filtered_count_local_execution",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_filter_collect",
+        "filter_predicate",
+        sql_surface="ctx.sql(\"SELECT * FROM 'orders.vortex' WHERE value >= 3\").collect()",
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').collect()",
+        dataframe_surface="read_vortex('orders.vortex').where(col('value') >= 3).collect()",
+        context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').collect()",
+        session_surface="session.read_vortex('orders.vortex').filter('gte:value:3').collect()",
+        cli_command="vortex-filter",
+        cli_args_template=(
+            "vortex-filter <dataset.vortex> <tiny-predicate> --execute-local-primitive "
+            "<memory_gb> <max_parallelism> --format json"
+        ),
+        required_evidence=(
+            "vortex_filter",
+            "filter_local_execution",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_filter_limit_collect",
+        "filter_predicate_source_order_limit",
+        sql_surface=(
+            "ctx.sql(\"SELECT * FROM 'orders.vortex' WHERE value >= 3 LIMIT 5\").collect()"
+        ),
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()",
+        dataframe_surface=(
+            "read_vortex('orders.vortex').where(col('value') >= 3).limit(5).collect()"
+        ),
+        context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()",
+        session_surface=(
+            "session.read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()"
+        ),
+        cli_command="vortex-filter",
+        cli_args_template=(
+            "vortex-filter <dataset.vortex> <tiny-predicate> --limit <n> "
+            "--execute-local-primitive <memory_gb> <max_parallelism> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_filter_limit",
+            "filter_local_execution",
+            "source_order_limit",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_project_collect",
+        "project_columns",
+        sql_surface="ctx.sql(\"SELECT metric FROM 'orders.vortex'\").collect()",
+        python_surface="read_vortex('orders.vortex').select('metric').collect()",
+        dataframe_surface="read_vortex('orders.vortex').select('metric').collect()",
+        context_surface="ctx.read_vortex('orders.vortex').select('metric').collect()",
+        session_surface="session.read_vortex('orders.vortex').select('metric').collect()",
+        cli_command="vortex-project",
+        cli_args_template=(
+            "vortex-project <dataset.vortex> <columns> --execute-local-primitive "
+            "<memory_gb> <max_parallelism> --format json"
+        ),
+        required_evidence=(
+            "vortex_project",
+            "project_local_execution",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_project_limit_collect",
+        "project_columns_source_order_limit",
+        sql_surface="ctx.sql(\"SELECT metric FROM 'orders.vortex' LIMIT 5\").collect()",
+        python_surface="read_vortex('orders.vortex').select('metric').limit(5).collect()",
+        dataframe_surface="read_vortex('orders.vortex').select('metric').limit(5).collect()",
+        context_surface="ctx.read_vortex('orders.vortex').select('metric').limit(5).collect()",
+        session_surface="session.read_vortex('orders.vortex').select('metric').limit(5).collect()",
+        cli_command="vortex-project",
+        cli_args_template=(
+            "vortex-project <dataset.vortex> <columns> --limit <n> --execute-local-primitive "
+            "<memory_gb> <max_parallelism> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_project_limit",
+            "project_local_execution",
+            "source_order_limit",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_select_star_limit_collect",
+        "select_star_source_order_limit",
+        sql_surface="ctx.sql(\"SELECT * FROM 'orders.vortex' LIMIT 5\").collect()",
+        python_surface="read_vortex('orders.vortex').select('*').limit(5).collect()",
+        dataframe_surface="read_vortex('orders.vortex').select('*').limit(5).collect()",
+        context_surface="ctx.read_vortex('orders.vortex').select('*').limit(5).collect()",
+        session_surface="session.read_vortex('orders.vortex').select('*').limit(5).collect()",
+        cli_command="vortex-project",
+        cli_args_template=(
+            "vortex-project <dataset.vortex> '*' --limit <n> --execute-local-primitive "
+            "<memory_gb> <max_parallelism> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_project_star_limit",
+            "project_local_execution",
+            "source_order_limit",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_filter_project_collect",
+        "filter_and_project",
+        sql_surface=(
+            "ctx.sql(\"SELECT metric FROM 'orders.vortex' WHERE value >= 3\").collect()"
+        ),
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()",
+        dataframe_surface=(
+            "read_vortex('orders.vortex').where(col('value') >= 3).select('metric').collect()"
+        ),
+        context_surface=(
+            "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()"
+        ),
+        session_surface=(
+            "session.read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()"
+        ),
+        cli_command="vortex-filter-project",
+        cli_args_template=(
+            "vortex-filter-project <dataset.vortex> <tiny-predicate> <columns> "
+            "--execute-local-primitive <memory_gb> <max_parallelism> --format json"
+        ),
+        required_evidence=(
+            "vortex_filter_project",
+            "filter_project_local_execution",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_filter_project_limit_collect",
+        "filter_and_project_source_order_limit",
+        sql_surface=(
+            "ctx.sql(\"SELECT metric FROM 'orders.vortex' WHERE value >= 3 LIMIT 5\").collect()"
+        ),
+        python_surface=(
+            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
+        ),
+        dataframe_surface=(
+            "read_vortex('orders.vortex').where(col('value') >= 3).select('metric').limit(5).collect()"
+        ),
+        context_surface=(
+            "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
+        ),
+        session_surface=(
+            "session.read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
+        ),
+        cli_command="vortex-filter-project",
+        cli_args_template=(
+            "vortex-filter-project <dataset.vortex> <tiny-predicate> <columns> --limit <n> "
+            "--execute-local-primitive <memory_gb> <max_parallelism> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_filter_project_limit",
+            "filter_project_local_execution",
+            "source_order_limit",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -2089,19 +2438,19 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
     ),
     _user_route(
         "native_vortex_query",
-        "ShardLoom Native Vortex Query",
+        "ShardLoom Native Vortex Primitive Query",
         "local_vortex_file",
         input_examples=("orders.vortex", "local .vortex artifact"),
         front_doors=_ALL_USER_FRONT_DOORS,
-        desired_outputs=("machine_readable_report", "native_vortex_result", "result_sink"),
-        recommended_user_surface="ctx.read_vortex(path).filter(...).select(...).collect()/write_vortex(...)",
+        desired_outputs=("machine_readable_report", "count_report", "filter_report", "project_report", "bounded_preview"),
+        recommended_user_surface="ctx.read_vortex(path).count/filter/select/limit/collect or ctx.local_vortex_primitive_route_report()",
         start_state="native_vortex_file",
         vortex_normalization_point="native_vortex_boundary",
         source_route="Vortex-native local file/source",
         preparation_route="not_required_native_vortex_input",
         execution_mode="native_vortex",
-        execution_route="ShardLoom native/prepared Vortex runtime family",
-        output_route="primitive report, native Vortex output, or declared result sink",
+        execution_route="ShardLoom local Vortex primitive runtime family",
+        output_route="machine-readable primitive report and bounded scoped collect output",
         evidence_route="Vortex local primitive or native route envelope, Native I/O, no-fallback evidence",
         materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested",
         route_runtime_status="scoped_runtime_supported",
@@ -2122,9 +2471,9 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "ShardLoom Local Vortex Primitive Report",
         "local_vortex_file",
         input_examples=("orders.vortex",),
-        front_doors=("SQL", "Python", "DataFrame", "context", "CLI"),
+        front_doors=("SQL", "Python", "DataFrame", "context", "session", "CLI"),
         desired_outputs=("count_report", "filter_report", "project_report", "bounded_preview"),
-        recommended_user_surface="ctx.sql(\"SELECT ... FROM 'local.vortex'\").collect() or ctx.read_vortex(...).count/filter/select",
+        recommended_user_surface="ctx.sql(\"SELECT ... FROM 'local.vortex'\").collect(), ctx.read_vortex(...).count/filter/select/limit/collect, or ctx.local_vortex_primitive_route_report()",
         start_state="native_vortex_file",
         vortex_normalization_point="native_vortex_boundary",
         source_route="Vortex local primitive source",
@@ -5955,6 +6304,12 @@ class ContextCapabilities:
         return UserRouteCapabilityReport(rows=USER_ROUTE_CAPABILITY_ROWS)
 
     @property
+    def local_vortex_primitive_route_report(self) -> LocalVortexPrimitiveRouteReport:
+        """Return operation-level local Vortex primitive route coverage."""
+
+        return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
+
+    @property
     def dataframe_notebook_package_readiness(
         self,
     ) -> DataFrameNotebookPackageReadinessReport:
@@ -6189,6 +6544,16 @@ class ShardLoomContext:
 
         _ = check
         return UserRouteCapabilityReport(rows=USER_ROUTE_CAPABILITY_ROWS)
+
+    def local_vortex_primitive_route_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> LocalVortexPrimitiveRouteReport:
+        """Return operation-level local Vortex primitive route coverage."""
+
+        _ = check
+        return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
 
     def dataframe_notebook_package_readiness(
         self,

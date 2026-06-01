@@ -42,6 +42,18 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertFalse(report["performance_equivalence_claim_allowed"])
         self.assertFalse(report["production_claim_allowed"])
         self.assertFalse(report["spark_replacement_claim_allowed"])
+        self.assertTrue(report["local_vortex_primitive_all_runtime_supported"])
+        self.assertTrue(report["local_vortex_primitive_all_no_fallback_no_external_engine"])
+        self.assertEqual(
+            set(report["local_vortex_primitive_command_coverage"]),
+            {
+                "vortex-run",
+                "vortex-count-where",
+                "vortex-filter",
+                "vortex-project",
+                "vortex-filter-project",
+            },
+        )
 
         by_id = {row["route_id"]: row for row in report["rows"]}
         prepare_first = by_id["local_file_prepare_once_first_query"]
@@ -53,11 +65,27 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         native = by_id["native_vortex_query"]
         self.assertEqual(native["vortex_normalization_point"], "native_vortex_boundary")
         self.assertEqual(native["route_runtime_status"], "scoped_runtime_supported")
+        self.assertNotIn("write_vortex", native["recommended_user_surface"])
 
         materialized = by_id["materialized_python_snapshot_reentry"]
         self.assertIn("materialized snapshot", materialized["vortex_normalization_point"])
         self.assertIn("Vortex-preparable", materialized["vortex_normalization_point"])
         self.assertFalse(materialized["external_engine_invoked"])
+
+        primitive_rows = {
+            row["route_id"]: row for row in report["local_vortex_primitive_rows"]
+        }
+        self.assertIn("vortex_count_all", primitive_rows)
+        self.assertIn("vortex_filter_project_limit_collect", primitive_rows)
+        self.assertEqual(
+            primitive_rows["vortex_count_all"]["vortex_normalization_point"],
+            "native_vortex_boundary",
+        )
+        self.assertTrue(
+            primitive_rows["vortex_filter_project_limit_collect"][
+                "supports_source_order_limit"
+            ]
+        )
 
     def test_context_route_selector_filters_by_input_and_output(self) -> None:
         src = REPO_ROOT / "python" / "src"
@@ -83,6 +111,15 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             routes.route("local_vortex_primitive_report").vortex_normalization_point,
             "native_vortex_boundary",
         )
+        primitives = ShardLoomContext(client=None).local_vortex_primitive_route_report()
+        self.assertEqual(
+            primitives.route("vortex_filter_project_limit_collect").cli_command,
+            "vortex-filter-project",
+        )
+        self.assertIn(
+            "vortex_select_star_limit_collect",
+            primitives.source_order_limit_route_ids,
+        )
 
     def test_validator_rejects_unsupported_or_overclaimed_route_rows(self) -> None:
         module = load_route_module()
@@ -91,6 +128,12 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         rows[0]["route_runtime_status"] = "unsupported"
         rows[0]["performance_claim_allowed"] = True
         rows[0]["fallback_attempted"] = True
+        for row in rows:
+            if row["route_id"] == "local_vortex_primitive_report":
+                row["recommended_user_surface"] = (
+                    "ctx.read_vortex(path).write_vortex('out.vortex')"
+                )
+                break
         fake_report = SimpleNamespace(
             all_no_fallback_no_external_engine=False,
             flexible_anything_claim_allowed=True,
@@ -107,6 +150,38 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(any("fallback_attempted must be false" in blocker for blocker in blockers))
         self.assertTrue(any("performance_claim_allowed must be false" in blocker for blocker in blockers))
         self.assertTrue(any("must not be generically unsupported" in blocker for blocker in blockers))
+        self.assertTrue(any("must not advertise write_vortex" in blocker for blocker in blockers))
+
+    def test_validator_rejects_incomplete_local_vortex_primitive_routes(self) -> None:
+        module = load_route_module()
+        src = REPO_ROOT / "python" / "src"
+        if str(src) not in sys.path:
+            sys.path.insert(0, str(src))
+        from shardloom import ShardLoomContext
+
+        report = ShardLoomContext(client=None).local_vortex_primitive_route_report()
+        rows = [module.primitive_row_payload(row) for row in report.rows]
+        rows[0]["route_runtime_status"] = "unsupported"
+        rows[0]["cli_command"] = "vortex-made-up"
+        rows[1]["vortex_normalization_point"] = "decoded_arrow_boundary"
+        fake_report = SimpleNamespace(
+            command_coverage=("vortex-run",),
+            source_order_limit_route_ids=(),
+            all_runtime_supported=False,
+            all_no_fallback_no_external_engine=False,
+        )
+
+        blockers = module.validate_local_vortex_primitives(fake_report, rows)
+
+        self.assertTrue(
+            any("route_runtime_status must be scoped_runtime_supported" in b for b in blockers)
+        )
+        self.assertTrue(any("unrecognized cli_command" in b for b in blockers))
+        self.assertTrue(
+            any("vortex_normalization_point must be native_vortex_boundary" in b for b in blockers)
+        )
+        self.assertTrue(any("missing command coverage" in b for b in blockers))
+        self.assertTrue(any("missing source-order limit routes" in b for b in blockers))
 
 
 if __name__ == "__main__":

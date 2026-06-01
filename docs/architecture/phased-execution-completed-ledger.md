@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: User route capability report and Vortex normalization evidence
+  - Date: 2026-06-01
+  - Branch/PR: `codex/user-route-capability-report` / #999.
+  - Source:
+    - User request to make ShardLoom route readiness clear for SQL/Python/DataFrame users before
+      continuing runtime work.
+    - `GAR-RUNTIME-IMPL-6D Runtime-Ready User Surface And Benchmark-Range Completion`.
+    - #997 benchmark route-runtime status fields and #998 user-surface runtime gap inventory.
+  - Scope:
+    - Added a deterministic user/agent-facing route capability report at
+      `ShardLoomContext.user_route_capability_report()` and through
+      `ContextCapabilities.user_route_capability_report`.
+    - Added route rows for local files, local `.vortex`, prepared Vortex, generated rows,
+      materialized Python snapshots, bounded previews, schema-quality previews, quarantine output,
+      broad SQL/Python/DataFrame expansion, object-store/lakehouse expansion, and performance
+      evidence boundaries.
+    - Required every route row to carry route identity, input family, recommended user surface,
+      start state, Vortex normalization point, execution/output/evidence route, decode or
+      materialization boundary, runtime support status, benchmark-range scope, claim boundary,
+      blocker owner, and no-fallback/no-external-engine fields.
+    - Added `scripts/check_user_route_capability_report.py`, release-readiness wiring, CI-gate
+      matrix coverage, README and architecture-doc pointers, and focused Python tests.
+  - Evidence:
+    - The generated `target/user-route-capability-report.json` reported 15 route rows, 13 local
+      benchmark-range routes, and zero unsupported local ShardLoom benchmark-range routes.
+    - Local validation covered the route report, user-surface inventory, SQL/Python/DataFrame
+      parity gate, Python user-surface completion gate, release-readiness with `--allow-blocked`,
+      Python unit tests, compile checks, whitespace checks, Rust formatting, clippy, and full
+      workspace Rust tests.
+    - PR CI passed, including release readiness, and the PR was merged as #999.
+  - Claim boundary:
+    - This is route guidance, evidence-shape validation, and runtime-readiness classification for
+      explicitly admitted benchmark-range workflows. It does not prove broad arbitrary
+      SQL/Python/DataFrame runtime support, performance equivalence, production readiness, Spark
+      displacement, object-store/lakehouse runtime, or package publication readiness.
+  - Fallback boundary:
+    - ShardLoom route rows preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`. External engines remain baselines only and are never
+      ShardLoom runtime fallback.
+
 - [x] Session label: User-surface runtime gap inventory gate
   - Date: 2026-06-01
   - Branch/PR: `codex/user-surface-runtime-gap-inventory` / #998.
