@@ -558,16 +558,17 @@ scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
 `<column> * 2.0 > 1.0`,
 bounded `IN (...)` / `NOT IN (...)`, scoped literal row-value
 `(<column>,...) IN ((...),...)` / `NOT IN` predicates, scoped local
-`IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` subquery predicates, direct SQL
+`IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` scalar subquery predicates,
+scoped row-value `IN (SELECT <column>,...)` / `NOT IN (...)` subquery predicates, direct SQL
 `BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
 `LENGTH(column)` comparisons against integer literals, string `LIKE` / `NOT LIKE`, null, logical
 `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted leaves. `where(...)` is a
 familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
 including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
 semantics. Row-value literal predicates admit up to 32 literal tuples with arity/type checks and
-SQL three-valued row comparison semantics; multi-column `IN` subqueries remain blocked. Scoped local
-`IN` subqueries materialize a bounded scalar column from another admitted local source and keep
-correlated, filtered, joined, grouped, ordered, limited, nested, and multi-column subqueries blocked.
+SQL three-valued row comparison semantics. Scoped local `IN` subqueries materialize a bounded scalar
+column or row-value tuple set from another admitted local source and keep scalar-left multi-column,
+nested, joined, grouped/HAVING-internal, correlated, and EXISTS/ANY/ALL subqueries blocked.
 Typed reports expose `in_predicate_runtime_execution`,
 `in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
 `row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
@@ -595,7 +596,9 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
 `not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `sl.row_in(...)` /
 `sl.row_not_in(...)`, local source-backed
-`isin_source(source, column)` / `not_in_source(source, column)`, `cast(dtype)`,
+`isin_source(source, column)` / `not_in_source(source, column)`, row-value source-backed
+`sl.row_in_source(columns, source, source_columns)` /
+`sl.row_not_in_source(columns, source, source_columns)`, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
@@ -829,6 +832,14 @@ source_subquery_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
     .filter(sl.col("id").isin_source(allowed_ids, "id"))
+    .limit(10)
+    .collect()
+)
+allowed_pairs = ctx.read_csv("target/sql-local-source-allowed-pairs.csv")
+row_source_subquery_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(sl.row_in_source(["id", "label"], allowed_pairs, ["allowed_id", "allowed_label"]))
     .limit(10)
     .collect()
 )
@@ -1219,7 +1230,7 @@ print(join_grouped_topn.top_n_limit)
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
 null ordering, collation parity,
-broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, arbitrary predicate-tree completeness
+broad ANSI subquery parity beyond admitted bounded local scalar and row-value IN-subqueries, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad

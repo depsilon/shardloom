@@ -2434,13 +2434,13 @@ class SqlLocalSourceSmokeReport:
 
     @property
     def row_value_in_tuple_count(self) -> int:
-        """Return the number of admitted literal tuples in row-value IN predicates."""
+        """Return admitted tuple count for row-value literal or source-backed IN predicates."""
 
         return self.envelope.field_int("row_value_in_tuple_count", 0) or 0
 
     @property
     def row_value_in_null_value_count(self) -> int:
-        """Return the number of NULL literals in row-value IN predicate tuples."""
+        """Return NULL scalar count in row-value literal or source-backed IN tuples."""
 
         return self.envelope.field_int("row_value_in_null_value_count", 0) or 0
 
@@ -2476,7 +2476,7 @@ class SqlLocalSourceSmokeReport:
 
     @property
     def in_subquery_materialized_value_count(self) -> int:
-        """Return the bounded materialized IN-subquery value count."""
+        """Return bounded materialized scalar or tuple count for IN subqueries."""
 
         return self.envelope.field_int("in_subquery_materialized_value_count", 0) or 0
 

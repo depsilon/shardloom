@@ -60,7 +60,8 @@ Current runtime support is intentionally scoped and evidence-gated:
 - scoped SQL local-source execution for projection, row-level `SELECT DISTINCT` over projection,
   aggregate/HAVING, join, and window output rows, filter, limit,
   scalar aggregates, multi-key group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
-  predicates including scalar and row-value literal `IN`/`NOT IN`, scoped local-source
+  predicates including scalar and row-value literal `IN`/`NOT IN`, bounded scalar and row-value
+  local-source `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
   inner/outer/semi/anti equi-joins, cross joins, scoped
   column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
   over joined rows, scoped scalar/grouped join aggregates, and post-aggregate `HAVING` filters over

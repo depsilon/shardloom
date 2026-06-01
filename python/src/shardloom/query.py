@@ -4633,6 +4633,54 @@ def row_not_in(columns: object, rows: object) -> PredicateExpression:
     return _row_value_in_predicate(columns, rows, negated=True)
 
 
+def row_in_source(
+    columns: object,
+    source: object,
+    source_columns: object,
+    *,
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate."""
+
+    return _row_value_in_source_predicate(
+        columns,
+        source,
+        source_columns,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=False,
+    )
+
+
+def row_not_in_source(
+    columns: object,
+    source: object,
+    source_columns: object,
+    *,
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate."""
+
+    return _row_value_in_source_predicate(
+        columns,
+        source,
+        source_columns,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=True,
+    )
+
+
 def row_number(
     *,
     order_by: object,
@@ -6914,6 +6962,38 @@ def _row_value_in_predicate(
     )
     operator = "NOT IN" if negated else "IN"
     return PredicateExpression(f"({column_sql}) {operator} ({row_sql})")
+
+
+def _row_value_in_source_predicate(
+    columns: object,
+    source: object,
+    source_columns: object,
+    *,
+    where: object | None,
+    order_by: object | None,
+    descending: bool,
+    limit: int | None,
+    negated: bool,
+) -> PredicateExpression:
+    normalized_columns = _normalize_row_value_columns(columns)
+    normalized_source_columns = _normalize_row_value_columns(source_columns)
+    if len(normalized_source_columns) != len(normalized_columns):
+        raise ValueError(
+            "row-value IN subquery selected-column arity must match the source column count"
+        )
+    column_sql = ",".join(normalized_columns)
+    source_column_sql = ",".join(normalized_source_columns)
+    source_ref = _sql_in_subquery_source(source)
+    tail = _sql_in_subquery_tail(
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
+    operator = "NOT IN" if negated else "IN"
+    return PredicateExpression(
+        f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})"
+    )
 
 
 def _normalize_row_value_columns(columns: object) -> tuple[str, ...]:
