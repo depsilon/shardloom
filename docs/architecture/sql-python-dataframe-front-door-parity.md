@@ -22,6 +22,14 @@ to close broad "build anything" parity and performance-equivalence evidence.
 The Python package exposes `ShardLoomContext.front_door_parity_matrix()` with schema
 `shardloom.front_door_parity_matrix.v1`.
 
+For route selection, the Python package also exposes
+`ShardLoomContext.user_route_capability_report()` with schema
+`shardloom.user_route_capability_report.v1`. The route report is the agent-facing answer to
+"given input X and desired output Y, which ShardLoom route should I use?" Each row carries the
+start state, Vortex normalization point, execution mode, output route, evidence route,
+materialization/decode boundary, runtime status, claim boundary, and no-fallback/no-external-engine
+fields.
+
 Rows with `parity_status=equivalent_admitted_scope` are the current front-door parity contract:
 
 - `local_file_filter_project_limit`: SQL, Python, and DataFrame-style local file
@@ -116,6 +124,7 @@ Run:
 
 ```bash
 python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
+python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json
 ```
 
 The validator passes when:
