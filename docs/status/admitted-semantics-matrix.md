@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=43
-executable_fixture_count=25
+matrix_row_count=44
+executable_fixture_count=26
 unsupported_diagnostic_count=18
 property_lane_count=1
 property_seed_order=20260521
@@ -62,6 +62,7 @@ Covered fixture rows:
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
 - `row_value_in_subquery_semantics`
+- `exists_subquery_semantics`
 - `sql_union_composition_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
@@ -91,13 +92,14 @@ Covered fixture rows:
 - `unsupported_joined_in_subquery`
 - `unsupported_grouped_having_in_subquery`
 - `unsupported_correlated_in_subquery`
-- `unsupported_exists_any_all_subquery`
+- `unsupported_any_all_subquery`
 
-Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar and row-value
-IN-subquery fixtures, external-oracle result artifact population, and fuzz execution beyond the deterministic
-seeded property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
-interval arithmetic, regex, locale/collation, complex dtype families, and unsupported advanced
-subquery shapes now have deterministic unsupported diagnostics with no fallback.
+Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery,
+row-value IN-subquery, and scoped EXISTS fixtures, external-oracle result artifact population, and
+fuzz execution beyond the deterministic seeded property lane. Decimal precision/scale, non-UTC
+timestamp/timezone database semantics, interval arithmetic, regex, locale/collation, complex dtype
+families, and remaining unsupported advanced subquery shapes now have deterministic unsupported
+diagnostics with no fallback.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance

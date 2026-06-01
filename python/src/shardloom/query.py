@@ -4681,6 +4681,50 @@ def row_not_in_source(
     )
 
 
+def exists_source(
+    source: object,
+    *,
+    select: object = "*",
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate."""
+
+    return _exists_source_predicate(
+        source,
+        select=select,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=False,
+    )
+
+
+def not_exists_source(
+    source: object,
+    *,
+    select: object = "*",
+    where: object | None = None,
+    order_by: object | None = None,
+    descending: bool = False,
+    limit: int | None = None,
+) -> PredicateExpression:
+    """Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate."""
+
+    return _exists_source_predicate(
+        source,
+        select=select,
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=True,
+    )
+
+
 def row_number(
     *,
     order_by: object,
@@ -6996,6 +7040,50 @@ def _row_value_in_source_predicate(
     )
 
 
+def _exists_source_predicate(
+    source: object,
+    *,
+    select: object,
+    where: object | None,
+    order_by: object | None,
+    descending: bool,
+    limit: int | None,
+    negated: bool,
+) -> PredicateExpression:
+    projection_sql = _normalize_exists_subquery_projection(select)
+    source_ref = _sql_local_subquery_source(source, "EXISTS subquery source")
+    tail = _sql_local_subquery_tail(
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="EXISTS subquery limit",
+        max_limit=10_000,
+        positive_limit=False,
+    )
+    operator = "NOT EXISTS" if negated else "EXISTS"
+    return PredicateExpression(
+        f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})"
+    )
+
+
+def _normalize_exists_subquery_projection(select: object) -> str:
+    if isinstance(select, str) and select.strip() == "*":
+        return "*"
+    if isinstance(select, ColumnExpression):
+        return _normalize_output_column_name(select.sql)
+    if _is_non_string_sequence(select):
+        columns = tuple(_normalize_output_column_name(item) for item in select)
+        if not columns:
+            raise ValueError("EXISTS subquery projection columns must not be empty")
+        if len(set(columns)) != len(columns):
+            raise ValueError("EXISTS subquery projection columns must be unique")
+        return ",".join(columns)
+    if isinstance(select, str):
+        return _normalize_output_column_name(select)
+    return _sql_literal(select)
+
+
 def _normalize_row_value_columns(columns: object) -> tuple[str, ...]:
     if _is_non_string_sequence(columns):
         raw_columns = tuple(columns)
@@ -7032,9 +7120,13 @@ def _normalize_row_value_in_rows(
 
 
 def _sql_in_subquery_source(source: object) -> str:
+    return _sql_local_subquery_source(source, "IN subquery source")
+
+
+def _sql_local_subquery_source(source: object, name: str) -> str:
     if isinstance(source, LazyFrame):
         return _quote_sql_local_source_path(source.source.uri)
-    return _quote_sql_local_source_path(_require_non_empty("IN subquery source", source))
+    return _quote_sql_local_source_path(_require_non_empty(name, source))
 
 
 def _sql_in_subquery_tail(
@@ -7044,6 +7136,27 @@ def _sql_in_subquery_tail(
     descending: bool,
     limit: int | None,
 ) -> str:
+    return _sql_local_subquery_tail(
+        where=where,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="IN subquery limit",
+        max_limit=32,
+        positive_limit=True,
+    )
+
+
+def _sql_local_subquery_tail(
+    *,
+    where: object | None,
+    order_by: object | None,
+    descending: bool,
+    limit: int | None,
+    limit_name: str,
+    max_limit: int,
+    positive_limit: bool,
+) -> str:
     tail = ""
     if where is not None:
         tail = f"{tail} WHERE {_predicate_sql(where)}"
@@ -7052,9 +7165,12 @@ def _sql_in_subquery_tail(
         direction = "desc" if descending else "asc"
         tail = f"{tail}{_format_order_by_clause(order_columns, direction)}"
     if limit is not None:
-        normalized_limit = _normalize_positive_int("IN subquery limit", limit)
-        if normalized_limit > 32:
-            raise ValueError("IN subquery limit admits at most 32 rows")
+        if positive_limit:
+            normalized_limit = _normalize_positive_int(limit_name, limit)
+        else:
+            normalized_limit = _normalize_non_negative_int(limit_name, limit)
+        if normalized_limit > max_limit:
+            raise ValueError(f"{limit_name} admits at most {max_limit} rows")
         tail = f"{tail} LIMIT {normalized_limit}"
     return tail
 

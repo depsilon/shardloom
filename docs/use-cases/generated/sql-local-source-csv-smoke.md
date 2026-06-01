@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
+# SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, scalar aggregates with aliases, multi-key group-by aggregates, numeric top-N, ctx.sql collect/write, local JSONL/CSV and feature-gated structured/Vortex sinks, local fanout, local-source equi/cross/expression joins, and scalar/grouped join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32 arithmetic/extract, UTC timestamp arithmetic/extract, temporal-difference, bounded local scalar and row-value IN-subqueries with admitted WHERE/ORDER BY/LIMIT tails, and UTF-8 transform/length/CONCAT/SUBSTR/REPLACE helpers. Lossy coercion, division by zero, overflow/type errors, invalid date/time/count literals, NULL fallback/sentinel or CASE mismatches, unsupported scalar-left multi-column/correlated subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, and UTF-8 helper families. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column/correlated/ANY/ALL subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, scalar aggregates with aliases, multi-key group-by aggregates, numeric top-N, ctx.sql collect/write, local JSONL/CSV and feature-gated structured/Vortex sinks, local fanout, local-source equi/cross/expression joins, and scalar/grouped join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32 arithmetic/extract, UTC timestamp arithmetic/extract, temporal-difference, bounded local scalar and row-value IN-subqueries with admitted WHERE/ORDER BY/LIMIT tails, and UTF-8 transform/length/CONCAT/SUBSTR/REPLACE helpers. Lossy coercion, division by zero, overflow/type errors, invalid date/time/count literals, NULL fallback/sentinel or CASE mismatches, unsupported scalar-left multi-column/correlated subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
+Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Computed filters/projections admit listed cast, null, conditional, numeric, Date32, UTC timestamp, temporal-difference, scalar/row-value IN-subqueries, scoped EXISTS/NOT EXISTS, and UTF-8 helper families. Lossy coercion, arithmetic/type/date/time errors, NULL fallback/sentinel or CASE mismatches, scalar-left multi-column/correlated/ANY/ALL subquery shapes, and broad projection trees block. No broad SQL/DataFrame or production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, timezone/collation completeness, fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,am
 
 ## Blocker
 
-Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, default-build Vortex writes without --features vortex-write, arbitrary join predicate trees beyond the admitted expression ON families, aggregate join ordering beyond admitted output aliases/group keys, timezone-database completeness, scalar-left multi-column/correlated/joined/grouped/nested/EXISTS/ANY/ALL subqueries, broader grouped aggregate generality, generalized ordering/null/collation support, generalized expression projections beyond admitted literal, null coalesce/nullif, single-branch CASE, numeric arithmetic, numeric ABS, numeric rounding, Date32 day arithmetic, UTC timestamp second arithmetic, temporal difference, UTF-8 transform/length/CONCAT/SUBSTR/REPLACE, and temporal extract computed columns, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, claim-grade or broad output/fanout replay, and production SQL/DataFrame support require later runtime slices.
+Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, default-build Vortex writes without --features vortex-write, arbitrary join predicate trees beyond the admitted expression ON families, aggregate join ordering beyond admitted output aliases/group keys, timezone-database completeness, scalar-left multi-column/correlated/joined/grouped/nested/ANY/ALL subqueries, broader grouped aggregate generality, generalized ordering/null/collation support, generalized expression projections beyond admitted literal, null coalesce/nullif, single-branch CASE, numeric arithmetic, numeric ABS, numeric rounding, Date32 day arithmetic, UTC timestamp second arithmetic, temporal difference, UTF-8 transform/length/CONCAT/SUBSTR/REPLACE, and temporal extract computed columns, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, broad subqueries, catalogs, object stores, table/lakehouse sources, claim-grade or broad output/fanout replay, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
@@ -168,6 +168,20 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `in_subquery_materialized_value_count`
 - `in_subquery_materialized_null_value_count`
 - `having_in_subquery_runtime_execution`
+- `exists_subquery_runtime_execution`
+- `exists_subquery_projection_kind`
+- `exists_subquery_source_column`
+- `exists_subquery_source_format`
+- `exists_subquery_filter_runtime_execution`
+- `exists_subquery_order_by_runtime_execution`
+- `exists_subquery_limit_runtime_execution`
+- `exists_subquery_input_row_count`
+- `exists_subquery_filtered_row_count`
+- `exists_subquery_bounded_row_count`
+- `exists_subquery_scan_bound`
+- `exists_subquery_result`
+- `exists_subquery_null_semantics`
+- `having_exists_subquery_runtime_execution`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`

@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped EXISTS/NOT EXISTS runtime slice
+  - Date: 2026-06-01
+  - Branch/PR: `codex/sql-exists-subquery-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to bounded scalar and row-value local-source subqueries: uncorrelated
+      `EXISTS`/`NOT EXISTS` was still described as a broad blocker even though the same local-source
+      predicate, ordering, limit, and evidence paths could admit a bounded presence-test route.
+  - Scope:
+    - Added scoped local `EXISTS (SELECT ...)` and `NOT EXISTS (...)` parsing, binding,
+      materialization, expression lowering, and execution for admitted local sources. The runtime
+      validates wildcard/literal/plain-column projection shapes, reads only required subquery
+      columns, applies admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` tails, records
+      input/filtered/bounded row counts, and evaluates SQL's two-valued presence test without
+      external engine fallback.
+    - Kept nested, joined, grouped/HAVING-internal, correlated, and `ANY`/`ALL` subquery families as
+      deterministic unsupported diagnostics.
+    - Added SQL/Python evidence fields and Python `exists_source(...)` /
+      `not_exists_source(...)` helpers so query-builder users can express scoped source-backed
+      presence predicates without pandas, Polars, DuckDB, DataFusion, Spark, or another fallback.
+    - Updated the admitted semantics matrix, validator fixture, release-readiness markers,
+      README/Python README, use-case atlas, compute-flow reference, static website mirrors, phase
+      plan, and RFC traceability so scoped EXISTS is runtime-supported while broad ANSI subquery
+      parity remains explicit follow-up work.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo test -p shardloom-cli exists_subquery -- --nocapture` passed.
+    - `cargo test -p shardloom-contract-tests admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_exists_subquery_filter_invokes_sql_smoke`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/src/shardloom/__init__.py`
+      passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-exists-subquery.json`
+      passed with `matrix_row_count=44`, `executable_fixture_count=26`, and
+      `unsupported_diagnostic_count=18`.
+    - `python3 scripts/check_use_case_index.py`, `python3 scripts/check_use_case_backlinks.py`,
+      `python3 scripts/check_use_case_coverage.py`, `python3 scripts/check_sql_python_dataframe_parity.py`,
+      `python3 scripts/check_user_route_capability_report.py`,
+      and `python3 scripts/check_user_surface_runtime_gap_inventory.py` passed.
+    - Static website generation passed with the bundled Node runtime:
+      `node scripts/sync-content.mjs`, `node node_modules/.bin/astro build`,
+      `node scripts/postbuild-static.mjs`, `node node_modules/.bin/astro check`, and
+      `node website/validate_static_assets.js`.
+    - `python3 scripts/check_website_readiness.py` passed once after the static build, but the
+      final local rerun was blocked by ignored untracked duplicate `* 3.html` / `* 3.js` artifacts
+      in `website/`; those files are not staged for this PR.
+  - Claim boundary:
+    - This closes scoped bounded local-source EXISTS/NOT EXISTS support over already-admitted local
+      SQL/Python runtime routes. It does not claim arbitrary ANSI subquery parity, correlated
+      subqueries, joins/groups inside subqueries, `ANY`/`ALL`, object-store/table SQL, performance
+      equivalence, production SQL/DataFrame completeness, or Spark replacement.
+  - Fallback boundary:
+    - All execution stays inside `sql-local-source-smoke` and reports no fallback or external
+      engine invocation. External engines remain baselines/oracles only and are not used for
+      execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D bounded row-value IN-subquery runtime slice
   - Date: 2026-06-01
   - Branch/PR: `codex/sql-subquery-runtime` / pending PR.
