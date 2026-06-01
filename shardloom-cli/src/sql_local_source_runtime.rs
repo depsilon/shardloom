@@ -9564,6 +9564,14 @@ fn scalar_distinct_key(value: &ScalarValue) -> String {
     }
 }
 
+fn bytes_to_hex(value: &[u8]) -> String {
+    let mut out = String::with_capacity(value.len().saturating_mul(2));
+    for byte in value {
+        let _ = write!(out, "{byte:02x}");
+    }
+    out
+}
+
 fn aggregate_numeric_sum(
     aggregate: &ParsedAggregate,
     rows: &[&ExpressionInputRow],
@@ -11520,6 +11528,72 @@ impl ParsedSqlLocalSource {
 
     fn has_literal_projection(&self) -> bool {
         !self.literal_projections.is_empty()
+    }
+
+    fn literal_projection_dtypes(&self) -> String {
+        if self.literal_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.literal_projections
+                .iter()
+                .map(|projection| projection.value.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn has_binary_literal_projection(&self) -> bool {
+        self.literal_projections
+            .iter()
+            .any(|projection| matches!(&projection.value, ScalarValue::Binary(_)))
+    }
+
+    fn binary_literal_projection_columns(&self) -> String {
+        let columns = self
+            .literal_projections
+            .iter()
+            .filter_map(|projection| match &projection.value {
+                ScalarValue::Binary(_) => Some(projection.alias.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn binary_literal_projection_byte_counts(&self) -> String {
+        let byte_counts = self
+            .literal_projections
+            .iter()
+            .filter_map(|projection| match &projection.value {
+                ScalarValue::Binary(value) => Some(value.len().to_string()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if byte_counts.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            byte_counts.join(",")
+        }
+    }
+
+    fn binary_literal_projection_hex_values(&self) -> String {
+        let hex_values = self
+            .literal_projections
+            .iter()
+            .filter_map(|projection| match &projection.value {
+                ScalarValue::Binary(value) => Some(bytes_to_hex(value)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if hex_values.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            hex_values.join(",")
+        }
     }
 
     fn has_cast_projection(&self) -> bool {
@@ -20269,6 +20343,26 @@ impl SqlLocalSourceReport {
                 self.parsed.literal_projections.len().to_string(),
             ),
             (
+                "literal_projection_dtype".to_string(),
+                self.parsed.literal_projection_dtypes(),
+            ),
+            (
+                "binary_literal_projection_runtime_execution".to_string(),
+                self.parsed.has_binary_literal_projection().to_string(),
+            ),
+            (
+                "binary_literal_projection_columns".to_string(),
+                self.parsed.binary_literal_projection_columns(),
+            ),
+            (
+                "binary_literal_projection_byte_count".to_string(),
+                self.parsed.binary_literal_projection_byte_counts(),
+            ),
+            (
+                "binary_literal_projection_hex_value".to_string(),
+                self.parsed.binary_literal_projection_hex_values(),
+            ),
+            (
                 "cast_projection_runtime_execution".to_string(),
                 self.parsed.has_cast_projection().to_string(),
             ),
@@ -22784,10 +22878,9 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
         || contains_function_call_outside_quotes(statement, "unhex")
         || contains_cast_target_matching(statement, "cast", target_is_binary_dtype)?
         || contains_cast_target_matching(statement, "try_cast", target_is_binary_dtype)?
-        || contains_hex_blob_literal_outside_quotes(statement)
     {
         return Err(unsupported_sql_error(
-            "binary source literals and binary input decoding are not admitted through the SQL local-source runtime",
+            "binary source decoding, binary casts, and binary helper functions are not admitted through the SQL local-source runtime",
         ));
     }
     Ok(())
@@ -22850,34 +22943,6 @@ fn contains_keyword_followed_by_char_outside_quotes(
             return true;
         }
         search_start = keyword_index + keyword.len();
-    }
-    false
-}
-
-fn contains_hex_blob_literal_outside_quotes(raw: &str) -> bool {
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        if matches!(ch, 'x' | 'X')
-            && !raw[..index]
-                .chars()
-                .next_back()
-                .is_some_and(is_identifier_char)
-            && raw[index + ch.len_utf8()..].starts_with('\'')
-        {
-            return true;
-        }
     }
     false
 }
@@ -28411,6 +28476,9 @@ fn parse_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomErr
     {
         return parse_sql_timestamp_literal(trimmed[9..].trim());
     }
+    if is_sql_binary_hex_literal(trimmed) {
+        return parse_sql_binary_hex_literal(trimmed).map(ScalarValue::Binary);
+    }
     parse_sql_literal(trimmed)
 }
 
@@ -28439,6 +28507,43 @@ fn parse_sql_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     Err(unsupported_sql_error(
         "SQL local-source literals are limited to int64, finite float64, boolean, null, and single-quoted UTF-8 strings",
     ))
+}
+
+fn is_sql_binary_hex_literal(value: &str) -> bool {
+    value
+        .get(..1)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("x"))
+        && value.get(1..).is_some_and(|tail| tail.starts_with('\''))
+}
+
+fn parse_sql_binary_hex_literal(raw: &str) -> Result<Vec<u8>, ShardLoomError> {
+    let Some(string_literal) = raw.get(1..) else {
+        return Err(unsupported_sql_error(
+            "binary hex literals must be written as X'<hex bytes>'",
+        ));
+    };
+    let body = parse_sql_string_literal(string_literal)?;
+    if body.len() % 2 != 0 {
+        return Err(unsupported_sql_error(
+            "binary hex literals require an even number of hexadecimal digits",
+        ));
+    }
+    if !body.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(unsupported_sql_error(
+            "binary hex literals admit hexadecimal digits only",
+        ));
+    }
+    body.as_bytes()
+        .chunks(2)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair).map_err(|_| {
+                unsupported_sql_error("binary hex literals admit hexadecimal digits only")
+            })?;
+            u8::from_str_radix(text, 16).map_err(|_| {
+                unsupported_sql_error("binary hex literals admit hexadecimal digits only")
+            })
+        })
+        .collect()
 }
 
 fn parse_csv_scalar(raw: &str) -> ScalarValue {
@@ -29064,7 +29169,7 @@ fn scalar_to_csv_value(value: &ScalarValue) -> String {
         ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
         ScalarValue::Null | ScalarValue::Float64(_) => String::new(),
         ScalarValue::Utf8(value) => value.clone(),
-        ScalarValue::Binary(value) => format!("binary[len={}]", value.len()),
+        ScalarValue::Binary(value) => format!("binary[hex={}]", bytes_to_hex(value)),
         ScalarValue::Date32(value) => format_iso_date32(*value),
         ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value),
     }
@@ -29085,7 +29190,7 @@ fn scalar_to_json(value: &ScalarValue) -> String {
         }
         ScalarValue::Null | ScalarValue::Float64(_) => "null".to_string(),
         ScalarValue::Utf8(value) => format!("\"{}\"", json_escape(value)),
-        ScalarValue::Binary(value) => format!("\"binary[len={}]\"", value.len()),
+        ScalarValue::Binary(value) => format!("\"binary[hex={}]\"", bytes_to_hex(value)),
         ScalarValue::Date32(value) => format!("\"{}\"", format_iso_date32(*value)),
         ScalarValue::TimestampMicros(value) => {
             format!("\"{}\"", format_iso_timestamp_micros(*value))
@@ -29491,12 +29596,12 @@ mod tests {
     #[test]
     fn parses_scoped_literal_projection_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,label,'north' AS segment,DATE '2026-05-19' AS batch_date FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+            "SELECT id,label,'north' AS segment,DATE '2026-05-19' AS batch_date,X'00ff10' AS payload FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
         )
         .expect("literal projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert_eq!(parsed.literal_projections.len(), 2);
+        assert_eq!(parsed.literal_projections.len(), 3);
         assert_eq!(parsed.literal_projections[0].alias, "segment");
         assert_eq!(
             parsed.literal_projections[0].value,
@@ -29507,6 +29612,16 @@ mod tests {
             parsed.literal_projections[1].value,
             ScalarValue::Date32(_)
         ));
+        assert_eq!(parsed.literal_projections[2].alias, "payload");
+        assert_eq!(
+            parsed.literal_projections[2].value,
+            ScalarValue::Binary(vec![0x00, 0xff, 0x10])
+        );
+        assert_eq!(parsed.literal_projection_dtypes(), "utf8,date32,binary");
+        assert!(parsed.has_binary_literal_projection());
+        assert_eq!(parsed.binary_literal_projection_columns(), "payload");
+        assert_eq!(parsed.binary_literal_projection_byte_counts(), "3");
+        assert_eq!(parsed.binary_literal_projection_hex_values(), "00ff10");
         assert_eq!(
             parsed.statement_kind(),
             "local_source_literal_projection_filter_limit"
@@ -29515,6 +29630,43 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "literal-projection-filter-limit"
         );
+    }
+
+    #[test]
+    fn binary_hex_literal_projection_blocks_malformed_literals_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,X'0' AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary hex literals require an even number of hexadecimal digits",
+            ),
+            (
+                "SELECT id,X'00xz' AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary hex literals admit hexadecimal digits only",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("malformed binary hex literal remains blocked");
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn binary_hex_literals_are_not_admitted_outside_literal_projections_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label = X'616c706861' LIMIT 5",
+        )
+        .expect_err("binary hex literal predicates remain outside this scoped slice");
+
+        assert!(
+            error
+                .to_string()
+                .contains("SQL local-source literals are limited")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]
@@ -31326,6 +31478,47 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_binary_hex_literal_projection_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,X'00ff10' AS payload FROM '{}' LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run binary hex literal projection smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"payload\":\"binary[hex=00ff10]\"}\n{\"id\":2,\"payload\":\"binary[hex=00ff10]\"}\n"
+        );
+        assert_field_eq(&fields, "literal_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "literal_projection_columns", "payload");
+        assert_field_eq(&fields, "literal_projection_count", "1");
+        assert_field_eq(&fields, "literal_projection_dtype", "binary");
+        assert_field_eq(
+            &fields,
+            "binary_literal_projection_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "binary_literal_projection_columns", "payload");
+        assert_field_eq(&fields, "binary_literal_projection_byte_count", "3");
+        assert_field_eq(&fields, "binary_literal_projection_hex_value", "00ff10");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn runs_scoped_like_escape_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
         fs::write(
@@ -32899,8 +33092,16 @@ mod tests {
                 "union dtype casts are not admitted",
             ),
             (
-                "SELECT id,X'00ff' AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary source literals and binary input decoding are not admitted",
+                "SELECT id,BINARY '00ff' AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary source decoding, binary casts, and binary helper functions are not admitted",
+            ),
+            (
+                "SELECT id,UNHEX(label) AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary source decoding, binary casts, and binary helper functions are not admitted",
+            ),
+            (
+                "SELECT CAST(label AS binary) AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary source decoding, binary casts, and binary helper functions are not admitted",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)
