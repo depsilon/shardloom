@@ -2584,6 +2584,165 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(fields["query_timing_starts_after_preparation"])
         self.assertEqual(fields["input_format"], "arrow-ipc")
 
+    def test_lazy_frame_prepare_vortex_auto_uses_artifact_manifest_reuse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source = root / "source.csv"
+            workspace = root / "prepared"
+            target = workspace / "source.vortex"
+            count_path = root / "counts.json"
+            source.write_text("id,label\n1,alpha\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+
+                    args = sys.argv[1:]
+                    assert args[0:3] == [
+                        "vortex-ingest-smoke",
+                        {str(source)!r},
+                        {str(target)!r},
+                    ], sys.argv
+                    assert args[-2:] == ["--format", "json"], sys.argv
+                    allow_overwrite = "--allow-overwrite" in args
+                    count_path = Path({str(count_path)!r})
+                    counts = json.loads(count_path.read_text(encoding="utf-8")) if count_path.exists() else {{"cli": 0, "writes": 0}}
+                    counts["cli"] += 1
+                    source_path = Path(args[1])
+                    target_path = Path(args[2])
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    source_text = source_path.read_text(encoding="utf-8")
+                    if "beta" in source_text:
+                        assert allow_overwrite, sys.argv
+                        counts["writes"] += 1
+                        target_path.write_text(f"prepared drift {{counts['writes']}}", encoding="utf-8")
+                        status = "prepared_state_created"
+                        created = "true"
+                        reused = "false"
+                        reuse_hit = "false"
+                        reuse_reason = "prepared_state_created_after_source_content_digest_changed"
+                        invalidation = "source_content_digest_changed"
+                    elif counts["writes"] == 0:
+                        counts["writes"] += 1
+                        target_path.write_text(f"prepared {{counts['writes']}}", encoding="utf-8")
+                        status = "prepared_state_created"
+                        created = "true"
+                        reused = "false"
+                        reuse_hit = "false"
+                        reuse_reason = "no_reuse_manifest"
+                        invalidation = "no_reuse_manifest"
+                    else:
+                        status = "prepared_state_reused_from_artifact_adjacent_manifest"
+                        created = "false"
+                        reused = "true"
+                        reuse_hit = "true"
+                        reuse_reason = "manifest_fingerprints_match"
+                        invalidation = "none"
+                    count_path.write_text(json.dumps(counts), encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "vortex-ingest-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "source_path", "value": str(source_path)}},
+                            {{"key": "target_vortex_path", "value": str(target_path)}},
+                            {{"key": "source_format", "value": "csv"}},
+                            {{"key": "vortex_ingest_status", "value": status}},
+                            {{"key": "prepared_state_id", "value": "vortex-prepared-state-auto"}},
+                            {{"key": "prepared_state_digest", "value": "sha256:prepared-auto"}},
+                            {{"key": "vortex_artifact_digest", "value": "sha256:vortex-auto"}},
+                            {{"key": "input_row_count", "value": "1"}},
+                            {{"key": "writer_row_count", "value": "1"}},
+                            {{"key": "reopen_row_count", "value": "1"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_row_count_verified"}},
+                            {{"key": "certification_level", "value": "ingest_certified"}},
+                            {{"key": "certification_status", "value": "fixture_smoke_certified"}},
+                            {{"key": "source_io_performed", "value": "true"}},
+                            {{"key": "prepared_state_created", "value": created}},
+                            {{"key": "prepared_state_reused", "value": reused}},
+                            {{"key": "prepared_state_reuse_hit", "value": reuse_hit}},
+                            {{"key": "prepared_state_reuse_reason", "value": reuse_reason}},
+                            {{"key": "prepared_state_reuse_manifest_digest", "value": "sha256:manifest-auto"}},
+                            {{"key": "prepared_state_invalidation_reason", "value": invalidation}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv(source)
+
+            first = frame.prepare_vortex(workspace=workspace)
+            second = frame.prepare_vortex(workspace=workspace)
+
+            self.assertIsInstance(first, VortexIngestSmokeReport)
+            self.assertEqual(first.target_vortex_path, str(target))
+            self.assertTrue(first.prepared_state_created)
+            self.assertFalse(first.prepared_state_reuse_hit)
+            self.assertEqual(first.prepared_state_reuse_reason, "no_reuse_manifest")
+            self.assertEqual(
+                second.vortex_ingest_status,
+                "prepared_state_reused_from_artifact_adjacent_manifest",
+            )
+            self.assertFalse(second.prepared_state_created)
+            self.assertTrue(second.prepared_state_reused)
+            self.assertTrue(second.prepared_state_reuse_hit)
+            self.assertEqual(second.prepared_state_reuse_reason, "manifest_fingerprints_match")
+            self.assertEqual(second.prepared_state_invalidation_reason, "none")
+            self.assertFalse(second.fallback_attempted)
+            self.assertFalse(second.external_engine_invoked)
+
+            source.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            third = frame.prepare_vortex(workspace=workspace, allow_overwrite=True)
+            self.assertFalse(third.prepared_state_reuse_hit)
+            self.assertEqual(
+                third.prepared_state_reuse_reason,
+                "prepared_state_created_after_source_content_digest_changed",
+            )
+            self.assertEqual(
+                third.prepared_state_invalidation_reason,
+                "source_content_digest_changed",
+            )
+            self.assertEqual(
+                json.loads(count_path.read_text(encoding="utf-8")),
+                {"cli": 3, "writes": 2},
+            )
+
+    def test_lazy_frame_prepare_vortex_rejects_ambiguous_or_non_raw_inputs(
+        self,
+    ) -> None:
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)))
+
+        with self.assertRaisesRegex(ValueError, "requires target_vortex_path or workspace"):
+            ctx.read_csv("source.csv").prepare_vortex()
+
+        with self.assertRaisesRegex(ValueError, "either target_vortex_path or workspace, not both"):
+            ctx.read_csv("source.csv").prepare_vortex(
+                "target/source.vortex",
+                workspace="target/prepared",
+            )
+
+        with self.assertRaisesRegex(ValueError, "already Vortex-native"):
+            ctx.read_vortex("source.vortex").prepare_vortex(workspace="target/prepared")
+
+        with self.assertRaisesRegex(ValueError, "before query operators"):
+            ctx.read_csv("source.csv").filter("id > 0").prepare_vortex(
+                workspace="target/prepared"
+            )
+
+        live_ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)), engine="live")
+        with self.assertRaisesRegex(ValueError, "live/hybrid preparation remains gated"):
+            live_ctx.read_csv("source.csv").prepare_vortex(workspace="target/prepared")
+
     def test_session_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
         session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
 
