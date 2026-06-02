@@ -65,6 +65,7 @@ const statusVocabulary = new Set([
   "feature_gated",
   "diagnostic_only",
   "claim_grade",
+  "not_claim_grade",
   "external_baseline_only",
   "future",
 ]);

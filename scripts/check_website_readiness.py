@@ -82,6 +82,7 @@ STATUS_VOCABULARY = {
     "feature_gated",
     "diagnostic_only",
     "claim_grade",
+    "not_claim_grade",
     "external_baseline_only",
     "future",
 }
@@ -127,6 +128,23 @@ REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS = {
     "blocked_selection_vector_metric_aggregation_not_admitted",
     "shardloom.operator_mode_inventory.v1",
 }
+PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
+    "shardloom.public_front_door_benchmark_rows.v1"
+)
+REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
+    "local_source_auto_prepare_vortex_front_door",
+    "generated_source_prepare_vortex_front_door",
+}
+REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS = {
+    "Public front doors",
+    "Route rows name the user-facing prepared paths.",
+    "ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
+    "ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
+    "not_timing_row_route_identity_only",
+    "SourceState",
+    "GeneratedSourceState",
+    "VortexPreparedState",
+}
 CLAIM_PHRASES = [
     r"\bShardLoom is faster\b",
     r"\bShardLoom is better\b",
@@ -151,6 +169,7 @@ FORBIDDEN_RUNTIME_SNIPPETS = {"docs/architecture/phased-execution-plan.md"}
 URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 STATUS_CHIP_RE = re.compile(r'<span class="status-chip[^"]*">([^<]+)</span>')
 ROUTE_CARD_ID_RE = re.compile(r'data-route-card-id="([^"]+)"')
+PUBLIC_FRONT_DOOR_ID_RE = re.compile(r'data-public-front-door-id="([^"]+)"')
 
 
 class HtmlRefs(HTMLParser):
@@ -453,6 +472,18 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
     for required in sorted(REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS):
         if required not in html:
             blockers.append(f"benchmark page missing operator-mode inventory string: {required}")
+    public_front_door_ids = set(PUBLIC_FRONT_DOOR_ID_RE.findall(html))
+    missing_public_front_doors = sorted(
+        REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - public_front_door_ids
+    )
+    if missing_public_front_doors:
+        blockers.append(
+            "benchmark page missing public front-door rows: "
+            + ", ".join(missing_public_front_doors)
+        )
+    for token in sorted(REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS):
+        if token not in html:
+            blockers.append(f"benchmark page missing public front-door token: {token}")
     route_dashboard_index = html.find("data-route-card-dashboard")
     stage_index = html.find("Stage attribution")
     fast_path_index = html.find("Runtime fast path")
@@ -466,6 +497,86 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
         blockers.append("benchmark page must show operator-mode inventory after fast-path attribution")
     if raw_index != -1 and route_dashboard_index != -1 and route_dashboard_index > raw_index:
         blockers.append("benchmark page must keep raw timing tables after route cards")
+
+
+def check_public_front_door_benchmark_payload(
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    if payload.get("public_front_door_benchmark_schema_version") != (
+        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+    ):
+        blockers.append("benchmark results missing public front-door schema")
+    rows = payload.get("public_front_door_benchmark_rows")
+    if not isinstance(rows, list):
+        blockers.append("benchmark results missing public_front_door_benchmark_rows")
+        rows = []
+    row_ids = {
+        str(row.get("front_door_id"))
+        for row in rows
+        if isinstance(row, dict) and row.get("front_door_id")
+    }
+    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - row_ids)
+    extra = sorted(row_ids - REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    if missing:
+        blockers.append(
+            "benchmark results missing public front-door rows: " + ", ".join(missing)
+        )
+    if extra:
+        blockers.append(
+            "benchmark results contain extra public front-door rows: " + ", ".join(extra)
+        )
+    if payload.get("public_front_door_benchmark_row_count") != len(rows):
+        blockers.append("benchmark results public front-door row count mismatch")
+    payload_ids = {
+        str(item)
+        for item in payload.get("public_front_door_benchmark_row_ids", [])
+        if isinstance(item, str)
+    }
+    if payload_ids != row_ids:
+        blockers.append("benchmark results public front-door row ids mismatch")
+
+    for row in rows:
+        if not isinstance(row, dict):
+            blockers.append("benchmark public front-door row is not an object")
+            continue
+        front_door_id = str(row.get("front_door_id") or "missing")
+        surface = str(row.get("public_user_surface") or "")
+        if row.get("route_runtime_status") != "scoped_runtime_supported":
+            blockers.append(f"{front_door_id}: public front-door runtime status drift")
+        if row.get("front_door_end_state") != "VortexPreparedState":
+            blockers.append(f"{front_door_id}: public front-door end-state drift")
+        if row.get("benchmark_timing_status") != "not_timing_row_route_identity_only":
+            blockers.append(f"{front_door_id}: public front-door timing status drift")
+        if row.get("benchmark_timing_row") is not False:
+            blockers.append(f"{front_door_id}: public front-door row must not be timing")
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{front_door_id}: public front-door fallback drift")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{front_door_id}: public front-door external-engine drift")
+        if ".prepare_vortex" not in surface or "workspace=" not in surface:
+            blockers.append(f"{front_door_id}: public front-door surface missing workspace prepare")
+
+
+def check_public_front_door_benchmark_manifest(
+    manifest: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    if manifest.get("public_front_door_benchmark_schema_version") != (
+        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+    ):
+        blockers.append("benchmark manifest missing public front-door schema")
+    manifest_ids = {
+        str(item)
+        for item in manifest.get("public_front_door_benchmark_row_ids", [])
+        if isinstance(item, str)
+    }
+    if manifest_ids != REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS:
+        blockers.append("benchmark manifest public front-door row ids mismatch")
+    if manifest.get("public_front_door_benchmark_row_count") != len(
+        REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS
+    ):
+        blockers.append("benchmark manifest public front-door row count mismatch")
 
 
 def main() -> int:
@@ -538,6 +649,7 @@ def main() -> int:
         )
     if canonical_benchmark_results.exists():
         benchmark_payload = json.loads(canonical_benchmark_results.read_text(encoding="utf-8"))
+        check_public_front_door_benchmark_payload(benchmark_payload, blockers)
         if benchmark_payload.get("published_benchmark_rows_inlined") != "summary_only":
             blockers.append("benchmark results must inline only summary rows for deployable asset safety")
         chunks = benchmark_payload.get("published_benchmark_row_chunks")
@@ -587,6 +699,7 @@ def main() -> int:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("performance_claim_allowed") is not False:
             blockers.append("benchmark manifest must keep performance_claim_allowed=false")
+        check_public_front_door_benchmark_manifest(manifest, blockers)
         for field in ("expected_lanes", "available_lanes", "missing_lanes"):
             if not isinstance(manifest.get(field), list):
                 blockers.append(f"benchmark manifest missing list field: {field}")
@@ -703,6 +816,9 @@ def main() -> int:
         "benchmark_fast_path_strings_checked": sorted(REQUIRED_BENCHMARK_FAST_PATH_STRINGS),
         "benchmark_operator_mode_strings_checked": sorted(
             REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS
+        ),
+        "public_front_door_benchmark_ids_checked": sorted(
+            REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS
         ),
         "blockers": blockers,
     }

@@ -738,6 +738,10 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.compact-route-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .route-summary-card {
   display: grid;
   gap: 14px;
@@ -755,6 +759,24 @@ p {
   background:
     linear-gradient(180deg, rgba(154, 101, 0, 0.055), transparent 170px),
     #fff;
+}
+
+.public-front-door-card {
+  border-color: rgba(6, 169, 214, 0.24);
+  background:
+    linear-gradient(180deg, rgba(6, 169, 214, 0.05), transparent 150px),
+    #fff;
+}
+
+.public-front-door-card p code {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 9px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .route-card-topline,
@@ -800,6 +822,9 @@ p {
   border-color: rgba(95, 111, 125, 0.24);
   background: #f8fbfc;
   color: var(--muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .badge-count {
@@ -1182,6 +1207,7 @@ p {
 
 .status-report-only,
 .status-not-planned,
+.status-not-claim-grade,
 .status-planned,
 .status-feature-gated,
 .status-diagnostic-only,

@@ -87,6 +87,17 @@ PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
 PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
     "shardloom.python.prepared_vortex_reuse_manifest.v1"
 )
+PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
+    "shardloom.public_front_door_benchmark_rows.v1"
+)
+PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND = "public_front_door_route_evidence"
+PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
+    "not_timing_row_route_identity_only"
+)
+REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
+    "local_source_auto_prepare_vortex_front_door",
+    "generated_source_prepare_vortex_front_door",
+}
 REQUIRED_PREPARED_STATE_REUSE_FIELDS = (
     "prepared_state_reuse_scope",
     "prepared_state_reuse_manifest_path",
@@ -243,6 +254,175 @@ def row_publication_formats(rows: list[dict[str, Any]]) -> set[str]:
         str(row.get("storage_format"))
         for row in rows
         if row.get("storage_format")
+    }
+
+
+def public_front_door_rows(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("public_front_door_benchmark_rows")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def validate_public_front_door_rows(
+    payload: dict[str, Any] | None,
+    manifest: dict[str, Any],
+    blockers: list[str],
+) -> dict[str, Any]:
+    rows = public_front_door_rows(payload)
+    ids = [str(row.get("front_door_id") or "") for row in rows]
+    by_id = {front_door_id: row for front_door_id, row in zip(ids, rows)}
+    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - set(ids))
+    extra = sorted(set(ids) - REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    duplicate_count = len(ids) - len(set(ids))
+    examples: list[str] = []
+
+    schema = None if payload is None else payload.get("public_front_door_benchmark_schema_version")
+    if schema != PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION:
+        blockers.append(
+            "public front-door benchmark row schema mismatch: "
+            + str(schema or "missing")
+        )
+    if manifest.get("public_front_door_benchmark_schema_version") != (
+        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+    ):
+        blockers.append("manifest missing public front-door benchmark schema")
+    if manifest.get("public_front_door_benchmark_row_count") != len(rows):
+        blockers.append("manifest public front-door benchmark row count mismatch")
+    if payload is None or payload.get("public_front_door_benchmark_row_count") != len(rows):
+        blockers.append("payload public front-door benchmark row count mismatch")
+    manifest_ids = {
+        str(item)
+        for item in manifest.get("public_front_door_benchmark_row_ids", [])
+        if isinstance(item, str)
+    }
+    if manifest_ids != set(ids):
+        blockers.append("manifest public front-door benchmark row ids mismatch")
+    payload_ids = (
+        {
+            str(item)
+            for item in payload.get("public_front_door_benchmark_row_ids", [])
+            if isinstance(item, str)
+        }
+        if isinstance(payload, dict)
+        else set()
+    )
+    if payload_ids != set(ids):
+        blockers.append("payload public front-door benchmark row ids mismatch")
+    if missing:
+        blockers.append("missing public front-door benchmark rows: " + ",".join(missing))
+    if extra:
+        blockers.append("unclassified public front-door benchmark rows: " + ",".join(extra))
+    if duplicate_count:
+        blockers.append(
+            f"duplicate public front-door benchmark row ids: {duplicate_count}"
+        )
+
+    for front_door_id, row in by_id.items():
+        prefix = front_door_id or "missing_front_door_id"
+        if row.get("public_front_door_benchmark_schema_version") != (
+            PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+        ):
+            examples.append(f"{prefix}:schema")
+        if row.get("benchmark_row_kind") != PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND:
+            examples.append(f"{prefix}:benchmark_row_kind")
+        if row.get("benchmark_timing_status") != PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS:
+            examples.append(f"{prefix}:benchmark_timing_status")
+        if row.get("benchmark_timing_row") is not False:
+            examples.append(f"{prefix}:benchmark_timing_row")
+        if row.get("benchmark_route_publication_status") != "published_static_route_identity":
+            examples.append(f"{prefix}:benchmark_route_publication_status")
+        if row.get("benchmark_route_publication_source") != "user_route_capability_report":
+            examples.append(f"{prefix}:benchmark_route_publication_source")
+        if not str(row.get("benchmark_route_publication_claim_boundary") or "").strip():
+            examples.append(f"{prefix}:benchmark_route_publication_claim_boundary")
+        if row.get("route_runtime_status") != "scoped_runtime_supported":
+            examples.append(f"{prefix}:route_runtime_status")
+        if row.get("front_door_end_state") != "VortexPreparedState":
+            examples.append(f"{prefix}:front_door_end_state")
+        for field in (
+            "front_door_id",
+            "owning_route_id",
+            "route_lane_id",
+            "route_display_name",
+            "public_user_surface",
+            "benchmark_public_surface",
+            "benchmark_timing_boundary",
+            "prepared_state_reuse_scope",
+            "prepared_state_reuse_manifest_path",
+            "prepared_state_reuse_policy",
+            "prepared_state_reuse_reason",
+            "prepared_state_reuse_manifest_digest",
+            "prepared_state_invalidation_reason",
+            "claim_boundary",
+        ):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                examples.append(f"{prefix}:missing_{field}")
+        for field in (
+            "includes_preparation",
+            "includes_output",
+            "includes_evidence",
+            "preparation_included",
+            "owning_route_comparable_to_external_end_to_end",
+        ):
+            if row.get(field) is not True:
+                examples.append(f"{prefix}:{field}")
+        if row.get("includes_query") is not False:
+            examples.append(f"{prefix}:includes_query")
+        for field in (
+            "fallback_attempted",
+            "external_engine_invoked",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ):
+            if row.get(field) is not False:
+                examples.append(f"{prefix}:{field}")
+        if row.get("claim_gate_status") != "not_claim_grade":
+            examples.append(f"{prefix}:claim_gate_status")
+        evidence = row.get("required_evidence")
+        if not isinstance(evidence, list) or "prepared_state_reuse_manifest" not in evidence:
+            examples.append(f"{prefix}:required_evidence")
+
+        surface = str(row.get("public_user_surface") or "")
+        normalization = str(row.get("vortex_normalization_point") or "")
+        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+            if row.get("owning_route_id") != "local_file_prepare_once_first_query":
+                examples.append(f"{prefix}:owning_route_id")
+            if row.get("route_lane_id") != "prepare_once_first_query":
+                examples.append(f"{prefix}:route_lane_id")
+            for token in ("ctx.read_csv", ".prepare_vortex", "workspace="):
+                if token not in surface:
+                    examples.append(f"{prefix}:surface_{token}")
+            if "SourceState" not in normalization or "VortexPreparedState" not in normalization:
+                examples.append(f"{prefix}:normalization")
+        elif front_door_id == "generated_source_prepare_vortex_front_door":
+            if row.get("owning_route_id") != "generated_rows_local_output":
+                examples.append(f"{prefix}:owning_route_id")
+            if row.get("route_lane_id") != "generated_rows_local_output":
+                examples.append(f"{prefix}:route_lane_id")
+            for token in ("ctx.from_rows", ".prepare_vortex", "workspace="):
+                if token not in surface:
+                    examples.append(f"{prefix}:surface_{token}")
+            if (
+                "GeneratedSourceState" not in normalization
+                or "VortexPreparedState" not in normalization
+            ):
+                examples.append(f"{prefix}:normalization")
+
+    if examples:
+        blockers.append(
+            "invalid public front-door benchmark rows: " + ",".join(examples[:20])
+        )
+    return {
+        "schema_version": schema,
+        "row_count": len(rows),
+        "front_door_ids": ids,
+        "missing_front_door_ids": missing,
+        "invalid_example_count": len(examples),
     }
 
 
@@ -594,6 +774,11 @@ def validate_profile_and_rows(
     )
     nonportable_ref_examples = local_path_occurrence_paths[:5]
     nonportable_ref_count = len(local_path_occurrence_paths)
+    public_front_door_summary = validate_public_front_door_rows(
+        payload,
+        manifest,
+        blockers,
+    )
 
     missing_declared_formats = sorted(set(REQUIRED_PUBLICATION_FORMATS) - declared_formats)
     if missing_declared_formats:
@@ -1060,6 +1245,7 @@ def validate_profile_and_rows(
         "shardloom_claim_gate_counts": dict(sorted(shardloom_claim_counts.items())),
         "missing_capillary_activation_row_count": missing_capillary_count,
         "missing_prepared_state_reuse_evidence_row_count": missing_reuse_evidence_count,
+        "public_front_door_benchmark_rows": public_front_door_summary,
     }
 
 

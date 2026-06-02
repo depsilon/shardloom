@@ -272,6 +272,10 @@ for row in routes.public_front_door_route_rows:
 
 Those rows are route guidance and release-readiness evidence. They do not run a benchmark or allow
 performance, production, or Spark-replacement claims.
+The benchmark publication bundle mirrors them as `public_front_door_benchmark_rows`, where they are
+route-identity rows rather than timing rows. The website uses those rows to show each public Python
+prepared front door beside its owning route lane, timing boundary, reuse manifest scope, and
+no-fallback evidence.
 When capillary preparation is admitted, the report exposes
 `vortex_capillary_preparation_prewrite_status`,
 `vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array
