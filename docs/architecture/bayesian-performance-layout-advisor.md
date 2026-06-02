@@ -18,6 +18,13 @@ The current implementation is intentionally conservative:
 - It preserves `bayesian_advisor_fallback_attempted=false` and
   `bayesian_advisor_external_engine_invoked=false`.
 
+`GAR-RUNTIME-IMPL-6E-3` separately promotes one scoped cold layout/write decision inside
+`vortex_ingest`: the workspace-safe local single-artifact Vortex writer can report
+`vortex_layout_write_advisor_runtime_decision_applied=true` after the real writer path validates the
+provider kind/surface, sink, admission policy, and verification boundary. That runtime decision does
+not come from the Bayesian advisor and does not change the Bayesian contract above: Bayesian
+confidence remains report-only until a later claim gate fits and validates a model.
+
 ## Vortex-First Provider Check
 
 - Subject area: performance/layout recommendation evidence for prepared/native Vortex and
@@ -117,7 +124,7 @@ The advisor cannot:
 - change batch rows,
 - change target partition bytes,
 - change max parallelism,
-- select a layout/write strategy,
+- select or optimize a layout/write strategy from Bayesian confidence,
 - upgrade `claim_gate_status`,
 - create performance, superiority, or Spark-replacement claims,
 - authorize package/public release claims,

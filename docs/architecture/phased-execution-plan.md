@@ -184,10 +184,9 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6E-1 public front-door route-report closeout.
+Updated after the GAR-RUNTIME-IMPL-6E-3 runtime-admitted local layout/write advisor closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation remains active through
-   `GAR-RUNTIME-IMPL-6E-3` runtime-admitted layout/write advisor for one local route, then
    `GAR-RUNTIME-IMPL-6E-4` cracking-style differential prepared-state refinement.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
@@ -271,9 +270,10 @@ Current state:
   prepared-state reuse is visible and has scoped manifest-backed paths, but is not yet the default
   higher-level `auto` front-door reuse spine; capillary pre-write work shaping now drives the first
   local scalar/columnar SourceState -> `vortex_ingest` route before local array build/write, while
-  broader object-store/distributed/spill shaping remains gated; layout/write advice is
-  report/advisory-only; differential preparation is explicit but not yet a cracking-style automatic
-  refinement path for changed local sources.
+  broader object-store/distributed/spill shaping remains gated; scoped local layout/write advice
+  now applies the single-artifact local writer strategy when provider evidence matches, while
+  broader layout optimization remains gated; differential preparation is explicit but not yet a
+  cracking-style automatic refinement path for changed local sources.
 - The next work must preserve automatic behavior without adding required user knobs, hidden global
   state, persistent learning, external execution fallback, or unsupported performance claims.
 
@@ -297,57 +297,6 @@ diagnostics.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route.
-  Source: `docs/architecture/bayesian-performance-layout-advisor.md`,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/skills/vortex/vortex-first-provider-check.md`, and Vortex layout/write provider
-  boundaries.
-  Current state: the layout/write advisor emits scoped local evidence, but current rows keep
-  runtime decisions advisory/report-only. Advisor output must not silently change writer behavior
-  until the selected strategy is supported by existing provider capabilities and certificate
-  evidence.
-  Next slice outcome: promote one narrow local layout/write decision from advisory to
-  runtime-admitted and applied. The first applied decision must use only already-supported local
-  writer behavior and verification depth.
-  Runtime enablement: `vortex_ingest` can automatically choose an admitted local write strategy for
-  a flat local SourceState, record the decision, apply it to the writer/reopen path, and expose
-  whether the decision was applied or blocked.
-  User-visible surface: rows expose `vortex_layout_write_advisor_runtime_decision_applied`,
-  `vortex_layout_write_advisor_selected_strategy`,
-  `vortex_layout_write_advisor_strategy_decision_digest`,
-  `vortex_layout_write_advisor_provider_admitted`, and `vortex_layout_write_advisor_blocker`.
-  Implementation scope: add a layout/write decision object in
-  `shardloom-vortex/src/vortex_ingest.rs`; limit first applied strategies to current supported
-  provider behavior, such as local single-artifact write, columnar SourceState preservation when
-  available, safe writer defaults, and certified reopen depth; block dictionary/statistics/
-  chunking/layout choices when upstream Vortex does not expose a stable admitted provider surface;
-  wire the selected decision into `shardloom-cli/src/sql_local_source_runtime.rs`; keep Bayesian
-  advisor confidence report-only unless a separate claim gate later fits and validates a model.
-  Evidence required: applied local scalar route; applied local columnar route when
-  `universal-format-io` and `vortex-write` are enabled; blocked unsupported layout strategy
-  fixture; reopen/correctness evidence proving the selected strategy wrote the expected prepared
-  state.
-  Acceptance: one local route reports an applied layout/write decision that actually governs the
-  write path; unsupported layout choices block deterministically with no fallback; advisor-applied
-  status does not upgrade performance or production claims.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io layout_write_advisor --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no fitted Bayesian runtime model, no arbitrary Vortex layout rewrite, no compaction,
-  no object-store write, and no performance claim.
-  Dependencies/blockers: depends on Vortex provider capability checks, current local writer/reopen
-  support, layout/write advisor evidence, certificate-backed reopen verification, and explicit
-  blockers for unsupported dictionary/statistics/chunking/layout choices.
-  Claim boundary: may claim only scoped local runtime admission of one writer strategy with
-  certificate evidence.
-  Fallback boundary: unsupported layout/write strategies block before execution and never delegate
-  to another engine.
-  Ledger rule: move completed details and validation output to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6E-4 cracking-style differential prepared-state refinement.
   Source: `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
   `docs/architecture/io-reuse-and-fanout-architecture.md`, Database Cracking research, and the

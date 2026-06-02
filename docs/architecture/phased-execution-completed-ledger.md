@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6E-3 runtime-admitted local layout/write advisor
+  - Date: 2026-06-02
+  - Branch/PR: `codex/runtime-layout-write-advisor` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route`.
+    - User direction that ShardLoom rows should exercise the real engine route, expose runtime
+      readiness separately from claim-grade/performance posture, and keep Vortex conversion as the
+      central preparation boundary.
+  - Scope:
+    - Added a writer-validated `VortexLayoutWriteRuntimeDecision` for the scoped local
+      `single_local_vortex_artifact` strategy.
+    - Wired `vortex_ingest` scalar and columnar local prepared-state writers so an attached
+      layout/write advisor must pass provider-kind, provider-surface, sink, admission-policy,
+      dictionary/statistics/chunking/segmentation, and Vortex writer-surface checks before the
+      target artifact is created.
+    - Preserved existing writer behavior for callers that do not attach an advisor by recording
+      `layout_write_advisor_not_attached_to_writer` rather than silently changing the path.
+    - Fed the writer-validated decision back into CLI evidence so scalar, non-empty columnar, and
+      empty columnar local `vortex_ingest` routes report applied/blocked status from the real
+      writer path.
+    - Added benchmark artifact and Markdown fields for
+      `vortex_layout_write_advisor_runtime_decision_applied`,
+      `vortex_layout_write_advisor_selected_strategy`,
+      `vortex_layout_write_advisor_strategy_decision_digest`,
+      `vortex_layout_write_advisor_provider_admitted`, and
+      `vortex_layout_write_advisor_blocker`.
+    - Added Python client accessors and golden-workflow expectations for the new runtime decision
+      fields.
+  - Evidence:
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/tests/test_cli_client.py scripts/check_golden_workflows.py` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io layout_write_advisor --lib -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_scalar_rows --lib -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest_smoke -- --nocapture` passed with 12 matching smoke tests.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_golden_workflows.py --features vortex-write,vortex-local-primitives --output target/golden-workflow-layout-write-advisor.json` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_prepare_once_route` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and 2 skips.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped local runtime admission for one writer strategy only. It does not authorize
+      arbitrary layout rewrites, dictionary/statistics optimization, compaction, object-store/table
+      writes, production support, performance claims, package release, broad SQL/DataFrame support,
+      or Spark replacement.
+  - Fallback boundary:
+    - Unsupported layout/write choices block before target preparation and before artifact creation;
+      no external engine or Vortex query-engine fallback was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6E-1 public front-door prepared first-query route-report closeout
   - Date: 2026-06-02
   - Branch/PR: `codex/auto-prepared-route-report-wiring` / pending PR.

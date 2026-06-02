@@ -585,10 +585,12 @@ candidates.
   metadata, schema samples, parse anomalies, unsupported source shapes, nullability posture, and
   layout/pathology signals before full Vortex preparation. It may block or plan explicit quarantine
   output; it must not silently repair or drop rows.
-- **cold layout/write advisor**: SourceState-adjacent advisory surface in `vortex_ingest` for
-  choosing or blocking scoped local Vortex layout/write strategy before preparation, based on
-  workload constitution, SourceState statistics, pushdown/output requirements, provider boundary,
-  write/reopen verification depth, and evidence. It cannot upgrade a performance claim by itself.
+- **cold layout/write advisor**: SourceState-adjacent admission and runtime-decision surface in
+  `vortex_ingest` for choosing or blocking scoped local Vortex layout/write strategy before
+  preparation, based on workload constitution, SourceState statistics, pushdown/output
+  requirements, provider boundary, write/reopen verification depth, and evidence. The current
+  runtime-applied scope is limited to the workspace-safe local single-artifact Vortex writer. It
+  cannot upgrade a performance claim by itself.
 - **cold copy budget**: `vortex_ingest` evidence surface for source-read, parse, handoff,
   Vortex-array-build, writer, reopen, and evidence-render copy/allocation visibility. It records
   measured or explicit `not_measured` segments, buffer ownership, reuse blockers, and unsafe

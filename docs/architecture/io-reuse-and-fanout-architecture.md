@@ -322,13 +322,18 @@ SourceState -> VortexPreparedState path now emits `vortex_layout_write_advisor_*
 workload constitution, source statistics posture, requested pushdown/output requirements,
 layout/chunking/segmentation/dictionary/statistics policy, writer provider kind/version/surface,
 writer admission policy, write/reopen verification depth, materialization/decode boundary,
-expected read/write tradeoff, admitted strategy status, unsupported diagnostic code, correctness
-refs, benchmark refs, claim boundary, no-fallback posture, and
+expected read/write tradeoff, admitted strategy status, writer-applied runtime decision status,
+selected strategy, strategy decision digest, provider admission status, blocker, unsupported
+diagnostic code, correctness refs, benchmark refs, claim boundary, no-fallback posture, and
 `vortex_layout_write_advisor_no_standalone_lane_status`.
 
-The layout/write advisor admits only scoped local Vortex artifact writes through the existing
-provider boundary. Unsupported or feature-gated strategies block before write; no row may claim
-layout-driven speed without workload-scoped benchmark evidence.
+The layout/write advisor now applies only the scoped local single-artifact Vortex writer strategy
+when the real writer provider kind/surface, sink, admission policy, dictionary/statistics/chunking/
+segmentation policy, and reopen/certificate depth match the admitted evidence. Unsupported or
+feature-gated strategies block before target preparation and before artifact creation. No row may
+claim arbitrary layout optimization, layout-driven speed, object-store/table write support, or
+production writer compatibility without separate workload-scoped correctness and benchmark
+evidence.
 
 `GAR-PERF-2K` adds the cold-lane copy-budget and buffer-lifecycle surface inside `vortex_ingest`.
 The same path now emits `vortex_copy_budget_*` evidence for SourceState and VortexPreparedState
