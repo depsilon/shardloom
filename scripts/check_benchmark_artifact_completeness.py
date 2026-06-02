@@ -488,6 +488,19 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(
                 f"benchmark row {index} evidence render inclusion disagrees with route ledger"
             )
+        if engine.startswith("shardloom"):
+            if _boolish_true(row.get("includes_output")) and row.get(
+                "output_timing_included_in_total"
+            ) is not True:
+                blockers.append(
+                    f"benchmark row {index} includes output but excludes output timing"
+                )
+            if _boolish_true(row.get("includes_evidence")) and row.get(
+                "evidence_timing_included_in_total"
+            ) is not True:
+                blockers.append(
+                    f"benchmark row {index} includes evidence but excludes evidence timing"
+                )
         for claim_field in (
             "performance_claim_allowed",
             "production_claim_allowed",

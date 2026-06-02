@@ -160,11 +160,19 @@ function parseMillis(value: unknown): number | null {
 
 function routeStageSummary(stage: Record<string, unknown> | undefined): string {
   if (!stage) return "Stage split not reported.";
-  const prep = textValue(stage["Source -> Vortex array"], textValue(stage["Vortex write"], "n/a"));
+  const total = textValue(stage["Total route"], "n/a");
+  const source = textValue(stage["Source read"], "n/a");
+  const parse = textValue(stage["Parse/decode"], "n/a");
+  const array = textValue(stage["Source -> Vortex array"], "n/a");
+  const write = textValue(stage["Vortex write"], "n/a");
+  const prepCreate = textValue(stage["Prepared lookup/create"], "n/a");
   const query = textValue(stage["Vortex scan"], "n/a");
   const output = textValue(stage["Result sink"], "n/a");
   const evidence = textValue(stage["Evidence render"], "n/a");
-  return `prep ${prep} / query ${query} / output ${output} / evidence ${evidence}`;
+  const prep = prepCreate !== "n/a"
+    ? `prep/create ${prepCreate}`
+    : `source ${source} / parse ${parse} / array ${array} / write ${write}`;
+  return `total ${total}; ${prep}; scan ${query}; output ${output}; evidence ${evidence}`;
 }
 
 const routeLaneObjects: Record<string, unknown>[] = routeLaneRows.map((row: unknown[]) => routeLaneObject(row));
@@ -386,7 +394,7 @@ const routeCards = [
           <p>{card.scope}</p>
           <div class="route-card-metrics">
             <div><span>Rows</span><strong>{card.successLabel}</strong></div>
-            <div><span>Route geomean</span><strong>{card.geomeanLabel}</strong></div>
+            <div><span>Total route geomean</span><strong>{card.geomeanLabel}</strong></div>
             <div><span>Start</span><strong>{card.startState}</strong></div>
             <div><span>Includes prepare</span><strong>{card.includesPrepare}</strong></div>
           </div>

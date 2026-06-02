@@ -459,14 +459,14 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, typed Parquet/Arrow/Vortex decimal sink preservation, performance, or production claim",
-      "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings and CSV emits exact decimal text; typed decimal sink preservation remains blocked",
+      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics plus feature-gated Parquet/Arrow IPC typed decimal compatibility sink preservation only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, local Vortex typed decimal output, Avro/ORC typed decimal sinks, performance, or production claim",
+      "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings, CSV emits exact decimal text, and feature-gated Parquet/Arrow IPC compatibility sinks preserve scoped decimal128 precision/scale",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "decimal_cast_projection_predicate",
       "input_dtype": "utf8,int64,null",
-      "invalid_input_behavior": "invalid decimal text, over-scale values, over-precision values, exponent notation, unsupported source dtypes, and typed decimal sinks block deterministically before fallback",
+      "invalid_input_behavior": "invalid decimal text, over-scale values, over-precision values, exponent notation, unsupported source dtypes, local Vortex typed decimal output, and Avro/ORC typed decimal sinks block deterministically before fallback",
       "null_policy": "decimal casts are null-propagating; TRY_CAST returns NULL on invalid decimal input and preserves NULL inputs",
       "operator_family": "cast,try_cast,decimal128_cast_projection,decimal128_cast_predicate",
       "oracle_boundary": "decoded_reference_only",
@@ -479,7 +479,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale and mixed-scale decimal128 operands, integer operands, mixed-scale decimal comparisons, and exact fixed-scale decimal division only; not broad ANSI decimal coercion, typed decimal sink preservation, performance, or production claim",
+      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale and mixed-scale decimal128 operands, integer operands, mixed-scale decimal comparisons, exact fixed-scale decimal division, and feature-gated Parquet/Arrow IPC typed decimal compatibility sink preservation only; not broad ANSI decimal coercion, local Vortex typed decimal output, Avro/ORC typed decimal sinks, performance, or production claim",
       "coercion_policy": "explicit CAST(column-or-literal AS decimal128/decimal/numeric(p,s)) produces exact fixed-scale Decimal128 operands; add/subtract align operands to a common scale; multiply preserves exact fixed-scale output when precision and scale remain within decimal128 bounds; division emits decimal128(38,max(input_scales,6)) only when the quotient is exact at that scoped fixed output scale",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,

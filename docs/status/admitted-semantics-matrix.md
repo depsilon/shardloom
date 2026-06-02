@@ -144,7 +144,8 @@ operands plus integer operands are executable through the same generic-expressio
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
 fixed-scale division are executable within the scoped decimal route. Non-exact decimal division,
 broad ANSI decimal coercion, exponent notation, decimal/float comparison, and typed decimal sink
-preservation remain outside the claim boundary.
+preservation outside feature-gated Parquet/Arrow IPC compatibility outputs remain outside the
+claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -163,8 +164,9 @@ add/subtract/multiply projections are executable for same-scale and mixed-scale 
 plus integer operands through generic expression projection evidence, mixed-scale decimal
 comparisons are admitted, and exact fixed-scale decimal division emits
 `decimal128(38,max(input_scales,6))` when the quotient is exact. Non-exact decimal division, broad
-ANSI decimal coercion, exponent notation, decimal/float comparison, and typed
-Parquet/Arrow/Vortex decimal sink preservation remain outside the claim boundary. Scoped UTF-8
+ANSI decimal coercion, exponent notation, decimal/float comparison, local Vortex typed decimal
+output, and Avro/ORC typed decimal sink preservation remain outside the claim boundary. Feature-gated
+Parquet/Arrow IPC compatibility sinks preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through

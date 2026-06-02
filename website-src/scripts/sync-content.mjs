@@ -210,7 +210,7 @@ ${useCase.blocked_explanation ?? "No current blocker is attached to this support
 
 ## Internal Flow
 
-\`${(useCase.inputs ?? []).join(", ")} -> ${useCase.execution_mode} -> ${useCase.engine_mode} -> ${(useCase.outputs ?? []).join(", ")} -> evidence -> claim gate\`
+\`${useCase.internal_flow ?? `${(useCase.inputs ?? []).join(", ")} -> ${useCase.execution_mode} -> ${useCase.engine_mode} -> ${(useCase.outputs ?? []).join(", ")} -> evidence -> claim gate`}\`
 
 ## Evidence You Should See
 

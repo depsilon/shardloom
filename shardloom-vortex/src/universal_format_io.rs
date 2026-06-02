@@ -20,12 +20,12 @@ use arrow_array::{
     Int32Array, Int64Array, LargeStringArray, RecordBatch, RecordBatchReader, StringArray,
     StringViewArray, TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
-        BooleanBuilder, Date32Builder, Float64Builder, Int64Builder, StringBuilder,
-        TimestampMicrosecondBuilder, UInt64Builder,
+        BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder, Int64Builder,
+        StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
     },
 };
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
-use shardloom_core::{Result, ScalarValue, ShardLoomError};
+use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 use std::sync::Arc;
 
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
@@ -683,7 +683,29 @@ pub fn encode_flat_parquet_rows(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch(columns, rows, "local Parquet output")?;
+    encode_parquet_record_batch(batch)
+}
 
+/// Encode flat scalar rows into local Parquet bytes with optional logical dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_parquet_rows_with_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch_with_dtypes(
+        columns,
+        column_dtypes,
+        rows,
+        "local Parquet output",
+    )?;
+    encode_parquet_record_batch(batch)
+}
+
+fn encode_parquet_record_batch(batch: RecordBatch) -> Result<Vec<u8>> {
     let mut writer = parquet::arrow::ArrowWriter::try_new(Vec::new(), batch.schema(), None)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -713,6 +735,29 @@ pub fn encode_flat_arrow_ipc_rows(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch(columns, rows, "local Arrow IPC output")?;
+    encode_arrow_ipc_record_batch(batch)
+}
+
+/// Encode flat scalar rows into local Arrow IPC bytes with optional logical dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_arrow_ipc_rows_with_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch_with_dtypes(
+        columns,
+        column_dtypes,
+        rows,
+        "local Arrow IPC output",
+    )?;
+    encode_arrow_ipc_record_batch(batch)
+}
+
+fn encode_arrow_ipc_record_batch(batch: RecordBatch) -> Result<Vec<u8>> {
     let mut writer = arrow_ipc::writer::FileWriter::try_new(Vec::new(), batch.schema().as_ref())
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -799,11 +844,36 @@ fn flat_rows_to_record_batch(
     rows: &[Vec<(String, ScalarValue)>],
     context: &str,
 ) -> Result<RecordBatch> {
+    let column_dtypes = vec![None; columns.len()];
+    flat_rows_to_record_batch_with_dtypes(columns, &column_dtypes, rows, context)
+}
+
+fn flat_rows_to_record_batch_with_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+    context: &str,
+) -> Result<RecordBatch> {
     validate_flat_columns(columns, context)?;
+    if column_dtypes.len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} declared {} column dtype hints for {} columns",
+            column_dtypes.len(),
+            columns.len()
+        )));
+    }
     let fields_and_arrays = columns
         .iter()
         .enumerate()
-        .map(|(column_index, column)| flat_output_column_array(column, column_index, rows, context))
+        .map(|(column_index, column)| {
+            flat_output_column_array(
+                column,
+                column_index,
+                column_dtypes[column_index].as_ref(),
+                rows,
+                context,
+            )
+        })
         .collect::<Result<Vec<_>>>()?;
     let fields = fields_and_arrays
         .iter()
@@ -869,6 +939,7 @@ fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
 fn flat_output_column_array(
     column: &str,
     column_index: usize,
+    column_dtype: Option<&LogicalDType>,
     rows: &[Vec<(String, ScalarValue)>],
     context: &str,
 ) -> Result<(Field, ArrayRef)> {
@@ -888,7 +959,8 @@ fn flat_output_column_array(
             Ok(value)
         })
         .collect::<Result<Vec<_>>>()?;
-    let kind = values
+    let declared_decimal = column_dtype.and_then(decimal128_dtype_precision_scale);
+    let inferred_kind = values
         .iter()
         .filter(|value| !matches!(value, ScalarValue::Null))
         .map(|value| scalar_family(value))
@@ -898,8 +970,17 @@ fn flat_output_column_array(
             Some(existing) => Err(ShardLoomError::InvalidOperation(format!(
                 "{context} column '{column}' mixes scalar families {existing} and {candidate}; scoped compatibility output requires one non-null scalar family per column"
             ))),
-        })?
-        .unwrap_or("utf8");
+        })?;
+    let kind = match (declared_decimal, inferred_kind) {
+        (Some(_), Some("decimal128") | None) => "decimal128",
+        (Some((precision, scale)), Some(other)) => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' is declared decimal128({precision},{scale}) but contains non-null {other} values; scoped typed decimal sinks require Decimal128 values or NULLs"
+            )));
+        }
+        (None, Some(kind)) => kind,
+        (None, None) => "utf8",
+    };
     let nullable = values
         .iter()
         .any(|value| matches!(value, ScalarValue::Null));
@@ -909,6 +990,13 @@ fn flat_output_column_array(
         "uint64" => Ok(parquet_uint64_column(column, &values, nullable, context)?),
         "float64" => Ok(parquet_float64_column(column, &values, nullable, context)?),
         "utf8" => Ok(parquet_utf8_column(column, &values, nullable, context)?),
+        "decimal128" => Ok(parquet_decimal128_column(
+            column,
+            &values,
+            nullable,
+            context,
+            declared_decimal,
+        )?),
         "date32" => Ok(parquet_date32_column(column, &values, nullable, context)?),
         "timestamp_micros" => Ok(parquet_timestamp_micros_column(
             column, &values, nullable, context,
@@ -1017,6 +1105,92 @@ fn parquet_utf8_column(
         Field::new(column, DataType::Utf8, nullable),
         Arc::new(builder.finish()),
     ))
+}
+
+fn parquet_decimal128_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+    context: &str,
+    declared_precision_scale: Option<(u8, u8)>,
+) -> Result<(Field, ArrayRef)> {
+    let (precision, scale) =
+        decimal128_column_precision_scale(column, values, context, declared_precision_scale)?;
+    let scale_i8 = i8::try_from(scale).expect("decimal scale fits i8");
+    let mut builder = Decimal128Builder::with_capacity(values.len())
+        .with_precision_and_scale(precision, scale_i8)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' cannot preserve decimal128({precision},{scale}): {error}"
+            ))
+        })?;
+    for value in values {
+        match value {
+            ScalarValue::Decimal128 {
+                value,
+                precision: value_precision,
+                scale: value_scale,
+            } if *value_precision == precision && *value_scale == scale => {
+                builder.append_value(*value);
+            }
+            ScalarValue::Decimal128 {
+                precision: value_precision,
+                scale: value_scale,
+                ..
+            } => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' mixes decimal128 precision/scale decimal128({precision},{scale}) and decimal128({value_precision},{value_scale}); scoped typed decimal sinks require one decimal dtype per column"
+                )));
+            }
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(context, column, "decimal128", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Decimal128(precision, scale_i8), nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn decimal128_column_precision_scale(
+    column: &str,
+    values: &[&ScalarValue],
+    context: &str,
+    declared_precision_scale: Option<(u8, u8)>,
+) -> Result<(u8, u8)> {
+    let mut precision_scale = declared_precision_scale;
+    for value in values {
+        if let ScalarValue::Decimal128 {
+            precision, scale, ..
+        } = value
+        {
+            match precision_scale {
+                None => precision_scale = Some((*precision, *scale)),
+                Some(existing) if existing == (*precision, *scale) => {}
+                Some((existing_precision, existing_scale)) => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "{context} column '{column}' mixes decimal128 precision/scale decimal128({existing_precision},{existing_scale}) and decimal128({precision},{scale}); scoped typed decimal sinks require one decimal dtype per column"
+                    )));
+                }
+            }
+        }
+    }
+    precision_scale.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} column '{column}' did not contain a non-null decimal128 value or declared decimal128 dtype hint"
+        ))
+    })
+}
+
+fn decimal128_dtype_precision_scale(dtype: &LogicalDType) -> Option<(u8, u8)> {
+    let LogicalDType::Extension(value) = dtype else {
+        return None;
+    };
+    let args = value.strip_prefix("decimal128(")?.strip_suffix(')')?;
+    let (precision_raw, scale_raw) = args.split_once(',')?;
+    let precision = precision_raw.trim().parse::<u8>().ok()?;
+    let scale = scale_raw.trim().parse::<u8>().ok()?;
+    Some((precision, scale))
 }
 
 fn parquet_date32_column(

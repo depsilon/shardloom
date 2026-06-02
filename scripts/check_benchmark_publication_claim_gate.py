@@ -603,6 +603,18 @@ def independent_claim_grade_missing_evidence(row: dict[str, Any]) -> list[str]:
         != field_value(row, "evidence_timing_included_in_total")
     ):
         missing.append("evidence_render_included_in_route_total mismatch")
+    if (
+        str(field_value(row, "engine") or "").startswith("shardloom")
+        and bool_value(field_value(row, "includes_output")) is True
+        and bool_value(field_value(row, "output_timing_included_in_total")) is not True
+    ):
+        missing.append("includes_output but output_timing_included_in_total!=true")
+    if (
+        str(field_value(row, "engine") or "").startswith("shardloom")
+        and bool_value(field_value(row, "includes_evidence")) is True
+        and bool_value(field_value(row, "evidence_timing_included_in_total")) is not True
+    ):
+        missing.append("includes_evidence but evidence_timing_included_in_total!=true")
     if field_value(row, "evidence_required_for_claim") is not True:
         missing.append("evidence_required_for_claim!=true")
     if str(field_value(row, "certificate_link_status") or "") != "linked_certified_runtime_execution":
@@ -843,6 +855,23 @@ def validate_profile_and_rows(
             invalid_route_examples.append(
                 f"{index}:{engine}:route_runtime_status={route_status!r}"
             )
+        if engine.startswith("shardloom"):
+            if (
+                bool_value(field_value(row, "includes_output")) is True
+                and bool_value(field_value(row, "output_timing_included_in_total")) is not True
+                and len(invalid_route_examples) < 5
+            ):
+                invalid_route_examples.append(
+                    f"{index}:{engine}:includes output but excludes output timing"
+                )
+            if (
+                bool_value(field_value(row, "includes_evidence")) is True
+                and bool_value(field_value(row, "evidence_timing_included_in_total")) is not True
+                and len(invalid_route_examples) < 5
+            ):
+                invalid_route_examples.append(
+                    f"{index}:{engine}:includes evidence but excludes evidence timing"
+                )
         operator_schema = field_value(row, "operator_mode_inventory_schema_version")
         if (
             operator_schema != OPERATOR_MODE_INVENTORY_SCHEMA_VERSION

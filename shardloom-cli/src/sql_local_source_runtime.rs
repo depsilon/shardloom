@@ -811,6 +811,7 @@ impl SqlOutputPlanSinkRequirement {
 #[derive(Debug, Clone, PartialEq)]
 struct SqlResultBatchColumnState {
     name: String,
+    dtype: Option<LogicalDType>,
     values: Vec<ScalarValue>,
 }
 
@@ -823,12 +824,25 @@ struct SqlResultBatchState {
 }
 
 impl SqlResultBatchState {
-    fn from_rows(columns: &[String], rows: &[SqlOutputRow]) -> Result<Self, ShardLoomError> {
+    fn from_rows_with_dtypes(
+        columns: &[String],
+        column_dtypes: &[Option<LogicalDType>],
+        rows: &[SqlOutputRow],
+    ) -> Result<Self, ShardLoomError> {
         let build_start = Instant::now();
+        if column_dtypes.len() != columns.len() {
+            return Err(unsupported_sql_error(&format!(
+                "SQL result batch state requires one dtype hint per output column; got {} hints for {} columns",
+                column_dtypes.len(),
+                columns.len()
+            )));
+        }
         let mut batch_columns = columns
             .iter()
-            .map(|name| SqlResultBatchColumnState {
+            .zip(column_dtypes.iter())
+            .map(|(name, dtype)| SqlResultBatchColumnState {
                 name: name.clone(),
+                dtype: dtype.clone(),
                 values: Vec::with_capacity(rows.len()),
             })
             .collect::<Vec<_>>();
@@ -863,6 +877,13 @@ impl SqlResultBatchState {
         for column in &batch_columns {
             digest_input.push('|');
             digest_input.push_str(&column.name);
+            digest_input.push(':');
+            digest_input.push_str(
+                column
+                    .dtype
+                    .as_ref()
+                    .map_or("inferred", LogicalDType::as_str),
+            );
             digest_input.push('=');
             for value in &column.values {
                 digest_input.push_str(&scalar_to_json(value));
@@ -882,6 +903,13 @@ impl SqlResultBatchState {
         self.columns
             .iter()
             .map(|column| column.name.clone())
+            .collect()
+    }
+
+    fn column_dtypes(&self) -> Vec<Option<LogicalDType>> {
+        self.columns
+            .iter()
+            .map(|column| column.dtype.clone())
             .collect()
     }
 
@@ -1236,25 +1264,31 @@ impl SqlLocalSourceOutputFormat {
         }
     }
 
+    const fn preserves_typed_decimal128(self) -> bool {
+        matches!(self, Self::Parquet | Self::ArrowIpc)
+    }
+
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
         if !matches!(self, Self::InlineJsonl | Self::Vortex) {
             validate_flat_scalar_result_batch(batch, self)?;
         }
         let columns = batch.column_names();
+        let column_dtypes = batch.column_dtypes();
         let rows = batch.to_rows();
-        self.render_normalized_rows(&columns, &rows)
+        self.render_normalized_rows(&columns, &column_dtypes, &rows)
     }
 
     fn render_normalized_rows(
         self,
         columns: &[String],
+        column_dtypes: &[Option<LogicalDType>],
         rows: &[SqlOutputRow],
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
             Self::InlineJsonl => Ok(render_jsonl_output_rows(columns, rows).into_bytes()),
             Self::Csv => Ok(render_csv_output_rows(columns, rows).into_bytes()),
-            Self::Parquet => encode_parquet_output_rows(columns, rows),
-            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, rows),
+            Self::Parquet => encode_parquet_output_rows(columns, column_dtypes, rows),
+            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, column_dtypes, rows),
             Self::Avro => encode_avro_output_rows(columns, rows),
             Self::Orc => encode_orc_output_rows(columns, rows),
             Self::Vortex => Err(unsupported_sql_error(
@@ -5074,6 +5108,17 @@ fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) ->
     parsed.output_columns(&source.header)
 }
 
+fn output_column_dtypes(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Vec<Option<LogicalDType>> {
+    parsed.output_column_dtypes(&source.header)
+}
+
+fn scoped_compatibility_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
+    logical_dtype_is_decimal128(dtype).then(|| dtype.clone())
+}
+
 #[allow(clippy::too_many_lines)]
 impl VortexIngestReport {
     fn fields(&self) -> Vec<(String, String)> {
@@ -7600,8 +7645,12 @@ fn run_sql_local_source_smoke_single(
 
     let evidence_start = Instant::now();
     let output_columns = output_column_names(&parsed, &source);
-    let result_batch_state =
-        SqlResultBatchState::from_rows(&output_columns, &evaluated_output.output_rows)?;
+    let output_column_dtypes = output_column_dtypes(&parsed, &source);
+    let result_batch_state = SqlResultBatchState::from_rows_with_dtypes(
+        &output_columns,
+        &output_column_dtypes,
+        &evaluated_output.output_rows,
+    )?;
     let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
     let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
@@ -7719,7 +7768,7 @@ fn run_sql_local_source_union_smoke(
 
     let compute_start = Instant::now();
     let output_columns = sql_union_output_columns(&branch_reports)?;
-    validate_sql_union_column_dtypes(&branch_reports)?;
+    let output_column_dtypes = validate_sql_union_column_dtypes(&branch_reports)?;
     let union_input_row_count = branch_reports
         .iter()
         .map(|report| report.output_rows.len())
@@ -7738,7 +7787,11 @@ fn run_sql_local_source_union_smoke(
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
-    let result_batch_state = SqlResultBatchState::from_rows(&output_columns, &output_rows)?;
+    let result_batch_state = SqlResultBatchState::from_rows_with_dtypes(
+        &output_columns,
+        &output_column_dtypes,
+        &output_rows,
+    )?;
     let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
     let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
@@ -7864,9 +7917,9 @@ fn sql_union_output_columns(
 
 fn validate_sql_union_column_dtypes(
     branch_reports: &[SqlLocalSourceReport],
-) -> Result<(), ShardLoomError> {
+) -> Result<Vec<Option<LogicalDType>>, ShardLoomError> {
     let Some(first) = branch_reports.first() else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let width = first.output_rows.first().map_or_else(
         || output_column_names(&first.parsed, &first.source).len(),
@@ -7874,6 +7927,26 @@ fn validate_sql_union_column_dtypes(
     );
     let mut dtypes: Vec<Option<LogicalDType>> = vec![None; width];
     for (branch_index, report) in branch_reports.iter().enumerate() {
+        let branch_dtypes = report.result_batch_state.column_dtypes();
+        if branch_dtypes.len() != width {
+            return Err(unsupported_sql_error(&format!(
+                "SQL UNION branch {} declared {} dtype hints but first branch width is {}; use matching projections before UNION",
+                branch_index + 1,
+                branch_dtypes.len(),
+                width
+            )));
+        }
+        for (column_index, dtype) in branch_dtypes.into_iter().enumerate() {
+            let Some(dtype) = dtype else {
+                continue;
+            };
+            merge_sql_union_column_dtype(
+                &mut dtypes[column_index],
+                dtype,
+                branch_index + 1,
+                column_index + 1,
+            )?;
+        }
         for row in &report.output_rows {
             if row.len() != width {
                 return Err(unsupported_sql_error(&format!(
@@ -7887,23 +7960,36 @@ fn validate_sql_union_column_dtypes(
                 if value.is_null() {
                     continue;
                 }
-                let dtype = value.dtype();
-                match &dtypes[column_index] {
-                    Some(expected) if expected != &dtype => {
-                        return Err(unsupported_sql_error(&format!(
-                            "SQL UNION column {} mixes {} and {} values; scoped UNION requires matching non-null dtypes before coercion is admitted",
-                            column_index + 1,
-                            expected.as_str(),
-                            dtype.as_str()
-                        )));
-                    }
-                    Some(_) => {}
-                    None => dtypes[column_index] = Some(dtype),
-                }
+                merge_sql_union_column_dtype(
+                    &mut dtypes[column_index],
+                    value.dtype(),
+                    branch_index + 1,
+                    column_index + 1,
+                )?;
             }
         }
     }
-    Ok(())
+    Ok(dtypes)
+}
+
+fn merge_sql_union_column_dtype(
+    current: &mut Option<LogicalDType>,
+    candidate: LogicalDType,
+    branch_index: usize,
+    column_index: usize,
+) -> Result<(), ShardLoomError> {
+    match current {
+        Some(expected) if expected != &candidate => Err(unsupported_sql_error(&format!(
+            "SQL UNION branch {branch_index} column {column_index} mixes {} and {} values; scoped UNION requires matching non-null dtypes before coercion is admitted",
+            expected.as_str(),
+            candidate.as_str()
+        ))),
+        Some(_) => Ok(()),
+        None => {
+            *current = Some(candidate);
+            Ok(())
+        }
+    }
 }
 
 fn sql_union_output_rows(
@@ -12504,6 +12590,7 @@ fn prepare_sql_outputs(
     }
     let shared_stage_count = if flat_scalar_format.is_some() { 3 } else { 2 };
     let columns = batch.column_names();
+    let column_dtypes = batch.column_dtypes();
     let rows = batch.to_rows();
     let shared_conversion_millis = shared_start.elapsed().as_millis();
     let mut terminal_conversion_millis = 0;
@@ -12511,7 +12598,7 @@ fn prepare_sql_outputs(
         .sinks
         .iter()
         .map(|sink| {
-            let rendered = prepare_sql_output_from_shared(sink, &columns, &rows)?;
+            let rendered = prepare_sql_output_from_shared(sink, &columns, &column_dtypes, &rows)?;
             terminal_conversion_millis += rendered.conversion_millis;
             Ok(rendered)
         })
@@ -12533,6 +12620,7 @@ fn prepare_sql_outputs(
 fn prepare_sql_output_from_shared(
     sink: &SqlOutputPlanSinkRequirement,
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[SqlOutputRow],
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
     let conversion_start = Instant::now();
@@ -12542,7 +12630,9 @@ fn prepare_sql_output_from_shared(
             rows: rows.to_vec(),
         }
     } else {
-        let content = sink.format.render_normalized_rows(columns, rows)?;
+        let content = sink
+            .format
+            .render_normalized_rows(columns, column_dtypes, rows)?;
         let digest = fnv64_digest_bytes(&content);
         let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
         SqlOutputPayload::Bytes {
@@ -15591,6 +15681,16 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn output_column_dtypes(&self, header: &[String]) -> Vec<Option<LogicalDType>> {
+        if self.is_grouped_aggregate() {
+            std::iter::repeat_n(None, self.output_columns(header).len()).collect()
+        } else if self.is_aggregate() {
+            std::iter::repeat_n(None, self.aggregates.len()).collect()
+        } else {
+            self.projection_output_dtypes(header)
+        }
+    }
+
     fn having_evaluation_columns(&self, header: &[String]) -> Vec<String> {
         let mut columns = self.output_columns(header);
         columns.extend(
@@ -15634,6 +15734,46 @@ impl ParsedSqlLocalSource {
             }
         }
         output_columns
+    }
+
+    fn projection_output_dtypes(&self, header: &[String]) -> Vec<Option<LogicalDType>> {
+        let mut output_dtypes = Vec::new();
+        for output in &self.projection_order {
+            match output {
+                ParsedProjectionOutput::Raw(column) if column == "*" => {
+                    output_dtypes.extend(std::iter::repeat_n(None, header.len()));
+                }
+                ParsedProjectionOutput::Cast(alias) => output_dtypes.push(
+                    self.cast_projections
+                        .iter()
+                        .find(|projection| projection.alias == *alias)
+                        .and_then(|projection| {
+                            scoped_compatibility_output_dtype_hint(&projection.target_dtype)
+                        }),
+                ),
+                ParsedProjectionOutput::Raw(_)
+                | ParsedProjectionOutput::Literal(_)
+                | ParsedProjectionOutput::Complex(_)
+                | ParsedProjectionOutput::NullCoalesce(_)
+                | ParsedProjectionOutput::NullIf(_)
+                | ParsedProjectionOutput::Conditional(_)
+                | ParsedProjectionOutput::Predicate(_)
+                | ParsedProjectionOutput::DateArithmetic(_)
+                | ParsedProjectionOutput::TimestampArithmetic(_)
+                | ParsedProjectionOutput::StringLength(_)
+                | ParsedProjectionOutput::DateExtract(_)
+                | ParsedProjectionOutput::TimestampExtract(_)
+                | ParsedProjectionOutput::Window(_)
+                | ParsedProjectionOutput::StringTransform(_)
+                | ParsedProjectionOutput::StringFunction(_)
+                | ParsedProjectionOutput::BinaryHelper(_)
+                | ParsedProjectionOutput::NumericArithmetic(_)
+                | ParsedProjectionOutput::NumericAbs(_)
+                | ParsedProjectionOutput::NumericRounding(_)
+                | ParsedProjectionOutput::GenericExpression(_) => output_dtypes.push(None),
+            }
+        }
+        output_dtypes
     }
 
     fn has_aggregate_aliases(&self) -> bool {
@@ -24968,7 +25108,7 @@ impl SqlLocalSourceReport {
             (
                 "decimal_cast_output_boundary".to_string(),
                 if self.parsed.has_decimal_cast() {
-                    "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked"
+                    "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked"
                         .to_string()
                 } else {
                     "not_applicable".to_string()
@@ -34895,14 +35035,16 @@ fn is_identifier_char(ch: char) -> bool {
 #[cfg(feature = "universal-format-io")]
 fn encode_parquet_output_rows(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_parquet_rows(columns, rows)
+    shardloom_vortex::encode_flat_parquet_rows_with_dtypes(columns, column_dtypes, rows)
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_parquet_output_rows(
     _columns: &[String],
+    _column_dtypes: &[Option<LogicalDType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -34913,14 +35055,16 @@ fn encode_parquet_output_rows(
 #[cfg(feature = "universal-format-io")]
 fn encode_arrow_ipc_output_rows(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_arrow_ipc_rows(columns, rows)
+    shardloom_vortex::encode_flat_arrow_ipc_rows_with_dtypes(columns, column_dtypes, rows)
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_arrow_ipc_output_rows(
     _columns: &[String],
+    _column_dtypes: &[Option<LogicalDType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -35039,9 +35183,12 @@ fn validate_flat_scalar_result_batch(
             format.sink_format()
         )));
     }
-    if batch.contains_decimal_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+    if batch.contains_decimal_values()
+        && !matches!(format, SqlLocalSourceOutputFormat::Csv)
+        && !format.preserves_typed_decimal128()
+    {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string and CSV text result boundaries in this scoped runtime slice",
+            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC typed result boundaries in this scoped runtime slice",
             format.sink_format()
         )));
     }
@@ -35058,7 +35205,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string and CSV text result boundaries in this scoped runtime slice",
+            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC typed result boundaries in this scoped runtime slice",
             format.sink_format()
         ))),
         Some(blocker) => Err(unsupported_sql_error(&format!(
@@ -35120,7 +35267,10 @@ fn sql_output_plan_conversion_blocker(
     if batch.contains_complex_values() {
         return Some("flat_scalar_result_batch_required");
     }
-    if batch.contains_decimal_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+    if batch.contains_decimal_values()
+        && !matches!(format, SqlLocalSourceOutputFormat::Csv)
+        && !format.preserves_typed_decimal128()
+    {
         return Some("typed_decimal128_preservation_not_admitted");
     }
     None
@@ -37857,7 +38007,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "decimal_cast_output_boundary",
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -37866,8 +38016,178 @@ mod tests {
         fs::remove_file(&output_path).expect("remove csv output");
     }
 
+    #[cfg(feature = "universal-format-io")]
     #[test]
-    fn decimal_cast_blocks_typed_sinks_until_decimal_preservation_is_admitted() {
+    fn decimal_cast_writes_typed_parquet_and_arrow_decimal_sinks() {
+        let path = sql_local_source_test_path("csv");
+        let parquet_output = sql_local_source_test_path("parquet");
+        let arrow_output = sql_local_source_test_path("arrow");
+        fs::write(
+            &path,
+            "id,amount,raw_amount\n1,12.34,not-decimal\n2,8.00,also-bad\n",
+        )
+        .expect("write csv source");
+
+        let parquet_request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Parquet,
+            output_path: Some(parquet_output.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let parquet_report =
+            run_sql_local_source_smoke_single(&parquet_request).expect("write parquet decimal");
+        let parquet_fields = field_map(parquet_report.fields());
+
+        let arrow_request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::ArrowIpc,
+            output_path: Some(arrow_output.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let arrow_report =
+            run_sql_local_source_smoke_single(&arrow_request).expect("write arrow decimal");
+        let arrow_fields = field_map(arrow_report.fields());
+
+        assert_field_eq(
+            &parquet_fields,
+            "decimal_cast_output_boundary",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
+        );
+        assert_field_eq(&parquet_fields, "output_format", "parquet");
+        assert_field_eq(
+            &parquet_fields,
+            "output_fidelity_report_status",
+            "scoped_local_output_fidelity_reported",
+        );
+        assert_field_eq(&parquet_fields, "fallback_attempted", "false");
+        assert_field_eq(&parquet_fields, "external_engine_invoked", "false");
+        assert_field_eq(&arrow_fields, "output_format", "arrow_ipc");
+        assert_field_eq(&arrow_fields, "fallback_attempted", "false");
+        assert_field_eq(&arrow_fields, "external_engine_invoked", "false");
+
+        assert_parquet_decimal_column(
+            &parquet_output,
+            "amount_decimal",
+            10,
+            2,
+            &[Some(1234), Some(800)],
+        );
+        assert_parquet_decimal_column(&parquet_output, "invalid_decimal", 10, 2, &[None, None]);
+        assert_arrow_decimal_column(
+            &arrow_output,
+            "amount_decimal",
+            10,
+            2,
+            &[Some(1234), Some(800)],
+        );
+        assert_arrow_decimal_column(&arrow_output, "invalid_decimal", 10, 2, &[None, None]);
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&parquet_output).expect("remove parquet output");
+        fs::remove_file(&arrow_output).expect("remove arrow output");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_arrow_decimal_column(
+        path: &Path,
+        column: &str,
+        precision: u8,
+        scale: i8,
+        expected_values: &[Option<i128>],
+    ) {
+        use arrow_array::{Array as _, Decimal128Array};
+        use arrow_schema::DataType;
+
+        assert!(
+            path.exists(),
+            "expected Arrow IPC output at {}",
+            path.display()
+        );
+        let file = fs::File::open(path).expect("open arrow ipc output");
+        let mut reader =
+            arrow_ipc::reader::FileReader::try_new(file, None).expect("read arrow ipc output");
+        let schema = reader.schema();
+        let column_index = schema.index_of(column).expect("decimal column");
+        assert_eq!(
+            schema.field(column_index).data_type(),
+            &DataType::Decimal128(precision, scale)
+        );
+        let batch = reader
+            .next()
+            .expect("one arrow ipc batch")
+            .expect("read arrow ipc batch");
+        let array = batch
+            .column(column_index)
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal128 array");
+        assert_eq!(array.len(), expected_values.len());
+        for (index, expected) in expected_values.iter().enumerate() {
+            match expected {
+                Some(expected) => assert_eq!(array.value(index), *expected),
+                None => assert!(array.is_null(index)),
+            }
+        }
+        assert!(reader.next().is_none());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_parquet_decimal_column(
+        path: &Path,
+        column: &str,
+        precision: u8,
+        scale: i8,
+        expected_values: &[Option<i128>],
+    ) {
+        use arrow_array::{Array as _, Decimal128Array, RecordBatchReader as _};
+        use arrow_schema::DataType;
+
+        assert!(
+            path.exists(),
+            "expected Parquet output at {}",
+            path.display()
+        );
+        let file = fs::File::open(path).expect("open parquet output");
+        let mut reader =
+            parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+                .expect("build parquet reader")
+                .build()
+                .expect("open parquet record batch reader");
+        let schema = reader.schema();
+        let column_index = schema.index_of(column).expect("decimal column");
+        assert_eq!(
+            schema.field(column_index).data_type(),
+            &DataType::Decimal128(precision, scale)
+        );
+        let batch = reader
+            .next()
+            .expect("one parquet batch")
+            .expect("read parquet batch");
+        let array = batch
+            .column(column_index)
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal128 array");
+        assert_eq!(array.len(), expected_values.len());
+        for (index, expected) in expected_values.iter().enumerate() {
+            match expected {
+                Some(expected) => assert_eq!(array.value(index), *expected),
+                None => assert!(array.is_null(index)),
+            }
+        }
+        assert!(reader.next().is_none());
+    }
+
+    #[test]
+    fn decimal_cast_blocks_vortex_sink_until_decimal_preservation_is_admitted() {
         let path = sql_local_source_test_path("csv");
         fs::write(&path, "id,amount\n1,12.34\n").expect("write csv source");
 
@@ -37876,18 +38196,18 @@ mod tests {
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
                 path.display()
             ),
-            output_format: SqlLocalSourceOutputFormat::Parquet,
+            output_format: SqlLocalSourceOutputFormat::Vortex,
             output_path: None,
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
         let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("typed decimal sink remains blocked");
+            .expect_err("vortex typed decimal sink remains blocked");
 
         assert!(
             error
                 .to_string()
-                .contains("local parquet output does not yet admit typed decimal128 preservation"),
+                .contains("local vortex output does not yet admit typed decimal128 preservation"),
             "{error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
