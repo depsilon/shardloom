@@ -375,9 +375,14 @@ Implementation checklist, in required order:
   `vortex-ingest-smoke` route, and exposes typed `prepared_state_reuse_hit`,
   `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
   `prepared_state_invalidation_reason` fields from the artifact-adjacent manifest decision.
-  Remaining 6E-1 work is generated-local-source preparation, benchmark/public row promotion for the
-  new auto front door, and any additional CLI/Python route-report wiring needed for route-comparable
-  prepared execution.
+  Python generated-source helpers now also expose `prepare_vortex(...)` for user rows,
+  literal/calendar rows, range/sequence generators, and scoped source-free SQL rows. Those calls use
+  the real generated-source Vortex writer and return `GeneratedSourceWriteReport` with
+  `prepared_state_created`, reuse scope/reason, upstream Vortex write/reopen evidence, and an
+  explicit generated-source manifest-not-yet-admitted boundary instead of implying a cache hit.
+  Remaining 6E-1 work is benchmark/public row promotion for the new auto/generated front doors,
+  generated-source artifact-adjacent manifest-hit reuse, and any additional CLI/Python route-report
+  wiring needed for route-comparable prepared execution.
   Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
   workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
   source/schema/plan/output-policy drift.

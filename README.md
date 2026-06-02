@@ -202,6 +202,25 @@ path is also allowed. Repeated compatible calls use the artifact-adjacent reuse 
 the real Rust CLI route. This is caller-owned local route state, not a daemon, hidden global cache,
 external-engine fallback, object-store cache, or performance claim.
 
+Generated sources use the same caller-owned target shape when the desired artifact is a prepared
+Vortex source:
+
+```python
+generated_prepared = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(
+    workspace="target/shardloom-prepared"
+)
+
+print(
+    generated_prepared.output_path,
+    generated_prepared.prepared_state_created,
+    generated_prepared.prepared_state_reuse_reason,
+)
+```
+
+This calls the real generated-source Vortex writer and returns the generated-source write report
+with prepared-state evidence. Generated-source artifact-manifest reuse is still reported as not yet
+admitted, so repeated generated preparation is not silently treated as a cache hit.
+
 When a user specifically wants the benchmark-range prepare-once route from compatibility files into
 prepared Vortex artifacts, `ctx.prepare_vortex(...)` exposes that route directly and names the
 timing boundary:

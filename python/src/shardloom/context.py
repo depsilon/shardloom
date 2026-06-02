@@ -3977,8 +3977,17 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         "generated_rows",
         input_examples=("from_rows([...])", "range(0, 10)", "sql_values(...)"),
         front_doors=("SQL", "Python", "DataFrame", "context", "CLI"),
-        desired_outputs=("local_jsonl", "local_csv", "feature_gated_local_vortex_output", "fanout"),
-        recommended_user_surface="ctx.from_rows(...).write_* or ctx.sql_values(...).write_*",
+        desired_outputs=(
+            "local_jsonl",
+            "local_csv",
+            "feature_gated_local_vortex_preparation",
+            "fanout",
+        ),
+        recommended_user_surface=(
+            "ctx.from_rows(...).prepare_vortex(workspace='target/shardloom-prepared') for a "
+            "caller-owned prepared Vortex artifact, or ctx.from_rows(...).write_* / "
+            "ctx.sql_values(...).write_* for generated local outputs"
+        ),
         start_state="source_free_generated_rows",
         vortex_normalization_point="generated rows -> Vortex-preparable batch",
         source_route="generated-source user rows/range/sequence/calendar/SQL literal source",

@@ -786,6 +786,35 @@ class UnsupportedWorkflowReport:
 class _GeneratedStructuredOutputMixin:
     __slots__ = ()
 
+    def prepare_vortex(
+        self,
+        target_vortex_path: str | os.PathLike[str] | None = None,
+        *,
+        workspace: str | os.PathLike[str] | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Prepare this generated source into a caller-owned local Vortex artifact.
+
+        Generated rows already originate inside ShardLoom, so this routes through
+        the real generated-source Vortex writer instead of a compatibility-file
+        ingest. The returned report exposes prepared-state fields; generated
+        source artifact-manifest reuse is explicit in evidence and remains
+        blocked until that manifest path is admitted.
+        """
+
+        stem_method = getattr(self, "_generated_vortex_stem")
+        target = _generated_prepared_vortex_target_path(
+            stem_method(),
+            target_vortex_path=target_vortex_path,
+            workspace=workspace,
+        )
+        return self.write_vortex(  # type: ignore[attr-defined]
+            target,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def write_parquet(
         self,
         target_uri: str | os.PathLike[str],
@@ -975,6 +1004,9 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
         if not self.rows:
             raise ValueError("generated row transforms require retained row values")
         return tuple(column for column, _value in self.rows[0])
+
+    def _generated_vortex_stem(self) -> str:
+        return f"generated-{self.source_kind}"
 
     def write(
         self,
@@ -1278,6 +1310,9 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
             check=check,
         )
 
+    def _generated_vortex_stem(self) -> str:
+        return f"generated-{self.source_kind}-{self.start}-{self.end}-{self.step}-{self.column}"
+
     def _query(self) -> "GeneratedRangeQuerySource":
         return GeneratedRangeQuerySource(
             start=self.start,
@@ -1565,6 +1600,9 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             statement = f"{statement} LIMIT {self.limit_count}"
         return statement
 
+    def _generated_vortex_stem(self) -> str:
+        return f"generated-{self.source_kind}-query"
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
@@ -1643,6 +1681,9 @@ class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
             allow_overwrite=allow_overwrite,
             check=check,
         )
+
+    def _generated_vortex_stem(self) -> str:
+        return "generated-sql"
 
 
 @dataclass(frozen=True, slots=True)
@@ -6386,6 +6427,35 @@ def _prepared_vortex_target_path(
     source_name = Path(source_uri).name or "source"
     stem = Path(source_name).stem or "source"
     return Path(workspace).expanduser() / f"{stem}.vortex"
+
+
+def _generated_prepared_vortex_target_path(
+    stem: str,
+    *,
+    target_vortex_path: str | os.PathLike[str] | None,
+    workspace: str | os.PathLike[str] | None,
+) -> str | os.PathLike[str]:
+    if target_vortex_path is not None and workspace is not None:
+        raise ValueError(
+            "generated prepare_vortex accepts either target_vortex_path or workspace, not both"
+        )
+    if target_vortex_path is not None:
+        return target_vortex_path
+    if workspace is None:
+        raise ValueError(
+            "generated prepare_vortex requires target_vortex_path or workspace=... so the "
+            "caller-owned VortexPreparedState artifact location is explicit"
+        )
+    return Path(workspace).expanduser() / f"{_safe_generated_vortex_stem(stem)}.vortex"
+
+
+def _safe_generated_vortex_stem(stem: str) -> str:
+    normalized = "".join(
+        char.lower() if char.isalnum() else "-" for char in str(stem).strip()
+    ).strip("-")
+    while "--" in normalized:
+        normalized = normalized.replace("--", "-")
+    return normalized or "generated-source"
 
 
 def _normalize_engine_mode(engine_mode: str) -> str:

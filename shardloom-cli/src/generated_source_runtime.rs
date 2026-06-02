@@ -2357,8 +2357,60 @@ fn generated_vortex_output_fields(
     report.map_or_else(default_vortex_output_fields, vortex_output_success_fields)
 }
 
-fn default_vortex_output_fields() -> Vec<(String, String)> {
+fn generated_vortex_prepared_state_fields(
+    prepared_state_created: bool,
+    scope: &str,
+    reason: &str,
+    invalidation_reason: &str,
+) -> Vec<(String, String)> {
     vec![
+        (
+            "prepared_state_created".to_string(),
+            prepared_state_created.to_string(),
+        ),
+        ("prepared_state_reused".to_string(), "false".to_string()),
+        (
+            "prepared_state_reuse_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+        ("prepared_state_reuse_scope".to_string(), scope.to_string()),
+        (
+            "prepared_state_reuse_manifest_path".to_string(),
+            if prepared_state_created {
+                "not_emitted_generated_source_manifest_not_yet_admitted"
+            } else {
+                "not_applicable_non_vortex_generated_output"
+            }
+            .to_string(),
+        ),
+        (
+            "prepared_state_reuse_policy".to_string(),
+            shardloom_vortex::VORTEX_PREPARED_STATE_REUSE_POLICY.to_string(),
+        ),
+        (
+            "prepared_state_reuse_reason".to_string(),
+            reason.to_string(),
+        ),
+        (
+            "prepared_state_reuse_manifest_digest".to_string(),
+            "none".to_string(),
+        ),
+        (
+            "prepared_state_invalidation_reason".to_string(),
+            invalidation_reason.to_string(),
+        ),
+    ]
+}
+
+fn default_vortex_output_fields() -> Vec<(String, String)> {
+    let mut fields = generated_vortex_prepared_state_fields(
+        false,
+        "not_applicable_non_vortex_generated_output",
+        "not_requested_non_vortex_generated_output",
+        "not_applicable_non_vortex_generated_output",
+    );
+    fields.extend([
         (
             "vortex_output_runtime_execution".to_string(),
             "false".to_string(),
@@ -2388,13 +2440,20 @@ fn default_vortex_output_fields() -> Vec<(String, String)> {
             "upstream_vortex_scan_called".to_string(),
             "false".to_string(),
         ),
-    ]
+    ]);
+    fields
 }
 
 fn vortex_output_success_fields(
     report: &shardloom_vortex::VortexPreparedStateWriteReport,
 ) -> Vec<(String, String)> {
-    vec![
+    let mut fields = generated_vortex_prepared_state_fields(
+        true,
+        "generated_source_vortex_artifact_manifest_not_yet_admitted",
+        "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted",
+        "not_applicable_generated_source_manifest_not_yet_admitted",
+    );
+    fields.extend([
         (
             "vortex_output_runtime_execution".to_string(),
             "true".to_string(),
@@ -2471,7 +2530,8 @@ fn vortex_output_success_fields(
             "upstream_vortex_scan_called".to_string(),
             report.upstream_vortex_scan_called.to_string(),
         ),
-    ]
+    ]);
+    fields
 }
 
 fn generated_output_sink_artifact_fields(

@@ -33602,6 +33602,17 @@ the current queue; promote any actionable unfinished work into Planned before im
       `row_value_in_predicate_semantics` as an executable fixture row rather than an unsupported
       ShardLoom gap. Broad subquery grammar, UNION-like composition, object-store/table SQL
       runtime, benchmark execution, performance claims, and external-engine fallback remain gated.
+- [x] GAR-RUNTIME-IMPL-6E-1 generated-source local Vortex preparation is exposed through the
+      high-level Python generated-source helpers. `GeneratedRowsSource`, `GeneratedRangeSource`,
+      generated range query handles, and `GeneratedSqlSource` now provide
+      `prepare_vortex(target_vortex_path|workspace=...)`, routing through the existing
+      generated-source Vortex writer instead of an output-only alias. `GeneratedSourceWriteReport`
+      exposes typed `prepared_state_created`, prepared-state reuse hit/scope/reason/manifest digest,
+      and invalidation fields, while Rust generated-source smoke envelopes now emit matching
+      prepared-state fields for both non-Vortex generated outputs and feature-gated Vortex outputs.
+      This is scoped local generated-source preparation with upstream Vortex write/reopen evidence;
+      generated-source artifact-adjacent manifest-hit reuse, benchmark/public row promotion,
+      production claims, performance claims, and external-engine fallback remain gated.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

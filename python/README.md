@@ -227,6 +227,7 @@ object-store/table reuse, and non-local workflow reuse remain outside this scope
 The explicit prepare-once Vortex lifecycle is available for advanced validation through a
 feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, then call
 `ctx.read_csv(...).prepare_vortex(workspace=...)`,
+`ctx.from_rows(...).prepare_vortex(workspace=...)`,
 `ShardLoomClient.vortex_ingest_smoke(...)`, or `ctx.prepare_vortex(...)` when you intentionally need
 to inspect the `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` boundary:
 
@@ -255,6 +256,10 @@ object-store/table output support, production SQL/DataFrame support, or a perfor
 `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
 `prepared_state_invalidation_reason` through typed properties. It prepares the raw local source
 before query operators; use `.write_vortex(...)` when the desired artifact is a query-result sink.
+Generated-source `prepare_vortex(...)` uses the existing generated-source Vortex writer and returns
+a `GeneratedSourceWriteReport` with `prepared_state_created` and reuse-boundary fields. It does not
+claim a generated-source manifest reuse hit yet; the report says that generated-source artifact
+manifests are not admitted instead of hiding a cache decision.
 When capillary preparation is admitted, the report exposes
 `vortex_capillary_preparation_prewrite_status`,
 `vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array

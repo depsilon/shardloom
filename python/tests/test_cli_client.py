@@ -35,6 +35,7 @@ from shardloom import (
     GeneratedObjectStoreOutputReport,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
+    GeneratedSourceWriteReport,
     LocalVortexPrimitiveSmokeReport,
     NativeVortexQuery,
     NativeVortexRoute,
@@ -2742,6 +2743,189 @@ class ShardLoomClientTests(unittest.TestCase):
         live_ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)), engine="live")
         with self.assertRaisesRegex(ValueError, "live/hybrid preparation remains gated"):
             live_ctx.read_csv("source.csv").prepare_vortex(workspace="target/prepared")
+
+    def test_generated_source_prepare_vortex_uses_generated_vortex_sink_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            workspace = Path(tempdir) / "prepared"
+            target = workspace / "generated-user-rows.vortex"
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    args = sys.argv[1:]
+                    assert args == [
+                        "generated-source-user-rows-smoke",
+                        {str(target)!r},
+                        "id:int64,label:utf8",
+                        "id=1,label=alpha",
+                        "--source-kind",
+                        "user_rows",
+                        "--output-format",
+                        "vortex",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "generated-source-user-rows-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "generated_source_kind", "value": "user_rows"}},
+                            {{"key": "generated_source_row_count", "value": "1"}},
+                            {{"key": "generated_source_certificate_status", "value": "present"}},
+                            {{"key": "output_native_io_certificate_status", "value": "certified_local_vortex_sink"}},
+                            {{"key": "output_path", "value": {str(target)!r}}},
+                            {{"key": "output_format", "value": "vortex"}},
+                            {{"key": "vortex_output_runtime_execution", "value": "true"}},
+                            {{"key": "vortex_output_reopen_verified", "value": "true"}},
+                            {{"key": "vortex_output_row_count", "value": "1"}},
+                            {{"key": "vortex_artifact_digest", "value": "fnv64:vortex-generated"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "prepared_state_reused", "value": "false"}},
+                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
+                            {{"key": "prepared_state_reuse_scope", "value": "generated_source_vortex_artifact_manifest_not_yet_admitted"}},
+                            {{"key": "prepared_state_reuse_reason", "value": "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted"}},
+                            {{"key": "prepared_state_reuse_manifest_digest", "value": "none"}},
+                            {{"key": "prepared_state_invalidation_reason", "value": "not_applicable_generated_source_manifest_not_yet_admitted"}},
+                            {{"key": "upstream_vortex_write_called", "value": "true"}},
+                            {{"key": "upstream_vortex_scan_called", "value": "true"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+            report = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(
+                workspace=workspace
+            )
+
+            self.assertIsInstance(report, GeneratedSourceWriteReport)
+            self.assertEqual(report.output_path, str(target))
+            self.assertEqual(report.output_format, "vortex")
+            self.assertTrue(report.vortex_output_runtime_execution)
+            self.assertTrue(report.vortex_output_reopen_verified)
+            self.assertTrue(report.prepared_state_created)
+            self.assertFalse(report.prepared_state_reused)
+            self.assertFalse(report.prepared_state_reuse_hit)
+            self.assertEqual(
+                report.prepared_state_reuse_scope,
+                "generated_source_vortex_artifact_manifest_not_yet_admitted",
+            )
+            self.assertEqual(
+                report.prepared_state_reuse_reason,
+                "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted",
+            )
+            self.assertIsNone(report.prepared_state_reuse_manifest_digest)
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
+    def test_generated_source_prepare_vortex_rejects_ambiguous_target_ownership(
+        self,
+    ) -> None:
+        source = ShardLoomContext(client=ShardLoomClient(binary=("unused",))).from_rows(
+            [{"id": 1}]
+        )
+
+        with self.assertRaisesRegex(ValueError, "requires target_vortex_path or workspace"):
+            source.prepare_vortex()
+
+        with self.assertRaisesRegex(ValueError, "either target_vortex_path or workspace"):
+            source.prepare_vortex("target/generated.vortex", workspace="target/prepared")
+
+    def test_generated_range_and_sql_prepare_vortex_use_vortex_output_format(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            workspace = Path(tempdir) / "prepared"
+            range_target = workspace / "generated-range-0-2-1-value.vortex"
+            sql_target = Path(tempdir) / "values.vortex"
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    args = sys.argv[1:]
+                    if args[0] == "generated-source-range-smoke":
+                        assert args == [
+                            "generated-source-range-smoke",
+                            {str(range_target)!r},
+                            "0",
+                            "2",
+                            "--step",
+                            "1",
+                            "--column",
+                            "value",
+                            "--output-format",
+                            "vortex",
+                            "--format",
+                            "json",
+                        ], sys.argv
+                        kind = "range"
+                        output_path = {str(range_target)!r}
+                    elif args[0] == "generated-source-sql-smoke":
+                        assert args == [
+                            "generated-source-sql-smoke",
+                            {str(sql_target)!r},
+                            "VALUES (1)",
+                            "--output-format",
+                            "vortex",
+                            "--format",
+                            "json",
+                        ], sys.argv
+                        kind = "sql_values"
+                        output_path = {str(sql_target)!r}
+                    else:
+                        raise AssertionError(sys.argv)
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": args[0],
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "generated_source_kind", "value": kind}},
+                            {{"key": "generated_source_row_count", "value": "1"}},
+                            {{"key": "generated_source_certificate_status", "value": "present"}},
+                            {{"key": "output_native_io_certificate_status", "value": "certified_local_vortex_sink"}},
+                            {{"key": "output_path", "value": output_path}},
+                            {{"key": "output_format", "value": "vortex"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
+                            {{"key": "vortex_output_runtime_execution", "value": "true"}},
+                            {{"key": "upstream_vortex_write_called", "value": "true"}},
+                            {{"key": "upstream_vortex_scan_called", "value": "true"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+            range_report = ctx.range(0, 2).prepare_vortex(workspace=workspace)
+            sql_report = ctx.sql_values("VALUES (1)").prepare_vortex(sql_target)
+
+            self.assertEqual(range_report.output_path, str(range_target))
+            self.assertEqual(sql_report.output_path, str(sql_target))
+            self.assertEqual(range_report.output_format, "vortex")
+            self.assertEqual(sql_report.output_format, "vortex")
+            self.assertTrue(range_report.prepared_state_created)
+            self.assertTrue(sql_report.prepared_state_created)
+            self.assertFalse(range_report.prepared_state_reuse_hit)
+            self.assertFalse(sql_report.prepared_state_reuse_hit)
 
     def test_session_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
         session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
