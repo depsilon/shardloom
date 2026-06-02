@@ -1511,6 +1511,53 @@ class GeneratedSourceWriteReport:
         return self.envelope.field_int("vortex_output_row_count")
 
     @property
+    def prepared_state_created(self) -> bool:
+        """Whether this generated-source write created a local Vortex prepared state."""
+
+        return self.envelope.field_bool("prepared_state_created", False) is True
+
+    @property
+    def prepared_state_reused(self) -> bool:
+        """Whether this generated-source write reused a prepared state."""
+
+        return self.envelope.field_bool("prepared_state_reused", False) is True
+
+    @property
+    def prepared_state_reuse_hit(self) -> bool:
+        """Whether prepared-state reuse hit for this generated-source write."""
+
+        return self.envelope.field_bool("prepared_state_reuse_hit", False) is True
+
+    @property
+    def prepared_state_reuse_scope(self) -> str | None:
+        """Return the prepared-state reuse scope for generated-source output."""
+
+        return self.envelope.field("prepared_state_reuse_scope")
+
+    @property
+    def prepared_state_reuse_reason(self) -> str | None:
+        """Return the prepared-state reuse hit, miss, or boundary reason."""
+
+        return self.envelope.field("prepared_state_reuse_reason")
+
+    @property
+    def prepared_state_reuse_manifest_digest(self) -> str | None:
+        """Return the prepared-state reuse manifest digest when emitted."""
+
+        value = self.envelope.field("prepared_state_reuse_manifest_digest")
+        if value in {None, "", "none", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def prepared_state_invalidation_reason(self) -> str | None:
+        """Return the prepared-state invalidation or boundary reason."""
+
+        return self.envelope.field("prepared_state_invalidation_reason") or self.envelope.field(
+            "invalidation_reason"
+        )
+
+    @property
     def upstream_vortex_write_called(self) -> bool:
         """Whether the scoped upstream Vortex writer boundary was invoked."""
 

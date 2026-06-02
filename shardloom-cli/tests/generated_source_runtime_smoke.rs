@@ -99,6 +99,16 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("output_fallback_attempted", "false")));
     assert!(stdout.contains(&field("output_external_engine_invoked", "false")));
     assert!(stdout.contains("\"output_staging_path\",\"value\":\""));
+    assert!(stdout.contains(&field("prepared_state_created", "false")));
+    assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_scope",
+        "not_applicable_non_vortex_generated_output"
+    )));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_reason",
+        "not_requested_non_vortex_generated_output"
+    )));
     assert!(stdout.contains(&field("vortex_output_runtime_execution", "false")));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "false")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
@@ -231,6 +241,18 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
     assert!(stdout.contains(&field("vortex_output_row_count", "2")));
     assert!(stdout.contains(&field("vortex_output_column_count", "3")));
+    assert!(stdout.contains(&field("prepared_state_created", "true")));
+    assert!(stdout.contains(&field("prepared_state_reused", "false")));
+    assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_scope",
+        "generated_source_vortex_artifact_manifest_not_yet_admitted"
+    )));
+    assert!(stdout.contains(&field(
+        "prepared_state_reuse_reason",
+        "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted"
+    )));
+    assert!(stdout.contains(&field("prepared_state_reuse_manifest_digest", "none")));
     assert!(stdout.contains(&field(
         "vortex_output_timing_scope",
         "vortex_ingest_prepare_once"
