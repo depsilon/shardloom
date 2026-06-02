@@ -184,9 +184,10 @@ remain aliases for code that wants them. A caller writes to a requested sink and
 manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, certificates, and
 no-fallback evidence internally. OutputPlan evidence declares requested sink columns,
 materialization/text boundaries, statistics needs, replay depth, and deterministic conversion
-blockers before terminal conversion begins. Output layout/write advisor evidence records whether
-the sink strategy was applied, advisory-only, or blocked, and compatibility outputs report metadata
-loss instead of silently implying Vortex-equivalent fidelity.
+blockers before terminal conversion begins. Output layout/write advisor evidence records concrete
+states such as `applied_local_vortex_layout_write_strategy`,
+`advisory_only_compatibility_targets`, and `pending_local_vortex_writer_decision`; compatibility
+outputs report metadata loss instead of silently implying Vortex-equivalent fidelity.
 
 When a single local source should be prepared and reused before later work, the lazy source can enter
 the same `vortex-ingest-smoke` runtime path without dropping to the low-level client:
