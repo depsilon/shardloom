@@ -139,10 +139,12 @@ fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ..
 executable through the JSONL result boundary only; nested source decoding, complex equality,
 subquery membership materialization, and flat/structured sink persistence remain outside the claim
 boundary.
-Scoped `decimal128` add/subtract/multiply projections over same-scale decimal operands and integer
-operands are executable through the same generic-expression local-source runtime and exact
-JSONL/CSV text result boundary. Decimal division, mixed-scale decimal arithmetic/coercion, broad
-ANSI decimal coercion, and typed decimal sink preservation remain outside the claim boundary.
+Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
+operands plus integer operands are executable through the same generic-expression local-source
+runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
+fixed-scale division are executable within the scoped decimal route. Non-exact decimal division,
+broad ANSI decimal coercion, exponent notation, decimal/float comparison, and typed decimal sink
+preservation remain outside the claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -157,10 +159,13 @@ invalid-input blockers, while broad binary source dtype decoding, binary orderin
 helper expressions remain outside the claim boundary. Scoped `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
 fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`
-add/subtract/multiply projections are executable for same-scale decimal operands and integer
-operands through generic expression projection evidence. Decimal division, mixed-scale decimal
-arithmetic/coercion, broad ANSI decimal coercion, exponent notation, and typed Parquet/Arrow/Vortex
-decimal sink preservation remain outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
+add/subtract/multiply projections are executable for same-scale and mixed-scale decimal operands
+plus integer operands through generic expression projection evidence, mixed-scale decimal
+comparisons are admitted, and exact fixed-scale decimal division emits
+`decimal128(38,max(input_scales,6))` when the quotient is exact. Non-exact decimal division, broad
+ANSI decimal coercion, exponent notation, decimal/float comparison, and typed
+Parquet/Arrow/Vortex decimal sink preservation remain outside the claim boundary. Scoped UTF-8
+`LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
 ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through
