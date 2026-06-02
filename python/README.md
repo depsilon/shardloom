@@ -748,8 +748,9 @@ exact JSONL string and CSV text output; scoped `decimal128` add/subtract/multipl
 same-scale and mixed-scale decimal operands plus integer operands are admitted through the generic
 expression route, and exact division emits a bounded `decimal128(38,max(input_scales,6))` result
 when the quotient is exact at that scale. Non-exact decimal division, broad ANSI decimal coercion,
-exponent notation, and typed Parquet/Arrow/Vortex decimal sink preservation still block before
-fallback.
+exponent notation, local Vortex typed decimal output, and Avro/ORC typed decimal sinks still block
+before fallback. Feature-gated Parquet/Arrow IPC compatibility sinks preserve scoped decimal output
+columns as typed `decimal128(p,s)`.
 Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
 bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,
 casts, nested source decoding, and flat compatibility sinks still block before fallback.

@@ -77,27 +77,40 @@ class ReleaseScriptTests(unittest.TestCase):
                 "ShardLoom Warm Prepared Query",
                 "VortexPreparedState",
                 False,
-                "total_route_ms = query_runtime_millis",
+                (
+                    "total_route_ms = query_runtime_millis + "
+                    "result_sink_write_millis + evidence_render_millis"
+                ),
                 "warm_prepared_query_only",
-                "query_runtime_millis",
+                "query_runtime_millis,result_sink_write_millis,evidence_render_millis",
             ),
             "shardloom-prepare-batch": (
                 "prepare_once_batch",
                 "ShardLoom Prepare-Once Batch",
                 "raw_compat_source",
                 True,
-                "total_route_ms = amortized_prepare_batch_preparation_millis + query_runtime_millis",
+                (
+                    "total_route_ms = amortized_prepare_batch_preparation_millis + "
+                    "query_runtime_millis + result_sink_write_millis + "
+                    "evidence_render_millis"
+                ),
                 "prepare_once_batch_amortized",
-                "amortized_prepare_batch_preparation_millis,query_runtime_millis",
+                (
+                    "amortized_prepare_batch_preparation_millis,query_runtime_millis,"
+                    "result_sink_write_millis,evidence_render_millis"
+                ),
             ),
             "shardloom-vortex": (
                 "native_vortex_query",
                 "ShardLoom Native Vortex Query",
                 "Vortex",
                 False,
-                "total_route_ms = query_runtime_millis",
+                (
+                    "total_route_ms = query_runtime_millis + "
+                    "result_sink_write_millis + evidence_render_millis"
+                ),
                 "native_vortex_query_only",
-                "query_runtime_millis",
+                "query_runtime_millis,result_sink_write_millis,evidence_render_millis",
             ),
         }
         (
@@ -183,8 +196,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_total_delta_ms": 0.0,
             "preparation_timing_included_in_total": preparation_included,
             "query_timing_included_in_total": True,
-            "output_timing_included_in_total": lane_id in {"cold_certified_route"},
-            "evidence_timing_included_in_total": lane_id in {"cold_certified_route"},
+            "output_timing_included_in_total": True,
+            "evidence_timing_included_in_total": True,
             "fast_path_attribution_schema_version": "shardloom.route_fast_path_attribution.v1",
             "runtime_execution_ms": 0.8,
             "output_delivery_ms": 0.1,
@@ -194,8 +207,6 @@ class ReleaseScriptTests(unittest.TestCase):
             "runtime_execution_timing_scope": timing_scope,
             "output_delivery_timing_scope": (
                 "included_in_route_total"
-                if lane_id in {"cold_certified_route"}
-                else "excluded_from_route_total"
             ),
             "evidence_capture_timing_status": "certificate_metadata_linked_not_separately_timed",
             "certificate_link_timing_status": "metadata_linked_not_separately_timed",
@@ -204,7 +215,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "runtime_execution_certificate_plan_ref": "scheduler://fixture",
             "certificate_link_status": "linked_certified_runtime_execution",
             "evidence_required_for_claim": True,
-            "evidence_render_included_in_route_total": lane_id in {"cold_certified_route"},
+            "evidence_render_included_in_route_total": True,
             "fast_path_claim_boundary": "runtime fast path fixture",
             "operator_mode_inventory_schema_version": "shardloom.operator_mode_inventory.v1",
             "operator_execution_class": "residual_native",
@@ -872,15 +883,15 @@ class ReleaseScriptTests(unittest.TestCase):
         rows = module.rows_with_prepare_once_first_query([prepare_batch])
         by_lane = {item["route_lane_id"]: item for item in rows}
 
-        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 7.0)
-        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 102.0)
+        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 10.5)
+        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 105.5)
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_row_derivation_status"],
             module.DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS,
         )
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_timing_included_stage_total_ms"],
-            102.0,
+            105.5,
         )
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_timing_total_delta_ms"],
@@ -891,8 +902,8 @@ class ReleaseScriptTests(unittest.TestCase):
         by_count = {item[0]: item for item in amortization["rows"]}
         self.assertEqual(set(by_count), {1, 5, 10, 50, 100})
         self.assertEqual(by_count[1][1], 1)
-        self.assertEqual(by_count[1][2], "102.00 ms")
-        self.assertEqual(by_count[100][2], "3.00 ms")
+        self.assertEqual(by_count[1][2], "105.50 ms")
+        self.assertEqual(by_count[100][2], "6.50 ms")
 
     def test_benchmark_promoter_emits_operator_mode_inventory(self) -> None:
         module = self._load_script_module(

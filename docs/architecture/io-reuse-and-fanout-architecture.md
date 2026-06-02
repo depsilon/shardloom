@@ -404,10 +404,12 @@ output_plan_replay_depth
 
 CSV and JSONL declare terminal text encoders. Parquet, Arrow IPC, Avro, ORC, and Vortex declare
 non-text requested-sink boundaries for admitted flat-scalar rows, with current row-bridge or Vortex
-writer bridge requirements reported explicitly. Complex values and typed decimal preservation block
-deterministically for sinks that cannot preserve them; feature-gated sinks also block during
-OutputPlan admission when the required feature is absent. This is deterministic local sink planning,
-not a performance claim.
+writer bridge requirements reported explicitly. Complex values block deterministically for flat
+sinks that cannot preserve them. Scoped decimal values preserve precision/scale through
+feature-gated Parquet/Arrow IPC compatibility sinks; local Vortex typed decimal output and Avro/ORC
+typed decimal sinks still block deterministically until their preservation/replay evidence exists.
+Feature-gated sinks also block during OutputPlan admission when the required feature is absent. This
+is deterministic local sink planning, not a performance claim.
 
 ### ResultBatchState
 

@@ -626,7 +626,7 @@ def decimal_cast_projection_predicate_case() -> SqlFixtureCase:
             "decimal_cast_precision": "10,10,10",
             "decimal_cast_scale": "2,2,2",
             "decimal_cast_mode": "strict,strict,try",
-            "decimal_cast_output_boundary": "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked",
+            "decimal_cast_output_boundary": "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
             "projected_columns": "id,amount_decimal,raw_decimal",
             "claim_gate_status": "fixture_smoke_only",
         },

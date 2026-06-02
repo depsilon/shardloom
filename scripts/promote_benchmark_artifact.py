@@ -967,9 +967,21 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("preparation_millis", "vortex_prepare_millis")
         )
 
+    output_delivery = output_delivery_millis(fields)
+    evidence_render = evidence_render_route_millis(fields)
     total_route = total_runtime
     if route_lane_id == "prepare_once_batch" and query_runtime is not None:
-        total_route = query_runtime + (amortized_preparation or 0.0)
+        total_route = (
+            query_runtime
+            + (amortized_preparation or 0.0)
+            + output_delivery
+            + evidence_render
+        )
+    elif (
+        route_lane_id in {"warm_prepared_query", "native_vortex_query"}
+        and query_runtime is not None
+    ):
+        total_route = query_runtime + output_delivery + evidence_render
 
     return {
         "source_admission_ms": source_admission_millis(fields),
@@ -1005,8 +1017,8 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "prepared_state_lookup_or_create_ms": prepared_state_lookup,
         "vortex_scan_ms": first_numeric_field(fields, ("vortex_scan_millis",)),
         "operator_compute_ms": first_numeric_field(fields, ("operator_compute_millis",)),
-        "result_sink_write_ms": first_numeric_field(fields, ("result_sink_write_millis",)),
-        "evidence_render_ms": first_numeric_field(fields, ("evidence_render_millis",)),
+        "result_sink_write_ms": output_delivery,
+        "evidence_render_ms": evidence_render,
         "total_route_ms": total_route,
         "prepared_route_observed_batch_count": batch_count,
         "route_stage_timing_scope": (
@@ -1054,6 +1066,8 @@ def route_timing_ledger_fields_for_row(
         else None
     )
     detailed_stage_ids = set(_stage_ids_with_values(stage_fields))
+    output_delivery = output_delivery_millis(fields, stage_fields)
+    evidence_render = evidence_render_route_millis(fields, stage_fields)
 
     included_stage_ids: tuple[str, ...]
     scope: str
@@ -1065,15 +1079,23 @@ def route_timing_ledger_fields_for_row(
     included_total = total_route
 
     if lane_id == "prepare_once_first_query":
-        included_stage_ids = ("prepare_batch_preparation_millis", "query_runtime_millis")
+        included_stage_ids = (
+            "prepare_batch_preparation_millis",
+            "query_runtime_millis",
+            "result_sink_write_millis",
+            "evidence_render_millis",
+        )
         scope = "prepare_once_first_query"
-        formula = "total_route_ms = prepare_batch_preparation_millis + query_runtime_millis"
+        formula = (
+            "total_route_ms = prepare_batch_preparation_millis + query_runtime_millis "
+            "+ result_sink_write_millis + evidence_render_millis"
+        )
         preparation_included = True
         query_included = True
-        output_included = False
-        evidence_included = False
+        output_included = True
+        evidence_included = True
         included_total = (
-            preparation + query_runtime
+            preparation + query_runtime + output_delivery + evidence_render
             if preparation is not None and query_runtime is not None
             else total_route
         )
@@ -1081,34 +1103,47 @@ def route_timing_ledger_fields_for_row(
         included_stage_ids = (
             "amortized_prepare_batch_preparation_millis",
             "query_runtime_millis",
+            "result_sink_write_millis",
+            "evidence_render_millis",
         )
         scope = "prepare_once_batch_amortized"
         formula = (
             "total_route_ms = amortized_prepare_batch_preparation_millis "
-            "+ query_runtime_millis"
+            "+ query_runtime_millis + result_sink_write_millis + evidence_render_millis"
         )
         preparation_included = True
         query_included = True
-        output_included = False
-        evidence_included = False
+        output_included = True
+        evidence_included = True
         included_total = (
-            amortized_preparation + query_runtime
+            amortized_preparation + query_runtime + output_delivery + evidence_render
             if amortized_preparation is not None and query_runtime is not None
             else total_route
         )
     elif lane_id in {"warm_prepared_query", "native_vortex_query"}:
-        included_stage_ids = ("query_runtime_millis",)
+        included_stage_ids = (
+            "query_runtime_millis",
+            "result_sink_write_millis",
+            "evidence_render_millis",
+        )
         scope = (
             "warm_prepared_query_only"
             if lane_id == "warm_prepared_query"
             else "native_vortex_query_only"
         )
-        formula = "total_route_ms = query_runtime_millis"
+        formula = (
+            "total_route_ms = query_runtime_millis + result_sink_write_millis "
+            "+ evidence_render_millis"
+        )
         preparation_included = False
         query_included = True
-        output_included = False
-        evidence_included = False
-        included_total = query_runtime if query_runtime is not None else total_route
+        output_included = True
+        evidence_included = True
+        included_total = (
+            query_runtime + output_delivery + evidence_render
+            if query_runtime is not None
+            else total_route
+        )
     elif lane_id == "external_baseline_end_to_end":
         included_stage_ids = ("external_engine_reported_total_runtime_millis",)
         scope = "external_baseline_end_to_end"
@@ -1134,7 +1169,17 @@ def route_timing_ledger_fields_for_row(
         output_included = True
         evidence_included = True
 
-    excluded_stage_ids = sorted(detailed_stage_ids - set(included_stage_ids))
+    included_detail_stage_ids = set(included_stage_ids)
+    if output_included:
+        included_detail_stage_ids.add("result_sink_write_ms")
+    if evidence_included:
+        included_detail_stage_ids.add("evidence_render_ms")
+    if preparation_included and lane_id in {
+        "prepare_once_first_query",
+        "prepare_once_batch",
+    }:
+        included_detail_stage_ids.add("prepared_state_lookup_or_create_ms")
+    excluded_stage_ids = sorted(detailed_stage_ids - included_detail_stage_ids)
     delta = (
         abs((included_total or 0.0) - (total_route or 0.0))
         if included_total is not None and total_route is not None
@@ -1531,9 +1576,11 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
         fields = runtime_validation_field_map(row)
         total_runtime = prepared_route_query_runtime_millis(fields)
         preparation = prepare_once_preparation_millis(fields, base)
+        output_delivery = output_delivery_millis(fields, base)
+        evidence_render = evidence_render_route_millis(fields, base)
         batch_count = prepared_route_observed_batch_count(fields)
         first_query_total = (
-            total_runtime + preparation
+            total_runtime + preparation + output_delivery + evidence_render
             if total_runtime is not None and preparation is not None
             else total_runtime
         )
@@ -1816,6 +1863,32 @@ def prepare_once_preparation_millis(
     return None
 
 
+def output_delivery_millis(
+    fields: dict[str, Any],
+    stage_fields: dict[str, Any] | None = None,
+) -> float:
+    value = first_numeric_field(
+        fields,
+        (
+            "result_sink_write_millis",
+            "computed_result_sink_write_millis",
+        ),
+    )
+    if value is None and stage_fields is not None:
+        value = numeric_value(stage_fields.get("result_sink_write_ms"))
+    return value or 0.0
+
+
+def evidence_render_route_millis(
+    fields: dict[str, Any],
+    stage_fields: dict[str, Any] | None = None,
+) -> float:
+    value = first_numeric_field(fields, ("evidence_render_millis",))
+    if value is None and stage_fields is not None:
+        value = numeric_value(stage_fields.get("evidence_render_ms"))
+    return value or 0.0
+
+
 def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     rows = [
         row
@@ -1823,17 +1896,18 @@ def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if row.get("route_row_derivation_status")
         != DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS
     ]
+    decorated_rows = [decorated_route_row(row) for row in rows]
     by_engine: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
+    for row in decorated_rows:
         engine = row.get("engine")
         if engine:
             by_engine[str(engine)].append(row)
 
     row_times: dict[tuple[str, str, str], float] = {}
-    for row in rows:
+    for row in decorated_rows:
         if row.get("status") != "success":
             continue
-        value = geomean(iteration_values(row))
+        value = numeric_value(row.get("total_route_ms"))
         if value is not None:
             row_times[(str(row.get("engine")), *scenario_key(row))] = value
 
@@ -1881,15 +1955,15 @@ def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             ]
         )
     return {
-        "heading": "Local Timing Context",
+        "heading": "Local Route Timing Context",
         "headers": [
             "Engine",
             "Available",
             "Success / total",
-            "Geomean",
-            "CSV/Parquet geomean",
-            "local fastest count",
-            "local timing context",
+            "Route geomean",
+            "CSV/Parquet route geomean",
+            "local fastest route count",
+            "local route timing context",
         ],
         "rows": rendered_rows,
     }
@@ -2019,17 +2093,31 @@ def prepared_route_amortization_table(rows: list[dict[str, Any]]) -> dict[str, A
             fields = runtime_validation_field_map(row)
             preparation = prepare_once_preparation_millis(fields, row)
             query_runtime = prepared_route_query_runtime_millis(fields)
+            output_delivery = output_delivery_millis(fields, row)
+            evidence_render = evidence_render_route_millis(fields, row)
             if preparation is None or query_runtime is None:
                 continue
-            per_query_values.append(preparation / query_count + query_runtime)
-            total_batch_values.append(preparation + query_runtime * query_count)
+            per_query_route = (
+                preparation / query_count
+                + query_runtime
+                + output_delivery
+                + evidence_render
+            )
+            per_query_values.append(per_query_route)
+            total_batch_values.append(
+                preparation
+                + (query_runtime + output_delivery + evidence_render) * query_count
+            )
         rendered_rows.append(
             [
                 query_count,
                 len(per_query_values),
                 fmt_ms(geomean(per_query_values)),
                 fmt_ms(geomean(total_batch_values)),
-                "prepare_batch_preparation_millis / N + query_runtime_millis",
+                (
+                    "prepare_batch_preparation_millis / N + query_runtime_millis "
+                    "+ result_sink_write_millis + evidence_render_millis"
+                ),
                 "raw_compat_source -> VortexPreparedState reused for N prepared executions",
             ]
         )

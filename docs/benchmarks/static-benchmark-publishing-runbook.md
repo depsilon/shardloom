@@ -136,6 +136,10 @@ It derives the website timing/context tables from the promoted benchmark artifac
 `expected_lanes`, `available_lanes`, `missing_lanes`, lane versions, and lane availability reasons,
 keeps external engines marked as `external_baseline_only`, and adds route identity/status fields so
 the website can report runtime support separately from evidence and claim authorization.
+For ShardLoom rows, `total_route_ms` is the public route timing surface. If a ShardLoom route
+identity says `includes_output=true` or `includes_evidence=true`, the route timing ledger must
+include result-sink and evidence-render timing in `total_route_ms`; `runtime_execution_ms` remains
+the fast-path attribution slice, not the route total.
 
 Keep raw benchmark Markdown under `target/benchmark-artifacts/` as local evidence unless a separate
 claim-safe public Markdown renderer is added. The website latest bundle publishes the JSON manifest

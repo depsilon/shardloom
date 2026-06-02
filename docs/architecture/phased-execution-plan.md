@@ -332,9 +332,9 @@ Current state:
   `output_delivery_ms`, `evidence_capture_ms`, `evidence_render_ms`, and `certificate_link_ms`;
   claim-grade ShardLoom rows must carry `evidence_required_for_claim=true`,
   `certificate_link_status=linked_certified_runtime_execution`, and a certified
-  runtime-execution certificate when evidence rendering is excluded from route totals. The
-  benchmark page now shows runtime/evidence attribution after stage attribution so sub-ms
-  prepared/native query rows are not visually charged for publication-only evidence work.
+  runtime-execution certificate. The benchmark page now shows total-route timing separately from
+  runtime/evidence attribution so sub-ms prepared/native query slices cannot be mistaken for full
+  route totals.
 - The ninth 6D child slice adds `shardloom.operator_mode_inventory.v1` to promoted benchmark rows
   and website summaries. Public rows now distinguish `operator_execution_mode` from
   route-runtime support and publish `encoded_native_operators`, `residual_native_operators`,
@@ -348,6 +348,14 @@ Current state:
   website mirror-drift, route row counts, route-runtime-status, operator-mode, timing-ledger, and
   nearest-next-command checks. It also writes compact JSON/Markdown route packets for agent
   handoff without pulling the full benchmark corpus into prompt context.
+- Route-total integrity follow-up is pulled forward before the next runtime item: the benchmark
+  promoter and website must make `total_route_ms` mean the full published route timing for every
+  route card and route-lane table, while query/runtime-only slices stay labeled as attribution.
+  Visual QA found the current route cards can show a route geomean beside a stage split that omits
+  included preparation totals, and prepare-once/warm/native formulas exclude output/evidence despite
+  route identity fields ending at `result_sink`. Fix the promoter formulas, card labels, stage
+  summaries, and static validators so benchmark readers cannot confuse route totals with query-only
+  or partial-stage timers.
 - Some user-facing capability/parity surfaces still say `unsupported`, `blocked`, or `not complete`
   where the accurate problem is front-door connection, output ergonomics, claim-grade evidence, or
   benchmark publication rather than engine impossibility.
@@ -503,12 +511,15 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Scoped `CAST`/`TRY_CAST` to `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` projections and
   predicates are now admitted through ShardLoom-owned exact fixed-scale `Decimal128` scalar
   semantics, with Python/DataFrame cast aliases, decimal-specific precision/scale/mode evidence,
-  exact JSONL string and CSV text output boundaries, and explicit blockers for typed decimal sink
-  preservation until Parquet/Arrow/Vortex decimal encoders are admitted. Scoped mixed-scale
+  exact JSONL string and CSV text output boundaries, and feature-gated Parquet/Arrow IPC
+  compatibility sinks that preserve scoped `decimal128(p,s)` output columns. Local Vortex typed
+  decimal output plus Avro/ORC typed decimal sinks remain explicit blockers until their encoders and
+  replay evidence are admitted. Scoped mixed-scale
   `decimal128` add/subtract/multiply projections, mixed-scale decimal comparisons, and exact
   fixed-scale decimal division over decimal and integer operands are now admitted through the same
   ShardLoom-owned local-source route. Non-exact decimal division, broad ANSI decimal coercion,
-  exponent notation, and typed decimal sinks remain deterministic blockers.
+  exponent notation, local Vortex typed decimal output, and Avro/ORC typed decimal sinks remain
+  deterministic blockers.
   Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
   admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
   `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
@@ -529,14 +540,16 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Scoped `decimal128` add/subtract/multiply projections are now admitted over same-scale and
   mixed-scale decimal operands plus integer operands through the generic-expression local-source
   runtime, exact JSONL/CSV text result boundary, Python/DataFrame cast-plus-arithmetic lowering,
-  and admitted-semantics evidence. Scoped exact decimal division now emits
+  feature-gated Parquet/Arrow IPC typed decimal compatibility sink preservation, and
+  admitted-semantics evidence. Scoped exact decimal division now emits
   `decimal128(38,max(input_scales,6))` when the quotient is exact at that scale; non-exact decimal
-  division, broad ANSI decimal coercion, and typed decimal sink preservation remain deterministic
-  blockers.
+  division, broad ANSI decimal coercion, local Vortex typed decimal output, and Avro/ORC typed
+  decimal sinks remain deterministic blockers.
   Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
-  likely candidates are typed decimal sink follow-through, timezone/locale blocker refinement, broad
-  binary source dtype refinement, complex access/equality follow-through after a dedicated semantics
-  contract, or another front-door parity gap only after the runtime route is already admitted.
+  likely candidates are timezone/locale blocker refinement, broad binary source dtype refinement,
+  complex access/equality follow-through after a dedicated semantics contract, local Vortex typed
+  decimal output once Vortex writer/reopen evidence is available, or another front-door parity gap
+  only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
