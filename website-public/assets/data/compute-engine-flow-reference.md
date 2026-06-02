@@ -2126,18 +2126,23 @@ feature-gated structured output, and scoped Vortex output rows now report
 `result_batch_state_row_count`, `result_batch_state_column_count`,
 `result_batch_state_materialization_required`, `result_batch_state_decode_required`,
 `result_batch_state_build_millis`, `output_conversion_millis`,
-`sink_artifact_conversion_millis`, and `fanout_output_conversion_millis` where applicable. This is
-the current local columnar output boundary for flat scalar result sets; CSV/JSONL are terminal text
-materialization targets, Parquet/Arrow IPC/Avro/ORC are feature-gated compatibility exports, and
-Vortex remains the highest-fidelity local sink. It does not claim shared conversion DAG behavior,
-broad nested-schema output, object-store/table writes, production sink support, or performance
-improvement.
+`sink_artifact_conversion_millis`, and `fanout_output_conversion_millis` where applicable.
+`GAR-RUNTIME-IMPL-6F-3` adds a scoped shared fanout conversion DAG: local output/fanout rows report
+`fanout_conversion_dag_status`, `fanout_shared_stage_count`, `fanout_terminal_sink_count`,
+`fanout_shared_conversion_millis`, `fanout_terminal_conversion_millis`, and
+`fanout_duplicate_conversion_avoided`, while terminal sinks still emit separate artifacts, digests,
+replay statuses, and certificate statuses. This is the current local columnar output boundary for
+flat scalar result sets; CSV/JSONL are terminal text materialization targets, Parquet/Arrow
+IPC/Avro/ORC are feature-gated compatibility exports, and Vortex remains the highest-fidelity local
+sink. It does not claim output capillary scheduling, broad nested-schema output, object-store/table
+writes, production sink support, or performance improvement.
 
 The scoped local-source SQL/Python and source-free generated-output paths now have runtime fanout:
 repeated `--fanout-output format=local-path` arguments, plus Python `.fanout(...)`, write one
 computed local result to multiple admitted local sinks through the `ResultBatchState` boundary.
-These rows report OutputPlan digests, result-batch identity/layout/materialization posture,
-conversion timing, per-output bytes, digests, certificate refs/statuses,
+These rows report OutputPlan digests, result-batch identity/layout/materialization posture, shared
+fanout conversion DAG status/timing, per-output terminal conversion timing, per-output bytes,
+digests, certificate refs/statuses,
 `output_fanout_performed`, `fanout_result_reuse_hit`, replay status/timing, scoped fidelity/loss
 reporting, workspace path-safety, commit mode, first-class `sink_artifact_*`
 refs/digests/counts/replay/commit evidence across primary and fanout sinks, Vortex artifact/reopen

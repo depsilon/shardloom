@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `compatibility_import_certified`
 - **Engine mode:** `batch`
-- **Claim boundary:** Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, or production sink support.
+- **Claim boundary:** Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, output capillary scheduling, performance evidence, or production sink support.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Output and fanout boundary has a scoped local path. Treat it as technical-previe
 
 ## Claim Boundary
 
-Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, or production sink support.
+Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, output capillary scheduling, performance evidence, or production sink support.
 
 ## How To Try It
 

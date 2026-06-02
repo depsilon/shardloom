@@ -165,6 +165,14 @@ impl SqlOutputPlanRequirements {
         batch: &SqlResultBatchState,
     ) -> Result<Self, ShardLoomError> {
         let required_columns = batch.column_names();
+        let requested_formats = request
+            .output_path
+            .as_ref()
+            .map(|_| request.output_format)
+            .into_iter()
+            .chain(request.fanout_outputs.iter().map(|target| target.format))
+            .collect::<Vec<_>>();
+        validate_shared_fanout_materialization_formats(&requested_formats, batch)?;
         let mut sinks = Vec::new();
         if let Some(path) = request.output_path.as_ref() {
             sinks.push(SqlOutputPlanSinkRequirement::plan(
@@ -297,6 +305,60 @@ impl SqlOutputPlanRequirements {
         self.inline_result_format
             .map_or_else(|| empty_value.to_string(), inline_value)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlFanoutConversionDagEvidence {
+    status: &'static str,
+    shared_stage_count: usize,
+    terminal_sink_count: usize,
+    shared_conversion_millis: u128,
+    terminal_conversion_millis: u128,
+    duplicate_conversion_avoided: bool,
+}
+
+impl SqlFanoutConversionDagEvidence {
+    const fn inline_result() -> Self {
+        Self {
+            status: "not_requested_inline_result",
+            shared_stage_count: 0,
+            terminal_sink_count: 0,
+            shared_conversion_millis: 0,
+            terminal_conversion_millis: 0,
+            duplicate_conversion_avoided: false,
+        }
+    }
+
+    const fn planned(
+        terminal_sink_count: usize,
+        shared_stage_count: usize,
+        shared_conversion_millis: u128,
+        terminal_conversion_millis: u128,
+        duplicate_conversion_avoided: bool,
+    ) -> Self {
+        Self {
+            status: if terminal_sink_count > 1 {
+                "shared_fanout_conversion_dag_applied"
+            } else {
+                "single_sink_conversion_dag_available"
+            },
+            shared_stage_count,
+            terminal_sink_count,
+            shared_conversion_millis,
+            terminal_conversion_millis,
+            duplicate_conversion_avoided,
+        }
+    }
+
+    fn total_conversion_millis(&self) -> u128 {
+        self.shared_conversion_millis + self.terminal_conversion_millis
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SqlPreparedOutputDag {
+    rendered_outputs: Vec<SqlRenderedOutput>,
+    evidence: SqlFanoutConversionDagEvidence,
 }
 
 impl SqlOutputPlanSinkRequirement {
@@ -437,56 +499,65 @@ impl SqlResultBatchState {
     }
 
     fn to_jsonl(&self) -> String {
-        let mut output = String::new();
-        for row_index in 0..self.row_count {
-            let mut line = String::new();
-            line.push('{');
-            for (column_index, column) in self.columns.iter().enumerate() {
-                if column_index > 0 {
-                    line.push(',');
-                }
-                write!(
-                    line,
-                    "\"{}\":{}",
-                    json_escape(&column.name),
-                    scalar_to_json(&column.values[row_index])
-                )
-                .expect("write to string");
-            }
-            line.push('}');
-            output.push_str(&line);
-            output.push('\n');
-        }
-        output
-    }
-
-    fn to_csv(&self) -> Result<String, ShardLoomError> {
-        validate_flat_scalar_result_batch(self, SqlLocalSourceOutputFormat::Csv)?;
-        let mut output = String::new();
-        if self.columns.is_empty() {
-            return Ok(output);
-        }
-        for (index, column) in self.columns.iter().enumerate() {
-            if index > 0 {
-                output.push(',');
-            }
-            output.push_str(&csv_escape(&column.name));
-        }
-        output.push('\n');
-        for row_index in 0..self.row_count {
-            for (column_index, column) in self.columns.iter().enumerate() {
-                if column_index > 0 {
-                    output.push(',');
-                }
-                output.push_str(&csv_escape(&scalar_to_csv_value(&column.values[row_index])));
-            }
-            output.push('\n');
-        }
-        Ok(output)
+        render_jsonl_output_rows(&self.column_names(), &self.to_rows())
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+fn render_jsonl_output_rows(columns: &[String], rows: &[SqlOutputRow]) -> String {
+    let mut output = String::new();
+    for row in rows {
+        let mut line = String::new();
+        line.push('{');
+        for (column_index, column) in columns.iter().enumerate() {
+            if column_index > 0 {
+                line.push(',');
+            }
+            let value = row
+                .get(column_index)
+                .map_or(&ScalarValue::Null, |(_, value)| value);
+            write!(
+                line,
+                "\"{}\":{}",
+                json_escape(column),
+                scalar_to_json(value)
+            )
+            .expect("write to string");
+        }
+        line.push('}');
+        output.push_str(&line);
+        output.push('\n');
+    }
+    output
+}
+
+fn render_csv_output_rows(columns: &[String], rows: &[SqlOutputRow]) -> String {
+    let mut output = String::new();
+    if columns.is_empty() {
+        return output;
+    }
+    for (index, column) in columns.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        output.push_str(&csv_escape(column));
+    }
+    output.push('\n');
+    for row in rows {
+        for column_index in 0..columns.len() {
+            if column_index > 0 {
+                output.push(',');
+            }
+            let value = row
+                .get(column_index)
+                .map_or(&ScalarValue::Null, |(_, value)| value);
+            output.push_str(&csv_escape(&scalar_to_csv_value(value)));
+        }
+        output.push('\n');
+    }
+    output
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct SqlRenderedOutput {
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
@@ -494,14 +565,17 @@ struct SqlRenderedOutput {
     conversion_millis: u128,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 enum SqlOutputPayload {
     Bytes {
         content: Vec<u8>,
         digest: String,
         bytes: u64,
     },
-    Vortex,
+    Vortex {
+        columns: Vec<String>,
+        rows: SqlOutputRows,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -676,29 +750,26 @@ impl SqlLocalSourceOutputFormat {
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
+        if !matches!(self, Self::InlineJsonl | Self::Vortex) {
+            validate_flat_scalar_result_batch(batch, self)?;
+        }
+        let columns = batch.column_names();
+        let rows = batch.to_rows();
+        self.render_normalized_rows(&columns, &rows)
+    }
+
+    fn render_normalized_rows(
+        self,
+        columns: &[String],
+        rows: &[SqlOutputRow],
+    ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
-            Self::InlineJsonl => Ok(batch.to_jsonl().into_bytes()),
-            Self::Csv => Ok(batch.to_csv()?.into_bytes()),
-            Self::Parquet => {
-                validate_flat_scalar_result_batch(batch, self)?;
-                let rows = batch.to_rows();
-                encode_parquet_output_rows(&batch.column_names(), &rows)
-            }
-            Self::ArrowIpc => {
-                validate_flat_scalar_result_batch(batch, self)?;
-                let rows = batch.to_rows();
-                encode_arrow_ipc_output_rows(&batch.column_names(), &rows)
-            }
-            Self::Avro => {
-                validate_flat_scalar_result_batch(batch, self)?;
-                let rows = batch.to_rows();
-                encode_avro_output_rows(&batch.column_names(), &rows)
-            }
-            Self::Orc => {
-                validate_flat_scalar_result_batch(batch, self)?;
-                let rows = batch.to_rows();
-                encode_orc_output_rows(&batch.column_names(), &rows)
-            }
+            Self::InlineJsonl => Ok(render_jsonl_output_rows(columns, rows).into_bytes()),
+            Self::Csv => Ok(render_csv_output_rows(columns, rows).into_bytes()),
+            Self::Parquet => encode_parquet_output_rows(columns, rows),
+            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, rows),
+            Self::Avro => encode_avro_output_rows(columns, rows),
+            Self::Orc => encode_orc_output_rows(columns, rows),
             Self::Vortex => Err(unsupported_sql_error(
                 "local Vortex SQL output uses the Vortex writer path, not byte rendering",
             )),
@@ -2646,6 +2717,7 @@ struct SqlLocalSourceReport {
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
+    fanout_conversion_dag: SqlFanoutConversionDagEvidence,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -2756,6 +2828,7 @@ struct SqlLocalSourceUnionReport {
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
+    fanout_conversion_dag: SqlFanoutConversionDagEvidence,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -7054,10 +7127,10 @@ fn run_sql_local_source_smoke_single(
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
     preflight_sql_output_writes(request)?;
-    let prepared_outputs = prepare_sql_outputs(&output_plan, &result_batch_state)?;
+    let prepared_output_dag = prepare_sql_outputs(&output_plan, &result_batch_state)?;
+    let fanout_conversion_dag = prepared_output_dag.evidence.clone();
     let written_outputs = write_sql_outputs(
-        prepared_outputs,
-        &result_batch_state,
+        prepared_output_dag.rendered_outputs,
         request.allow_overwrite,
     )?;
     let output_write_millis = written_outputs
@@ -7087,6 +7160,7 @@ fn run_sql_local_source_smoke_single(
         output_rows: evaluated_output.output_rows,
         result_batch_state,
         output_plan,
+        fanout_conversion_dag,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -7200,10 +7274,10 @@ fn run_sql_local_source_union_smoke(
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
     preflight_sql_output_writes(request)?;
-    let prepared_outputs = prepare_sql_outputs(&output_plan, &result_batch_state)?;
+    let prepared_output_dag = prepare_sql_outputs(&output_plan, &result_batch_state)?;
+    let fanout_conversion_dag = prepared_output_dag.evidence.clone();
     let written_outputs = write_sql_outputs(
-        prepared_outputs,
-        &result_batch_state,
+        prepared_output_dag.rendered_outputs,
         request.allow_overwrite,
     )?;
     let output_write_millis = written_outputs
@@ -7224,6 +7298,7 @@ fn run_sql_local_source_union_smoke(
         output_rows,
         result_batch_state,
         output_plan,
+        fanout_conversion_dag,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -11845,23 +11920,64 @@ fn inline_sql_output_content_for_evidence(
 fn prepare_sql_outputs(
     output_plan: &SqlOutputPlanRequirements,
     batch: &SqlResultBatchState,
-) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
-    output_plan
+) -> Result<SqlPreparedOutputDag, ShardLoomError> {
+    if output_plan.sinks.is_empty() {
+        return Ok(SqlPreparedOutputDag {
+            rendered_outputs: Vec::new(),
+            evidence: SqlFanoutConversionDagEvidence::inline_result(),
+        });
+    }
+    validate_shared_fanout_materialization(output_plan, batch)?;
+    let shared_start = Instant::now();
+    let flat_scalar_format = output_plan
         .sinks
         .iter()
-        .map(|sink| prepare_sql_output(sink, batch))
-        .collect()
+        .find(|sink| !matches!(sink.format, SqlLocalSourceOutputFormat::InlineJsonl))
+        .map(|sink| sink.format);
+    if let Some(format) = flat_scalar_format {
+        validate_flat_scalar_result_batch(batch, format)?;
+    }
+    let shared_stage_count = if flat_scalar_format.is_some() { 3 } else { 2 };
+    let columns = batch.column_names();
+    let rows = batch.to_rows();
+    let shared_conversion_millis = shared_start.elapsed().as_millis();
+    let mut terminal_conversion_millis = 0;
+    let rendered_outputs = output_plan
+        .sinks
+        .iter()
+        .map(|sink| {
+            let rendered = prepare_sql_output_from_shared(sink, &columns, &rows)?;
+            terminal_conversion_millis += rendered.conversion_millis;
+            Ok(rendered)
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let duplicate_conversion_avoided =
+        output_plan.sinks.len() > 1 && !rows.is_empty() && !columns.is_empty();
+    Ok(SqlPreparedOutputDag {
+        rendered_outputs,
+        evidence: SqlFanoutConversionDagEvidence::planned(
+            output_plan.sinks.len(),
+            shared_stage_count,
+            shared_conversion_millis,
+            terminal_conversion_millis,
+            duplicate_conversion_avoided,
+        ),
+    })
 }
 
-fn prepare_sql_output(
+fn prepare_sql_output_from_shared(
     sink: &SqlOutputPlanSinkRequirement,
-    batch: &SqlResultBatchState,
+    columns: &[String],
+    rows: &[SqlOutputRow],
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
     let conversion_start = Instant::now();
     let payload = if matches!(sink.format, SqlLocalSourceOutputFormat::Vortex) {
-        SqlOutputPayload::Vortex
+        SqlOutputPayload::Vortex {
+            columns: columns.to_vec(),
+            rows: rows.to_vec(),
+        }
     } else {
-        let content = sink.format.render_batch(batch)?;
+        let content = sink.format.render_normalized_rows(columns, rows)?;
         let digest = fnv64_digest_bytes(&content);
         let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
         SqlOutputPayload::Bytes {
@@ -11876,6 +11992,39 @@ fn prepare_sql_output(
         payload,
         conversion_millis: conversion_start.elapsed().as_millis(),
     })
+}
+
+fn validate_shared_fanout_materialization(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+) -> Result<(), ShardLoomError> {
+    let formats = output_plan
+        .sinks
+        .iter()
+        .map(|sink| sink.format)
+        .collect::<Vec<_>>();
+    validate_shared_fanout_materialization_formats(&formats, batch)
+}
+
+fn validate_shared_fanout_materialization_formats(
+    formats: &[SqlLocalSourceOutputFormat],
+    batch: &SqlResultBatchState,
+) -> Result<(), ShardLoomError> {
+    if formats.len() <= 1 || !batch.contains_complex_values() {
+        return Ok(());
+    }
+    let logical_json_sink_requested = formats
+        .iter()
+        .any(|format| matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
+    let flat_sink_requested = formats
+        .iter()
+        .any(|format| !matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
+    if logical_json_sink_requested && flat_sink_requested {
+        return Err(unsupported_sql_error(
+            "fanout_conversion_dag_status=blocked_incompatible_materialization; logical JSONL nested result materialization cannot currently share a fanout conversion DAG with flat-scalar sink materialization; no partial fanout writes or fallback execution were attempted",
+        ));
+    }
+    Ok(())
 }
 
 fn fanout_plan_digest_fragment(request: &SqlLocalSourceRequest) -> String {
@@ -11949,13 +12098,6 @@ fn result_batch_state_materialization_required_value(request: &SqlLocalSourceReq
     }
 }
 
-fn output_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -> u128 {
-    written_outputs
-        .iter()
-        .map(|output| output.conversion_millis)
-        .sum()
-}
-
 fn sink_artifact_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -> String {
     if written_outputs.is_empty() {
         return "not_requested".to_string();
@@ -11978,18 +12120,16 @@ fn sink_artifact_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -
 
 fn write_sql_outputs(
     rendered_outputs: Vec<SqlRenderedOutput>,
-    batch: &SqlResultBatchState,
     allow_overwrite: bool,
 ) -> Result<Vec<SqlWrittenOutput>, ShardLoomError> {
     rendered_outputs
         .into_iter()
-        .map(|rendered| write_sql_output(rendered, batch, allow_overwrite))
+        .map(|rendered| write_sql_output(rendered, allow_overwrite))
         .collect()
 }
 
 fn write_sql_output(
     rendered: SqlRenderedOutput,
-    batch: &SqlResultBatchState,
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     match rendered.payload {
@@ -12021,10 +12161,11 @@ fn write_sql_output(
                 vortex_report: None,
             })
         }
-        SqlOutputPayload::Vortex => write_sql_vortex_output(
+        SqlOutputPayload::Vortex { columns, rows } => write_sql_vortex_output(
             rendered.format,
             rendered.path,
-            batch,
+            columns,
+            rows,
             rendered.conversion_millis,
             allow_overwrite,
         ),
@@ -12034,13 +12175,12 @@ fn write_sql_output(
 fn write_sql_vortex_output(
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
-    batch: &SqlResultBatchState,
+    columns: Vec<String>,
+    rows: SqlOutputRows,
     plan_conversion_millis: u128,
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     let conversion_start = Instant::now();
-    let columns = batch.column_names();
-    let rows = batch.to_rows();
     let conversion_millis = plan_conversion_millis + conversion_start.elapsed().as_millis();
     let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
         .allow_overwrite(allow_overwrite);
@@ -21570,6 +21710,30 @@ impl SqlLocalSourceUnionReport {
                 self.output_write_millis.to_string(),
             ),
             (
+                "fanout_conversion_dag_status".to_string(),
+                self.fanout_conversion_dag_status().to_string(),
+            ),
+            (
+                "fanout_shared_stage_count".to_string(),
+                self.fanout_shared_stage_count().to_string(),
+            ),
+            (
+                "fanout_terminal_sink_count".to_string(),
+                self.fanout_terminal_sink_count().to_string(),
+            ),
+            (
+                "fanout_shared_conversion_millis".to_string(),
+                self.fanout_shared_conversion_millis().to_string(),
+            ),
+            (
+                "fanout_terminal_conversion_millis".to_string(),
+                self.fanout_terminal_conversion_millis().to_string(),
+            ),
+            (
+                "fanout_duplicate_conversion_avoided".to_string(),
+                self.fanout_duplicate_conversion_avoided().to_string(),
+            ),
+            (
                 "output_conversion_millis".to_string(),
                 self.output_conversion_millis().to_string(),
             ),
@@ -21923,8 +22087,32 @@ impl SqlLocalSourceUnionReport {
         result_batch_state_materialization_required_value(&self.request)
     }
 
+    fn fanout_conversion_dag_status(&self) -> &'static str {
+        self.fanout_conversion_dag.status
+    }
+
+    fn fanout_shared_stage_count(&self) -> usize {
+        self.fanout_conversion_dag.shared_stage_count
+    }
+
+    fn fanout_terminal_sink_count(&self) -> usize {
+        self.fanout_conversion_dag.terminal_sink_count
+    }
+
+    fn fanout_shared_conversion_millis(&self) -> u128 {
+        self.fanout_conversion_dag.shared_conversion_millis
+    }
+
+    fn fanout_terminal_conversion_millis(&self) -> u128 {
+        self.fanout_conversion_dag.terminal_conversion_millis
+    }
+
+    fn fanout_duplicate_conversion_avoided(&self) -> bool {
+        self.fanout_conversion_dag.duplicate_conversion_avoided
+    }
+
     fn output_conversion_millis(&self) -> u128 {
-        output_conversion_millis_value(&self.written_outputs)
+        self.fanout_conversion_dag.total_conversion_millis()
     }
 
     fn sink_artifact_conversion_millis(&self) -> String {
@@ -24147,6 +24335,30 @@ impl SqlLocalSourceReport {
                 self.output_replay_millis().to_string(),
             ),
             (
+                "fanout_conversion_dag_status".to_string(),
+                self.fanout_conversion_dag_status().to_string(),
+            ),
+            (
+                "fanout_shared_stage_count".to_string(),
+                self.fanout_shared_stage_count().to_string(),
+            ),
+            (
+                "fanout_terminal_sink_count".to_string(),
+                self.fanout_terminal_sink_count().to_string(),
+            ),
+            (
+                "fanout_shared_conversion_millis".to_string(),
+                self.fanout_shared_conversion_millis().to_string(),
+            ),
+            (
+                "fanout_terminal_conversion_millis".to_string(),
+                self.fanout_terminal_conversion_millis().to_string(),
+            ),
+            (
+                "fanout_duplicate_conversion_avoided".to_string(),
+                self.fanout_duplicate_conversion_avoided().to_string(),
+            ),
+            (
                 "output_conversion_millis".to_string(),
                 self.output_conversion_millis().to_string(),
             ),
@@ -24540,8 +24752,32 @@ impl SqlLocalSourceReport {
         result_batch_state_materialization_required_value(&self.request)
     }
 
+    fn fanout_conversion_dag_status(&self) -> &'static str {
+        self.fanout_conversion_dag.status
+    }
+
+    fn fanout_shared_stage_count(&self) -> usize {
+        self.fanout_conversion_dag.shared_stage_count
+    }
+
+    fn fanout_terminal_sink_count(&self) -> usize {
+        self.fanout_conversion_dag.terminal_sink_count
+    }
+
+    fn fanout_shared_conversion_millis(&self) -> u128 {
+        self.fanout_conversion_dag.shared_conversion_millis
+    }
+
+    fn fanout_terminal_conversion_millis(&self) -> u128 {
+        self.fanout_conversion_dag.terminal_conversion_millis
+    }
+
+    fn fanout_duplicate_conversion_avoided(&self) -> bool {
+        self.fanout_conversion_dag.duplicate_conversion_avoided
+    }
+
     fn output_conversion_millis(&self) -> u128 {
-        output_conversion_millis_value(&self.written_outputs)
+        self.fanout_conversion_dag.total_conversion_millis()
     }
 
     fn sink_artifact_conversion_millis(&self) -> String {

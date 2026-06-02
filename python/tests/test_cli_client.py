@@ -3878,7 +3878,13 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "output_plan_dictionary_required", "value": "jsonl:not_applicable_text_sink,csv:not_applicable_text_sink"}},
                             {{"key": "output_plan_compression_encoding_posture", "value": "jsonl:jsonl_uncompressed_text_terminal_encoder,csv:csv_uncompressed_text_terminal_encoder"}},
                             {{"key": "output_plan_replay_depth", "value": "jsonl:write_digest_replay,csv:write_digest_replay"}},
-                            {{"key": "output_conversion_millis", "value": "4"}},
+                            {{"key": "fanout_conversion_dag_status", "value": "shared_fanout_conversion_dag_applied"}},
+                            {{"key": "fanout_shared_stage_count", "value": "3"}},
+                            {{"key": "fanout_terminal_sink_count", "value": "2"}},
+                            {{"key": "fanout_shared_conversion_millis", "value": "1"}},
+                            {{"key": "fanout_terminal_conversion_millis", "value": "4"}},
+                            {{"key": "fanout_duplicate_conversion_avoided", "value": "true"}},
+                            {{"key": "output_conversion_millis", "value": "5"}},
                             {{"key": "sink_artifact_conversion_millis", "value": "jsonl:2,csv:2"}},
                             {{"key": "fanout_output_conversion_millis", "value": "4"}},
                             {{"key": "result_reuse_for_fanout", "value": "true"}},
@@ -3965,7 +3971,16 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.output_plan_replay_depth,
                 "jsonl:write_digest_replay,csv:write_digest_replay",
             )
-            self.assertEqual(second.output_conversion_millis, 4)
+            self.assertEqual(
+                second.fanout_conversion_dag_status,
+                "shared_fanout_conversion_dag_applied",
+            )
+            self.assertEqual(second.fanout_shared_stage_count, 3)
+            self.assertEqual(second.fanout_terminal_sink_count, 2)
+            self.assertEqual(second.fanout_shared_conversion_millis, 1)
+            self.assertEqual(second.fanout_terminal_conversion_millis, 4)
+            self.assertTrue(second.fanout_duplicate_conversion_avoided)
+            self.assertEqual(second.output_conversion_millis, 5)
             self.assertEqual(second.sink_artifact_conversion_millis, "jsonl:2,csv:2")
             self.assertEqual(second.fanout_output_conversion_millis, 4)
             self.assertEqual(second.source_state_id, "sql-source-state-1")
@@ -3999,7 +4014,16 @@ class ShardLoomClientTests(unittest.TestCase):
                 third_evidence["output_plan_conversion_blocker"],
                 "jsonl:none,csv:none",
             )
-            self.assertEqual(third_evidence["output_conversion_millis"], 4)
+            self.assertEqual(
+                third_evidence["fanout_conversion_dag_status"],
+                "shared_fanout_conversion_dag_applied",
+            )
+            self.assertEqual(third_evidence["fanout_shared_stage_count"], 3)
+            self.assertEqual(third_evidence["fanout_terminal_sink_count"], 2)
+            self.assertEqual(third_evidence["fanout_shared_conversion_millis"], 1)
+            self.assertEqual(third_evidence["fanout_terminal_conversion_millis"], 4)
+            self.assertTrue(third_evidence["fanout_duplicate_conversion_avoided"])
+            self.assertEqual(third_evidence["output_conversion_millis"], 5)
 
             evidence = sess.evidence()
             self.assertEqual(evidence["session_id"], "fanout-session")

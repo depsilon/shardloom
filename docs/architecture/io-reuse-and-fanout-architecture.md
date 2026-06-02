@@ -32,10 +32,12 @@ cases as deterministic report-only rows. `GAR-IOREUSE-1E` adds the cache invalid
 benchmark contract for current-row local SourceState, VortexPreparedState, ExecutionPlan,
 OutputPlan, and SinkArtifact posture. `GAR-IOREUSE-1F` adds evidence-safe reuse-level visibility.
 `GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Scoped local fanout
-runtime now exists for local-source SQL/Python and generated-output workflows, and Python
-`ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
-cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
-performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
+runtime now exists for local-source SQL/Python and generated-output workflows. Local SQL/Python
+output/fanout now uses `ResultBatchState`, sink-driven OutputPlan requirements, and a shared fanout
+conversion DAG before terminal sink encoders, and Python `ShardLoomSession` can reuse matching
+local query-builder output/fanout reports. Persistent cross-process caches, object-store I/O,
+table/lakehouse commits, Foundry production support, performance claims, broad output-fidelity
+claims, output capillary scheduling, and hidden fast modes remain out of scope.
 `GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` and the adjacent `GAR-PERF-2J` / `GAR-PERF-2K`
 items add cold-lane attribution, Vortex-native source/sink/split preparation, differential
 preparation, capillary I/O with PulseWeave control, scout ingress/triage, layout/write strategy
@@ -404,7 +406,7 @@ non-text requested-sink boundaries for admitted flat-scalar rows, with current r
 writer bridge requirements reported explicitly. Complex values and typed decimal preservation block
 deterministically for sinks that cannot preserve them; feature-gated sinks also block during
 OutputPlan admission when the required feature is absent. This is deterministic local sink planning,
-not a shared conversion DAG or performance claim.
+not a performance claim.
 
 ### ResultBatchState
 
@@ -430,12 +432,26 @@ sink_artifact_conversion_millis
 fanout_output_conversion_millis
 ```
 
+Implemented `GAR-RUNTIME-IMPL-6F-3` local SQL/Python runtime fields:
+
+```text
+fanout_conversion_dag_status
+fanout_shared_stage_count
+fanout_terminal_sink_count
+fanout_shared_conversion_millis
+fanout_terminal_conversion_millis
+fanout_duplicate_conversion_avoided
+```
+
 The current implementation is intentionally scoped. It gives local SQL inline output, local sink
 writes, fanout, Python session reuse envelopes, and traditional benchmark contract rows a shared
-result-batch evidence layer. CSV/JSONL remain terminal text materialization targets; Parquet,
-Arrow IPC, Avro, and ORC remain feature-gated compatibility exports; Vortex remains the
-highest-fidelity local sink. This does not yet claim a shared conversion DAG, broad nested-schema
-output, object-store/table writes, production sink support, or performance improvement.
+result-batch evidence layer plus a shared fanout conversion DAG. Local output/fanout routes now
+normalize result schema/rows once where safe, then feed terminal CSV/JSONL, feature-gated
+Parquet/Arrow IPC/Avro/ORC, and feature-gated Vortex writer paths from that shared state. CSV/JSONL
+remain terminal text materialization targets; Parquet, Arrow IPC, Avro, and ORC remain
+feature-gated compatibility exports; Vortex remains the highest-fidelity local sink. This does not
+yet claim output capillary scheduling, broad nested-schema output, object-store/table writes,
+production sink support, or performance improvement.
 
 Planned output formats:
 
@@ -479,6 +495,12 @@ output_plan_type_nullability_support
 output_plan_dictionary_required
 output_plan_compression_encoding_posture
 output_plan_replay_depth
+fanout_conversion_dag_status
+fanout_shared_stage_count
+fanout_terminal_sink_count
+fanout_shared_conversion_millis
+fanout_terminal_conversion_millis
+fanout_duplicate_conversion_avoided
 output_plan_reuse_hit
 output_plan_reuse_reason
 output_plan_millis
@@ -572,7 +594,19 @@ source_parse_millis
 vortex_prepare_millis
 operator_compute_millis
 output_plan_millis
+output_plan_materialization_required
+output_plan_required_columns
+output_plan_text_materialization_boundary
+output_plan_conversion_blocker
+fanout_conversion_dag_status
+fanout_shared_stage_count
+fanout_terminal_sink_count
+fanout_shared_conversion_millis
+fanout_terminal_conversion_millis
+fanout_duplicate_conversion_avoided
+output_conversion_millis
 output_write_millis
+fanout_output_conversion_millis
 output_replay_millis
 total_runtime_millis
 source_state_reuse_hit
@@ -591,6 +625,8 @@ for admitted local workflows with measured/evidence values for:
 
 ```text
 operator_compute_millis
+fanout_conversion_dag_status=shared_fanout_conversion_dag_applied
+fanout_duplicate_conversion_avoided=true
 output_replay_millis
 total_runtime_millis
 fanout_output_count > 1
