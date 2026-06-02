@@ -388,10 +388,11 @@ Implementation checklist, in required order:
   Python generated-source helpers now also expose `prepare_vortex(...)` for user rows,
   literal/calendar rows, range/sequence generators, and scoped source-free SQL rows. Those calls use
   the real generated-source Vortex writer and return `GeneratedSourceWriteReport` with
-  `prepared_state_created`, reuse scope/reason, upstream Vortex write/reopen evidence, and an
-  explicit generated-source manifest-not-yet-admitted boundary instead of implying a cache hit.
+  `prepared_state_created`, artifact-adjacent reuse scope/reason/digest/invalidation evidence,
+  upstream Vortex write/reopen evidence on misses, and manifest-hit reuse on repeated compatible
+  caller-owned local `.vortex` targets.
   Remaining 6E-1 work is benchmark/public row promotion for the new auto/generated front doors,
-  generated-source artifact-adjacent manifest-hit reuse, and any additional CLI/Python route-report
+  generated-source reuse projection into route reports, and any additional CLI/Python route-report
   wiring needed for route-comparable prepared execution.
   Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
   workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on

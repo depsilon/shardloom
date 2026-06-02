@@ -2789,10 +2789,10 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "prepared_state_created", "value": "true"}},
                             {{"key": "prepared_state_reused", "value": "false"}},
                             {{"key": "prepared_state_reuse_hit", "value": "false"}},
-                            {{"key": "prepared_state_reuse_scope", "value": "generated_source_vortex_artifact_manifest_not_yet_admitted"}},
-                            {{"key": "prepared_state_reuse_reason", "value": "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted"}},
-                            {{"key": "prepared_state_reuse_manifest_digest", "value": "none"}},
-                            {{"key": "prepared_state_invalidation_reason", "value": "not_applicable_generated_source_manifest_not_yet_admitted"}},
+                            {{"key": "prepared_state_reuse_scope", "value": "artifact_adjacent_manifest_local_vortex_artifacts"}},
+                            {{"key": "prepared_state_reuse_reason", "value": "prepared_state_created_after_no_reuse_manifest"}},
+                            {{"key": "prepared_state_reuse_manifest_digest", "value": "fnv64:generated-manifest"}},
+                            {{"key": "prepared_state_invalidation_reason", "value": "no_reuse_manifest"}},
                             {{"key": "upstream_vortex_write_called", "value": "true"}},
                             {{"key": "upstream_vortex_scan_called", "value": "true"}},
                             {{"key": "fallback_attempted", "value": "false"}},
@@ -2819,13 +2819,16 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(report.prepared_state_reuse_hit)
             self.assertEqual(
                 report.prepared_state_reuse_scope,
-                "generated_source_vortex_artifact_manifest_not_yet_admitted",
+                "artifact_adjacent_manifest_local_vortex_artifacts",
             )
             self.assertEqual(
                 report.prepared_state_reuse_reason,
-                "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted",
+                "prepared_state_created_after_no_reuse_manifest",
             )
-            self.assertIsNone(report.prepared_state_reuse_manifest_digest)
+            self.assertEqual(
+                report.prepared_state_reuse_manifest_digest,
+                "fnv64:generated-manifest",
+            )
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 

@@ -798,9 +798,10 @@ class _GeneratedStructuredOutputMixin:
 
         Generated rows already originate inside ShardLoom, so this routes through
         the real generated-source Vortex writer instead of a compatibility-file
-        ingest. The returned report exposes prepared-state fields; generated
-        source artifact-manifest reuse is explicit in evidence and remains
-        blocked until that manifest path is admitted.
+        ingest. The returned report exposes prepared-state fields; repeated
+        compatible calls can reuse the artifact-adjacent manifest for the
+        caller-owned local Vortex artifact when source, plan, policy, and
+        artifact fingerprints still match.
         """
 
         stem_method = getattr(self, "_generated_vortex_stem")

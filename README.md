@@ -218,8 +218,10 @@ print(
 ```
 
 This calls the real generated-source Vortex writer and returns the generated-source write report
-with prepared-state evidence. Generated-source artifact-manifest reuse is still reported as not yet
-admitted, so repeated generated preparation is not silently treated as a cache hit.
+with prepared-state evidence. Repeated compatible generated-source preparation uses the
+artifact-adjacent reuse manifest for the caller-owned local `.vortex` target, reports
+`prepared_state_reuse_hit=true`, and skips the writer/reopen path when schema, row payload,
+plan, policy, and artifact fingerprints still match.
 
 When a user specifically wants the benchmark-range prepare-once route from compatibility files into
 prepared Vortex artifacts, `ctx.prepare_vortex(...)` exposes that route directly and names the
