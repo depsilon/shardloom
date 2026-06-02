@@ -184,6 +184,8 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
+Updated after PR #1037.
+
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation and prepared-state reuse.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
@@ -193,6 +195,10 @@ Current autonomous execution order:
    breadth work after the route/reuse/output contracts are landed.
 5. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
    runtime queue has reduced the blockers it depends on.
+
+Read order: the runtime implementation queue appears first below. Cross-cutting global-review,
+P0, and non-runtime closeout context follows the active runtime queues so the next autonomous
+session starts with the first unchecked 6E item instead of drifting into deferred cleanup.
 
 Runtime queue items must explicitly enable an end-user runtime path, a runtime admission/blocker
 that protects user-visible behavior, or a validator that gates runtime claims. Docs-only or
@@ -214,59 +220,10 @@ Live plan hygiene:
   path, admission/blocker, or validator it enables. If that field cannot be made concrete, the item
   belongs in non-runtime planning or the completed ledger, not the runtime queue.
 
-### Global Architecture Review Carry-Forward
-
-Source: `docs/architecture/global-architecture-review.md`.
-
-Scope: every unchecked RFC and compute-flow review item is mirrored here so no planned,
-unsupported, or not-claimable architecture work exists only in a supporting document. Complete these
-items in logical implementation order, update the global review checkbox when evidence closes, and
-move the completed session details to `docs/architecture/phased-execution-completed-ledger.md`.
-
-Default GAR verification for planning-only/docs slices:
-
-```powershell
-cargo test -p shardloom-contract-tests --test release_readiness_metadata
-cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-git diff --check
-```
-
-Code-bearing GAR slices must add the focused Rust/Python/benchmark tests named in the slice and
-usually end with:
-
-```powershell
-cargo fmt --all -- --check
-cargo test --workspace --all-targets
-python -m compileall -q python/src python/tests scripts examples
-git diff --check
-```
-
-#### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
-
-P0 slices must preserve the canonical execution-mode vocabulary from
-`docs/architecture/compute-engine-flow-reference.md`: `auto`, `compatibility_import_certified`,
-`prepared_vortex`, `native_vortex`, and `direct_compatibility_transient`. Benchmark interpretation
-must continue to report stage timing fields (`source_read_millis`, `compatibility_parse_millis`,
-`compatibility_to_vortex_import_millis`, `vortex_write_millis`, `vortex_reopen_millis`,
-`vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
-`evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
-ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
-
-#### Deferred Non-Runtime Closeout Queue
-
-Documentation, capability, security, release, and claim-gate cleanup belongs here only when it is
-not runtime-enabling. These items must not add runtime behavior or support claims. Add a concrete
-unchecked item here only when a new documentation, website, security, release, or claim-gate blocker
-must interrupt runtime work.
-
-Current non-runtime sequence: deferred behind 6E/6F and the runtime-readiness queue unless a
-specific blocker must be pulled forward with explicit justification. Completed non-runtime history
-belongs in `docs/architecture/phased-execution-completed-ledger.md`.
-
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
-queues below. Current runtime sequence after PR #1034 is `GAR-RUNTIME-IMPL-6E`, then
+queues below. Current runtime sequence after PR #1037 is `GAR-RUNTIME-IMPL-6E`, then
 `GAR-RUNTIME-IMPL-6F`, then `GAR-RUNTIME-IMPL-6C` / `GAR-RUNTIME-IMPL-6D:gap-family-burn-down`
 where needed to classify the remaining true blocker families, then the remaining
 `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D breadth item forward only when it
@@ -396,33 +353,31 @@ Implementation checklist, in required order:
   contract through the release-readiness acceptance summary.
   Remaining 6E-1 work is benchmark/public row promotion for the new auto/generated front doors and
   any additional CLI/Python route-report wiring needed for route-comparable prepared execution.
-  Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
-  workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
-  source/schema/plan/output-policy drift.
+  Next slice outcome: promote the new high-level local-source and generated-source `auto` front
+  doors into benchmark/public route rows and validators. Public rows should show
+  `ctx.read_csv(...).prepare_vortex(workspace=...)` and
+  `ctx.from_rows(...).prepare_vortex(...)` as first-class ShardLoom routes, with start/end state,
+  preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields instead of burying
+  those routes in generic user-route prose.
   Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
   through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
   prepared execution when the reuse manifest is valid.
   User-visible surface: Python context/session helpers, CLI `vortex-ingest-smoke`/local-source
-  runtime reports, benchmark rows, and route capability reports show `prepared_state_reuse_hit`,
-  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and invalidation reason.
-  Implementation scope: add a `VortexPreparedStateReuseRequest` /
-  `VortexPreparedStateReuseReport` or equivalent in `shardloom-vortex/src/vortex_ingest.rs`; add
-  explicit reuse manifest fields for source path/ref, source content digest, mtime/size where safe,
-  schema digest, parse/decode plan digest, selected columns, output policy, prepared artifact
-  ref/digest, Vortex provider/version, feature gates, and certificate refs; wire lookup into
-  `shardloom-cli/src/sql_local_source_runtime.rs` before rewriting a prepared artifact; preserve
-  no hidden global cache by limiting the first slice to session-local plus explicit workspace or
-  artifact-adjacent manifest; surface typed Python fields in `python/src/shardloom/client.py` /
-  result models; extend benchmark artifact promotion to reject reuse claims without manifest and
-  invalidation evidence.
-  Evidence required: reuse-hit fixture where same source/schema/plan reuses an existing prepared
-  artifact without rewriting it; reuse-miss fixture where changed source digest invalidates reuse;
-  reuse-blocked fixture where schema drift or feature-gate mismatch blocks before prepared
-  execution; no-fallback evidence for every reuse decision.
-  Acceptance: repeated local `auto` preparation can reuse a valid VortexPreparedState
-  automatically; invalidated prepared state is never reused silently; a user or agent can tell why
-  reuse hit, missed, or blocked from structured fields; the existing explicit prepare path still
-  works.
+  runtime reports, benchmark publication rows, route capability reports, README/quickstart route
+  examples, and website benchmark/status content expose the same prepared-route identity.
+  Implementation scope: `python/src/shardloom/context.py` route reports,
+  `scripts/check_user_route_capability_report.py`, benchmark promotion/publication validators,
+  website/static benchmark metadata when generated from current artifacts, README/compute-flow docs,
+  and focused Python/report tests. Additional CLI/Python route-report wiring is allowed only where
+  needed to make route-comparable prepared execution visible through existing runtime paths.
+  Evidence required: deterministic validators that fail if the local-source or generated-source
+  front doors disappear from public route rows; no-fallback evidence on every ShardLoom row;
+  preparation-included/reused fields that distinguish cold, prepare-once, warm prepared, and native
+  Vortex routes; manifest hit/miss/invalidation evidence where reuse is claimed.
+  Acceptance: public benchmark/readiness rows expose auto/generated prepared routes as ShardLoom
+  runtime-supported where the underlying route is admitted; generated and local compatibility
+  inputs are visibly normalized through SourceState/GeneratedSourceState -> VortexPreparedState;
+  invalidated prepared state is never reported as reused; explicit prepare paths still work.
   Verification:
   ```bash
   cargo test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib
@@ -865,7 +820,7 @@ Implementation checklist, in required order:
 
 #### GAR-RUNTIME-IMPL-6D - Runtime-Ready User Surface And Benchmark-Range Completion
 
-Ordering note (updated 2026-06-02 after PR #1034): this remains the user-surface and
+Ordering note (updated 2026-06-02 after PR #1037): this remains the user-surface and
 benchmark-range breadth queue, but it follows 6E, 6F, and the narrow 6C/gap-family classification
 work unless a specific 6D item blocks those route/reuse/output boundary items. Resume the last-order
 checklist here after the automatic preparation/reuse and output fanout contracts are landed, or pull
@@ -1517,6 +1472,60 @@ validators, docs/website parity, and a completed-ledger entry.
     required for every ShardLoom row and completion artifact.
   - Ledger rule: when this item closes, add the gate report, residual blocker deltas, and validation
     commands to `docs/architecture/phased-execution-completed-ledger.md`.
+
+### Global Architecture Review Carry-Forward
+
+Ordering note: this cross-cutting context intentionally follows the active runtime implementation
+queue. Use it to verify and mirror runtime work as each section lands; do not let it reorder the
+next session ahead of 6E/6F unless it identifies a concrete release, safety, security, or
+claim-integrity blocker for the next runtime item.
+
+Source: `docs/architecture/global-architecture-review.md`.
+
+Scope: every unchecked RFC and compute-flow review item is mirrored here so no planned,
+unsupported, or not-claimable architecture work exists only in a supporting document. Complete these
+items in logical implementation order, update the global review checkbox when evidence closes, and
+move the completed session details to `docs/architecture/phased-execution-completed-ledger.md`.
+
+Default GAR verification for planning-only/docs slices:
+
+```powershell
+cargo test -p shardloom-contract-tests --test release_readiness_metadata
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+git diff --check
+```
+
+Code-bearing GAR slices must add the focused Rust/Python/benchmark tests named in the slice and
+usually end with:
+
+```powershell
+cargo fmt --all -- --check
+cargo test --workspace --all-targets
+python -m compileall -q python/src python/tests scripts examples
+git diff --check
+```
+
+#### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
+
+P0 slices must preserve the canonical execution-mode vocabulary from
+`docs/architecture/compute-engine-flow-reference.md`: `auto`, `compatibility_import_certified`,
+`prepared_vortex`, `native_vortex`, and `direct_compatibility_transient`. Benchmark interpretation
+must continue to report stage timing fields (`source_read_millis`, `compatibility_parse_millis`,
+`compatibility_to_vortex_import_millis`, `vortex_write_millis`, `vortex_reopen_millis`,
+`vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
+`evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
+ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
+
+#### Deferred Non-Runtime Closeout Queue
+
+Documentation, capability, security, release, and claim-gate cleanup belongs here only when it is
+not runtime-enabling. These items must not add runtime behavior or support claims. Add a concrete
+unchecked item here only when a new documentation, website, security, release, or claim-gate blocker
+must interrupt runtime work.
+
+Current non-runtime sequence: deferred behind 6E/6F and the runtime-readiness queue unless a
+specific blocker must be pulled forward with explicit justification. Completed non-runtime history
+belongs in `docs/architecture/phased-execution-completed-ledger.md`.
 
 ## Completed
 
