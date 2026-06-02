@@ -16,9 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D admitted-semantics diagnostic posture split
+  - Date: 2026-06-02
+  - Branch/PR: pending branch / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - User runtime-go direction that ShardLoom user surfaces should not call an engine-capable path
+      unsupported when the more accurate state is a runtime data error, invalid SQL shape, front-door
+      connection gap, output boundary, or claim-evidence boundary.
+  - Scope:
+    - Split admitted-semantics diagnostic rows into true `unsupported_diagnostic`,
+      `runtime_error_diagnostic`, and `invalid_shape_diagnostic` categories.
+    - Reclassified numeric division by zero from `unsupported_numeric_division_by_zero` to
+      `runtime_error_numeric_division_by_zero`, preserving the existing `SL_INVALID_INPUT`
+      diagnostic, deterministic failure, and no-fallback evidence.
+    - Reclassified scalar-left multi-column `IN (SELECT ...)` from
+      `unsupported_scalar_multi_column_in_subquery` to
+      `invalid_shape_scalar_multi_column_in_subquery`, preserving the existing arity diagnostic and
+      no-fallback evidence while reflecting that row-value left operands are the admitted shape.
+    - Updated the static admitted-semantics matrix, status doc, release-readiness expectations,
+      contract-test markers, and phase plan text so `unsupported_diagnostic_count` now measures only
+      true unsupported feature families.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-diagnostic-reclass.json` passed with `matrix_row_count=67`, `executable_fixture_count=60`, `diagnostic_case_count=7`, `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, `semantic_conformance_suite_status=passed`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=/tmp/shardloom-diag-validate/python/src python3 scripts/check_release_readiness.py --admitted-semantics-report /Users/dylan/Documents/shardloom-local-repo/target/admitted-semantics-matrix-diagnostic-reclass.json --output target/release-readiness-diagnostic-reclass.json` was run from a clean detached worktree. It was blocked only by broader known release/package/benchmark-currentness/required-validation gates; no admitted-semantics blocker was reported.
+  - Claim boundary:
+    - This changes diagnostic taxonomy and release gating only. It does not admit new broad SQL
+      grammar, timezone/collation/variant/union features, production SQL parity, performance claims,
+      package publication, or Spark replacement.
+  - Fallback boundary:
+    - All diagnostic rows still execute only the ShardLoom CLI local-source path and require
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped decimal cast SQL/Python runtime slice
   - Date: 2026-06-02
-  - Branch/PR: `codex/scoped-decimal-cast-runtime` / pending PR.
+  - Branch/PR: `codex/scoped-decimal-cast-runtime` / PR #1029, merged as
+    `55ea7ddb18da761ece2a7aa7fbb0c5422543d55f`.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
     - Follow-up to the scoped binary and complex projection slices: decimal precision/scale casts

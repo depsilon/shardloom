@@ -380,10 +380,25 @@ def main() -> int:
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 7:
+        if admitted_semantics.get("diagnostic_case_count") != 7:
+            admitted_semantics_blockers.append(
+                "admitted semantics diagnostic_case_count="
+                + str(admitted_semantics.get("diagnostic_case_count", "missing"))
+            )
+        if admitted_semantics.get("unsupported_diagnostic_count") != 5:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
+            )
+        if admitted_semantics.get("runtime_error_diagnostic_count") != 1:
+            admitted_semantics_blockers.append(
+                "admitted semantics runtime_error_diagnostic_count="
+                + str(admitted_semantics.get("runtime_error_diagnostic_count", "missing"))
+            )
+        if admitted_semantics.get("invalid_shape_diagnostic_count") != 1:
+            admitted_semantics_blockers.append(
+                "admitted semantics invalid_shape_diagnostic_count="
+                + str(admitted_semantics.get("invalid_shape_diagnostic_count", "missing"))
             )
         if admitted_semantics.get("semantic_conformance_suite_status") != "passed":
             admitted_semantics_blockers.append(

@@ -540,7 +540,11 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   flat-sink blockers where CSV, Parquet, Arrow IPC, Avro, ORC, and local Vortex output cannot yet
   preserve nested values. Complex equality, DISTINCT, subquery membership, accessors, casts, nested
   source decoding, and broader row/list/struct functions remain deterministic blockers. Scalar-left
-  multi-column subqueries remain an invalid SQL arity shape, not a runtime promotion candidate.
+  multi-column subqueries now report a deterministic invalid-shape diagnostic instead of an
+  unsupported engine gap. Numeric division by zero likewise reports a deterministic runtime-error
+  diagnostic instead of an unsupported arithmetic feature. The admitted-semantics matrix now
+  distinguishes `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, and
+  `invalid_shape_diagnostic_count=1` while preserving no-fallback evidence for all diagnostic rows.
   Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
   likely candidates are decimal arithmetic/coercion or typed-sink follow-through, timezone/locale
   blocker refinement, broad binary source dtype refinement, complex access/equality follow-through

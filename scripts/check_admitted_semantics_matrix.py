@@ -83,6 +83,9 @@ class UnsupportedCase:
     statement_template: str
     diagnostic_code: str
     diagnostic_fragment: str
+    support_state: str = "unsupported_diagnostic"
+    oracle_boundary: str = "deterministic_unsupported_diagnostic"
+    stage_kind: str = "unsupported_diagnostic"
 
 
 def parse_args() -> argparse.Namespace:
@@ -2640,12 +2643,15 @@ def executable_cases() -> list[SqlFixtureCase]:
 def unsupported_cases() -> list[UnsupportedCase]:
     return [
         UnsupportedCase(
-            case_id="unsupported_numeric_division_by_zero",
+            case_id="runtime_error_numeric_division_by_zero",
             source_name="numeric-unsupported.csv",
             source_text="id,amount\n1,8\n",
             statement_template="SELECT id,amount / 0 AS broken FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="numeric arithmetic projection division by zero is not admitted",
+            support_state="runtime_error_diagnostic",
+            oracle_boundary="deterministic_runtime_error_diagnostic",
+            stage_kind="runtime_error_diagnostic",
         ),
         UnsupportedCase(
             case_id="unsupported_non_utc_timestamp_literal",
@@ -2698,7 +2704,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="union dtype casts are not admitted",
         ),
         UnsupportedCase(
-            case_id="unsupported_scalar_multi_column_in_subquery",
+            case_id="invalid_shape_scalar_multi_column_in_subquery",
             source_name="scalar-multi-column-subquery-unsupported.csv",
             source_text="id,label\n1,alpha\n",
             statement_template=(
@@ -2707,6 +2713,9 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="multi-column IN subqueries require row-value source columns",
+            support_state="invalid_shape_diagnostic",
+            oracle_boundary="deterministic_invalid_shape_diagnostic",
+            stage_kind="invalid_shape_diagnostic",
         ),
     ]
 
@@ -2758,12 +2767,16 @@ def validate_matrix_manifest(
         if row.get("oracle_boundary") not in {
             "decoded_reference_only",
             "deterministic_unsupported_diagnostic",
+            "deterministic_runtime_error_diagnostic",
+            "deterministic_invalid_shape_diagnostic",
         }:
             blockers.append(f"{row_id}: invalid oracle_boundary={row.get('oracle_boundary')}")
-        if row.get("support_state") == "unsupported_diagnostic" and row.get(
-            "unsupported_diagnostic_code"
-        ) == "not_applicable_executable":
-            blockers.append(f"{row_id}: unsupported rows must name a diagnostic code")
+        if row.get("support_state") in {
+            "unsupported_diagnostic",
+            "runtime_error_diagnostic",
+            "invalid_shape_diagnostic",
+        } and row.get("unsupported_diagnostic_code") == "not_applicable_executable":
+            blockers.append(f"{row_id}: diagnostic rows must name a diagnostic code")
     row_order = payload.get("row_order")
     if row_order != [row.get("id") for row in rows if isinstance(row, dict)]:
         blockers.append("matrix row_order must match row order")
@@ -2969,8 +2982,16 @@ def run_unsupported_case(
     if matrix_row is None:
         blockers.append(f"{case.case_id}: missing matrix row")
     else:
-        if matrix_row.get("support_state") != "unsupported_diagnostic":
-            blockers.append(f"{case.case_id}: support_state={matrix_row.get('support_state')}")
+        if matrix_row.get("support_state") != case.support_state:
+            blockers.append(
+                f"{case.case_id}: support_state={matrix_row.get('support_state')}, "
+                f"expected {case.support_state}"
+            )
+        if matrix_row.get("oracle_boundary") != case.oracle_boundary:
+            blockers.append(
+                f"{case.case_id}: oracle_boundary={matrix_row.get('oracle_boundary')}, "
+                f"expected {case.oracle_boundary}"
+            )
         if matrix_row.get("unsupported_diagnostic_code") != case.diagnostic_code:
             blockers.append(
                 f"{case.case_id}: unsupported_diagnostic_code="
@@ -2981,7 +3002,7 @@ def run_unsupported_case(
 
     return {
         "case_id": case.case_id,
-        "kind": "unsupported_diagnostic",
+        "kind": case.stage_kind,
         "command": command_text([str(binary), "sql-local-source-smoke", statement, "--format", "json"]),
         "returncode": completed.returncode,
         "status": "passed" if not blockers else "failed",
@@ -3155,7 +3176,15 @@ def main() -> int:
     passed = not blockers
     property_stages = [stage for stage in stages if stage.get("property_seed") is not None]
     executable_stage_ids = [case.case_id for case in cases]
-    unsupported_stage_ids = [case.case_id for case in unsupported]
+    unsupported_stage_ids = [
+        case.case_id for case in unsupported if case.support_state == "unsupported_diagnostic"
+    ]
+    runtime_error_stage_ids = [
+        case.case_id for case in unsupported if case.support_state == "runtime_error_diagnostic"
+    ]
+    invalid_shape_stage_ids = [
+        case.case_id for case in unsupported if case.support_state == "invalid_shape_diagnostic"
+    ]
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "failed",
@@ -3168,7 +3197,10 @@ def main() -> int:
         "covered_operator_families": operator_families,
         "covered_operator_family_count": len(operator_families),
         "executable_fixture_count": len(cases),
-        "unsupported_diagnostic_count": len(unsupported),
+        "diagnostic_case_count": len(unsupported),
+        "unsupported_diagnostic_count": len(unsupported_stage_ids),
+        "runtime_error_diagnostic_count": len(runtime_error_stage_ids),
+        "invalid_shape_diagnostic_count": len(invalid_shape_stage_ids),
         "property_lane_count": len(property_stages),
         "property_seed_order": [
             stage["property_seed"] for stage in property_stages if stage.get("property_seed") is not None
@@ -3185,6 +3217,8 @@ def main() -> int:
         ),
         "executable_case_ids": executable_stage_ids,
         "unsupported_case_ids": unsupported_stage_ids,
+        "runtime_error_case_ids": runtime_error_stage_ids,
+        "invalid_shape_case_ids": invalid_shape_stage_ids,
         "stage_count": len(stages),
         "stages": stages,
         "build": build,
