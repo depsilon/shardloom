@@ -184,7 +184,7 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6C user-surface graduation matrix closeout.
+Updated after the GAR-RUNTIME-IMPL-6D runtime gap family burn-down closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
@@ -192,8 +192,8 @@ Updated after the GAR-RUNTIME-IMPL-6C user-surface graduation matrix closeout.
    through completed 6F-5 ledger evidence.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix is closed through completed 6C ledger
    evidence.
-4. `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` is the next unchecked runtime item, to split
-   remaining true runtime blockers into implementable slices.
+4. `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` is closed through completed 6D burn-down ledger
+   evidence.
 5. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
    breadth work after the route/reuse/output contracts are landed.
 6. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
@@ -226,12 +226,11 @@ Live plan hygiene:
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
-queues below. After the 6E automatic preparation/reuse closeout and the 6F output/fanout closeout,
-the current runtime sequence is `GAR-RUNTIME-IMPL-6D:gap-family-burn-down`, which classifies the
-remaining true blocker
-families, then the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D
-breadth item forward only when it unblocks blocker-family classification or prevents a misleading
-runtime posture. The
+queues below. After the 6E automatic preparation/reuse closeout, 6F output/fanout closeout, 6C
+user-surface graduation closeout, and 6D gap-family burn-down closeout, the current runtime
+sequence is the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D
+breadth item forward only when it unblocks the next runtime slice or prevents a misleading runtime
+posture. The
 remaining 4/5-series queue stays as internal-engine backstop work after the route/reuse/output
 boundary work.
 
@@ -249,56 +248,12 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
-- [ ] GAR-RUNTIME-IMPL-6D:gap-family-burn-down true runtime gap family burn-down plan.
-  Source: the 38 unchecked global architecture review rows and the runtime gap families listed in
-  `docs/architecture/repo-readiness-user-surface-audit.md`.
-  Current state: the global review still has 38 unchecked rows; the completion gate is explicitly
-  blocked because broad architectural items have not all been converted into runtime evidence,
-  deterministic unsupported diagnostics, or reclassified out-of-scope surfaces with validators.
-  Next slice outcome: split each broad global blocker into family-owned runtime implementation
-  slices with acceptance criteria for supported behavior, deterministic blockers, validators,
-  docs/website parity, and benchmark/release evidence when relevant.
-  Runtime enablement: this is a runtime-safety planning gate that converts broad blocker language
-  into runnable implementation slices before broad SQL/DataFrame/object-store/effect/live/spill
-  work resumes.
-  User-visible surface: capability discovery, diagnostics, Python/context workflows, CLI runtime
-  commands, release/readiness gates, benchmark/readiness docs, and website/use-case claims.
-  Implementation scope: prioritize SQL/DataFrame runtime breadth, Vortex source/sink/operator
-  coverage, object-store/lakehouse execution, table/catalog commits, streaming/spill/retry runtime,
-  and package/deploy readiness according to current claim risk and user value.
-  Evidence required: each split item names the owning module, public surface, no-fallback invariant,
-  validator, and completion-gate field it is expected to reduce.
-  Acceptance: global review blocker count decreases only when a family has implementation,
-  deterministic admission evidence, or a documented reclassification with validator coverage.
-  Verification:
-  ```bash
-  python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate.json
-  python3 scripts/check_release_architecture_tracker.py --allow-blocked
-  python3 scripts/final_release_rehearsal.py --allow-blocked
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  cargo test -p shardloom-contract-tests --test release_readiness_metadata
-  git diff --check
-  ```
-  Non-goals: no unsupported work hidden as supported, no superiority/performance claims without
-  CG-5/CG-6 evidence, no fallback engines, no release publication, and no bundling every runtime
-  family into one oversized implementation PR.
-  Dependencies/blockers: depends on the 6B audit, the 6C graduation matrix, the active global
-  architecture review inventory, and family-specific RFC/skill routing before runtime promotion.
-  Claim boundary: blocker burn-down is claimable only for families with concrete implementation
-  evidence or validated unsupported diagnostics; placeholder artifacts do not satisfy runtime
-  support.
-  Fallback boundary: runtime gap closure must keep ShardLoom execution native and explicit; DuckDB,
-  Polars, Spark, DataFusion, Velox, and Vortex query-engine integrations remain comparison or
-  external-boundary surfaces only, never fallback execution.
-  Ledger rule: move completed details and validation output to the completed ledger.
-
 #### GAR-RUNTIME-IMPL-6D - Runtime-Ready User Surface And Benchmark-Range Completion
 
-Ordering note (updated 2026-06-02 after PR #1037): this remains the user-surface and
-benchmark-range breadth queue, but it follows 6E, 6F, and the narrow 6C/gap-family classification
-work unless a specific 6D item blocks those route/reuse/output boundary items. Resume the last-order
-checklist here after the automatic preparation/reuse and output fanout contracts are landed, or pull
-a narrow 6D blocker forward with explicit justification.
+Ordering note (updated 2026-06-02 after the 6D burn-down closeout): this remains the user-surface
+and benchmark-range breadth queue. The 6E automatic preparation/reuse, 6F output/fanout, 6C
+graduation matrix, and 6D family burn-down gates are closed; resume the last-order checklist here,
+or pull a narrow 6D blocker forward with explicit justification.
 
 Source: user runtime-go request on 2026-05-31; `docs/rfcs/0033-user-data-workflow-etl-surface.md`;
 `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`;
@@ -841,10 +796,9 @@ here.
 
 #### GAR-RUNTIME-IMPL-4/6A - Residual Completion Gate And Internal Backstop Queue
 Current runtime ordering note (updated 2026-06-02): the completed engine-internal queue remains
-recorded here as backstop context, but the active runtime sequence above now intentionally works 6E,
-then 6F, then the 6C/gap-family classification step, then the remaining 6D user-surface breadth
-before this residual completion/backstop queue unless a specific internal-engine item blocks the
-active route/reuse/output work. The
+recorded here as backstop context, but the active runtime sequence above now intentionally works the
+remaining 6D user-surface breadth before this residual completion/backstop queue unless a specific
+internal-engine item blocks the active route/reuse/output and user-surface breadth work. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
@@ -861,8 +815,7 @@ deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/
 semantics closeout plus `GAR-RUNTIME-IMPL-5P` Foundry dev-stack generated-output and transform
 proof are complete and recorded in the ledger.
 The remaining internal-engine follow-ups below are residual backstops after the active
-route/reuse/output, user-surface classification, and user-surface breadth sequence, not the current
-top runtime priority.
+route/reuse/output and user-surface breadth sequence, not the current top runtime priority.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.

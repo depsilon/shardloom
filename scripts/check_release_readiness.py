@@ -122,6 +122,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/user-surface-graduation-matrix.json"),
     )
     parser.add_argument(
+        "--runtime-gap-family-burn-down-report",
+        type=Path,
+        default=Path("target/runtime-gap-family-burn-down.json"),
+    )
+    parser.add_argument(
         "--user-route-capability-report",
         type=Path,
         default=Path("target/user-route-capability-report.json"),
@@ -186,6 +191,10 @@ def main() -> int:
     user_surface_graduation_matrix_path = resolve(
         repo_root,
         args.user_surface_graduation_matrix_report,
+    )
+    runtime_gap_family_burn_down_path = resolve(
+        repo_root,
+        args.runtime_gap_family_burn_down_report,
     )
     user_route_capability_report_path = resolve(repo_root, args.user_route_capability_report)
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
@@ -1107,6 +1116,76 @@ def main() -> int:
         )
     )
 
+    runtime_gap_family_burn_down = load_json(runtime_gap_family_burn_down_path)
+    runtime_gap_family_blockers: list[str] = []
+    if runtime_gap_family_burn_down is None:
+        runtime_gap_family_blockers.append("missing runtime gap family burn-down report")
+    else:
+        if (
+            runtime_gap_family_burn_down.get("schema_version")
+            != "shardloom.runtime_gap_family_burn_down.v1"
+        ):
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down schema_version="
+                + str(runtime_gap_family_burn_down.get("schema_version", "missing"))
+            )
+        if runtime_gap_family_burn_down.get("status") != "passed":
+            runtime_gap_family_blockers.extend(
+                runtime_gap_family_burn_down.get(
+                    "blockers", ["runtime gap family burn-down blocked"]
+                )
+            )
+        if runtime_gap_family_burn_down.get("global_review_unchecked_count") != 38:
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down global_review_unchecked_count="
+                + str(runtime_gap_family_burn_down.get("global_review_unchecked_count", "missing"))
+            )
+        if runtime_gap_family_burn_down.get("mapped_gap_count") != 38:
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down mapped_gap_count="
+                + str(runtime_gap_family_burn_down.get("mapped_gap_count", "missing"))
+            )
+        acceptance = runtime_gap_family_burn_down.get("acceptance_summary")
+        if not isinstance(acceptance, dict):
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down missing acceptance_summary"
+            )
+        else:
+            for field in [
+                "all_unchecked_global_review_rows_mapped",
+                "all_families_have_phase_items",
+                "all_families_have_evidence_and_validators",
+                "all_no_fallback_invariants_named",
+                "all_claim_boundaries_named",
+            ]:
+                if acceptance.get(field) is not True:
+                    runtime_gap_family_blockers.append(
+                        f"runtime gap family burn-down {field} must be true"
+                    )
+        for field in [
+            "fallback_attempted",
+            "external_engine_invoked",
+            "runtime_support_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+        ]:
+            if runtime_gap_family_burn_down.get(field) is not False:
+                runtime_gap_family_blockers.append(
+                    f"runtime gap family burn-down {field} must be false"
+                )
+        if runtime_gap_family_burn_down.get("claim_gate_status") != "not_claim_grade":
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down claim_gate_status="
+                + str(runtime_gap_family_burn_down.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "runtime_gap_family_burn_down",
+            str(args.runtime_gap_family_burn_down_report).replace("\\", "/"),
+            runtime_gap_family_blockers,
+        )
+    )
+
     user_route_capability = load_json(user_route_capability_report_path)
     user_route_capability_blockers: list[str] = []
     if user_route_capability is None:
@@ -1342,6 +1421,7 @@ def main() -> int:
         "python scripts/check_sql_python_dataframe_parity.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
+        "python scripts/check_runtime_gap_family_burn_down.py",
         "python scripts/check_user_route_capability_report.py",
     ]
     validation_blockers = []
