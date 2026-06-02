@@ -186,7 +186,8 @@ Current autonomous execution order:
 
 Updated after the GAR-RUNTIME-IMPL-6E-1 public front-door route-report closeout.
 
-1. `GAR-RUNTIME-IMPL-6E-3` runtime-admitted layout/write advisor for one local route, then
+1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation remains active through
+   `GAR-RUNTIME-IMPL-6E-3` runtime-admitted layout/write advisor for one local route, then
    `GAR-RUNTIME-IMPL-6E-4` cracking-style differential prepared-state refinement.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
