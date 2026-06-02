@@ -95,9 +95,12 @@ claim-boundary reclassification:
 1. User-surface graduation matrix: map every command family and Python surface to one of
    `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
    `not_user_facing`, with acceptance criteria for promotion.
-2. Runtime gap burn-down: split the 38 global review blockers into family-owned runtime slices with
-   explicit evidence requirements, then close each through implementation, deterministic admission,
-   validators, or justified reclassification.
+2. Runtime gap burn-down map: completed by
+   `docs/architecture/runtime-gap-family-burn-down.md` and
+   `scripts/check_runtime_gap_family_burn_down.py`; each of the 38 global review blockers now maps
+   to a family-owned runtime slice with explicit evidence, validator, no-fallback, and claim
+   boundaries. Close each family only through implementation, deterministic admission, validators,
+   or justified reclassification.
 3. Freshness/consolidation sweep: remove duplicate completed-ledger wording, stale platform-specific
    validation text, and superseded blocker descriptions after each runtime family lands.
 4. Package/deploy readiness gate: only after true runtime gaps are closed, run release/package

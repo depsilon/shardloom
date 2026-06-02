@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D runtime gap family burn-down map
+  - Date: 2026-06-02
+  - Branch/PR: `codex/runtime-gap-family-burn-down` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:gap-family-burn-down true runtime gap family burn-down plan`.
+    - The 38 unchecked rows in `docs/architecture/global-architecture-review.md`.
+    - `docs/architecture/repo-readiness-user-surface-audit.md`,
+      `docs/architecture/phased-execution-plan.md`, and the 6C user-surface graduation matrix.
+  - Scope:
+    - Added `docs/architecture/runtime-gap-family-burn-down.md`, a human-readable family order and
+      closure rule for the residual runtime blocker inventory.
+    - Added `scripts/check_runtime_gap_family_burn_down.py`, which maps every unchecked global
+      architecture review row to a runtime family with phase items, public surfaces, owning modules,
+      required evidence, validators, no-fallback invariants, claim boundaries, and next actions.
+    - Added regression tests that fail if an unchecked global-review row is no longer mapped.
+    - Wired the report into CI, release-readiness evidence generation, the hard release readiness
+      gate, and the CI gate matrix documentation.
+    - Updated the active phase plan so the next unchecked runtime work is the remaining
+      `GAR-RUNTIME-IMPL-6D:last_order.*` breadth, not the now-completed family split.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down.json` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_runtime_gap_family_burn_down` passed.
+    - `python3 -m py_compile scripts/check_runtime_gap_family_burn_down.py scripts/check_release_readiness.py scripts/check_ci_gate_matrix.py scripts/run_release_validation_evidence.py python/tests/test_runtime_gap_family_burn_down.py` passed.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate.json` passed.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked` passed.
+    - `python3 scripts/final_release_rehearsal.py --allow-blocked` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 402 tests and
+      2 skipped.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes the blocker-family split only. It may claim that all 38 unchecked global-review
+      rows are mapped to family-owned implementation or deterministic-admission slices. It does not
+      close the underlying runtime families, reduce the compute-engine completion gate to green,
+      authorize package/release publication, or allow production, performance, Spark-replacement,
+      SQL/DataFrame, object-store, live/hybrid, spill, effect, platform, or universal Vortex claims.
+  - Fallback boundary:
+    - The burn-down map is a release/readiness guardrail. It adds no execution behavior and no
+      external fallback. Every family row carries an explicit no-fallback invariant; DuckDB, Polars,
+      Spark, DataFusion, Velox, external databases, managed platforms, and Vortex query-engine
+      integrations remain baselines, test oracles, report-only handles, or explicit external
+      boundaries only.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion
   - Date: 2026-06-02
   - Branch/PR: `codex/user-surface-graduation-matrix` / pending PR.
