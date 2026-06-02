@@ -937,6 +937,38 @@ struct ParsedExistsSubquery {
     exists: bool,
 }
 
+impl ParsedInSubquery {
+    fn uses_outer_correlation(&self) -> bool {
+        self.predicate.uses_outer_correlation()
+            || self
+                .projected_plan
+                .as_deref()
+                .is_some_and(ParsedSqlLocalSource::uses_outer_correlation)
+    }
+
+    fn has_projected_filter(&self) -> bool {
+        self.projected_plan
+            .as_deref()
+            .is_some_and(ParsedSqlLocalSource::has_filter)
+    }
+}
+
+impl ParsedRowValueInSubquery {
+    fn uses_outer_correlation(&self) -> bool {
+        self.predicate.uses_outer_correlation()
+            || self
+                .projected_plan
+                .as_deref()
+                .is_some_and(ParsedSqlLocalSource::uses_outer_correlation)
+    }
+
+    fn has_projected_filter(&self) -> bool {
+        self.projected_plan
+            .as_deref()
+            .is_some_and(ParsedSqlLocalSource::has_filter)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum ParsedPredicate {
     All,
@@ -6058,14 +6090,14 @@ fn materialize_in_subquery_predicates(
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
         | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
                 materialize_in_subquery(subquery)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
                 materialize_row_value_in_subquery(subquery)
@@ -6114,14 +6146,14 @@ fn materialize_correlated_subquery_predicates(
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
         | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 materialize_in_subquery_for_outer_row(subquery, outer_row)
             } else {
                 materialize_in_subquery(subquery)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 materialize_row_value_in_subquery_for_outer_row(subquery, outer_row)
             } else {
                 materialize_row_value_in_subquery(subquery)
@@ -6174,6 +6206,7 @@ fn materialize_in_subquery_for_outer_row(
         scoped.predicate.as_ref(),
         outer_row,
     )?);
+    rewrite_projected_subquery_plan_for_outer_row(&mut scoped.projected_plan, outer_row)?;
     scoped.source_format = None;
     scoped.source_digest = None;
     scoped.input_row_count = 0;
@@ -6193,6 +6226,7 @@ fn materialize_row_value_in_subquery_for_outer_row(
         scoped.predicate.as_ref(),
         outer_row,
     )?);
+    rewrite_projected_subquery_plan_for_outer_row(&mut scoped.projected_plan, outer_row)?;
     scoped.source_format = None;
     scoped.source_digest = None;
     scoped.input_row_count = 0;
@@ -6223,6 +6257,18 @@ fn materialize_exists_subquery_for_outer_row(
     Ok(())
 }
 
+fn rewrite_projected_subquery_plan_for_outer_row(
+    plan: &mut Option<Box<ParsedSqlLocalSource>>,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    let Some(plan) = plan.as_deref_mut() else {
+        return Ok(());
+    };
+    plan.predicate = rewrite_outer_correlated_predicate(&plan.predicate, outer_row)?;
+    plan.having = rewrite_outer_correlated_predicate(&plan.having, outer_row)?;
+    Ok(())
+}
+
 fn rewrite_outer_correlated_predicate(
     predicate: &ParsedPredicate,
     outer_row: &ExpressionInputRow,
@@ -6247,6 +6293,7 @@ fn rewrite_outer_correlated_predicate(
                 subquery.predicate.as_ref(),
                 outer_row,
             )?);
+            rewrite_projected_subquery_plan_for_outer_row(&mut subquery.projected_plan, outer_row)?;
             Ok(ParsedPredicate::InSubquery {
                 column: column.clone(),
                 subquery: Box::new(subquery),
@@ -6263,6 +6310,7 @@ fn rewrite_outer_correlated_predicate(
                 subquery.predicate.as_ref(),
                 outer_row,
             )?);
+            rewrite_projected_subquery_plan_for_outer_row(&mut subquery.projected_plan, outer_row)?;
             Ok(ParsedPredicate::QuantifiedSubquery {
                 column: column.clone(),
                 comparison: *comparison,
@@ -6276,6 +6324,7 @@ fn rewrite_outer_correlated_predicate(
                 subquery.predicate.as_ref(),
                 outer_row,
             )?);
+            rewrite_projected_subquery_plan_for_outer_row(&mut subquery.projected_plan, outer_row)?;
             Ok(ParsedPredicate::RowValueInSubquery {
                 columns: columns.clone(),
                 subquery: Box::new(subquery),
@@ -6364,9 +6413,7 @@ fn outer_correlation_column(column: &str) -> Result<Option<String>, ShardLoomErr
     if qualified.alias == OUTER_CORRELATION_ALIAS {
         Ok(Some(qualified.column))
     } else {
-        Err(unsupported_sql_error(
-            "correlated subquery predicates admit only outer.<column> qualified references after local source qualifiers have been bound",
-        ))
+        Ok(None)
     }
 }
 
@@ -11660,10 +11707,18 @@ impl ParsedSqlLocalSource {
     }
 
     fn outer_correlation_columns(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.outer_correlation_columns(),
-            self.having.outer_correlation_columns(),
-        ])
+        let mut columns = BTreeSet::new();
+        self.push_outer_correlation_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.into_iter().collect::<Vec<_>>().join(",")
+        }
+    }
+
+    fn push_outer_correlation_columns(&self, columns: &mut BTreeSet<String>) {
+        self.predicate.push_outer_correlation_columns(columns);
+        self.having.push_outer_correlation_columns(columns);
     }
 
     fn has_distinct_projection(&self) -> bool {
@@ -14082,7 +14137,7 @@ impl ParsedPredicate {
                 columns
                     .iter()
                     .any(|column| is_outer_correlation_ref(column))
-                    || subquery.predicate.uses_outer_correlation()
+                    || subquery.uses_outer_correlation()
             }
             Self::Logical { left, right, .. } => {
                 left.uses_outer_correlation() || right.uses_outer_correlation()
@@ -14094,18 +14149,8 @@ impl ParsedPredicate {
             }
             | Self::QuantifiedSubquery {
                 column, subquery, ..
-            } => is_outer_correlation_ref(column) || subquery.predicate.uses_outer_correlation(),
+            } => is_outer_correlation_ref(column) || subquery.uses_outer_correlation(),
             Self::All => false,
-        }
-    }
-
-    fn outer_correlation_columns(&self) -> String {
-        let mut columns = BTreeSet::new();
-        self.push_outer_correlation_columns(&mut columns);
-        if columns.is_empty() {
-            "not_applicable".to_string()
-        } else {
-            columns.into_iter().collect::<Vec<_>>().join(",")
         }
     }
 
@@ -14118,9 +14163,15 @@ impl ParsedPredicate {
         match self {
             Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
                 subquery.predicate.push_outer_correlation_columns(columns);
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    plan.push_outer_correlation_columns(columns);
+                }
             }
             Self::RowValueInSubquery { subquery, .. } => {
                 subquery.predicate.push_outer_correlation_columns(columns);
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    plan.push_outer_correlation_columns(columns);
+                }
             }
             Self::ExistsSubquery { subquery } => {
                 subquery.predicate.push_outer_correlation_columns(columns);
@@ -16835,8 +16886,12 @@ impl ParsedPredicate {
 
     fn in_subquery_filter_runtime_execution(&self) -> bool {
         match self {
-            Self::InSubquery { subquery, .. } => !subquery.predicate.is_all(),
-            Self::RowValueInSubquery { subquery, .. } => !subquery.predicate.is_all(),
+            Self::InSubquery { subquery, .. } => {
+                !subquery.predicate.is_all() || subquery.has_projected_filter()
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                !subquery.predicate.is_all() || subquery.has_projected_filter()
+            }
             Self::Logical { left, right, .. } => {
                 left.in_subquery_filter_runtime_execution()
                     || right.in_subquery_filter_runtime_execution()
@@ -17303,7 +17358,9 @@ impl ParsedPredicate {
 
     fn quantified_subquery_filter_runtime_execution(&self) -> bool {
         match self {
-            Self::QuantifiedSubquery { subquery, .. } => !subquery.predicate.is_all(),
+            Self::QuantifiedSubquery { subquery, .. } => {
+                !subquery.predicate.is_all() || subquery.has_projected_filter()
+            }
             Self::Logical { left, right, .. } => {
                 left.quantified_subquery_filter_runtime_execution()
                     || right.quantified_subquery_filter_runtime_execution()
@@ -34316,6 +34373,226 @@ mod tests {
         assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
         assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
         assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-joined-projected-in-source.csv");
+        let candidates_path =
+            sql_local_source_test_path("correlated-joined-projected-in-candidates.csv");
+        let allowed_path = sql_local_source_test_path("correlated-joined-projected-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &candidates_path,
+            "id,min_amount\n1,5\n1,99\n2,25\n3,20\n5,1\n",
+        )
+        .expect("write candidates csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "c.id");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_row_value_in_subquery_csv_statement_without_fallback() {
+        let source_path =
+            sql_local_source_test_path("correlated-joined-projected-row-value-source.csv");
+        let candidates_path =
+            sql_local_source_test_path("correlated-joined-projected-row-value-candidates.csv");
+        let allowed_path =
+            sql_local_source_test_path("correlated-joined-projected-row-value-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &candidates_path,
+            "id,label,min_amount\n1,alpha,5\n1,alpha,99\n2,beta,25\n3,gamma,20\n5,epsilon,1\n",
+        )
+        .expect("write candidates csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT c.id,c.label FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected row-value IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "predicate_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "c.id,c.label");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_quantified_subquery_csv_statement_without_fallback() {
+        let source_path =
+            sql_local_source_test_path("correlated-joined-projected-quantified-source.csv");
+        let thresholds_path =
+            sql_local_source_test_path("correlated-joined-projected-quantified-thresholds.csv");
+        let allowed_path =
+            sql_local_source_test_path("correlated-joined-projected-quantified-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "id,threshold_id,threshold,score\n1,10,5,30\n1,20,9,20\n2,30,25,20\n3,40,20,40\n3,50,29,10\n5,60,1,50\n",
+        )
+        .expect("write thresholds csv");
+        fs::write(
+            &allowed_path,
+            "threshold_id,enabled\n10,true\n20,true\n30,true\n40,true\n50,true\n60,false\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT t.threshold FROM '{}' AS t INNER JOIN '{}' AS a ON t.threshold_id = a.threshold_id WHERE a.enabled IS TRUE AND t.id = outer.id ORDER BY t.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected quantified subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "quantified_subquery_filter_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_comparison_operator", "gt");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "t.threshold");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "3");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
