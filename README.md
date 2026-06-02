@@ -62,7 +62,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   scalar aggregates, multi-key group-by, single-key top-N, selected
   casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped decimal
   `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` casts with exact JSONL string and CSV text
-  output boundaries plus scoped same-scale decimal add/subtract/multiply projections, scoped binary casts/literals and binary equality/inequality cast predicates, scoped
+  output boundaries plus scoped mixed-scale decimal add/subtract/multiply, comparison, and exact
+  fixed-scale division projections, scoped binary casts/literals and binary equality/inequality cast predicates, scoped
   `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
   boundary, scoped
   `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
@@ -157,7 +158,7 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, LIKE/regex/string
 predicates, interval-backed temporal helper predicates, scoped `CAST`/`TRY_CAST` to
-`decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)`, scoped decimal cast-plus-arithmetic
+`decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)`, scoped mixed-scale decimal cast-plus-arithmetic
 projections, and `binary`/`blob`/`varbinary`, scoped SQL
 `BINARY`/`BLOB` byte literal evidence,
 scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, join/window,

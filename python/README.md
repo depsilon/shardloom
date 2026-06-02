@@ -745,9 +745,11 @@ equality/inequality predicates are admitted through the SQL local-source runtime
 source dtype decoding, binary ordering, and nested binary helper expressions still block before
 fallback. Scoped decimal casts are admitted for fixed-scale projection and predicate fixtures with
 exact JSONL string and CSV text output; scoped `decimal128` add/subtract/multiply projections over
-same-scale decimal operands and integer operands are admitted through the generic expression route.
-Decimal division, mixed-scale decimal arithmetic/coercion, broad ANSI decimal coercion, exponent
-notation, and typed Parquet/Arrow/Vortex decimal sink preservation still block before fallback.
+same-scale and mixed-scale decimal operands plus integer operands are admitted through the generic
+expression route, and exact division emits a bounded `decimal128(38,max(input_scales,6))` result
+when the quotient is exact at that scale. Non-exact decimal division, broad ANSI decimal coercion,
+exponent notation, and typed Parquet/Arrow/Vortex decimal sink preservation still block before
+fallback.
 Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
 bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,
 casts, nested source decoding, and flat compatibility sinks still block before fallback.

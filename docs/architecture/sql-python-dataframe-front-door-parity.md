@@ -196,8 +196,10 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
   materialization evidence, source-qualified selected/filter/order refs are reachable through
   `source_alias=` plus `sl.col("alias.column")`, and scoped correlated source-subquery filters are
-  reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;
-  arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
+  reachable through the `sl.outer(...)` helper over the admitted local-source subquery families.
+  Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
+  division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
+  helpers; arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

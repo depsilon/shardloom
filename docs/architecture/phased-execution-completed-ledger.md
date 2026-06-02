@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL decimal mixed-scale and exact division promotion
+  - Date: 2026-06-02
+  - Branch/PR: `codex/decimal-mixed-scale-division` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - User direction that SQL/Python/DataFrame routes should minimize unsupported shapes and use the
+      real ShardLoom runtime rather than artificial helper paths.
+  - Scope:
+    - Promoted scoped mixed-scale `decimal128` add/subtract/multiply arithmetic over decimal and
+      integer operands through ShardLoom-owned expression semantics.
+    - Added exact fixed-scale decimal division with output dtype
+      `decimal128(38,max(input_scales,6))`, deterministic non-exact quotient blockers, division by
+      zero diagnostics, and intermediate-overflow protection.
+    - Promoted mixed-scale decimal/integer comparisons while keeping decimal/float comparison
+      unsupported with a comparison-specific diagnostic namespace.
+    - Adjusted SQL local-source predicate parsing so generic `CAST(...)` arithmetic predicates route
+      to the admitted expression predicate path while malformed simple cast predicates still fail
+      deterministically.
+    - Updated SQL smoke coverage, Python/DataFrame query-builder coverage, admitted-semantics
+      fixtures, README/Python README language, hard-gate docs, and phase/front-door parity docs.
+    - Disabled incremental cargo builds inside the admitted-semantics validator to avoid local Mac
+      incremental-cache ICEs from masking validator evidence.
+  - Evidence:
+    - `cargo fmt --all` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-core decimal128` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallback` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_decimal_arithmetic_invokes_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-report.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 402 tests and
+      2 skipped.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 scripts/final_release_rehearsal.py --allow-blocked` passed.
+    - `python3 scripts/check_release_readiness.py` remained blocked by expected open release gates:
+      package-channel evidence, architecture checklist items, stale benchmark artifact SHA on a
+      dirty worktree, and required release evidence attachments.
+  - Claim boundary:
+    - This closes only the scoped decimal mixed-scale arithmetic/comparison and exact fixed-scale
+      division slice inside `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`. It may claim these
+      decimal shapes execute through the real local SQL/Python/DataFrame ShardLoom route with
+      no-fallback evidence. It does not authorize broad ANSI decimal coercion, exponent notation,
+      decimal/float comparison, non-exact decimal division, typed decimal preservation in
+      Parquet/Arrow/Vortex sinks, production use, performance claims, package release, or Spark
+      replacement.
+  - Fallback boundary:
+    - The implementation stays inside ShardLoom expression evaluation, SQL local-source parsing, and
+      Python/DataFrame lowering. It adds no Spark/DataFusion/DuckDB/Polars/Velox runtime fallback,
+      no external-engine residual evaluation, and no Vortex query-engine integration.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D runtime gap family burn-down map
   - Date: 2026-06-02
   - Branch/PR: `codex/runtime-gap-family-burn-down` / pending PR.

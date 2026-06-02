@@ -31451,6 +31451,12 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
     let target_dtype = parse_cast_target_dtype(target_raw)?;
 
     let tokens = split_whitespace_outside_quotes(tail)?;
+    if tokens
+        .first()
+        .is_some_and(|token| parse_numeric_arithmetic_op(token).is_some())
+    {
+        return Ok(None);
+    }
     let (op, value) = parse_cast_predicate_literal(&target_dtype, tokens.as_slice())?;
     Ok(Some(ParsedPredicate::CastCompare {
         column: column.to_string(),
