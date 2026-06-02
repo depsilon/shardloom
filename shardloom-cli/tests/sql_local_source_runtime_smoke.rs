@@ -4481,6 +4481,35 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
         "csv_uncompressed_text_terminal_encoder"
     )));
     assert!(stdout.contains(&field("output_plan_replay_depth", "write_digest_replay")));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_status",
+        "advisory_only_compatibility_targets"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_selected_strategy",
+        "advisory_only_no_runtime_write_knob_applied"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_runtime_decision_applied",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_target_strategies",
+        "csv_streaming_text_chunk_advisory"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_blocker",
+        "compatibility_targets_advisory_only_no_writer_knob_applied"
+    )));
+    assert!(
+        stdout.contains(
+            "\"output_layout_write_advisor_strategy_decision_digest\",\"value\":\"fnv64:"
+        )
+    );
+    assert!(stdout.contains(
+        "csv:column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"
+    ));
+    assert!(stdout.contains("csv:static_types_nullability_and_vortex_layout_metadata_lost"));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains(&field(
         "output_replay_status",
@@ -5008,6 +5037,30 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
     assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
     assert!(stdout.contains(&field("vortex_output_row_count", "2")));
     assert!(stdout.contains(&field("vortex_output_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_status",
+        "applied_local_vortex_layout_write_strategy"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_selected_strategy",
+        "vortex:single_local_vortex_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_runtime_decision_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_target_strategies",
+        "vortex_single_local_artifact_writer_default_stats_reopen"
+    )));
+    assert!(stdout.contains(&field("output_layout_write_advisor_blocker", "none")));
+    assert!(stdout.contains(
+        "\"output_layout_write_advisor_strategy_decision_digest\",\"value\":\"vortex:fnv64:"
+    ));
+    assert!(stdout.contains(
+        "vortex:schema=preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
+    ));
+    assert!(stdout.contains("vortex:none_for_scoped_flat_scalar_vortex_output"));
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
@@ -5106,6 +5159,24 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     assert!(stdout.contains(&field("vortex_output_count", "1")));
     assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
     assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_status",
+        "applied_local_vortex_layout_write_strategy"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_selected_strategy",
+        "vortex:single_local_vortex_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "output_layout_write_advisor_runtime_decision_applied",
+        "true"
+    )));
+    assert!(stdout.contains(
+        "csv:csv_streaming_text_chunk_advisory,vortex:vortex_single_local_artifact_writer_default_stats_reopen"
+    ));
+    assert!(stdout.contains(
+        "csv:static_types_nullability_and_vortex_layout_metadata_lost,vortex:none_for_scoped_flat_scalar_vortex_output"
+    ));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains("csv:verified_local_file_digest"));
     assert!(stdout.contains("vortex:verified_vortex_reopen_row_count"));

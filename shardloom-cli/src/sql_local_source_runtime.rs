@@ -65,6 +65,9 @@ const OUTPUT_CAPILLARY_ACTIVATION_POLICY: &str = "dynamic_output_size_fanout_gat
 const OUTPUT_CAPILLARY_ACTIVATION_THRESHOLD_BYTES: u64 = 16 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES: u64 = 64 * 1024 * 1024;
 const OUTPUT_CAPILLARY_MAX_PARALLELISM: usize = 4;
+const OUTPUT_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
+    "shardloom.output_layout_write_advisor.local_sink.v1";
+const OUTPUT_LAYOUT_WRITE_ADVISOR_POLICY: &str = "format_aware_output_sink_advisor.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LocalSourceReadPlan {
@@ -287,6 +290,42 @@ impl SqlOutputPlanRequirements {
         )
     }
 
+    fn layout_write_target_strategies(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.format.output_layout_write_strategy().to_string(),
+            |format| format.output_layout_write_strategy().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn layout_write_selected_strategy(&self) -> String {
+        self.labeled_or_inline(
+            |sink| {
+                sink.format
+                    .output_selected_layout_write_strategy()
+                    .to_string()
+            },
+            |format| format.output_selected_layout_write_strategy().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn metadata_preservation_map(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.format.output_metadata_preservation_map().to_string(),
+            |format| format.output_metadata_preservation_map().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn metadata_loss(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.format.output_metadata_loss().to_string(),
+            |format| format.output_metadata_loss().to_string(),
+            "not_requested",
+        )
+    }
+
     fn labeled(&self, value: impl Fn(&SqlOutputPlanSinkRequirement) -> String) -> String {
         if self.sinks.is_empty() {
             return "not_applicable_inline_result".to_string();
@@ -379,11 +418,146 @@ struct SqlOutputWriteEvidence<'a> {
 
 struct SqlOutputWriteOutcome {
     fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_layout_write_advisor: SqlOutputLayoutWriteAdvisorReport,
     output_capillary: SqlOutputCapillaryReport,
     written_outputs: Vec<SqlWrittenOutput>,
     output_write_millis: u128,
     output_digest: String,
     output_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputLayoutWriteAdvisorReport {
+    schema_version: &'static str,
+    policy: &'static str,
+    status: String,
+    selected_strategy: String,
+    runtime_decision_applied: bool,
+    target_strategies: String,
+    blocker: String,
+    strategy_decision_digest: String,
+    metadata_preservation_map: String,
+    metadata_loss: String,
+    vortex_writer_advisor: Option<shardloom_vortex::VortexLayoutWriteAdvisorReport>,
+}
+
+impl SqlOutputLayoutWriteAdvisorReport {
+    fn not_requested(status: &'static str, blocker: &'static str) -> Self {
+        Self {
+            schema_version: OUTPUT_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
+            policy: OUTPUT_LAYOUT_WRITE_ADVISOR_POLICY,
+            status: status.to_string(),
+            selected_strategy: "none".to_string(),
+            runtime_decision_applied: false,
+            target_strategies: "none".to_string(),
+            blocker: blocker.to_string(),
+            strategy_decision_digest: fnv64_digest(&format!(
+                "output-layout-write-advisor|{status}|{blocker}"
+            )),
+            metadata_preservation_map: "not_applicable_inline_result".to_string(),
+            metadata_loss: "not_applicable_inline_result".to_string(),
+            vortex_writer_advisor: None,
+        }
+    }
+
+    fn with_post_write_evidence(mut self, written_outputs: &[SqlWrittenOutput]) -> Self {
+        if written_outputs.is_empty() {
+            return self;
+        }
+        self.metadata_preservation_map =
+            output_metadata_preservation_map_for_written_outputs(written_outputs);
+        self.metadata_loss = output_metadata_loss_for_written_outputs(written_outputs);
+
+        let vortex_decisions = written_outputs
+            .iter()
+            .filter_map(|output| {
+                output
+                    .vortex_report
+                    .as_ref()
+                    .map(|report| &report.layout_write_decision)
+            })
+            .collect::<Vec<_>>();
+        if vortex_decisions.is_empty() {
+            self.status = "advisory_only_compatibility_targets".to_string();
+            self.runtime_decision_applied = false;
+            self.blocker = "compatibility_targets_advisory_only_no_writer_knob_applied".to_string();
+            self.strategy_decision_digest = fnv64_digest(&format!(
+                "output-layout-write-advisor|{}|{}|{}",
+                self.status, self.selected_strategy, self.metadata_preservation_map
+            ));
+            return self;
+        }
+
+        let all_applied = vortex_decisions
+            .iter()
+            .all(|decision| decision.runtime_decision_applied && decision.blocker == "none");
+        self.runtime_decision_applied = all_applied;
+        self.status = if all_applied {
+            "applied_local_vortex_layout_write_strategy".to_string()
+        } else {
+            "blocked_local_vortex_layout_write_strategy".to_string()
+        };
+        self.blocker = if all_applied {
+            "none".to_string()
+        } else {
+            csv_or_not_applicable(
+                vortex_decisions
+                    .iter()
+                    .map(|decision| format!("vortex:{}", decision.blocker.replace(',', ";"))),
+            )
+        };
+        self.selected_strategy = csv_or_not_applicable(
+            vortex_decisions
+                .iter()
+                .map(|decision| format!("vortex:{}", decision.selected_strategy)),
+        );
+        self.strategy_decision_digest = csv_or_not_applicable(
+            vortex_decisions
+                .iter()
+                .map(|decision| format!("vortex:{}", decision.strategy_decision_digest)),
+        );
+        self
+    }
+
+    fn fields(&self) -> [(&'static str, String); 10] {
+        [
+            (
+                "output_layout_write_advisor_schema_version",
+                self.schema_version.to_string(),
+            ),
+            (
+                "output_layout_write_advisor_policy",
+                self.policy.to_string(),
+            ),
+            ("output_layout_write_advisor_status", self.status.clone()),
+            (
+                "output_layout_write_advisor_selected_strategy",
+                self.selected_strategy.clone(),
+            ),
+            (
+                "output_layout_write_advisor_runtime_decision_applied",
+                self.runtime_decision_applied.to_string(),
+            ),
+            (
+                "output_layout_write_advisor_target_strategies",
+                self.target_strategies.clone(),
+            ),
+            ("output_layout_write_advisor_blocker", self.blocker.clone()),
+            (
+                "output_layout_write_advisor_strategy_decision_digest",
+                self.strategy_decision_digest.clone(),
+            ),
+            (
+                "output_metadata_preservation_map",
+                self.metadata_preservation_map.clone(),
+            ),
+            ("output_metadata_loss", self.metadata_loss.clone()),
+        ]
+    }
+
+    fn vortex_writer_advisor(&self) -> Option<&shardloom_vortex::VortexLayoutWriteAdvisorReport> {
+        self.vortex_writer_advisor.as_ref()
+    }
 }
 
 struct SqlOutputCapillaryEvidence<'a> {
@@ -1007,6 +1181,58 @@ impl SqlLocalSourceOutputFormat {
             | Self::ArrowIpc
             | Self::Avro
             | Self::Orc => "write_digest_replay",
+        }
+    }
+
+    const fn output_layout_write_strategy(self) -> &'static str {
+        match self {
+            Self::Vortex => "vortex_single_local_artifact_writer_default_stats_reopen",
+            Self::Parquet => "parquet_provider_default_row_group_dictionary_statistics_advisory",
+            Self::ArrowIpc => "arrow_ipc_provider_default_batch_dictionary_advisory",
+            Self::Avro => "avro_provider_default_block_codec_advisory",
+            Self::Orc => "orc_provider_default_stripe_index_advisory",
+            Self::Csv => "csv_streaming_text_chunk_advisory",
+            Self::InlineJsonl => "jsonl_streaming_text_chunk_advisory",
+        }
+    }
+
+    const fn output_selected_layout_write_strategy(self) -> &'static str {
+        match self {
+            Self::Vortex => "single_local_vortex_artifact",
+            Self::Parquet
+            | Self::ArrowIpc
+            | Self::Avro
+            | Self::Orc
+            | Self::Csv
+            | Self::InlineJsonl => "advisory_only_no_runtime_write_knob_applied",
+        }
+    }
+
+    const fn output_metadata_preservation_map(self) -> &'static str {
+        match self {
+            Self::Vortex => {
+                "schema=preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
+            }
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "schema=flat_scalar_preserved,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
+            }
+            Self::Csv => {
+                "column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"
+            }
+            Self::InlineJsonl => {
+                "field_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=logical_json_boundary"
+            }
+        }
+    }
+
+    const fn output_metadata_loss(self) -> &'static str {
+        match self {
+            Self::Vortex => "none_for_scoped_flat_scalar_vortex_output",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "vortex_layout_encoding_statistics_intent_not_claimed"
+            }
+            Self::Csv => "static_types_nullability_and_vortex_layout_metadata_lost",
+            Self::InlineJsonl => "static_types_and_vortex_layout_metadata_not_fully_preserved",
         }
     }
 
@@ -2979,6 +3205,7 @@ struct SqlLocalSourceReport {
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
     fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_layout_write_advisor: SqlOutputLayoutWriteAdvisorReport,
     output_capillary: SqlOutputCapillaryReport,
     result_jsonl: String,
     plan_digest: String,
@@ -3091,6 +3318,7 @@ struct SqlLocalSourceUnionReport {
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
     fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_layout_write_advisor: SqlOutputLayoutWriteAdvisorReport,
     output_capillary: SqlOutputCapillaryReport,
     result_jsonl: String,
     plan_digest: String,
@@ -7404,6 +7632,7 @@ fn run_sql_local_source_smoke_single(
     );
     let SqlOutputWriteOutcome {
         fanout_conversion_dag,
+        output_layout_write_advisor,
         output_capillary,
         written_outputs,
         output_write_millis,
@@ -7428,6 +7657,7 @@ fn run_sql_local_source_smoke_single(
         result_batch_state,
         output_plan,
         fanout_conversion_dag,
+        output_layout_write_advisor,
         output_capillary,
         result_jsonl,
         plan_digest,
@@ -7484,20 +7714,7 @@ fn run_sql_local_source_union_smoke(
 ) -> Result<SqlLocalSourceUnionReport, ShardLoomError> {
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_union_statement(&request.statement)?;
-    let branch_reports = parsed
-        .branch_statements
-        .iter()
-        .map(|statement| {
-            let branch_request = SqlLocalSourceRequest {
-                statement: statement.clone(),
-                output_format: SqlLocalSourceOutputFormat::InlineJsonl,
-                output_path: None,
-                fanout_outputs: Vec::new(),
-                allow_overwrite: false,
-            };
-            run_sql_local_source_smoke_single(&branch_request)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let branch_reports = run_sql_union_branch_reports(&parsed)?;
     validate_sql_union_branch_boundaries(&branch_reports)?;
 
     let compute_start = Instant::now();
@@ -7555,6 +7772,7 @@ fn run_sql_local_source_union_smoke(
     );
     let SqlOutputWriteOutcome {
         fanout_conversion_dag,
+        output_layout_write_advisor,
         output_capillary,
         written_outputs,
         output_write_millis,
@@ -7570,6 +7788,7 @@ fn run_sql_local_source_union_smoke(
         result_batch_state,
         output_plan,
         fanout_conversion_dag,
+        output_layout_write_advisor,
         output_capillary,
         result_jsonl,
         plan_digest,
@@ -7585,6 +7804,25 @@ fn run_sql_local_source_union_smoke(
         union_input_row_count,
         union_distinct_input_row_count,
     })
+}
+
+fn run_sql_union_branch_reports(
+    parsed: &ParsedSqlLocalSourceUnion,
+) -> Result<Vec<SqlLocalSourceReport>, ShardLoomError> {
+    parsed
+        .branch_statements
+        .iter()
+        .map(|statement| {
+            let branch_request = SqlLocalSourceRequest {
+                statement: statement.clone(),
+                output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+                output_path: None,
+                fanout_outputs: Vec::new(),
+                allow_overwrite: false,
+            };
+            run_sql_local_source_smoke_single(&branch_request)
+        })
+        .collect()
 }
 
 fn validate_sql_union_branch_boundaries(
@@ -12196,6 +12434,13 @@ fn execute_sql_output_writes(
     evidence: &SqlOutputWriteEvidence<'_>,
 ) -> Result<SqlOutputWriteOutcome, ShardLoomError> {
     preflight_sql_output_writes(request)?;
+    let output_layout_write_advisor = plan_sql_output_layout_write_advisor_prewrite(
+        output_plan,
+        batch,
+        evidence.result_digest,
+        evidence.plan_digest,
+        evidence.source_schema_digest,
+    );
     let prepared_output_dag = prepare_sql_outputs(output_plan, batch)?;
     let fanout_conversion_dag = prepared_output_dag.evidence.clone();
     let mut output_capillary = plan_sql_output_capillary_prewrite(
@@ -12211,7 +12456,10 @@ fn execute_sql_output_writes(
         prepared_output_dag.rendered_outputs,
         request.allow_overwrite,
         output_capillary.write_window_size(output_plan.sinks.len()),
+        &output_layout_write_advisor,
     )?;
+    let output_layout_write_advisor =
+        output_layout_write_advisor.with_post_write_evidence(&written_outputs);
     output_capillary = output_capillary.with_post_write_evidence(&written_outputs);
     let output_write_millis = written_outputs
         .iter()
@@ -12225,6 +12473,7 @@ fn execute_sql_output_writes(
     );
     Ok(SqlOutputWriteOutcome {
         fanout_conversion_dag,
+        output_layout_write_advisor,
         output_capillary,
         written_outputs,
         output_write_millis,
@@ -12308,6 +12557,99 @@ fn prepare_sql_output_from_shared(
         payload,
         conversion_millis: conversion_start.elapsed().as_millis(),
     })
+}
+
+fn plan_sql_output_layout_write_advisor_prewrite(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    result_digest: &str,
+    plan_digest: &str,
+    source_schema_digest: &str,
+) -> SqlOutputLayoutWriteAdvisorReport {
+    if output_plan.sinks.is_empty() {
+        return SqlOutputLayoutWriteAdvisorReport::not_requested(
+            "not_requested_inline_result",
+            "inline_result_has_no_sink_layout_write",
+        );
+    }
+
+    let target_strategies = output_plan.layout_write_target_strategies();
+    let selected_strategy = output_plan.layout_write_selected_strategy();
+    let metadata_preservation_map = output_plan.metadata_preservation_map();
+    let metadata_loss = output_plan.metadata_loss();
+    let has_vortex_sink = output_plan
+        .sinks
+        .iter()
+        .any(|sink| matches!(sink.format, SqlLocalSourceOutputFormat::Vortex));
+    let status = if has_vortex_sink {
+        "pending_local_vortex_writer_decision"
+    } else {
+        "advisory_only_compatibility_targets"
+    };
+    let blocker = if has_vortex_sink {
+        "pending_vortex_writer_runtime_decision"
+    } else {
+        "compatibility_targets_advisory_only_no_writer_knob_applied"
+    };
+    let vortex_writer_advisor = has_vortex_sink.then(|| {
+        shardloom_vortex::evaluate_vortex_layout_write_advisor(
+            shardloom_vortex::VortexLayoutWriteAdvisorInput {
+                source_state_id: format!("result-batch://{}", batch.digest),
+                source_state_digest: batch.digest.clone(),
+                source_format: "result_batch_state".to_string(),
+                source_schema_digest: source_schema_digest.to_string(),
+                row_count: u64::try_from(batch.row_count).unwrap_or(u64::MAX),
+                source_byte_count: estimated_result_batch_bytes(batch),
+                column_count: batch.column_count(),
+                workload_constitution: "sql_local_source_result_sink".to_string(),
+                source_statistics_status: "result_batch_row_count_column_count_available"
+                    .to_string(),
+                requested_pushdown_requirements: "not_applicable_output_sink".to_string(),
+                sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
+                layout_strategy: "single_local_vortex_artifact".to_string(),
+                chunking_strategy: "writer_default_chunking_no_performance_claim".to_string(),
+                segmentation_strategy: "single_segment_local_fixture".to_string(),
+                dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
+                statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+                writer_provider_kind: "shardloom_kernel".to_string(),
+                writer_provider_surface:
+                    "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
+                        .to_string(),
+                writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+                write_reopen_verification_depth: "write_digest_reopen_row_count".to_string(),
+                materialization_boundary_status:
+                    "result_batch_state_materialized_before_vortex_output_write".to_string(),
+                decode_boundary_status: "no_additional_decode_after_result_batch_state"
+                    .to_string(),
+                expected_read_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
+                expected_write_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
+                strategy_admitted: true,
+                unsupported_diagnostic_code: "none".to_string(),
+                correctness_refs: format!(
+                    "result_digest={result_digest},writer_row_count,reopen_row_count,artifact_digest"
+                ),
+                benchmark_refs: "not_claim_grade_benchmark_refresh_deferred".to_string(),
+                fallback_attempted: false,
+                external_engine_invoked: false,
+            },
+        )
+    });
+    SqlOutputLayoutWriteAdvisorReport {
+        schema_version: OUTPUT_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
+        policy: OUTPUT_LAYOUT_WRITE_ADVISOR_POLICY,
+        status: status.to_string(),
+        selected_strategy,
+        runtime_decision_applied: false,
+        target_strategies,
+        blocker: blocker.to_string(),
+        strategy_decision_digest: fnv64_digest(&format!(
+            "output-layout-write-advisor|{plan_digest}|{source_schema_digest}|{}|{}|{}",
+            batch.digest, status, metadata_preservation_map
+        )),
+        metadata_preservation_map,
+        metadata_loss,
+        vortex_writer_advisor,
+    }
 }
 
 fn plan_sql_output_capillary_prewrite(
@@ -12650,6 +12992,36 @@ fn estimated_sql_output_bytes(
     rendered_bytes.max(row_column_bytes).max(1)
 }
 
+fn estimated_result_batch_bytes(batch: &SqlResultBatchState) -> u64 {
+    u64::try_from(batch.row_count)
+        .unwrap_or(u64::MAX)
+        .saturating_mul(u64::try_from(batch.column_count()).unwrap_or(u64::MAX))
+        .saturating_mul(32)
+        .max(1)
+}
+
+fn output_metadata_preservation_map_for_written_outputs(
+    written_outputs: &[SqlWrittenOutput],
+) -> String {
+    csv_or_not_applicable(written_outputs.iter().map(|output| {
+        format!(
+            "{}:{}",
+            output.format.sink_format(),
+            output.format.output_metadata_preservation_map()
+        )
+    }))
+}
+
+fn output_metadata_loss_for_written_outputs(written_outputs: &[SqlWrittenOutput]) -> String {
+    csv_or_not_applicable(written_outputs.iter().map(|output| {
+        format!(
+            "{}:{}",
+            output.format.sink_format(),
+            output.format.output_metadata_loss()
+        )
+    }))
+}
+
 fn validate_shared_fanout_materialization(
     output_plan: &SqlOutputPlanRequirements,
     batch: &SqlResultBatchState,
@@ -12778,6 +13150,7 @@ fn write_sql_outputs(
     rendered_outputs: Vec<SqlRenderedOutput>,
     allow_overwrite: bool,
     capillary_window_size: usize,
+    output_layout_write_advisor: &SqlOutputLayoutWriteAdvisorReport,
 ) -> Result<Vec<SqlWrittenOutput>, ShardLoomError> {
     let mut written_outputs = Vec::with_capacity(rendered_outputs.len());
     let mut window = Vec::with_capacity(capillary_window_size.max(1));
@@ -12785,12 +13158,20 @@ fn write_sql_outputs(
         window.push(rendered);
         if window.len() == capillary_window_size.max(1) {
             for rendered in window.drain(..) {
-                written_outputs.push(write_sql_output(rendered, allow_overwrite)?);
+                written_outputs.push(write_sql_output(
+                    rendered,
+                    allow_overwrite,
+                    output_layout_write_advisor,
+                )?);
             }
         }
     }
     for rendered in window {
-        written_outputs.push(write_sql_output(rendered, allow_overwrite)?);
+        written_outputs.push(write_sql_output(
+            rendered,
+            allow_overwrite,
+            output_layout_write_advisor,
+        )?);
     }
     Ok(written_outputs)
 }
@@ -12798,6 +13179,7 @@ fn write_sql_outputs(
 fn write_sql_output(
     rendered: SqlRenderedOutput,
     allow_overwrite: bool,
+    output_layout_write_advisor: &SqlOutputLayoutWriteAdvisorReport,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     match rendered.payload {
         SqlOutputPayload::Bytes {
@@ -12835,6 +13217,7 @@ fn write_sql_output(
             rows,
             rendered.conversion_millis,
             allow_overwrite,
+            output_layout_write_advisor,
         ),
     }
 }
@@ -12846,11 +13229,15 @@ fn write_sql_vortex_output(
     rows: SqlOutputRows,
     plan_conversion_millis: u128,
     allow_overwrite: bool,
+    output_layout_write_advisor: &SqlOutputLayoutWriteAdvisorReport,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     let conversion_start = Instant::now();
     let conversion_millis = plan_conversion_millis + conversion_start.elapsed().as_millis();
-    let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
+    let mut request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
         .allow_overwrite(allow_overwrite);
+    if let Some(advisor) = output_layout_write_advisor.vortex_writer_advisor() {
+        request = request.layout_write_advisor(advisor.clone());
+    }
     let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
     let write_millis = report.write_micros / 1_000;
     let replay = replay_sql_vortex_output(format, &report);
@@ -22574,6 +22961,12 @@ impl SqlLocalSourceUnionReport {
             ),
         ];
         fields.extend(
+            self.output_layout_write_advisor
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value)),
+        );
+        fields.extend(
             self.output_capillary
                 .fields()
                 .into_iter()
@@ -22918,7 +23311,7 @@ impl SqlLocalSourceUnionReport {
             )
         }));
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}",
+            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}|layout_strategy={}|metadata_map={}|metadata_loss={}",
             self.output_plan_id(),
             self.source_schema_digest,
             self.plan_digest,
@@ -22927,7 +23320,10 @@ impl SqlLocalSourceUnionReport {
             self.output_plan.required_columns(),
             self.output_plan.statistics_required(),
             self.output_plan.text_materialization_boundary(),
-            self.output_plan.conversion_blocker()
+            self.output_plan.conversion_blocker(),
+            self.output_plan.layout_write_selected_strategy(),
+            self.output_plan.metadata_preservation_map(),
+            self.output_plan.metadata_loss()
         ))
     }
 
@@ -25332,6 +25728,12 @@ impl SqlLocalSourceReport {
             ),
         ];
         fields.extend(
+            self.output_layout_write_advisor
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value)),
+        );
+        fields.extend(
             self.output_capillary
                 .fields()
                 .into_iter()
@@ -25922,7 +26324,7 @@ impl SqlLocalSourceReport {
             )
         }));
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}",
+            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}|layout_strategy={}|metadata_map={}|metadata_loss={}",
             self.output_plan_id(),
             self.source_schema_digest,
             self.plan_digest,
@@ -25931,7 +26333,10 @@ impl SqlLocalSourceReport {
             self.output_plan.required_columns(),
             self.output_plan.statistics_required(),
             self.output_plan.text_materialization_boundary(),
-            self.output_plan.conversion_blocker()
+            self.output_plan.conversion_blocker(),
+            self.output_plan.layout_write_selected_strategy(),
+            self.output_plan.metadata_preservation_map(),
+            self.output_plan.metadata_loss()
         ))
     }
 

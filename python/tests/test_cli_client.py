@@ -3878,6 +3878,11 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "output_plan_dictionary_required", "value": "jsonl:not_applicable_text_sink,csv:not_applicable_text_sink"}},
                             {{"key": "output_plan_compression_encoding_posture", "value": "jsonl:jsonl_uncompressed_text_terminal_encoder,csv:csv_uncompressed_text_terminal_encoder"}},
                             {{"key": "output_plan_replay_depth", "value": "jsonl:write_digest_replay,csv:write_digest_replay"}},
+                            {{"key": "output_layout_write_advisor_status", "value": "advisory_only_compatibility_targets"}},
+                            {{"key": "output_layout_write_advisor_selected_strategy", "value": "jsonl:advisory_only_no_runtime_write_knob_applied,csv:advisory_only_no_runtime_write_knob_applied"}},
+                            {{"key": "output_layout_write_advisor_runtime_decision_applied", "value": "false"}},
+                            {{"key": "output_metadata_preservation_map", "value": "jsonl:field_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=logical_json_boundary,csv:column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"}},
+                            {{"key": "output_metadata_loss", "value": "jsonl:static_types_and_vortex_layout_metadata_not_fully_preserved,csv:static_types_nullability_and_vortex_layout_metadata_lost"}},
                             {{"key": "fanout_conversion_dag_status", "value": "shared_fanout_conversion_dag_applied"}},
                             {{"key": "fanout_shared_stage_count", "value": "3"}},
                             {{"key": "fanout_terminal_sink_count", "value": "2"}},
@@ -3978,6 +3983,23 @@ class ShardLoomClientTests(unittest.TestCase):
                 "jsonl:write_digest_replay,csv:write_digest_replay",
             )
             self.assertEqual(
+                second.output_layout_write_advisor_status,
+                "advisory_only_compatibility_targets",
+            )
+            self.assertEqual(
+                second.output_layout_write_advisor_selected_strategy,
+                "jsonl:advisory_only_no_runtime_write_knob_applied,csv:advisory_only_no_runtime_write_knob_applied",
+            )
+            self.assertFalse(second.output_layout_write_advisor_runtime_decision_applied)
+            self.assertIn(
+                "jsonl:field_names=preserved",
+                second.output_metadata_preservation_map,
+            )
+            self.assertIn(
+                "csv:static_types_nullability_and_vortex_layout_metadata_lost",
+                second.output_metadata_loss,
+            )
+            self.assertEqual(
                 second.fanout_conversion_dag_status,
                 "shared_fanout_conversion_dag_applied",
             )
@@ -4037,6 +4059,21 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(
                 third_evidence["output_plan_conversion_blocker"],
                 "jsonl:none,csv:none",
+            )
+            self.assertEqual(
+                third_evidence["output_layout_write_advisor_status"],
+                "advisory_only_compatibility_targets",
+            )
+            self.assertFalse(
+                third_evidence["output_layout_write_advisor_runtime_decision_applied"]
+            )
+            self.assertIn(
+                "csv:column_names=preserved",
+                third_evidence["output_metadata_preservation_map"],
+            )
+            self.assertIn(
+                "jsonl:static_types_and_vortex_layout_metadata_not_fully_preserved",
+                third_evidence["output_metadata_loss"],
             )
             self.assertEqual(
                 third_evidence["fanout_conversion_dag_status"],

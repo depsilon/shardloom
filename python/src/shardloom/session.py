@@ -426,6 +426,36 @@ class SessionSqlResult:
         return self.report.output_plan_replay_depth
 
     @property
+    def output_layout_write_advisor_status(self) -> str | None:
+        """Return output layout/write advisor status."""
+
+        return self.report.output_layout_write_advisor_status
+
+    @property
+    def output_layout_write_advisor_selected_strategy(self) -> str | None:
+        """Return the selected output layout/write advisor strategy."""
+
+        return self.report.output_layout_write_advisor_selected_strategy
+
+    @property
+    def output_layout_write_advisor_runtime_decision_applied(self) -> bool:
+        """Whether the output layout/write advisor applied a runtime writer decision."""
+
+        return self.report.output_layout_write_advisor_runtime_decision_applied
+
+    @property
+    def output_metadata_preservation_map(self) -> str | None:
+        """Return per-sink metadata preservation accounting."""
+
+        return self.report.output_metadata_preservation_map
+
+    @property
+    def output_metadata_loss(self) -> str | None:
+        """Return per-sink metadata loss accounting."""
+
+        return self.report.output_metadata_loss
+
+    @property
     def fanout_conversion_dag_status(self) -> str | None:
         """Return the shared fanout conversion DAG status."""
 
@@ -621,6 +651,17 @@ class SessionSqlResult:
                 self.output_plan_compression_encoding_posture
             ),
             "output_plan_replay_depth": self.output_plan_replay_depth,
+            "output_layout_write_advisor_status": (
+                self.output_layout_write_advisor_status
+            ),
+            "output_layout_write_advisor_selected_strategy": (
+                self.output_layout_write_advisor_selected_strategy
+            ),
+            "output_layout_write_advisor_runtime_decision_applied": (
+                self.output_layout_write_advisor_runtime_decision_applied
+            ),
+            "output_metadata_preservation_map": self.output_metadata_preservation_map,
+            "output_metadata_loss": self.output_metadata_loss,
             "fanout_conversion_dag_status": self.fanout_conversion_dag_status,
             "fanout_shared_stage_count": self.fanout_shared_stage_count,
             "fanout_terminal_sink_count": self.fanout_terminal_sink_count,

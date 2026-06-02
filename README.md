@@ -81,7 +81,8 @@ Current runtime support is intentionally scoped and evidence-gated:
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
   feature-gated local Vortex sinks with ResultBatchState, sink-driven OutputPlan
   materialization/blocker evidence, shared fanout conversion DAG evidence, thresholded output
-  capillary scheduling evidence, and local replay/fidelity evidence;
+  capillary scheduling evidence, output layout/write advisor evidence, metadata preservation/loss
+  evidence, and local replay/fidelity evidence;
 - fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
   reads, and local-emulator read/write smokes with credential, network, and provider probes
   disabled;
@@ -183,7 +184,10 @@ remain aliases for code that wants them. A caller writes to a requested sink and
 manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, certificates, and
 no-fallback evidence internally. OutputPlan evidence declares requested sink columns,
 materialization/text boundaries, statistics needs, replay depth, and deterministic conversion
-blockers before terminal conversion begins.
+blockers before terminal conversion begins. Output layout/write advisor evidence records concrete
+states such as `applied_local_vortex_layout_write_strategy`,
+`advisory_only_compatibility_targets`, and `pending_local_vortex_writer_decision`; compatibility
+outputs report metadata loss instead of silently implying Vortex-equivalent fidelity.
 
 When a single local source should be prepared and reused before later work, the lazy source can enter
 the same `vortex-ingest-smoke` runtime path without dropping to the low-level client:
@@ -370,6 +374,12 @@ Public rows should be read through these fields before comparing numbers:
   `output_memory_pressure_status`, and `pulseweave_output_policy_applied`, so readers can
   distinguish a below-threshold local output from an admitted bounded output conversion/write/replay
   window. These fields are runtime evidence, not a performance claim.
+- Output/fanout rows expose output layout/write advisor fields with
+  `output_layout_write_advisor_status`, `output_layout_write_advisor_selected_strategy`,
+  `output_layout_write_advisor_runtime_decision_applied`, `output_metadata_preservation_map`, and
+  `output_metadata_loss`. Scoped local Vortex output can apply an admitted single-artifact writer
+  strategy; CSV/JSONL and feature-gated compatibility exports remain advisory and report any
+  metadata loss explicitly.
 
 The route labels to expect are `ShardLoom Cold Certified Route`,
 `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,

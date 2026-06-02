@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor
+  - Date: 2026-06-02
+  - Branch/PR: `codex/output-layout-write-advisor` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor`.
+    - Vortex-native output, translation-layer, and streaming/sink-driven output skills.
+    - User direction that ShardLoom output rows must use real ShardLoom runtime routes, keep
+      Vortex as the highest-fidelity output target, and make runtime readiness, metadata loss, and
+      no-fallback boundaries explicit before benchmark reruns or release claims.
+  - Scope:
+    - Added `SqlOutputLayoutWriteAdvisorReport` for scoped local SQL/Python output and fanout
+      routes, with `output_layout_write_advisor_status`,
+      `output_layout_write_advisor_selected_strategy`,
+      `output_layout_write_advisor_runtime_decision_applied`,
+      `output_metadata_preservation_map`, `output_metadata_loss`, target-strategy, blocker, and
+      strategy-digest evidence fields.
+    - Wired the local Vortex sink path through the real `shardloom-vortex` layout/write advisor
+      report and writer request, so the scoped single-artifact local Vortex strategy is applied
+      only when provider kind/surface, sink, admission policy, write/reopen evidence, and
+      certificate posture match.
+    - Kept CSV/JSONL and feature-gated Parquet/Arrow IPC/Avro/ORC compatibility outputs advisory:
+      they report target-specific strategy posture and metadata preservation/loss, but do not claim
+      ShardLoom-owned runtime writer knobs or Vortex-equivalent fidelity.
+    - Extended CLI JSON, Python client/session accessors, benchmark execution-mode fields,
+      OutputPlan/fanout matrix fields, smoke tests, benchmark contract tests, README, compute-flow
+      references, website compute-flow snapshots, I/O architecture, and generated SQL/Python/output
+      use-case docs.
+    - Updated the phase plan so completed 6E/6F route/reuse/output work is no longer the next
+      unchecked Planned body; `GAR-RUNTIME-IMPL-6C` is now the next runtime item.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/src/shardloom/session.py python/tests/test_cli_client.py` passed.
+    - Static benchmark contract duplicate-field inspection passed for
+      `EXECUTION_MODE_CONTRACT_FIELDS`, `OUTPUT_PLAN_CONTRACT_FIELDS`, and
+      `FANOUT_BENCHMARK_FIELDS`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io` passed with 758 tests.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source_output_capillary_skips_small_local_csv_output -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source_smoke_writes_local_vortex -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed after
+      merging identical compatibility-format arms and extracting SQL UNION branch-report setup.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `docs/architecture/compute-engine-flow-reference.md` matched both checked-in website
+      compute-flow snapshots.
+  - Claim boundary:
+    - This closes scoped local output layout/write advisor evidence for admitted local SQL/Python
+      output/fanout routes only. It may claim advisory metadata-preservation/loss reporting for
+      compatibility outputs and applied single-artifact local Vortex writer admission for the
+      scoped flat-scalar route when feature-gated and certified. It does not authorize arbitrary
+      layout optimization, broad writer fidelity, nested-schema output support, object-store/table
+      writes, production sink support, package release, performance improvement, or Spark
+      replacement.
+  - Fallback boundary:
+    - Compatibility export remains translation, never fallback execution. The applied Vortex route
+      uses the ShardLoom-owned `shardloom-vortex` writer boundary and explicitly records
+      `fallback_attempted=false` and `external_engine_invoked=false`. No
+      Spark/DataFusion/DuckDB/Polars/Velox or Vortex query-engine integration was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission
   - Date: 2026-06-02
   - Branch/PR: `codex/output-capillary-scheduling` / pending PR.

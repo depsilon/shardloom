@@ -34,7 +34,8 @@ OutputPlan, and SinkArtifact posture. `GAR-IOREUSE-1F` adds evidence-safe reuse-
 `GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Scoped local fanout
 runtime now exists for local-source SQL/Python and generated-output workflows. Local SQL/Python
 output/fanout now uses `ResultBatchState`, sink-driven OutputPlan requirements, a shared fanout
-conversion DAG, and thresholded output capillary scheduling before terminal sink encoders, and
+conversion DAG, thresholded output capillary scheduling, and format-aware output layout/write
+advisor evidence before terminal sink encoders, and
 Python `ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
 cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
 performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
@@ -464,18 +465,32 @@ output_memory_pressure_status
 pulseweave_output_policy_applied
 ```
 
+Implemented `GAR-RUNTIME-IMPL-6F-5` local SQL/Python runtime fields:
+
+```text
+output_layout_write_advisor_status
+output_layout_write_advisor_selected_strategy
+output_layout_write_advisor_runtime_decision_applied
+output_metadata_preservation_map
+output_metadata_loss
+```
+
 The current implementation is intentionally scoped. It gives local SQL inline output, local sink
 writes, fanout, Python session reuse envelopes, and traditional benchmark contract rows a shared
 result-batch evidence layer, a shared fanout conversion DAG, and output capillary scheduling
-evidence. Local output/fanout routes now normalize result schema/rows once where safe, then feed
+evidence plus an output-side layout/write advisor. Local output/fanout routes now normalize result
+schema/rows once where safe, then feed
 terminal CSV/JSONL, feature-gated Parquet/Arrow IPC/Avro/ORC, and feature-gated Vortex writer paths
 from that shared state. Small single-sink local outputs record explicit below-threshold capillary
 evidence; fanout or larger local outputs can activate ProofBound-admitted PulseWeave windows across
 schema-map, columnar-export, terminal-encode, compression, local-write, digest, replay, and
 evidence-render tasks. CSV/JSONL remain terminal text materialization targets; Parquet, Arrow IPC,
-Avro, and ORC remain feature-gated compatibility exports; Vortex remains the highest-fidelity local
-sink. This does not claim broad nested-schema output, object-store/table writes, production sink
-support, real query-data spill, or performance improvement.
+Avro, and ORC remain feature-gated compatibility exports with advisory layout/write posture and
+explicit metadata-loss reporting; Vortex remains the highest-fidelity local sink and can apply the
+single-artifact local write strategy only when the real Vortex writer admission report, reopen
+proof, and certificate evidence match. This does not claim broad nested-schema output,
+object-store/table writes, production sink support, arbitrary layout optimization, real query-data
+spill, or performance improvement.
 
 Planned output formats:
 
