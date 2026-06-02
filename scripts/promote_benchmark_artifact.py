@@ -2093,17 +2093,31 @@ def prepared_route_amortization_table(rows: list[dict[str, Any]]) -> dict[str, A
             fields = runtime_validation_field_map(row)
             preparation = prepare_once_preparation_millis(fields, row)
             query_runtime = prepared_route_query_runtime_millis(fields)
+            output_delivery = output_delivery_millis(fields, row)
+            evidence_render = evidence_render_route_millis(fields, row)
             if preparation is None or query_runtime is None:
                 continue
-            per_query_values.append(preparation / query_count + query_runtime)
-            total_batch_values.append(preparation + query_runtime * query_count)
+            per_query_route = (
+                preparation / query_count
+                + query_runtime
+                + output_delivery
+                + evidence_render
+            )
+            per_query_values.append(per_query_route)
+            total_batch_values.append(
+                preparation
+                + (query_runtime + output_delivery + evidence_render) * query_count
+            )
         rendered_rows.append(
             [
                 query_count,
                 len(per_query_values),
                 fmt_ms(geomean(per_query_values)),
                 fmt_ms(geomean(total_batch_values)),
-                "prepare_batch_preparation_millis / N + query_runtime_millis",
+                (
+                    "prepare_batch_preparation_millis / N + query_runtime_millis "
+                    "+ result_sink_write_millis + evidence_render_millis"
+                ),
                 "raw_compat_source -> VortexPreparedState reused for N prepared executions",
             ]
         )
