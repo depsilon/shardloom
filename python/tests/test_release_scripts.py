@@ -366,6 +366,120 @@ class ReleaseScriptTests(unittest.TestCase):
             "spark_replacement_claim_allowed": False,
         }
 
+    def _public_front_door_benchmark_rows(self, module: object) -> list[dict[str, object]]:
+        schema = getattr(
+            module,
+            "PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION",
+            "shardloom.public_front_door_benchmark_rows.v1",
+        )
+        row_kind = getattr(
+            module,
+            "PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND",
+            "public_front_door_route_evidence",
+        )
+        timing_status = getattr(
+            module,
+            "PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS",
+            "not_timing_row_route_identity_only",
+        )
+        claim_boundary = (
+            "public front-door rows explain route identity, timing boundary, "
+            "prepared-state reuse scope, and no-fallback evidence; they are not "
+            "measured benchmark timing rows and do not authorize performance, "
+            "production, or Spark-replacement claims"
+        )
+        shared = {
+            "public_front_door_benchmark_schema_version": schema,
+            "benchmark_row_kind": row_kind,
+            "benchmark_timing_status": timing_status,
+            "benchmark_timing_row": False,
+            "benchmark_route_publication_status": "published_static_route_identity",
+            "benchmark_route_publication_source": "user_route_capability_report",
+            "benchmark_route_publication_claim_boundary": claim_boundary,
+            "route_runtime_status": "scoped_runtime_supported",
+            "front_door_end_state": "VortexPreparedState",
+            "includes_preparation": True,
+            "includes_query": False,
+            "includes_output": True,
+            "includes_evidence": True,
+            "preparation_included": True,
+            "owning_route_comparable_to_external_end_to_end": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "spark_replacement_claim_allowed": False,
+            "claim_gate_status": "not_claim_grade",
+            "required_evidence": [
+                "prepared_state_reuse_manifest",
+                "route_runtime_status",
+                "no_fallback_evidence",
+            ],
+            "claim_boundary": "route identity and prepared-state reuse evidence only",
+            "prepared_state_reuse_scope": "workspace_prepared_state_artifact",
+            "prepared_state_reuse_manifest_path": (
+                "target/shardloom-prepared/prepared-state-manifest.json"
+            ),
+            "prepared_state_reuse_policy": "workspace_prepared_state_reuse.v1",
+            "prepared_state_reuse_reason": (
+                "public_front_door_prepares_reusable_vortex_state"
+            ),
+            "prepared_state_reuse_manifest_digest": "fnv64:prepared-front-door",
+            "prepared_state_invalidation_reason": (
+                "workspace_manifest_or_input_fingerprint_mismatch"
+            ),
+        }
+        return [
+            {
+                **shared,
+                "front_door_id": "local_source_auto_prepare_vortex_front_door",
+                "owning_route_id": "local_file_prepare_once_first_query",
+                "route_lane_id": "prepare_once_first_query",
+                "route_display_name": "ShardLoom Prepare-Once First Query",
+                "front_door_start_state": "SourceState",
+                "public_user_surface": (
+                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                "benchmark_public_surface": (
+                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                "benchmark_timing_boundary": (
+                    "ctx.read_csv(...).prepare_vortex(workspace=...) stops at "
+                    "VortexPreparedState; the owning ShardLoom Prepare-Once First "
+                    "Query route timing includes preparation plus first prepared "
+                    "query/output"
+                ),
+                "vortex_normalization_point": "SourceState -> VortexPreparedState",
+            },
+            {
+                **shared,
+                "front_door_id": "generated_source_prepare_vortex_front_door",
+                "owning_route_id": "generated_rows_local_output",
+                "route_lane_id": "generated_rows_local_output",
+                "route_display_name": "Generated Rows Local Output",
+                "front_door_start_state": "GeneratedSourceState",
+                "public_user_surface": (
+                    "ctx.from_rows([{'id': 1, 'label': 'alpha'}]).prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                "benchmark_public_surface": (
+                    "ctx.from_rows([{'id': 1, 'label': 'alpha'}]).prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                "benchmark_timing_boundary": (
+                    "ctx.from_rows(...).prepare_vortex(workspace=...) writes a "
+                    "local VortexPreparedState artifact; generated-source "
+                    "local-output timing is route evidence, not comparative "
+                    "query timing"
+                ),
+                "vortex_normalization_point": (
+                    "GeneratedSourceState -> VortexPreparedState"
+                ),
+            },
+        ]
+
     def test_foundry_style_dataset_rewrite_removes_stale_parts(self) -> None:
         module = self._load_module_from_path(
             REPO_ROOT / "examples" / "foundry-lightweight-transform" / "run.py",
@@ -911,6 +1025,7 @@ class ReleaseScriptTests(unittest.TestCase):
             [row],
             REPO_ROOT / "target" / "claim-grade-missing-cold-lane.json",
             "full_local",
+            self._public_front_door_benchmark_rows(module),
         )
         self.assertEqual(
             summary["claim_gate_distribution"]["rows"][0][0],
@@ -1463,16 +1578,31 @@ class ReleaseScriptTests(unittest.TestCase):
                     **self._external_benchmark_route_fields(engine),
                 }
             )
+        public_front_door_rows = self._public_front_door_benchmark_rows(module)
+        public_front_door_ids = [
+            str(row["front_door_id"]) for row in public_front_door_rows
+        ]
         manifest = {
             "benchmark_profile": "full_local",
             "expected_lanes": lanes,
             "available_lanes": lanes,
+            "public_front_door_benchmark_schema_version": (
+                module.PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+            ),
+            "public_front_door_benchmark_row_count": len(public_front_door_rows),
+            "public_front_door_benchmark_row_ids": public_front_door_ids,
         }
         payload = {
             "published_benchmark_artifact": {
                 "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
             },
             "published_benchmark_rows": rows,
+            "public_front_door_benchmark_schema_version": (
+                module.PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+            ),
+            "public_front_door_benchmark_rows": public_front_door_rows,
+            "public_front_door_benchmark_row_count": len(public_front_door_rows),
+            "public_front_door_benchmark_row_ids": public_front_door_ids,
         }
 
         blockers: list[str] = []
@@ -1488,6 +1618,11 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["missing_shardloom_engine_format_cell_count"], 0)
         self.assertEqual(report["shardloom_runtime_validation_counts"], {"passed": 24})
         self.assertEqual(report["missing_independent_claim_proof_row_count"], 0)
+        self.assertEqual(report["public_front_door_benchmark_rows"]["row_count"], 2)
+        self.assertEqual(
+            report["public_front_door_benchmark_rows"]["invalid_example_count"],
+            0,
+        )
 
     def test_benchmark_publication_claim_gate_rejects_false_encoded_native_operator_claim(
         self,
@@ -3008,6 +3143,24 @@ jobs:
                 f'<article data-route-card-id="{card_id}" data-route-view="end-to-end prepared-state native-vortex diagnostic-stage" data-route-card-e2e-comparable="{str(card_id != "warm_prepared_query").lower()}">{label}</article>'
                 for card_id, label in cards.items()
             )
+            public_front_door_markup = """
+                <section>
+                  <h2>Public front doors</h2>
+                  <p>Route rows name the user-facing prepared paths.</p>
+                  <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
+                    <code>ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)</code>
+                    <p>SourceState</p>
+                    <p>VortexPreparedState</p>
+                    <p>not_timing_row_route_identity_only</p>
+                  </article>
+                  <article data-public-front-door-id="generated_source_prepare_vortex_front_door">
+                    <code>ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)</code>
+                    <p>GeneratedSourceState</p>
+                    <p>VortexPreparedState</p>
+                    <p>not_timing_row_route_identity_only</p>
+                  </article>
+                </section>
+            """
             (website / "benchmarks.html").write_text(
                 f"""
                 <section data-route-card-dashboard>
@@ -3016,6 +3169,7 @@ jobs:
                   <p>External rows are baseline context only.</p>
                   <div data-route-badge-fixture>{runtime_badges}{evidence_badges}</div>
                 </section>
+                {public_front_door_markup}
                 <h2>Stage attribution</h2>
                 <section>
                   <h2>Runtime fast path</h2>
