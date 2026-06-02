@@ -462,7 +462,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   remaining broad grammar blockers are explicit rows in
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
-  complex/list/struct/variant/union-dtype shapes, binary source decoding/casts/helper functions,
+  complex/list/struct/variant/union-dtype shapes, broad binary source dtype decoding/casts/literals,
   scalar-left multi-column IN-subqueries, unbound qualified references, and remaining non-admitted
   broad ANSI subquery families.
   Scoped quantified `ANY` / `ALL` subquery
@@ -510,8 +510,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   predicates are admitted separately through ShardLoom-owned regex evaluation while locale-aware
   collation/regex semantics remain blocked.
   Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
-  scalar values with exact byte-count/hex evidence and no fallback; binary source decoding, binary
-  casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
+  scalar values with exact byte-count/hex evidence and no fallback. Scoped
+  `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are now admitted as
+  ShardLoom-owned binary helper decoding over direct UTF-8 source columns, with strict invalid-input
+  blockers, binary output evidence, null propagation, Python/DataFrame helpers, and no-fallback
+  fields. Broad binary source dtype decoding, binary casts, `BINARY`/`BLOB` source literals, binary
+  predicates, and nested binary helper expressions remain blocked.
   Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
   admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
   `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
@@ -520,7 +524,8 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   slice.
   Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
   blocker refinement, scalar-left multi-column subquery ergonomics, decimal/timezone/locale blocker
-  refinement, or another front-door parity gap only after the runtime route is already admitted.
+  refinement, broad binary source dtype/cast support, or another front-door parity gap only after
+  the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

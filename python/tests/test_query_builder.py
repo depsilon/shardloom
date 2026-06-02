@@ -1925,6 +1925,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("label").replace(" ", "_") == "alpha_beta"),
             "REPLACE(label, ' ', '_') = 'alpha_beta'",
         )
+        self.assertEqual(str(sl.col("payload_hex").unhex()), "UNHEX(payload_hex)")
+        self.assertEqual(str(sl.unhex(sl.col("payload_hex"))), "UNHEX(payload_hex)")
+        self.assertEqual(
+            str(sl.col("payload_b64").from_base64()), "FROM_BASE64(payload_b64)"
+        )
+        self.assertEqual(
+            str(sl.from_base64(sl.col("payload_b64"))), "FROM_BASE64(payload_b64)"
+        )
         self.assertEqual(
             str(
                 sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper())
@@ -2010,6 +2018,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.right("label", 2)
         with self.assertRaisesRegex(ValueError, "replace search literal"):
             sl.col("label").replace("", "x")
+        with self.assertRaisesRegex(ValueError, "column expressions admit"):
+            sl.col("payload").trim().unhex()
+        with self.assertRaisesRegex(TypeError, "unhex requires"):
+            sl.unhex("payload_hex")
+        with self.assertRaisesRegex(TypeError, "from_base64 requires"):
+            sl.from_base64("payload_b64")
 
     def test_column_expression_builder_exposes_date_extract_report_fields(self) -> None:
         binary = self.fake_cli(
@@ -5529,6 +5543,98 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM 'target/input.csv' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source binary helper projection",
+                    "human_text": "sql local source binary helper projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"payload_hex\\":\\"binary[hex=00ff10]\\",\\"payload_b64\\":\\"binary[hex=00ff10]\\"}\\n{\\"id\\":3,\\"payload_hex\\":null,\\"payload_b64\\":null}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_limit"},
+                        {"key": "computed_projection_runtime_execution", "value": "true"},
+                        {"key": "binary_helper_projection_runtime_execution", "value": "true"},
+                        {"key": "binary_helper_projection_operator", "value": "unhex,from_base64"},
+                        {"key": "binary_helper_projection_source_column", "value": "hex_payload,b64_payload"},
+                        {"key": "binary_helper_projection_output_column", "value": "payload_hex,payload_b64"},
+                        {"key": "binary_helper_projection_output_dtype", "value": "binary"},
+                        {"key": "binary_helper_projection_null_semantics", "value": "null_propagating_utf8_decode"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("payload_hex", sl.col("hex_payload").unhex())
+            .with_column("payload_b64", sl.from_base64(sl.col("b64_payload")))
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.envelope.field("sql_statement_kind"),
+            "local_source_computed_projection_limit",
+        )
+        self.assertTrue(report.computed_projection_runtime_execution)
+        self.assertTrue(report.binary_helper_projection_runtime_execution)
+        self.assertEqual(
+            report.binary_helper_projection_operator, ("unhex", "from_base64")
+        )
+        self.assertEqual(
+            report.binary_helper_projection_source_columns,
+            ("hex_payload", "b64_payload"),
+        )
+        self.assertEqual(
+            report.binary_helper_projection_output_columns,
+            ("payload_hex", "payload_b64"),
+        )
+        self.assertEqual(report.binary_helper_projection_output_dtype, "binary")
+        self.assertEqual(
+            report.binary_helper_projection_null_semantics,
+            "null_propagating_utf8_decode",
+        )
+        self.assertEqual(
+            report.result_rows,
+            (
+                {
+                    "id": 1,
+                    "payload_hex": "binary[hex=00ff10]",
+                    "payload_b64": "binary[hex=00ff10]",
+                },
+                {"id": 3, "payload_hex": None, "payload_b64": None},
+            ),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
     def test_local_csv_query_builder_groupby_count_sort_aliases_invoke_sql_smoke(
         self,

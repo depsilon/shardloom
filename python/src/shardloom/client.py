@@ -3899,6 +3899,60 @@ class SqlLocalSourceSmokeReport:
         return tuple(int(part) for part in value.split(",") if part)
 
     @property
+    def binary_helper_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted binary helper projection."""
+
+        return (
+            self.envelope.field_bool("binary_helper_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def binary_helper_projection_operator(self) -> tuple[str, ...]:
+        """Return binary helper projection operators emitted by the smoke."""
+
+        value = self.envelope.field("binary_helper_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_projection_source_columns(self) -> tuple[str, ...]:
+        """Return binary helper projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("binary_helper_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_projection_output_columns(self) -> tuple[str, ...]:
+        """Return binary helper projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("binary_helper_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_projection_output_dtype(self) -> str | None:
+        """Return the admitted output dtype for binary helper projections."""
+
+        value = self.envelope.field("binary_helper_projection_output_dtype")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def binary_helper_projection_null_semantics(self) -> str | None:
+        """Return null-semantics evidence for binary helper projections."""
+
+        value = self.envelope.field("binary_helper_projection_null_semantics")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
     def date_extract_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted Date32 extract projection."""
 

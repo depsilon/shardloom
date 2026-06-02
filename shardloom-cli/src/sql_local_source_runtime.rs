@@ -301,6 +301,7 @@ struct ParsedSqlLocalSource {
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
+    binary_helper_projections: Vec<ParsedBinaryHelperProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     window_projections: Vec<ParsedWindowProjection>,
@@ -517,6 +518,13 @@ struct ParsedStringFunctionProjection {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct ParsedBinaryHelperProjection {
+    alias: String,
+    column: String,
+    op: BinaryHelperOp,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedStringFunctionCall {
     expression: Expression,
     op: StringFunctionOp,
@@ -590,6 +598,7 @@ impl_projection_alias!(
     ParsedStringLengthProjection,
     ParsedStringTransformProjection,
     ParsedStringFunctionProjection,
+    ParsedBinaryHelperProjection,
     ParsedDateExtractProjection,
     ParsedTimestampExtractProjection,
     ParsedWindowProjection,
@@ -777,6 +786,7 @@ struct ParsedProjectionList {
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
+    binary_helper_projections: Vec<ParsedBinaryHelperProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     window_projections: Vec<ParsedWindowProjection>,
@@ -801,6 +811,7 @@ enum ParsedProjectionOutput {
     StringLength(String),
     StringTransform(String),
     StringFunction(String),
+    BinaryHelper(String),
     DateExtract(String),
     TimestampExtract(String),
     Window(String),
@@ -825,6 +836,7 @@ impl ParsedProjectionOutput {
             | Self::StringLength(alias)
             | Self::StringTransform(alias)
             | Self::StringFunction(alias)
+            | Self::BinaryHelper(alias)
             | Self::DateExtract(alias)
             | Self::TimestampExtract(alias)
             | Self::Window(alias) => Some(alias),
@@ -1180,6 +1192,12 @@ enum StringFunctionOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BinaryHelperOp {
+    Unhex,
+    FromBase64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NumericArithmeticOp {
     Add,
     Subtract,
@@ -1391,6 +1409,22 @@ impl StringFunctionOp {
             Self::Left => "left",
             Self::Right => "right",
             Self::Replace => "replace",
+        }
+    }
+}
+
+impl BinaryHelperOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::Unhex => "unhex",
+            Self::FromBase64 => "from_base64",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unhex => "unhex",
+            Self::FromBase64 => "from_base64",
         }
     }
 }
@@ -5581,6 +5615,9 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
     for projection in &parsed.string_function_projections {
         columns.extend(projection.source_columns.iter().cloned());
     }
+    for projection in &parsed.binary_helper_projections {
+        columns.insert(projection.column.clone());
+    }
     for projection in &parsed.date_extract_projections {
         columns.insert(projection.column.clone());
     }
@@ -7121,7 +7158,7 @@ fn selected_predicate_row_indexes(
     let predicate_expression = predicate.to_expression()?;
     let filter = evaluate_filter(&predicate_expression, rows);
     if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
+        return Err(unsupported_sql_error(&format!(
             "{}: {}",
             diagnostic_context,
             filter
@@ -7635,7 +7672,7 @@ fn evaluate_projection_row(
 ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     let projection = evaluate_projection(projection_expressions, row);
     if projection.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
+        return Err(unsupported_sql_error(&format!(
             "SQL local-source projection evaluation failed: {}",
             projection
                 .diagnostics
@@ -7797,6 +7834,13 @@ fn append_ordered_projection_expression(
                 &parsed.string_function_projections,
                 alias,
                 "string function projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::BinaryHelper(alias) => expressions.push(
+            binary_helper_projection_expression(find_projection_by_alias(
+                &parsed.binary_helper_projections,
+                alias,
+                "binary helper projection",
             )?)?,
         ),
         ParsedProjectionOutput::DateExtract(alias) => expressions.push(
@@ -8132,6 +8176,28 @@ fn string_function_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(projection.expression.clone()),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn binary_helper_projection_expression(
+    projection: &ParsedBinaryHelperProjection,
+) -> Result<Expression, ShardLoomError> {
+    let decoded = Expression::new(
+        ExprId::new(format!("project.binary_helper.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: projection.op.function_name().to_string(),
+            args: vec![Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(decoded),
             alias: projection.alias.clone(),
         },
     ))
@@ -8820,7 +8886,7 @@ fn evaluate_join_predicate(
     if let Some(predicate_expression) = predicate_expression {
         let filter = evaluate_filter(predicate_expression, std::slice::from_ref(joined_row));
         if filter.has_errors() {
-            return Err(ShardLoomError::InvalidOperation(format!(
+            return Err(unsupported_sql_error(&format!(
                 "SQL local-source join predicate evaluation failed: {}",
                 filter
                     .diagnostics
@@ -8843,7 +8909,7 @@ fn evaluate_join_projection(
 ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     let projection = evaluate_projection(projection_expressions, joined_row);
     if projection.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
+        return Err(unsupported_sql_error(&format!(
             "SQL local-source join projection evaluation failed: {}",
             projection
                 .diagnostics
@@ -10686,7 +10752,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
         && (parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.projections.is_empty())
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
+            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
         ));
     }
     Ok(())
@@ -10999,6 +11065,14 @@ fn validate_text_time_projection_source_columns(
             )?;
         }
     }
+    for projection in &parsed.binary_helper_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "binary helper projection source column",
+            "CSV header",
+        )?;
+    }
     for projection in &parsed.date_extract_projections {
         require_header_column(
             header,
@@ -11166,6 +11240,9 @@ fn validate_text_time_output_names<'a>(
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.string_function_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.binary_helper_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.date_extract_projections {
@@ -11562,6 +11639,9 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
         for column in &projection.source_columns {
             source_refs.insert(column.as_str());
         }
+    }
+    for projection in &parsed.binary_helper_projections {
+        source_refs.insert(projection.column.as_str());
     }
     for projection in &parsed.date_extract_projections {
         source_refs.insert(projection.column.as_str());
@@ -12317,6 +12397,10 @@ impl ParsedSqlLocalSource {
         !self.string_function_projections.is_empty()
     }
 
+    fn has_binary_helper_projection(&self) -> bool {
+        !self.binary_helper_projections.is_empty()
+    }
+
     fn has_date_extract_projection(&self) -> bool {
         !self.date_extract_projections.is_empty()
     }
@@ -12345,6 +12429,7 @@ impl ParsedSqlLocalSource {
             || self.has_string_length_projection()
             || self.has_string_transform_projection()
             || self.has_string_function_projection()
+            || self.has_binary_helper_projection()
             || self.has_date_extract_projection()
             || self.has_timestamp_extract_projection()
     }
@@ -12708,6 +12793,7 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::StringLength(column)
                 | ParsedProjectionOutput::StringTransform(column)
                 | ParsedProjectionOutput::StringFunction(column)
+                | ParsedProjectionOutput::BinaryHelper(column)
                 | ParsedProjectionOutput::DateExtract(column)
                 | ParsedProjectionOutput::TimestampExtract(column)
                 | ParsedProjectionOutput::Window(column) => {
@@ -13439,6 +13525,42 @@ impl ParsedSqlLocalSource {
             self.string_function_projections
                 .iter()
                 .map(|projection| projection.literal_count.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_projection_operators(&self) -> String {
+        if self.binary_helper_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_helper_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_projection_source_columns(&self) -> String {
+        if self.binary_helper_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_helper_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_projection_output_columns(&self) -> String {
+        if self.binary_helper_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_helper_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -21772,6 +21894,40 @@ impl SqlLocalSourceReport {
                 self.parsed.string_function_projection_literal_counts(),
             ),
             (
+                "binary_helper_projection_runtime_execution".to_string(),
+                self.parsed.has_binary_helper_projection().to_string(),
+            ),
+            (
+                "binary_helper_projection_operator".to_string(),
+                self.parsed.binary_helper_projection_operators(),
+            ),
+            (
+                "binary_helper_projection_source_column".to_string(),
+                self.parsed.binary_helper_projection_source_columns(),
+            ),
+            (
+                "binary_helper_projection_output_column".to_string(),
+                self.parsed.binary_helper_projection_output_columns(),
+            ),
+            (
+                "binary_helper_projection_output_dtype".to_string(),
+                if self.parsed.has_binary_helper_projection() {
+                    "binary"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "binary_helper_projection_null_semantics".to_string(),
+                if self.parsed.has_binary_helper_projection() {
+                    "null_propagating_utf8_decode"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
                 "date_extract_projection_runtime_execution".to_string(),
                 self.parsed.has_date_extract_projection().to_string(),
             ),
@@ -23820,6 +23976,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
         string_function_projections: projection_list.string_function_projections,
+        binary_helper_projections: projection_list.binary_helper_projections,
         date_extract_projections: projection_list.date_extract_projections,
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
         window_projections: projection_list.window_projections,
@@ -24026,13 +24183,11 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
     }
     if contains_keyword_followed_by_char_outside_quotes(statement, "binary", '\'')
         || contains_keyword_followed_by_char_outside_quotes(statement, "blob", '\'')
-        || contains_function_call_outside_quotes(statement, "from_base64")
-        || contains_function_call_outside_quotes(statement, "unhex")
         || contains_cast_target_matching(statement, "cast", target_is_binary_dtype)?
         || contains_cast_target_matching(statement, "try_cast", target_is_binary_dtype)?
     {
         return Err(unsupported_sql_error(
-            "binary source decoding, binary casts, and binary helper functions are not admitted through the SQL local-source runtime",
+            "binary casts and BINARY/BLOB source literals are not admitted through the SQL local-source runtime; use scoped UNHEX(<utf8-column>) or FROM_BASE64(<utf8-column>) projections for binary helper decoding",
         ));
     }
     Ok(())
@@ -24180,6 +24335,7 @@ fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> 
             | ParsedProjectionOutput::StringLength(column)
             | ParsedProjectionOutput::StringTransform(column)
             | ParsedProjectionOutput::StringFunction(column)
+            | ParsedProjectionOutput::BinaryHelper(column)
             | ParsedProjectionOutput::DateExtract(column)
             | ParsedProjectionOutput::TimestampExtract(column)
             | ParsedProjectionOutput::Window(column) => {
@@ -24254,6 +24410,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
     let mut string_function_projections = Vec::new();
+    let mut binary_helper_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
     let mut window_projections = Vec::new();
@@ -24343,6 +24500,11 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 function_projection.alias.clone(),
             ));
             string_function_projections.push(function_projection);
+        } else if let Some(binary_projection) = parse_binary_helper_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::BinaryHelper(
+                binary_projection.alias.clone(),
+            ));
+            binary_helper_projections.push(binary_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::DateExtract(
                 date_projection.alias.clone(),
@@ -24409,6 +24571,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         string_length_projections,
         string_transform_projections,
         string_function_projections,
+        binary_helper_projections,
         date_extract_projections,
         timestamp_extract_projections,
         window_projections,
@@ -26320,6 +26483,65 @@ fn parse_string_function_projection(
         source_columns: call.source_columns,
         literal_count: call.literal_count,
     }))
+}
+
+fn parse_binary_helper_projection(
+    raw: &str,
+) -> Result<Option<ParsedBinaryHelperProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some((op, open_index)) = parse_binary_helper_function_prefix(expression_raw) else {
+        return Ok(None);
+    };
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary helper projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let close_index = matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "binary helper projections must use UNHEX(<column>) AS <column> or FROM_BASE64(<column>) AS <column>",
+        )
+    })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "binary helper projections must be a single UNHEX/FROM_BASE64 call before AS",
+        ));
+    }
+    let args = split_sql_csv(expression_raw[open_index + 1..close_index].trim())?;
+    let [column] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "binary helper projections require exactly one source column argument",
+        ));
+    };
+    validate_sql_column_ref(column)?;
+    Ok(Some(ParsedBinaryHelperProjection {
+        alias: alias.to_string(),
+        column: column.clone(),
+        op,
+    }))
+}
+
+fn parse_binary_helper_function_prefix(raw: &str) -> Option<(BinaryHelperOp, usize)> {
+    let trimmed = raw.trim();
+    for (name, op) in [
+        ("from_base64", BinaryHelperOp::FromBase64),
+        ("unhex", BinaryHelperOp::Unhex),
+    ] {
+        let len = name.len();
+        if trimmed
+            .get(..len)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(len) == Some(&b'(')
+        {
+            return Some((op, len));
+        }
+    }
+    None
 }
 
 fn parse_string_function_call_expression(
@@ -29044,6 +29266,7 @@ fn projected_subquery_output_columns(
                 | ParsedProjectionOutput::StringLength(column)
                 | ParsedProjectionOutput::StringTransform(column)
                 | ParsedProjectionOutput::StringFunction(column)
+                | ParsedProjectionOutput::BinaryHelper(column)
                 | ParsedProjectionOutput::DateExtract(column)
                 | ParsedProjectionOutput::TimestampExtract(column)
                 | ParsedProjectionOutput::Window(column) => column.clone(),
@@ -31355,6 +31578,50 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_binary_helper_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("binary helper projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.binary_helper_projections.len(), 2);
+        assert_eq!(parsed.binary_helper_projections[0].alias, "payload_hex");
+        assert_eq!(parsed.binary_helper_projections[0].column, "hex_payload");
+        assert_eq!(
+            parsed.binary_helper_projections[0].op,
+            BinaryHelperOp::Unhex
+        );
+        assert_eq!(parsed.binary_helper_projections[1].alias, "payload_b64");
+        assert_eq!(parsed.binary_helper_projections[1].column, "b64_payload");
+        assert_eq!(
+            parsed.binary_helper_projections[1].op,
+            BinaryHelperOp::FromBase64
+        );
+        assert!(parsed.has_binary_helper_projection());
+        assert_eq!(
+            parsed.binary_helper_projection_operators(),
+            "unhex,from_base64"
+        );
+        assert_eq!(
+            parsed.binary_helper_projection_source_columns(),
+            "hex_payload,b64_payload"
+        );
+        assert_eq!(
+            parsed.binary_helper_projection_output_columns(),
+            "payload_hex,payload_b64"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_numeric_arithmetic_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,amount + 5 AS adjusted,ratio * 2.0 AS doubled FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
@@ -33201,6 +33468,100 @@ mod tests {
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
         fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn runs_scoped_binary_helper_projection_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,hex_payload,b64_payload\n1,00ff10,AP8Q\n2,616c706861,YWxwaGE=\n3,,\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM '{}' LIMIT 3",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run binary helper projection smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"payload_hex\":\"binary[hex=00ff10]\",\"payload_b64\":\"binary[hex=00ff10]\"}\n{\"id\":2,\"payload_hex\":\"binary[hex=616c706861]\",\"payload_b64\":\"binary[hex=616c706861]\"}\n{\"id\":3,\"payload_hex\":null,\"payload_b64\":null}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_operator",
+            "unhex,from_base64",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_source_column",
+            "hex_payload,b64_payload",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_output_column",
+            "payload_hex,payload_b64",
+        );
+        assert_field_eq(&fields, "binary_helper_projection_output_dtype", "binary");
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_null_semantics",
+            "null_propagating_utf8_decode",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn binary_helper_projection_blocks_invalid_source_values_without_fallback() {
+        for (source_text, statement, expected) in [
+            (
+                "id,hex_payload\n1,00xz\n",
+                "SELECT id,UNHEX(hex_payload) AS payload FROM '{}' LIMIT 5",
+                "UNHEX admits hexadecimal digits only",
+            ),
+            (
+                "id,b64_payload\n1,AP9=\n",
+                "SELECT id,FROM_BASE64(b64_payload) AS payload FROM '{}' LIMIT 5",
+                "FROM_BASE64 has non-zero trailing bits before padding",
+            ),
+        ] {
+            let path = sql_local_source_test_path("csv");
+            fs::write(&path, source_text).expect("write csv source");
+            let request = SqlLocalSourceRequest {
+                statement: statement.replace("{}", &path.display().to_string()),
+                output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+                output_path: None,
+                fanout_outputs: Vec::new(),
+                allow_overwrite: false,
+            };
+            let error = run_sql_local_source_smoke_single(&request)
+                .expect_err("invalid binary helper input remains deterministic");
+
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+            fs::remove_file(&path).expect("remove csv source");
+        }
     }
 
     #[test]
@@ -36131,15 +36492,11 @@ mod tests {
             ),
             (
                 "SELECT id,BINARY '00ff' AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary source decoding, binary casts, and binary helper functions are not admitted",
-            ),
-            (
-                "SELECT id,UNHEX(label) AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary source decoding, binary casts, and binary helper functions are not admitted",
+                "binary casts and BINARY/BLOB source literals are not admitted",
             ),
             (
                 "SELECT CAST(label AS binary) AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary source decoding, binary casts, and binary helper functions are not admitted",
+                "binary casts and BINARY/BLOB source literals are not admitted",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

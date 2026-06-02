@@ -408,6 +408,18 @@ class ColumnExpression:
             f"REPLACE({column}, {needle_literal}, {replacement_literal})"
         )
 
+    def unhex(self) -> "ColumnExpression":
+        """Return a scoped `UNHEX(column)` binary helper projection expression."""
+
+        column = _normalize_expression_column(self.sql)
+        return ColumnExpression(f"UNHEX({column})")
+
+    def from_base64(self) -> "ColumnExpression":
+        """Return a scoped `FROM_BASE64(column)` binary helper projection expression."""
+
+        column = _normalize_expression_column(self.sql)
+        return ColumnExpression(f"FROM_BASE64({column})")
+
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
 
@@ -5155,6 +5167,22 @@ def replace(column_expression: object, needle: object, replacement: object) -> C
     return column_expression.replace(needle, replacement)
 
 
+def unhex(column_expression: object) -> ColumnExpression:
+    """Return a scoped `UNHEX(column)` binary helper projection expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("unhex requires a shardloom column expression")
+    return column_expression.unhex()
+
+
+def from_base64(column_expression: object) -> ColumnExpression:
+    """Return a scoped `FROM_BASE64(column)` binary helper projection expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("from_base64 requires a shardloom column expression")
+    return column_expression.from_base64()
+
+
 def abs(column_expression: object) -> ColumnExpression:
     """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
@@ -6748,6 +6776,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,
         _sql_string_function_projection_expression,
+        _sql_binary_helper_projection_expression,
         _sql_temporal_extract_projection_expression,
     )
     last_error: TypeError | ValueError | None = None
@@ -7041,6 +7070,27 @@ def _sql_string_function_projection_expression(expression: object) -> str:
         f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
         f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})"
     )
+
+
+def _sql_binary_helper_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits UNHEX/FROM_BASE64 binary helper expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"UNHEX", "FROM_BASE64"}:
+        raise ValueError(
+            "computed with_column currently admits UNHEX/FROM_BASE64 binary helper expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 1:
+        raise ValueError("binary helper with_column expressions require exactly one argument")
+    column = _normalize_expression_column(args[0])
+    return f"{function}({column})"
 
 
 def _sql_temporal_extract_projection_expression(expression: object) -> str:

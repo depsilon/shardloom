@@ -855,6 +855,8 @@ fn eval_function_call(
         "utf8_left" | "left" => eval_string_left_right(name, args, row, false),
         "utf8_right" | "right" => eval_string_left_right(name, args, row, true),
         "utf8_replace" | "replace" => eval_string_replace(name, args, row),
+        "binary_unhex" | "unhex" => eval_binary_unhex(name, args, row),
+        "binary_from_base64" | "from_base64" => eval_binary_from_base64(name, args, row),
         "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
         "numeric_floor" | "floor" => eval_numeric_rounding(name, args, row, f64::floor),
         "numeric_ceil" | "ceil" | "ceiling" => eval_numeric_rounding(name, args, row, f64::ceil),
@@ -1581,6 +1583,149 @@ fn eval_string_replace(
     }
 }
 
+fn eval_binary_unhex(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    eval_binary_utf8_decode(name, args, row, "binary_unhex", decode_hex_bytes)
+}
+
+fn eval_binary_from_base64(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    eval_binary_utf8_decode(
+        name,
+        args,
+        row,
+        "binary_from_base64",
+        decode_standard_base64,
+    )
+}
+
+fn eval_binary_utf8_decode(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    feature: &'static str,
+    decode: fn(&str) -> std::result::Result<Vec<u8>, &'static str>,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            feature,
+            format!("function {name:?} requires exactly one UTF-8 argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(
+            LogicalDType::Binary,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::Utf8(value) => {
+            let decoded = decode(&value)
+                .map_err(|reason| EvalFailure::invalid(feature, format!("{name}: {reason}")))?;
+            Ok(EvalValue::new(
+                ScalarValue::Binary(decoded),
+                LogicalDType::Binary,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        other => Err(EvalFailure::unsupported(
+            feature,
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn decode_hex_bytes(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
+    if value.len() % 2 != 0 {
+        return Err("UNHEX requires an even number of hexadecimal digits");
+    }
+    value
+        .as_bytes()
+        .chunks(2)
+        .map(|pair| {
+            let high = hex_nibble(pair[0]).ok_or("UNHEX admits hexadecimal digits only")?;
+            let low = hex_nibble(pair[1]).ok_or("UNHEX admits hexadecimal digits only")?;
+            Ok((high << 4) | low)
+        })
+        .collect()
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn decode_standard_base64(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
+    let bytes = value.as_bytes();
+    if bytes.len() % 4 != 0 {
+        return Err("FROM_BASE64 requires standard padded base64 with length multiple of 4");
+    }
+    let mut decoded = Vec::with_capacity(bytes.len() / 4 * 3);
+    for (chunk_index, chunk) in bytes.chunks(4).enumerate() {
+        let last_chunk = chunk_index + 1 == bytes.len() / 4;
+        let mut sextets = [0_u8; 4];
+        let mut padding = 0_usize;
+        for (index, byte) in chunk.iter().copied().enumerate() {
+            if byte == b'=' {
+                if !last_chunk || index < 2 {
+                    return Err("FROM_BASE64 padding may appear only in the final two positions");
+                }
+                padding += 1;
+                sextets[index] = 0;
+                continue;
+            }
+            if padding > 0 {
+                return Err("FROM_BASE64 padding must be trailing");
+            }
+            sextets[index] = base64_sextet(byte)
+                .ok_or("FROM_BASE64 admits the standard base64 alphabet only")?;
+        }
+        if padding > 2 {
+            return Err("FROM_BASE64 admits at most two trailing padding characters");
+        }
+        if padding == 1 && sextets[2] & 0b0000_0011 != 0 {
+            return Err("FROM_BASE64 has non-zero trailing bits before padding");
+        }
+        if padding == 2 && sextets[1] & 0b0000_1111 != 0 {
+            return Err("FROM_BASE64 has non-zero trailing bits before padding");
+        }
+        decoded.push((sextets[0] << 2) | (sextets[1] >> 4));
+        if padding < 2 {
+            decoded.push((sextets[1] << 4) | (sextets[2] >> 2));
+        }
+        if padding == 0 {
+            decoded.push((sextets[2] << 6) | sextets[3]);
+        }
+    }
+    Ok(decoded)
+}
+
+fn base64_sextet(value: u8) -> Option<u8> {
+    match value {
+        b'A'..=b'Z' => Some(value - b'A'),
+        b'a'..=b'z' => Some(value - b'a' + 26),
+        b'0'..=b'9' => Some(value - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
 fn eval_function_args(
     args: &[Expression],
     row: &ExpressionInputRow,
@@ -2206,6 +2351,7 @@ fn function_operator_family(name: &str) -> &'static str {
         | "utf8_left" | "left" | "utf8_right" | "right" | "utf8_replace" | "replace" => {
             "string_function"
         }
+        "binary_unhex" | "unhex" | "binary_from_base64" | "from_base64" => "binary_function",
         "numeric_abs" | "abs" => "numeric_abs",
         "numeric_floor" | "floor" | "numeric_ceil" | "ceil" | "ceiling" | "numeric_round"
         | "round" => "numeric_rounding",
@@ -3805,6 +3951,101 @@ mod tests {
             assert!(!report.fallback_attempted);
             assert!(!report.external_engine_invoked);
         }
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_binary_helpers_without_fallback() {
+        for (function, input, expected) in [
+            ("unhex", "00ff10", vec![0x00, 0xff, 0x10]),
+            ("from_base64", "AP8Q", vec![0x00, 0xff, 0x10]),
+            ("from_base64", "YQ==", vec![b'a']),
+        ] {
+            let expression = Expression::new(
+                expr_id(function),
+                ExpressionKind::FunctionCall {
+                    name: function.to_string(),
+                    args: vec![Expression::column(expr_id("payload"), col("payload"))],
+                },
+            );
+            let report = evaluate_expression(
+                &expression,
+                &row(&[("payload", ScalarValue::Utf8(input.to_string()))]),
+            );
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(report.operator_family, "binary_function");
+            assert_eq!(report.value, Some(ScalarValue::Binary(expected)));
+            assert_eq!(report.output_dtype, Some(LogicalDType::Binary));
+            assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+
+    #[test]
+    fn expression_semantics_blocks_invalid_binary_helpers_without_fallback() {
+        for (function, input, expected_status) in [
+            (
+                "unhex",
+                ScalarValue::Utf8("0".to_string()),
+                ExpressionEvaluationStatus::InvalidInput,
+            ),
+            (
+                "unhex",
+                ScalarValue::Utf8("00xz".to_string()),
+                ExpressionEvaluationStatus::InvalidInput,
+            ),
+            (
+                "from_base64",
+                ScalarValue::Utf8("AP8".to_string()),
+                ExpressionEvaluationStatus::InvalidInput,
+            ),
+            (
+                "from_base64",
+                ScalarValue::Utf8("AP9=".to_string()),
+                ExpressionEvaluationStatus::InvalidInput,
+            ),
+            (
+                "unhex",
+                ScalarValue::Int64(1),
+                ExpressionEvaluationStatus::Unsupported,
+            ),
+        ] {
+            let expression = Expression::new(
+                expr_id(function),
+                ExpressionKind::FunctionCall {
+                    name: function.to_string(),
+                    args: vec![Expression::column(expr_id("payload"), col("payload"))],
+                },
+            );
+            let report = evaluate_expression(&expression, &row(&[("payload", input)]));
+
+            assert_eq!(report.status, expected_status);
+            assert_eq!(report.operator_family, "binary_function");
+            assert!(report.has_errors());
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+
+    #[test]
+    fn expression_semantics_null_propagates_binary_helpers_without_fallback() {
+        let expression = Expression::new(
+            expr_id("unhex-null"),
+            ExpressionKind::FunctionCall {
+                name: "unhex".to_string(),
+                args: vec![Expression::column(expr_id("payload"), col("payload"))],
+            },
+        );
+        let report = evaluate_expression(&expression, &row(&[("payload", ScalarValue::Null)]));
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "binary_function");
+        assert_eq!(report.value, Some(ScalarValue::Null));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Binary));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     fn assert_string_function_error(
