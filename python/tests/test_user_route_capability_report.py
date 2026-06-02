@@ -78,8 +78,33 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertTrue(
             report["acceptance_summary"][
+                "public_front_door_routes_expose_auto_and_generated_prepared_surfaces"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
+                "public_front_door_routes_expose_prepared_state_reuse_contracts"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"]["public_front_door_routes_preserve_no_fallback"]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
                 "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract"
             ]
+        )
+        self.assertEqual(
+            report["public_front_door_route_schema_version"],
+            "shardloom.public_front_door_route_rows.v1",
+        )
+        self.assertEqual(report["public_front_door_route_count"], 2)
+        self.assertEqual(
+            set(report["public_front_door_route_ids"]),
+            {
+                "local_source_auto_prepare_vortex_front_door",
+                "generated_source_prepare_vortex_front_door",
+            },
         )
         self.assertIn(
             "native_vortex_output",
@@ -280,6 +305,48 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             scenarios["small_change_over_large_base"]["claim_boundary"],
         )
 
+        public_front_doors = {
+            row["front_door_id"]: row for row in report["public_front_door_route_rows"]
+        }
+        local_auto = public_front_doors["local_source_auto_prepare_vortex_front_door"]
+        self.assertEqual(local_auto["owning_route_id"], "local_file_prepare_once_first_query")
+        self.assertEqual(local_auto["route_lane_id"], "prepare_once_first_query")
+        self.assertIn("ctx.read_csv", local_auto["public_user_surface"])
+        self.assertIn(".prepare_vortex", local_auto["public_user_surface"])
+        self.assertIn("SourceState", local_auto["vortex_normalization_point"])
+        self.assertIn("VortexPreparedState", local_auto["vortex_normalization_point"])
+        self.assertEqual(
+            local_auto["prepared_state_reuse_scope"],
+            "workspace_manifest_local_vortex_artifacts",
+        )
+        self.assertFalse(local_auto["includes_query"])
+        self.assertTrue(local_auto["includes_output"])
+        self.assertFalse(local_auto["fallback_attempted"])
+        self.assertFalse(local_auto["external_engine_invoked"])
+
+        generated_front_door = public_front_doors[
+            "generated_source_prepare_vortex_front_door"
+        ]
+        self.assertEqual(generated_front_door["owning_route_id"], "generated_rows_local_output")
+        self.assertIn("ctx.from_rows", generated_front_door["public_user_surface"])
+        self.assertIn(".prepare_vortex", generated_front_door["public_user_surface"])
+        self.assertIn(
+            "GeneratedSourceState",
+            generated_front_door["vortex_normalization_point"],
+        )
+        self.assertIn(
+            "VortexPreparedState",
+            generated_front_door["vortex_normalization_point"],
+        )
+        self.assertEqual(
+            generated_front_door["prepared_state_reuse_scope"],
+            "artifact_adjacent_manifest_local_vortex_artifacts",
+        )
+        self.assertIn(
+            "prepared_state_reuse_manifest",
+            generated_front_door["required_evidence"],
+        )
+
     def test_context_route_selector_filters_by_input_and_output(self) -> None:
         src = REPO_ROOT / "python" / "src"
         if str(src) not in sys.path:
@@ -311,6 +378,19 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(
             routes.route("local_vortex_primitive_report").vortex_normalization_point,
             "native_vortex_boundary",
+        )
+        self.assertEqual(
+            set(routes.public_front_door_route_ids),
+            {
+                "local_source_auto_prepare_vortex_front_door",
+                "generated_source_prepare_vortex_front_door",
+            },
+        )
+        self.assertTrue(
+            all(
+                row.no_fallback_no_external_engine
+                for row in routes.public_front_door_route_rows
+            )
         )
         primitives = ShardLoomContext(client=None).local_vortex_primitive_route_report()
         self.assertEqual(
@@ -428,6 +508,32 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(any("must name SourceState" in blocker for blocker in blockers))
         self.assertTrue(any("clear output option" in blocker for blocker in blockers))
         self.assertTrue(any("reuse manifest policy" in blocker for blocker in blockers))
+
+    def test_validator_rejects_incomplete_public_front_door_routes(self) -> None:
+        module = load_route_module()
+        route_report = module.load_report(REPO_ROOT)
+        route_rows = [module.row_payload(row) for row in route_report.rows]
+        public_rows = [
+            module.public_front_door_row_payload(row)
+            for row in route_report.public_front_door_route_rows
+        ]
+        public_rows[0]["public_user_surface"] = "ctx.read('fact.csv')"
+        public_rows[0]["prepared_state_reuse_manifest_path"] = "missing"
+        public_rows[1]["public_user_surface"] = "ctx.generated_internal_only()"
+        public_rows[1]["required_evidence"] = []
+        public_rows[1]["fallback_attempted"] = True
+
+        blockers = module.validate_public_front_door_routes(public_rows, route_rows)
+
+        self.assertTrue(
+            any("public_user_surface must include ctx.read_csv" in blocker for blocker in blockers)
+        )
+        self.assertTrue(
+            any("public_user_surface must include ctx.from_rows" in blocker for blocker in blockers)
+        )
+        self.assertTrue(any("workspace manifest path" in blocker for blocker in blockers))
+        self.assertTrue(any("missing required_evidence" in blocker for blocker in blockers))
+        self.assertTrue(any("fallback_attempted must be false" in blocker for blocker in blockers))
 
     def test_validator_rejects_incomplete_local_vortex_primitive_routes(self) -> None:
         module = load_route_module()

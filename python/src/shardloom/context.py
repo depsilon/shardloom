@@ -663,6 +663,57 @@ class UserRouteCapabilityRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicFrontDoorRouteRow:
+    """Machine-readable public front-door example for one admitted prepared route."""
+
+    front_door_id: str
+    owning_route_id: str
+    route_lane_id: str
+    route_display_name: str
+    input_family: str
+    public_user_surface: str
+    benchmark_public_surface: str
+    front_door_start_state: str
+    front_door_end_state: str
+    route_lane_start_state: str
+    route_lane_end_state: str
+    vortex_normalization_point: str
+    source_route: str
+    preparation_route: str
+    execution_mode: str
+    includes_preparation: bool
+    includes_query: bool
+    includes_output: bool
+    includes_evidence: bool
+    preparation_included: bool
+    query_timing_starts_after_preparation: bool
+    owning_route_comparable_to_external_end_to_end: bool
+    prepared_state_reused: bool | str
+    prepared_state_reuse_scope: str
+    prepared_state_reuse_manifest_path: str
+    prepared_state_reuse_policy: str
+    prepared_state_reuse_hit: bool | str
+    prepared_state_reuse_reason: str
+    prepared_state_reuse_manifest_digest: str
+    prepared_state_invalidation_reason: str
+    route_runtime_status: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str
+    performance_claim_allowed: bool
+    production_claim_allowed: bool
+    spark_replacement_claim_allowed: bool
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the public front-door row preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+
+@dataclass(frozen=True, slots=True)
 class UserRouteCapabilityReport:
     """Side-effect-free route-selection report for users and LLM agents."""
 
@@ -746,6 +797,134 @@ class UserRouteCapabilityReport:
         for row in self.rows:
             counts[row.route_runtime_status] = counts.get(row.route_runtime_status, 0) + 1
         return counts
+
+    @property
+    def public_front_door_route_rows(self) -> tuple[PublicFrontDoorRouteRow, ...]:
+        """Return public route examples for high-level prepared front doors."""
+
+        local = self.route("local_file_prepare_once_first_query")
+        generated = self.route("generated_rows_local_output")
+        return (
+            PublicFrontDoorRouteRow(
+                front_door_id="local_source_auto_prepare_vortex_front_door",
+                owning_route_id=local.route_id,
+                route_lane_id="prepare_once_first_query",
+                route_display_name=local.route_display_name,
+                input_family=local.input_family,
+                public_user_surface=(
+                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                benchmark_public_surface=(
+                    "Public front door for ShardLoom Prepare-Once First Query: raw "
+                    "compatibility source -> SourceState -> VortexPreparedState; the "
+                    "owning route continues with first prepared query -> result/evidence"
+                ),
+                front_door_start_state=local.start_state,
+                front_door_end_state="VortexPreparedState",
+                route_lane_start_state=local.start_state,
+                route_lane_end_state="result_sink",
+                vortex_normalization_point=local.vortex_normalization_point,
+                source_route=local.source_route,
+                preparation_route=local.preparation_route,
+                execution_mode=local.execution_mode,
+                includes_preparation=True,
+                includes_query=False,
+                includes_output=True,
+                includes_evidence=True,
+                preparation_included=True,
+                query_timing_starts_after_preparation=True,
+                owning_route_comparable_to_external_end_to_end=(
+                    local.route_comparable_to_external_end_to_end
+                ),
+                prepared_state_reused=False,
+                prepared_state_reuse_scope=local.prepared_state_reuse_scope,
+                prepared_state_reuse_manifest_path=local.prepared_state_reuse_manifest_path,
+                prepared_state_reuse_policy=local.prepared_state_reuse_policy,
+                prepared_state_reuse_hit=local.prepared_state_reuse_hit,
+                prepared_state_reuse_reason=local.prepared_state_reuse_reason,
+                prepared_state_reuse_manifest_digest=(
+                    local.prepared_state_reuse_manifest_digest
+                ),
+                prepared_state_invalidation_reason=(
+                    local.prepared_state_invalidation_reason
+                ),
+                route_runtime_status=local.route_runtime_status,
+                fallback_attempted=local.fallback_attempted,
+                external_engine_invoked=local.external_engine_invoked,
+                required_evidence=(
+                    "prepared_state_reuse_manifest",
+                    *local.required_evidence,
+                ),
+                claim_gate_status=local.claim_gate_status,
+                performance_claim_allowed=local.performance_claim_allowed,
+                production_claim_allowed=local.production_claim_allowed,
+                spark_replacement_claim_allowed=local.spark_replacement_claim_allowed,
+                claim_boundary=local.claim_boundary,
+            ),
+            PublicFrontDoorRouteRow(
+                front_door_id="generated_source_prepare_vortex_front_door",
+                owning_route_id=generated.route_id,
+                route_lane_id="generated_rows_local_output",
+                route_display_name=generated.route_display_name,
+                input_family=generated.input_family,
+                public_user_surface=(
+                    "ctx.from_rows([{'id': 1, 'label': 'alpha'}]).prepare_vortex("
+                    "workspace='target/shardloom-prepared')"
+                ),
+                benchmark_public_surface=(
+                    "ShardLoom Generated Rows Local Output public row: generated rows "
+                    "-> GeneratedSourceState -> VortexPreparedState -> local Vortex "
+                    "artifact/evidence"
+                ),
+                front_door_start_state=generated.start_state,
+                front_door_end_state="VortexPreparedState",
+                route_lane_start_state=generated.start_state,
+                route_lane_end_state="local_vortex_artifact",
+                vortex_normalization_point=generated.vortex_normalization_point,
+                source_route=generated.source_route,
+                preparation_route=generated.preparation_route,
+                execution_mode=generated.execution_mode,
+                includes_preparation=True,
+                includes_query=False,
+                includes_output=True,
+                includes_evidence=True,
+                preparation_included=True,
+                query_timing_starts_after_preparation=False,
+                owning_route_comparable_to_external_end_to_end=(
+                    generated.route_comparable_to_external_end_to_end
+                ),
+                prepared_state_reused="runtime_evaluated",
+                prepared_state_reuse_scope=generated.prepared_state_reuse_scope,
+                prepared_state_reuse_manifest_path=(
+                    generated.prepared_state_reuse_manifest_path
+                ),
+                prepared_state_reuse_policy=generated.prepared_state_reuse_policy,
+                prepared_state_reuse_hit=generated.prepared_state_reuse_hit,
+                prepared_state_reuse_reason=generated.prepared_state_reuse_reason,
+                prepared_state_reuse_manifest_digest=(
+                    generated.prepared_state_reuse_manifest_digest
+                ),
+                prepared_state_invalidation_reason=(
+                    generated.prepared_state_invalidation_reason
+                ),
+                route_runtime_status=generated.route_runtime_status,
+                fallback_attempted=generated.fallback_attempted,
+                external_engine_invoked=generated.external_engine_invoked,
+                required_evidence=generated.required_evidence,
+                claim_gate_status=generated.claim_gate_status,
+                performance_claim_allowed=generated.performance_claim_allowed,
+                production_claim_allowed=generated.production_claim_allowed,
+                spark_replacement_claim_allowed=generated.spark_replacement_claim_allowed,
+                claim_boundary=generated.claim_boundary,
+            ),
+        )
+
+    @property
+    def public_front_door_route_ids(self) -> tuple[str, ...]:
+        """Return public prepared front-door ids in stable order."""
+
+        return tuple(row.front_door_id for row in self.public_front_door_route_rows)
 
     @property
     def vortex_normalization_contract(self) -> str:

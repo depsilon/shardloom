@@ -261,6 +261,17 @@ a `GeneratedSourceWriteReport` with `prepared_state_created` and manifest-backed
 Repeated compatible generated-source preparation reuses the caller-owned local `.vortex` artifact
 through the artifact-adjacent manifest, reports `prepared_state_reuse_hit=true`, and skips the
 writer/reopen path when schema, row payload, plan, policy, and artifact fingerprints still match.
+The route capability report exposes both public prepared front doors as machine-readable rows:
+
+```python
+routes = ctx.user_route_capability_report()
+
+for row in routes.public_front_door_route_rows:
+    print(row.front_door_id, row.public_user_surface, row.prepared_state_reuse_scope)
+```
+
+Those rows are route guidance and release-readiness evidence. They do not run a benchmark or allow
+performance, production, or Spark-replacement claims.
 When capillary preparation is admitted, the report exposes
 `vortex_capillary_preparation_prewrite_status`,
 `vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array
