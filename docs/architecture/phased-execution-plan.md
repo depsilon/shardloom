@@ -182,14 +182,22 @@ the ledger.
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value,
 not by numeric CG order.
 
-Autonomous ordering rule:
+Current autonomous execution order:
 
-1. Finish the unchecked non-runtime closeout queue first.
-2. Then work the runtime implementation queue.
-3. Runtime queue items must explicitly enable an end-user runtime path, a runtime admission/blocker
-   that protects user-visible behavior, or a validator that gates runtime claims. Docs-only or
-   report-only work cannot complete a runtime item unless the item is explicitly a runtime-safety
-   blocker.
+1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation and prepared-state reuse.
+2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
+3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
+   `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
+   implementable slices.
+4. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
+   breadth work after the route/reuse/output contracts are landed.
+5. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
+   runtime queue has reduced the blockers it depends on.
+
+Runtime queue items must explicitly enable an end-user runtime path, a runtime admission/blocker
+that protects user-visible behavior, or a validator that gates runtime claims. Docs-only or
+report-only work cannot complete a runtime item unless the item is explicitly a runtime-safety
+blocker.
 
 Live plan hygiene:
 
@@ -200,8 +208,8 @@ Live plan hygiene:
   ledger entry exists or adding that ledger entry.
 - Do not leave a completed parent section in Planned just to preserve history. Keep only active
   child work or a short pointer to the ledger when history is needed.
-- Do not start a runtime implementation item while unchecked non-runtime closeout items remain
-  above it unless the user explicitly reprioritizes and the reprioritization is recorded here.
+- Do not let docs-only, report-only, or claim-copy cleanup interrupt the runtime sequence above
+  unless it is a release, safety, security, or claim-integrity blocker for the next runtime item.
 - A runtime item is valid only when it has a `Runtime enablement:` field that names the runnable
   path, admission/blocker, or validator it enables. If that field cannot be made concrete, the item
   belongs in non-runtime planning or the completed ledger, not the runtime queue.
@@ -244,24 +252,26 @@ must continue to report stage timing fields (`source_read_millis`, `compatibilit
 `evidence_render_millis`, and `total_runtime_millis`) so compatibility rows are interpreted as
 ingest/stage/certification work, not pure query speed. Do not add a hidden global fast-mode toggle.
 
-#### Non-Runtime Closeout Queue
+#### Deferred Non-Runtime Closeout Queue
 
-Complete these documentation, capability, security, release, and claim-gate items before starting
-new runtime implementation work unless the user explicitly reprioritizes. These items must not add
-runtime behavior or support claims. Add a concrete unchecked item here only when a new
-documentation, website, security, release, or claim-gate blocker must interrupt runtime work.
+Documentation, capability, security, release, and claim-gate cleanup belongs here only when it is
+not runtime-enabling. These items must not add runtime behavior or support claims. Add a concrete
+unchecked item here only when a new documentation, website, security, release, or claim-gate blocker
+must interrupt runtime work.
 
-Current non-runtime sequence: complete the review-derived action items below before new runtime
-expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
-`docs/architecture/phased-execution-completed-ledger.md`.
+Current non-runtime sequence: deferred behind 6E/6F and the runtime-readiness queue unless a
+specific blocker must be pulled forward with explicit justification. Completed non-runtime history
+belongs in `docs/architecture/phased-execution-completed-ledger.md`.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
-queues below. Current runtime sequence after PR #1031 is `GAR-RUNTIME-IMPL-6E`, then
-`GAR-RUNTIME-IMPL-6F`, then the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth
-items unless a specific 6D blocker must be pulled forward to unblock 6E/6F. The remaining 4/5-series
-queue stays as internal-engine backstop work after the route/reuse/output boundary work.
+queues below. Current runtime sequence after PR #1034 is `GAR-RUNTIME-IMPL-6E`, then
+`GAR-RUNTIME-IMPL-6F`, then `GAR-RUNTIME-IMPL-6C` / `GAR-RUNTIME-IMPL-6D:gap-family-burn-down`
+where needed to classify the remaining true blocker families, then the remaining
+`GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D breadth item forward only when it
+unblocks 6E/6F or prevents a misleading runtime-support posture. The remaining 4/5-series queue
+stays as internal-engine backstop work after the route/reuse/output boundary work.
 
 Runtime completion rule:
 
@@ -765,12 +775,98 @@ Implementation checklist, in required order:
   Fallback boundary: unsupported layout/write choices block before execution.
   Ledger rule: move completed details to the completed ledger.
 
+- [ ] GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion.
+  Source: `docs/architecture/repo-readiness-user-surface-audit.md`,
+  `shardloom-cli/src/command_registry.rs`, `python/src/shardloom/client.py`,
+  `python/src/shardloom/context.py`, `python/README.md`, and current use-case/website surfaces.
+  Current state: the repo exposes broad CLI and Python surfaces, but only part of that surface is
+  ergonomic high-level user workflow API; many report-only, feature-gated, and effectful rows are
+  intentionally present but not yet separated into a single source-of-truth graduation matrix. The
+  first 6C artifact is the SQL/Python/DataFrame front-door parity matrix, which makes scoped local
+  parity versus broad language/runtime/performance gaps explicit.
+  Next slice outcome: every registered CLI command family and Python user workflow is assigned one
+  of `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
+  `not_user_facing`, with deterministic criteria for promotion and no implied runtime support.
+  Runtime enablement: user-facing API/CLI/docs posture becomes a validated route-classification
+  surface that prevents report-only, diagnostic-only, or feature-gated commands from being mistaken
+  for runtime-supported workflows.
+  User-visible surface: `shardloom help`, `command-metadata`, Python `ShardLoomClient`,
+  `ShardLoomContext`, README examples, use-case index entries, and website readiness narratives.
+  Implementation scope: add the graduation matrix, wire a validator for CLI/Python/doc posture, and
+  promote only surfaces with real ShardLoom CLI/runtime evidence into high-level context helpers;
+  keep report-only or unsafe/effectful families diagnostic-only until evidence lands.
+  Evidence required: matrix artifact, Python tests for promoted helpers, docs/examples for admitted
+  user workflows, and no-fallback/external-engine fields preserved.
+  Acceptance: a validator fails if an executable or feature-gated user-facing command lacks a
+  deliberate Python/context posture or if docs imply support beyond the matrix.
+  Verification:
+  ```bash
+  python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
+  python3 scripts/check_use_case_index.py
+  python3 scripts/check_website_readiness.py
+  cargo test -p shardloom-cli --all-targets
+  cargo test -p shardloom-contract-tests --test release_readiness_metadata
+  git diff --check
+  ```
+  Non-goals: no promotion of report-only planners to runtime execution, no hidden external engine
+  delegation, no package publication, and no broad performance or production-readiness claim.
+  Dependencies/blockers: depends on the 6B audit inventory, current command registry metadata,
+  Python client/context inventories, and stable no-fallback diagnostics for unsupported surfaces.
+  Claim boundary: graduation means the user surface is deliberately classified and validated; it
+  does not mean all classified surfaces are supported runtime capabilities.
+  Fallback boundary: every promoted surface must preserve explicit no-fallback and
+  external-engine-not-invoked evidence where execution or certification is involved.
+  Ledger rule: move completed details and validation output to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6D:gap-family-burn-down true runtime gap family burn-down plan.
+  Source: the 38 unchecked global architecture review rows and the runtime gap families listed in
+  `docs/architecture/repo-readiness-user-surface-audit.md`.
+  Current state: the global review still has 38 unchecked rows; the completion gate is explicitly
+  blocked because broad architectural items have not all been converted into runtime evidence,
+  deterministic unsupported diagnostics, or reclassified out-of-scope surfaces with validators.
+  Next slice outcome: split each broad global blocker into family-owned runtime implementation
+  slices with acceptance criteria for supported behavior, deterministic blockers, validators,
+  docs/website parity, and benchmark/release evidence when relevant.
+  Runtime enablement: this is a runtime-safety planning gate that converts broad blocker language
+  into runnable implementation slices before broad SQL/DataFrame/object-store/effect/live/spill
+  work resumes.
+  User-visible surface: capability discovery, diagnostics, Python/context workflows, CLI runtime
+  commands, release/readiness gates, benchmark/readiness docs, and website/use-case claims.
+  Implementation scope: prioritize SQL/DataFrame runtime breadth, Vortex source/sink/operator
+  coverage, object-store/lakehouse execution, table/catalog commits, streaming/spill/retry runtime,
+  and package/deploy readiness according to current claim risk and user value.
+  Evidence required: each split item names the owning module, public surface, no-fallback invariant,
+  validator, and completion-gate field it is expected to reduce.
+  Acceptance: global review blocker count decreases only when a family has implementation,
+  deterministic admission evidence, or a documented reclassification with validator coverage.
+  Verification:
+  ```bash
+  python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate.json
+  python3 scripts/check_release_architecture_tracker.py --allow-blocked
+  python3 scripts/final_release_rehearsal.py --allow-blocked
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  cargo test -p shardloom-contract-tests --test release_readiness_metadata
+  git diff --check
+  ```
+  Non-goals: no unsupported work hidden as supported, no superiority/performance claims without
+  CG-5/CG-6 evidence, no fallback engines, no release publication, and no bundling every runtime
+  family into one oversized implementation PR.
+  Dependencies/blockers: depends on the 6B audit, the 6C graduation matrix, the active global
+  architecture review inventory, and family-specific RFC/skill routing before runtime promotion.
+  Claim boundary: blocker burn-down is claimable only for families with concrete implementation
+  evidence or validated unsupported diagnostics; placeholder artifacts do not satisfy runtime
+  support.
+  Fallback boundary: runtime gap closure must keep ShardLoom execution native and explicit; DuckDB,
+  Polars, Spark, DataFusion, Velox, and Vortex query-engine integrations remain comparison or
+  external-boundary surfaces only, never fallback execution.
+  Ledger rule: move completed details and validation output to the completed ledger.
+
 #### GAR-RUNTIME-IMPL-6D - Runtime-Ready User Surface And Benchmark-Range Completion
 
-Ordering note (2026-06-02): this remains the user-surface and benchmark-range breadth queue, but
-after PR #1031 it follows 6E/6F unless a specific 6D item blocks those route/reuse/output boundary
-items. Resume the last-order checklist here after the automatic preparation/reuse and output fanout
-contracts are landed, or pull a narrow 6D blocker forward with explicit justification.
+Ordering note (updated 2026-06-02 after PR #1034): this remains the user-surface and
+benchmark-range breadth queue, but it follows 6E, 6F, and the narrow 6C/gap-family classification
+work unless a specific 6D item blocks those route/reuse/output boundary items. Resume the last-order
+checklist here after the automatic preparation/reuse and output fanout contracts are landed, or pull
+a narrow 6D blocker forward with explicit justification.
 
 Source: user runtime-go request on 2026-05-31; `docs/rfcs/0033-user-data-workflow-etl-surface.md`;
 `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`;
@@ -897,35 +993,35 @@ attached.
 
 Implementation checklist, in required order:
 
-- [x] For compatibility imports, expose an intuitive user route for
+- Closed: For compatibility imports, expose an intuitive user route for
   `compatibility_import_certified -> prepared_vortex` and `shardloom-prepare-batch` so users can
   start from CSV/JSONL/Parquet/Arrow IPC/Avro/ORC, prepare once, run benchmark-range scenarios from
   prepared Vortex artifacts, and understand whether timing includes preparation. This is the primary
   non-Vortex input-to-Vortex transition and should be visible in reports instead of hidden behind a
   generic read helper. Closed by the context/session `prepare_vortex(..., workspace=...)` route
   handle and `CompatibilityPreparedVortexRoute`/`PreparedVortexQuery` tests.
-- [x] For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
+- Closed: For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
   runtime family used by benchmark rows, not piecemeal artificial helpers. The surface must make
   source, selected execution mode, scenario/operator, memory/parallelism, and result-sink choice
   explicit. Closed by `ctx.native_vortex_route(...)` / `session.native_vortex_route(...)`,
   `NativeVortexRoute`/`NativeVortexQuery`, and CLI/client resource-policy arguments for
   `traditional-analytics-vortex-run` and `traditional-analytics-vortex-batch-run`.
-- [x] For outputs, ensure every admitted benchmark-range route has at least one clear output option:
+- Closed: For outputs, ensure every admitted benchmark-range route has at least one clear output option:
   machine-readable report, bounded preview, local compatibility output, native Vortex output,
   result-sink replay proof, or fanout. Missing output wiring is a runtime-output checklist item, not
   a vague unsupported user surface. Closed by the user-route capability output-option classifier,
   admitted-route output maps, and fail-closed route-report regression tests.
-- [x] Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
+- Closed: Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
   in the Python context matrices, parity validator payload, benchmark coverage table, and docs.
   Use precise labels such as `front_door_connection_pending`, `output_route_pending`,
   `claim_evidence_pending`, or `benchmark_publication_pending`. Closed by
   `FrontDoorParityRow.runtime_gap_status`, parity/user-route/gap-inventory report fields, the
   `benchmark_publication_pending` route status, and docs that distinguish front-door gaps from
   unsupported engine paths.
-- [x] Add regression tests that fail if any benchmark-range local ShardLoom route reports
+- Closed: Add regression tests that fail if any benchmark-range local ShardLoom route reports
   `unsupported` merely because SQL/Python/DataFrame/context/session wiring is missing. Closed by
   user-route, local-file benchmark, parity, and runtime-gap inventory fail-closed tests.
-- [x] Keep claim boundaries strict: performance equivalence, production support, Spark
+- Closed: Keep claim boundaries strict: performance equivalence, production support, Spark
   displacement, object-store/table runtime, and broad arbitrary language support remain
   `not_claim_grade` until their correctness, Native I/O, execution-certificate, no-fallback, and
   benchmark evidence exists. Closed by the parity and route validators requiring
@@ -1311,11 +1407,12 @@ Ledger rule: when a child slice is completed and merged, move the completed deta
 `docs/architecture/phased-execution-completed-ledger.md`, then keep only remaining unchecked work
 here.
 
-#### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
+#### GAR-RUNTIME-IMPL-4/6A - Residual Completion Gate And Internal Backstop Queue
 Current runtime ordering note (updated 2026-06-02): the completed engine-internal queue remains
 recorded here as backstop context, but the active runtime sequence above now intentionally works 6E,
-then 6F, then the remaining 6D user-surface breadth before this residual 4/5-series queue unless a
-specific internal-engine item blocks the active route/reuse/output work. The
+then 6F, then the 6C/gap-family classification step, then the remaining 6D user-surface breadth
+before this residual completion/backstop queue unless a specific internal-engine item blocks the
+active route/reuse/output work. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
@@ -1332,7 +1429,8 @@ deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/
 semantics closeout plus `GAR-RUNTIME-IMPL-5P` Foundry dev-stack generated-output and transform
 proof are complete and recorded in the ledger.
 The remaining internal-engine follow-ups below are residual backstops after the active
-route/reuse/output and user-surface breadth sequence, not the current top runtime priority.
+route/reuse/output, user-surface classification, and user-surface breadth sequence, not the current
+top runtime priority.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
@@ -1416,103 +1514,6 @@ validators, docs/website parity, and a completed-ledger entry.
     required for every ShardLoom row and completion artifact.
   - Ledger rule: when this item closes, add the gate report, residual blocker deltas, and validation
     commands to `docs/architecture/phased-execution-completed-ledger.md`.
-
-- [x] GAR-RUNTIME-IMPL-6B repo-wide readiness and user-surface audit baseline
-  - Source: active user objective, `docs/architecture/repo-readiness-user-surface-audit.md`,
-    `shardloom-cli/src/command_registry.rs`, Python client/context method inventories, and
-    `scripts/check_compute_engine_completion_gate.py`.
-  - Completed state: the audit establishes that the repo is not ready for a full "no gaps"
-    completion claim, classifies remaining blocker families as true runtime gaps versus stale
-    cleanup, records the command/Python user-surface inventory, and fixes the first concrete
-    ergonomics defect by making `shardloom --help`, `shardloom -h`, and
-    `shardloom <command> --help` route through the registry-backed help surface.
-  - Cleanup state: stale completed-ledger `pending` PR references for
-    `codex/gar-perf-2c-review-freshness` and `codex/gar-completed-lane-review-freshness` are
-    replaced with #983 and #984.
-  - Claim boundary: this is an audit and user-surface cleanup slice, not evidence that the engine is
-    complete, package-ready, production-ready, or free of true runtime blockers.
-  - Evidence required: standard help aliases pass through the real CLI, command registry/status
-    surfaces expose the aliases, completion-gate counts remain explicit, and stale ledger references
-    no longer use `pending`.
-  - Acceptance: focused CLI tests cover the help aliases, command registry docs/tests cover the
-    alias metadata, and release/readiness validators continue to report the remaining blockers
-    explicitly.
-
-- [ ] GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion
-  - Source: `docs/architecture/repo-readiness-user-surface-audit.md`,
-    `shardloom-cli/src/command_registry.rs`, `python/src/shardloom/client.py`,
-    `python/src/shardloom/context.py`, `python/README.md`, and current use-case/website surfaces.
-  - Current state: the repo exposes broad CLI and Python surfaces, but only part of that surface is
-    ergonomic high-level user workflow API; many report-only, feature-gated, and effectful rows are
-    intentionally present but not yet separated into a single source-of-truth graduation matrix.
-    The first 6C artifact is the SQL/Python/DataFrame front-door parity matrix, which makes scoped
-    local parity versus broad language/runtime/performance gaps explicit.
-  - Next slice outcome: every registered CLI command family and Python user workflow is assigned one
-    of `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
-    `not_user_facing`, with deterministic criteria for promotion and no implied runtime support.
-  - User-visible surface: `shardloom help`, `command-metadata`, Python `ShardLoomClient`,
-    `ShardLoomContext`, README examples, use-case index entries, and website readiness narratives.
-  - Implementation scope: add the graduation matrix, wire a validator for CLI/Python/doc posture,
-    and promote only surfaces with real ShardLoom CLI/runtime evidence into high-level context
-    helpers; keep report-only or unsafe/effectful families diagnostic-only until evidence lands.
-  - Evidence required: matrix artifact, Python tests for promoted helpers, docs/examples for
-    admitted user workflows, and no-fallback/external-engine fields preserved.
-  - Acceptance: a validator fails if an executable or feature-gated user-facing command lacks a
-    deliberate Python/context posture or if docs imply support beyond the matrix.
-  - Verification:
-    ```bash
-    python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
-    python3 scripts/check_use_case_index.py
-    python3 scripts/check_website_readiness.py
-    cargo test -p shardloom-cli --all-targets
-    cargo test -p shardloom-contract-tests --test release_readiness_metadata
-    ```
-  - Non-goals: no promotion of report-only planners to runtime execution, no hidden external engine
-    delegation, no package publication, and no broad performance or production-readiness claim.
-  - Dependencies/blockers: depends on the 6B audit inventory, current command registry metadata,
-    Python client/context inventories, and stable no-fallback diagnostics for unsupported surfaces.
-  - Claim boundary: graduation means the user surface is deliberately classified and validated; it
-    does not mean all classified surfaces are supported runtime capabilities.
-  - Fallback boundary: every promoted surface must preserve explicit no-fallback and
-    external-engine-not-invoked evidence where execution or certification is involved.
-
-- [ ] GAR-RUNTIME-IMPL-6D true runtime gap family burn-down plan
-  - Source: the 38 unchecked global architecture review rows and the runtime gap families listed in
-    `docs/architecture/repo-readiness-user-surface-audit.md`.
-  - Current state: the global review still has 38 unchecked rows; the completion gate is explicitly
-    blocked because broad architectural items have not all been converted into runtime evidence,
-    deterministic unsupported diagnostics, or reclassified out-of-scope surfaces with validators.
-  - Next slice outcome: split each broad global blocker into family-owned runtime implementation
-    slices with acceptance criteria for supported behavior, deterministic blockers, validators,
-    docs/website parity, and benchmark/release evidence when relevant.
-  - User-visible surface: capability discovery, diagnostics, Python/context workflows, CLI runtime
-    commands, release/readiness gates, benchmark/readiness docs, and website/use-case claims.
-  - Implementation scope: prioritize SQL/DataFrame runtime breadth, Vortex source/sink/operator
-    coverage, object-store/lakehouse execution, table/catalog commits, streaming/spill/retry
-    runtime, and package/deploy readiness according to current claim risk and user value.
-  - Evidence required: each split item names the owning module, public surface, no-fallback
-    invariant, validator, and completion-gate field it is expected to reduce.
-  - Acceptance: global review blocker count decreases only when a family has implementation,
-    deterministic admission evidence, or a documented reclassification with validator coverage.
-  - Verification:
-    ```bash
-    python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate.json
-    python3 scripts/check_release_architecture_tracker.py --allow-blocked
-    python3 scripts/final_release_rehearsal.py --allow-blocked
-    cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-    cargo test -p shardloom-contract-tests --test release_readiness_metadata
-    ```
-  - Non-goals: no unsupported work hidden as supported, no superiority/performance claims without
-    CG-5/CG-6 evidence, no fallback engines, no release publication, and no bundling every runtime
-    family into one oversized implementation PR.
-  - Dependencies/blockers: depends on the 6B audit, the 6C graduation matrix, the active global
-    architecture review inventory, and family-specific RFC/skill routing before runtime promotion.
-  - Claim boundary: blocker burn-down is claimable only for families with concrete implementation
-    evidence or validated unsupported diagnostics; placeholder artifacts do not satisfy runtime
-    support.
-  - Fallback boundary: runtime gap closure must keep ShardLoom execution native and explicit; DuckDB,
-    Polars, Spark, DataFusion, Velox, and Vortex query-engine integrations remain comparison or
-    external-boundary surfaces only, never fallback execution.
 
 ## Completed
 

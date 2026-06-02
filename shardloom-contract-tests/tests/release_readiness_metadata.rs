@@ -2055,11 +2055,14 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.contains("complete the review-derived action items below before new runtime"));
+    assert!(plan.contains("Current autonomous execution order:"));
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-6E` automatic dynamic preparation"));
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-6F` output/fanout conversion"));
+    assert!(plan.contains("Deferred Non-Runtime Closeout Queue"));
     assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-2 release-grade CI gate matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-3 enforced workspace path safety"));
-    assert!(plan.contains("Completed non-runtime history belongs in"));
+    assert!(plan.contains("Completed non-runtime history"));
     assert!(plan.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
@@ -6740,12 +6743,15 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("claim_gate_status=not_claim_grade"));
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
-    assert!(plan.contains("complete the review-derived action items below before new runtime"));
+    assert!(plan.contains("Current autonomous execution order:"));
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-6E` automatic dynamic preparation"));
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-6F` output/fanout conversion"));
+    assert!(plan.contains("Deferred Non-Runtime Closeout Queue"));
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));
     assert!(!plan.contains("- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
-    assert!(plan.contains("Completed non-runtime history belongs in"));
+    assert!(plan.contains("Completed non-runtime history"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
