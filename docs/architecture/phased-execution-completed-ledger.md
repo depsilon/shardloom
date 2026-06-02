@@ -16,6 +16,29 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6B repo-wide readiness and user-surface audit baseline
+  - Date: 2026-06-02
+  - Branch/PR: `codex/repo-readiness-user-surface-audit` / PR #991, merged as
+    `193d6639`.
+  - Source:
+    - Active user objective, `docs/architecture/repo-readiness-user-surface-audit.md`,
+      `shardloom-cli/src/command_registry.rs`, Python client/context method inventories, and
+      `scripts/check_compute_engine_completion_gate.py`.
+  - Scope:
+    - Established that the repo was not ready for a full "no gaps" completion claim.
+    - Classified remaining blocker families as true runtime gaps versus stale cleanup.
+    - Recorded the command/Python user-surface inventory.
+    - Fixed the first concrete ergonomics defect by making `shardloom --help`, `shardloom -h`, and
+      `shardloom <command> --help` route through the registry-backed help surface.
+    - Replaced stale completed-ledger `pending` PR references for
+      `codex/gar-perf-2c-review-freshness` and `codex/gar-completed-lane-review-freshness` with
+      PR #983 and PR #984.
+  - Claim boundary:
+    - This was an audit and user-surface cleanup slice, not evidence that the engine is complete,
+      package-ready, production-ready, or free of true runtime blockers.
+  - Fallback boundary:
+    - The audit and help-surface cleanup did not add external execution fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped decimal arithmetic SQL/Python runtime slice
   - Date: 2026-06-02
   - Branch/PR: `codex/scoped-decimal-arithmetic-runtime` / PR #1031, merged as
