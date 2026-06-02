@@ -1104,6 +1104,102 @@ def grouped_having_projected_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def joined_projected_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="joined_projected_exists_subquery_semantics",
+        source_name="joined-projected-exists-source.csv",
+        source_text="id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE EXISTS ("
+            "SELECT c.id FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "exists_subquery",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "c.id",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_input_row_count": "4",
+            "exists_subquery_filtered_row_count": "2",
+            "exists_subquery_bounded_row_count": "2",
+            "exists_subquery_result": "true",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "4",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "joined-projected-exists-candidates.csv",
+                "id,min_amount\n1,5\n2,25\n3,20\n5,1\n",
+            ),
+            (
+                "allowed",
+                "joined-projected-exists-allowed.csv",
+                "id,active,score\n1,true,30\n2,false,20\n3,true,40\n5,false,50\n",
+            ),
+        ),
+    )
+
+
+def grouped_having_projected_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="grouped_having_projected_exists_subquery_semantics",
+        source_name="grouped-projected-exists-source.csv",
+        source_text="id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE EXISTS ("
+            "SELECT id FROM '{grouped}' GROUP BY id HAVING count(*) >= 2 "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "exists_subquery",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "id",
+            "exists_subquery_filter_runtime_execution": "false",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_input_row_count": "6",
+            "exists_subquery_filtered_row_count": "2",
+            "exists_subquery_bounded_row_count": "2",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "false",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "4",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "grouped-projected-exists-values.csv",
+                "id,amount\n1,10\n1,20\n2,5\n3,7\n3,9\n4,1\n",
+            ),
+        ),
+    )
+
+
 def joined_projected_quantified_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="joined_projected_quantified_subquery_semantics",
@@ -1305,6 +1401,53 @@ def correlated_joined_projected_quantified_subquery_case() -> SqlFixtureCase:
                 "allowed",
                 "correlated-joined-projected-quantified-allowed.csv",
                 "threshold_id,enabled\n10,true\n20,true\n30,true\n40,true\n50,true\n60,false\n",
+            ),
+        ),
+    )
+
+
+def correlated_joined_projected_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_exists_subquery_semantics",
+        source_name="correlated-joined-projected-exists-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE EXISTS ("
+            "SELECT c.id FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "exists_subquery",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "c.id",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-exists-candidates.csv",
+                "id,min_amount\n1,5\n1,99\n2,25\n3,20\n5,1\n",
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-exists-allowed.csv",
+                "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
             ),
         ),
     )
@@ -2085,10 +2228,13 @@ def executable_cases() -> list[SqlFixtureCase]:
         joined_projected_in_subquery_case(),
         joined_projected_row_value_in_subquery_case(),
         grouped_having_projected_in_subquery_case(),
+        joined_projected_exists_subquery_case(),
+        grouped_having_projected_exists_subquery_case(),
         joined_projected_quantified_subquery_case(),
         correlated_joined_projected_in_subquery_case(),
         correlated_joined_projected_row_value_in_subquery_case(),
         correlated_joined_projected_quantified_subquery_case(),
+        correlated_joined_projected_exists_subquery_case(),
         nested_in_subquery_case(),
         having_in_subquery_case(),
         having_exists_subquery_case(),
