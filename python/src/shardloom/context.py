@@ -1141,6 +1141,7 @@ def _route_diagnostic_packet(
 
     normalization = vortex_normalization_point
     examples = " ".join(input_examples).lower()
+    generated_prepared_route = route_id == "generated_rows_local_output"
     source_backed = (
         "SourceState" in normalization
         or "raw_" in start_state
@@ -1150,7 +1151,7 @@ def _route_diagnostic_packet(
     prepared_backed = (
         "VortexPreparedState" in normalization
         and "no persistent VortexPreparedState" not in normalization
-    ) or start_state == "VortexPreparedState"
+    ) or start_state == "VortexPreparedState" or generated_prepared_route
     if not prepared_backed:
         reuse_packet: dict[str, object] = {
             "prepared_state_reuse_scope": "not_applicable_no_prepared_state",
@@ -1171,6 +1172,26 @@ def _route_diagnostic_packet(
             "prepared_state_reuse_manifest_digest": "runtime_prepared_state_digest_pending",
             "prepared_state_invalidation_reason": (
                 "artifact_admission_failure_or_policy_mismatch"
+            ),
+        }
+    elif generated_prepared_route:
+        reuse_packet = {
+            "prepared_state_reuse_scope": "artifact_adjacent_manifest_local_vortex_artifacts",
+            "prepared_state_reuse_manifest_path": (
+                "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest"
+            ),
+            "prepared_state_reuse_policy": (
+                "artifact_adjacent_local_prepared_state_reuse.v1"
+            ),
+            "prepared_state_reuse_hit": "runtime_evaluated",
+            "prepared_state_reuse_reason": (
+                "runtime_evaluated_artifact_adjacent_manifest_lookup"
+            ),
+            "prepared_state_reuse_manifest_digest": (
+                "runtime_prepared_state_reuse_manifest_digest_pending"
+            ),
+            "prepared_state_invalidation_reason": (
+                "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift"
             ),
         }
     else:
@@ -1217,30 +1238,54 @@ def _route_diagnostic_packet(
 
     return {
         "source_state_fingerprint": (
-            "runtime_source_state_fingerprint_pending"
-            if source_backed
-            else "not_applicable_native_or_source_free_route"
+            "runtime_generated_source_state_fingerprint_pending"
+            if generated_prepared_route
+            else (
+                "runtime_source_state_fingerprint_pending"
+                if source_backed
+                else "not_applicable_native_or_source_free_route"
+            )
         ),
         "source_schema_fingerprint": (
-            "runtime_source_schema_fingerprint_pending"
-            if source_backed
-            else "not_applicable_native_or_source_free_route"
+            "runtime_generated_source_schema_fingerprint_pending"
+            if generated_prepared_route
+            else (
+                "runtime_source_schema_fingerprint_pending"
+                if source_backed
+                else "not_applicable_native_or_source_free_route"
+            )
         ),
         "source_parse_plan_id": (
-            f"parse-plan://{route_id}"
-            if source_backed
-            else "not_applicable_native_or_source_free_route"
+            f"generated-source-plan://{route_id}"
+            if generated_prepared_route
+            else (
+                f"parse-plan://{route_id}"
+                if source_backed
+                else "not_applicable_native_or_source_free_route"
+            )
         ),
         "source_split_manifest_id": (
-            f"split-manifest://{route_id}"
-            if source_backed
-            else "not_applicable_native_or_source_free_route"
+            "not_applicable_generated_source_no_source_splits"
+            if generated_prepared_route
+            else (
+                f"split-manifest://{route_id}"
+                if source_backed
+                else "not_applicable_native_or_source_free_route"
+            )
         ),
         "source_anomaly_count": (
-            "not_evaluated_until_source_admission" if source_backed else 0
+            "not_evaluated_generated_source_schema_rows_validated_at_runtime"
+            if generated_prepared_route
+            else (
+                "not_evaluated_until_source_admission" if source_backed else 0
+            )
         ),
         "source_quarantine_required": (
-            "not_evaluated_until_source_admission" if source_backed else False
+            False
+            if generated_prepared_route
+            else (
+                "not_evaluated_until_source_admission" if source_backed else False
+            )
         ),
         "prepared_state_fingerprint": (
             "runtime_prepared_state_fingerprint_pending"
@@ -3980,7 +4025,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         desired_outputs=(
             "local_jsonl",
             "local_csv",
-            "feature_gated_local_vortex_preparation",
+            "feature_gated_local_vortex_output",
             "fanout",
         ),
         recommended_user_surface=(
@@ -3989,13 +4034,22 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "ctx.sql_values(...).write_* for generated local outputs"
         ),
         start_state="source_free_generated_rows",
-        vortex_normalization_point="generated rows -> Vortex-preparable batch",
+        vortex_normalization_point=(
+            "generated rows -> GeneratedSourceState -> Vortex-preparable batch -> "
+            "VortexPreparedState for feature-gated local Vortex output"
+        ),
         source_route="generated-source user rows/range/sequence/calendar/SQL literal source",
         preparation_route="generated_source_to_vortex_preparable_batch",
         execution_mode="generated_source_smoke",
         execution_route="generated-source-* local output smoke family",
-        output_route="local JSONL/CSV and feature-gated local Vortex output/fanout",
-        evidence_route="generated-source certificate, OutputPlan, output Native I/O, replay evidence",
+        output_route=(
+            "local JSONL/CSV, feature-gated local Vortex output, artifact-adjacent "
+            "prepared-state reuse manifest, and fanout"
+        ),
+        evidence_route=(
+            "generated-source certificate, artifact-adjacent prepared-state reuse manifest, "
+            "OutputPlan, output Native I/O, replay evidence, and no-fallback evidence"
+        ),
         materialization_decode_boundary="generated rows are materialized input rows; output decode only at declared sink",
         route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
@@ -4003,6 +4057,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         owner="GAR-RUNTIME-IMPL-6D.generated_rows_local_output",
         required_evidence=(
             "generated_source_certificate",
+            "prepared_state_reuse_manifest",
             "output_native_io_certificate",
             "execution_certificate",
             "result_replay_verified",

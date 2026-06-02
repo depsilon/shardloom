@@ -1172,6 +1172,7 @@ def main() -> int:
                 "all_local_file_benchmark_routes_have_vortex_normalization",
                 "all_local_file_benchmark_routes_have_output_and_evidence",
                 "all_prepared_routes_expose_workspace_manifest_reuse_contract",
+                "generated_source_route_exposes_artifact_adjacent_manifest_reuse_contract",
                 "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract",
                 "all_local_file_benchmark_routes_preserve_no_fallback",
                 "all_no_fallback_no_external_engine",

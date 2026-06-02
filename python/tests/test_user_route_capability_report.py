@@ -73,6 +73,11 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertTrue(
             report["acceptance_summary"][
+                "generated_source_route_exposes_artifact_adjacent_manifest_reuse_contract"
+            ]
+        )
+        self.assertTrue(
+            report["acceptance_summary"][
                 "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract"
             ]
         )
@@ -136,6 +141,47 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(
             direct["prepared_state_reuse_scope"],
             "not_applicable_no_prepared_state",
+        )
+
+        generated = by_id["generated_rows_local_output"]
+        self.assertIn("GeneratedSourceState", generated["vortex_normalization_point"])
+        self.assertIn("VortexPreparedState", generated["vortex_normalization_point"])
+        self.assertIn(
+            "feature_gated_local_vortex_output",
+            generated["desired_outputs"],
+        )
+        self.assertEqual(
+            generated["prepared_state_fingerprint"],
+            "runtime_prepared_state_fingerprint_pending",
+        )
+        self.assertEqual(
+            generated["prepared_state_reuse_scope"],
+            "artifact_adjacent_manifest_local_vortex_artifacts",
+        )
+        self.assertEqual(
+            generated["prepared_state_reuse_manifest_path"],
+            "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest",
+        )
+        self.assertEqual(
+            generated["prepared_state_reuse_policy"],
+            "artifact_adjacent_local_prepared_state_reuse.v1",
+        )
+        self.assertEqual(generated["prepared_state_reuse_hit"], "runtime_evaluated")
+        self.assertEqual(
+            generated["prepared_state_reuse_reason"],
+            "runtime_evaluated_artifact_adjacent_manifest_lookup",
+        )
+        self.assertEqual(
+            generated["prepared_state_invalidation_reason"],
+            "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift",
+        )
+        self.assertEqual(
+            generated["source_split_manifest_id"],
+            "not_applicable_generated_source_no_source_splits",
+        )
+        self.assertIn(
+            "prepared_state_reuse_manifest",
+            generated["required_evidence"],
         )
 
         native = by_id["native_vortex_query"]
@@ -259,6 +305,10 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "workspace_manifest_local_vortex_artifacts",
         )
         self.assertEqual(
+            routes.route("generated_rows_local_output").prepared_state_reuse_scope,
+            "artifact_adjacent_manifest_local_vortex_artifacts",
+        )
+        self.assertEqual(
             routes.route("local_vortex_primitive_report").vortex_normalization_point,
             "native_vortex_boundary",
         )
@@ -293,6 +343,15 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         rows[1]["recommended_user_surface"] = "ctx.internal_only()"
         rows[2]["prepared_state_reuse_manifest_path"] = "missing"
         for row in rows:
+            if row["route_id"] == "generated_rows_local_output":
+                row["prepared_state_reuse_manifest_path"] = "missing"
+                row["required_evidence"] = [
+                    item
+                    for item in row["required_evidence"]
+                    if item != "prepared_state_reuse_manifest"
+                ]
+                break
+        for row in rows:
             if row["route_id"] == "local_vortex_primitive_report":
                 row["recommended_user_surface"] = (
                     "ctx.read_vortex(path).write_vortex('out.vortex')"
@@ -317,6 +376,12 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(any("clear output option" in blocker for blocker in blockers))
         self.assertTrue(any("must not advertise write_vortex" in blocker for blocker in blockers))
         self.assertTrue(any("workspace manifest path" in blocker for blocker in blockers))
+        self.assertTrue(
+            any("artifact-adjacent reuse manifest path" in blocker for blocker in blockers)
+        )
+        self.assertTrue(
+            any("prepared_state_reuse_manifest evidence" in blocker for blocker in blockers)
+        )
 
     def test_validator_rejects_incomplete_local_file_benchmark_routes(self) -> None:
         module = load_route_module()
