@@ -2777,7 +2777,7 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
     ));
 
     let blocked_statement = format!(
-        "SELECT id,CAST(label AS decimal128) AS unsupported FROM '{}' LIMIT 10",
+        "SELECT id,CAST(label AS decimal128(39,2)) AS unsupported FROM '{}' LIMIT 10",
         source_path.display()
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -2795,9 +2795,7 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
         String::from_utf8_lossy(&blocked.stdout),
         String::from_utf8_lossy(&blocked.stderr)
     );
-    assert!(blocked_output.contains(
-        "decimal precision/scale casts are not admitted by the current scalar semantics profile"
-    ));
+    assert!(blocked_output.contains("decimal CAST precision/scale must satisfy"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");

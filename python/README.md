@@ -647,7 +647,7 @@ columns and finite numeric literals, scoped
 `sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
 `sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
 `sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")` /
-`.cast("binary")`
+`.cast("decimal128(10,2)")` / `.try_cast("numeric(10,2)")` / `.cast("binary")`
 projections, and scoped Date32/UTC timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
@@ -683,7 +683,9 @@ projections emit `date_arithmetic_projection_*` evidence; UTC timestamp arithmet
 projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
 conditional projections emit
-`conditional_projection_*` evidence; binary cast projections emit `cast_projection_*` evidence with
+`conditional_projection_*` evidence; decimal cast projections/predicates emit `decimal_cast_*`
+precision, scale, mode, and exact-output-boundary evidence while preserving generic
+`cast_projection_*` / `cast_*` fields; binary cast projections emit `cast_projection_*` evidence with
 `binary` target dtypes; binary helper projections emit
 `binary_helper_projection_*` evidence; scoped complex projections emit
 `complex_projection_*` evidence. Sorting after an input-backed computed projection is admitted
@@ -701,7 +703,10 @@ standard padded base64 decoding, null propagation, and deterministic invalid-inp
 Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scoped binary cast
 equality/inequality predicates are admitted through the SQL local-source runtime; broad binary
 source dtype decoding, binary ordering, and nested binary helper expressions still block before
-fallback. Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
+fallback. Scoped decimal casts are admitted for fixed-scale projection and predicate fixtures with
+exact JSONL string and CSV text output; decimal arithmetic, broad ANSI decimal coercion, exponent
+notation, and typed Parquet/Arrow/Vortex decimal sink preservation still block before fallback.
+Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
 bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,
 casts, nested source decoding, and flat compatibility sinks still block before fallback.
 Unsupported computed-column expressions still block before fallback.

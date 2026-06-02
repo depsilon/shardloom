@@ -577,6 +577,49 @@ def binary_cast_projection_predicate_case() -> SqlFixtureCase:
     )
 
 
+def decimal_cast_projection_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="decimal_cast_projection_predicate",
+        source_name="decimal-cast.csv",
+        source_text=(
+            "id,amount,raw_amount\n"
+            "1,12.34,12.30\n"
+            "2,8.00,bad\n"
+            "3,,7.50\n"
+        ),
+        statement_template=(
+            "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,"
+            "TRY_CAST(raw_amount AS decimal(10,2)) AS raw_decimal FROM '{source}' "
+            "WHERE CAST(amount AS numeric(10,2)) >= 10.00 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"amount_decimal":"12.34","raw_decimal":"12.30"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "cast",
+            "cast_runtime_execution": "true",
+            "cast_source_column": "amount",
+            "cast_target_dtype": "decimal128(10,2)",
+            "cast_mode": "strict",
+            "cast_projection_runtime_execution": "true",
+            "cast_projection_source_column": "amount,raw_amount",
+            "cast_projection_output_column": "amount_decimal,raw_decimal",
+            "cast_projection_target_dtype": "decimal128(10,2),decimal128(10,2)",
+            "cast_projection_mode": "strict,try",
+            "decimal_cast_runtime_execution": "true",
+            "decimal_cast_source_column": "amount,amount,raw_amount",
+            "decimal_cast_output_column": "amount_decimal,raw_decimal",
+            "decimal_cast_target_dtype": "decimal128(10,2),decimal128(10,2),decimal128(10,2)",
+            "decimal_cast_precision": "10,10,10",
+            "decimal_cast_scale": "2,2,2",
+            "decimal_cast_mode": "strict,strict,try",
+            "decimal_cast_output_boundary": "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked",
+            "projected_columns": "id,amount_decimal,raw_decimal",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def binary_helper_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_helper_projection",
@@ -2550,6 +2593,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         complex_array_literal_projection_case(),
         complex_struct_source_projection_case(),
         binary_cast_projection_predicate_case(),
+        decimal_cast_projection_predicate_case(),
         binary_helper_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
@@ -2602,14 +2646,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT id,amount / 0 AS broken FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="numeric arithmetic projection division by zero is not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_cast_decimal128",
-            source_name="cast-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template="SELECT id,CAST(label AS decimal128) AS unsupported FROM '{source}' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="decimal precision/scale casts are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_non_utc_timestamp_literal",

@@ -108,7 +108,7 @@ impl LogicalDType {
             Self::Struct => "struct",
             Self::List => "list",
             Self::Unknown => "unknown",
-            Self::Extension(_) => "extension",
+            Self::Extension(value) => value.as_str(),
         }
     }
 }

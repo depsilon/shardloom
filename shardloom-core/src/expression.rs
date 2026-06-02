@@ -44,6 +44,11 @@ pub enum ScalarValue {
     Float64(f64),
     Utf8(String),
     Binary(Vec<u8>),
+    Decimal128 {
+        value: i128,
+        precision: u8,
+        scale: u8,
+    },
     Date32(i32),
     TimestampMicros(i64),
     List(Vec<ScalarValue>),
@@ -60,6 +65,9 @@ impl ScalarValue {
             Self::Float64(_) => LogicalDType::Float64,
             Self::Utf8(_) => LogicalDType::Utf8,
             Self::Binary(_) => LogicalDType::Binary,
+            Self::Decimal128 {
+                precision, scale, ..
+            } => decimal128_dtype(*precision, *scale),
             Self::Date32(_) => LogicalDType::Date32,
             Self::TimestampMicros(_) => LogicalDType::TimestampMicros,
             Self::List(_) => LogicalDType::List,
@@ -80,12 +88,25 @@ impl ScalarValue {
             Self::Float64(v) => format!("f64:{v}"),
             Self::Utf8(v) => format!("utf8:{v}"),
             Self::Binary(v) => format!("binary[len={}]", v.len()),
+            Self::Decimal128 {
+                value,
+                precision,
+                scale,
+            } => format!(
+                "decimal128({precision},{scale}):{}",
+                format_decimal128_value(*value, *scale)
+            ),
             Self::Date32(v) => format!("date32:{v}"),
             Self::TimestampMicros(v) => format!("ts_micros:{v}"),
             Self::List(v) => format!("list[len={}]", v.len()),
             Self::Struct(v) => format!("struct[fields={}]", v.len()),
         }
     }
+}
+
+#[must_use]
+pub fn decimal128_dtype(precision: u8, scale: u8) -> LogicalDType {
+    LogicalDType::Extension(format!("decimal128({precision},{scale})"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2183,6 +2204,18 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
             op,
             "binary comparison admits equality and inequality only",
         )?,
+        (
+            ScalarValue::Decimal128 {
+                value: left,
+                scale: left_scale,
+                ..
+            },
+            ScalarValue::Decimal128 {
+                value: right,
+                scale: right_scale,
+                ..
+            },
+        ) if left_scale == right_scale => compare_ordering(left.cmp(right), op, "")?,
         (ScalarValue::Date32(left), ScalarValue::Date32(right)) => {
             compare_ordering(left.cmp(right), op, "")?
         }
@@ -2256,6 +2289,9 @@ fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
         ScalarValue::Float64(value) if value.is_finite() => value.to_string().into_bytes(),
         ScalarValue::Boolean(value) => value.to_string().into_bytes(),
         ScalarValue::Utf8(value) => value.as_bytes().to_vec(),
+        ScalarValue::Decimal128 { value, scale, .. } => {
+            format_decimal128_value(*value, *scale).into_bytes()
+        }
         ScalarValue::Date32(value) => format_iso_date32(*value).into_bytes(),
         ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value).into_bytes(),
         _ => return None,
@@ -2263,12 +2299,227 @@ fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
     Some(ScalarValue::Binary(bytes))
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+fn decimal128_dtype_parts(dtype: &LogicalDType) -> Option<(u8, u8)> {
+    let LogicalDType::Extension(value) = dtype else {
+        return None;
+    };
+    let parts = value
+        .strip_prefix("decimal128(")?
+        .strip_suffix(')')?
+        .split(',')
+        .map(str::trim)
+        .collect::<Vec<_>>();
+    let [precision, scale] = parts.as_slice() else {
+        return None;
+    };
+    let precision = precision.parse::<u8>().ok()?;
+    let scale = scale.parse::<u8>().ok()?;
+    decimal128_precision_scale_is_valid(precision, scale).then_some((precision, scale))
+}
+
+const fn decimal128_precision_scale_is_valid(precision: u8, scale: u8) -> bool {
+    precision >= 1 && precision <= 38 && scale <= precision
+}
+
+fn decimal128_power10(scale: u8) -> Option<i128> {
+    let mut value = 1_i128;
+    for _ in 0..scale {
+        value = value.checked_mul(10)?;
+    }
+    Some(value)
+}
+
+fn decimal128_digit_count(value: i128) -> u8 {
+    let mut value = value.unsigned_abs();
+    if value == 0 {
+        return 1;
+    }
+    let mut digits = 0_u8;
+    while value > 0 {
+        value /= 10;
+        digits = digits.saturating_add(1);
+    }
+    digits
+}
+
+fn parse_decimal128_text(raw: &str, precision: u8, scale: u8) -> std::result::Result<i128, String> {
+    if !decimal128_precision_scale_is_valid(precision, scale) {
+        return Err(
+            "decimal128 precision/scale must satisfy 1 <= precision <= 38 and scale <= precision"
+                .to_string(),
+        );
+    }
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("decimal128 cast source must not be empty".to_string());
+    }
+    let (negative, body) = match trimmed.as_bytes().first() {
+        Some(b'-') => (true, &trimmed[1..]),
+        Some(b'+') => (false, &trimmed[1..]),
+        _ => (false, trimmed),
+    };
+    if body.is_empty() {
+        return Err("decimal128 cast source requires digits".to_string());
+    }
+    if decimal128_text_looks_like_exponent_notation(body) {
+        return Err(
+            "decimal128 cast source does not admit exponent notation in this scoped slice"
+                .to_string(),
+        );
+    }
+    let parts = body.split('.').collect::<Vec<_>>();
+    let (integer, fraction) = match parts.as_slice() {
+        [integer] => (*integer, ""),
+        [integer, fraction] => (*integer, *fraction),
+        _ => {
+            return Err(
+                "decimal128 cast source must contain at most one decimal point".to_string(),
+            );
+        }
+    };
+    if integer.is_empty() && fraction.is_empty() {
+        return Err("decimal128 cast source requires digits".to_string());
+    }
+    if !integer.chars().all(|ch| ch.is_ascii_digit())
+        || !fraction.chars().all(|ch| ch.is_ascii_digit())
+    {
+        return Err("decimal128 cast source admits digits and one decimal point only".to_string());
+    }
+    if fraction.len() > usize::from(scale) {
+        return Err(format!(
+            "decimal128({precision},{scale}) cast source has more than {scale} fractional digits"
+        ));
+    }
+    let scale_factor =
+        decimal128_power10(scale).ok_or_else(|| "decimal128 scale is out of range".to_string())?;
+    let integer_value = if integer.is_empty() {
+        0_i128
+    } else {
+        integer
+            .parse::<i128>()
+            .map_err(|_| "decimal128 integer component is out of range".to_string())?
+    };
+    let mut fraction_text = fraction.to_string();
+    while fraction_text.len() < usize::from(scale) {
+        fraction_text.push('0');
+    }
+    let fraction_value = if fraction_text.is_empty() {
+        0_i128
+    } else {
+        fraction_text
+            .parse::<i128>()
+            .map_err(|_| "decimal128 fractional component is out of range".to_string())?
+    };
+    let scaled = integer_value
+        .checked_mul(scale_factor)
+        .and_then(|value| value.checked_add(fraction_value))
+        .ok_or_else(|| "decimal128 scaled value is out of range".to_string())?;
+    let scaled = if negative {
+        scaled
+            .checked_neg()
+            .ok_or_else(|| "decimal128 scaled value is out of range".to_string())?
+    } else {
+        scaled
+    };
+    if decimal128_digit_count(scaled) > precision {
+        return Err(format!(
+            "decimal128({precision},{scale}) cast source exceeds declared precision"
+        ));
+    }
+    Ok(scaled)
+}
+
+fn decimal128_text_looks_like_exponent_notation(body: &str) -> bool {
+    let parts = body.split(['e', 'E']).collect::<Vec<_>>();
+    let [mantissa, exponent] = parts.as_slice() else {
+        return false;
+    };
+    let exponent = exponent.strip_prefix(['+', '-']).unwrap_or(exponent);
+    if mantissa.is_empty() || exponent.is_empty() || !exponent.chars().all(|ch| ch.is_ascii_digit())
+    {
+        return false;
+    }
+    let parts = mantissa.split('.').collect::<Vec<_>>();
+    match parts.as_slice() {
+        [integer] => !integer.is_empty() && integer.chars().all(|ch| ch.is_ascii_digit()),
+        [integer, fraction] => {
+            (!integer.is_empty() || !fraction.is_empty())
+                && integer.chars().all(|ch| ch.is_ascii_digit())
+                && fraction.chars().all(|ch| ch.is_ascii_digit())
+        }
+        _ => false,
+    }
+}
+
+fn decimal128_from_scalar(
+    source: &ScalarValue,
+    precision: u8,
+    scale: u8,
+) -> EvalResult<ScalarValue> {
+    let text = match source {
+        ScalarValue::Utf8(value) => value.clone(),
+        ScalarValue::Int64(value) => value.to_string(),
+        ScalarValue::UInt64(value) => value.to_string(),
+        ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
+        ScalarValue::Decimal128 { value, scale, .. } => format_decimal128_value(*value, *scale),
+        other => {
+            return Err(EvalFailure::unsupported(
+                "cast",
+                format!(
+                    "cast from {} to decimal128 is not admitted by this slice",
+                    other.dtype().as_str()
+                ),
+            ));
+        }
+    };
+    let value = parse_decimal128_text(&text, precision, scale)
+        .map_err(|message| EvalFailure::invalid("cast", message))?;
+    Ok(ScalarValue::Decimal128 {
+        value,
+        precision,
+        scale,
+    })
+}
+
+#[must_use]
+pub fn format_decimal128_value(value: i128, scale: u8) -> String {
+    let negative = value.is_negative();
+    let abs = value.unsigned_abs();
+    if scale == 0 {
+        return format!("{}{}", if negative { "-" } else { "" }, abs);
+    }
+    let Some(scale_factor) = decimal128_power10(scale).and_then(|value| u128::try_from(value).ok())
+    else {
+        return format!("{}{}", if negative { "-" } else { "" }, abs);
+    };
+    let integer = abs / scale_factor;
+    let fraction = abs % scale_factor;
+    format!(
+        "{}{}.{:0width$}",
+        if negative { "-" } else { "" },
+        integer,
+        fraction,
+        width = usize::from(scale)
+    )
+}
+
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::too_many_lines
+)]
 fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
     if value.value.is_null() {
         return Ok(
             EvalValue::null(target_dtype.clone(), NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    if let Some((precision, scale)) = decimal128_dtype_parts(target_dtype) {
+        let casted = decimal128_from_scalar(&value.value, precision, scale)?;
+        return Ok(
+            EvalValue::new(casted, target_dtype.clone(), NullBehavior::NullPropagating)
                 .carry_materialization(data_materialized),
         );
     }
@@ -3869,6 +4120,84 @@ mod tests {
         assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
         assert_eq!(report.operator_family, "try_cast");
         assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_casts_scoped_decimal128_without_fallback() {
+        let expression = Expression::cast(
+            expr_id("cast-decimal"),
+            Expression::literal(expr_id("source"), ScalarValue::Utf8("12.34".to_string())),
+            decimal128_dtype(10, 2),
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "cast");
+        assert_eq!(
+            report.value,
+            Some(ScalarValue::Decimal128 {
+                value: 1234,
+                precision: 10,
+                scale: 2
+            })
+        );
+        assert_eq!(report.output_dtype, Some(decimal128_dtype(10, 2)));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_try_casts_invalid_decimal128_to_null_without_fallback() {
+        let expression = Expression::try_cast(
+            expr_id("try-cast-decimal"),
+            Expression::literal(
+                expr_id("source"),
+                ScalarValue::Utf8("not-decimal".to_string()),
+            ),
+            decimal128_dtype(10, 2),
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "try_cast");
+        assert_eq!(report.value, Some(ScalarValue::Null));
+        assert_eq!(report.output_dtype, Some(decimal128_dtype(10, 2)));
+        assert_eq!(report.null_behavior, NullBehavior::NullAware);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_compares_scoped_decimal128_without_fallback() {
+        let expression = Expression::new(
+            expr_id("decimal-compare"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(
+                    expr_id("left"),
+                    ScalarValue::Decimal128 {
+                        value: 1234,
+                        precision: 10,
+                        scale: 2,
+                    },
+                )),
+                op: ComparisonOp::GtEq,
+                right: Box::new(Expression::literal(
+                    expr_id("right"),
+                    ScalarValue::Decimal128 {
+                        value: 1200,
+                        precision: 10,
+                        scale: 2,
+                    },
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "comparison");
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

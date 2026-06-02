@@ -6450,6 +6450,9 @@ def _normalize_cast_dtype(value: object) -> str:
         dtype = "timestamp_micros"
     if dtype in {"blob", "varbinary"}:
         dtype = "binary"
+    decimal_dtype = _normalize_decimal_cast_dtype(dtype)
+    if decimal_dtype is not None:
+        return decimal_dtype
     if dtype not in {
         "int64",
         "float64",
@@ -6460,9 +6463,34 @@ def _normalize_cast_dtype(value: object) -> str:
         "binary",
     }:
         raise ValueError(
-            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary')"
+            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary', 'decimal128(p,s)')"
         )
     return dtype
+
+
+def _normalize_decimal_cast_dtype(dtype: str) -> str | None:
+    compact = "".join(dtype.split())
+    names = ("decimal128", "decimal", "numeric")
+    name = compact.split("(", 1)[0]
+    if name not in names:
+        return None
+    if "(" not in compact:
+        return "decimal128(38,0)"
+    if not compact.endswith(")"):
+        raise ValueError("decimal cast dtype must use decimal128(precision,scale)")
+    args = compact[compact.find("(") + 1 : -1].split(",")
+    if len(args) != 2:
+        raise ValueError("decimal cast dtype must use decimal128(precision,scale)")
+    try:
+        precision = int(args[0])
+        scale = int(args[1])
+    except ValueError as exc:
+        raise ValueError("decimal cast precision and scale must be integers") from exc
+    if precision < 1 or precision > 38 or scale < 0 or scale > precision:
+        raise ValueError(
+            "decimal cast precision/scale must satisfy 1 <= precision <= 38 and 0 <= scale <= precision"
+        )
+    return f"decimal128({precision},{scale})"
 
 
 def _interval_literal(value: object, unit: str) -> IntervalLiteral:

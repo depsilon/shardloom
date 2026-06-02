@@ -1541,6 +1541,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "TRY_CAST(raw_amount AS int64) >= 10",
         )
         self.assertEqual(
+            str(sl.col("amount").cast("decimal128(10,2)") >= "10.00"),
+            "CAST(amount AS decimal128(10,2)) >= '10.00'",
+        )
+        self.assertEqual(
+            str(sl.col("amount").try_cast("numeric(10, 2)")),
+            "TRY_CAST(amount AS decimal128(10,2))",
+        )
+        self.assertEqual(
             str(sl.try_cast(sl.col("raw_amount"), "int64") == 42),
             "TRY_CAST(raw_amount AS int64) = 42",
         )
@@ -8121,6 +8129,101 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.cast_projection_output_columns, ("amount_i64",))
         self.assertEqual(report.cast_projection_target_dtypes, ("int64",))
         self.assertEqual(report.cast_projection_modes, ("try",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_decimal_cast_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS raw_decimal FROM 'target/input.csv' WHERE CAST(amount AS decimal128(10,2)) >= '10.00' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source decimal cast",
+                    "human_text": "sql local source decimal cast",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount_decimal\\":\\"12.34\\",\\"raw_decimal\\":\\"12.30\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "cast"},
+                        {"key": "cast_runtime_execution", "value": "true"},
+                        {"key": "cast_source_column", "value": "amount"},
+                        {"key": "cast_target_dtype", "value": "decimal128(10,2)"},
+                        {"key": "cast_mode", "value": "strict"},
+                        {"key": "cast_projection_runtime_execution", "value": "true"},
+                        {"key": "cast_projection_source_column", "value": "amount,raw_amount"},
+                        {"key": "cast_projection_output_column", "value": "amount_decimal,raw_decimal"},
+                        {"key": "cast_projection_target_dtype", "value": "decimal128(10,2),decimal128(10,2)"},
+                        {"key": "cast_projection_mode", "value": "strict,try"},
+                        {"key": "decimal_cast_runtime_execution", "value": "true"},
+                        {"key": "decimal_cast_source_column", "value": "amount,amount,raw_amount"},
+                        {"key": "decimal_cast_output_column", "value": "amount_decimal,raw_decimal"},
+                        {"key": "decimal_cast_target_dtype", "value": "decimal128(10,2),decimal128(10,2),decimal128(10,2)"},
+                        {"key": "decimal_cast_precision", "value": "10,10,10"},
+                        {"key": "decimal_cast_scale", "value": "2,2,2"},
+                        {"key": "decimal_cast_mode", "value": "strict,strict,try"},
+                        {"key": "decimal_cast_output_boundary", "value": "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("amount_decimal", sl.col("amount").cast("decimal128(10,2)"))
+            .with_column("raw_decimal", sl.try_cast(sl.col("raw_amount"), "numeric(10, 2)"))
+            .filter(sl.col("amount").cast("decimal128(10,2)") >= "10.00")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "cast")
+        self.assertTrue(report.cast_runtime_execution)
+        self.assertEqual(report.cast_target_dtypes, ("decimal128(10,2)",))
+        self.assertTrue(report.cast_projection_runtime_execution)
+        self.assertEqual(
+            report.cast_projection_target_dtypes,
+            ("decimal128(10,2)", "decimal128(10,2)"),
+        )
+        self.assertTrue(report.decimal_cast_runtime_execution)
+        self.assertEqual(
+            report.decimal_cast_source_columns, ("amount", "amount", "raw_amount")
+        )
+        self.assertEqual(
+            report.decimal_cast_output_columns, ("amount_decimal", "raw_decimal")
+        )
+        self.assertEqual(
+            report.decimal_cast_target_dtypes,
+            ("decimal128(10,2)", "decimal128(10,2)", "decimal128(10,2)"),
+        )
+        self.assertEqual(report.decimal_cast_precisions, (10, 10, 10))
+        self.assertEqual(report.decimal_cast_scales, (2, 2, 2))
+        self.assertEqual(report.decimal_cast_modes, ("strict", "strict", "try"))
+        self.assertEqual(
+            report.decimal_cast_output_boundary,
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked",
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

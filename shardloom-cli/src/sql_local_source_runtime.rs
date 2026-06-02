@@ -24,8 +24,9 @@ use regex::Regex;
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
     ExpressionKind, LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp,
-    WorkspaceSafeLocalWriteReport, evaluate_filter, evaluate_projection, format_iso_date32,
-    format_iso_timestamp_micros, parse_iso_date32, parse_iso_timestamp_micros,
+    WorkspaceSafeLocalWriteReport, decimal128_dtype, evaluate_expression, evaluate_filter,
+    evaluate_projection, format_decimal128_value, format_iso_date32, format_iso_timestamp_micros,
+    parse_iso_date32, parse_iso_timestamp_micros,
 };
 
 use crate::{
@@ -257,7 +258,10 @@ impl SqlLocalSourceOutputFormat {
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
             Self::InlineJsonl => Ok(rows_to_jsonl(rows).into_bytes()),
-            Self::Csv => Ok(rows_to_csv(columns, rows)?.into_bytes()),
+            Self::Csv => {
+                validate_flat_scalar_output_rows(rows, self)?;
+                Ok(rows_to_csv(columns, rows)?.into_bytes())
+            }
             Self::Parquet => {
                 validate_flat_scalar_output_rows(rows, self)?;
                 encode_parquet_output_rows(columns, rows)
@@ -10325,6 +10329,14 @@ fn scalar_distinct_key(value: &ScalarValue) -> String {
             }
             out
         }
+        ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        } => format!(
+            "decimal128({precision},{scale}):{}",
+            format_decimal128_value(*value, *scale)
+        ),
         ScalarValue::Date32(value) => format!("date32:{value}"),
         ScalarValue::TimestampMicros(value) => format!("ts_micros:{value}"),
         ScalarValue::List(values) => format!(
@@ -12579,6 +12591,14 @@ impl ParsedSqlLocalSource {
         !self.cast_projections.is_empty()
     }
 
+    fn has_decimal_cast(&self) -> bool {
+        self.predicate.uses_decimal_cast()
+            || self
+                .cast_projections
+                .iter()
+                .any(|projection| decimal_dtype_precision_scale(&projection.target_dtype).is_some())
+    }
+
     fn has_null_coalesce_projection(&self) -> bool {
         !self.null_coalesce_projections.is_empty()
     }
@@ -13228,6 +13248,87 @@ impl ParsedSqlLocalSource {
                 .collect::<Vec<_>>()
                 .join(",")
         }
+    }
+
+    fn decimal_cast_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.predicate
+            .push_decimal_cast_source_columns(&mut columns);
+        columns.extend(
+            self.cast_projections
+                .iter()
+                .filter(|projection| {
+                    decimal_dtype_precision_scale(&projection.target_dtype).is_some()
+                })
+                .map(|projection| projection.column.as_str()),
+        );
+        not_applicable_or_join(&columns)
+    }
+
+    fn decimal_cast_output_columns(&self) -> String {
+        let columns = self
+            .cast_projections
+            .iter()
+            .filter(|projection| decimal_dtype_precision_scale(&projection.target_dtype).is_some())
+            .map(|projection| projection.alias.as_str())
+            .collect::<Vec<_>>();
+        not_applicable_or_join(&columns)
+    }
+
+    fn decimal_cast_target_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.predicate.push_decimal_cast_target_dtypes(&mut dtypes);
+        dtypes.extend(
+            self.cast_projections
+                .iter()
+                .filter(|projection| {
+                    decimal_dtype_precision_scale(&projection.target_dtype).is_some()
+                })
+                .map(|projection| projection.target_dtype.as_str().to_string()),
+        );
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn decimal_cast_precisions(&self) -> String {
+        let mut values = Vec::new();
+        self.predicate
+            .push_decimal_cast_precision_scales(&mut values);
+        values.extend(
+            self.cast_projections
+                .iter()
+                .filter_map(|projection| decimal_dtype_precision_scale(&projection.target_dtype)),
+        );
+        decimal_cast_part_values(values.into_iter().map(|(precision, _scale)| precision))
+    }
+
+    fn decimal_cast_scales(&self) -> String {
+        let mut values = Vec::new();
+        self.predicate
+            .push_decimal_cast_precision_scales(&mut values);
+        values.extend(
+            self.cast_projections
+                .iter()
+                .filter_map(|projection| decimal_dtype_precision_scale(&projection.target_dtype)),
+        );
+        decimal_cast_part_values(values.into_iter().map(|(_precision, scale)| scale))
+    }
+
+    fn decimal_cast_modes(&self) -> String {
+        let mut modes = Vec::new();
+        self.predicate.push_decimal_cast_modes(&mut modes);
+        modes.extend(
+            self.cast_projections
+                .iter()
+                .filter(|projection| {
+                    decimal_dtype_precision_scale(&projection.target_dtype).is_some()
+                })
+                .map(|projection| projection.mode.as_str()),
+        );
+        not_applicable_or_join(&modes)
     }
 
     fn null_coalesce_projection_source_columns(&self) -> String {
@@ -16625,6 +16726,42 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_decimal_cast(&self) -> bool {
+        match self {
+            Self::CastCompare { target_dtype, .. } => {
+                decimal_dtype_precision_scale(target_dtype).is_some()
+            }
+            Self::Logical { left, right, .. } => {
+                left.uses_decimal_cast() || right.uses_decimal_cast()
+            }
+            Self::Not { inner } => inner.uses_decimal_cast(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
     fn cast_source_columns(&self) -> String {
         let mut columns = Vec::new();
         self.push_cast_source_columns(&mut columns);
@@ -16663,6 +16800,22 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn push_decimal_cast_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::CastCompare {
+                column,
+                target_dtype,
+                ..
+            } if decimal_dtype_precision_scale(target_dtype).is_some() => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_decimal_cast_source_columns(columns);
+                right.push_decimal_cast_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_decimal_cast_source_columns(columns),
+            _ => {}
         }
     }
 
@@ -16713,6 +16866,38 @@ impl ParsedPredicate {
         }
     }
 
+    fn push_decimal_cast_target_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::CastCompare { target_dtype, .. }
+                if decimal_dtype_precision_scale(target_dtype).is_some() =>
+            {
+                dtypes.push(target_dtype.as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_decimal_cast_target_dtypes(dtypes);
+                right.push_decimal_cast_target_dtypes(dtypes);
+            }
+            Self::Not { inner } => inner.push_decimal_cast_target_dtypes(dtypes),
+            _ => {}
+        }
+    }
+
+    fn push_decimal_cast_precision_scales(&self, values: &mut Vec<(u8, u8)>) {
+        match self {
+            Self::CastCompare { target_dtype, .. } => {
+                if let Some(value) = decimal_dtype_precision_scale(target_dtype) {
+                    values.push(value);
+                }
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_decimal_cast_precision_scales(values);
+                right.push_decimal_cast_precision_scales(values);
+            }
+            Self::Not { inner } => inner.push_decimal_cast_precision_scales(values),
+            _ => {}
+        }
+    }
+
     fn cast_modes(&self) -> String {
         let mut modes = Vec::new();
         self.push_cast_modes(&mut modes);
@@ -16720,6 +16905,22 @@ impl ParsedPredicate {
             "not_applicable".to_string()
         } else {
             modes.join(",")
+        }
+    }
+
+    fn push_decimal_cast_modes(&self, modes: &mut Vec<&'static str>) {
+        match self {
+            Self::CastCompare {
+                mode, target_dtype, ..
+            } if decimal_dtype_precision_scale(target_dtype).is_some() => {
+                modes.push(mode.as_str());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_decimal_cast_modes(modes);
+                right.push_decimal_cast_modes(modes);
+            }
+            Self::Not { inner } => inner.push_decimal_cast_modes(modes),
+            _ => {}
         }
     }
 
@@ -21954,6 +22155,43 @@ impl SqlLocalSourceReport {
                 self.parsed.cast_projection_modes(),
             ),
             (
+                "decimal_cast_runtime_execution".to_string(),
+                self.parsed.has_decimal_cast().to_string(),
+            ),
+            (
+                "decimal_cast_source_column".to_string(),
+                self.parsed.decimal_cast_source_columns(),
+            ),
+            (
+                "decimal_cast_output_column".to_string(),
+                self.parsed.decimal_cast_output_columns(),
+            ),
+            (
+                "decimal_cast_target_dtype".to_string(),
+                self.parsed.decimal_cast_target_dtypes(),
+            ),
+            (
+                "decimal_cast_precision".to_string(),
+                self.parsed.decimal_cast_precisions(),
+            ),
+            (
+                "decimal_cast_scale".to_string(),
+                self.parsed.decimal_cast_scales(),
+            ),
+            (
+                "decimal_cast_mode".to_string(),
+                self.parsed.decimal_cast_modes(),
+            ),
+            (
+                "decimal_cast_output_boundary".to_string(),
+                if self.parsed.has_decimal_cast() {
+                    "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked"
+                        .to_string()
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
                 "null_coalesce_projection_runtime_execution".to_string(),
                 self.parsed.has_null_coalesce_projection().to_string(),
             ),
@@ -24362,25 +24600,7 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
             "SQL COLLATE and locale-aware collation semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice",
         ));
     }
-    if contains_advanced_decimal_cast_target(statement)? {
-        return Err(unsupported_sql_error(
-            "decimal precision/scale casts are not admitted by the current scalar semantics profile",
-        ));
-    }
     Ok(())
-}
-
-fn contains_advanced_decimal_cast_target(statement: &str) -> Result<bool, ShardLoomError> {
-    for function_name in ["cast", "try_cast"] {
-        if contains_cast_target_matching(
-            statement,
-            function_name,
-            target_is_advanced_decimal_dtype,
-        )? {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 fn contains_cast_target_matching(
@@ -24419,10 +24639,6 @@ fn contains_cast_target_matching(
         search_start = close_index + 1;
     }
     Ok(false)
-}
-
-fn target_is_advanced_decimal_dtype(target_dtype: &str) -> bool {
-    target_dtype_matches_any(target_dtype, &["decimal128", "decimal", "numeric"])
 }
 
 fn target_dtype_matches_any(target_dtype: &str, dtypes: &[&str]) -> bool {
@@ -28275,6 +28491,9 @@ fn parse_cast_predicate_literal(
     if matches!(target_dtype, LogicalDType::Binary) {
         return parse_binary_cast_predicate_literal(tokens);
     }
+    if decimal_dtype_precision_scale(target_dtype).is_some() {
+        return parse_decimal_cast_predicate_literal(target_dtype, tokens);
+    }
     let parsed = match tokens {
         [op_raw, date_keyword, literal_raw] if date_keyword.eq_ignore_ascii_case("date") => (
             parse_comparison_op(op_raw)?,
@@ -28299,6 +28518,47 @@ fn parse_cast_predicate_literal(
         }
     };
     Ok(parsed)
+}
+
+fn parse_decimal_cast_predicate_literal(
+    target_dtype: &LogicalDType,
+    tokens: &[String],
+) -> Result<(ComparisonOp, ScalarValue), ShardLoomError> {
+    let [op_raw, literal_raw] = tokens else {
+        return Err(unsupported_sql_error(
+            "decimal CAST predicates admit CAST(<column> AS decimal128(p,s)) <op> <numeric-or-string-literal> only",
+        ));
+    };
+    let op = parse_comparison_op(op_raw)?;
+    let source = parse_sql_literal(literal_raw)?;
+    Ok((op, cast_scalar_literal_to_dtype(source, target_dtype)?))
+}
+
+fn cast_scalar_literal_to_dtype(
+    source: ScalarValue,
+    target_dtype: &LogicalDType,
+) -> Result<ScalarValue, ShardLoomError> {
+    let expression = Expression::cast(
+        ExprId::new("sql.cast.literal")?,
+        Expression::literal(ExprId::new("sql.cast.literal.source")?, source),
+        target_dtype.clone(),
+    );
+    let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+    if !report.has_errors() {
+        if let Some(value) = report.value {
+            return Ok(value);
+        }
+    }
+    let reason = report
+        .diagnostics
+        .first()
+        .map_or("literal cannot be cast to requested dtype", |diagnostic| {
+            diagnostic.message.as_str()
+        });
+    Err(unsupported_sql_error(&format!(
+        "CAST predicate literal cannot be cast to {}: {reason}",
+        target_dtype.as_str()
+    )))
 }
 
 fn parse_binary_cast_predicate_literal(
@@ -28812,7 +29072,11 @@ fn parse_interval_literal_integer(raw: &str) -> Result<i64, ShardLoomError> {
 }
 
 fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
-    match raw.trim().to_ascii_lowercase().as_str() {
+    let trimmed = raw.trim();
+    if let Some((precision, scale)) = parse_decimal_cast_target_dtype(trimmed)? {
+        return Ok(decimal128_dtype(precision, scale));
+    }
+    match trimmed.to_ascii_lowercase().as_str() {
         "int64" | "bigint" | "integer" | "int" => Ok(LogicalDType::Int64),
         "float64" | "double" | "float" => Ok(LogicalDType::Float64),
         "utf8" | "string" | "text" => Ok(LogicalDType::Utf8),
@@ -28821,9 +29085,81 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
         "timestamp_micros" | "timestamp" => Ok(LogicalDType::TimestampMicros),
         "binary" | "blob" | "varbinary" => Ok(LogicalDType::Binary),
         _ => Err(unsupported_sql_error(
-            "CAST target dtype must be one of int64, float64, utf8, boolean, date32, timestamp_micros, or binary",
+            "CAST target dtype must be one of int64, float64, utf8, boolean, date32, timestamp_micros, binary, or scoped decimal128(<precision>,<scale>)",
         )),
     }
+}
+
+fn not_applicable_or_join(values: &[&str]) -> String {
+    if values.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        values.join(",")
+    }
+}
+
+fn decimal_cast_part_values(values: impl Iterator<Item = u8>) -> String {
+    let values = values.map(|value| value.to_string()).collect::<Vec<_>>();
+    if values.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        values.join(",")
+    }
+}
+
+fn parse_decimal_cast_target_dtype(raw: &str) -> Result<Option<(u8, u8)>, ShardLoomError> {
+    let normalized = raw
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    let Some((name, args)) = decimal_cast_target_parts(&normalized) else {
+        return Ok(None);
+    };
+    if !matches!(name, "decimal128" | "decimal" | "numeric") {
+        return Ok(None);
+    }
+    let Some(args) = args else {
+        return Ok(Some((38, 0)));
+    };
+    let parts = args.split(',').collect::<Vec<_>>();
+    let [precision_raw, scale_raw] = parts.as_slice() else {
+        return Err(unsupported_sql_error(
+            "decimal CAST targets must use decimal128(<precision>,<scale>)",
+        ));
+    };
+    let precision = precision_raw.parse::<u8>().map_err(|_| {
+        unsupported_sql_error("decimal CAST precision must be an integer between 1 and 38")
+    })?;
+    let scale = scale_raw.parse::<u8>().map_err(|_| {
+        unsupported_sql_error("decimal CAST scale must be an integer between 0 and precision")
+    })?;
+    if precision == 0 || precision > 38 || scale > precision {
+        return Err(unsupported_sql_error(
+            "decimal CAST precision/scale must satisfy 1 <= precision <= 38 and scale <= precision",
+        ));
+    }
+    Ok(Some((precision, scale)))
+}
+
+fn decimal_dtype_precision_scale(dtype: &LogicalDType) -> Option<(u8, u8)> {
+    parse_decimal_cast_target_dtype(dtype.as_str())
+        .ok()
+        .flatten()
+}
+
+fn scalar_value_is_decimal(value: &ScalarValue) -> bool {
+    matches!(value, ScalarValue::Decimal128 { .. })
+}
+
+fn decimal_cast_target_parts(normalized: &str) -> Option<(&str, Option<&str>)> {
+    if let Some(open_index) = normalized.find('(') {
+        let without_close = normalized.strip_suffix(')')?;
+        let name = &without_close[..open_index];
+        let args = &without_close[open_index + 1..];
+        return Some((name, Some(args)));
+    }
+    Some((normalized, None))
 }
 
 fn parse_numeric_arithmetic_predicate(
@@ -31701,6 +32037,7 @@ fn scalar_to_csv_value(value: &ScalarValue) -> String {
         ScalarValue::Null | ScalarValue::Float64(_) => String::new(),
         ScalarValue::Utf8(value) => value.clone(),
         ScalarValue::Binary(value) => format!("binary[hex={}]", bytes_to_hex(value)),
+        ScalarValue::Decimal128 { value, scale, .. } => format_decimal128_value(*value, *scale),
         ScalarValue::Date32(value) => format_iso_date32(*value),
         ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value),
         ScalarValue::List(_) | ScalarValue::Struct(_) => scalar_to_json(value),
@@ -31723,6 +32060,9 @@ fn scalar_to_json(value: &ScalarValue) -> String {
         ScalarValue::Null | ScalarValue::Float64(_) => "null".to_string(),
         ScalarValue::Utf8(value) => format!("\"{}\"", json_escape(value)),
         ScalarValue::Binary(value) => format!("\"binary[hex={}]\"", bytes_to_hex(value)),
+        ScalarValue::Decimal128 { value, scale, .. } => {
+            format!("\"{}\"", format_decimal128_value(*value, *scale))
+        }
         ScalarValue::Date32(value) => format!("\"{}\"", format_iso_date32(*value)),
         ScalarValue::TimestampMicros(value) => {
             format!("\"{}\"", format_iso_timestamp_micros(*value))
@@ -31763,6 +32103,12 @@ fn validate_flat_scalar_output_rows(
             format.sink_format()
         )));
     }
+    if rows_contain_decimal_values(rows) && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+        return Err(unsupported_sql_error(&format!(
+            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string and CSV text result boundaries in this scoped runtime slice",
+            format.sink_format()
+        )));
+    }
     Ok(())
 }
 
@@ -31770,6 +32116,13 @@ fn rows_contain_complex_values(rows: &[Vec<(String, ScalarValue)>]) -> bool {
     rows.iter().any(|row| {
         row.iter()
             .any(|(_name, value)| scalar_value_is_complex(value))
+    })
+}
+
+fn rows_contain_decimal_values(rows: &[Vec<(String, ScalarValue)>]) -> bool {
+    rows.iter().any(|row| {
+        row.iter()
+            .any(|(_name, value)| scalar_value_is_decimal(value))
     })
 }
 
@@ -31783,6 +32136,7 @@ fn scalar_value_is_complex(value: &ScalarValue) -> bool {
         | ScalarValue::Float64(_)
         | ScalarValue::Utf8(_)
         | ScalarValue::Binary(_)
+        | ScalarValue::Decimal128 { .. }
         | ScalarValue::Date32(_)
         | ScalarValue::TimestampMicros(_) => false,
     }
@@ -34330,6 +34684,154 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_decimal_cast_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,amount,raw_amount\n1,12.34,12.30\n2,8.00,bad\n3,,7.50\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal(10,2)) AS raw_decimal FROM '{}' WHERE CAST(amount AS numeric(10,2)) >= 10.00 LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Csv,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request).expect("run decimal cast smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"amount_decimal\":\"12.34\",\"raw_decimal\":\"12.30\"}\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&output_path).expect("read csv output"),
+            "id,amount_decimal,raw_decimal\n1,12.34,12.30\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "cast_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_source_column", "amount");
+        assert_field_eq(&fields, "cast_target_dtype", "decimal128(10,2)");
+        assert_field_eq(&fields, "cast_mode", "strict");
+        assert_field_eq(&fields, "cast_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "cast_projection_source_column",
+            "amount,raw_amount",
+        );
+        assert_field_eq(
+            &fields,
+            "cast_projection_output_column",
+            "amount_decimal,raw_decimal",
+        );
+        assert_field_eq(
+            &fields,
+            "cast_projection_target_dtype",
+            "decimal128(10,2),decimal128(10,2)",
+        );
+        assert_field_eq(&fields, "cast_projection_mode", "strict,try");
+        assert_field_eq(&fields, "decimal_cast_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "decimal_cast_source_column",
+            "amount,amount,raw_amount",
+        );
+        assert_field_eq(
+            &fields,
+            "decimal_cast_output_column",
+            "amount_decimal,raw_decimal",
+        );
+        assert_field_eq(
+            &fields,
+            "decimal_cast_target_dtype",
+            "decimal128(10,2),decimal128(10,2),decimal128(10,2)",
+        );
+        assert_field_eq(&fields, "decimal_cast_precision", "10,10,10");
+        assert_field_eq(&fields, "decimal_cast_scale", "2,2,2");
+        assert_field_eq(&fields, "decimal_cast_mode", "strict,strict,try");
+        assert_field_eq(
+            &fields,
+            "decimal_cast_output_boundary",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_typed_sinks_blocked",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove csv output");
+    }
+
+    #[test]
+    fn decimal_cast_blocks_typed_sinks_until_decimal_preservation_is_admitted() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,amount\n1,12.34\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Parquet,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("typed decimal sink remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("local parquet output does not yet admit typed decimal128 preservation"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn decimal_cast_invalid_strict_input_blocks_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,amount\n1,not-decimal\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error =
+            run_sql_local_source_smoke_single(&request).expect_err("strict decimal cast blocks");
+
+        assert!(
+            error
+                .to_string()
+                .contains("SQL local-source projection evaluation failed"),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("decimal128 cast source admits digits and one decimal point only"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn runs_scoped_binary_cast_and_text_literal_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
         fs::write(&path, "id,label,amount\n1,alpha,42\n2,beta,7\n").expect("write csv source");
@@ -34616,6 +35118,57 @@ mod tests {
         assert_eq!(parsed.predicate.cast_source_columns(), "label");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "binary");
         assert_eq!(parsed.predicate.cast_modes(), "strict");
+    }
+
+    #[test]
+    fn parses_scoped_decimal_cast_projection_and_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS numeric(10,2)) AS raw_decimal FROM 'target/input.csv' WHERE CAST(amount AS decimal(10,2)) >= 10.00 LIMIT 5",
+        )
+        .expect("decimal cast projection and predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.cast_projections.len(), 2);
+        assert_eq!(parsed.cast_projections[0].alias, "amount_decimal");
+        assert_eq!(
+            parsed.cast_projections[0].target_dtype,
+            decimal128_dtype(10, 2)
+        );
+        assert_eq!(parsed.cast_projections[1].alias, "raw_decimal");
+        assert_eq!(
+            parsed.cast_projections[1].target_dtype,
+            decimal128_dtype(10, 2)
+        );
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                ref target_dtype,
+                mode: CastMode::Strict,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Decimal128 {
+                    value: 1000,
+                    precision: 10,
+                    scale: 2
+                }
+            } if column == "amount" && target_dtype == &decimal128_dtype(10, 2)
+        ));
+        assert!(parsed.has_decimal_cast());
+        assert_eq!(
+            parsed.decimal_cast_source_columns(),
+            "amount,amount,raw_amount"
+        );
+        assert_eq!(
+            parsed.decimal_cast_output_columns(),
+            "amount_decimal,raw_decimal"
+        );
+        assert_eq!(
+            parsed.decimal_cast_target_dtypes(),
+            "decimal128(10,2),decimal128(10,2),decimal128(10,2)"
+        );
+        assert_eq!(parsed.decimal_cast_precisions(), "10,10,10");
+        assert_eq!(parsed.decimal_cast_scales(), "2,2,2");
+        assert_eq!(parsed.decimal_cast_modes(), "strict,strict,try");
     }
 
     #[test]
@@ -37168,14 +37721,14 @@ mod tests {
     #[test]
     fn cast_predicate_blocks_unadmitted_dtype() {
         let error = parse_sql_local_source_statement(
-            "SELECT id FROM 'target/input.jsonl' WHERE CAST(amount AS decimal) >= 10 LIMIT 5",
+            "SELECT id FROM 'target/input.jsonl' WHERE CAST(amount AS decimal128(39,2)) >= 10 LIMIT 5",
         )
-        .expect_err("decimal cast target remains blocked");
+        .expect_err("invalid decimal cast target remains blocked");
 
         assert!(
             error
                 .to_string()
-                .contains("decimal precision/scale casts are not admitted")
+                .contains("decimal CAST precision/scale must satisfy 1 <= precision <= 38")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
     }
@@ -37192,8 +37745,8 @@ mod tests {
                 "SQL COLLATE and locale-aware collation semantics are not admitted",
             ),
             (
-                "SELECT id,TRY_CAST(label AS decimal128) AS unsupported FROM 'target/input.csv' LIMIT 5",
-                "decimal precision/scale casts are not admitted",
+                "SELECT id,TRY_CAST(label AS decimal128(39,2)) AS unsupported FROM 'target/input.csv' LIMIT 5",
+                "decimal CAST precision/scale must satisfy 1 <= precision <= 38",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

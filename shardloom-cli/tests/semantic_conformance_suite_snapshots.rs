@@ -107,7 +107,11 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     )));
     assert!(output.contains(&field(
         "semantic_row_decimal_precision_scale_current_support",
-        "unsupported_diagnostic_certified"
+        "scoped_fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_decimal_precision_scale_blocker_id",
+        "none"
     )));
     assert!(output.contains(&field(
         "semantic_row_timezone_database_policy_passed",
@@ -188,7 +192,7 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     )));
     assert!(output.contains(&field(
         "semantic_row_decimal_precision_scale_required_future_evidence",
-        "decimal_dtype_policy,precision_scale_fixture,overflow_diagnostic"
+        "none"
     )));
 }
 

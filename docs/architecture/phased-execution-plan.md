@@ -460,7 +460,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`, with
   malformed literals, unsupported units, and out-of-range values blocked before fallback. The
   remaining broad grammar blockers are explicit rows in
-  `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
+  `docs/status/admitted-semantics-matrix.json`: non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
   complex equality/accessors/casts/nested source decoding/flat sinks outside the scoped JSONL
   `ARRAY[...]`/`STRUCT(...)` result-boundary projection route, variant/union-dtype shapes, broad
@@ -522,6 +522,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   blockers, binary output evidence, null propagation, Python/DataFrame helpers, and no-fallback
   fields. Broad binary source dtype decoding, binary ordering, and nested binary helper expressions
   remain blocked.
+  Scoped `CAST`/`TRY_CAST` to `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` projections and
+  predicates are now admitted through ShardLoom-owned exact fixed-scale `Decimal128` scalar
+  semantics, with Python/DataFrame cast aliases, decimal-specific precision/scale/mode evidence,
+  exact JSONL string and CSV text output boundaries, and explicit blockers for typed decimal sink
+  preservation until Parquet/Arrow/Vortex decimal encoders are admitted. Decimal arithmetic, broad
+  ANSI decimal coercion, exponent notation, and typed decimal sinks remain deterministic blockers.
   Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
   admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
   `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
@@ -536,9 +542,10 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   source decoding, and broader row/list/struct functions remain deterministic blockers. Scalar-left
   multi-column subqueries remain an invalid SQL arity shape, not a runtime promotion candidate.
   Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
-  likely candidates are decimal/timezone/locale blocker refinement, broad binary source dtype
-  refinement, complex access/equality follow-through after a dedicated semantics contract, or
-  another front-door parity gap only after the runtime route is already admitted.
+  likely candidates are decimal arithmetic/coercion or typed-sink follow-through, timezone/locale
+  blocker refinement, broad binary source dtype refinement, complex access/equality follow-through
+  after a dedicated semantics contract, or another front-door parity gap only after the runtime route
+  is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

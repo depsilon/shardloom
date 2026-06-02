@@ -4817,6 +4817,7 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
         ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
         ScalarValue::Null
         | ScalarValue::Binary(_)
+        | ScalarValue::Decimal128 { .. }
         | ScalarValue::Float64(_)
         | ScalarValue::List(_)
         | ScalarValue::Struct(_) => None,
