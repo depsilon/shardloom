@@ -4487,6 +4487,41 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("output_plan_replay_depth")
 
     @property
+    def output_layout_write_advisor_status(self) -> str | None:
+        """Return output layout/write advisor status."""
+
+        return self.envelope.field("output_layout_write_advisor_status")
+
+    @property
+    def output_layout_write_advisor_selected_strategy(self) -> str | None:
+        """Return the selected output layout/write advisor strategy."""
+
+        return self.envelope.field("output_layout_write_advisor_selected_strategy")
+
+    @property
+    def output_layout_write_advisor_runtime_decision_applied(self) -> bool:
+        """Whether the output layout/write advisor applied a runtime writer decision."""
+
+        return (
+            self.envelope.field_bool(
+                "output_layout_write_advisor_runtime_decision_applied", False
+            )
+            is True
+        )
+
+    @property
+    def output_metadata_preservation_map(self) -> str | None:
+        """Return per-sink metadata preservation accounting."""
+
+        return self.envelope.field("output_metadata_preservation_map")
+
+    @property
+    def output_metadata_loss(self) -> str | None:
+        """Return per-sink metadata loss accounting."""
+
+        return self.envelope.field("output_metadata_loss")
+
+    @property
     def fanout_conversion_dag_status(self) -> str | None:
         """Return the shared fanout conversion DAG status."""
 

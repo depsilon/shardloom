@@ -184,14 +184,14 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6F-4 output capillary scheduling
+Updated after the GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor
 closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
-2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is active
-   through `GAR-RUNTIME-IMPL-6F-5` format-aware output layout/write advisor.
-3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
+2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is closed
+   through completed 6F-5 ledger evidence.
+3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix is the next unchecked runtime item, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
    implementable slices.
 4. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
@@ -201,7 +201,7 @@ closeout.
 
 Read order: the runtime implementation queue appears first below. Cross-cutting global-review,
 P0, and non-runtime closeout context follows the active runtime queues so the next autonomous
-session starts with the first unchecked 6E item instead of drifting into deferred cleanup.
+session starts with the first unchecked runtime item instead of drifting into deferred cleanup.
 
 Runtime queue items must explicitly enable an end-user runtime path, a runtime admission/blocker
 that protects user-visible behavior, or a validator that gates runtime claims. Docs-only or
@@ -226,12 +226,13 @@ Live plan hygiene:
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
-queues below. Current runtime sequence after PR #1037 is `GAR-RUNTIME-IMPL-6E`, then
-`GAR-RUNTIME-IMPL-6F`, then `GAR-RUNTIME-IMPL-6C` / `GAR-RUNTIME-IMPL-6D:gap-family-burn-down`
-where needed to classify the remaining true blocker families, then the remaining
-`GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D breadth item forward only when it
-unblocks 6E/6F or prevents a misleading runtime-support posture. The remaining 4/5-series queue
-stays as internal-engine backstop work after the route/reuse/output boundary work.
+queues below. After the 6E automatic preparation/reuse closeout and the 6F output/fanout closeout,
+the current runtime sequence is `GAR-RUNTIME-IMPL-6C`, then
+`GAR-RUNTIME-IMPL-6D:gap-family-burn-down` where needed to classify the remaining true blocker
+families, then the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D
+breadth item forward only when it unblocks 6C or prevents a misleading runtime-support posture. The
+remaining 4/5-series queue stays as internal-engine backstop work after the route/reuse/output
+boundary work.
 
 Runtime completion rule:
 
@@ -246,146 +247,6 @@ Runtime completion rule:
   it is a runtime-safety blocker or validator.
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
-
-#### GAR-RUNTIME-IMPL-6E - Automatic Dynamic Preparation Runtime Promotion
-
-Ordering decision (2026-06-02): work this before the remaining 6D last-order breadth. Automatic
-preparation/reuse is the route-level spine that lets later SQL, Python, DataFrame, benchmark, and
-claim-surface work connect to the same ShardLoom runtime path instead of repeating explicit
-prepare/run bookkeeping per front door.
-
-Source: user-approved follow-through on 2026-06-01 from the novel-concepts review,
-`docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-`docs/architecture/pulseweave-runtime-control.md`, `docs/architecture/dynamic-work-shaping.md`,
-`docs/architecture/io-reuse-and-fanout-architecture.md`,
-`docs/architecture/bayesian-performance-layout-advisor.md`,
-`docs/architecture/vortex-runtime-utilization-audit.md`, Vortex Scan/I/O docs, and Database
-Cracking research.
-
-Current state:
-
-- ShardLoom already has SourceState, VortexPreparedState, scout ingress, capillary preparation,
-  layout/write advisor, copy-budget, differential-preparation, and PulseWeave evidence surfaces.
-- PulseWeave is deterministic, local, certificate-gated, and already scoped to prepared/local and
-  capillary preparation evidence.
-- Several dynamic ideas are still only partially promoted from evidence into runtime behavior:
-  prepared-state reuse is visible and has scoped manifest-backed paths, but is not yet the default
-  higher-level `auto` front-door reuse spine; capillary pre-write work shaping now drives the first
-  local scalar/columnar SourceState -> `vortex_ingest` route before local array build/write, while
-  broader object-store/distributed/spill shaping remains gated; scoped local layout/write advice
-  now applies the single-artifact local writer strategy when provider evidence matches, while
-  broader layout optimization remains gated; differential preparation is explicit but not yet a
-  cracking-style automatic refinement path for changed local sources.
-- The next work must preserve automatic behavior without adding required user knobs, hidden global
-  state, persistent learning, external execution fallback, or unsupported performance claims.
-
-Runtime enablement: this section promotes the local automatic route:
-
-```text
-user expression or local prepare request
-  -> UniversalIngress / InputAdapter
-  -> SourceState
-  -> automatic reuse / invalidation / refinement decision
-  -> vortex_ingest
-  -> VortexPreparedState
-  -> prepared_vortex
-  -> output/evidence/certificate
-```
-
-The default user posture should remain `auto`: ShardLoom chooses reuse, capillary work shaping,
-layout/write admission, or differential refinement only when ProofBound/certificates admit the
-decision. Otherwise it preserves the existing ShardLoom-native path or fails with deterministic
-diagnostics.
-
-Implementation checklist, in required order:
-
-#### GAR-RUNTIME-IMPL-6F - Bidirectional Format Conversion And Output Fanout Performance Promotion
-
-Ordering decision (2026-06-02): work this immediately after 6E and before the remaining 6D
-last-order breadth. Sink-driven result and fanout boundaries should exist before more broad
-front-door coverage is admitted, otherwise new SQL/Python/DataFrame routes keep inheriting
-row-shaped conversion and duplicated per-sink output work.
-
-Source: user-approved follow-through on output-conversion bottlenecks;
-`docs/architecture/io-reuse-and-fanout-architecture.md`,
-`docs/architecture/universal-input-contract.md`,
-`docs/architecture/compute-engine-flow-reference.md`, `docs/skills/translation-layer.md`,
-`docs/skills/streaming-zero-copy.md`, `docs/skills/vortex/vortex-native-output.md`, and
-`docs/skills/vortex/vortex-arrow-interop.md`.
-
-Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vortex, and
-feature-gated Parquet/Arrow IPC/Avro/ORC. `GAR-RUNTIME-IMPL-6F-1` added a scoped local
-`ResultBatchState` columnar output boundary, result-batch evidence fields, Python/session accessors,
-benchmark contract fields, and per-sink conversion timing for admitted local SQL output/fanout
-routes. `GAR-RUNTIME-IMPL-6F-2` added sink-driven OutputPlan requirements before conversion begins:
-requested sinks now declare materialization, required columns, ordering/statistics needs,
-type/nullability support, dictionary/compression/encoding posture, replay depth, text boundaries,
-and deterministic conversion blockers. `GAR-RUNTIME-IMPL-6F-3` added a scoped shared fanout
-conversion DAG: local output/fanout routes normalize result schema/rows once, then feed terminal
-encoders and Vortex writers from that shared state while reporting shared-stage, terminal-sink,
-conversion-timing, and duplicate-conversion-avoidance evidence. `GAR-RUNTIME-IMPL-6F-4` added
-thresholded output capillary scheduling for local output/fanout routes: small single-sink outputs
-record explicit below-threshold evidence, while multi-sink or larger local outputs can be governed
-by ProofBound-admitted PulseWeave output windows across schema-map, columnar-export, terminal
-encode, compression, local write, digest, replay, and evidence-render tasks.
-
-Runtime enablement: this section promotes the output side of the route:
-
-```text
-VortexPreparedState / ResultState
-  -> ResultBatchState
-  -> sink-driven OutputPlan
-  -> shared fanout conversion DAG
-  -> SinkFormatState
-  -> SinkArtifact + replay/certificate/evidence
-```
-
-Performance objective: reduce repeated row rendering, repeated scalar conversion, duplicate fanout
-work, unnecessary materialization, sink write stalls, and metadata-loss ambiguity. These items may
-improve measured runtime only after benchmark evidence lands; until then they are
-optimization-enabling runtime work, not public speed claims.
-
-Implementation checklist, in required order:
-
-- [ ] GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor.
-  Source: Vortex-native output skill, translation-layer skill, Parquet/ORC/Arrow
-  compatibility-output research, and existing layout/write advisor posture.
-  Current state: cold-ingest layout/write advisor exists, but compatibility-output writers do not
-  yet expose enough target-specific layout choices or metadata-preservation accounting to optimize
-  downstream conversion.
-  Next slice outcome: add an output-side layout/write advisor that starts advisory/report-only,
-  then admits one narrow local route when provider support, correctness, replay, and benchmark
-  evidence exist.
-  Runtime enablement: OutputPlan can choose or report safe settings for Vortex
-  chunk/layout/statistics, Parquet row groups/dictionary/statistics/compression, ORC stripe/index
-  posture, Arrow IPC batch/dictionary posture, and CSV/JSONL streaming chunk size.
-  User-visible surface: `output_layout_write_advisor_status`,
-  `output_layout_write_advisor_selected_strategy`,
-  `output_layout_write_advisor_runtime_decision_applied`, `output_metadata_preservation_map`, and
-  `output_metadata_loss`.
-  Implementation scope: output plan structs/evidence, Vortex writer request fields where
-  supported, universal-format encoders, benchmark markdown/artifact rows, Python result surfaces.
-  Evidence required: advisory rows for all local sink formats; one applied local route with
-  correctness/replay proof; blocked rows for unsupported provider choices; metadata-loss reports
-  for compatibility targets.
-  Acceptance: advisor never silently changes output semantics; one supported local route can apply
-  a write/layout choice; all other strategies remain explicit advisory or blocked statuses.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_layout
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no fitted Bayesian runtime model, no arbitrary layout rewrite, no broad
-  format-fidelity claim, no public benchmark claim.
-  Dependencies/blockers: depends on sink-driven OutputPlan requirements, provider capability
-  checks, Vortex/universal-format writer knobs that are actually supported, replay/correctness
-  fixtures, metadata-preservation accounting, and explicit blockers for advisory-only strategies.
-  Claim boundary: may claim only scoped local advisor evidence and one admitted route if
-  implemented.
-  Fallback boundary: unsupported layout/write choices block before execution.
-  Ledger rule: move completed details to the completed ledger.
 
 - [ ] GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion.
   Source: `docs/architecture/repo-readiness-user-surface-audit.md`,

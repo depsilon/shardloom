@@ -249,6 +249,11 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "output_plan_statistics_required",
     "output_plan_text_materialization_boundary",
     "output_plan_conversion_blocker",
+    "output_layout_write_advisor_status",
+    "output_layout_write_advisor_selected_strategy",
+    "output_layout_write_advisor_runtime_decision_applied",
+    "output_metadata_preservation_map",
+    "output_metadata_loss",
     "fanout_conversion_dag_status",
     "fanout_shared_stage_count",
     "fanout_terminal_sink_count",
@@ -1005,6 +1010,11 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "output_plan_dictionary_required",
     "output_plan_compression_encoding_posture",
     "output_plan_replay_depth",
+    "output_layout_write_advisor_status",
+    "output_layout_write_advisor_selected_strategy",
+    "output_layout_write_advisor_runtime_decision_applied",
+    "output_metadata_preservation_map",
+    "output_metadata_loss",
     "output_plan_reuse_hit",
     "output_plan_reuse_reason",
     "output_plan_millis",
@@ -1064,6 +1074,11 @@ FANOUT_BENCHMARK_FIELDS = (
     "output_plan_required_columns",
     "output_plan_text_materialization_boundary",
     "output_plan_conversion_blocker",
+    "output_layout_write_advisor_status",
+    "output_layout_write_advisor_selected_strategy",
+    "output_layout_write_advisor_runtime_decision_applied",
+    "output_metadata_preservation_map",
+    "output_metadata_loss",
     "fanout_conversion_dag_status",
     "fanout_shared_stage_count",
     "fanout_terminal_sink_count",
@@ -10416,6 +10431,35 @@ def output_plan_contract_metadata(
         "output_plan_replay_depth",
         "write_digest_replay" if output_written else "not_applicable",
     )
+    output_layout_write_advisor_status = output_plan_value(
+        "output_layout_write_advisor_status",
+        "advisory_only_compatibility_targets" if output_written else "not_applicable",
+    )
+    output_layout_write_advisor_selected_strategy = output_plan_value(
+        "output_layout_write_advisor_selected_strategy",
+        "advisory_only_no_runtime_write_knob_applied"
+        if output_written
+        else "not_applicable",
+    )
+    output_layout_write_advisor_runtime_decision_applied = parse_optional_bool(
+        first_meaningful_field(
+            evidence.get("output_layout_write_advisor_runtime_decision_applied"),
+            metrics.get("output_layout_write_advisor_runtime_decision_applied"),
+            False,
+        )
+    ) is True
+    output_metadata_preservation_map = output_plan_value(
+        "output_metadata_preservation_map",
+        "vortex:schema=preserved,dtypes=preserved,row_count=reopen_verified"
+        if output_written
+        else "not_applicable",
+    )
+    output_metadata_loss = output_plan_value(
+        "output_metadata_loss",
+        "vortex:none_for_scoped_flat_scalar_vortex_output"
+        if output_written
+        else "not_applicable",
+    )
     fanout_conversion_dag_status = output_plan_value(
         "fanout_conversion_dag_status",
         "single_sink_conversion_dag_available" if output_written else "not_applicable",
@@ -10535,6 +10579,15 @@ def output_plan_contract_metadata(
             output_plan_compression_encoding_posture
         ),
         "output_plan_replay_depth": output_plan_replay_depth,
+        "output_layout_write_advisor_status": output_layout_write_advisor_status,
+        "output_layout_write_advisor_selected_strategy": (
+            output_layout_write_advisor_selected_strategy
+        ),
+        "output_layout_write_advisor_runtime_decision_applied": (
+            output_layout_write_advisor_runtime_decision_applied
+        ),
+        "output_metadata_preservation_map": output_metadata_preservation_map,
+        "output_metadata_loss": output_metadata_loss,
         "output_plan_reuse_hit": output_plan_reuse_hit,
         "output_plan_reuse_reason": output_plan_reuse_reason(
             engine, status, output_plan_status, output_written, output_plan_reuse_hit
@@ -15929,6 +15982,19 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "output_plan_compression_encoding_posture"
                 ),
                 "output_plan_replay_depth": metrics.get("output_plan_replay_depth"),
+                "output_layout_write_advisor_status": metrics.get(
+                    "output_layout_write_advisor_status"
+                ),
+                "output_layout_write_advisor_selected_strategy": metrics.get(
+                    "output_layout_write_advisor_selected_strategy"
+                ),
+                "output_layout_write_advisor_runtime_decision_applied": metrics.get(
+                    "output_layout_write_advisor_runtime_decision_applied"
+                ),
+                "output_metadata_preservation_map": metrics.get(
+                    "output_metadata_preservation_map"
+                ),
+                "output_metadata_loss": metrics.get("output_metadata_loss"),
                 "output_plan_reuse_hit": metrics.get("output_plan_reuse_hit"),
                 "output_plan_reuse_reason": metrics.get("output_plan_reuse_reason"),
                 "output_plan_millis": metrics.get("output_plan_millis"),
@@ -16032,6 +16098,11 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "output_plan_required_columns": "report_only",
                 "output_plan_text_materialization_boundary": "report_only",
                 "output_plan_conversion_blocker": case["blocker_id"],
+                "output_layout_write_advisor_status": "report_only",
+                "output_layout_write_advisor_selected_strategy": "report_only",
+                "output_layout_write_advisor_runtime_decision_applied": False,
+                "output_metadata_preservation_map": "report_only",
+                "output_metadata_loss": "report_only",
                 "fanout_conversion_dag_status": "report_only",
                 "fanout_shared_stage_count": 0,
                 "fanout_terminal_sink_count": 0,
@@ -16472,6 +16543,44 @@ def execution_mode_metadata(
             else "see_output_plan_contract"
         )
     )
+    output_layout_write_advisor_status = str(
+        evidence.get("output_layout_write_advisor_status")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_layout_write_advisor_selected_strategy = str(
+        evidence.get("output_layout_write_advisor_selected_strategy")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_layout_write_advisor_runtime_decision_applied = (
+        parse_optional_bool(
+            evidence.get("output_layout_write_advisor_runtime_decision_applied")
+        )
+        is True
+    )
+    output_metadata_preservation_map = str(
+        evidence.get("output_metadata_preservation_map")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_metadata_loss = str(
+        evidence.get("output_metadata_loss")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
     fanout_conversion_dag_status = str(
         evidence.get("fanout_conversion_dag_status")
         or (
@@ -16581,6 +16690,15 @@ def execution_mode_metadata(
             output_plan_text_materialization_boundary
         ),
         "output_plan_conversion_blocker": output_plan_conversion_blocker,
+        "output_layout_write_advisor_status": output_layout_write_advisor_status,
+        "output_layout_write_advisor_selected_strategy": (
+            output_layout_write_advisor_selected_strategy
+        ),
+        "output_layout_write_advisor_runtime_decision_applied": (
+            output_layout_write_advisor_runtime_decision_applied
+        ),
+        "output_metadata_preservation_map": output_metadata_preservation_map,
+        "output_metadata_loss": output_metadata_loss,
         "fanout_conversion_dag_status": fanout_conversion_dag_status,
         "fanout_shared_stage_count": fanout_shared_stage_count,
         "fanout_terminal_sink_count": fanout_terminal_sink_count,
@@ -22388,6 +22506,11 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_statistics_required"]),
                 str(row["output_plan_text_materialization_boundary"]),
                 str(row["output_plan_conversion_blocker"]),
+                str(row["output_layout_write_advisor_status"]),
+                str(row["output_layout_write_advisor_selected_strategy"]),
+                str(row["output_layout_write_advisor_runtime_decision_applied"]),
+                str(row["output_metadata_preservation_map"]).replace("|", "\\|"),
+                str(row["output_metadata_loss"]).replace("|", "\\|"),
                 str(row["output_plan_reuse_hit"]),
                 str(row["output_plan_reuse_reason"]).replace("|", "\\|"),
                 format_metric(row["output_plan_millis"], " ms"),
@@ -22441,6 +22564,11 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 "none",
                 "none",
                 "none",
+                "not_reported",
+                "not_reported",
+                "false",
+                "not_reported",
+                "not_reported",
                 "false",
                 "no OutputPlan rows were emitted",
                 "n/a",
@@ -22493,6 +22621,11 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Statistics required",
             "Text boundary",
             "Conversion blocker",
+            "Layout advisor",
+            "Selected layout strategy",
+            "Layout applied",
+            "Metadata map",
+            "Metadata loss",
             "Reuse hit",
             "Reuse reason",
             "Output plan",
@@ -22547,6 +22680,11 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_required_columns"]),
                 str(row["output_plan_text_materialization_boundary"]),
                 str(row["output_plan_conversion_blocker"]),
+                str(row["output_layout_write_advisor_status"]),
+                str(row["output_layout_write_advisor_selected_strategy"]),
+                str(row["output_layout_write_advisor_runtime_decision_applied"]),
+                str(row["output_metadata_preservation_map"]).replace("|", "\\|"),
+                str(row["output_metadata_loss"]).replace("|", "\\|"),
                 str(row["fanout_conversion_dag_status"]),
                 format_metric(row["fanout_shared_stage_count"], ""),
                 format_metric(row["fanout_terminal_sink_count"], ""),
@@ -22594,6 +22732,11 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Required columns",
             "Text boundary",
             "Conversion blocker",
+            "Layout advisor",
+            "Selected layout strategy",
+            "Layout applied",
+            "Metadata map",
+            "Metadata loss",
             "Fanout DAG",
             "Shared stages",
             "Terminal sinks",

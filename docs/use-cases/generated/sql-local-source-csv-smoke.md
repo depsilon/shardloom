@@ -250,6 +250,11 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `output_plan_statistics_required`
 - `output_plan_text_materialization_boundary`
 - `output_plan_conversion_blocker`
+- `output_layout_write_advisor_status`
+- `output_layout_write_advisor_selected_strategy`
+- `output_layout_write_advisor_runtime_decision_applied`
+- `output_metadata_preservation_map`
+- `output_metadata_loss`
 - `output_io_performed`
 - `output_native_io_certificate_status`
 - `output_certificate_ref`
@@ -272,7 +277,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, and string-function predicate/projection evidence; ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, and output conversion timing for admitted output/fanout routes; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, and string-function predicate/projection evidence; ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, output layout/write advisor status/strategy evidence, metadata preservation/loss reports, and output conversion timing for admitted output/fanout routes; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true, and an applied single-artifact writer strategy when feature-gated/admitted; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

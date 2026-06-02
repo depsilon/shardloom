@@ -255,6 +255,11 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `output_plan_statistics_required`
 - `output_plan_text_materialization_boundary`
 - `output_plan_conversion_blocker`
+- `output_layout_write_advisor_status`
+- `output_layout_write_advisor_selected_strategy`
+- `output_layout_write_advisor_runtime_decision_applied`
+- `output_metadata_preservation_map`
+- `output_metadata_loss`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
 - `output_certificate_ref`
@@ -276,7 +281,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, output layout/write advisor status/strategy evidence, metadata preservation/loss reports, output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
