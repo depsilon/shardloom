@@ -184,12 +184,12 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6E-4 automatic append-only differential prepared-state
-refinement closeout.
+Updated after the GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
-   evidence; proceed to output/fanout route promotion.
-2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
+   evidence.
+2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is active
+   through `GAR-RUNTIME-IMPL-6F-2` sink-driven OutputPlan materialization requirements.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
    implementable slices.
@@ -313,11 +313,12 @@ Source: user-approved follow-through on output-conversion bottlenecks;
 `docs/skills/vortex/vortex-arrow-interop.md`.
 
 Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vortex, and
-feature-gated Parquet/Arrow IPC/Avro/ORC, but the compatibility-output path is still row-shaped in
-key places. `SqlLocalSourceOutputFormat::render_rows` and `encode_*_output_rows` repeatedly walk
-`Vec<Vec<(String, ScalarValue)>>` for each output target. Vortex output has a separate writer path,
-but downstream compatibility conversion can still pay repeated scalar formatting, repeated schema
-normalization, and duplicate per-sink materialization.
+feature-gated Parquet/Arrow IPC/Avro/ORC. `GAR-RUNTIME-IMPL-6F-1` added a scoped local
+`ResultBatchState` columnar output boundary, result-batch evidence fields, Python/session accessors,
+benchmark contract fields, and per-sink conversion timing for admitted local SQL output/fanout
+routes. The next bottleneck is sink-driven planning: terminal sinks still need clearer
+materialization requirements before conversion begins, and the later shared conversion DAG is still
+planned.
 
 Runtime enablement: this section promotes the output side of the route:
 
@@ -337,49 +338,6 @@ optimization-enabling runtime work, not public speed claims.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary.
-  Source: output-conversion bottleneck review, translation-layer skill, streaming/zero-decode
-  skill, and Vortex-native output skill.
-  Current state: local result output is primarily row-shaped before compatibility sinks, causing
-  every sink to re-walk rows and re-normalize scalar values. Vortex output remains separate and
-  higher fidelity, but there is no shared columnar result boundary for all local sinks.
-  Next slice outcome: add a `ResultBatchState` or equivalent internal columnar result boundary
-  after execution and before output conversion. Compatibility sinks consume that boundary when
-  supported; CSV/JSONL remain late text materialization targets.
-  Runtime enablement: local SQL/Python/generated-output routes can produce one columnar result
-  state, then write Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, or JSONL from that state without
-  rebuilding the logical result per sink.
-  User-visible surface: evidence fields report `result_batch_state_status`,
-  `result_batch_state_digest`, `result_batch_state_layout`,
-  `result_batch_state_materialization_required`, `result_batch_state_decode_required`, and
-  per-sink conversion timing.
-  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
-  `shardloom-vortex/src/universal_format_io.rs`, `shardloom-vortex/src/vortex_ingest.rs` where
-  useful, Python result models, benchmark artifacts, and contract tests.
-  Evidence required: one-output and fanout fixtures proving identical output digests before/after;
-  row-shaped blocker evidence for unsupported schemas; no-fallback fields; per-sink timing
-  attribution.
-  Acceptance: at least one local flat scalar route writes multiple formats from one shared result
-  boundary; Vortex remains the highest-fidelity sink; unsupported nested/wide shapes block or
-  report explicitly.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io universal_format_io --lib
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no external engine writer, no Arrow-as-default execution substrate, no broad
-  nested-schema claim, no performance claim.
-  Dependencies/blockers: depends on stable result schema/digest semantics, existing local
-  SQL/Python/generated-output result rows, Vortex and universal-format writer coverage, Python
-  result model compatibility, and static artifact validators that can reject mixed row/columnar
-  evidence.
-  Claim boundary: may claim only a scoped local columnar output boundary with correctness
-  evidence.
-  Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`.
-  Ledger rule: move completed details to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements.
   Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
   `docs/skills/streaming-zero-copy.md`, and the compute-flow route model.

@@ -324,6 +324,66 @@ class SessionSqlResult:
         return self.output_plan_reuse_hit
 
     @property
+    def result_batch_state_status(self) -> str | None:
+        """Return the SQL result batch-state status."""
+
+        return self.report.result_batch_state_status
+
+    @property
+    def result_batch_state_digest(self) -> str | None:
+        """Return the SQL result batch-state digest."""
+
+        return self.report.result_batch_state_digest
+
+    @property
+    def result_batch_state_layout(self) -> str | None:
+        """Return the SQL result batch-state layout."""
+
+        return self.report.result_batch_state_layout
+
+    @property
+    def result_batch_state_row_count(self) -> int | None:
+        """Return the SQL result batch-state row count."""
+
+        return self.report.result_batch_state_row_count
+
+    @property
+    def result_batch_state_column_count(self) -> int | None:
+        """Return the SQL result batch-state column count."""
+
+        return self.report.result_batch_state_column_count
+
+    @property
+    def result_batch_state_materialization_required(self) -> str | None:
+        """Return the SQL result batch-state materialization posture."""
+
+        return self.report.result_batch_state_materialization_required
+
+    @property
+    def result_batch_state_decode_required(self) -> bool:
+        """Whether the SQL result batch-state required decode."""
+
+        return self.report.result_batch_state_decode_required
+
+    @property
+    def output_conversion_millis(self) -> int | None:
+        """Return aggregate SQL output conversion time in milliseconds."""
+
+        return self.report.output_conversion_millis
+
+    @property
+    def sink_artifact_conversion_millis(self) -> str | None:
+        """Return primary or labeled SQL sink conversion timing."""
+
+        return self.report.sink_artifact_conversion_millis
+
+    @property
+    def fanout_output_conversion_millis(self) -> int | None:
+        """Return aggregate SQL fanout conversion time in milliseconds."""
+
+        return self.report.fanout_output_conversion_millis
+
+    @property
     def output_plan_digest(self) -> str | None:
         """Return the output-plan digest when the CLI emitted one."""
 
@@ -402,6 +462,18 @@ class SessionSqlResult:
             "source_state_reader_projection_columns": self.source_state_reader_projection_columns,
             "output_plan_reuse_hit": self.output_plan_reuse_hit,
             "result_replay_reuse_hit": self.result_replay_reuse_hit,
+            "result_batch_state_status": self.result_batch_state_status,
+            "result_batch_state_digest": self.result_batch_state_digest,
+            "result_batch_state_layout": self.result_batch_state_layout,
+            "result_batch_state_row_count": self.result_batch_state_row_count,
+            "result_batch_state_column_count": self.result_batch_state_column_count,
+            "result_batch_state_materialization_required": (
+                self.result_batch_state_materialization_required
+            ),
+            "result_batch_state_decode_required": self.result_batch_state_decode_required,
+            "output_conversion_millis": self.output_conversion_millis,
+            "sink_artifact_conversion_millis": self.sink_artifact_conversion_millis,
+            "fanout_output_conversion_millis": self.fanout_output_conversion_millis,
             "reuse_reason": self.reuse_reason,
             "plan_digest": self.plan_digest,
             "source_schema_digest": self.source_schema_digest,

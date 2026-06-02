@@ -232,6 +232,16 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `join_aggregate_group_count`
 - `right_source_format`
 - `join_source_formats`
+- `result_batch_state_status`
+- `result_batch_state_digest`
+- `result_batch_state_layout`
+- `result_batch_state_row_count`
+- `result_batch_state_column_count`
+- `result_batch_state_materialization_required`
+- `result_batch_state_decode_required`
+- `output_conversion_millis`
+- `sink_artifact_conversion_millis`
+- `fanout_output_conversion_millis`
 - `output_format`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
@@ -254,7 +264,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence and output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

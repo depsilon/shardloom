@@ -382,6 +382,37 @@ and correctness/evidence requirements.
 schema mapping, metadata preservation/degradation report, required materialization, layout/write
 strategy, replay policy, and unsupported diagnostics.
 
+### ResultBatchState
+
+`ResultBatchState` is the scoped local output boundary between admitted SQL/Python execution and
+terminal sinks. It stores result values as named column vectors after execution has produced the
+logical result and before JSONL/CSV text rendering, feature-gated structured output encoding, or
+local Vortex output writing. This keeps output fanout from treating row-shaped report helpers as the
+contract while preserving the current flat local scalar route.
+
+Implemented `GAR-RUNTIME-IMPL-6F-1` local SQL/Python runtime fields:
+
+```text
+result_batch_state_status
+result_batch_state_digest
+result_batch_state_layout
+result_batch_state_row_count
+result_batch_state_column_count
+result_batch_state_materialization_required
+result_batch_state_decode_required
+result_batch_state_build_millis
+output_conversion_millis
+sink_artifact_conversion_millis
+fanout_output_conversion_millis
+```
+
+The current implementation is intentionally scoped. It gives local SQL inline output, local sink
+writes, fanout, Python session reuse envelopes, and traditional benchmark contract rows a shared
+result-batch evidence layer. CSV/JSONL remain terminal text materialization targets; Parquet,
+Arrow IPC, Avro, and ORC remain feature-gated compatibility exports; Vortex remains the
+highest-fidelity local sink. This does not yet claim a shared conversion DAG, broad nested-schema
+output, object-store/table writes, production sink support, or performance improvement.
+
 Planned output formats:
 
 ```text
@@ -417,7 +448,9 @@ output_materialization_required
 output_plan_reuse_hit
 output_plan_reuse_reason
 output_plan_millis
+output_conversion_millis
 output_write_millis
+sink_artifact_conversion_millis
 result_replay_verified
 output_native_io_certificate_status
 sink_artifact_ref

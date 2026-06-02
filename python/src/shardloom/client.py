@@ -4379,6 +4379,66 @@ class SqlLocalSourceSmokeReport:
         return _csv_values(self.envelope.field("output_fidelity_loss"))
 
     @property
+    def result_batch_state_status(self) -> str | None:
+        """Return the local SQL result batch-state status."""
+
+        return self.envelope.field("result_batch_state_status")
+
+    @property
+    def result_batch_state_digest(self) -> str | None:
+        """Return the local SQL result batch-state digest."""
+
+        return self.envelope.field("result_batch_state_digest")
+
+    @property
+    def result_batch_state_layout(self) -> str | None:
+        """Return the local SQL result batch-state layout label."""
+
+        return self.envelope.field("result_batch_state_layout")
+
+    @property
+    def result_batch_state_row_count(self) -> int | None:
+        """Return the local SQL result batch-state row count."""
+
+        return self.envelope.field_int("result_batch_state_row_count")
+
+    @property
+    def result_batch_state_column_count(self) -> int | None:
+        """Return the local SQL result batch-state column count."""
+
+        return self.envelope.field_int("result_batch_state_column_count")
+
+    @property
+    def result_batch_state_materialization_required(self) -> str | None:
+        """Return why terminal materialization remains required, when reported."""
+
+        return self.envelope.field("result_batch_state_materialization_required")
+
+    @property
+    def result_batch_state_decode_required(self) -> bool:
+        """Whether the local SQL result batch-state required decode."""
+
+        return self.envelope.field_bool("result_batch_state_decode_required", False) is True
+
+    @property
+    def result_batch_state_build_millis(self) -> int | None:
+        """Return result batch-state construction time in milliseconds."""
+
+        return self.envelope.field_int("result_batch_state_build_millis")
+
+    @property
+    def output_conversion_millis(self) -> int | None:
+        """Return aggregate local output conversion time in milliseconds."""
+
+        return self.envelope.field_int("output_conversion_millis")
+
+    @property
+    def sink_artifact_conversion_millis(self) -> str | None:
+        """Return primary or labeled local sink conversion timing."""
+
+        return self.envelope.field("sink_artifact_conversion_millis")
+
+    @property
     def sink_artifact_count(self) -> int:
         """Return the number of local SQL sink artifacts."""
 
@@ -4516,6 +4576,12 @@ class SqlLocalSourceSmokeReport:
         """Return `format:status` entries for fanout replay verification."""
 
         return _csv_values(self.envelope.field("fanout_output_replay_statuses"))
+
+    @property
+    def fanout_output_conversion_millis(self) -> int | None:
+        """Return aggregate local fanout conversion time in milliseconds."""
+
+        return self.envelope.field_int("fanout_output_conversion_millis")
 
     @property
     def fanout_output_fidelity_statuses(self) -> tuple[str, ...]:
