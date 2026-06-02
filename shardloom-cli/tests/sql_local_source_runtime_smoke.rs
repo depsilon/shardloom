@@ -4426,9 +4426,26 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(&field("result_format", "inline_jsonl")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_status",
+        "shared_flat_scalar_columnar_boundary_available"
+    )));
+    assert!(stdout.contains("\"result_batch_state_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field(
+        "result_batch_state_layout",
+        "flat_scalar_column_vectors_v1"
+    )));
+    assert!(stdout.contains(&field("result_batch_state_row_count", "2")));
+    assert!(stdout.contains(&field("result_batch_state_column_count", "2")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_materialization_required",
+        "terminal_text_materialization_required"
+    )));
+    assert!(stdout.contains(&field("result_batch_state_decode_required", "false")));
     assert!(stdout.contains(&field("output_format", "csv")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains("\"output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains(&field(
         "output_native_io_certificate_status",
         "certified_local_csv_sink"
@@ -4456,6 +4473,7 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     )));
     assert!(stdout.contains("\"sink_artifact_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("sink_artifact_formats", "csv")));
+    assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\""));
     assert!(stdout.contains(&field(
         "sink_artifact_manifest_status",
         "verified_local_sink_artifacts"
@@ -4521,9 +4539,28 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_status",
+        "shared_flat_scalar_columnar_boundary_available"
+    )));
+    assert!(stdout.contains("\"result_batch_state_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field(
+        "result_batch_state_layout",
+        "flat_scalar_column_vectors_v1"
+    )));
+    assert!(stdout.contains(&field("result_batch_state_row_count", "2")));
+    assert!(stdout.contains(&field("result_batch_state_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_materialization_required",
+        "terminal_text_materialization_required"
+    )));
+    assert!(stdout.contains(&field("result_batch_state_decode_required", "false")));
     assert!(stdout.contains(&field("output_fanout_performed", "true")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "jsonl,csv")));
+    assert!(stdout.contains("\"output_conversion_millis\",\"value\":\""));
+    assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\"jsonl:"));
+    assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains(&field("sink_artifact_count", "2")));
     assert!(stdout.contains(&field(
         "sink_artifact_refs",
@@ -5055,8 +5092,16 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_status",
+        "shared_flat_scalar_columnar_boundary_available"
+    )));
+    assert!(stdout.contains("\"result_batch_state_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("result_batch_state_row_count", "2")));
+    assert!(stdout.contains(&field("result_batch_state_column_count", "3")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("parquet:sql-local-source.local-parquet-output.native-io.v1"));
     assert!(stdout.contains("arrow_ipc:sql-local-source.local-arrow-ipc-output.native-io.v1"));
     assert!(stdout.contains(&field("result_replay_verified", "true")));

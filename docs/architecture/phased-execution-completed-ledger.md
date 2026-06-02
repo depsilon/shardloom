@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary
+  - Date: 2026-06-02
+  - Branch/PR: `codex/output-fanout-performance-promotion` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary`.
+    - User direction that ShardLoom output/fanout should use realistic engine routes, avoid
+      piecemeal artificial evidence, and make user-visible output/fanout surfaces robust and easy
+      for agents to inspect.
+  - Scope:
+    - Added a scoped local `SqlResultBatchState` after SQL execution and before output conversion.
+      It stores output columns as column vectors, emits a deterministic digest/layout, and preserves
+      existing row output for compatibility with current tests and reports.
+    - Switched local SQL inline output, local sink preparation, fanout preparation, and scoped
+      Vortex output writes to consume the shared result-batch boundary instead of passing raw row
+      slices as the output contract.
+    - Kept CSV/JSONL as late text materialization targets and retained existing Vortex,
+      Parquet/Arrow IPC/Avro/ORC terminal encoders. Unsupported complex/decimal preservation cases
+      continue to block deterministically for sinks that cannot preserve them.
+    - Added `result_batch_state_*`, `output_conversion_millis`,
+      `sink_artifact_conversion_millis`, and `fanout_output_conversion_millis` fields to CLI JSON,
+      Python client/session accessors, benchmark contracts, and local output/fanout smoke tests.
+    - Updated architecture, use-case, and compute-flow docs for the new output boundary while
+      preserving Vortex as the highest-fidelity sink and compatibility formats as exports.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/src/shardloom/session.py python/tests/test_cli_client.py` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io writes_local_csv_output --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io universal_format_io --lib -- --nocapture` passed as a compile/filter check with 0 matching tests.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python/tests/test_cli_client.py` passed with 139 tests.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and 2 skipped.
+    - `git diff --check` passed.
+    - `docs/architecture/compute-engine-flow-reference.md` matched both checked-in website compute-flow snapshots.
+  - Claim boundary:
+    - This closes scoped local SQL result-batch output-boundary evidence for admitted flat local
+      SQL output/fanout routes only. It does not authorize broad nested-schema output, production
+      sink support, object-store/table writes, shared conversion DAG claims, output capillary
+      scheduling, performance claims, broad SQL/DataFrame support, package release, or Spark
+      replacement.
+  - Fallback boundary:
+    - The boundary feeds existing ShardLoom local sink writers and feature-gated Vortex/universal
+      format encoders only. No Spark/DataFusion/DuckDB/Polars/Velox or external query-engine
+      fallback was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6E-4 automatic append-only differential prepared-state
       refinement
   - Date: 2026-06-02

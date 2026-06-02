@@ -202,7 +202,7 @@ Use friendlier route labels in user-facing prose while keeping the canonical fie
 | `native_vortex` | Already-Vortex route | Input already exists as a Vortex artifact. | Native/prepared scan plus admitted operator, output, and evidence timing. | Universal encoded-native operator coverage. |
 | `direct_compatibility_transient` | Direct one-shot route | Quick local work without persistent Vortex staging. | Source read/parse plus ShardLoom-native compute and optional output. | Vortex-native execution or hidden fallback. |
 | Generated-source reports | Source-free generated-output route | No input dataset exists and ShardLoom generates rows. | Generation plus output write and evidence; source-read timing is zero. | No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support. |
-| Output/fanout reports | Multi-output fanout route | One admitted source/result needs multiple local outputs. | Query/reuse timing plus per-output planning, write, replay, and evidence. | Object-store/table commit or production sink support. |
+| Output/fanout reports | Multi-output fanout route | One admitted source/result needs multiple local outputs. | Query/reuse timing, `ResultBatchState` creation, output conversion, per-output planning, write, replay, and evidence. | Object-store/table commit, broad nested writer fidelity, or production sink support. |
 
 Route lanes and stage pieces are separate views:
 
@@ -2119,14 +2119,30 @@ planning posture with `output_plan_contract_schema_version`, `output_plan_status
 `result_replay_verified`, `output_native_io_certificate_status`, `sink_artifact_ref`,
 `sink_artifact_digest`, no-fallback fields, and claim boundary text.
 
+`GAR-RUNTIME-IMPL-6F-1` adds the scoped local `ResultBatchState` output boundary between admitted
+SQL/Python execution and terminal sink conversion. Local inline output, local sink writes, fanout,
+feature-gated structured output, and scoped Vortex output rows now report
+`result_batch_state_status`, `result_batch_state_digest`, `result_batch_state_layout`,
+`result_batch_state_row_count`, `result_batch_state_column_count`,
+`result_batch_state_materialization_required`, `result_batch_state_decode_required`,
+`result_batch_state_build_millis`, `output_conversion_millis`,
+`sink_artifact_conversion_millis`, and `fanout_output_conversion_millis` where applicable. This is
+the current local columnar output boundary for flat scalar result sets; CSV/JSONL are terminal text
+materialization targets, Parquet/Arrow IPC/Avro/ORC are feature-gated compatibility exports, and
+Vortex remains the highest-fidelity local sink. It does not claim shared conversion DAG behavior,
+broad nested-schema output, object-store/table writes, production sink support, or performance
+improvement.
+
 The scoped local-source SQL/Python and source-free generated-output paths now have runtime fanout:
 repeated `--fanout-output format=local-path` arguments, plus Python `.fanout(...)`, write one
-computed local result to multiple admitted local sinks. These rows report OutputPlan digests,
-per-output bytes, digests, certificate refs/statuses, `output_fanout_performed`,
-`fanout_result_reuse_hit`, replay status/timing, scoped fidelity/loss reporting, workspace
-path-safety, commit mode, first-class `sink_artifact_*` refs/digests/counts/replay/commit
-evidence across primary and fanout sinks, Vortex artifact/reopen fields when feature-gated and
-admitted, and no-fallback/no-external-engine evidence. Python `ShardLoomSession` can reuse
+computed local result to multiple admitted local sinks through the `ResultBatchState` boundary.
+These rows report OutputPlan digests, result-batch identity/layout/materialization posture,
+conversion timing, per-output bytes, digests, certificate refs/statuses,
+`output_fanout_performed`, `fanout_result_reuse_hit`, replay status/timing, scoped fidelity/loss
+reporting, workspace path-safety, commit mode, first-class `sink_artifact_*`
+refs/digests/counts/replay/commit evidence across primary and fanout sinks, Vortex artifact/reopen
+fields when feature-gated and admitted, and no-fallback/no-external-engine evidence. Python
+`ShardLoomSession` can reuse
 admitted local query-builder and session-bound SQL workflow collect/write/fanout reports only when
 statement, source fingerprints, and output artifact fingerprints still match; changed output
 artifacts invalidate reuse.
@@ -2201,13 +2217,14 @@ Parquet + Vortex outputs, and prepared Vortex -> multiple output formats. Runtim
 exists for scoped SQL/Python and generated-output workflows; benchmark fanout rows should expose
 `source_discovery_millis`, `schema_inference_millis`, `source_parse_millis`,
 `vortex_prepare_millis`, `operator_compute_millis`, `output_plan_millis`,
-`output_write_millis`, `output_replay_millis`, `total_runtime_millis`,
-`source_state_reuse_hit`, `prepared_state_reuse_hit`, `output_plan_reuse_hit`,
-`fanout_output_count`, `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. SourceState, VortexPreparedState, OutputPlan, report-only fanout rows, cache
-invalidation rows, evidence-safe reuse-level rows, scoped local-source SQL/Python fanout, and
-generated-source fanout expose their current subsets; benchmark fanout promotion, broader sink
-artifact proof, and claim-grade output/replay remain planned.
+`result_batch_state_build_millis`, `output_conversion_millis`, `output_write_millis`,
+`output_replay_millis`, `total_runtime_millis`, `source_state_reuse_hit`,
+`prepared_state_reuse_hit`, `output_plan_reuse_hit`, `fanout_output_count`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`. SourceState,
+VortexPreparedState, OutputPlan, report-only fanout rows, cache invalidation rows,
+evidence-safe reuse-level rows, scoped local-source SQL/Python fanout, and generated-source fanout
+expose their current subsets; benchmark fanout promotion, broader sink artifact proof, and
+claim-grade output/replay remain planned.
 
 Future runtime reuse must be invalidated when source content, schema, plan, output plan, policy, or
 relevant version state changes. Object-store ETag/version handling is planned but not a runtime

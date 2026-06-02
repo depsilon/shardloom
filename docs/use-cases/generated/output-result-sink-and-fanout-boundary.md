@@ -30,11 +30,22 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Internal Flow
 
-`local_benchmark_fixture, prepared_vortex_artifact -> compatibility_import_certified -> batch -> local_result_sink_artifact, local_jsonl_csv_fanout, feature_gated_structured_fanout, feature_gated_local_vortex_output, output_certificate -> evidence -> claim gate`
+`local_benchmark_fixture, prepared_vortex_artifact -> compatibility_import_certified -> batch -> ResultBatchState -> local_result_sink_artifact, local_jsonl_csv_fanout, feature_gated_structured_fanout, feature_gated_local_vortex_output, output_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
 - `result_sink_write_millis`
+- `result_batch_state_status`
+- `result_batch_state_digest`
+- `result_batch_state_layout`
+- `result_batch_state_row_count`
+- `result_batch_state_column_count`
+- `result_batch_state_materialization_required`
+- `result_batch_state_decode_required`
+- `result_batch_state_build_millis`
+- `output_conversion_millis`
+- `sink_artifact_conversion_millis`
+- `fanout_output_conversion_millis`
 - `output_native_io_certificate_status`
 - `output_format`
 - `output_plan_id`
@@ -71,7 +82,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A local result-sink or fanout proof artifact with per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
+A local result-sink or fanout proof artifact with shared ResultBatchState identity/layout/materialization evidence, per-output conversion timing, per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
 
 ## Common Mistakes
 

@@ -138,11 +138,174 @@ struct SqlLocalSourceOutputTarget {
     path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct SqlResultBatchColumnState {
+    name: String,
+    values: Vec<ScalarValue>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SqlResultBatchState {
+    columns: Vec<SqlResultBatchColumnState>,
+    row_count: usize,
+    digest: String,
+    build_millis: u128,
+}
+
+impl SqlResultBatchState {
+    fn from_rows(columns: &[String], rows: &[SqlOutputRow]) -> Result<Self, ShardLoomError> {
+        let build_start = Instant::now();
+        let mut batch_columns = columns
+            .iter()
+            .map(|name| SqlResultBatchColumnState {
+                name: name.clone(),
+                values: Vec::with_capacity(rows.len()),
+            })
+            .collect::<Vec<_>>();
+
+        for (row_index, row) in rows.iter().enumerate() {
+            if row.len() != columns.len() {
+                return Err(unsupported_sql_error(&format!(
+                    "SQL result batch state requires stable row width; row {} has {} values but output schema has {} columns",
+                    row_index + 1,
+                    row.len(),
+                    columns.len()
+                )));
+            }
+            for (column_index, expected_name) in columns.iter().enumerate() {
+                let (observed_name, value) = &row[column_index];
+                if observed_name != expected_name {
+                    return Err(unsupported_sql_error(&format!(
+                        "SQL result batch state requires row values to match output schema order; row {} column {} expected {expected_name:?} but saw {observed_name:?}",
+                        row_index + 1,
+                        column_index + 1
+                    )));
+                }
+                batch_columns[column_index].values.push(value.clone());
+            }
+        }
+
+        let mut digest_input = format!(
+            "sql_result_batch_state.v1|rows={}|columns={}",
+            rows.len(),
+            columns.join(",")
+        );
+        for column in &batch_columns {
+            digest_input.push('|');
+            digest_input.push_str(&column.name);
+            digest_input.push('=');
+            for value in &column.values {
+                digest_input.push_str(&scalar_to_json(value));
+                digest_input.push(';');
+            }
+        }
+
+        Ok(Self {
+            columns: batch_columns,
+            row_count: rows.len(),
+            digest: fnv64_digest(&digest_input),
+            build_millis: build_start.elapsed().as_millis(),
+        })
+    }
+
+    fn column_names(&self) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|column| column.name.clone())
+            .collect()
+    }
+
+    fn column_count(&self) -> usize {
+        self.columns.len()
+    }
+
+    fn layout(&self) -> &'static str {
+        if self.contains_complex_values() {
+            "logical_mixed_column_vectors_v1"
+        } else {
+            "flat_scalar_column_vectors_v1"
+        }
+    }
+
+    fn contains_complex_values(&self) -> bool {
+        self.columns
+            .iter()
+            .any(|column| column.values.iter().any(scalar_value_is_complex))
+    }
+
+    fn contains_decimal_values(&self) -> bool {
+        self.columns
+            .iter()
+            .any(|column| column.values.iter().any(scalar_value_is_decimal))
+    }
+
+    fn to_rows(&self) -> SqlOutputRows {
+        (0..self.row_count)
+            .map(|row_index| {
+                self.columns
+                    .iter()
+                    .map(|column| (column.name.clone(), column.values[row_index].clone()))
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn to_jsonl(&self) -> String {
+        let mut output = String::new();
+        for row_index in 0..self.row_count {
+            let mut line = String::new();
+            line.push('{');
+            for (column_index, column) in self.columns.iter().enumerate() {
+                if column_index > 0 {
+                    line.push(',');
+                }
+                write!(
+                    line,
+                    "\"{}\":{}",
+                    json_escape(&column.name),
+                    scalar_to_json(&column.values[row_index])
+                )
+                .expect("write to string");
+            }
+            line.push('}');
+            output.push_str(&line);
+            output.push('\n');
+        }
+        output
+    }
+
+    fn to_csv(&self) -> Result<String, ShardLoomError> {
+        validate_flat_scalar_result_batch(self, SqlLocalSourceOutputFormat::Csv)?;
+        let mut output = String::new();
+        if self.columns.is_empty() {
+            return Ok(output);
+        }
+        for (index, column) in self.columns.iter().enumerate() {
+            if index > 0 {
+                output.push(',');
+            }
+            output.push_str(&csv_escape(&column.name));
+        }
+        output.push('\n');
+        for row_index in 0..self.row_count {
+            for (column_index, column) in self.columns.iter().enumerate() {
+                if column_index > 0 {
+                    output.push(',');
+                }
+                output.push_str(&csv_escape(&scalar_to_csv_value(&column.values[row_index])));
+            }
+            output.push('\n');
+        }
+        Ok(output)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlRenderedOutput {
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
     payload: SqlOutputPayload,
+    conversion_millis: u128,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,6 +324,7 @@ struct SqlWrittenOutput {
     path: PathBuf,
     digest: String,
     bytes: u64,
+    conversion_millis: u128,
     write_millis: u128,
     replay: SqlOutputReplayEvidence,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
@@ -251,32 +415,29 @@ impl SqlLocalSourceOutputFormat {
         }
     }
 
-    fn render_rows(
-        self,
-        columns: &[String],
-        rows: &[Vec<(String, ScalarValue)>],
-    ) -> Result<Vec<u8>, ShardLoomError> {
+    fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
         match self {
-            Self::InlineJsonl => Ok(rows_to_jsonl(rows).into_bytes()),
-            Self::Csv => {
-                validate_flat_scalar_output_rows(rows, self)?;
-                Ok(rows_to_csv(columns, rows)?.into_bytes())
-            }
+            Self::InlineJsonl => Ok(batch.to_jsonl().into_bytes()),
+            Self::Csv => Ok(batch.to_csv()?.into_bytes()),
             Self::Parquet => {
-                validate_flat_scalar_output_rows(rows, self)?;
-                encode_parquet_output_rows(columns, rows)
+                validate_flat_scalar_result_batch(batch, self)?;
+                let rows = batch.to_rows();
+                encode_parquet_output_rows(&batch.column_names(), &rows)
             }
             Self::ArrowIpc => {
-                validate_flat_scalar_output_rows(rows, self)?;
-                encode_arrow_ipc_output_rows(columns, rows)
+                validate_flat_scalar_result_batch(batch, self)?;
+                let rows = batch.to_rows();
+                encode_arrow_ipc_output_rows(&batch.column_names(), &rows)
             }
             Self::Avro => {
-                validate_flat_scalar_output_rows(rows, self)?;
-                encode_avro_output_rows(columns, rows)
+                validate_flat_scalar_result_batch(batch, self)?;
+                let rows = batch.to_rows();
+                encode_avro_output_rows(&batch.column_names(), &rows)
             }
             Self::Orc => {
-                validate_flat_scalar_output_rows(rows, self)?;
-                encode_orc_output_rows(columns, rows)
+                validate_flat_scalar_result_batch(batch, self)?;
+                let rows = batch.to_rows();
+                encode_orc_output_rows(&batch.column_names(), &rows)
             }
             Self::Vortex => Err(unsupported_sql_error(
                 "local Vortex SQL output uses the Vortex writer path, not byte rendering",
@@ -284,16 +445,12 @@ impl SqlLocalSourceOutputFormat {
         }
     }
 
-    fn inline_result_rows(
-        self,
-        columns: &[String],
-        rows: &[Vec<(String, ScalarValue)>],
-    ) -> Result<Vec<u8>, ShardLoomError> {
+    fn inline_result_rows(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
         if matches!(self, Self::Vortex) {
-            validate_flat_scalar_output_rows(rows, self)?;
-            Ok(rows_to_jsonl(rows).into_bytes())
+            validate_flat_scalar_result_batch(batch, self)?;
+            Ok(batch.to_jsonl().into_bytes())
         } else {
-            self.render_rows(columns, rows)
+            self.render_batch(batch)
         }
     }
 }
@@ -2227,6 +2384,7 @@ struct SqlLocalSourceReport {
     unmatched_right_row_count: usize,
     distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
+    result_batch_state: SqlResultBatchState,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -2335,6 +2493,7 @@ struct SqlLocalSourceUnionReport {
     parsed: ParsedSqlLocalSourceUnion,
     branch_reports: Vec<SqlLocalSourceReport>,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
+    result_batch_state: SqlResultBatchState,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -6614,14 +6773,15 @@ fn run_sql_local_source_smoke_single(
 
     let evidence_start = Instant::now();
     let output_columns = output_column_names(&parsed, &source);
-    let result_jsonl = rows_to_jsonl(&evaluated_output.output_rows);
+    let result_batch_state =
+        SqlResultBatchState::from_rows(&output_columns, &evaluated_output.output_rows)?;
+    let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
     let inline_output_content = request
         .output_format
-        .inline_result_rows(&output_columns, &evaluated_output.output_rows)?;
+        .inline_result_rows(&result_batch_state)?;
     let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
-    let prepared_outputs =
-        prepare_sql_outputs(request, &output_columns, &evaluated_output.output_rows)?;
+    let prepared_outputs = prepare_sql_outputs(request, &result_batch_state)?;
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = sql_local_source_plan_digest(
         &parsed,
@@ -6635,8 +6795,7 @@ fn run_sql_local_source_smoke_single(
     preflight_sql_output_writes(request)?;
     let written_outputs = write_sql_outputs(
         prepared_outputs,
-        &output_columns,
-        &evaluated_output.output_rows,
+        &result_batch_state,
         request.allow_overwrite,
     )?;
     let output_write_millis = written_outputs
@@ -6664,6 +6823,7 @@ fn run_sql_local_source_smoke_single(
         unmatched_right_row_count: evaluated_output.unmatched_right_row_count,
         distinct_projection_input_row_count: evaluated_output.distinct_projection_input_row_count,
         output_rows: evaluated_output.output_rows,
+        result_batch_state,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -6756,13 +6916,14 @@ fn run_sql_local_source_union_smoke(
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
-    let result_jsonl = rows_to_jsonl(&output_rows);
+    let result_batch_state = SqlResultBatchState::from_rows(&output_columns, &output_rows)?;
+    let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
     let inline_output_content = request
         .output_format
-        .inline_result_rows(&output_columns, &output_rows)?;
+        .inline_result_rows(&result_batch_state)?;
     let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
-    let prepared_outputs = prepare_sql_outputs(request, &output_columns, &output_rows)?;
+    let prepared_outputs = prepare_sql_outputs(request, &result_batch_state)?;
     let source_schema_digest = fnv64_digest(&csv_or_not_applicable(
         branch_reports
             .iter()
@@ -6779,8 +6940,7 @@ fn run_sql_local_source_union_smoke(
     preflight_sql_output_writes(request)?;
     let written_outputs = write_sql_outputs(
         prepared_outputs,
-        &output_columns,
-        &output_rows,
+        &result_batch_state,
         request.allow_overwrite,
     )?;
     let output_write_millis = written_outputs
@@ -6799,6 +6959,7 @@ fn run_sql_local_source_union_smoke(
         parsed,
         branch_reports,
         output_rows,
+        result_batch_state,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -11403,23 +11564,21 @@ fn usize_to_f64(value: usize) -> f64 {
 
 fn prepare_sql_outputs(
     request: &SqlLocalSourceRequest,
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
+    batch: &SqlResultBatchState,
 ) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
     let mut prepared = Vec::new();
     if let Some(output_path) = request.output_path.as_ref() {
         prepared.push(prepare_sql_output(
             request.output_format,
             output_path.clone(),
-            columns,
-            rows,
+            batch,
         )?);
     }
     prepared.extend(
         request
             .fanout_outputs
             .iter()
-            .map(|target| prepare_sql_output(target.format, target.path.clone(), columns, rows))
+            .map(|target| prepare_sql_output(target.format, target.path.clone(), batch))
             .collect::<Result<Vec<_>, _>>()?,
     );
     Ok(prepared)
@@ -11428,15 +11587,15 @@ fn prepare_sql_outputs(
 fn prepare_sql_output(
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
+    batch: &SqlResultBatchState,
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
+    let conversion_start = Instant::now();
     let payload = if matches!(format, SqlLocalSourceOutputFormat::Vortex) {
-        validate_flat_scalar_output_rows(rows, format)?;
+        validate_flat_scalar_result_batch(batch, format)?;
         validate_sql_vortex_output_plan(&path)?;
         SqlOutputPayload::Vortex
     } else {
-        let content = format.render_rows(columns, rows)?;
+        let content = format.render_batch(batch)?;
         let digest = fnv64_digest_bytes(&content);
         let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
         SqlOutputPayload::Bytes {
@@ -11449,6 +11608,7 @@ fn prepare_sql_output(
         format,
         path,
         payload,
+        conversion_millis: conversion_start.elapsed().as_millis(),
     })
 }
 
@@ -11495,22 +11655,75 @@ fn primary_output_evidence(
         )
 }
 
+fn result_batch_state_status_value(batch: &SqlResultBatchState) -> &'static str {
+    if batch.contains_complex_values() {
+        "shared_logical_columnar_boundary_available"
+    } else {
+        "shared_flat_scalar_columnar_boundary_available"
+    }
+}
+
+fn result_batch_state_materialization_required_value(request: &SqlLocalSourceRequest) -> String {
+    let mut requested_formats = Vec::new();
+    if request.output_path.is_some() {
+        requested_formats.push(request.output_format);
+    } else {
+        requested_formats.push(SqlLocalSourceOutputFormat::InlineJsonl);
+    }
+    requested_formats.extend(request.fanout_outputs.iter().map(|target| target.format));
+    if requested_formats.iter().any(|format| {
+        matches!(
+            format,
+            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+        )
+    }) {
+        "terminal_text_materialization_required".to_string()
+    } else {
+        "evidence_result_jsonl_materialization_required".to_string()
+    }
+}
+
+fn output_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -> u128 {
+    written_outputs
+        .iter()
+        .map(|output| output.conversion_millis)
+        .sum()
+}
+
+fn sink_artifact_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -> String {
+    if written_outputs.is_empty() {
+        return "not_requested".to_string();
+    }
+    if written_outputs.len() == 1 {
+        return written_outputs[0].conversion_millis.to_string();
+    }
+    written_outputs
+        .iter()
+        .map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.conversion_millis
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 fn write_sql_outputs(
     rendered_outputs: Vec<SqlRenderedOutput>,
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
+    batch: &SqlResultBatchState,
     allow_overwrite: bool,
 ) -> Result<Vec<SqlWrittenOutput>, ShardLoomError> {
     rendered_outputs
         .into_iter()
-        .map(|rendered| write_sql_output(rendered, columns, rows, allow_overwrite))
+        .map(|rendered| write_sql_output(rendered, batch, allow_overwrite))
         .collect()
 }
 
 fn write_sql_output(
     rendered: SqlRenderedOutput,
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
+    batch: &SqlResultBatchState,
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     match rendered.payload {
@@ -11535,6 +11748,7 @@ fn write_sql_output(
                 path: rendered.path,
                 digest,
                 bytes,
+                conversion_millis: rendered.conversion_millis,
                 write_millis,
                 replay,
                 workspace_write_report,
@@ -11544,8 +11758,8 @@ fn write_sql_output(
         SqlOutputPayload::Vortex => write_sql_vortex_output(
             rendered.format,
             rendered.path,
-            columns,
-            rows,
+            batch,
+            rendered.conversion_millis,
             allow_overwrite,
         ),
     }
@@ -11554,16 +11768,16 @@ fn write_sql_output(
 fn write_sql_vortex_output(
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
+    batch: &SqlResultBatchState,
+    plan_conversion_millis: u128,
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
-    let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
-        &path,
-        columns.to_vec(),
-        rows.to_vec(),
-    )
-    .allow_overwrite(allow_overwrite);
+    let conversion_start = Instant::now();
+    let columns = batch.column_names();
+    let rows = batch.to_rows();
+    let conversion_millis = plan_conversion_millis + conversion_start.elapsed().as_millis();
+    let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
+        .allow_overwrite(allow_overwrite);
     let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
     let write_millis = report.write_micros / 1_000;
     let replay = replay_sql_vortex_output(format, &report);
@@ -11573,6 +11787,7 @@ fn write_sql_vortex_output(
         path,
         digest: report.artifact_digest.clone(),
         bytes: report.bytes_written,
+        conversion_millis,
         write_millis,
         replay,
         workspace_write_report,
@@ -21048,6 +21263,38 @@ impl SqlLocalSourceUnionReport {
                 self.output_rows.len().to_string(),
             ),
             ("result_jsonl".to_string(), self.result_jsonl.clone()),
+            (
+                "result_batch_state_status".to_string(),
+                self.result_batch_state_status().to_string(),
+            ),
+            (
+                "result_batch_state_digest".to_string(),
+                self.result_batch_state.digest.clone(),
+            ),
+            (
+                "result_batch_state_layout".to_string(),
+                self.result_batch_state.layout().to_string(),
+            ),
+            (
+                "result_batch_state_row_count".to_string(),
+                self.result_batch_state.row_count.to_string(),
+            ),
+            (
+                "result_batch_state_column_count".to_string(),
+                self.result_batch_state.column_count().to_string(),
+            ),
+            (
+                "result_batch_state_materialization_required".to_string(),
+                self.result_batch_state_materialization_required(),
+            ),
+            (
+                "result_batch_state_decode_required".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "result_batch_state_build_millis".to_string(),
+                self.result_batch_state.build_millis.to_string(),
+            ),
             ("result_digest".to_string(), self.result_digest.clone()),
             ("correctness_digest".to_string(), self.result_digest.clone()),
             ("output_digest".to_string(), self.output_digest.clone()),
@@ -21055,6 +21302,10 @@ impl SqlLocalSourceUnionReport {
             (
                 "output_write_millis".to_string(),
                 self.output_write_millis.to_string(),
+            ),
+            (
+                "output_conversion_millis".to_string(),
+                self.output_conversion_millis().to_string(),
             ),
             ("plan_digest".to_string(), self.plan_digest.clone()),
             (
@@ -21107,6 +21358,10 @@ impl SqlLocalSourceUnionReport {
             (
                 "sink_artifact_formats".to_string(),
                 self.sink_artifact_formats(),
+            ),
+            (
+                "sink_artifact_conversion_millis".to_string(),
+                self.sink_artifact_conversion_millis(),
             ),
             (
                 "output_workspace_path_safety_status".to_string(),
@@ -21329,6 +21584,22 @@ impl SqlLocalSourceUnionReport {
 
     fn output_io_performed(&self) -> bool {
         !self.written_outputs.is_empty()
+    }
+
+    fn result_batch_state_status(&self) -> &'static str {
+        result_batch_state_status_value(&self.result_batch_state)
+    }
+
+    fn result_batch_state_materialization_required(&self) -> String {
+        result_batch_state_materialization_required_value(&self.request)
+    }
+
+    fn output_conversion_millis(&self) -> u128 {
+        output_conversion_millis_value(&self.written_outputs)
+    }
+
+    fn sink_artifact_conversion_millis(&self) -> String {
+        sink_artifact_conversion_millis_value(&self.written_outputs)
     }
 
     fn result_replay_verified(&self) -> bool {
@@ -23384,6 +23655,38 @@ impl SqlLocalSourceReport {
             ("result_format".to_string(), "inline_jsonl".to_string()),
             ("result_jsonl".to_string(), self.result_jsonl.clone()),
             (
+                "result_batch_state_status".to_string(),
+                self.result_batch_state_status().to_string(),
+            ),
+            (
+                "result_batch_state_digest".to_string(),
+                self.result_batch_state.digest.clone(),
+            ),
+            (
+                "result_batch_state_layout".to_string(),
+                self.result_batch_state.layout().to_string(),
+            ),
+            (
+                "result_batch_state_row_count".to_string(),
+                self.result_batch_state.row_count.to_string(),
+            ),
+            (
+                "result_batch_state_column_count".to_string(),
+                self.result_batch_state.column_count().to_string(),
+            ),
+            (
+                "result_batch_state_materialization_required".to_string(),
+                self.result_batch_state_materialization_required(),
+            ),
+            (
+                "result_batch_state_decode_required".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "result_batch_state_build_millis".to_string(),
+                self.result_batch_state.build_millis.to_string(),
+            ),
+            (
                 "output_path".to_string(),
                 self.request
                     .output_path
@@ -23435,6 +23738,10 @@ impl SqlLocalSourceReport {
                 self.output_replay_millis().to_string(),
             ),
             (
+                "output_conversion_millis".to_string(),
+                self.output_conversion_millis().to_string(),
+            ),
+            (
                 "output_fidelity_report_status".to_string(),
                 self.output_fidelity_report_status(),
             ),
@@ -23483,6 +23790,10 @@ impl SqlLocalSourceReport {
                 self.sink_artifact_commit_modes(),
             ),
             (
+                "sink_artifact_conversion_millis".to_string(),
+                self.sink_artifact_conversion_millis(),
+            ),
+            (
                 "sink_artifact_manifest_status".to_string(),
                 self.sink_artifact_manifest_status(),
             ),
@@ -23521,6 +23832,10 @@ impl SqlLocalSourceReport {
             (
                 "fanout_output_write_millis".to_string(),
                 self.fanout_output_write_millis().to_string(),
+            ),
+            (
+                "fanout_output_conversion_millis".to_string(),
+                self.fanout_output_conversion_millis().to_string(),
             ),
             (
                 "fanout_output_replay_statuses".to_string(),
@@ -23808,6 +24123,22 @@ impl SqlLocalSourceReport {
         !self.written_outputs.is_empty()
     }
 
+    fn result_batch_state_status(&self) -> &'static str {
+        result_batch_state_status_value(&self.result_batch_state)
+    }
+
+    fn result_batch_state_materialization_required(&self) -> String {
+        result_batch_state_materialization_required_value(&self.request)
+    }
+
+    fn output_conversion_millis(&self) -> u128 {
+        output_conversion_millis_value(&self.written_outputs)
+    }
+
+    fn sink_artifact_conversion_millis(&self) -> String {
+        sink_artifact_conversion_millis_value(&self.written_outputs)
+    }
+
     fn result_replay_verified(&self) -> bool {
         self.output_io_performed()
             && self
@@ -24043,6 +24374,12 @@ impl SqlLocalSourceReport {
     fn fanout_output_write_millis(&self) -> u128 {
         self.fanout_written_outputs()
             .map(|output| output.write_millis)
+            .sum()
+    }
+
+    fn fanout_output_conversion_millis(&self) -> u128 {
+        self.fanout_written_outputs()
+            .map(|output| output.conversion_millis)
             .sum()
     }
 
@@ -32806,53 +33143,6 @@ fn is_identifier_char(ch: char) -> bool {
     is_identifier_start(ch) || ch.is_ascii_digit()
 }
 
-fn rows_to_jsonl(rows: &[Vec<(String, ScalarValue)>]) -> String {
-    let mut output = String::new();
-    for row in rows {
-        let mut line = String::new();
-        line.push('{');
-        for (index, (name, value)) in row.iter().enumerate() {
-            if index > 0 {
-                line.push(',');
-            }
-            write!(line, "\"{}\":{}", json_escape(name), scalar_to_json(value))
-                .expect("write to string");
-        }
-        line.push('}');
-        output.push_str(&line);
-        output.push('\n');
-    }
-    output
-}
-
-fn rows_to_csv(
-    columns: &[String],
-    rows: &[Vec<(String, ScalarValue)>],
-) -> Result<String, ShardLoomError> {
-    validate_flat_scalar_output_rows(rows, SqlLocalSourceOutputFormat::Csv)?;
-    let mut output = String::new();
-    if columns.is_empty() {
-        return Ok(output);
-    }
-    for (index, name) in columns.iter().enumerate() {
-        if index > 0 {
-            output.push(',');
-        }
-        output.push_str(&csv_escape(name));
-    }
-    output.push('\n');
-    for row in rows {
-        for (index, (_name, value)) in row.iter().enumerate() {
-            if index > 0 {
-                output.push(',');
-            }
-            output.push_str(&csv_escape(&scalar_to_csv_value(value)));
-        }
-        output.push('\n');
-    }
-    Ok(output)
-}
-
 #[cfg(feature = "universal-format-io")]
 fn encode_parquet_output_rows(
     columns: &[String],
@@ -32990,37 +33280,23 @@ fn scalar_to_json(value: &ScalarValue) -> String {
     }
 }
 
-fn validate_flat_scalar_output_rows(
-    rows: &[Vec<(String, ScalarValue)>],
+fn validate_flat_scalar_result_batch(
+    batch: &SqlResultBatchState,
     format: SqlLocalSourceOutputFormat,
 ) -> Result<(), ShardLoomError> {
-    if rows_contain_complex_values(rows) {
+    if batch.contains_complex_values() {
         return Err(unsupported_sql_error(&format!(
-            "local {} output currently admits flat scalar rows only; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
+            "local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
             format.sink_format()
         )));
     }
-    if rows_contain_decimal_values(rows) && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+    if batch.contains_decimal_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
         return Err(unsupported_sql_error(&format!(
             "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string and CSV text result boundaries in this scoped runtime slice",
             format.sink_format()
         )));
     }
     Ok(())
-}
-
-fn rows_contain_complex_values(rows: &[Vec<(String, ScalarValue)>]) -> bool {
-    rows.iter().any(|row| {
-        row.iter()
-            .any(|(_name, value)| scalar_value_is_complex(value))
-    })
-}
-
-fn rows_contain_decimal_values(rows: &[Vec<(String, ScalarValue)>]) -> bool {
-    rows.iter().any(|row| {
-        row.iter()
-            .any(|(_name, value)| scalar_value_is_decimal(value))
-    })
 }
 
 fn scalar_value_is_complex(value: &ScalarValue) -> bool {

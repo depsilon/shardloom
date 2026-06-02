@@ -226,6 +226,17 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `join_right_rows_scanned`
 - `join_rows_output`
 - `join_memory_estimate_bytes`
+- `result_batch_state_status`
+- `result_batch_state_digest`
+- `result_batch_state_layout`
+- `result_batch_state_row_count`
+- `result_batch_state_column_count`
+- `result_batch_state_materialization_required`
+- `result_batch_state_decode_required`
+- `result_batch_state_build_millis`
+- `output_conversion_millis`
+- `sink_artifact_conversion_millis`
+- `fanout_output_conversion_millis`
 - `output_format`
 - `output_io_performed`
 - `output_native_io_certificate_status`
@@ -249,7 +260,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, and string-function predicate/projection evidence; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result helpers; optional local JSONL/CSV, feature-gated flat scalar structured, or feature-gated local .vortex output evidence; parser/binder/planner/runtime flags; local source/predicate/projection/aggregate/group/top-N/join/join-computed-top-N/join-aggregate evidence where requested, including generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, and string-function predicate/projection evidence; ResultBatchState identity/layout/materialization evidence and output conversion timing for admitted output/fanout routes; materialization/decode evidence; result_replay_verified, output_replay_status, output_fidelity_report_status, and output_fidelity_loss for written local outputs; Vortex output rows add vortex_output_runtime_execution=true, vortex_output_reopen_verified=true, vortex_artifact_digest, upstream_vortex_write_called=true, upstream_vortex_scan_called=true; fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

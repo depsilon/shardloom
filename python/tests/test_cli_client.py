@@ -3860,6 +3860,17 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
                             {{"key": "source_state_materialized_columns", "value": "id"}},
                             {{"key": "source_state_reader_projection_columns", "value": "id"}},
+                            {{"key": "result_batch_state_status", "value": "shared_flat_scalar_columnar_boundary_available"}},
+                            {{"key": "result_batch_state_digest", "value": f"fnv64:result-batch-{{count}}"}},
+                            {{"key": "result_batch_state_layout", "value": "flat_scalar_column_vectors_v1"}},
+                            {{"key": "result_batch_state_row_count", "value": "1"}},
+                            {{"key": "result_batch_state_column_count", "value": "2"}},
+                            {{"key": "result_batch_state_materialization_required", "value": "terminal_text_materialization_required"}},
+                            {{"key": "result_batch_state_decode_required", "value": "false"}},
+                            {{"key": "result_batch_state_build_millis", "value": "1"}},
+                            {{"key": "output_conversion_millis", "value": "4"}},
+                            {{"key": "sink_artifact_conversion_millis", "value": "jsonl:2,csv:2"}},
+                            {{"key": "fanout_output_conversion_millis", "value": "4"}},
                             {{"key": "result_reuse_for_fanout", "value": "true"}},
                             {{"key": "fanout_result_reuse_hit", "value": "true"}},
                             {{"key": "result_replay_verified", "value": "true"}},
@@ -3894,6 +3905,25 @@ class ShardLoomClientTests(unittest.TestCase):
                 "source_and_output_fingerprints_match",
             )
             self.assertEqual(second.output_plan_digest, "sha256:fanout-output-plan-1")
+            self.assertEqual(
+                second.result_batch_state_status,
+                "shared_flat_scalar_columnar_boundary_available",
+            )
+            self.assertEqual(second.result_batch_state_digest, "fnv64:result-batch-1")
+            self.assertEqual(
+                second.result_batch_state_layout,
+                "flat_scalar_column_vectors_v1",
+            )
+            self.assertEqual(second.result_batch_state_row_count, 1)
+            self.assertEqual(second.result_batch_state_column_count, 2)
+            self.assertEqual(
+                second.result_batch_state_materialization_required,
+                "terminal_text_materialization_required",
+            )
+            self.assertFalse(second.result_batch_state_decode_required)
+            self.assertEqual(second.output_conversion_millis, 4)
+            self.assertEqual(second.sink_artifact_conversion_millis, "jsonl:2,csv:2")
+            self.assertEqual(second.fanout_output_conversion_millis, 4)
             self.assertEqual(second.source_state_id, "sql-source-state-1")
             self.assertEqual(
                 second.execution_certificate_ref,
@@ -3909,6 +3939,15 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(third.reuse_reason, "output_artifact_fingerprint_changed")
             self.assertEqual(third.output_plan_digest, "sha256:fanout-output-plan-2")
             self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+            third_evidence = third.evidence()
+            self.assertEqual(
+                third_evidence["result_batch_state_status"],
+                "shared_flat_scalar_columnar_boundary_available",
+            )
+            self.assertEqual(
+                third_evidence["result_batch_state_digest"], "fnv64:result-batch-2"
+            )
+            self.assertEqual(third_evidence["output_conversion_millis"], 4)
 
             evidence = sess.evidence()
             self.assertEqual(evidence["session_id"], "fanout-session")

@@ -232,6 +232,13 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "certification_policy",
     "certification_status",
     "certification_blocker_id",
+    "result_batch_state_status",
+    "result_batch_state_digest",
+    "result_batch_state_layout",
+    "result_batch_state_row_count",
+    "result_batch_state_column_count",
+    "result_batch_state_materialization_required",
+    "result_batch_state_decode_required",
     "output_route",
     "output_format",
     "output_plan_id",
@@ -260,6 +267,8 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "vortex_scan_millis",
     "operator_compute_millis",
     "operator_compute_timing_scope",
+    "result_batch_state_build_millis",
+    "output_conversion_millis",
     "result_sink_write_millis",
     "evidence_render_millis",
     "evidence_render_timing_status",
@@ -971,7 +980,9 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "output_plan_reuse_hit",
     "output_plan_reuse_reason",
     "output_plan_millis",
+    "output_conversion_millis",
     "output_write_millis",
+    "sink_artifact_conversion_millis",
     "result_replay_verified",
     "output_native_io_certificate_status",
     "sink_artifact_ref",
@@ -1009,7 +1020,9 @@ FANOUT_BENCHMARK_FIELDS = (
     "vortex_prepare_millis",
     "operator_compute_millis",
     "output_plan_millis",
+    "output_conversion_millis",
     "output_write_millis",
+    "fanout_output_conversion_millis",
     "output_replay_millis",
     "total_runtime_millis",
     "source_state_reuse_hit",
@@ -10331,7 +10344,12 @@ def output_plan_contract_metadata(
             engine, status, output_plan_status, output_written, output_plan_reuse_hit
         ),
         "output_plan_millis": None,
+        "output_conversion_millis": metrics.get("output_conversion_millis"),
         "output_write_millis": metrics.get("result_sink_write_millis"),
+        "sink_artifact_conversion_millis": evidence.get(
+            "sink_artifact_conversion_millis",
+            "not_applicable" if not output_written else "not_reported",
+        ),
         "result_replay_verified": result_replay_verified,
         "output_native_io_certificate_status": first_meaningful_field(
             evidence.get("computed_result_sink_native_io_certificate_status"),
@@ -15678,7 +15696,11 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "output_plan_reuse_hit": metrics.get("output_plan_reuse_hit"),
                 "output_plan_reuse_reason": metrics.get("output_plan_reuse_reason"),
                 "output_plan_millis": metrics.get("output_plan_millis"),
+                "output_conversion_millis": metrics.get("output_conversion_millis"),
                 "output_write_millis": metrics.get("output_write_millis"),
+                "sink_artifact_conversion_millis": metrics.get(
+                    "sink_artifact_conversion_millis"
+                ),
                 "result_replay_verified": metrics.get("result_replay_verified"),
                 "output_native_io_certificate_status": metrics.get(
                     "output_native_io_certificate_status"
@@ -15740,7 +15762,9 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "vortex_prepare_millis": None,
                 "operator_compute_millis": None,
                 "output_plan_millis": None,
+                "output_conversion_millis": None,
                 "output_write_millis": None,
+                "fanout_output_conversion_millis": None,
                 "output_replay_millis": None,
                 "total_runtime_millis": None,
                 "source_state_reuse_hit": False,
@@ -15844,6 +15868,24 @@ def execution_mode_metadata(
     engine: str, data_format: str, evidence: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     evidence = evidence or {}
+    result_batch_state_status = str(
+        evidence.get("result_batch_state_status")
+        or "not_needed_no_local_result_batch_state"
+    )
+    result_batch_state_digest = str(evidence.get("result_batch_state_digest") or "none")
+    result_batch_state_layout = str(evidence.get("result_batch_state_layout") or "none")
+    result_batch_state_row_count = parse_optional_int(
+        evidence.get("result_batch_state_row_count")
+    )
+    result_batch_state_column_count = parse_optional_int(
+        evidence.get("result_batch_state_column_count")
+    )
+    result_batch_state_materialization_required = str(
+        evidence.get("result_batch_state_materialization_required") or "not_needed"
+    )
+    result_batch_state_decode_required = (
+        parse_optional_bool(evidence.get("result_batch_state_decode_required")) is True
+    )
     if engine == "shardloom":
         selected = "compatibility_import_certified"
         reason = "certified compatibility import/stage workflow"
@@ -16091,6 +16133,13 @@ def execution_mode_metadata(
         vortex_write_reopen_included = False
         direct_transient_execution = False
         external_engine_invoked = False
+        result_batch_state_status = "external_baseline_only"
+        result_batch_state_digest = "external_baseline_only"
+        result_batch_state_layout = "external_baseline_only"
+        result_batch_state_row_count = None
+        result_batch_state_column_count = None
+        result_batch_state_materialization_required = "external_baseline_only"
+        result_batch_state_decode_required = False
 
     requested = str(evidence.get("requested_execution_mode") or selected)
     return {
@@ -16119,6 +16168,15 @@ def execution_mode_metadata(
         "certification_policy": certification_policy,
         "certification_status": certification_status,
         "certification_blocker_id": certification_blocker_id,
+        "result_batch_state_status": result_batch_state_status,
+        "result_batch_state_digest": result_batch_state_digest,
+        "result_batch_state_layout": result_batch_state_layout,
+        "result_batch_state_row_count": result_batch_state_row_count,
+        "result_batch_state_column_count": result_batch_state_column_count,
+        "result_batch_state_materialization_required": (
+            result_batch_state_materialization_required
+        ),
+        "result_batch_state_decode_required": result_batch_state_decode_required,
         "output_route": output_route,
         "output_format": output_format,
         "output_plan_id": output_plan_id,
@@ -16455,6 +16513,8 @@ def failed_result(
         "object_store_requests": 0,
         "spill_required_bytes": None,
         "scenario_compute_millis": None,
+        "result_batch_state_build_millis": None,
+        "output_conversion_millis": None,
         "computed_result_sink_write_millis": None,
         "result_sink_write_millis": None,
         "computed_result_sink_bytes": None,
@@ -16984,6 +17044,12 @@ def successful_result_from_iterations(
         "spill_required_bytes": None,
         "scenario_compute_millis": scenario_compute_millis,
         "operator_compute_millis": operator_compute_millis,
+        "result_batch_state_build_millis": parse_optional_float(
+            evidence.get("result_batch_state_build_millis")
+        ),
+        "output_conversion_millis": parse_optional_float(
+            evidence.get("output_conversion_millis")
+        ),
         "cli_process_wall_millis": cli_process_wall_millis,
         "python_harness_overhead_millis": python_harness_overhead_millis,
         "computed_result_sink_write_millis": computed_result_sink_write_millis,
@@ -21907,7 +21973,9 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_reuse_hit"]),
                 str(row["output_plan_reuse_reason"]).replace("|", "\\|"),
                 format_metric(row["output_plan_millis"], " ms"),
+                format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
+                str(row["sink_artifact_conversion_millis"]),
                 str(row["result_replay_verified"]),
                 str(row["output_native_io_certificate_status"]),
                 str(row["sink_artifact_ref"]).replace("|", "\\|"),
@@ -21941,6 +22009,8 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 "no OutputPlan rows were emitted",
                 "n/a",
                 "n/a",
+                "n/a",
+                "n/a",
                 "false",
                 "none",
                 "none",
@@ -21972,7 +22042,9 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Reuse hit",
             "Reuse reason",
             "Output plan",
+            "Output conversion",
             "Output write",
+            "Sink conversion",
             "Replay verified",
             "Output Native I/O",
             "Sink ref",
@@ -22005,7 +22077,9 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
                 format_metric(row["vortex_prepare_millis"], " ms"),
                 format_metric(row["operator_compute_millis"], " ms"),
                 format_metric(row["output_plan_millis"], " ms"),
+                format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
+                format_metric(row["fanout_output_conversion_millis"], " ms"),
                 format_metric(row["output_replay_millis"], " ms"),
                 format_metric(row["total_runtime_millis"], " ms"),
                 str(row["source_state_reuse_hit"]),
@@ -22034,7 +22108,9 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Vortex prepare",
             "Operator compute",
             "Output plan",
+            "Output conversion",
             "Output write",
+            "Fanout conversion",
             "Output replay",
             "Total runtime",
             "SourceState reuse",
