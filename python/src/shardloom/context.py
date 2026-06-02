@@ -3764,7 +3764,11 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         ),
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("machine_readable_report", "evidence_certificate", "result_sink"),
-        recommended_user_surface="ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared').prepare() or benchmark cold route",
+        recommended_user_surface=(
+            "ctx.read_csv('fact.csv').prepare_vortex(workspace='target/shardloom-prepared') "
+            "for single-source preparation, or ctx.prepare_vortex('fact.csv', dim='dim.csv', "
+            "workspace='target/shardloom-prepared').prepare() for benchmark-range fact/dim routes"
+        ),
         start_state="raw_compat_source",
         vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState -> reopen/scan verification",
         source_route="compatibility_import_certified",

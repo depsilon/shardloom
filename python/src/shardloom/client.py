@@ -1370,6 +1370,38 @@ class VortexIngestSmokeReport:
         return self.envelope.field_bool("prepared_state_created", False) is True
 
     @property
+    def prepared_state_reused(self) -> bool:
+        """Whether this smoke reused a local `VortexPreparedState`."""
+
+        return self.envelope.field_bool("prepared_state_reused", False) is True
+
+    @property
+    def prepared_state_reuse_hit(self) -> bool:
+        """Whether artifact-adjacent prepared-state reuse hit for this smoke."""
+
+        return self.envelope.field_bool("prepared_state_reuse_hit", False) is True
+
+    @property
+    def prepared_state_reuse_reason(self) -> str | None:
+        """Return the prepared-state reuse hit, miss, or invalidation reason."""
+
+        return self.envelope.field("prepared_state_reuse_reason")
+
+    @property
+    def prepared_state_reuse_manifest_digest(self) -> str | None:
+        """Return the prepared-state reuse manifest digest when emitted."""
+
+        return self.envelope.field("prepared_state_reuse_manifest_digest")
+
+    @property
+    def prepared_state_invalidation_reason(self) -> str | None:
+        """Return the fail-closed prepared-state invalidation reason."""
+
+        return self.envelope.field("prepared_state_invalidation_reason") or self.envelope.field(
+            "invalidation_reason"
+        )
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the smoke command attempted fallback execution."""
 

@@ -309,7 +309,8 @@ Current scoped runtime surface:
 cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke <local-source.csv|json|jsonl> <target.vortex> --allow-overwrite --certification-level ingest_certified --format json
 ```
 
-From Python, the same route is exposed as `ctx.prepare_vortex(...)` and
+From Python, the same route is exposed as
+`ctx.read_csv(...).prepare_vortex(workspace=...)`, `ctx.prepare_vortex(...)`, and
 `ShardLoomClient.vortex_ingest_smoke(...)`. The command is feature-gated because it writes through
 upstream Vortex APIs. Default builds return a deterministic feature-gate blocker with
 `source_io_performed=false`, `vortex_ingest_performed=false`, `prepared_state_created=false`,
@@ -2027,8 +2028,9 @@ columnar-preservation, record-batch count, source-to-columnar timing, and Vortex
 CSV/JSON/JSONL remain scalar-row compatibility paths.
 
 The current `GAR-IOREUSE-1I` slice adds the VortexPreparationSpine evidence contract on that same
-path. `vortex-ingest-smoke`, Python `ctx.prepare_vortex(...)`, and the benchmark harness schema now
-carry `vortex_preparation_spine_*` fields for the Vortex-first decision, provider crate/version/API
+path. `vortex-ingest-smoke`, Python `LazyFrame.prepare_vortex(...)`,
+`ctx.prepare_vortex(...)`, and the benchmark harness schema now carry
+`vortex_preparation_spine_*` fields for the Vortex-first decision, provider crate/version/API
 surface, SourceState split refs, whole-local-file byte ranges, row ranges, local Vortex sink refs,
 write/reopen surfaces, prepared-artifact segment evidence, Native I/O certificate posture,
 no-standalone-lane status, and no-fallback fields. This spine is internal preparation plumbing
@@ -2322,11 +2324,18 @@ The Rust/CLI `traditional-analytics-prepare-batch-run` surface now uses the work
 directly as well: repeated compatible calls skip compatibility preparation, execute the prepared
 Vortex batch route over the manifest artifacts, and expose workspace reuse hit/reason/digest and
 invalidation fields.
+For single-source local `auto` workflows, `LazyFrame.prepare_vortex(...)` derives a caller-owned
+local `.vortex` target from `workspace=...` or accepts an explicit target path, then calls the real
+`vortex-ingest-smoke` route. Its typed report exposes `prepared_state_reuse_hit`,
+`prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
+`prepared_state_invalidation_reason`; it prepares the raw local source before query operators rather
+than treating a query-result sink as prepared-source reuse.
 `vortex-ingest-smoke` now also writes an artifact-adjacent prepared-state reuse manifest for local
 `.vortex` outputs and emits a dedicated reuse report on manifest hits, so repeated identical local
 ingest skips writer/reopen work while source/artifact/plan/policy drift remains fail-closed. The
-remaining 6E-1 Rust/CLI work is broader local-source auto-route wiring across higher-level `auto`
-front doors.
+remaining 6E-1 work is generated-local-source preparation, benchmark/public row promotion for the
+new auto front door, and any additional CLI/Python route-report wiring needed for route-comparable
+prepared execution.
 
 Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
 and `N=100` when the artifact contains enough child query evidence. If an amortization count is

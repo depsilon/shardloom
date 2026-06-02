@@ -367,7 +367,17 @@ Implementation checklist, in required order:
   `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`, skips compatibility preparation on
   fingerprint/policy/artifact hits, calls the prepared Vortex batch route over existing local
   artifacts, and records workspace hit/reason/digest/invalidation evidence. Remaining 6E-1 work is
-  broader local-source auto-route wiring across the higher-level `auto` front doors.
+  broader local-source auto-route wiring across the higher-level `auto` front doors. Python
+  `LazyFrame.prepare_vortex(...)` now covers the first high-level local-source auto front door for
+  single-source CSV/JSONL/Parquet/Arrow IPC/Avro/ORC paths: the
+  `ctx.read_csv(...).prepare_vortex(workspace=...)` call derives a caller-owned local `.vortex`
+  target, calls the real
+  `vortex-ingest-smoke` route, and exposes typed `prepared_state_reuse_hit`,
+  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
+  `prepared_state_invalidation_reason` fields from the artifact-adjacent manifest decision.
+  Remaining 6E-1 work is generated-local-source preparation, benchmark/public row promotion for the
+  new auto front door, and any additional CLI/Python route-report wiring needed for route-comparable
+  prepared execution.
   Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
   workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
   source/schema/plan/output-policy drift.

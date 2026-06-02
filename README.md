@@ -179,9 +179,28 @@ The Python and SQL front doors stay format-neutral after the read/ingest boundar
 infers the local source adapter from the file extension; explicit helpers such as `read_csv(...)`
 remain aliases for code that wants them. A caller writes to a requested sink and lets ShardLoom
 manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, certificates, and
-no-fallback evidence internally. Lower-level two-path `prepare_vortex(source, target_vortex)`
-ingest-smoke calls, runtime-envelope inspection, and session evidence are engine-development and
-diagnostic surfaces.
+no-fallback evidence internally.
+
+When a single local source should be prepared and reused before later work, the lazy source can enter
+the same `vortex-ingest-smoke` runtime path without dropping to the low-level client:
+
+```python
+prepared_source = ctx.read_csv("target/orders.csv").prepare_vortex(
+    workspace="target/shardloom-prepared"
+)
+
+print(prepared_source.target_vortex_path)
+print(
+    prepared_source.prepared_state_reuse_hit,
+    prepared_source.prepared_state_reuse_reason,
+    prepared_source.prepared_state_invalidation_reason,
+)
+```
+
+Supplying `workspace=...` derives `<workspace>/<source-stem>.vortex`; supplying an explicit target
+path is also allowed. Repeated compatible calls use the artifact-adjacent reuse manifest written by
+the real Rust CLI route. This is caller-owned local route state, not a daemon, hidden global cache,
+external-engine fallback, object-store cache, or performance claim.
 
 When a user specifically wants the benchmark-range prepare-once route from compatibility files into
 prepared Vortex artifacts, `ctx.prepare_vortex(...)` exposes that route directly and names the

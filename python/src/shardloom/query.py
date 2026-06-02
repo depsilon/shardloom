@@ -22,6 +22,7 @@ from .client import (
     GeneratedSourceWriteReport,
     ShardLoomClient,
     SqlLocalSourceSmokeReport,
+    VortexIngestSmokeReport,
 )
 from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
@@ -3728,6 +3729,56 @@ class LazyFrame:
             return report.result_rows
         return self._unsupported_operation("to-python-objects", check=check)
 
+    def prepare_vortex(
+        self,
+        target_vortex_path: str | os.PathLike[str] | None = None,
+        *,
+        workspace: str | os.PathLike[str] | None = None,
+        allow_overwrite: bool = False,
+        certification_level: str = "ingest_certified",
+        check: bool = True,
+    ) -> VortexIngestSmokeReport:
+        """Prepare this raw local source into a caller-owned `VortexPreparedState`.
+
+        When `workspace` is supplied without `target_vortex_path`, the target is derived as
+        `<workspace>/<source-stem>.vortex`. The real CLI `vortex-ingest-smoke` route owns
+        fingerprint-backed reuse and fail-closed invalidation through its artifact-adjacent
+        manifest.
+        """
+
+        if self.engine_mode not in {"auto", "batch"}:
+            raise ValueError(
+                "LazyFrame.prepare_vortex currently supports engine_mode='auto' or 'batch' "
+                "for scoped local batch preparation; live/hybrid preparation remains gated"
+            )
+        if self.source.source_format == "vortex":
+            raise ValueError(
+                "LazyFrame.prepare_vortex starts from raw compatibility input; "
+                "read_vortex(...) sources are already Vortex-native"
+            )
+        if not _is_query_builder_local_source(self.source):
+            raise ValueError(
+                "LazyFrame.prepare_vortex requires a local CSV, JSON/JSONL/NDJSON, Parquet, "
+                "Arrow IPC, Avro, or ORC source"
+            )
+        if self.operations:
+            raise ValueError(
+                "LazyFrame.prepare_vortex prepares the raw local source before query operators; "
+                "call it directly on read_*(...) or use write_vortex(...) for a query-result sink"
+            )
+        target = _prepared_vortex_target_path(
+            self.source.uri,
+            target_vortex_path=target_vortex_path,
+            workspace=workspace,
+        )
+        return self.client.vortex_ingest_smoke(
+            self.source.uri,
+            target,
+            allow_overwrite=allow_overwrite,
+            certification_level=certification_level,
+            check=check,
+        )
+
     def write_vortex(
         self,
         target_uri: str | os.PathLike[str],
@@ -6313,6 +6364,28 @@ def _normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, s
     if schema is None:
         return ()
     return tuple((str(key), str(value)) for key, value in schema.items())
+
+
+def _prepared_vortex_target_path(
+    source_uri: str,
+    *,
+    target_vortex_path: str | os.PathLike[str] | None,
+    workspace: str | os.PathLike[str] | None,
+) -> str | os.PathLike[str]:
+    if target_vortex_path is not None and workspace is not None:
+        raise ValueError(
+            "prepare_vortex accepts either target_vortex_path or workspace, not both"
+        )
+    if target_vortex_path is not None:
+        return target_vortex_path
+    if workspace is None:
+        raise ValueError(
+            "prepare_vortex requires target_vortex_path or workspace=... so the "
+            "caller-owned VortexPreparedState artifact location is explicit"
+        )
+    source_name = Path(source_uri).name or "source"
+    stem = Path(source_name).stem or "source"
+    return Path(workspace).expanduser() / f"{stem}.vortex"
 
 
 def _normalize_engine_mode(engine_mode: str) -> str:

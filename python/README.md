@@ -226,7 +226,8 @@ object-store/table reuse, and non-local workflow reuse remain outside this scope
 
 The explicit prepare-once Vortex lifecycle is available for advanced validation through a
 feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, then call
-`ShardLoomClient.vortex_ingest_smoke(...)` or `ctx.prepare_vortex(...)` when you intentionally need
+`ctx.read_csv(...).prepare_vortex(workspace=...)`,
+`ShardLoomClient.vortex_ingest_smoke(...)`, or `ctx.prepare_vortex(...)` when you intentionally need
 to inspect the `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` boundary:
 
 ```powershell
@@ -242,12 +243,18 @@ cargo run -q -p shardloom-cli --features vortex-write -- `
 
 $env:PYTHONPATH = "python\src"
 $env:SHARDLOOM_REPO_ROOT = "."
-python -c "from shardloom import context; ctx=context(); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; ctx=context(); r=ctx.read_csv('target/vortex-ingest-source.csv').prepare_vortex(workspace='target/shardloom-prepared', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.prepared_state_reuse_hit, r.prepared_state_reuse_reason, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
 path is a local fixture smoke; it is not the primary user API, broad Vortex writer support,
 object-store/table output support, production SQL/DataFrame support, or a performance claim.
+`LazyFrame.prepare_vortex(...)` is the higher-level local `auto` source front door: it derives
+`<workspace>/<source-stem>.vortex` when a workspace is supplied, calls the real Rust
+`vortex-ingest-smoke` route, and exposes `prepared_state_reuse_hit`,
+`prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
+`prepared_state_invalidation_reason` through typed properties. It prepares the raw local source
+before query operators; use `.write_vortex(...)` when the desired artifact is a query-result sink.
 When capillary preparation is admitted, the report exposes
 `vortex_capillary_preparation_prewrite_status`,
 `vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array
