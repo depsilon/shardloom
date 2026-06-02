@@ -847,6 +847,12 @@ struct ParsedInSubquery {
     values: Vec<ScalarValue>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedLocalSubquerySourceRef {
+    path: PathBuf,
+    qualifier: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParsedQuantifiedSubqueryQuantifier {
     Any,
@@ -6359,7 +6365,7 @@ fn outer_correlation_column(column: &str) -> Result<Option<String>, ShardLoomErr
         Ok(Some(qualified.column))
     } else {
         Err(unsupported_sql_error(
-            "correlated subquery predicates admit only outer.<column> qualified references; source aliases inside simple local subqueries are not admitted",
+            "correlated subquery predicates admit only outer.<column> qualified references after local source qualifiers have been bound",
         ))
     }
 }
@@ -28489,31 +28495,43 @@ fn parse_row_value_in_subquery_predicate(
             "row-value IN subquery predicates admit SELECT <column>,... FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>] only",
         )
     })?;
-    let source_columns = parse_in_subquery_selected_columns(raw, from_clause)?;
-    if source_columns.len() != columns.len() {
-        return Err(unsupported_sql_error(
-            "row-value IN subquery selected-column arity must match the source column count",
-        ));
-    }
     let filter_clause = find_keyword_outside_quotes_and_parentheses(raw, "where")?;
     let order_by_clause = find_keyword_outside_quotes_and_parentheses(raw, "order by")?;
     let limit_clause = find_keyword_outside_quotes_and_parentheses(raw, "limit")?;
     validate_in_subquery_clause_order(from_clause, filter_clause, order_by_clause, limit_clause)?;
 
-    let source_path = parse_in_subquery_source_path(
+    let source_ref = parse_local_subquery_source_ref(
         raw,
         from_clause,
         &[filter_clause, order_by_clause, limit_clause],
     )?;
-    let predicate = parse_in_subquery_filter(raw, filter_clause, order_by_clause, limit_clause)?;
-    let order_by = parse_in_subquery_order_by(raw, order_by_clause, limit_clause)?;
+    let source_columns =
+        parse_in_subquery_selected_columns(raw, from_clause, source_ref.qualifier.as_deref())?;
+    if source_columns.len() != columns.len() {
+        return Err(unsupported_sql_error(
+            "row-value IN subquery selected-column arity must match the source column count",
+        ));
+    }
+    let predicate = parse_in_subquery_filter(
+        raw,
+        filter_clause,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
+    let order_by = parse_in_subquery_order_by(
+        raw,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
     let limit = parse_in_subquery_limit(raw, limit_clause)?;
 
     let predicate = ParsedPredicate::RowValueInSubquery {
         columns,
         subquery: Box::new(ParsedRowValueInSubquery {
             source_columns,
-            source_path,
+            source_path: source_ref.path,
             predicate: Box::new(predicate),
             order_by,
             limit,
@@ -28704,26 +28722,38 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
             "IN subquery predicates admit SELECT <column> FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>] only",
         )
     })?;
-    let select_column = parse_in_subquery_selected_column(raw, from_clause)?;
     let filter_clause = find_keyword_outside_quotes_and_parentheses(raw, "where")?;
     let order_by_clause = find_keyword_outside_quotes_and_parentheses(raw, "order by")?;
     let limit_clause = find_keyword_outside_quotes_and_parentheses(raw, "limit")?;
     validate_in_subquery_clause_order(from_clause, filter_clause, order_by_clause, limit_clause)?;
 
-    let source_path = parse_in_subquery_source_path(
+    let source_ref = parse_local_subquery_source_ref(
         raw,
         from_clause,
         &[filter_clause, order_by_clause, limit_clause],
     )?;
-    let predicate = parse_in_subquery_filter(raw, filter_clause, order_by_clause, limit_clause)?;
-    let order_by = parse_in_subquery_order_by(raw, order_by_clause, limit_clause)?;
+    let select_column =
+        parse_in_subquery_selected_column(raw, from_clause, source_ref.qualifier.as_deref())?;
+    let predicate = parse_in_subquery_filter(
+        raw,
+        filter_clause,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
+    let order_by = parse_in_subquery_order_by(
+        raw,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
     let limit = parse_in_subquery_limit(raw, limit_clause)?;
 
     Ok(ParsedPredicate::InSubquery {
         column: column.to_string(),
         subquery: Box::new(ParsedInSubquery {
             source_column: select_column.clone(),
-            source_path,
+            source_path: source_ref.path,
             predicate: Box::new(predicate),
             order_by,
             limit,
@@ -28957,26 +28987,37 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
             "EXISTS subquery predicates admit SELECT <projection> FROM <local-source> [WHERE <predicate>] [ORDER BY <column>] [LIMIT <n>] only",
         )
     })?;
-    let (projection_kind, selected_columns) = parse_exists_subquery_projection(raw, from_clause)?;
     let filter_clause = find_keyword_outside_quotes_and_parentheses(raw, "where")?;
     let order_by_clause = find_keyword_outside_quotes_and_parentheses(raw, "order by")?;
     let limit_clause = find_keyword_outside_quotes_and_parentheses(raw, "limit")?;
     validate_in_subquery_clause_order(from_clause, filter_clause, order_by_clause, limit_clause)?;
 
-    let source_path = parse_in_subquery_source_path(
+    let source_ref = parse_local_subquery_source_ref(
         raw,
         from_clause,
         &[filter_clause, order_by_clause, limit_clause],
     )?;
-    let predicate =
-        parse_exists_subquery_filter(raw, filter_clause, order_by_clause, limit_clause)?;
-    let order_by = parse_in_subquery_order_by(raw, order_by_clause, limit_clause)?;
+    let (projection_kind, selected_columns) =
+        parse_exists_subquery_projection(raw, from_clause, source_ref.qualifier.as_deref())?;
+    let predicate = parse_exists_subquery_filter(
+        raw,
+        filter_clause,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
+    let order_by = parse_in_subquery_order_by(
+        raw,
+        order_by_clause,
+        limit_clause,
+        source_ref.qualifier.as_deref(),
+    )?;
     let limit = parse_exists_subquery_limit(raw, limit_clause)?;
 
     Ok(ParsedExistsSubquery {
         projection_kind,
         selected_columns,
-        source_path,
+        source_path: source_ref.path,
         predicate: Box::new(predicate),
         order_by,
         limit,
@@ -29062,6 +29103,7 @@ fn validate_exists_subquery_shape(raw: &str) -> Result<(), ShardLoomError> {
 fn parse_exists_subquery_projection(
     raw: &str,
     from_clause: usize,
+    source_qualifier: Option<&str>,
 ) -> Result<(ParsedExistsSubqueryProjectionKind, Vec<String>), ShardLoomError> {
     if from_clause <= "select".len() {
         return Err(unsupported_sql_error(
@@ -29094,18 +29136,18 @@ fn parse_exists_subquery_projection(
     let mut seen = BTreeSet::new();
     let mut parsed = Vec::with_capacity(columns.len());
     for column in columns {
-        if column.contains('.') {
-            return Err(unsupported_sql_error(
-                "correlated or qualified EXISTS subquery projection references are not admitted by the current advanced predicate profile",
-            ));
-        }
-        validate_sql_identifier(&column)?;
-        if !seen.insert(column.clone()) {
+        let normalized = normalize_local_subquery_column_ref(
+            &column,
+            source_qualifier,
+            "EXISTS subquery projection",
+            false,
+        )?;
+        if !seen.insert(normalized.clone()) {
             return Err(unsupported_sql_error(
                 "EXISTS subquery selected columns must be unique in this scoped runtime slice",
             ));
         }
-        parsed.push(column);
+        parsed.push(normalized);
     }
     Ok((ParsedExistsSubqueryProjectionKind::ColumnList, parsed))
 }
@@ -29113,8 +29155,9 @@ fn parse_exists_subquery_projection(
 fn parse_in_subquery_selected_column(
     raw: &str,
     from_clause: usize,
+    source_qualifier: Option<&str>,
 ) -> Result<String, ShardLoomError> {
-    let columns = parse_in_subquery_selected_columns(raw, from_clause)?;
+    let columns = parse_in_subquery_selected_columns(raw, from_clause, source_qualifier)?;
     let [select_column] = columns.as_slice() else {
         return Err(unsupported_sql_error(
             "multi-column IN subqueries require row-value source columns; scalar IN subqueries select exactly one source column",
@@ -29126,6 +29169,7 @@ fn parse_in_subquery_selected_column(
 fn parse_in_subquery_selected_columns(
     raw: &str,
     from_clause: usize,
+    source_qualifier: Option<&str>,
 ) -> Result<Vec<String>, ShardLoomError> {
     if from_clause <= "select".len() {
         return Err(unsupported_sql_error(
@@ -29147,37 +29191,236 @@ fn parse_in_subquery_selected_columns(
     let mut seen = BTreeSet::new();
     let mut parsed = Vec::with_capacity(columns.len());
     for column in columns {
-        if column.contains('.') {
-            return Err(unsupported_sql_error(
-                "correlated or qualified IN subquery column references are not admitted by the current advanced predicate profile",
-            ));
-        }
-        validate_sql_identifier(&column)?;
-        if !seen.insert(column.clone()) {
+        let normalized = normalize_local_subquery_column_ref(
+            &column,
+            source_qualifier,
+            "IN subquery selected columns",
+            false,
+        )?;
+        if !seen.insert(normalized.clone()) {
             return Err(unsupported_sql_error(
                 "IN subquery selected columns must be unique in this scoped runtime slice",
             ));
         }
-        parsed.push(column);
+        parsed.push(normalized);
     }
     Ok(parsed)
 }
 
-fn parse_in_subquery_source_path(
+fn parse_local_subquery_source_ref(
     raw: &str,
     from_clause: usize,
     optional_clauses: &[Option<usize>],
-) -> Result<PathBuf, ShardLoomError> {
+) -> Result<ParsedLocalSubquerySourceRef, ShardLoomError> {
     let source_end = earliest_optional_clause_index_after(from_clause, optional_clauses, raw.len());
     let source_raw = raw[from_clause + "from".len()..source_end].trim();
     if source_raw.is_empty() || source_raw.contains(',') {
         return Err(unsupported_sql_error(
-            "IN subquery predicates admit exactly one local source path",
+            "local subquery predicates admit exactly one local source path with optional AS <alias>",
         ));
     }
-    let source_path = parse_source_path(source_raw)?;
+    let (source_path_raw, explicit_alias) = parse_optional_local_subquery_alias(source_raw)?;
+    let source_path = parse_source_path(&source_path_raw)?;
     let _source_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
-    Ok(source_path)
+    let qualifier = explicit_alias.or_else(|| inferred_local_source_qualifier(&source_path));
+    Ok(ParsedLocalSubquerySourceRef {
+        path: source_path,
+        qualifier,
+    })
+}
+
+fn parse_optional_local_subquery_alias(
+    source_raw: &str,
+) -> Result<(String, Option<String>), ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(source_raw)?;
+    match tokens.as_slice() {
+        [source_path] => Ok((source_path.clone(), None)),
+        [source_path, as_keyword, alias] if as_keyword.eq_ignore_ascii_case("as") => {
+            validate_sql_identifier(alias)?;
+            if alias.eq_ignore_ascii_case(OUTER_CORRELATION_ALIAS) {
+                return Err(unsupported_sql_error(
+                    "local subquery source alias 'outer' is reserved for correlated outer-row references",
+                ));
+            }
+            Ok((source_path.clone(), Some(alias.clone())))
+        }
+        [_, alias] if alias.eq_ignore_ascii_case("as") => Err(unsupported_sql_error(
+            "local subquery source alias requires AS <alias>",
+        )),
+        [_, _] => Err(unsupported_sql_error(
+            "local subquery source aliases must use AS <alias>",
+        )),
+        _ => Err(unsupported_sql_error(
+            "local subquery predicates admit exactly one local source path with optional AS <alias>",
+        )),
+    }
+}
+
+fn inferred_local_source_qualifier(source_path: &Path) -> Option<String> {
+    let stem = source_path.file_stem()?.to_str()?;
+    validate_sql_identifier(stem)
+        .is_ok()
+        .then(|| stem.to_string())
+}
+
+fn normalize_local_subquery_column_ref(
+    column_ref: &str,
+    source_qualifier: Option<&str>,
+    context: &str,
+    allow_outer: bool,
+) -> Result<String, ShardLoomError> {
+    if !column_ref.contains('.') {
+        validate_sql_identifier(column_ref)?;
+        return Ok(column_ref.to_string());
+    }
+    let qualified = parse_qualified_column_ref(column_ref)?;
+    if source_qualifier.is_some_and(|alias| qualified.alias.eq_ignore_ascii_case(alias)) {
+        return Ok(qualified.column);
+    }
+    if allow_outer && qualified.alias == OUTER_CORRELATION_ALIAS {
+        return Ok(column_ref.to_string());
+    }
+    let admitted = if allow_outer {
+        "the subquery source qualifier or outer.<column>"
+    } else {
+        "the subquery source qualifier"
+    };
+    Err(unsupported_sql_error(&format!(
+        "qualified {context} references admit only {admitted} in this scoped runtime slice; use FROM <local-source> AS <alias> or a SQL-identifier file stem for source-qualified local columns"
+    )))
+}
+
+fn normalize_sql_source_qualifier_refs(
+    raw: &str,
+    source_qualifier: Option<&str>,
+) -> Result<String, ShardLoomError> {
+    let Some(source_qualifier) = source_qualifier else {
+        return Ok(raw.to_string());
+    };
+    let mut output = String::with_capacity(raw.len());
+    let mut index = 0;
+    let mut in_quote = false;
+    let mut skip_select_depth = 0_u32;
+    while index < raw.len() {
+        let ch = raw[index..]
+            .chars()
+            .next()
+            .expect("index remains on a char boundary");
+        if ch == '\'' {
+            push_sql_quote(raw, &mut index, &mut in_quote, &mut output);
+            continue;
+        }
+        if in_quote {
+            output.push(ch);
+            index += ch.len_utf8();
+            continue;
+        }
+        if ch == '(' {
+            output.push(ch);
+            index += ch.len_utf8();
+            if skip_select_depth > 0 {
+                skip_select_depth += 1;
+            } else if starts_with_keyword(raw[index..].trim_start(), "select") {
+                skip_select_depth = 1;
+            }
+            continue;
+        }
+        if ch == ')' {
+            output.push(ch);
+            index += ch.len_utf8();
+            skip_select_depth = skip_select_depth.saturating_sub(1);
+            continue;
+        }
+        if skip_select_depth > 0 {
+            output.push(ch);
+            index += ch.len_utf8();
+            continue;
+        }
+        if !is_identifier_start(ch) {
+            output.push(ch);
+            index += ch.len_utf8();
+            continue;
+        }
+        index = push_normalized_source_qualified_ref(raw, index, source_qualifier, &mut output);
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    Ok(output)
+}
+
+fn push_sql_quote(raw: &str, index: &mut usize, in_quote: &mut bool, output: &mut String) {
+    output.push('\'');
+    *index += 1;
+    if *in_quote && raw[*index..].starts_with('\'') {
+        output.push('\'');
+        *index += 1;
+    } else {
+        *in_quote = !*in_quote;
+    }
+}
+
+fn push_normalized_source_qualified_ref(
+    raw: &str,
+    alias_start: usize,
+    source_qualifier: &str,
+    output: &mut String,
+) -> usize {
+    let dot_index = consume_identifier(raw, alias_start);
+    if !raw[dot_index..].starts_with('.') {
+        output.push_str(&raw[alias_start..dot_index]);
+        return dot_index;
+    }
+
+    let column_start = dot_index + 1;
+    let Some(column_first) = raw[column_start..].chars().next() else {
+        output.push_str(&raw[alias_start..=dot_index]);
+        return column_start;
+    };
+    if !is_identifier_start(column_first) {
+        output.push_str(&raw[alias_start..=dot_index]);
+        return column_start;
+    }
+
+    let column_end = consume_identifier(raw, column_start);
+    let alias = &raw[alias_start..dot_index];
+    let column = &raw[column_start..column_end];
+    if alias.eq_ignore_ascii_case(source_qualifier) {
+        output.push_str(column);
+    } else {
+        output.push_str(&raw[alias_start..column_end]);
+    }
+    column_end
+}
+
+fn consume_identifier(raw: &str, mut index: usize) -> usize {
+    while index < raw.len() {
+        let next = raw[index..]
+            .chars()
+            .next()
+            .expect("index remains on a char boundary");
+        if !is_identifier_char(next) {
+            break;
+        }
+        index += next.len_utf8();
+    }
+    index
+}
+
+fn validate_subquery_order_by_qualified_columns(
+    order_by: Option<&ParsedOrderBy>,
+) -> Result<(), ShardLoomError> {
+    let Some(order_by) = order_by else {
+        return Ok(());
+    };
+    for key in &order_by.keys {
+        if key.column.contains('.') {
+            return Err(unsupported_sql_error(
+                "qualified local subquery ORDER BY references admit only the subquery source qualifier in this scoped runtime slice",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn parse_in_subquery_filter(
@@ -29185,6 +29428,7 @@ fn parse_in_subquery_filter(
     filter_clause: Option<usize>,
     order_by_clause: Option<usize>,
     limit_clause: Option<usize>,
+    source_qualifier: Option<&str>,
 ) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(index) = filter_clause {
         let end = earliest_optional_clause_index_after(
@@ -29198,7 +29442,8 @@ fn parse_in_subquery_filter(
                 "IN subquery WHERE predicates must not be empty",
             ));
         }
-        let predicate = parse_predicate(predicate_raw)?;
+        let predicate_raw = normalize_sql_source_qualifier_refs(predicate_raw, source_qualifier)?;
+        let predicate = parse_predicate(&predicate_raw)?;
         validate_in_subquery_filter_predicate(&predicate)?;
         Ok(predicate)
     } else {
@@ -29211,6 +29456,7 @@ fn parse_exists_subquery_filter(
     filter_clause: Option<usize>,
     order_by_clause: Option<usize>,
     limit_clause: Option<usize>,
+    source_qualifier: Option<&str>,
 ) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(index) = filter_clause {
         let end = earliest_optional_clause_index_after(
@@ -29224,7 +29470,8 @@ fn parse_exists_subquery_filter(
                 "EXISTS subquery WHERE predicates must not be empty",
             ));
         }
-        let predicate = parse_predicate(predicate_raw)?;
+        let predicate_raw = normalize_sql_source_qualifier_refs(predicate_raw, source_qualifier)?;
+        let predicate = parse_predicate(&predicate_raw)?;
         validate_exists_subquery_filter_predicate(&predicate)?;
         Ok(predicate)
     } else {
@@ -29248,11 +29495,15 @@ fn parse_in_subquery_order_by(
     raw: &str,
     order_by_clause: Option<usize>,
     limit_clause: Option<usize>,
+    source_qualifier: Option<&str>,
 ) -> Result<Option<ParsedOrderBy>, ShardLoomError> {
     let order_by = if let Some(index) = order_by_clause {
         let end = limit_clause.unwrap_or(raw.len());
         let order_by_raw = raw[index + "order by".len()..end].trim();
-        parse_order_by(Some(order_by_raw))?
+        let order_by_raw = normalize_sql_source_qualifier_refs(order_by_raw, source_qualifier)?;
+        let order_by = parse_order_by(Some(&order_by_raw))?;
+        validate_subquery_order_by_qualified_columns(order_by.as_ref())?;
+        order_by
     } else {
         None
     };
@@ -29339,7 +29590,7 @@ fn validate_subquery_qualified_columns(
         let qualified = parse_qualified_column_ref(column)?;
         if qualified.alias != OUTER_CORRELATION_ALIAS {
             return Err(unsupported_sql_error(&format!(
-                "correlated or qualified {subquery_kind} subquery predicates admit only outer.<column> references in this scoped runtime slice"
+                "qualified {subquery_kind} subquery predicates admit only outer.<column> references or the subquery source qualifier in this scoped runtime slice"
             )));
         }
     }
@@ -30268,8 +30519,12 @@ fn parse_qualified_column_ref(value: &str) -> Result<QualifiedColumn, ShardLoomE
     })
 }
 
+fn is_identifier_start(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphabetic()
+}
+
 fn is_identifier_char(ch: char) -> bool {
-    ch == '_' || ch.is_ascii_alphanumeric()
+    is_identifier_start(ch) || ch.is_ascii_digit()
 }
 
 fn rows_to_jsonl(rows: &[Vec<(String, ScalarValue)>]) -> String {
@@ -34128,6 +34383,79 @@ mod tests {
     }
 
     #[test]
+    fn runs_source_qualified_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-in-source.csv");
+        let allowed_path = sql_local_source_test_path("source-qualified-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id IN (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified correlated IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn in_subquery_admits_source_qualifier_from_file_stem() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT allowed.id FROM 'target/allowed.csv' WHERE allowed.active IS TRUE ORDER BY allowed.id DESC LIMIT 5) LIMIT 5",
+        )
+        .expect("file-stem source qualifier is admitted");
+
+        match parsed.predicate {
+            ParsedPredicate::InSubquery { subquery, .. } => {
+                assert_eq!(subquery.source_column, "id");
+                assert!(matches!(
+                    subquery.predicate.as_ref(),
+                    ParsedPredicate::BooleanPredicate { column, expected: true, .. }
+                    if column == "active"
+                ));
+                let order_by = subquery.order_by.expect("source-qualified order by");
+                assert_eq!(order_by.keys[0].column, "id");
+                assert_eq!(order_by.keys[0].direction, SortDirection::Desc);
+            }
+            other => panic!("expected source-qualified IN subquery, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn runs_correlated_exists_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("correlated-exists-source.csv");
         let allowed_path = sql_local_source_test_path("correlated-exists-allowed.csv");
@@ -34375,8 +34703,8 @@ mod tests {
                 "row-value IN subquery selected-column arity must match the source column count",
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE allowed.id = id) LIMIT 5",
-                "correlated or qualified IN subquery predicates admit only outer.<column>",
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' AS allowed WHERE blocked.id = id) LIMIT 5",
+                "qualified IN subquery predicates admit only outer.<column> references or the subquery source qualifier",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

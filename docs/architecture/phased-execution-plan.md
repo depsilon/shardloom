@@ -463,7 +463,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
   complex/list/struct/variant/union-dtype shapes, binary source decoding/casts/helper functions,
-  scalar-left multi-column IN-subqueries, and non-`outer` qualified or broad correlated subquery
+  scalar-left multi-column IN-subqueries, and unbound qualified or broad correlated subquery
   families.
   Scoped quantified `ANY` / `ALL` subquery
   predicates over bounded local scalar
@@ -489,8 +489,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   per-outer-row bounded materialization, with correlated runtime, outer-column, evaluation-strategy,
   and no-fallback evidence fields. Python/DataFrame front doors now expose the reserved
   `sl.outer(...)` helper and typed correlated-subquery report fields for those admitted routes.
-  Arbitrary source aliases, outer references outside column-to-column predicates, broad projected
-  correlated plans, and scalar-left multi-column subqueries remain deterministic blockers.
+  Source-qualified local subquery references are now admitted for the subquery's explicit `AS`
+  alias or SQL-identifier file stem in selected columns, filters, and bounded ordering; Python
+  helpers bind explicit aliases with `source_alias=` and render those refs with
+  `sl.col("alias.column")`. Unbound source aliases, outer references outside column-to-column
+  predicates, broad projected correlated plans, and scalar-left multi-column subqueries remain
+  deterministic blockers.
   Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
   `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
   malformed escape literals, trailing escapes, and escape misuse. Case-folding and

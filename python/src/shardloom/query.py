@@ -430,6 +430,7 @@ class ColumnExpression:
         source: object,
         column: object,
         *,
+        source_alias: object | None = None,
         where: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
@@ -437,8 +438,8 @@ class ColumnExpression:
     ) -> PredicateExpression:
         """Return a scoped bounded local-source IN-subquery predicate."""
 
-        source_column = _normalize_output_column_name(column)
-        source_ref = _sql_in_subquery_source(source)
+        source_column = _normalize_expression_column(column)
+        source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
         tail = _sql_in_subquery_tail(
             where=where,
             order_by=order_by,
@@ -455,6 +456,7 @@ class ColumnExpression:
         source: object,
         column: object,
         *,
+        source_alias: object | None = None,
         where: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
@@ -468,6 +470,7 @@ class ColumnExpression:
             "ANY",
             source,
             column,
+            source_alias=source_alias,
             where=where,
             order_by=order_by,
             descending=descending,
@@ -480,6 +483,7 @@ class ColumnExpression:
         source: object,
         column: object,
         *,
+        source_alias: object | None = None,
         where: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
@@ -493,6 +497,7 @@ class ColumnExpression:
             "ALL",
             source,
             column,
+            source_alias=source_alias,
             where=where,
             order_by=order_by,
             descending=descending,
@@ -511,6 +516,7 @@ class ColumnExpression:
         source: object,
         column: object,
         *,
+        source_alias: object | None = None,
         where: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
@@ -518,8 +524,8 @@ class ColumnExpression:
     ) -> PredicateExpression:
         """Return a scoped bounded local-source NOT IN-subquery predicate."""
 
-        source_column = _normalize_output_column_name(column)
-        source_ref = _sql_in_subquery_source(source)
+        source_column = _normalize_expression_column(column)
+        source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
         tail = _sql_in_subquery_tail(
             where=where,
             order_by=order_by,
@@ -4779,6 +4785,7 @@ def row_in_source(
     source: object,
     source_columns: object,
     *,
+    source_alias: object | None = None,
     where: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
@@ -4790,6 +4797,7 @@ def row_in_source(
         columns,
         source,
         source_columns,
+        source_alias=source_alias,
         where=where,
         order_by=order_by,
         descending=descending,
@@ -4803,6 +4811,7 @@ def row_not_in_source(
     source: object,
     source_columns: object,
     *,
+    source_alias: object | None = None,
     where: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
@@ -4814,6 +4823,7 @@ def row_not_in_source(
         columns,
         source,
         source_columns,
+        source_alias=source_alias,
         where=where,
         order_by=order_by,
         descending=descending,
@@ -4828,6 +4838,7 @@ def any_source(
     source: object,
     source_column: object,
     *,
+    source_alias: object | None = None,
     where: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
@@ -4841,6 +4852,7 @@ def any_source(
         "ANY",
         source,
         source_column,
+        source_alias=source_alias,
         where=where,
         order_by=order_by,
         descending=descending,
@@ -4854,6 +4866,7 @@ def all_source(
     source: object,
     source_column: object,
     *,
+    source_alias: object | None = None,
     where: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
@@ -4867,6 +4880,7 @@ def all_source(
         "ALL",
         source,
         source_column,
+        source_alias=source_alias,
         where=where,
         order_by=order_by,
         descending=descending,
@@ -4877,6 +4891,7 @@ def all_source(
 def exists_source(
     source: object,
     *,
+    source_alias: object | None = None,
     select: object = "*",
     where: object | None = None,
     order_by: object | None = None,
@@ -4887,6 +4902,7 @@ def exists_source(
 
     return _exists_source_predicate(
         source,
+        source_alias=source_alias,
         select=select,
         where=where,
         order_by=order_by,
@@ -4899,6 +4915,7 @@ def exists_source(
 def not_exists_source(
     source: object,
     *,
+    source_alias: object | None = None,
     select: object = "*",
     where: object | None = None,
     order_by: object | None = None,
@@ -4909,6 +4926,7 @@ def not_exists_source(
 
     return _exists_source_predicate(
         source,
+        source_alias=source_alias,
         select=select,
         where=where,
         order_by=order_by,
@@ -7301,6 +7319,7 @@ def _row_value_in_source_predicate(
     source: object,
     source_columns: object,
     *,
+    source_alias: object | None,
     where: object | None,
     order_by: object | None,
     descending: bool,
@@ -7315,7 +7334,7 @@ def _row_value_in_source_predicate(
         )
     column_sql = ",".join(normalized_columns)
     source_column_sql = ",".join(normalized_source_columns)
-    source_ref = _sql_in_subquery_source(source)
+    source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
     tail = _sql_in_subquery_tail(
         where=where,
         order_by=order_by,
@@ -7331,6 +7350,7 @@ def _row_value_in_source_predicate(
 def _exists_source_predicate(
     source: object,
     *,
+    source_alias: object | None,
     select: object,
     where: object | None,
     order_by: object | None,
@@ -7339,7 +7359,9 @@ def _exists_source_predicate(
     negated: bool,
 ) -> PredicateExpression:
     projection_sql = _normalize_exists_subquery_projection(select)
-    source_ref = _sql_local_subquery_source(source, "EXISTS subquery source")
+    source_ref = _sql_local_subquery_source(
+        source, "EXISTS subquery source", source_alias=source_alias
+    )
     tail = _sql_local_subquery_tail(
         where=where,
         order_by=order_by,
@@ -7362,14 +7384,17 @@ def _quantified_source_predicate(
     source: object,
     source_column: object,
     *,
+    source_alias: object | None,
     where: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
 ) -> PredicateExpression:
     operator = _normalize_quantified_comparison_operator(comparison)
-    source_column_sql = _normalize_output_column_name(source_column)
-    source_ref = _sql_local_subquery_source(source, "ANY/ALL subquery source")
+    source_column_sql = _normalize_expression_column(source_column)
+    source_ref = _sql_local_subquery_source(
+        source, "ANY/ALL subquery source", source_alias=source_alias
+    )
     tail = _sql_local_subquery_tail(
         where=where,
         order_by=order_by,
@@ -7419,16 +7444,16 @@ def _normalize_exists_subquery_projection(select: object) -> str:
     if isinstance(select, str) and select.strip() == "*":
         return "*"
     if isinstance(select, ColumnExpression):
-        return _normalize_output_column_name(select.sql)
+        return _normalize_expression_column(select.sql)
     if _is_non_string_sequence(select):
-        columns = tuple(_normalize_output_column_name(item) for item in select)
+        columns = tuple(_normalize_expression_column(item) for item in select)
         if not columns:
             raise ValueError("EXISTS subquery projection columns must not be empty")
         if len(set(columns)) != len(columns):
             raise ValueError("EXISTS subquery projection columns must be unique")
         return ",".join(columns)
     if isinstance(select, str):
-        return _normalize_output_column_name(select)
+        return _normalize_expression_column(select)
     return _sql_literal(select)
 
 
@@ -7467,14 +7492,27 @@ def _normalize_row_value_in_rows(
     return tuple(normalized_rows)
 
 
-def _sql_in_subquery_source(source: object) -> str:
-    return _sql_local_subquery_source(source, "IN subquery source")
+def _sql_in_subquery_source(
+    source: object, *, source_alias: object | None = None
+) -> str:
+    return _sql_local_subquery_source(
+        source, "IN subquery source", source_alias=source_alias
+    )
 
 
-def _sql_local_subquery_source(source: object, name: str) -> str:
+def _sql_local_subquery_source(
+    source: object, name: str, *, source_alias: object | None = None
+) -> str:
     if isinstance(source, LazyFrame):
-        return _quote_sql_local_source_path(source.source.uri)
-    return _quote_sql_local_source_path(_require_non_empty(name, source))
+        source_ref = _quote_sql_local_source_path(source.source.uri)
+    else:
+        source_ref = _quote_sql_local_source_path(_require_non_empty(name, source))
+    if source_alias is None:
+        return source_ref
+    alias = _normalize_output_column_name(source_alias)
+    if alias.lower() == "outer":
+        raise ValueError("local subquery source alias 'outer' is reserved")
+    return f"{source_ref} AS {alias}"
 
 
 def _sql_in_subquery_tail(
@@ -7527,10 +7565,10 @@ def _normalize_in_subquery_order_by(value: object | None) -> tuple[str, ...]:
     if value is None:
         return ()
     if isinstance(value, ColumnExpression):
-        return (_normalize_output_column_name(value.sql),)
+        return (_normalize_expression_column(value.sql),)
     if _is_non_string_sequence(value):
-        return tuple(_normalize_output_column_name(item) for item in value)
-    return (_normalize_output_column_name(value),)
+        return tuple(_normalize_expression_column(item) for item in value)
+    return (_normalize_expression_column(value),)
 
 
 def _is_source_free_sql_statement(statement: str) -> bool:
