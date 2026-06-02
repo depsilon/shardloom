@@ -44,6 +44,9 @@ REQUIRED_MANIFEST_FIELDS = {
     "benchmark_constitution_required_field_order",
     "benchmark_constitution_claim_gate_status",
     "benchmark_constitution_performance_claim_allowed",
+    "public_front_door_benchmark_schema_version",
+    "public_front_door_benchmark_row_count",
+    "public_front_door_benchmark_row_ids",
     "artifact_paths",
 }
 ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
@@ -130,6 +133,17 @@ PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
 PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
     "shardloom.python.prepared_vortex_reuse_manifest.v1"
 )
+PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
+    "shardloom.public_front_door_benchmark_rows.v1"
+)
+PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND = "public_front_door_route_evidence"
+PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
+    "not_timing_row_route_identity_only"
+)
+REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
+    "local_source_auto_prepare_vortex_front_door",
+    "generated_source_prepare_vortex_front_door",
+}
 FAST_PATH_REQUIRED_FIELDS = {
     "fast_path_attribution_schema_version",
     "runtime_execution_ms",
@@ -765,6 +779,96 @@ def validate_cold_lane_attribution(
         blockers.append("cold_lane_attribution has no cold rows with primary bottleneck stages")
 
 
+def validate_public_front_door_rows(
+    payload: dict[str, Any],
+    manifest: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    if payload.get("public_front_door_benchmark_schema_version") != (
+        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+    ):
+        blockers.append("public front-door benchmark schema mismatch")
+    if manifest.get("public_front_door_benchmark_schema_version") != (
+        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+    ):
+        blockers.append("manifest public front-door benchmark schema mismatch")
+    rows = payload.get("public_front_door_benchmark_rows")
+    if not isinstance(rows, list):
+        blockers.append("benchmark payload missing public_front_door_benchmark_rows")
+        rows = []
+    row_ids = {
+        str(row.get("front_door_id"))
+        for row in rows
+        if isinstance(row, dict) and row.get("front_door_id")
+    }
+    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - row_ids)
+    extra = sorted(row_ids - REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    if missing:
+        blockers.append(
+            "benchmark payload missing public front-door rows: " + ",".join(missing)
+        )
+    if extra:
+        blockers.append(
+            "benchmark payload has unclassified public front-door rows: " + ",".join(extra)
+        )
+    if payload.get("public_front_door_benchmark_row_count") != len(rows):
+        blockers.append("public front-door benchmark row count mismatch")
+    if manifest.get("public_front_door_benchmark_row_count") != len(rows):
+        blockers.append("manifest public front-door benchmark row count mismatch")
+    payload_ids = {
+        str(item)
+        for item in payload.get("public_front_door_benchmark_row_ids", [])
+        if isinstance(item, str)
+    }
+    if payload_ids != row_ids:
+        blockers.append("payload public front-door benchmark row ids mismatch")
+    manifest_ids = {
+        str(item)
+        for item in manifest.get("public_front_door_benchmark_row_ids", [])
+        if isinstance(item, str)
+    }
+    if manifest_ids != row_ids:
+        blockers.append("manifest public front-door benchmark row ids mismatch")
+    dashboard = payload.get("comparative_dashboard")
+    public_table = (
+        dashboard.get("public_front_door_routes")
+        if isinstance(dashboard, dict)
+        else None
+    )
+    if not isinstance(public_table, dict):
+        blockers.append("comparative dashboard missing public_front_door_routes table")
+    elif public_table.get("schema_version") != PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION:
+        blockers.append("public front-door route table schema mismatch")
+    for row in rows:
+        if not isinstance(row, dict):
+            blockers.append("public front-door benchmark row is not an object")
+            continue
+        front_door_id = str(row.get("front_door_id") or "missing")
+        if row.get("benchmark_row_kind") != PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND:
+            blockers.append(f"{front_door_id}: invalid public front-door row kind")
+        if row.get("benchmark_timing_status") != PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS:
+            blockers.append(f"{front_door_id}: invalid public front-door timing status")
+        if row.get("benchmark_timing_row") is not False:
+            blockers.append(f"{front_door_id}: public front-door row must not be timing")
+        if row.get("benchmark_route_publication_status") != "published_static_route_identity":
+            blockers.append(f"{front_door_id}: missing public front-door publication status")
+        if row.get("benchmark_route_publication_source") != "user_route_capability_report":
+            blockers.append(f"{front_door_id}: missing public front-door publication source")
+        if row.get("route_runtime_status") != "scoped_runtime_supported":
+            blockers.append(f"{front_door_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.get("front_door_end_state") != "VortexPreparedState":
+            blockers.append(f"{front_door_id}: front door must end at VortexPreparedState")
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{front_door_id}: fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{front_door_id}: external_engine_invoked must be false")
+        if row.get("claim_gate_status") != "not_claim_grade":
+            blockers.append(f"{front_door_id}: claim_gate_status must be not_claim_grade")
+        public_surface = str(row.get("public_user_surface") or "")
+        if ".prepare_vortex" not in public_surface or "workspace=" not in public_surface:
+            blockers.append(f"{front_door_id}: public surface must show prepare_vortex workspace")
+
+
 def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list[str], dict[str, Any]]:
     blockers: list[str] = []
     manifest = load_json(manifest_path)
@@ -846,6 +950,7 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
                 validate_rows(payload, blockers)
                 validate_prepared_route_amortization(payload, blockers)
                 validate_cold_lane_attribution(payload, blockers)
+                validate_public_front_door_rows(payload, manifest, blockers)
                 validate_profile_scope(payload, profile, blockers)
                 if recursive_text_contains(payload, "spark-retire"):
                     blockers.append(

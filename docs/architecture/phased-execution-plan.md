@@ -358,15 +358,17 @@ Implementation checklist, in required order:
   `ctx.from_rows(...).prepare_vortex(...)` first-class machine-readable public route examples with
   start/end state, preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields,
   and release readiness requires the rows to stay present.
-  Remaining 6E-1 work is actual benchmark artifact/website row promotion for the new
-  auto/generated front doors and any additional CLI/Python route-report wiring needed for
-  route-comparable prepared execution.
-  Next slice outcome: promote the new high-level local-source and generated-source `auto` front-door
-  identities into benchmark artifact/website rows. Public benchmark rows should show
-  `ctx.read_csv(...).prepare_vortex(workspace=...)` and
-  `ctx.from_rows(...).prepare_vortex(...)` alongside their route lane identity, route timing
-  boundary, preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields instead of
-  burying those routes in generic user-route prose.
+  Benchmark publication now mirrors those route examples as
+  `public_front_door_benchmark_rows`, the website renders them as static public front-door route
+  identity evidence, and artifact/publication/website validators require both rows to stay present.
+  Those rows show `ctx.read_csv(...).prepare_vortex(workspace=...)` and
+  `ctx.from_rows(...).prepare_vortex(...)` alongside route lane identity, route timing boundary,
+  preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields without adding
+  comparative timing rows or performance claims. Remaining 6E-1 work is any additional CLI/Python
+  route-report wiring needed for route-comparable prepared execution.
+  Next slice outcome: close the remaining route-report wiring gap only where a public
+  `auto` front door still needs stronger route-comparable prepared execution visibility through an
+  existing runtime path.
   Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
   through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
   prepared execution when the reuse manifest is valid.

@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -311,6 +312,17 @@ PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
 )
 PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
     "shardloom.python.prepared_vortex_reuse_manifest.v1"
+)
+PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
+    "shardloom.public_front_door_benchmark_rows.v1"
+)
+PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND = "public_front_door_route_evidence"
+PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
+    "not_timing_row_route_identity_only"
+)
+REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = (
+    "local_source_auto_prepare_vortex_front_door",
+    "generated_source_prepare_vortex_front_door",
 )
 PREPARED_STATE_REUSE_IN_PROCESS_SCOPE = "in_process_prepared_batch_vortex_artifacts"
 PREPARED_STATE_REUSE_EXPLICIT_SCOPE = "explicit_prepared_state_input"
@@ -1578,6 +1590,100 @@ def rows_with_prepare_once_first_query(rows: list[dict[str, Any]]) -> list[dict[
         if str(row.get("route_lane_id") or "") != "prepare_once_first_query"
     ]
     return [*source_rows, *synthetic_prepare_once_first_query_rows(source_rows)]
+
+
+def public_front_door_benchmark_rows() -> list[dict[str, Any]]:
+    from shardloom import ShardLoomContext
+
+    report = ShardLoomContext(client=None).user_route_capability_report()
+    rows: list[dict[str, Any]] = []
+    for front_door in report.public_front_door_route_rows:
+        row = asdict(front_door)
+        timing_boundary = (
+            "front door prepares through VortexPreparedState; timing row is the "
+            "owning route lane"
+        )
+        if front_door.front_door_id == "local_source_auto_prepare_vortex_front_door":
+            timing_boundary = (
+                "ctx.read_csv(...).prepare_vortex(workspace=...) stops at "
+                "VortexPreparedState; the owning ShardLoom Prepare-Once First "
+                "Query route timing includes preparation plus first prepared "
+                "query/output"
+            )
+        elif front_door.front_door_id == "generated_source_prepare_vortex_front_door":
+            timing_boundary = (
+                "ctx.from_rows(...).prepare_vortex(workspace=...) writes a local "
+                "VortexPreparedState artifact; generated-source local-output timing "
+                "is route evidence, not comparative query timing"
+            )
+        row.update(
+            {
+                "public_front_door_benchmark_schema_version": (
+                    PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+                ),
+                "benchmark_row_kind": PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND,
+                "benchmark_timing_status": PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS,
+                "benchmark_timing_row": False,
+                "benchmark_timing_boundary": timing_boundary,
+                "benchmark_route_publication_status": "published_static_route_identity",
+                "benchmark_route_publication_source": "user_route_capability_report",
+                "benchmark_route_publication_claim_boundary": (
+                    "public front-door rows explain route identity, timing boundary, "
+                    "prepared-state reuse scope, and no-fallback evidence; they are "
+                    "not measured benchmark timing rows and do not authorize "
+                    "performance, production, or Spark-replacement claims"
+                ),
+            }
+        )
+        rows.append(portable_public_value(row))
+    row_ids = tuple(str(row.get("front_door_id") or "") for row in rows)
+    expected = set(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+    if set(row_ids) != expected or len(row_ids) != len(set(row_ids)):
+        raise RuntimeError(
+            "public front-door benchmark rows must match required ids: "
+            + ",".join(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
+        )
+    return rows
+
+
+def public_front_door_route_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema_version": PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION,
+        "heading": "Public Front-Door Route Identities",
+        "headers": [
+            "Front door",
+            "Public surface",
+            "Route lane",
+            "Starts",
+            "Ends",
+            "Prepare included",
+            "Query included",
+            "Reuse scope",
+            "Timing boundary",
+            "Runtime",
+            "Claim gate",
+        ],
+        "rows": [
+            [
+                row.get("front_door_id"),
+                row.get("public_user_surface"),
+                row.get("route_display_name"),
+                row.get("front_door_start_state"),
+                row.get("front_door_end_state"),
+                row.get("includes_preparation"),
+                row.get("includes_query"),
+                row.get("prepared_state_reuse_scope"),
+                row.get("benchmark_timing_boundary"),
+                row.get("route_runtime_status"),
+                row.get("claim_gate_status"),
+            ]
+            for row in rows
+        ],
+        "claim_boundary": (
+            "front-door rows are route-publication evidence only; timing and "
+            "performance claims still come from measured published benchmark rows"
+        ),
+    }
 
 
 def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
@@ -3598,6 +3704,7 @@ def comparative_summary(
     rows: list[dict[str, Any]],
     source_path: Path,
     profile: str,
+    public_front_door_rows: list[dict[str, Any]],
     *,
     runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -3618,6 +3725,9 @@ def comparative_summary(
         ],
         "engine_timing_overview": engine_timing_table(rows),
         "route_lane_comparison": route_lane_comparison_table(claim_adjusted_rows),
+        "public_front_door_routes": public_front_door_route_table(
+            public_front_door_rows
+        ),
         "prepared_route_amortization": prepared_route_amortization_table(
             claim_adjusted_rows
         ),
@@ -3654,6 +3764,7 @@ def manifest_for_artifact(
     rows: list[dict[str, Any]],
     profile: str,
     results_path: Path,
+    public_front_door_rows: list[dict[str, Any]],
     *,
     runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -3703,6 +3814,13 @@ def manifest_for_artifact(
         },
         "claim_boundary": PROFILES[profile].claim_boundary,
         "performance_claim_allowed": False,
+        "public_front_door_benchmark_schema_version": (
+            PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+        ),
+        "public_front_door_benchmark_row_count": len(public_front_door_rows),
+        "public_front_door_benchmark_row_ids": [
+            str(row.get("front_door_id")) for row in public_front_door_rows
+        ],
         "route_runtime_status_schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
         "route_runtime_status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
         "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
@@ -3766,6 +3884,7 @@ def main() -> int:
             if isinstance(existing_manifest, dict)
             else artifact.get("runtime_envelope_validation")
         )
+    public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     write_row_chunks(args.public_output_dir, full_published_rows)
 
@@ -3774,6 +3893,7 @@ def main() -> int:
         summary_rows,
         args.profile,
         results_path,
+        public_front_door_rows,
         runtime_validation_override=runtime_validation_override,
     )
     manifest["artifact_paths"]["row_chunks"] = row_chunks
@@ -3794,11 +3914,20 @@ def main() -> int:
         "published_benchmark_rows_inlined": "summary_only",
         "published_benchmark_row_chunks": row_chunks,
         "published_benchmark_row_count": len(full_published_rows),
+        "public_front_door_benchmark_schema_version": (
+            PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
+        ),
+        "public_front_door_benchmark_rows": public_front_door_rows,
+        "public_front_door_benchmark_row_count": len(public_front_door_rows),
+        "public_front_door_benchmark_row_ids": [
+            str(row.get("front_door_id")) for row in public_front_door_rows
+        ],
         "comparative_dashboard": comparative_summary(
             artifact,
             summary_rows,
             source_path,
             args.profile,
+            public_front_door_rows,
             runtime_validation_override=runtime_validation_override,
         ),
         "benchmark_manifest": manifest,

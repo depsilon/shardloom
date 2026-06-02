@@ -38,6 +38,8 @@ const coldLaneTable = dashboard.cold_lane_attribution ?? {};
 const coldLaneRows = Array.isArray(coldLaneTable.rows) ? coldLaneTable.rows : [];
 const coldLaneHeaders = Array.isArray(coldLaneTable.headers) ? coldLaneTable.headers : ["Classification", "Timing split", "Primary bottleneck", "Source pressure", "Rows", "Optimization hint"];
 const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows) ? (benchmark as any).published_benchmark_rows : [];
+const publicFrontDoorRows = Array.isArray((benchmark as any).public_front_door_benchmark_rows) ? (benchmark as any).public_front_door_benchmark_rows : [];
+const publicFrontDoorTable = dashboard.public_front_door_routes ?? {};
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
@@ -268,6 +270,60 @@ const routeCards = [
       <div class="metric"><strong>{supportCounts.blocked ?? 0}</strong><span>claim/platform blocked</span></div>
     </div>
     <p class="table-note">Support claim boundary: {supportClaimBoundary}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Public front doors</p>
+    <h2>Route rows name the user-facing prepared paths.</h2>
+    <p class="narrow">
+      The benchmark bundle publishes route-identity rows for the high-level Python front doors. These rows are not timing rows; they bind the public surface to the route lane, preparation boundary, reuse manifest, and no-fallback posture.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="route-card-grid compact-route-grid">
+      {publicFrontDoorRows.map((row: any) => (
+        <article class="route-summary-card public-front-door-card" data-public-front-door-id={row.front_door_id}>
+          <div class="route-card-topline">
+            <span class="badge">Front door</span>
+            <span class="compare-chip compare-chip-muted">{row.benchmark_timing_status}</span>
+          </div>
+          <h3>{row.route_display_name}</h3>
+          <p><code>{row.public_user_surface}</code></p>
+          <div class="route-card-metrics">
+            <div><span>Front door</span><strong>{row.front_door_id}</strong></div>
+            <div><span>Route lane</span><strong>{row.route_lane_id}</strong></div>
+            <div><span>Start</span><strong>{row.front_door_start_state}</strong></div>
+            <div><span>End</span><strong>{row.front_door_end_state}</strong></div>
+          </div>
+          <div class="readiness-groups" aria-label={`${row.front_door_id} readiness`}>
+            <div>
+              <span>Runtime</span>
+              <div><span class:list={["status-chip", statusClass(row.route_runtime_status)]}>{row.route_runtime_status}</span></div>
+            </div>
+            <div>
+              <span>Evidence</span>
+              <div><span class:list={["status-chip", statusClass(row.claim_gate_status)]}>{row.claim_gate_status}</span></div>
+            </div>
+            <div>
+              <span>Claims</span>
+              <div>
+                <span class="claim-chip">performance_claim_allowed={String(row.performance_claim_allowed)}</span>
+                <span class="claim-chip">production_claim_allowed={String(row.production_claim_allowed)}</span>
+                <span class="claim-chip">spark_replacement_claim_allowed={String(row.spark_replacement_claim_allowed)}</span>
+              </div>
+            </div>
+          </div>
+          <dl class="route-card-facts">
+            <div><dt>Reuse scope</dt><dd>{row.prepared_state_reuse_scope}</dd></div>
+            <div><dt>Normalization</dt><dd>{row.vortex_normalization_point}</dd></div>
+            <div><dt>Timing boundary</dt><dd>{row.benchmark_timing_boundary}</dd></div>
+          </dl>
+        </article>
+      ))}
+    </div>
+    <p class="table-note">Schema: {publicFrontDoorTable.schema_version ?? "not reported"}. Boundary: {publicFrontDoorTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 

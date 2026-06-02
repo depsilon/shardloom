@@ -366,6 +366,11 @@ The route labels to expect are `ShardLoom Cold Certified Route`,
 `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,
 `ShardLoom Warm Prepared Query`, `ShardLoom Native Vortex Query`,
 `ShardLoom Direct Transient Route`, and `External Baseline End-to-End`.
+The benchmark bundle also publishes `public_front_door_benchmark_rows` for
+`ctx.read_csv(...).prepare_vortex(workspace=...)` and
+`ctx.from_rows(...).prepare_vortex(workspace=...)`. Those rows are static route-identity evidence:
+they bind the public Python surfaces to route lane identity, preparation boundary, prepared-state
+reuse manifest, no-fallback posture, and claim boundary without becoming timing or performance rows.
 
 Use:
 
