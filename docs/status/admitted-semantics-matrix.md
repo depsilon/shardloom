@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=67
-executable_fixture_count=57
-unsupported_diagnostic_count=10
+executable_fixture_count=59
+unsupported_diagnostic_count=8
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -65,6 +65,8 @@ Covered fixture rows:
 - `conditional_projection_case_when`
 - `binary_hex_literal_projection`
 - `binary_text_literal_projection`
+- `complex_array_literal_projection`
+- `complex_struct_source_projection`
 - `binary_cast_projection_predicate`
 - `binary_helper_projection`
 - `in_predicate_literal_null_semantics`
@@ -111,8 +113,6 @@ Covered fixture rows:
 - `unsupported_non_utc_timestamp_literal`
 - `unsupported_timezone_database_policy`
 - `unsupported_locale_collation`
-- `unsupported_list_literal`
-- `unsupported_struct_literal`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `unsupported_scalar_multi_column_in_subquery`
@@ -125,9 +125,13 @@ scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS, scoped quantified 
 HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
 property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
-locale/collation, complex list/struct/variant/union dtype families, broad binary source dtype
-decoding, binary ordering, scalar-left multi-column subqueries, and remaining non-admitted broad
-ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback.
+locale/collation, variant/union dtype families, list/struct accessors, complex equality, broad
+binary source dtype decoding, binary ordering, scalar-left multi-column subqueries, and remaining
+non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics with no
+fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
+executable through the JSONL result boundary only; nested source decoding, complex equality,
+subquery membership materialization, and flat/structured sink persistence remain outside the claim
+boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside

@@ -257,11 +257,23 @@ impl SqlLocalSourceOutputFormat {
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
             Self::InlineJsonl => Ok(rows_to_jsonl(rows).into_bytes()),
-            Self::Csv => Ok(rows_to_csv(columns, rows).into_bytes()),
-            Self::Parquet => encode_parquet_output_rows(columns, rows),
-            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, rows),
-            Self::Avro => encode_avro_output_rows(columns, rows),
-            Self::Orc => encode_orc_output_rows(columns, rows),
+            Self::Csv => Ok(rows_to_csv(columns, rows)?.into_bytes()),
+            Self::Parquet => {
+                validate_flat_scalar_output_rows(rows, self)?;
+                encode_parquet_output_rows(columns, rows)
+            }
+            Self::ArrowIpc => {
+                validate_flat_scalar_output_rows(rows, self)?;
+                encode_arrow_ipc_output_rows(columns, rows)
+            }
+            Self::Avro => {
+                validate_flat_scalar_output_rows(rows, self)?;
+                encode_avro_output_rows(columns, rows)
+            }
+            Self::Orc => {
+                validate_flat_scalar_output_rows(rows, self)?;
+                encode_orc_output_rows(columns, rows)
+            }
             Self::Vortex => Err(unsupported_sql_error(
                 "local Vortex SQL output uses the Vortex writer path, not byte rendering",
             )),
@@ -274,6 +286,7 @@ impl SqlLocalSourceOutputFormat {
         rows: &[Vec<(String, ScalarValue)>],
     ) -> Result<Vec<u8>, ShardLoomError> {
         if matches!(self, Self::Vortex) {
+            validate_flat_scalar_output_rows(rows, self)?;
             Ok(rows_to_jsonl(rows).into_bytes())
         } else {
             self.render_rows(columns, rows)
@@ -287,6 +300,7 @@ struct ParsedSqlLocalSource {
     projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    complex_projections: Vec<ParsedComplexProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     nullif_projections: Vec<ParsedNullIfProjection>,
@@ -330,6 +344,41 @@ struct ParsedAggregate {
 struct ParsedLiteralProjection {
     alias: String,
     value: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedComplexProjection {
+    alias: String,
+    kind: ParsedComplexProjectionKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ParsedComplexProjectionKind {
+    ArrayLiteral(Vec<ScalarValue>),
+    StructColumns(Vec<String>),
+}
+
+impl ParsedComplexProjectionKind {
+    fn kind_label(&self) -> &'static str {
+        match self {
+            Self::ArrayLiteral(_) => "array_literal",
+            Self::StructColumns(_) => "struct_source_columns",
+        }
+    }
+
+    fn output_dtype(&self) -> LogicalDType {
+        match self {
+            Self::ArrayLiteral(_) => LogicalDType::List,
+            Self::StructColumns(_) => LogicalDType::Struct,
+        }
+    }
+
+    fn source_columns(&self) -> Vec<&str> {
+        match self {
+            Self::ArrayLiteral(_) => Vec::new(),
+            Self::StructColumns(columns) => columns.iter().map(String::as_str).collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -584,6 +633,7 @@ macro_rules! impl_projection_alias {
 
 impl_projection_alias!(
     ParsedLiteralProjection,
+    ParsedComplexProjection,
     ParsedCastProjection,
     ParsedNullCoalesceProjection,
     ParsedNullIfProjection,
@@ -772,6 +822,7 @@ struct ParsedProjectionList {
     projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    complex_projections: Vec<ParsedComplexProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     nullif_projections: Vec<ParsedNullIfProjection>,
@@ -797,6 +848,7 @@ struct ParsedProjectionList {
 enum ParsedProjectionOutput {
     Raw(String),
     Literal(String),
+    Complex(String),
     Cast(String),
     NullCoalesce(String),
     NullIf(String),
@@ -822,6 +874,7 @@ impl ParsedProjectionOutput {
         match self {
             Self::Raw(_) => None,
             Self::Literal(alias)
+            | Self::Complex(alias)
             | Self::Cast(alias)
             | Self::NullCoalesce(alias)
             | Self::NullIf(alias)
@@ -5563,6 +5616,15 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
 }
 
 fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTreeSet<String>) {
+    for projection in &parsed.complex_projections {
+        columns.extend(
+            projection
+                .kind
+                .source_columns()
+                .into_iter()
+                .map(str::to_string),
+        );
+    }
     for projection in &parsed.cast_projections {
         columns.insert(projection.column.clone());
     }
@@ -7746,6 +7808,9 @@ fn append_ordered_projection_expression(
         ParsedProjectionOutput::Literal(alias) => expressions.push(literal_projection_expression(
             find_projection_by_alias(&parsed.literal_projections, alias, "literal projection")?,
         )?),
+        ParsedProjectionOutput::Complex(alias) => expressions.push(complex_projection_expression(
+            find_projection_by_alias(&parsed.complex_projections, alias, "complex projection")?,
+        )?),
         ParsedProjectionOutput::Cast(alias) => expressions.push(cast_projection_expression(
             find_projection_by_alias(&parsed.cast_projections, alias, "cast projection")?,
         )?),
@@ -8258,6 +8323,60 @@ fn literal_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(literal),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn complex_projection_expression(
+    projection: &ParsedComplexProjection,
+) -> Result<Expression, ShardLoomError> {
+    let expr = match &projection.kind {
+        ParsedComplexProjectionKind::ArrayLiteral(values) => Expression::new(
+            ExprId::new(format!("project.array.{}", projection.alias))?,
+            ExpressionKind::List {
+                values: values
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| {
+                        Ok(Expression::literal(
+                            ExprId::new(format!(
+                                "project.array.{}.element.{index}",
+                                projection.alias
+                            ))?,
+                            value.clone(),
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, ShardLoomError>>()?,
+            },
+        )
+        .with_dtype(LogicalDType::List),
+        ParsedComplexProjectionKind::StructColumns(columns) => Expression::new(
+            ExprId::new(format!("project.struct.{}", projection.alias))?,
+            ExpressionKind::Struct {
+                fields: columns
+                    .iter()
+                    .map(|column| {
+                        Ok((
+                            column.clone(),
+                            Expression::column(
+                                ExprId::new(format!(
+                                    "project.struct.{}.field.{column}",
+                                    projection.alias
+                                ))?,
+                                ColumnRef::new(column.clone())?,
+                            ),
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, ShardLoomError>>()?,
+            },
+        )
+        .with_dtype(LogicalDType::Struct),
+    };
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(expr),
             alias: projection.alias.clone(),
         },
     ))
@@ -10208,6 +10327,22 @@ fn scalar_distinct_key(value: &ScalarValue) -> String {
         }
         ScalarValue::Date32(value) => format!("date32:{value}"),
         ScalarValue::TimestampMicros(value) => format!("ts_micros:{value}"),
+        ScalarValue::List(values) => format!(
+            "list:[{}]",
+            values
+                .iter()
+                .map(scalar_distinct_key)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        ScalarValue::Struct(fields) => format!(
+            "struct:{{{}}}",
+            fields
+                .iter()
+                .map(|(name, value)| format!("{name}:{}", scalar_distinct_key(value)))
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
     }
 }
 
@@ -10405,6 +10540,7 @@ fn prepare_sql_output(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
     let payload = if matches!(format, SqlLocalSourceOutputFormat::Vortex) {
+        validate_flat_scalar_output_rows(rows, format)?;
         validate_sql_vortex_output_plan(&path)?;
         SqlOutputPayload::Vortex
     } else {
@@ -10640,6 +10776,7 @@ fn bind_sql_local_source(
     validate_window_projection_shape(parsed)?;
     validate_order_by_source(parsed, header)?;
     validate_distinct_projection_shape(parsed, header)?;
+    validate_complex_projection_shape(parsed)?;
     validate_computed_projection_shape(parsed)?;
     validate_projection_output_names(parsed, header)?;
     if parsed.is_grouped_aggregate() {
@@ -10752,8 +10889,30 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
         && (parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.projections.is_empty())
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
+            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, ARRAY[<scalar literal>, ...] AS <column>, STRUCT(<source column>, ...) AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
         ));
+    }
+    Ok(())
+}
+
+fn validate_complex_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+    if parsed.has_complex_projection() && parsed.has_distinct_projection() {
+        return Err(unsupported_sql_error(
+            "SELECT DISTINCT over ARRAY or STRUCT projection outputs is not admitted until complex equality semantics are admitted",
+        ));
+    }
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        for key in &order_by.keys {
+            if parsed
+                .complex_projections
+                .iter()
+                .any(|projection| projection.alias == key.column)
+            {
+                return Err(unsupported_sql_error(
+                    "ORDER BY over ARRAY or STRUCT projection outputs is not admitted until complex ordering semantics are admitted",
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -10868,10 +11027,28 @@ fn validate_projection_source_columns(
     for column in parsed.projection_columns(header) {
         require_header_column(header, &column, "projection column", "CSV header")?;
     }
+    validate_complex_projection_source_columns(parsed, header)?;
     validate_numeric_projection_source_columns(parsed, header)?;
     validate_value_projection_source_columns(parsed, header)?;
     validate_text_time_projection_source_columns(parsed, header)?;
     validate_window_projection_source_columns(parsed, header)
+}
+
+fn validate_complex_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.complex_projections {
+        for column in projection.kind.source_columns() {
+            require_header_column(
+                header,
+                column,
+                "STRUCT projection source column",
+                "local source header",
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn validate_window_projection_source_columns(
@@ -11186,6 +11363,9 @@ fn validate_literal_numeric_output_names<'a>(
     for projection in &parsed.literal_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
+    for projection in &parsed.complex_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
     for projection in &parsed.numeric_arithmetic_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
@@ -11323,6 +11503,7 @@ fn bind_join_sql_local_source(
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
     validate_join_on_predicate_sources(join, left_alias, left_header, right_header)?;
     validate_join_type_surface(parsed, left_alias)?;
+    validate_complex_projection_shape(parsed)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
             parsed,
@@ -12275,6 +12456,59 @@ impl ParsedSqlLocalSource {
         !self.literal_projections.is_empty()
     }
 
+    fn has_complex_projection(&self) -> bool {
+        !self.complex_projections.is_empty()
+    }
+
+    fn complex_projection_columns(&self) -> String {
+        if self.complex_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.complex_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn complex_projection_kinds(&self) -> String {
+        if self.complex_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.complex_projections
+                .iter()
+                .map(|projection| projection.kind.kind_label())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn complex_projection_dtypes(&self) -> String {
+        if self.complex_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.complex_projections
+                .iter()
+                .map(|projection| projection.kind.output_dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn complex_projection_source_columns(&self) -> String {
+        let columns = self
+            .complex_projections
+            .iter()
+            .flat_map(|projection| projection.kind.source_columns())
+            .collect::<Vec<_>>();
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
     fn literal_projection_dtypes(&self) -> String {
         if self.literal_projections.is_empty() {
             "not_applicable".to_string()
@@ -12415,6 +12649,7 @@ impl ParsedSqlLocalSource {
 
     fn has_computed_projection(&self) -> bool {
         self.has_literal_projection()
+            || self.has_complex_projection()
             || self.has_cast_projection()
             || self.has_null_coalesce_projection()
             || self.has_nullif_projection()
@@ -12540,6 +12775,8 @@ impl ParsedSqlLocalSource {
             "local_source_window_filter_limit".to_string()
         } else if self.has_window_projection() {
             "local_source_window_limit".to_string()
+        } else if let Some(kind) = self.complex_projection_statement_kind() {
+            kind.to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "local_source_computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -12581,6 +12818,17 @@ impl ParsedSqlLocalSource {
         } else {
             "local_source_projection_limit".to_string()
         }
+    }
+
+    fn complex_projection_statement_kind(&self) -> Option<&'static str> {
+        if !self.has_complex_projection() {
+            return None;
+        }
+        Some(if self.has_filter() {
+            "local_source_complex_projection_filter_limit"
+        } else {
+            "local_source_complex_projection_limit"
+        })
     }
 
     fn execution_certificate_suffix(&self) -> String {
@@ -12628,6 +12876,10 @@ impl ParsedSqlLocalSource {
             "window-filter-limit".to_string()
         } else if self.has_window_projection() {
             "window-limit".to_string()
+        } else if self.has_complex_projection() && self.has_filter() {
+            "complex-projection-filter-limit".to_string()
+        } else if self.has_complex_projection() {
+            "complex-projection-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed-projection-order-by-topn-filter-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -12704,6 +12956,10 @@ impl ParsedSqlLocalSource {
             "window_filter_limit".to_string()
         } else if self.has_window_projection() {
             "window_limit".to_string()
+        } else if self.has_complex_projection() && self.has_filter() {
+            "complex_projection_filter_limit".to_string()
+        } else if self.has_complex_projection() {
+            "complex_projection_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -12779,6 +13035,7 @@ impl ParsedSqlLocalSource {
                 }
                 ParsedProjectionOutput::Raw(column)
                 | ParsedProjectionOutput::Literal(column)
+                | ParsedProjectionOutput::Complex(column)
                 | ParsedProjectionOutput::Cast(column)
                 | ParsedProjectionOutput::NullCoalesce(column)
                 | ParsedProjectionOutput::NullIf(column)
@@ -21621,6 +21878,46 @@ impl SqlLocalSourceReport {
                 self.parsed.literal_projection_dtypes(),
             ),
             (
+                "complex_projection_runtime_execution".to_string(),
+                self.parsed.has_complex_projection().to_string(),
+            ),
+            (
+                "complex_projection_columns".to_string(),
+                self.parsed.complex_projection_columns(),
+            ),
+            (
+                "complex_projection_count".to_string(),
+                self.parsed.complex_projections.len().to_string(),
+            ),
+            (
+                "complex_projection_kind".to_string(),
+                self.parsed.complex_projection_kinds(),
+            ),
+            (
+                "complex_projection_output_dtype".to_string(),
+                self.parsed.complex_projection_dtypes(),
+            ),
+            (
+                "complex_projection_source_column".to_string(),
+                self.parsed.complex_projection_source_columns(),
+            ),
+            (
+                "complex_projection_output_boundary".to_string(),
+                if self.parsed.has_complex_projection() {
+                    "jsonl_nested_result_boundary_only".to_string()
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
+                "complex_projection_equality_semantics".to_string(),
+                if self.parsed.has_complex_projection() {
+                    "not_admitted_distinct_join_membership_or_subquery_equality".to_string()
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
                 "binary_literal_projection_runtime_execution".to_string(),
                 self.parsed.has_binary_literal_projection().to_string(),
             ),
@@ -23962,6 +24259,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         projection_order: projection_list.projection_order,
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
+        complex_projections: projection_list.complex_projections,
         cast_projections: projection_list.cast_projections,
         null_coalesce_projections: projection_list.null_coalesce_projections,
         nullif_projections: projection_list.nullif_projections,
@@ -24140,24 +24438,22 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
     statement: &str,
     allow_sql_union: bool,
 ) -> Result<(), ShardLoomError> {
-    if contains_keyword_followed_by_char_outside_quotes(statement, "array", '[')
-        || contains_function_call_outside_quotes(statement, "array")
+    if contains_function_call_outside_quotes(statement, "array")
         || contains_function_call_outside_quotes(statement, "list_value")
         || contains_function_call_outside_quotes(statement, "list_extract")
         || contains_cast_target_matching(statement, "cast", target_is_list_dtype)?
         || contains_cast_target_matching(statement, "try_cast", target_is_list_dtype)?
     {
         return Err(unsupported_sql_error(
-            "list and array literals, accessors, and equality semantics are not admitted by the current complex dtype profile",
+            "list and array accessors, function constructors, casts, and equality semantics are not admitted by the current complex dtype profile; scoped ARRAY[...] projection literals are admitted through the JSONL result boundary only",
         ));
     }
-    if contains_function_call_outside_quotes(statement, "struct")
-        || contains_function_call_outside_quotes(statement, "row")
+    if contains_function_call_outside_quotes(statement, "row")
         || contains_cast_target_matching(statement, "cast", target_is_struct_dtype)?
         || contains_cast_target_matching(statement, "try_cast", target_is_struct_dtype)?
     {
         return Err(unsupported_sql_error(
-            "struct and row constructor equality/access semantics are not admitted by the current complex dtype profile",
+            "row constructors plus struct casts, equality, and access semantics are not admitted by the current complex dtype profile; scoped STRUCT(<source column>, ...) projection construction is admitted through the JSONL result boundary only",
         ));
     }
     if contains_function_call_outside_quotes(statement, "variant")
@@ -24215,28 +24511,6 @@ fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool
             return true;
         }
         search_start = name_index + function_name.len();
-    }
-    false
-}
-
-fn contains_keyword_followed_by_char_outside_quotes(
-    raw: &str,
-    keyword: &str,
-    expected: char,
-) -> bool {
-    let mut search_start = 0;
-    while search_start < raw.len() {
-        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], keyword)
-        else {
-            return false;
-        };
-        let keyword_index = search_start + relative_index;
-        let after_keyword = &raw[keyword_index + keyword.len()..];
-        let leading_whitespace = after_keyword.len() - after_keyword.trim_start().len();
-        if after_keyword[leading_whitespace..].starts_with(expected) {
-            return true;
-        }
-        search_start = keyword_index + keyword.len();
     }
     false
 }
@@ -24308,6 +24582,7 @@ fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> 
             ParsedProjectionOutput::Raw(column) if column == "*" => {}
             ParsedProjectionOutput::Raw(column)
             | ParsedProjectionOutput::Literal(column)
+            | ParsedProjectionOutput::Complex(column)
             | ParsedProjectionOutput::Cast(column)
             | ParsedProjectionOutput::NullCoalesce(column)
             | ParsedProjectionOutput::NullIf(column)
@@ -24383,6 +24658,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut projection_order = Vec::with_capacity(entries.len());
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
+    let mut complex_projections = Vec::new();
     let mut cast_projections = Vec::new();
     let mut null_coalesce_projections = Vec::new();
     let mut nullif_projections = Vec::new();
@@ -24414,6 +24690,11 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 window_projection.alias.clone(),
             ));
             window_projections.push(window_projection);
+        } else if let Some(complex_projection) = parse_complex_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Complex(
+                complex_projection.alias.clone(),
+            ));
+            complex_projections.push(complex_projection);
         } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::Conditional(
                 conditional_projection.alias.clone(),
@@ -24544,6 +24825,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         projection_order,
         projections,
         literal_projections,
+        complex_projections,
         cast_projections,
         null_coalesce_projections,
         nullif_projections,
@@ -24588,6 +24870,121 @@ fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>
         alias: alias.to_string(),
         value,
     }))
+}
+
+fn parse_complex_projection(raw: &str) -> Result<Option<ParsedComplexProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if expression_raw.is_empty() || alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "complex projections must be written as ARRAY[...] AS <column> or STRUCT(...) AS <column>",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    if let Some(values) = parse_array_literal_projection_values(expression_raw)? {
+        return Ok(Some(ParsedComplexProjection {
+            alias: alias.to_string(),
+            kind: ParsedComplexProjectionKind::ArrayLiteral(values),
+        }));
+    }
+    if let Some(columns) = parse_struct_projection_columns(expression_raw)? {
+        return Ok(Some(ParsedComplexProjection {
+            alias: alias.to_string(),
+            kind: ParsedComplexProjectionKind::StructColumns(columns),
+        }));
+    }
+    Ok(None)
+}
+
+fn parse_array_literal_projection_values(
+    raw: &str,
+) -> Result<Option<Vec<ScalarValue>>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(.."array".len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("array"))
+        || !keyword_boundary(trimmed, 0, "array".len())
+    {
+        return Ok(None);
+    }
+    let rest = trimmed["array".len()..].trim_start();
+    if !rest.starts_with('[') {
+        return Err(unsupported_sql_error(
+            "ARRAY projections must use ARRAY[<scalar literal>, ...] syntax in this scoped runtime slice",
+        ));
+    }
+    let close_index = matching_closing_square_bracket(rest, 0)?.ok_or_else(|| {
+        unsupported_sql_error("ARRAY projection literal square brackets are not balanced")
+    })?;
+    if !rest[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "ARRAY projection literals must be a single ARRAY[...] expression",
+        ));
+    }
+    let inner = rest[1..close_index].trim();
+    if inner.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
+    split_sql_csv(inner)?
+        .into_iter()
+        .map(|value| {
+            parse_projection_literal_value(&value).map_err(|_| {
+                unsupported_sql_error(
+                    "ARRAY projection elements admit scalar SQL literals only in this scoped runtime slice",
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
+}
+
+fn parse_struct_projection_columns(raw: &str) -> Result<Option<Vec<String>>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(.."struct".len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("struct"))
+        || !keyword_boundary(trimmed, 0, "struct".len())
+    {
+        return Ok(None);
+    }
+    let rest = trimmed["struct".len()..].trim_start();
+    if !rest.starts_with('(') {
+        return Err(unsupported_sql_error(
+            "STRUCT projections must use STRUCT(<source column>, ...) syntax in this scoped runtime slice",
+        ));
+    }
+    let close_index = matching_closing_parenthesis(rest, 0)?
+        .ok_or_else(|| unsupported_sql_error("STRUCT projection parentheses are not balanced"))?;
+    if !rest[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "STRUCT projections must be a single STRUCT(...) expression",
+        ));
+    }
+    let inner = rest[1..close_index].trim();
+    if inner.is_empty() {
+        return Err(unsupported_sql_error(
+            "STRUCT projections require at least one source column",
+        ));
+    }
+    let mut seen = BTreeSet::new();
+    let mut columns = Vec::new();
+    for column in split_sql_csv(inner)? {
+        validate_sql_column_ref(&column).map_err(|_| {
+            unsupported_sql_error(
+                "STRUCT projections admit source columns only; field access, expressions, literals, and row constructors remain blocked",
+            )
+        })?;
+        if !seen.insert(column.clone()) {
+            return Err(unsupported_sql_error(
+                "STRUCT projection source columns must be unique in this scoped runtime slice",
+            ));
+        }
+        columns.push(column);
+    }
+    Ok(Some(columns))
 }
 
 fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, ShardLoomError> {
@@ -25879,6 +26276,16 @@ fn collect_expression_source_columns(expression: &Expression, columns: &mut BTre
         | ExpressionKind::Cast { expr, .. }
         | ExpressionKind::TryCast { expr, .. }
         | ExpressionKind::Unary { expr, .. } => collect_expression_source_columns(expr, columns),
+        ExpressionKind::List { values } => {
+            for value in values {
+                collect_expression_source_columns(value, columns);
+            }
+        }
+        ExpressionKind::Struct { fields } => {
+            for (_name, expression) in fields {
+                collect_expression_source_columns(expression, columns);
+            }
+        }
         ExpressionKind::Binary { left, right, .. }
         | ExpressionKind::Compare { left, right, .. } => {
             collect_expression_source_columns(left, columns);
@@ -25926,6 +26333,24 @@ fn collect_expression_temporal_difference_source_columns(
                 collect_expression_temporal_difference_source_columns(arg, function_name, columns);
             }
         }
+        ExpressionKind::List { values } => {
+            for value in values {
+                collect_expression_temporal_difference_source_columns(
+                    value,
+                    function_name,
+                    columns,
+                );
+            }
+        }
+        ExpressionKind::Struct { fields } => {
+            for (_name, expression) in fields {
+                collect_expression_temporal_difference_source_columns(
+                    expression,
+                    function_name,
+                    columns,
+                );
+            }
+        }
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
         | ExpressionKind::TryCast { expr, .. }
@@ -25954,6 +26379,10 @@ fn expression_has_temporal_difference(expression: &Expression) -> bool {
         ExpressionKind::FunctionCall { args, .. } => {
             args.iter().any(expression_has_temporal_difference)
         }
+        ExpressionKind::List { values } => values.iter().any(expression_has_temporal_difference),
+        ExpressionKind::Struct { fields } => fields
+            .iter()
+            .any(|(_name, expression)| expression_has_temporal_difference(expression)),
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
         | ExpressionKind::TryCast { expr, .. }
@@ -26007,6 +26436,18 @@ fn collect_expression_operator_families(expression: &Expression, families: &mut 
                 collect_expression_operator_families(arg, families);
             }
         }
+        ExpressionKind::List { values } => {
+            families.insert("list_construct".to_string());
+            for value in values {
+                collect_expression_operator_families(value, families);
+            }
+        }
+        ExpressionKind::Struct { fields } => {
+            families.insert("struct_construct".to_string());
+            for (_name, expression) in fields {
+                collect_expression_operator_families(expression, families);
+            }
+        }
         ExpressionKind::Alias { expr, .. } | ExpressionKind::Unary { expr, .. } => {
             collect_expression_operator_families(expr, families);
         }
@@ -26045,6 +26486,13 @@ fn expression_binary_operator_count(expression: &Expression) -> usize {
         ExpressionKind::FunctionCall { args, .. } => {
             args.iter().map(expression_binary_operator_count).sum()
         }
+        ExpressionKind::List { values } => {
+            values.iter().map(expression_binary_operator_count).sum()
+        }
+        ExpressionKind::Struct { fields } => fields
+            .iter()
+            .map(|(_name, expression)| expression_binary_operator_count(expression))
+            .sum(),
         ExpressionKind::Literal(_)
         | ExpressionKind::Column(_)
         | ExpressionKind::Unsupported { .. } => 0,
@@ -26364,6 +26812,11 @@ fn string_expression_literal_count(expression: &Expression) -> usize {
         ExpressionKind::FunctionCall { args, .. } => {
             args.iter().map(string_expression_literal_count).sum()
         }
+        ExpressionKind::List { values } => values.iter().map(string_expression_literal_count).sum(),
+        ExpressionKind::Struct { fields } => fields
+            .iter()
+            .map(|(_name, expression)| string_expression_literal_count(expression))
+            .sum(),
         ExpressionKind::Column(_) | ExpressionKind::Unsupported { .. } => 0,
     }
 }
@@ -29280,6 +29733,11 @@ fn projected_subquery_output_columns(
             "projected IN subqueries require explicit output columns; SELECT * is not admitted for membership materialization",
         ));
     }
+    if parsed.has_complex_projection() {
+        return Err(unsupported_sql_error(
+            "projected subqueries do not admit ARRAY or STRUCT projection outputs until complex equality semantics are admitted",
+        ));
+    }
     let columns = if parsed.is_grouped_aggregate() {
         parsed
             .group_by
@@ -29300,6 +29758,7 @@ fn projected_subquery_output_columns(
             .map(|output| match output {
                 ParsedProjectionOutput::Raw(column)
                 | ParsedProjectionOutput::Literal(column)
+                | ParsedProjectionOutput::Complex(column)
                 | ParsedProjectionOutput::Cast(column)
                 | ParsedProjectionOutput::NullCoalesce(column)
                 | ParsedProjectionOutput::NullIf(column)
@@ -30586,6 +31045,7 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     let mut chars = raw.chars().peekable();
     let mut in_quote = false;
     let mut depth = 0_u32;
+    let mut bracket_depth = 0_u32;
     while let Some(ch) = chars.next() {
         match ch {
             '\'' if in_quote && chars.peek() == Some(&'\'') => {
@@ -30606,7 +31066,17 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
                 })?;
                 current.push(ch);
             }
-            ',' if !in_quote && depth == 0 => {
+            '[' if !in_quote => {
+                bracket_depth += 1;
+                current.push(ch);
+            }
+            ']' if !in_quote => {
+                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression square brackets are not balanced")
+                })?;
+                current.push(ch);
+            }
+            ',' if !in_quote && depth == 0 && bracket_depth == 0 => {
                 values.push(current.trim().to_string());
                 current = String::new();
             }
@@ -30619,6 +31089,11 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     if depth != 0 {
         return Err(unsupported_sql_error(
             "SQL expression parentheses are not balanced",
+        ));
+    }
+    if bracket_depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression square brackets are not balanced",
         ));
     }
     if !current.trim().is_empty() {
@@ -30865,6 +31340,7 @@ fn find_keyword_outside_quotes_and_parentheses(
     let mut chars = raw.char_indices().peekable();
     let mut in_quote = false;
     let mut depth = 0_u32;
+    let mut bracket_depth = 0_u32;
     let mut skip_next_and_for_between = false;
     while let Some((index, ch)) = chars.next() {
         if ch == '\'' {
@@ -30889,9 +31365,19 @@ fn find_keyword_outside_quotes_and_parentheses(
                 })?;
                 continue;
             }
+            '[' => {
+                bracket_depth += 1;
+                continue;
+            }
+            ']' => {
+                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression square brackets are not balanced")
+                })?;
+                continue;
+            }
             _ => {}
         }
-        if depth == 0 {
+        if depth == 0 && bracket_depth == 0 {
             let remaining = &raw[index..];
             if lower_keyword == "and"
                 && remaining.len() >= "between".len()
@@ -30918,6 +31404,11 @@ fn find_keyword_outside_quotes_and_parentheses(
     if depth != 0 {
         return Err(unsupported_sql_error(
             "WHERE predicate grouping parentheses must be balanced",
+        ));
+    }
+    if bracket_depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression square brackets are not balanced",
         ));
     }
     Ok(None)
@@ -30969,6 +31460,51 @@ fn matching_closing_parenthesis(
             ')' => {
                 depth = depth.checked_sub(1).ok_or_else(|| {
                     unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                if seen_open && depth == 0 {
+                    return Ok(Some(index));
+                }
+            }
+            _ => {}
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    Ok(None)
+}
+
+fn matching_closing_square_bracket(
+    raw: &str,
+    open_index: usize,
+) -> Result<Option<usize>, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut seen_open = false;
+    while let Some((index, ch)) = chars.next() {
+        if index < open_index {
+            continue;
+        }
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '[' => {
+                depth += 1;
+                seen_open = true;
+            }
+            ']' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression square brackets must be balanced")
                 })?;
                 if seen_open && depth == 0 {
                     return Ok(Some(index));
@@ -31056,10 +31592,14 @@ fn rows_to_jsonl(rows: &[Vec<(String, ScalarValue)>]) -> String {
     output
 }
 
-fn rows_to_csv(columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> String {
+fn rows_to_csv(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<String, ShardLoomError> {
+    validate_flat_scalar_output_rows(rows, SqlLocalSourceOutputFormat::Csv)?;
     let mut output = String::new();
     if columns.is_empty() {
-        return output;
+        return Ok(output);
     }
     for (index, name) in columns.iter().enumerate() {
         if index > 0 {
@@ -31077,7 +31617,7 @@ fn rows_to_csv(columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> Strin
         }
         output.push('\n');
     }
-    output
+    Ok(output)
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -31163,6 +31703,7 @@ fn scalar_to_csv_value(value: &ScalarValue) -> String {
         ScalarValue::Binary(value) => format!("binary[hex={}]", bytes_to_hex(value)),
         ScalarValue::Date32(value) => format_iso_date32(*value),
         ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value),
+        ScalarValue::List(_) | ScalarValue::Struct(_) => scalar_to_json(value),
     }
 }
 
@@ -31186,6 +31727,64 @@ fn scalar_to_json(value: &ScalarValue) -> String {
         ScalarValue::TimestampMicros(value) => {
             format!("\"{}\"", format_iso_timestamp_micros(*value))
         }
+        ScalarValue::List(values) => {
+            let mut out = String::from("[");
+            for (index, value) in values.iter().enumerate() {
+                if index > 0 {
+                    out.push(',');
+                }
+                out.push_str(&scalar_to_json(value));
+            }
+            out.push(']');
+            out
+        }
+        ScalarValue::Struct(fields) => {
+            let mut out = String::from("{");
+            for (index, (name, value)) in fields.iter().enumerate() {
+                if index > 0 {
+                    out.push(',');
+                }
+                write!(out, "\"{}\":{}", json_escape(name), scalar_to_json(value))
+                    .expect("write to string");
+            }
+            out.push('}');
+            out
+        }
+    }
+}
+
+fn validate_flat_scalar_output_rows(
+    rows: &[Vec<(String, ScalarValue)>],
+    format: SqlLocalSourceOutputFormat,
+) -> Result<(), ShardLoomError> {
+    if rows_contain_complex_values(rows) {
+        return Err(unsupported_sql_error(&format!(
+            "local {} output currently admits flat scalar rows only; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
+            format.sink_format()
+        )));
+    }
+    Ok(())
+}
+
+fn rows_contain_complex_values(rows: &[Vec<(String, ScalarValue)>]) -> bool {
+    rows.iter().any(|row| {
+        row.iter()
+            .any(|(_name, value)| scalar_value_is_complex(value))
+    })
+}
+
+fn scalar_value_is_complex(value: &ScalarValue) -> bool {
+    match value {
+        ScalarValue::List(_) | ScalarValue::Struct(_) => true,
+        ScalarValue::Null
+        | ScalarValue::Boolean(_)
+        | ScalarValue::Int64(_)
+        | ScalarValue::UInt64(_)
+        | ScalarValue::Float64(_)
+        | ScalarValue::Utf8(_)
+        | ScalarValue::Binary(_)
+        | ScalarValue::Date32(_)
+        | ScalarValue::TimestampMicros(_) => false,
     }
 }
 
@@ -31699,6 +32298,46 @@ mod tests {
                 .contains("SQL local-source literals are limited")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn parses_scoped_complex_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("scoped complex projections parse");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.complex_projections.len(), 2);
+        assert_eq!(parsed.complex_projections[0].alias, "values");
+        assert_eq!(
+            parsed.complex_projections[0].kind,
+            ParsedComplexProjectionKind::ArrayLiteral(vec![
+                ScalarValue::Int64(1),
+                ScalarValue::Int64(2),
+                ScalarValue::Null
+            ])
+        );
+        assert_eq!(parsed.complex_projections[1].alias, "payload");
+        assert_eq!(
+            parsed.complex_projections[1].kind,
+            ParsedComplexProjectionKind::StructColumns(vec![
+                "label".to_string(),
+                "amount".to_string()
+            ])
+        );
+        assert!(parsed.has_complex_projection());
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_complex_projection_limit"
+        );
+        assert_eq!(parsed.complex_projection_columns(), "values,payload");
+        assert_eq!(
+            parsed.complex_projection_kinds(),
+            "array_literal,struct_source_columns"
+        );
+        assert_eq!(parsed.complex_projection_dtypes(), "list,struct");
+        assert_eq!(parsed.complex_projection_source_columns(), "label,amount");
     }
 
     #[test]
@@ -33603,6 +34242,89 @@ mod tests {
         assert_field_eq(&fields, "binary_literal_projection_hex_value", "00ff10");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn runs_scoped_complex_projection_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label,amount\n1,alpha,8\n2,beta,\n3,gamma,13\n")
+            .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM '{}' WHERE id <= 2 LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run complex projection smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"values\":[1,2,null],\"payload\":{\"label\":\"alpha\",\"amount\":8}}\n{\"id\":2,\"values\":[1,2,null],\"payload\":{\"label\":\"beta\",\"amount\":null}}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "sql_statement_kind",
+            "local_source_complex_projection_filter_limit",
+        );
+        assert_field_eq(&fields, "complex_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "complex_projection_columns", "values,payload");
+        assert_field_eq(&fields, "complex_projection_count", "2");
+        assert_field_eq(
+            &fields,
+            "complex_projection_kind",
+            "array_literal,struct_source_columns",
+        );
+        assert_field_eq(&fields, "complex_projection_output_dtype", "list,struct");
+        assert_field_eq(&fields, "complex_projection_source_column", "label,amount");
+        assert_field_eq(
+            &fields,
+            "complex_projection_output_boundary",
+            "jsonl_nested_result_boundary_only",
+        );
+        assert_field_eq(
+            &fields,
+            "complex_projection_equality_semantics",
+            "not_admitted_distinct_join_membership_or_subquery_equality",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn complex_projection_blocks_flat_scalar_sinks_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,ARRAY[1,2] AS values FROM '{}' LIMIT 1",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Csv,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("complex rows cannot be rendered as flat CSV");
+
+        assert!(
+            error
+                .to_string()
+                .contains("local csv output currently admits flat scalar rows only")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
 
         fs::remove_file(&path).expect("remove csv source");
     }
@@ -36710,15 +37432,15 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_complex_dtype_policy_constructs_without_fallback() {
+    fn parser_blocks_unadmitted_complex_dtype_policy_constructs_without_fallback() {
         for (statement, expected) in [
             (
-                "SELECT id,ARRAY[1,2] AS values FROM 'target/input.csv' LIMIT 5",
-                "list and array literals, accessors, and equality semantics are not admitted",
+                "SELECT id,ARRAY(1,2) AS values FROM 'target/input.csv' LIMIT 5",
+                "list and array accessors, function constructors, casts, and equality semantics are not admitted",
             ),
             (
-                "SELECT id,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
-                "struct and row constructor equality/access semantics are not admitted",
+                "SELECT id,ROW(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
+                "row constructors plus struct casts, equality, and access semantics are not admitted",
             ),
             (
                 "SELECT id,VARIANT_GET(payload, 'field') AS field FROM 'target/input.csv' LIMIT 5",
@@ -36738,6 +37460,42 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
+    }
+
+    #[test]
+    fn parser_blocks_distinct_over_complex_projection_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT DISTINCT id,ARRAY[1,2] AS values FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("distinct complex projection parses before bind policy");
+        let header = vec!["id".to_string()];
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("distinct over complex projections remains blocked");
+
+        assert!(
+            error.to_string().contains(
+                "SELECT DISTINCT over ARRAY or STRUCT projection outputs is not admitted"
+            )
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn parser_blocks_order_by_over_complex_projection_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,STRUCT(label, amount) AS payload FROM 'target/input.csv' ORDER BY payload LIMIT 5",
+        )
+        .expect("ORDER BY complex projection parses before bind policy");
+        let header = vec!["id".to_string(), "label".to_string(), "amount".to_string()];
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("ORDER BY over complex projections remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("ORDER BY over ARRAY or STRUCT projection outputs is not admitted")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

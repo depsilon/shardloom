@@ -4815,7 +4815,11 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
         ScalarValue::Utf8(_) => Some("utf8"),
         ScalarValue::Date32(_) => Some("date32"),
         ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
-        ScalarValue::Null | ScalarValue::Binary(_) | ScalarValue::Float64(_) => None,
+        ScalarValue::Null
+        | ScalarValue::Binary(_)
+        | ScalarValue::Float64(_)
+        | ScalarValue::List(_)
+        | ScalarValue::Struct(_) => None,
     }
 }
 

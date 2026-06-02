@@ -643,12 +643,13 @@ plan before coding.
   UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation, while the remaining
   advanced scalar blockers still fail through shared policy guards before execution with no
   fallback/external engine invocation.
-- [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout adds executed conformance blockers and
+- [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout added executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
   variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,
-  and binary source/runtime decoding. SQL local-source parsing fails those constructs before
-  execution while preserving admitted bytewise binary scalar equality and no fallback/external
-  engine invocation.
+  and binary source/runtime decoding. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
+  `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
+  boundary only; complex equality, accessors, casts, nested source decoding, flat nested sinks, and
+  broader variant/union semantics still fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit

@@ -462,7 +462,9 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   remaining broad grammar blockers are explicit rows in
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
-  complex/list/struct/variant/union-dtype shapes, broad binary source dtype decoding/ordering,
+  complex equality/accessors/casts/nested source decoding/flat sinks outside the scoped JSONL
+  `ARRAY[...]`/`STRUCT(...)` result-boundary projection route, variant/union-dtype shapes, broad
+  binary source dtype decoding/ordering,
   scalar-left multi-column IN-subqueries, unbound qualified references, and remaining non-admitted
   broad ANSI subquery families.
   Scoped quantified `ANY` / `ALL` subquery
@@ -526,10 +528,17 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   runtime evidence as the admitted SQL routes, including correlated `outer.<column>` HAVING
   predicates, and keep non-admitted joined or broader derived-table builder shapes outside this
   slice.
-  Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
-  blocker refinement, scalar-left multi-column subquery ergonomics, decimal/timezone/locale blocker
-  refinement, broad binary source dtype refinement, or another front-door parity gap only after the
-  runtime route is already admitted.
+  Scoped complex projections are now admitted for `ARRAY[...]` scalar-literal arrays and
+  `STRUCT(<source column>, ...)` source-column payloads over bounded local-source routes, with
+  explicit JSONL/result evidence, Python `sl.array(...)` / `sl.struct(...)` lowering helpers, and
+  flat-sink blockers where CSV, Parquet, Arrow IPC, Avro, ORC, and local Vortex output cannot yet
+  preserve nested values. Complex equality, DISTINCT, subquery membership, accessors, casts, nested
+  source decoding, and broader row/list/struct functions remain deterministic blockers. Scalar-left
+  multi-column subqueries remain an invalid SQL arity shape, not a runtime promotion candidate.
+  Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
+  likely candidates are decimal/timezone/locale blocker refinement, broad binary source dtype
+  refinement, complex access/equality follow-through after a dedicated semantics contract, or
+  another front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

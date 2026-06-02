@@ -131,6 +131,16 @@ class IntervalLiteral:
 
 
 @dataclass(frozen=True, slots=True)
+class ComplexProjectionExpression:
+    """A scoped ARRAY or STRUCT projection expression for local-source rows."""
+
+    sql: str
+
+    def __str__(self) -> str:
+        return self.sql
+
+
+@dataclass(frozen=True, slots=True)
 class ColumnExpression:
     """A scoped column expression for Python query-builder predicates."""
 
@@ -5183,6 +5193,32 @@ def from_base64(column_expression: object) -> ColumnExpression:
     return column_expression.from_base64()
 
 
+def array(*values: object) -> ComplexProjectionExpression:
+    """Return a scoped `ARRAY[...]` projection over scalar SQL literals."""
+
+    if len(values) == 1 and _is_non_string_sequence(values[0]):
+        raw_values = tuple(values[0])
+    else:
+        raw_values = values
+    elements = ",".join(_sql_complex_projection_literal(value) for value in raw_values)
+    return ComplexProjectionExpression(f"ARRAY[{elements}]")
+
+
+def struct(*columns: object) -> ComplexProjectionExpression:
+    """Return a scoped `STRUCT(...)` projection over source columns."""
+
+    if len(columns) == 1 and _is_non_string_sequence(columns[0]):
+        raw_columns = tuple(columns[0])
+    else:
+        raw_columns = columns
+    if not raw_columns:
+        raise ValueError("struct projection requires at least one source column")
+    normalized = tuple(_normalize_expression_column(column) for column in raw_columns)
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("struct projection source columns must be unique")
+    return ComplexProjectionExpression(f"STRUCT({', '.join(normalized)})")
+
+
 def abs(column_expression: object) -> ColumnExpression:
     """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
@@ -6607,6 +6643,12 @@ def _sql_literal(value: object) -> str:
     )
 
 
+def _sql_complex_projection_literal(value: object) -> str:
+    if value is None:
+        return "NULL"
+    return _sql_literal(value)
+
+
 def _sql_numeric_literal(value: object) -> str:
     if isinstance(value, bool):
         raise ValueError("numeric arithmetic literals must be int or finite float values")
@@ -6772,6 +6814,7 @@ def _sql_numeric_rounding_projection_expression(expression: object) -> str:
 
 def _sql_computed_projection_expression(expression: object) -> str:
     parsers = (
+        _sql_complex_projection_expression,
         _sql_cast_projection_expression,
         _sql_null_coalesce_projection_expression,
         _sql_nullif_projection_expression,
@@ -6798,6 +6841,15 @@ def _sql_computed_projection_expression(expression: object) -> str:
     if last_error is None:
         raise ValueError("computed with_column expression is not admitted")
     raise last_error
+
+
+def _sql_complex_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ComplexProjectionExpression):
+        raise TypeError("complex projections require sl.array(...) or sl.struct(...)")
+    text = expression.sql.strip()
+    if not text:
+        raise ValueError("complex projection expression must not be empty")
+    return text
 
 
 def _sql_predicate_projection_expression(expression: object) -> str:
