@@ -257,9 +257,11 @@ expansion unless the user explicitly reprioritizes. Completed non-runtime histor
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
-The earlier broad runtime rollup queues have been consolidated into the implementation-ready
-`GAR-RUNTIME-IMPL-4*` and `GAR-RUNTIME-IMPL-5*` queues below. Work these only after the
-unchecked non-runtime closeout items above are complete or explicitly reprioritized by the user.
+The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
+queues below. Current runtime sequence after PR #1031 is `GAR-RUNTIME-IMPL-6E`, then
+`GAR-RUNTIME-IMPL-6F`, then the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth
+items unless a specific 6D blocker must be pulled forward to unblock 6E/6F. The remaining 4/5-series
+queue stays as internal-engine backstop work after the route/reuse/output boundary work.
 
 Runtime completion rule:
 
@@ -275,7 +277,485 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
+#### GAR-RUNTIME-IMPL-6E - Automatic Dynamic Preparation Runtime Promotion
+
+Ordering decision (2026-06-02): work this before the remaining 6D last-order breadth. Automatic
+preparation/reuse is the route-level spine that lets later SQL, Python, DataFrame, benchmark, and
+claim-surface work connect to the same ShardLoom runtime path instead of repeating explicit
+prepare/run bookkeeping per front door.
+
+Source: user-approved follow-through on 2026-06-01 from the novel-concepts review,
+`docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+`docs/architecture/pulseweave-runtime-control.md`, `docs/architecture/dynamic-work-shaping.md`,
+`docs/architecture/io-reuse-and-fanout-architecture.md`,
+`docs/architecture/bayesian-performance-layout-advisor.md`,
+`docs/architecture/vortex-runtime-utilization-audit.md`, Vortex Scan/I/O docs, and Database
+Cracking research.
+
+Current state:
+
+- ShardLoom already has SourceState, VortexPreparedState, scout ingress, capillary preparation,
+  layout/write advisor, copy-budget, differential-preparation, and PulseWeave evidence surfaces.
+- PulseWeave is deterministic, local, certificate-gated, and already scoped to prepared/local and
+  capillary preparation evidence.
+- Several dynamic ideas are still only partially promoted from evidence into runtime behavior:
+  prepared-state reuse is visible and has scoped manifest-backed paths, but is not yet the default
+  higher-level `auto` front-door reuse spine; capillary pre-write work shaping now drives the first
+  local scalar/columnar SourceState -> `vortex_ingest` route before local array build/write, while
+  broader object-store/distributed/spill shaping remains gated; layout/write advice is
+  report/advisory-only; differential preparation is explicit but not yet a cracking-style automatic
+  refinement path for changed local sources.
+- The next work must preserve automatic behavior without adding required user knobs, hidden global
+  state, persistent learning, external execution fallback, or unsupported performance claims.
+
+Runtime enablement: this section promotes the local automatic route:
+
+```text
+user expression or local prepare request
+  -> UniversalIngress / InputAdapter
+  -> SourceState
+  -> automatic reuse / invalidation / refinement decision
+  -> vortex_ingest
+  -> VortexPreparedState
+  -> prepared_vortex
+  -> output/evidence/certificate
+```
+
+The default user posture should remain `auto`: ShardLoom chooses reuse, capillary work shaping,
+layout/write admission, or differential refinement only when ProofBound/certificates admit the
+decision. Otherwise it preserves the existing ShardLoom-native path or fails with deterministic
+diagnostics.
+
+Implementation checklist, in required order:
+
+- [ ] GAR-RUNTIME-IMPL-6E-1 automatic SourceState and VortexPreparedState reuse spine.
+  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
+  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+  `docs/architecture/universal-input-contract.md`, and Database Cracking's reuse/refinement
+  principle.
+  Current state: benchmark/report rows expose SourceState, VortexPreparedState, reuse-level, cache
+  invalidation, and fingerprint fields. The runtime can create scoped prepared Vortex artifacts,
+  but repeated local workflows still do too much explicit preparation unless callers manually keep
+  track of the prepared artifact.
+  In-progress update: Python `CompatibilityPreparedVortexRoute` handles now write an explicit
+  workspace manifest at `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json` after a
+  successful local compatibility preparation. A repeated compatible `ctx.prepare_vortex(...,
+  workspace=...).run_batch(...)` or session route call can skip compatibility preparation and run
+  `traditional-analytics-vortex-batch-run` over the existing local Vortex artifacts when source,
+  artifact, and prepare-policy fingerprints match. Source or artifact drift invalidates the
+  manifest and re-enters the normal prepare/batch route. The user-route capability report and
+  local-file benchmark route report now expose the prepared-state reuse scope, manifest path,
+  reuse policy, runtime hit/reason placeholders, manifest digest placeholder, and invalidation
+  reason placeholder, and release readiness requires that prepared route rows keep the workspace
+  manifest contract visible. Benchmark promotion now also preserves prepared-state reuse
+  diagnostics in public rows and rejects reuse rows whose scope, reason, digest, or invalidation
+  evidence is missing; in-process prepared-batch reuse, explicit warm-prepared reuse, and workspace
+  manifest reuse are labeled as distinct scopes. Rust/CLI traditional analytics reports now emit the
+  same first-class reuse fields for cold first-preparation rows
+  (`prepared_state_created_not_reused`), caller-supplied warm/prepared Vortex rows
+  (`explicit_prepared_state_input`), native Vortex rows (`not_applicable_native_vortex_input`), and
+  single-process prepare/batch rows (`in_process_prepared_batch_vortex_artifacts`). The typed
+  `compute_flow_evidence` envelope includes those reuse fields so CLI JSON consumers no longer need
+  benchmark-promotion inference to determine scope, policy, hit status, digest, or invalidation
+  reason. Rust/CLI `vortex-ingest-smoke` now adds a real artifact-adjacent prepared-state reuse
+  path: successful local `.vortex` preparation writes a deterministic
+  `.shardloom/<artifact>.prepared-state-reuse.manifest`, repeated identical local ingest emits a
+  dedicated reuse report instead of rewriting the artifact, and source/artifact/plan/policy drift
+  invalidates reuse before any prepared-state claim. Rust/CLI
+  `traditional-analytics-prepare-batch-run` now also participates in workspace-manifest reuse
+  outside the Python handle: it validates
+  `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`, skips compatibility preparation on
+  fingerprint/policy/artifact hits, calls the prepared Vortex batch route over existing local
+  artifacts, and records workspace hit/reason/digest/invalidation evidence. Remaining 6E-1 work is
+  broader local-source auto-route wiring across the higher-level `auto` front doors.
+  Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
+  workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
+  source/schema/plan/output-policy drift.
+  Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
+  through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
+  prepared execution when the reuse manifest is valid.
+  User-visible surface: Python context/session helpers, CLI `vortex-ingest-smoke`/local-source
+  runtime reports, benchmark rows, and route capability reports show `prepared_state_reuse_hit`,
+  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and invalidation reason.
+  Implementation scope: add a `VortexPreparedStateReuseRequest` /
+  `VortexPreparedStateReuseReport` or equivalent in `shardloom-vortex/src/vortex_ingest.rs`; add
+  explicit reuse manifest fields for source path/ref, source content digest, mtime/size where safe,
+  schema digest, parse/decode plan digest, selected columns, output policy, prepared artifact
+  ref/digest, Vortex provider/version, feature gates, and certificate refs; wire lookup into
+  `shardloom-cli/src/sql_local_source_runtime.rs` before rewriting a prepared artifact; preserve
+  no hidden global cache by limiting the first slice to session-local plus explicit workspace or
+  artifact-adjacent manifest; surface typed Python fields in `python/src/shardloom/client.py` /
+  result models; extend benchmark artifact promotion to reject reuse claims without manifest and
+  invalidation evidence.
+  Evidence required: reuse-hit fixture where same source/schema/plan reuses an existing prepared
+  artifact without rewriting it; reuse-miss fixture where changed source digest invalidates reuse;
+  reuse-blocked fixture where schema drift or feature-gate mismatch blocks before prepared
+  execution; no-fallback evidence for every reuse decision.
+  Acceptance: repeated local `auto` preparation can reuse a valid VortexPreparedState
+  automatically; invalidated prepared state is never reused silently; a user or agent can tell why
+  reuse hit, missed, or blocked from structured fields; the existing explicit prepare path still
+  works.
+  Verification:
+  ```bash
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
+  python3 -m unittest python/tests/test_cli_client.py
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  git diff --check
+  ```
+  Non-goals: no daemon, no process-global cache, no persistent learning database, no object-store
+  cache, and no performance claim.
+  Dependencies/blockers: depends on SourceState/VortexPreparedState fingerprint stability,
+  artifact-adjacent or workspace-scoped manifest storage, Vortex write/read certificate evidence,
+  Python result model compatibility, and invalidation diagnostics for source/schema/plan drift.
+  Claim boundary: may claim only scoped local prepared-state reuse with manifest/certificate
+  evidence.
+  Fallback boundary: reuse never invokes DuckDB, Polars, Spark, DataFusion, Velox, pandas, or a
+  Vortex query-engine integration.
+  Ledger rule: move completed details and validation output to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+- [ ] GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route.
+  Source: `docs/architecture/bayesian-performance-layout-advisor.md`,
+  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+  `docs/skills/vortex/vortex-first-provider-check.md`, and Vortex layout/write provider
+  boundaries.
+  Current state: the layout/write advisor emits scoped local evidence, but current rows keep
+  runtime decisions advisory/report-only. Advisor output must not silently change writer behavior
+  until the selected strategy is supported by existing provider capabilities and certificate
+  evidence.
+  Next slice outcome: promote one narrow local layout/write decision from advisory to
+  runtime-admitted and applied. The first applied decision must use only already-supported local
+  writer behavior and verification depth.
+  Runtime enablement: `vortex_ingest` can automatically choose an admitted local write strategy for
+  a flat local SourceState, record the decision, apply it to the writer/reopen path, and expose
+  whether the decision was applied or blocked.
+  User-visible surface: rows expose `vortex_layout_write_advisor_runtime_decision_applied`,
+  `vortex_layout_write_advisor_selected_strategy`,
+  `vortex_layout_write_advisor_strategy_decision_digest`,
+  `vortex_layout_write_advisor_provider_admitted`, and `vortex_layout_write_advisor_blocker`.
+  Implementation scope: add a layout/write decision object in
+  `shardloom-vortex/src/vortex_ingest.rs`; limit first applied strategies to current supported
+  provider behavior, such as local single-artifact write, columnar SourceState preservation when
+  available, safe writer defaults, and certified reopen depth; block dictionary/statistics/
+  chunking/layout choices when upstream Vortex does not expose a stable admitted provider surface;
+  wire the selected decision into `shardloom-cli/src/sql_local_source_runtime.rs`; keep Bayesian
+  advisor confidence report-only unless a separate claim gate later fits and validates a model.
+  Evidence required: applied local scalar route; applied local columnar route when
+  `universal-format-io` and `vortex-write` are enabled; blocked unsupported layout strategy
+  fixture; reopen/correctness evidence proving the selected strategy wrote the expected prepared
+  state.
+  Acceptance: one local route reports an applied layout/write decision that actually governs the
+  write path; unsupported layout choices block deterministically with no fallback; advisor-applied
+  status does not upgrade performance or production claims.
+  Verification:
+  ```bash
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io layout_write_advisor --lib
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no fitted Bayesian runtime model, no arbitrary Vortex layout rewrite, no compaction,
+  no object-store write, and no performance claim.
+  Dependencies/blockers: depends on Vortex provider capability checks, current local writer/reopen
+  support, layout/write advisor evidence, certificate-backed reopen verification, and explicit
+  blockers for unsupported dictionary/statistics/chunking/layout choices.
+  Claim boundary: may claim only scoped local runtime admission of one writer strategy with
+  certificate evidence.
+  Fallback boundary: unsupported layout/write strategies block before execution and never delegate
+  to another engine.
+  Ledger rule: move completed details and validation output to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6E-4 cracking-style differential prepared-state refinement.
+  Source: `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+  `docs/architecture/io-reuse-and-fanout-architecture.md`, Database Cracking research, and the
+  existing `vortex_differential_preparation_*` report surface.
+  Current state: `vortex_ingest` can report append-only differential preparation and blocks
+  update/delete/upsert/schema mismatch cases. The next useful step is automatic refinement: when a
+  local source changes in an append-only way, ShardLoom should prepare only the delta and attach an
+  overlay/refinement manifest instead of rebuilding the base prepared state.
+  Next slice outcome: add a scoped automatic append-only delta refinement path for local prepared
+  state reuse. The first executable consumer should be narrow: count/filter/project/limit or the
+  smallest prepared benchmark-range family that can read base plus delta artifacts correctly.
+  Runtime enablement:
+  ```text
+  existing SourceState + existing VortexPreparedState
+    -> changed local source recognized as append-only delta
+    -> delta SourceState
+    -> delta vortex_ingest
+    -> overlay/refinement manifest
+    -> prepared_vortex consumer for admitted scenario family
+  ```
+  User-visible surface: CLI/Python/benchmark rows expose base/delta source IDs, base/delta
+  prepared-state IDs, overlay manifest digest, changed ranges, refinement mode, reuse status,
+  correctness digest, and deterministic blockers.
+  Implementation scope: extend existing differential preparation evidence into a runtime refinement
+  manifest; add automatic append-only delta detection from source fingerprint, size/row-count
+  movement, schema digest, and parse-plan digest; reuse the base prepared artifact only when schema,
+  source family, update mode, and certificate evidence match; add a prepared consumer for the first
+  admitted overlay scenario family; add deterministic blockers for update, delete, upsert, schema
+  drift, missing base manifest, changed compression/format posture, and unsupported operators.
+  Evidence required: append-only delta fixture that avoids base reprepare; full-reprepare reference
+  fixture used only for correctness comparison in tests; schema-mismatch fixture that blocks;
+  update/delete/upsert fixtures that block; overlay consumer correctness digest parity for the
+  first admitted scenario family.
+  Acceptance: append-only local changes refine an existing prepared state without rebuilding the
+  base; the overlay manifest is explicit, digest-backed, and invalidatable; unsupported CDC shapes
+  block before prepared execution; no hidden mutation of the base prepared artifact occurs.
+  Verification:
+  ```bash
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io differential_preparation --lib
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io differential
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no broad CDC/table transaction support, no deletes/updates/upserts, no object-store
+  manifests, no production incremental-processing claim, and no performance claim.
+  Dependencies/blockers: depends on prepared-state reuse manifests from 6E-1, differential
+  preparation report fields, append-only source-change detection, overlay manifest semantics, and a
+  narrow prepared consumer that can validate base-plus-delta correctness without fallback.
+  Claim boundary: may claim only scoped local append-only prepared-state refinement for the
+  admitted scenario family.
+  Fallback boundary: decoded/full-reprepare reference paths may be used in tests only; runtime
+  refinement must remain ShardLoom-native with `fallback_attempted=false` and
+  `external_engine_invoked=false`.
+  Ledger rule: move completed details and validation output to the completed ledger.
+
+#### GAR-RUNTIME-IMPL-6F - Bidirectional Format Conversion And Output Fanout Performance Promotion
+
+Ordering decision (2026-06-02): work this immediately after 6E and before the remaining 6D
+last-order breadth. Sink-driven result and fanout boundaries should exist before more broad
+front-door coverage is admitted, otherwise new SQL/Python/DataFrame routes keep inheriting
+row-shaped conversion and duplicated per-sink output work.
+
+Source: user-approved follow-through on output-conversion bottlenecks;
+`docs/architecture/io-reuse-and-fanout-architecture.md`,
+`docs/architecture/universal-input-contract.md`,
+`docs/architecture/compute-engine-flow-reference.md`, `docs/skills/translation-layer.md`,
+`docs/skills/streaming-zero-copy.md`, `docs/skills/vortex/vortex-native-output.md`, and
+`docs/skills/vortex/vortex-arrow-interop.md`.
+
+Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vortex, and
+feature-gated Parquet/Arrow IPC/Avro/ORC, but the compatibility-output path is still row-shaped in
+key places. `SqlLocalSourceOutputFormat::render_rows` and `encode_*_output_rows` repeatedly walk
+`Vec<Vec<(String, ScalarValue)>>` for each output target. Vortex output has a separate writer path,
+but downstream compatibility conversion can still pay repeated scalar formatting, repeated schema
+normalization, and duplicate per-sink materialization.
+
+Runtime enablement: this section promotes the output side of the route:
+
+```text
+VortexPreparedState / ResultState
+  -> ResultBatchState
+  -> sink-driven OutputPlan
+  -> shared fanout conversion DAG
+  -> SinkFormatState
+  -> SinkArtifact + replay/certificate/evidence
+```
+
+Performance objective: reduce repeated row rendering, repeated scalar conversion, duplicate fanout
+work, unnecessary materialization, sink write stalls, and metadata-loss ambiguity. These items may
+improve measured runtime only after benchmark evidence lands; until then they are
+optimization-enabling runtime work, not public speed claims.
+
+Implementation checklist, in required order:
+
+- [ ] GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary.
+  Source: output-conversion bottleneck review, translation-layer skill, streaming/zero-decode
+  skill, and Vortex-native output skill.
+  Current state: local result output is primarily row-shaped before compatibility sinks, causing
+  every sink to re-walk rows and re-normalize scalar values. Vortex output remains separate and
+  higher fidelity, but there is no shared columnar result boundary for all local sinks.
+  Next slice outcome: add a `ResultBatchState` or equivalent internal columnar result boundary
+  after execution and before output conversion. Compatibility sinks consume that boundary when
+  supported; CSV/JSONL remain late text materialization targets.
+  Runtime enablement: local SQL/Python/generated-output routes can produce one columnar result
+  state, then write Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, or JSONL from that state without
+  rebuilding the logical result per sink.
+  User-visible surface: evidence fields report `result_batch_state_status`,
+  `result_batch_state_digest`, `result_batch_state_layout`,
+  `result_batch_state_materialization_required`, `result_batch_state_decode_required`, and
+  per-sink conversion timing.
+  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
+  `shardloom-vortex/src/universal_format_io.rs`, `shardloom-vortex/src/vortex_ingest.rs` where
+  useful, Python result models, benchmark artifacts, and contract tests.
+  Evidence required: one-output and fanout fixtures proving identical output digests before/after;
+  row-shaped blocker evidence for unsupported schemas; no-fallback fields; per-sink timing
+  attribution.
+  Acceptance: at least one local flat scalar route writes multiple formats from one shared result
+  boundary; Vortex remains the highest-fidelity sink; unsupported nested/wide shapes block or
+  report explicitly.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io universal_format_io --lib
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no external engine writer, no Arrow-as-default execution substrate, no broad
+  nested-schema claim, no performance claim.
+  Dependencies/blockers: depends on stable result schema/digest semantics, existing local
+  SQL/Python/generated-output result rows, Vortex and universal-format writer coverage, Python
+  result model compatibility, and static artifact validators that can reject mixed row/columnar
+  evidence.
+  Claim boundary: may claim only a scoped local columnar output boundary with correctness
+  evidence.
+  Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements.
+  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
+  `docs/skills/streaming-zero-copy.md`, and the compute-flow route model.
+  Current state: output planning records useful sink artifact fields, but execution does not yet
+  use sink requirements early enough to avoid producing unused or prematurely materialized
+  representations.
+  Next slice outcome: make every local sink declare required columns, ordering, type/nullability
+  support, dictionary/statistics needs, compression/encoding posture, replay depth, and
+  materialization requirements before result conversion begins.
+  Runtime enablement: planner can avoid building byte payloads, formatted strings, or decoded
+  scalar rows that no requested sink needs.
+  User-visible surface: `output_plan_materialization_required`, `output_plan_required_columns`,
+  `output_plan_ordering_required`, `output_plan_statistics_required`,
+  `output_plan_text_materialization_boundary`, and `output_plan_conversion_blocker`.
+  Implementation scope: OutputPlan evidence structs/helpers in CLI runtime, fanout planning,
+  Python fields, benchmark route rows, and static validators.
+  Evidence required: fixture where Parquet/Arrow/Vortex sinks avoid text rendering; fixture where
+  CSV/JSONL explicitly require late text materialization; unsupported schema diagnostics.
+  Acceptance: output plans explain why materialization happened or was avoided; sinks never
+  silently coerce unsupported data; route timing separates planning, conversion, write, replay, and
+  evidence.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_plan
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no object-store/table commit planning, no Iceberg/Delta transaction semantics, no
+  production sink claim.
+  Dependencies/blockers: depends on ResultBatchState or equivalent output boundary, existing
+  OutputPlan evidence fields, per-sink capability declarations, replay/certificate requirements,
+  and deterministic blockers for unsupported sink/type/materialization combinations.
+  Claim boundary: may claim only deterministic local sink materialization planning.
+  Fallback boundary: compatibility export is translation, never fallback execution.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG.
+  Source: fanout architecture, output-conversion bottleneck review, and translation-layer skill.
+  Current state: multi-output fanout can write several local sink artifacts, but each sink can
+  still trigger independent conversion/rendering work.
+  Next slice outcome: replace per-output independent rendering with a shared conversion DAG: one
+  result state, one schema/type normalization pass, one optional cast/nullability pass, then
+  format-specific terminal encoders.
+  Runtime enablement: `prepared_vortex` or local result routes can write Vortex + Parquet + Arrow
+  IPC + CSV/JSONL fanout while sharing all conversion stages that are semantically identical.
+  User-visible surface: `fanout_conversion_dag_status`, `fanout_shared_stage_count`,
+  `fanout_terminal_sink_count`, `fanout_shared_conversion_millis`,
+  `fanout_terminal_conversion_millis`, and `fanout_duplicate_conversion_avoided`.
+  Implementation scope: `prepare_sql_outputs`, `write_sql_outputs`, format encoders, sink artifact
+  evidence, benchmark fanout rows, Python fanout result envelopes.
+  Evidence required: fanout fixture proving shared stages are used; digest parity with old
+  per-sink rendering; one blocked fixture where sinks require incompatible materialization.
+  Acceptance: repeated schema/scalar normalization is done once per fanout plan where safe;
+  terminal sinks still emit separate artifacts, digests, replay statuses, and certificate
+  statuses.
+  Verification:
+  ```bash
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  python3 -m unittest python/tests/test_cli_client.py
+  git diff --check
+  ```
+  Non-goals: no remote fanout, no table/lakehouse commits, no hidden sink batching that changes
+  output semantics.
+  Dependencies/blockers: depends on shared result boundary, sink-driven OutputPlan requirements,
+  terminal encoder parity tests, per-sink artifact/digest/replay evidence, and compatibility
+  blockers for sinks that require incompatible materialization.
+  Claim boundary: may claim scoped local shared fanout conversion, not benchmark speedup.
+  Fallback boundary: no DuckDB/Polars/Spark/DataFusion/Velox or Vortex query-engine integration.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission.
+  Source: `docs/architecture/pulseweave-runtime-control.md`, capillary I/O work, and output fanout
+  bottleneck review.
+  Current state: PulseWeave and capillary task evidence exist for prepared/local and
+  cold-preparation surfaces, but output conversion/write/replay stages are not yet first-class
+  scheduled capillary tasks.
+  Next slice outcome: represent output conversion as typed tasks: schema map, columnar export,
+  terminal encode, compression, local write, digest, replay, and evidence render.
+  Runtime enablement: large or multi-sink local outputs can use bounded output windows controlled
+  by FlowInventory, ScarcityLedger, EndoPulse, and ProofBound instead of unbounded per-sink
+  conversion.
+  User-visible surface: `output_capillary_status`, `output_capillary_task_roles`,
+  `output_capillary_window_count`, `output_sink_pressure_status`,
+  `output_memory_pressure_status`, and `pulseweave_output_policy_applied`.
+  Implementation scope: PulseWeave input task shapes, CLI output writer, shardloom-vortex format
+  encoders, benchmark output timing fields, Python envelope validation.
+  Evidence required: small-output fixture where capillary remains below threshold; large/fanout
+  fixture where output capillary scheduling applies; blocked fixture when certificates or replay
+  evidence are incomplete.
+  Acceptance: at least one local fanout route proves output conversion/write windows are actually
+  governed by capillary scheduling; blocked policy preserves existing safe behavior or fails
+  explicitly.
+  Verification:
+  ```bash
+  cargo test -p shardloom-exec pulseweave --lib
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_capillary
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  git diff --check
+  ```
+  Non-goals: no distributed writer, no object-store sink, no real query-data spill, no performance
+  claim.
+  Dependencies/blockers: depends on output task shape definitions, PulseWeave ProofBound admission,
+  FlowInventory/ScarcityLedger/EndoPulse task-window controls, result/fanout conversion evidence,
+  and bounded-memory estimates for conversion/write/replay stages.
+  Claim boundary: may claim only certificate-gated local output work shaping.
+  Fallback boundary: PulseWeave cannot authorize external engine execution.
+  Ledger rule: move completed details to the completed ledger.
+- [ ] GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor.
+  Source: Vortex-native output skill, translation-layer skill, Parquet/ORC/Arrow
+  compatibility-output research, and existing layout/write advisor posture.
+  Current state: cold-ingest layout/write advisor exists, but compatibility-output writers do not
+  yet expose enough target-specific layout choices or metadata-preservation accounting to optimize
+  downstream conversion.
+  Next slice outcome: add an output-side layout/write advisor that starts advisory/report-only,
+  then admits one narrow local route when provider support, correctness, replay, and benchmark
+  evidence exist.
+  Runtime enablement: OutputPlan can choose or report safe settings for Vortex
+  chunk/layout/statistics, Parquet row groups/dictionary/statistics/compression, ORC stripe/index
+  posture, Arrow IPC batch/dictionary posture, and CSV/JSONL streaming chunk size.
+  User-visible surface: `output_layout_write_advisor_status`,
+  `output_layout_write_advisor_selected_strategy`,
+  `output_layout_write_advisor_runtime_decision_applied`, `output_metadata_preservation_map`, and
+  `output_metadata_loss`.
+  Implementation scope: output plan structs/evidence, Vortex writer request fields where
+  supported, universal-format encoders, benchmark markdown/artifact rows, Python result surfaces.
+  Evidence required: advisory rows for all local sink formats; one applied local route with
+  correctness/replay proof; blocked rows for unsupported provider choices; metadata-loss reports
+  for compatibility targets.
+  Acceptance: advisor never silently changes output semantics; one supported local route can apply
+  a write/layout choice; all other strategies remain explicit advisory or blocked statuses.
+  Verification:
+  ```bash
+  cargo test -p shardloom-vortex --features vortex-write,universal-format-io
+  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_layout
+  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+  git diff --check
+  ```
+  Non-goals: no fitted Bayesian runtime model, no arbitrary layout rewrite, no broad
+  format-fidelity claim, no public benchmark claim.
+  Dependencies/blockers: depends on sink-driven OutputPlan requirements, provider capability
+  checks, Vortex/universal-format writer knobs that are actually supported, replay/correctness
+  fixtures, metadata-preservation accounting, and explicit blockers for advisory-only strategies.
+  Claim boundary: may claim only scoped local advisor evidence and one admitted route if
+  implemented.
+  Fallback boundary: unsupported layout/write choices block before execution.
+  Ledger rule: move completed details to the completed ledger.
+
 #### GAR-RUNTIME-IMPL-6D - Runtime-Ready User Surface And Benchmark-Range Completion
+
+Ordering note (2026-06-02): this remains the user-surface and benchmark-range breadth queue, but
+after PR #1031 it follows 6E/6F unless a specific 6D item blocks those route/reuse/output boundary
+items. Resume the last-order checklist here after the automatic preparation/reuse and output fanout
+contracts are landed, or pull a narrow 6D blocker forward with explicit justification.
 
 Source: user runtime-go request on 2026-05-31; `docs/rfcs/0033-user-data-workflow-etl-surface.md`;
 `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`;
@@ -526,8 +1006,11 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   predicates are now admitted through ShardLoom-owned exact fixed-scale `Decimal128` scalar
   semantics, with Python/DataFrame cast aliases, decimal-specific precision/scale/mode evidence,
   exact JSONL string and CSV text output boundaries, and explicit blockers for typed decimal sink
-  preservation until Parquet/Arrow/Vortex decimal encoders are admitted. Decimal arithmetic, broad
-  ANSI decimal coercion, exponent notation, and typed decimal sinks remain deterministic blockers.
+  preservation until Parquet/Arrow/Vortex decimal encoders are admitted. Scoped same-scale
+  `decimal128` add/subtract/multiply projections over decimal and integer operands are now admitted
+  through the same ShardLoom-owned local-source route. Decimal division, mixed-scale decimal
+  arithmetic/coercion, broad ANSI decimal coercion, exponent notation, and typed decimal sinks remain
+  deterministic blockers.
   Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
   admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
   `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
@@ -813,471 +1296,11 @@ Ledger rule: when a child slice is completed and merged, move the completed deta
 `docs/architecture/phased-execution-completed-ledger.md`, then keep only remaining unchecked work
 here.
 
-#### GAR-RUNTIME-IMPL-6E - Automatic Dynamic Preparation Runtime Promotion
-
-Source: user-approved follow-through on 2026-06-01 from the novel-concepts review,
-`docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-`docs/architecture/pulseweave-runtime-control.md`, `docs/architecture/dynamic-work-shaping.md`,
-`docs/architecture/io-reuse-and-fanout-architecture.md`,
-`docs/architecture/bayesian-performance-layout-advisor.md`,
-`docs/architecture/vortex-runtime-utilization-audit.md`, Vortex Scan/I/O docs, and Database
-Cracking research.
-
-Current state:
-
-- ShardLoom already has SourceState, VortexPreparedState, scout ingress, capillary preparation,
-  layout/write advisor, copy-budget, differential-preparation, and PulseWeave evidence surfaces.
-- PulseWeave is deterministic, local, certificate-gated, and already scoped to prepared/local and
-  capillary preparation evidence.
-- Several dynamic ideas are still only partially promoted from evidence into runtime behavior:
-  prepared-state reuse is visible and has scoped manifest-backed paths, but is not yet the default
-  higher-level `auto` front-door reuse spine; capillary pre-write work shaping now drives the first
-  local scalar/columnar SourceState -> `vortex_ingest` route before local array build/write, while
-  broader object-store/distributed/spill shaping remains gated; layout/write advice is
-  report/advisory-only; differential preparation is explicit but not yet a cracking-style automatic
-  refinement path for changed local sources.
-- The next work must preserve automatic behavior without adding required user knobs, hidden global
-  state, persistent learning, external execution fallback, or unsupported performance claims.
-
-Runtime enablement: this section promotes the local automatic route:
-
-```text
-user expression or local prepare request
-  -> UniversalIngress / InputAdapter
-  -> SourceState
-  -> automatic reuse / invalidation / refinement decision
-  -> vortex_ingest
-  -> VortexPreparedState
-  -> prepared_vortex
-  -> output/evidence/certificate
-```
-
-The default user posture should remain `auto`: ShardLoom chooses reuse, capillary work shaping,
-layout/write admission, or differential refinement only when ProofBound/certificates admit the
-decision. Otherwise it preserves the existing ShardLoom-native path or fails with deterministic
-diagnostics.
-
-Implementation checklist, in required order:
-
-- [ ] GAR-RUNTIME-IMPL-6E-1 automatic SourceState and VortexPreparedState reuse spine.
-  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/architecture/universal-input-contract.md`, and Database Cracking's reuse/refinement
-  principle.
-  Current state: benchmark/report rows expose SourceState, VortexPreparedState, reuse-level, cache
-  invalidation, and fingerprint fields. The runtime can create scoped prepared Vortex artifacts,
-  but repeated local workflows still do too much explicit preparation unless callers manually keep
-  track of the prepared artifact.
-  In-progress update: Python `CompatibilityPreparedVortexRoute` handles now write an explicit
-  workspace manifest at `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json` after a
-  successful local compatibility preparation. A repeated compatible `ctx.prepare_vortex(...,
-  workspace=...).run_batch(...)` or session route call can skip compatibility preparation and run
-  `traditional-analytics-vortex-batch-run` over the existing local Vortex artifacts when source,
-  artifact, and prepare-policy fingerprints match. Source or artifact drift invalidates the
-  manifest and re-enters the normal prepare/batch route. The user-route capability report and
-  local-file benchmark route report now expose the prepared-state reuse scope, manifest path,
-  reuse policy, runtime hit/reason placeholders, manifest digest placeholder, and invalidation
-  reason placeholder, and release readiness requires that prepared route rows keep the workspace
-  manifest contract visible. Benchmark promotion now also preserves prepared-state reuse
-  diagnostics in public rows and rejects reuse rows whose scope, reason, digest, or invalidation
-  evidence is missing; in-process prepared-batch reuse, explicit warm-prepared reuse, and workspace
-  manifest reuse are labeled as distinct scopes. Rust/CLI traditional analytics reports now emit the
-  same first-class reuse fields for cold first-preparation rows
-  (`prepared_state_created_not_reused`), caller-supplied warm/prepared Vortex rows
-  (`explicit_prepared_state_input`), native Vortex rows (`not_applicable_native_vortex_input`), and
-  single-process prepare/batch rows (`in_process_prepared_batch_vortex_artifacts`). The typed
-  `compute_flow_evidence` envelope includes those reuse fields so CLI JSON consumers no longer need
-  benchmark-promotion inference to determine scope, policy, hit status, digest, or invalidation
-  reason. Rust/CLI `vortex-ingest-smoke` now adds a real artifact-adjacent prepared-state reuse
-  path: successful local `.vortex` preparation writes a deterministic
-  `.shardloom/<artifact>.prepared-state-reuse.manifest`, repeated identical local ingest emits a
-  dedicated reuse report instead of rewriting the artifact, and source/artifact/plan/policy drift
-  invalidates reuse before any prepared-state claim. Rust/CLI
-  `traditional-analytics-prepare-batch-run` now also participates in workspace-manifest reuse
-  outside the Python handle: it validates
-  `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`, skips compatibility preparation on
-  fingerprint/policy/artifact hits, calls the prepared Vortex batch route over existing local
-  artifacts, and records workspace hit/reason/digest/invalidation evidence. Remaining 6E-1 work is
-  broader local-source auto-route wiring across the higher-level `auto` front doors.
-  Next slice outcome: add an automatic, evidence-safe prepared-state reuse spine for local `auto`
-  workflows. Reuse must be session/workspace scoped, fingerprint-backed, and fail-closed on
-  source/schema/plan/output-policy drift.
-  Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
-  through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
-  prepared execution when the reuse manifest is valid.
-  User-visible surface: Python context/session helpers, CLI `vortex-ingest-smoke`/local-source
-  runtime reports, benchmark rows, and route capability reports show `prepared_state_reuse_hit`,
-  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and invalidation reason.
-  Implementation scope: add a `VortexPreparedStateReuseRequest` /
-  `VortexPreparedStateReuseReport` or equivalent in `shardloom-vortex/src/vortex_ingest.rs`; add
-  explicit reuse manifest fields for source path/ref, source content digest, mtime/size where safe,
-  schema digest, parse/decode plan digest, selected columns, output policy, prepared artifact
-  ref/digest, Vortex provider/version, feature gates, and certificate refs; wire lookup into
-  `shardloom-cli/src/sql_local_source_runtime.rs` before rewriting a prepared artifact; preserve
-  no hidden global cache by limiting the first slice to session-local plus explicit workspace or
-  artifact-adjacent manifest; surface typed Python fields in `python/src/shardloom/client.py` /
-  result models; extend benchmark artifact promotion to reject reuse claims without manifest and
-  invalidation evidence.
-  Evidence required: reuse-hit fixture where same source/schema/plan reuses an existing prepared
-  artifact without rewriting it; reuse-miss fixture where changed source digest invalidates reuse;
-  reuse-blocked fixture where schema drift or feature-gate mismatch blocks before prepared
-  execution; no-fallback evidence for every reuse decision.
-  Acceptance: repeated local `auto` preparation can reuse a valid VortexPreparedState
-  automatically; invalidated prepared state is never reused silently; a user or agent can tell why
-  reuse hit, missed, or blocked from structured fields; the existing explicit prepare path still
-  works.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
-  python3 -m unittest python/tests/test_cli_client.py
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no daemon, no process-global cache, no persistent learning database, no object-store
-  cache, and no performance claim.
-  Dependencies/blockers: depends on SourceState/VortexPreparedState fingerprint stability,
-  artifact-adjacent or workspace-scoped manifest storage, Vortex write/read certificate evidence,
-  Python result model compatibility, and invalidation diagnostics for source/schema/plan drift.
-  Claim boundary: may claim only scoped local prepared-state reuse with manifest/certificate
-  evidence.
-  Fallback boundary: reuse never invokes DuckDB, Polars, Spark, DataFusion, Velox, pandas, or a
-  Vortex query-engine integration.
-  Ledger rule: move completed details and validation output to
-  `docs/architecture/phased-execution-completed-ledger.md`.
-- [ ] GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route.
-  Source: `docs/architecture/bayesian-performance-layout-advisor.md`,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/skills/vortex/vortex-first-provider-check.md`, and Vortex layout/write provider
-  boundaries.
-  Current state: the layout/write advisor emits scoped local evidence, but current rows keep
-  runtime decisions advisory/report-only. Advisor output must not silently change writer behavior
-  until the selected strategy is supported by existing provider capabilities and certificate
-  evidence.
-  Next slice outcome: promote one narrow local layout/write decision from advisory to
-  runtime-admitted and applied. The first applied decision must use only already-supported local
-  writer behavior and verification depth.
-  Runtime enablement: `vortex_ingest` can automatically choose an admitted local write strategy for
-  a flat local SourceState, record the decision, apply it to the writer/reopen path, and expose
-  whether the decision was applied or blocked.
-  User-visible surface: rows expose `vortex_layout_write_advisor_runtime_decision_applied`,
-  `vortex_layout_write_advisor_selected_strategy`,
-  `vortex_layout_write_advisor_strategy_decision_digest`,
-  `vortex_layout_write_advisor_provider_admitted`, and `vortex_layout_write_advisor_blocker`.
-  Implementation scope: add a layout/write decision object in
-  `shardloom-vortex/src/vortex_ingest.rs`; limit first applied strategies to current supported
-  provider behavior, such as local single-artifact write, columnar SourceState preservation when
-  available, safe writer defaults, and certified reopen depth; block dictionary/statistics/
-  chunking/layout choices when upstream Vortex does not expose a stable admitted provider surface;
-  wire the selected decision into `shardloom-cli/src/sql_local_source_runtime.rs`; keep Bayesian
-  advisor confidence report-only unless a separate claim gate later fits and validates a model.
-  Evidence required: applied local scalar route; applied local columnar route when
-  `universal-format-io` and `vortex-write` are enabled; blocked unsupported layout strategy
-  fixture; reopen/correctness evidence proving the selected strategy wrote the expected prepared
-  state.
-  Acceptance: one local route reports an applied layout/write decision that actually governs the
-  write path; unsupported layout choices block deterministically with no fallback; advisor-applied
-  status does not upgrade performance or production claims.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io layout_write_advisor --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no fitted Bayesian runtime model, no arbitrary Vortex layout rewrite, no compaction,
-  no object-store write, and no performance claim.
-  Dependencies/blockers: depends on Vortex provider capability checks, current local writer/reopen
-  support, layout/write advisor evidence, certificate-backed reopen verification, and explicit
-  blockers for unsupported dictionary/statistics/chunking/layout choices.
-  Claim boundary: may claim only scoped local runtime admission of one writer strategy with
-  certificate evidence.
-  Fallback boundary: unsupported layout/write strategies block before execution and never delegate
-  to another engine.
-  Ledger rule: move completed details and validation output to the completed ledger.
-- [ ] GAR-RUNTIME-IMPL-6E-4 cracking-style differential prepared-state refinement.
-  Source: `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/architecture/io-reuse-and-fanout-architecture.md`, Database Cracking research, and the
-  existing `vortex_differential_preparation_*` report surface.
-  Current state: `vortex_ingest` can report append-only differential preparation and blocks
-  update/delete/upsert/schema mismatch cases. The next useful step is automatic refinement: when a
-  local source changes in an append-only way, ShardLoom should prepare only the delta and attach an
-  overlay/refinement manifest instead of rebuilding the base prepared state.
-  Next slice outcome: add a scoped automatic append-only delta refinement path for local prepared
-  state reuse. The first executable consumer should be narrow: count/filter/project/limit or the
-  smallest prepared benchmark-range family that can read base plus delta artifacts correctly.
-  Runtime enablement:
-  ```text
-  existing SourceState + existing VortexPreparedState
-    -> changed local source recognized as append-only delta
-    -> delta SourceState
-    -> delta vortex_ingest
-    -> overlay/refinement manifest
-    -> prepared_vortex consumer for admitted scenario family
-  ```
-  User-visible surface: CLI/Python/benchmark rows expose base/delta source IDs, base/delta
-  prepared-state IDs, overlay manifest digest, changed ranges, refinement mode, reuse status,
-  correctness digest, and deterministic blockers.
-  Implementation scope: extend existing differential preparation evidence into a runtime refinement
-  manifest; add automatic append-only delta detection from source fingerprint, size/row-count
-  movement, schema digest, and parse-plan digest; reuse the base prepared artifact only when schema,
-  source family, update mode, and certificate evidence match; add a prepared consumer for the first
-  admitted overlay scenario family; add deterministic blockers for update, delete, upsert, schema
-  drift, missing base manifest, changed compression/format posture, and unsupported operators.
-  Evidence required: append-only delta fixture that avoids base reprepare; full-reprepare reference
-  fixture used only for correctness comparison in tests; schema-mismatch fixture that blocks;
-  update/delete/upsert fixtures that block; overlay consumer correctness digest parity for the
-  first admitted scenario family.
-  Acceptance: append-only local changes refine an existing prepared state without rebuilding the
-  base; the overlay manifest is explicit, digest-backed, and invalidatable; unsupported CDC shapes
-  block before prepared execution; no hidden mutation of the base prepared artifact occurs.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io differential_preparation --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io differential
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no broad CDC/table transaction support, no deletes/updates/upserts, no object-store
-  manifests, no production incremental-processing claim, and no performance claim.
-  Dependencies/blockers: depends on prepared-state reuse manifests from 6E-1, differential
-  preparation report fields, append-only source-change detection, overlay manifest semantics, and a
-  narrow prepared consumer that can validate base-plus-delta correctness without fallback.
-  Claim boundary: may claim only scoped local append-only prepared-state refinement for the
-  admitted scenario family.
-  Fallback boundary: decoded/full-reprepare reference paths may be used in tests only; runtime
-  refinement must remain ShardLoom-native with `fallback_attempted=false` and
-  `external_engine_invoked=false`.
-  Ledger rule: move completed details and validation output to the completed ledger.
-
-#### GAR-RUNTIME-IMPL-6F - Bidirectional Format Conversion And Output Fanout Performance Promotion
-
-Source: user-approved follow-through on output-conversion bottlenecks;
-`docs/architecture/io-reuse-and-fanout-architecture.md`,
-`docs/architecture/universal-input-contract.md`,
-`docs/architecture/compute-engine-flow-reference.md`, `docs/skills/translation-layer.md`,
-`docs/skills/streaming-zero-copy.md`, `docs/skills/vortex/vortex-native-output.md`, and
-`docs/skills/vortex/vortex-arrow-interop.md`.
-
-Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vortex, and
-feature-gated Parquet/Arrow IPC/Avro/ORC, but the compatibility-output path is still row-shaped in
-key places. `SqlLocalSourceOutputFormat::render_rows` and `encode_*_output_rows` repeatedly walk
-`Vec<Vec<(String, ScalarValue)>>` for each output target. Vortex output has a separate writer path,
-but downstream compatibility conversion can still pay repeated scalar formatting, repeated schema
-normalization, and duplicate per-sink materialization.
-
-Runtime enablement: this section promotes the output side of the route:
-
-```text
-VortexPreparedState / ResultState
-  -> ResultBatchState
-  -> sink-driven OutputPlan
-  -> shared fanout conversion DAG
-  -> SinkFormatState
-  -> SinkArtifact + replay/certificate/evidence
-```
-
-Performance objective: reduce repeated row rendering, repeated scalar conversion, duplicate fanout
-work, unnecessary materialization, sink write stalls, and metadata-loss ambiguity. These items may
-improve measured runtime only after benchmark evidence lands; until then they are
-optimization-enabling runtime work, not public speed claims.
-
-Implementation checklist, in required order:
-
-- [ ] GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary.
-  Source: output-conversion bottleneck review, translation-layer skill, streaming/zero-decode
-  skill, and Vortex-native output skill.
-  Current state: local result output is primarily row-shaped before compatibility sinks, causing
-  every sink to re-walk rows and re-normalize scalar values. Vortex output remains separate and
-  higher fidelity, but there is no shared columnar result boundary for all local sinks.
-  Next slice outcome: add a `ResultBatchState` or equivalent internal columnar result boundary
-  after execution and before output conversion. Compatibility sinks consume that boundary when
-  supported; CSV/JSONL remain late text materialization targets.
-  Runtime enablement: local SQL/Python/generated-output routes can produce one columnar result
-  state, then write Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, or JSONL from that state without
-  rebuilding the logical result per sink.
-  User-visible surface: evidence fields report `result_batch_state_status`,
-  `result_batch_state_digest`, `result_batch_state_layout`,
-  `result_batch_state_materialization_required`, `result_batch_state_decode_required`, and
-  per-sink conversion timing.
-  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`,
-  `shardloom-vortex/src/universal_format_io.rs`, `shardloom-vortex/src/vortex_ingest.rs` where
-  useful, Python result models, benchmark artifacts, and contract tests.
-  Evidence required: one-output and fanout fixtures proving identical output digests before/after;
-  row-shaped blocker evidence for unsupported schemas; no-fallback fields; per-sink timing
-  attribution.
-  Acceptance: at least one local flat scalar route writes multiple formats from one shared result
-  boundary; Vortex remains the highest-fidelity sink; unsupported nested/wide shapes block or
-  report explicitly.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io universal_format_io --lib
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no external engine writer, no Arrow-as-default execution substrate, no broad
-  nested-schema claim, no performance claim.
-  Dependencies/blockers: depends on stable result schema/digest semantics, existing local
-  SQL/Python/generated-output result rows, Vortex and universal-format writer coverage, Python
-  result model compatibility, and static artifact validators that can reject mixed row/columnar
-  evidence.
-  Claim boundary: may claim only a scoped local columnar output boundary with correctness
-  evidence.
-  Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`.
-  Ledger rule: move completed details to the completed ledger.
-- [ ] GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements.
-  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
-  `docs/skills/streaming-zero-copy.md`, and the compute-flow route model.
-  Current state: output planning records useful sink artifact fields, but execution does not yet
-  use sink requirements early enough to avoid producing unused or prematurely materialized
-  representations.
-  Next slice outcome: make every local sink declare required columns, ordering, type/nullability
-  support, dictionary/statistics needs, compression/encoding posture, replay depth, and
-  materialization requirements before result conversion begins.
-  Runtime enablement: planner can avoid building byte payloads, formatted strings, or decoded
-  scalar rows that no requested sink needs.
-  User-visible surface: `output_plan_materialization_required`, `output_plan_required_columns`,
-  `output_plan_ordering_required`, `output_plan_statistics_required`,
-  `output_plan_text_materialization_boundary`, and `output_plan_conversion_blocker`.
-  Implementation scope: OutputPlan evidence structs/helpers in CLI runtime, fanout planning,
-  Python fields, benchmark route rows, and static validators.
-  Evidence required: fixture where Parquet/Arrow/Vortex sinks avoid text rendering; fixture where
-  CSV/JSONL explicitly require late text materialization; unsupported schema diagnostics.
-  Acceptance: output plans explain why materialization happened or was avoided; sinks never
-  silently coerce unsupported data; route timing separates planning, conversion, write, replay, and
-  evidence.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_plan
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no object-store/table commit planning, no Iceberg/Delta transaction semantics, no
-  production sink claim.
-  Dependencies/blockers: depends on ResultBatchState or equivalent output boundary, existing
-  OutputPlan evidence fields, per-sink capability declarations, replay/certificate requirements,
-  and deterministic blockers for unsupported sink/type/materialization combinations.
-  Claim boundary: may claim only deterministic local sink materialization planning.
-  Fallback boundary: compatibility export is translation, never fallback execution.
-  Ledger rule: move completed details to the completed ledger.
-- [ ] GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG.
-  Source: fanout architecture, output-conversion bottleneck review, and translation-layer skill.
-  Current state: multi-output fanout can write several local sink artifacts, but each sink can
-  still trigger independent conversion/rendering work.
-  Next slice outcome: replace per-output independent rendering with a shared conversion DAG: one
-  result state, one schema/type normalization pass, one optional cast/nullability pass, then
-  format-specific terminal encoders.
-  Runtime enablement: `prepared_vortex` or local result routes can write Vortex + Parquet + Arrow
-  IPC + CSV/JSONL fanout while sharing all conversion stages that are semantically identical.
-  User-visible surface: `fanout_conversion_dag_status`, `fanout_shared_stage_count`,
-  `fanout_terminal_sink_count`, `fanout_shared_conversion_millis`,
-  `fanout_terminal_conversion_millis`, and `fanout_duplicate_conversion_avoided`.
-  Implementation scope: `prepare_sql_outputs`, `write_sql_outputs`, format encoders, sink artifact
-  evidence, benchmark fanout rows, Python fanout result envelopes.
-  Evidence required: fanout fixture proving shared stages are used; digest parity with old
-  per-sink rendering; one blocked fixture where sinks require incompatible materialization.
-  Acceptance: repeated schema/scalar normalization is done once per fanout plan where safe;
-  terminal sinks still emit separate artifacts, digests, replay statuses, and certificate
-  statuses.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no remote fanout, no table/lakehouse commits, no hidden sink batching that changes
-  output semantics.
-  Dependencies/blockers: depends on shared result boundary, sink-driven OutputPlan requirements,
-  terminal encoder parity tests, per-sink artifact/digest/replay evidence, and compatibility
-  blockers for sinks that require incompatible materialization.
-  Claim boundary: may claim scoped local shared fanout conversion, not benchmark speedup.
-  Fallback boundary: no DuckDB/Polars/Spark/DataFusion/Velox or Vortex query-engine integration.
-  Ledger rule: move completed details to the completed ledger.
-- [ ] GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission.
-  Source: `docs/architecture/pulseweave-runtime-control.md`, capillary I/O work, and output fanout
-  bottleneck review.
-  Current state: PulseWeave and capillary task evidence exist for prepared/local and
-  cold-preparation surfaces, but output conversion/write/replay stages are not yet first-class
-  scheduled capillary tasks.
-  Next slice outcome: represent output conversion as typed tasks: schema map, columnar export,
-  terminal encode, compression, local write, digest, replay, and evidence render.
-  Runtime enablement: large or multi-sink local outputs can use bounded output windows controlled
-  by FlowInventory, ScarcityLedger, EndoPulse, and ProofBound instead of unbounded per-sink
-  conversion.
-  User-visible surface: `output_capillary_status`, `output_capillary_task_roles`,
-  `output_capillary_window_count`, `output_sink_pressure_status`,
-  `output_memory_pressure_status`, and `pulseweave_output_policy_applied`.
-  Implementation scope: PulseWeave input task shapes, CLI output writer, shardloom-vortex format
-  encoders, benchmark output timing fields, Python envelope validation.
-  Evidence required: small-output fixture where capillary remains below threshold; large/fanout
-  fixture where output capillary scheduling applies; blocked fixture when certificates or replay
-  evidence are incomplete.
-  Acceptance: at least one local fanout route proves output conversion/write windows are actually
-  governed by capillary scheduling; blocked policy preserves existing safe behavior or fails
-  explicitly.
-  Verification:
-  ```bash
-  cargo test -p shardloom-exec pulseweave --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_capillary
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no distributed writer, no object-store sink, no real query-data spill, no performance
-  claim.
-  Dependencies/blockers: depends on output task shape definitions, PulseWeave ProofBound admission,
-  FlowInventory/ScarcityLedger/EndoPulse task-window controls, result/fanout conversion evidence,
-  and bounded-memory estimates for conversion/write/replay stages.
-  Claim boundary: may claim only certificate-gated local output work shaping.
-  Fallback boundary: PulseWeave cannot authorize external engine execution.
-  Ledger rule: move completed details to the completed ledger.
-- [ ] GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor.
-  Source: Vortex-native output skill, translation-layer skill, Parquet/ORC/Arrow
-  compatibility-output research, and existing layout/write advisor posture.
-  Current state: cold-ingest layout/write advisor exists, but compatibility-output writers do not
-  yet expose enough target-specific layout choices or metadata-preservation accounting to optimize
-  downstream conversion.
-  Next slice outcome: add an output-side layout/write advisor that starts advisory/report-only,
-  then admits one narrow local route when provider support, correctness, replay, and benchmark
-  evidence exist.
-  Runtime enablement: OutputPlan can choose or report safe settings for Vortex
-  chunk/layout/statistics, Parquet row groups/dictionary/statistics/compression, ORC stripe/index
-  posture, Arrow IPC batch/dictionary posture, and CSV/JSONL streaming chunk size.
-  User-visible surface: `output_layout_write_advisor_status`,
-  `output_layout_write_advisor_selected_strategy`,
-  `output_layout_write_advisor_runtime_decision_applied`, `output_metadata_preservation_map`, and
-  `output_metadata_loss`.
-  Implementation scope: output plan structs/evidence, Vortex writer request fields where
-  supported, universal-format encoders, benchmark markdown/artifact rows, Python result surfaces.
-  Evidence required: advisory rows for all local sink formats; one applied local route with
-  correctness/replay proof; blocked rows for unsupported provider choices; metadata-loss reports
-  for compatibility targets.
-  Acceptance: advisor never silently changes output semantics; one supported local route can apply
-  a write/layout choice; all other strategies remain explicit advisory or blocked statuses.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_layout
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no fitted Bayesian runtime model, no arbitrary layout rewrite, no broad
-  format-fidelity claim, no public benchmark claim.
-  Dependencies/blockers: depends on sink-driven OutputPlan requirements, provider capability
-  checks, Vortex/universal-format writer knobs that are actually supported, replay/correctness
-  fixtures, metadata-preservation accounting, and explicit blockers for advisory-only strategies.
-  Claim boundary: may claim only scoped local advisor evidence and one admitted route if
-  implemented.
-  Fallback boundary: unsupported layout/write choices block before execution.
-  Ledger rule: move completed details to the completed ledger.
-
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
-Current runtime ordering note (2026-05-26): prioritize engine-internal completion first. The
+Current runtime ordering note (updated 2026-06-02): the completed engine-internal queue remains
+recorded here as backstop context, but the active runtime sequence above now intentionally works 6E,
+then 6F, then the remaining 6D user-surface breadth before this residual 4/5-series queue unless a
+specific internal-engine item blocks the active route/reuse/output work. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
@@ -1293,8 +1316,8 @@ advanced scalar deterministic semantics closeout and `GAR-RUNTIME-IMPL-4D-F2` co
 deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery
 semantics closeout plus `GAR-RUNTIME-IMPL-5P` Foundry dev-stack generated-output and transform
 proof are complete and recorded in the ledger.
-The remaining internal-engine follow-ups below stay ahead of SQL/Python surface backstops,
-benchmark gates, and release usability.
+The remaining internal-engine follow-ups below are residual backstops after the active
+route/reuse/output and user-surface breadth sequence, not the current top runtime priority.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
