@@ -1163,6 +1163,153 @@ def joined_projected_quantified_subquery_case() -> SqlFixtureCase:
     )
 
 
+def correlated_joined_projected_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_in_subquery_semantics",
+        source_name="correlated-joined-projected-in-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN ("
+            "SELECT c.id FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_source_column": "c.id",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-in-candidates.csv",
+                "id,min_amount\n1,5\n1,99\n2,25\n3,20\n5,1\n",
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-in-allowed.csv",
+                "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+            ),
+        ),
+    )
+
+
+def correlated_joined_projected_row_value_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_row_value_in_subquery_semantics",
+        source_name="correlated-joined-projected-row-value-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) IN ("
+            "SELECT c.id,c.label FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "row_value_in_subquery",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_source_column": "c.id,c.label",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "2",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-row-value-candidates.csv",
+                "id,label,min_amount\n1,alpha,5\n1,alpha,99\n2,beta,25\n3,gamma,20\n5,epsilon,1\n",
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-row-value-allowed.csv",
+                "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+            ),
+        ),
+    )
+
+
+def correlated_joined_projected_quantified_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_quantified_subquery_semantics",
+        source_name="correlated-joined-projected-quantified-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE amount > ALL ("
+            "SELECT t.threshold FROM '{thresholds}' AS t INNER JOIN '{allowed}' AS a "
+            "ON t.threshold_id = a.threshold_id WHERE a.enabled IS TRUE AND t.id = outer.id "
+            "ORDER BY t.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "quantified_subquery",
+            "quantified_subquery_runtime_execution": "true",
+            "quantified_subquery_filter_runtime_execution": "true",
+            "quantified_subquery_quantifier": "all",
+            "quantified_subquery_comparison_operator": "gt",
+            "quantified_subquery_source_column": "t.threshold",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "id",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "3",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "thresholds",
+                "correlated-joined-projected-quantified-thresholds.csv",
+                (
+                    "id,threshold_id,threshold,score\n"
+                    "1,10,5,30\n"
+                    "1,20,9,20\n"
+                    "2,30,25,20\n"
+                    "3,40,20,40\n"
+                    "3,50,29,10\n"
+                    "5,60,1,50\n"
+                ),
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-quantified-allowed.csv",
+                "threshold_id,enabled\n10,true\n20,true\n30,true\n40,true\n50,true\n60,false\n",
+            ),
+        ),
+    )
+
+
 def nested_in_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="nested_in_subquery_semantics",
@@ -1939,6 +2086,9 @@ def executable_cases() -> list[SqlFixtureCase]:
         joined_projected_row_value_in_subquery_case(),
         grouped_having_projected_in_subquery_case(),
         joined_projected_quantified_subquery_case(),
+        correlated_joined_projected_in_subquery_case(),
+        correlated_joined_projected_row_value_in_subquery_case(),
+        correlated_joined_projected_quantified_subquery_case(),
         nested_in_subquery_case(),
         having_in_subquery_case(),
         having_exists_subquery_case(),

@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=54
-executable_fixture_count=44
+matrix_row_count=57
+executable_fixture_count=47
 unsupported_diagnostic_count=10
 property_lane_count=1
 property_seed_order=20260521
@@ -81,6 +81,9 @@ Covered fixture rows:
 - `joined_projected_row_value_in_subquery_semantics`
 - `grouped_having_projected_in_subquery_semantics`
 - `joined_projected_quantified_subquery_semantics`
+- `correlated_joined_projected_in_subquery_semantics`
+- `correlated_joined_projected_row_value_in_subquery_semantics`
+- `correlated_joined_projected_quantified_subquery_semantics`
 - `nested_in_subquery_semantics`
 - `having_in_subquery_semantics`
 - `having_exists_subquery_semantics`
@@ -107,12 +110,13 @@ Covered fixture rows:
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
 IN-subquery, nested scalar IN-subquery, row-value IN-subquery, source-qualified local subquery,
 scoped correlated `outer.<column>` local subquery filter, joined/grouped projected IN-subquery,
-projected row-value/quantified subquery, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level
-local subquery fixtures; external-oracle result artifact population; and fuzz execution beyond the
-deterministic seeded property lane. Decimal precision/scale, non-UTC timestamp/timezone database
-semantics, locale/collation, complex list/struct/variant/union dtype families, binary source
-decoding, binary casts/helper functions, scalar-left multi-column subqueries, and remaining broad
-correlated advanced subquery shapes now have deterministic unsupported diagnostics with no fallback.
+projected row-value/quantified subquery, correlated joined projected scalar/row-value/quantified
+subquery, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level local subquery fixtures;
+external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
+property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
+locale/collation, complex list/struct/variant/union dtype families, binary source decoding, binary
+casts/helper functions, scalar-left multi-column subqueries, and remaining non-admitted broad ANSI
+subquery shapes now have deterministic unsupported diagnostics with no fallback.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
