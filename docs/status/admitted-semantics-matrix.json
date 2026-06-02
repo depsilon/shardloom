@@ -459,7 +459,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics only; same-scale decimal add/subtract/multiply is tracked in the separate decimal_arithmetic_projection row; not decimal division, mixed-scale arithmetic/coercion, broad ANSI coercion, typed Parquet/Arrow/Vortex decimal sink preservation, performance, or production claim",
+      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, typed Parquet/Arrow/Vortex decimal sink preservation, performance, or production claim",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings and CSV emits exact decimal text; typed decimal sink preservation remains blocked",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -479,18 +479,18 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale decimal128 and integer operands only; not decimal division, mixed-scale decimal coercion, broad ANSI decimal arithmetic, typed decimal sink preservation, performance, or production claim",
-      "coercion_policy": "explicit CAST(column-or-literal AS decimal128/decimal/numeric(p,s)) produces exact fixed-scale Decimal128 operands; add/subtract align integer operands to the decimal scale; multiply preserves exact fixed-scale output when precision and scale remain within decimal128 bounds; mixed decimal scales and decimal division remain deterministic blockers",
+      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale and mixed-scale decimal128 operands, integer operands, mixed-scale decimal comparisons, and exact fixed-scale decimal division only; not broad ANSI decimal coercion, typed decimal sink preservation, performance, or production claim",
+      "coercion_policy": "explicit CAST(column-or-literal AS decimal128/decimal/numeric(p,s)) produces exact fixed-scale Decimal128 operands; add/subtract align operands to a common scale; multiply preserves exact fixed-scale output when precision and scale remain within decimal128 bounds; division emits decimal128(38,max(input_scales,6)) only when the quotient is exact at that scoped fixed output scale",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "decimal_arithmetic_projection",
       "input_dtype": "utf8,int64",
-      "invalid_input_behavior": "mixed-scale decimal add/subtract, decimal division, decimal arithmetic overflow, output precision overflow, invalid decimal text, and unsupported decimal arithmetic operands fail deterministically before fallback",
+      "invalid_input_behavior": "non-exact decimal division, decimal division by zero, decimal arithmetic overflow, output precision overflow, invalid decimal text, and unsupported decimal arithmetic operands fail deterministically before fallback",
       "null_policy": "decimal arithmetic is null-propagating and preserves the admitted decimal output dtype for typed NULL operands",
       "operator_family": "decimal128_arithmetic,generic_expression_projection,cast,numeric_binary",
       "oracle_boundary": "decoded_reference_only",
-      "output_dtype": "decimal128(11,2),decimal128(11,2)",
+      "output_dtype": "decimal128(12,3),decimal128(38,6),decimal128(12,3)",
       "property_seed": "not_applicable_fixed_fixture",
       "runtime_validation": "required",
       "source_format": "csv",

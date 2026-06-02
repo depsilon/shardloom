@@ -8236,7 +8236,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CAST(amount AS decimal128(10,2)) + 2 AS adjusted FROM 'target/input.csv' WHERE id >= 1 LIMIT 10",
+                    "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(amount AS decimal128(10,3)) AS adjusted,CAST(amount AS decimal128(10,2)) / 2 AS half FROM 'target/input.csv' WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST(amount AS decimal128(10,3)) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -8251,13 +8251,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"adjusted\\":\\"14.34\\"}\\n"},
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"adjusted\\":\\"24.680\\",\\"half\\":\\"6.170000\\"}\\n"},
                         {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "generic_expression_predicate_runtime_execution", "value": "true"},
                         {"key": "generic_expression_projection_runtime_execution", "value": "true"},
-                        {"key": "generic_expression_projection_source_column", "value": "amount"},
-                        {"key": "generic_expression_projection_output_column", "value": "adjusted"},
-                        {"key": "generic_expression_projection_operator_family", "value": "cast+numeric_binary"},
-                        {"key": "generic_expression_projection_binary_operator_count", "value": "1"},
+                        {"key": "generic_expression_projection_source_column", "value": "amount,amount"},
+                        {"key": "generic_expression_projection_output_column", "value": "adjusted,half"},
+                        {"key": "generic_expression_projection_operator_family", "value": "cast+numeric_binary,cast+numeric_binary"},
+                        {"key": "generic_expression_projection_binary_operator_count", "value": "2"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -8273,22 +8274,32 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.read_csv("target/input.csv")
             .select("id")
             .with_column(
-                "adjusted", sl.col("amount").cast("decimal128(10,2)") + 2
+                "adjusted",
+                sl.col("amount").cast("decimal128(10,2)")
+                + sl.col("amount").cast("decimal128(10,3)"),
             )
-            .filter(sl.col("id") >= 1)
+            .with_column(
+                "half",
+                sl.col("amount").cast("decimal128(10,2)") / 2,
+            )
+            .filter(
+                sl.col("amount").cast("decimal128(10,2)") + 0
+                >= sl.col("amount").cast("decimal128(10,3)")
+            )
             .limit(10)
             .collect()
         )
 
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertTrue(report.generic_expression_projection_runtime_execution)
-        self.assertEqual(report.generic_expression_projection_source_columns, ("amount",))
-        self.assertEqual(report.generic_expression_projection_output_columns, ("adjusted",))
+        self.assertTrue(report.generic_expression_predicate_runtime_execution)
+        self.assertEqual(report.generic_expression_projection_source_columns, ("amount", "amount"))
+        self.assertEqual(report.generic_expression_projection_output_columns, ("adjusted", "half"))
         self.assertEqual(
             report.generic_expression_projection_operator_families,
-            ("cast+numeric_binary",),
+            ("cast+numeric_binary", "cast+numeric_binary"),
         )
-        self.assertEqual(report.generic_expression_projection_binary_operator_count, 1)
+        self.assertEqual(report.generic_expression_projection_binary_operator_count, 2)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

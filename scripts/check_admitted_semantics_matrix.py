@@ -207,7 +207,17 @@ def no_fallback_blockers(payload: dict[str, Any], label: str) -> list[str]:
 
 
 def run_subprocess(*, repo_root: Path, command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=repo_root, text=True, capture_output=True, check=False)
+    env = os.environ.copy()
+    if command and command[0] == "cargo":
+        env.setdefault("CARGO_INCREMENTAL", "0")
+    return subprocess.run(
+        command,
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
 
 
 def locate_binary(repo_root: Path, explicit: Path | None) -> Path:
@@ -630,23 +640,27 @@ def decimal_arithmetic_projection_case() -> SqlFixtureCase:
         source_text="id,amount\n1,12.34\n2,15.50\n3,21.25\n",
         statement_template=(
             "SELECT id,CAST(amount AS decimal128(10,2)) + "
-            "CAST('1.25' AS decimal128(10,2)) AS adjusted,"
-            "CAST(amount AS decimal128(10,2)) * 2 AS doubled "
-            "FROM '{source}' WHERE id >= 1 LIMIT 10"
+            "CAST('1.250' AS decimal128(10,3)) AS adjusted,"
+            "CAST(amount AS decimal128(10,2)) / 2 AS half,"
+            "CAST(amount AS decimal128(10,2)) * CAST('1.5' AS decimal128(2,1)) AS scaled "
+            "FROM '{source}' "
+            "WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.340' AS decimal128(10,3)) "
+            "LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"adjusted":"13.59","doubled":"24.68"}\n'
-            '{"id":2,"adjusted":"16.75","doubled":"31.00"}\n'
-            '{"id":3,"adjusted":"22.50","doubled":"42.50"}\n'
+            '{"id":1,"adjusted":"13.590","half":"6.170000","scaled":"18.510"}\n'
+            '{"id":2,"adjusted":"16.750","half":"7.750000","scaled":"23.250"}\n'
+            '{"id":3,"adjusted":"22.500","half":"10.625000","scaled":"31.875"}\n'
         ),
         expected_fields={
             "sql_statement_kind": "local_source_computed_projection_filter_limit",
+            "generic_expression_predicate_runtime_execution": "true",
             "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_source_column": "amount,amount",
-            "generic_expression_projection_output_column": "adjusted,doubled",
-            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary",
-            "generic_expression_projection_binary_operator_count": "2",
-            "projected_columns": "id,adjusted,doubled",
+            "generic_expression_projection_source_column": "amount,amount,amount",
+            "generic_expression_projection_output_column": "adjusted,half,scaled",
+            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary,cast+numeric_binary",
+            "generic_expression_projection_binary_operator_count": "3",
+            "projected_columns": "id,adjusted,half,scaled",
             "claim_gate_status": "fixture_smoke_only",
         },
     )
