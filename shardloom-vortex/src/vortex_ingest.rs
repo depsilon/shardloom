@@ -178,6 +178,56 @@ impl VortexPreparedStateReuseRequest {
             certification_level: certification_level.into(),
         })
     }
+
+    /// Create a local prepared-state reuse request for a deterministic
+    /// generated/source-free input. The generated source has no physical source
+    /// file to fingerprint, so callers must provide the stable source digest
+    /// and generated-source byte count that will fail-closed on source kind,
+    /// schema, row, plan, or output-policy drift.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] when the generated source
+    /// reference is empty or local artifact paths cannot be resolved.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_generated_local(
+        generated_source_ref: impl Into<String>,
+        prepared_artifact_path: impl AsRef<Path>,
+        manifest_path: impl Into<PathBuf>,
+        source_format: impl Into<String>,
+        source_content_digest: impl Into<String>,
+        source_size_bytes: u64,
+        source_schema_digest: impl Into<String>,
+        parse_decode_plan_digest: impl Into<String>,
+        selected_columns: impl Into<String>,
+        output_policy: impl Into<String>,
+        provider_version: impl Into<String>,
+        feature_gates: impl Into<String>,
+        certification_level: impl Into<String>,
+    ) -> Result<Self> {
+        let generated_source_ref = generated_source_ref.into();
+        if generated_source_ref.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "generated prepared-state reuse source reference must not be empty; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        Ok(Self {
+            source_path: PathBuf::from(generated_source_ref),
+            manifest_path: absolute_local_path(manifest_path.into())?,
+            prepared_artifact_path: absolute_local_path(prepared_artifact_path.as_ref())?,
+            source_format: source_format.into(),
+            source_content_digest: source_content_digest.into(),
+            source_size_bytes,
+            source_mtime_ns: "not_applicable_generated_source".to_string(),
+            source_schema_digest: Some(source_schema_digest.into()),
+            parse_decode_plan_digest: parse_decode_plan_digest.into(),
+            selected_columns: selected_columns.into(),
+            output_policy: output_policy.into(),
+            provider_version: provider_version.into(),
+            feature_gates: feature_gates.into(),
+            certification_level: certification_level.into(),
+        })
+    }
 }
 
 impl VortexPreparedStateReuseReport {

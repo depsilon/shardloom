@@ -246,13 +246,18 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(stdout.contains(&field(
         "prepared_state_reuse_scope",
-        "generated_source_vortex_artifact_manifest_not_yet_admitted"
+        "artifact_adjacent_manifest_local_vortex_artifacts"
     )));
     assert!(stdout.contains(&field(
         "prepared_state_reuse_reason",
-        "generated_source_vortex_prepared_state_created_manifest_not_yet_admitted"
+        "prepared_state_created_after_no_reuse_manifest"
     )));
-    assert!(stdout.contains(&field("prepared_state_reuse_manifest_digest", "none")));
+    assert!(stdout.contains("\"prepared_state_reuse_manifest_path\",\"value\":\""));
+    assert!(stdout.contains("\"prepared_state_reuse_manifest_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field(
+        "prepared_state_invalidation_reason",
+        "no_reuse_manifest"
+    )));
     assert!(stdout.contains(&field(
         "vortex_output_timing_scope",
         "vortex_ingest_prepare_once"
@@ -266,7 +271,105 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    let manifest_path = output_path
+        .parent()
+        .expect("output path parent")
+        .join(".shardloom")
+        .join(format!(
+            "{}.prepared-state-reuse.manifest",
+            output_path
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .expect("file name")
+        ));
+    assert!(manifest_path.exists());
     fs::remove_file(output_path).expect("remove vortex output");
+    fs::remove_file(manifest_path).expect("remove generated-source reuse manifest");
+}
+
+#[test]
+#[cfg(feature = "vortex-write")]
+fn generated_source_vortex_output_reuses_artifact_adjacent_manifest_without_rewrite() {
+    let output_path =
+        unique_output_path_with_extension("generated-user-rows-vortex-reuse", "vortex");
+    let args = [
+        "generated-source-user-rows-smoke",
+        output_path.to_str().expect("temp path is utf8"),
+        "id:int64,label:utf8,score:float64",
+        "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25",
+        "--output-format",
+        "vortex",
+        "--format",
+        "json",
+    ];
+    let first = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(args)
+        .output()
+        .expect("first generated-source Vortex command runs");
+    assert!(
+        first.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&first.stdout),
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let first_stdout = String::from_utf8(first.stdout).expect("stdout is utf8");
+    assert!(first_stdout.contains(&field("prepared_state_created", "true")));
+    assert!(first_stdout.contains(&field("prepared_state_reused", "false")));
+    assert!(first_stdout.contains(&field("prepared_state_reuse_hit", "false")));
+    assert!(first_stdout.contains(&field(
+        "prepared_state_reuse_reason",
+        "prepared_state_created_after_no_reuse_manifest"
+    )));
+    assert!(first_stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(first_stdout.contains(&field("upstream_vortex_scan_called", "true")));
+
+    let second = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(args)
+        .output()
+        .expect("second generated-source Vortex command runs");
+    assert!(
+        second.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let second_stdout = String::from_utf8(second.stdout).expect("stdout is utf8");
+    assert!(second_stdout.contains(&field("prepared_state_created", "false")));
+    assert!(second_stdout.contains(&field("prepared_state_reused", "true")));
+    assert!(second_stdout.contains(&field("prepared_state_reuse_hit", "true")));
+    assert!(second_stdout.contains(&field(
+        "prepared_state_reuse_scope",
+        "artifact_adjacent_manifest_local_vortex_artifacts"
+    )));
+    assert!(second_stdout.contains(&field(
+        "prepared_state_reuse_reason",
+        "manifest_fingerprints_match"
+    )));
+    assert!(second_stdout.contains(&field("prepared_state_invalidation_reason", "none")));
+    assert!(second_stdout.contains(&field("vortex_output_runtime_execution", "false")));
+    assert!(second_stdout.contains(&field(
+        "vortex_output_timing_scope",
+        "prepared_state_reuse_manifest"
+    )));
+    assert!(second_stdout.contains(&field("upstream_vortex_write_called", "false")));
+    assert!(second_stdout.contains(&field("upstream_vortex_scan_called", "false")));
+    assert!(second_stdout.contains(&field("output_overwrite_performed", "false")));
+    assert!(second_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(second_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let manifest_path = output_path
+        .parent()
+        .expect("output path parent")
+        .join(".shardloom")
+        .join(format!(
+            "{}.prepared-state-reuse.manifest",
+            output_path
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .expect("file name")
+        ));
+    fs::remove_file(output_path).expect("remove vortex output");
+    fs::remove_file(manifest_path).expect("remove generated-source reuse manifest");
 }
 
 #[test]

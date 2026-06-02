@@ -257,9 +257,10 @@ object-store/table output support, production SQL/DataFrame support, or a perfor
 `prepared_state_invalidation_reason` through typed properties. It prepares the raw local source
 before query operators; use `.write_vortex(...)` when the desired artifact is a query-result sink.
 Generated-source `prepare_vortex(...)` uses the existing generated-source Vortex writer and returns
-a `GeneratedSourceWriteReport` with `prepared_state_created` and reuse-boundary fields. It does not
-claim a generated-source manifest reuse hit yet; the report says that generated-source artifact
-manifests are not admitted instead of hiding a cache decision.
+a `GeneratedSourceWriteReport` with `prepared_state_created` and manifest-backed reuse fields.
+Repeated compatible generated-source preparation reuses the caller-owned local `.vortex` artifact
+through the artifact-adjacent manifest, reports `prepared_state_reuse_hit=true`, and skips the
+writer/reopen path when schema, row payload, plan, policy, and artifact fingerprints still match.
 When capillary preparation is admitted, the report exposes
 `vortex_capillary_preparation_prewrite_status`,
 `vortex_capillary_preparation_prewrite_scheduler_applied`, and pre-write gate fields for array
