@@ -70,9 +70,17 @@ Differential preparation means updating or overlaying a `VortexPreparedState` fr
 delta, rather than rebuilding the whole prepared artifact when only a small part of the source
 changed.
 
-Required future evidence includes base and delta `SourceState` identifiers, base prepared-state
-identity, delta manifest digest, changed byte/row/segment ranges, update mode, schema compatibility,
-tombstone/delete/update policy, replay/correctness digest, and deterministic invalidation reasons.
+The scoped local runtime path now includes automatic append-only refinement for artifact-adjacent
+prepared-state reuse manifests. When a local CSV/JSONL source changes by appending bytes, ShardLoom
+can verify that the old source bytes are the current source prefix, write only a delta source and
+delta Vortex artifact, attach a digest-backed refinement manifest, and admit the count-family
+consumer over base manifest row count plus delta reopen row count. The base prepared artifact is not
+rewritten.
+
+Required evidence includes base and delta `SourceState` identifiers, base prepared-state identity,
+delta manifest digest, refinement manifest path/digest, changed byte/row/segment ranges, update
+mode, schema compatibility, tombstone/delete/update policy, replay/correctness digest, automatic
+detection status, overlay consumer status, and deterministic invalidation reasons.
 
 This is inspired by CDC overlays, materialized-view maintenance, content-addressed manifests, and
 repair/checksum systems. It is not a broad CDC/table-transaction claim.

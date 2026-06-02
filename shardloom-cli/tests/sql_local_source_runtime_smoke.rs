@@ -24,6 +24,22 @@ fn unique_path(name: &str, extension: &str) -> PathBuf {
     ))
 }
 
+#[cfg(feature = "vortex-write")]
+fn unique_dir(name: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock after unix epoch")
+        .as_nanos();
+    let counter = UNIQUE_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!(
+        "shardloom-{name}-{}-{counter}-{nanos}",
+        std::process::id(),
+    ));
+    let _ = fs::remove_dir_all(&path);
+    fs::create_dir_all(&path).expect("create unique dir");
+    path
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -701,6 +717,116 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
     fs::remove_file(delta_source_path).expect("remove delta source csv");
     fs::remove_file(target_path).expect("remove base vortex");
     fs::remove_file(delta_target_path).expect("remove delta vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_automatically_refines_append_only_source_drift() {
+    let root = unique_dir("vortex-ingest-auto-refinement");
+    let source_path = root.join("input.csv");
+    let target_path = root.join("prepared.vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n")
+        .expect("write base source csv");
+
+    let first = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("first vortex-ingest-smoke command runs");
+    assert!(
+        first.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&first.stdout),
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let base_artifact = fs::read(&target_path).expect("read base artifact after first prepare");
+
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("append source csv");
+    let second = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("second vortex-ingest-smoke command runs");
+
+    assert!(
+        second.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert!(
+        second.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        fs::read(&target_path).expect("read base artifact after refinement"),
+        base_artifact,
+        "automatic refinement must not rewrite the base prepared artifact"
+    );
+
+    let stdout = String::from_utf8(second.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_status",
+        "prepared_state_refined_from_append_only_delta"
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_base_reprepare_performed", "false")));
+    assert!(stdout.contains(&field("vortex_ingest_delta_prepare_performed", "true")));
+    assert!(stdout.contains(&field("prepared_state_refined", "true")));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_refinement_status",
+        "admitted_append_only_refinement"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_automatic_detection_status",
+        "append_only_delta_detected"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_status",
+        "admitted_append_only_delta_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_base_row_count",
+        "2"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_delta_row_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_refinement_manifest_written",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_overlay_consumer_family",
+        "count"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_overlay_consumer_status",
+        "admitted_base_manifest_plus_delta_reopen_row_count"
+    )));
+    assert!(stdout.contains(&field("refined_row_count", "3")));
+    assert!(stdout.contains(&field("overlay_consumer_row_count", "3")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(root).expect("remove auto refinement root");
 }
 
 #[cfg(feature = "vortex-write")]

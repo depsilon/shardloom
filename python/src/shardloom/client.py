@@ -1402,6 +1402,106 @@ class VortexIngestSmokeReport:
         )
 
     @property
+    def vortex_differential_preparation_refinement_status(self) -> str | None:
+        """Return automatic differential refinement admission status."""
+
+        return self.envelope.field("vortex_differential_preparation_refinement_status")
+
+    @property
+    def vortex_differential_preparation_refinement_mode(self) -> str | None:
+        """Return the differential refinement mode."""
+
+        return self.envelope.field("vortex_differential_preparation_refinement_mode")
+
+    @property
+    def vortex_differential_preparation_automatic_detection_status(
+        self,
+    ) -> str | None:
+        """Return automatic append-only detection status."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_automatic_detection_status"
+        )
+
+    @property
+    def vortex_differential_preparation_blocker_id(self) -> str | None:
+        """Return the deterministic differential/refinement blocker, when any."""
+
+        return self.envelope.field("vortex_differential_preparation_blocker_id")
+
+    @property
+    def vortex_differential_preparation_refinement_manifest_path(
+        self,
+    ) -> str | None:
+        """Return the automatic refinement manifest path, when emitted."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_refinement_manifest_path"
+        )
+
+    @property
+    def vortex_differential_preparation_refinement_manifest_digest(
+        self,
+    ) -> str | None:
+        """Return the automatic refinement manifest digest, when emitted."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_refinement_manifest_digest"
+        )
+
+    @property
+    def vortex_differential_preparation_refinement_manifest_written(self) -> bool:
+        """Whether the automatic refinement manifest was written."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_differential_preparation_refinement_manifest_written",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_differential_preparation_refined_prepared_state_id(
+        self,
+    ) -> str | None:
+        """Return the logical refined prepared-state id."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_refined_prepared_state_id"
+        )
+
+    @property
+    def vortex_differential_preparation_overlay_consumer_family(
+        self,
+    ) -> str | None:
+        """Return the first admitted overlay consumer family."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_overlay_consumer_family"
+        )
+
+    @property
+    def vortex_differential_preparation_overlay_consumer_status(
+        self,
+    ) -> str | None:
+        """Return the overlay consumer admission status."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_overlay_consumer_status"
+        )
+
+    @property
+    def vortex_differential_preparation_overlay_consumer_correctness_digest(
+        self,
+    ) -> str | None:
+        """Return the overlay consumer correctness digest."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_overlay_consumer_correctness_digest"
+        )
+
+    @property
     def source_io_performed(self) -> bool:
         """Whether source I/O was performed by the smoke."""
 

@@ -2390,6 +2390,7 @@ struct VortexIngestReport {
 enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
     Reused(Box<VortexPreparedStateReuseCliReport>),
+    Refined(Box<VortexPreparedStateRefinementCliReport>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2397,6 +2398,20 @@ struct VortexPreparedStateReuseCliReport {
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
     reuse_report: shardloom_vortex::VortexPreparedStateReuseReport,
+    evaluation_millis: u128,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct VortexPreparedStateRefinementCliReport {
+    request: VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
+    reuse_report: shardloom_vortex::VortexPreparedStateReuseReport,
+    refinement_decision: shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
+    delta_report: VortexIngestReport,
+    differential_preparation: shardloom_vortex::VortexDifferentialPreparationReport,
+    refinement_manifest: shardloom_vortex::VortexDifferentialRefinementManifestReport,
+    refined_prepared_state_id: String,
+    refined_prepared_state_digest: String,
     evaluation_millis: u128,
 }
 
@@ -2742,6 +2757,27 @@ pub(crate) fn handle_vortex_ingest_smoke(
             );
             ExitCode::SUCCESS
         }
+        VortexIngestOutcome::Refined(report) => {
+            let differential_blocked = !report.differential_preparation.is_admitted();
+            emit(
+                VORTEX_INGEST_COMMAND,
+                format,
+                if differential_blocked {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                report.summary(),
+                report.to_text(),
+                Vec::new(),
+                report.fields(),
+            );
+            if differential_blocked {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
     }
 }
 
@@ -2882,6 +2918,16 @@ fn run_vortex_ingest_prepare_once(
         )));
     }
 
+    if let Some(refined) = run_vortex_ingest_append_only_refinement(
+        &request,
+        source_adapter.clone(),
+        &reuse_request,
+        &reuse_decision,
+        evaluation_millis,
+    )? {
+        return Ok(VortexIngestOutcome::Refined(Box::new(refined)));
+    }
+
     let mut report = run_vortex_ingest_prepare_once_with_adapter(request, source_adapter)?;
     let certificate_refs = format!(
         "source_state={};prepared_state={};artifact={};native_io={}",
@@ -2900,6 +2946,8 @@ fn run_vortex_ingest_prepare_once(
             source_state_id: report.source_state_id.clone(),
             source_state_digest: report.source_state_digest.clone(),
             source_schema_digest: report.source_schema_digest.clone(),
+            source_row_count: report.vortex_report.row_count,
+            source_column_family_summary: report.vortex_report.column_family_summary(),
             prepared_state_id: report.prepared_state_id.clone(),
             prepared_state_digest: report.prepared_state_digest.clone(),
             prepared_artifact_digest: report.vortex_report.artifact_digest.clone(),
@@ -2910,6 +2958,107 @@ fn run_vortex_ingest_prepare_once(
     )?;
     report.prepared_state_reuse = Some(manifest_report);
     Ok(VortexIngestOutcome::Prepared(Box::new(report)))
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_vortex_ingest_append_only_refinement(
+    request: &VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
+    reuse_request: &shardloom_vortex::VortexPreparedStateReuseRequest,
+    reuse_decision: &shardloom_vortex::VortexPreparedStateReuseReport,
+    evaluation_millis: u128,
+) -> Result<Option<VortexPreparedStateRefinementCliReport>, ShardLoomError> {
+    if !matches!(
+        reuse_decision.reason.as_str(),
+        "source_content_digest_changed" | "source_size_bytes_changed"
+    ) {
+        return Ok(None);
+    }
+    if request.certification_level
+        != shardloom_vortex::VortexIngestCertificationLevel::IngestCertified
+    {
+        return Ok(None);
+    }
+    let refinement_decision =
+        shardloom_vortex::evaluate_vortex_prepared_state_append_only_refinement(reuse_request)?;
+    if !refinement_decision.is_admitted() {
+        return Ok(None);
+    }
+
+    let delta_source_path = write_automatic_append_only_delta_source(
+        &request.source_path,
+        source_adapter.source_format,
+        &refinement_decision,
+    )?;
+    let delta_target_path = automatic_append_only_delta_target_path(
+        &request.target_path,
+        &refinement_decision.current_source_content_digest,
+    )?;
+    let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
+        source_path: delta_source_path,
+        target_path: delta_target_path,
+        allow_overwrite: true,
+        certification_level: request.certification_level,
+        delta: None,
+    })
+    .map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "vortex_ingest automatic append-only delta refinement failed while preparing delta source for '{}': {error}; no fallback execution was attempted",
+            request.source_path.display()
+        ))
+    })?;
+
+    let differential_preparation = differential_preparation_report_from_refinement(
+        &refinement_decision,
+        &delta_report,
+        request,
+    );
+    let refined_prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}|{}",
+        refinement_decision.base_prepared_state_digest,
+        delta_report.prepared_state_digest,
+        differential_preparation.overlay_manifest_digest,
+        refinement_decision.base_source_row_count,
+        delta_report.vortex_report.row_count
+    ));
+    let refined_prepared_state_id = format!(
+        "vortex-prepared-state-refinement-{}",
+        refined_prepared_state_digest.replace(':', "-")
+    );
+    let overlay_consumer_correctness_digest = fnv64_digest(&format!(
+        "count_consumer|base_rows={}|delta_rows={}|refined_rows={}|base={}|delta={}|overlay={}",
+        refinement_decision.base_source_row_count,
+        delta_report.vortex_report.row_count,
+        refinement_decision.base_source_row_count + delta_report.vortex_report.row_count,
+        refinement_decision.base_prepared_state_digest,
+        delta_report.prepared_state_digest,
+        differential_preparation.overlay_manifest_digest
+    ));
+    let refinement_manifest_path =
+        shardloom_vortex::vortex_differential_refinement_manifest_path(&request.target_path)?;
+    let refinement_manifest = shardloom_vortex::write_vortex_differential_refinement_manifest(
+        refinement_manifest_path,
+        &refinement_decision,
+        &differential_preparation,
+        refined_prepared_state_id.clone(),
+        refined_prepared_state_digest.clone(),
+        "count".to_string(),
+        "admitted_base_manifest_plus_delta_reopen_row_count".to_string(),
+        overlay_consumer_correctness_digest,
+    )?;
+
+    Ok(Some(VortexPreparedStateRefinementCliReport {
+        request: request.clone(),
+        source_adapter,
+        reuse_report: reuse_decision.clone(),
+        refinement_decision,
+        delta_report,
+        differential_preparation,
+        refinement_manifest,
+        refined_prepared_state_id,
+        refined_prepared_state_digest,
+        evaluation_millis,
+    }))
 }
 
 fn run_vortex_ingest_prepare_once_without_reuse(
@@ -3033,6 +3182,223 @@ fn differential_preparation_report(
             native_io_certificate_refs,
         },
     )
+}
+
+fn differential_preparation_report_from_refinement(
+    refinement: &shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
+    delta: &VortexIngestReport,
+    request: &VortexIngestRequest,
+) -> shardloom_vortex::VortexDifferentialPreparationReport {
+    let delta_segment_refs = delta.prepared_artifact_segment_refs();
+    let changed_row_range_refs = format!(
+        "{}#rows={}..{}",
+        request.source_path.display(),
+        refinement.base_source_row_count,
+        refinement.base_source_row_count + delta.vortex_report.row_count
+    );
+    let delta_manifest_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}|{}|automatic_append_only_refinement",
+        delta.source_state_digest,
+        delta.prepared_state_digest,
+        delta.vortex_report.artifact_digest,
+        refinement.changed_byte_range_refs,
+        changed_row_range_refs
+    ));
+    let native_io_certificate_refs = format!(
+        "base_prepared_state={};base_manifest={};delta_prepared_state={};delta_artifact={};refinement=count_consumer",
+        refinement.base_prepared_state_id,
+        refinement.manifest_path.display(),
+        delta.prepared_state_id,
+        delta.request.target_path.display()
+    );
+
+    shardloom_vortex::evaluate_vortex_differential_preparation(
+        shardloom_vortex::VortexDifferentialPreparationInput {
+            update_mode: shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly,
+            base_source_state_id: refinement.base_source_state_id.clone(),
+            base_source_state_digest: refinement.base_source_state_digest.clone(),
+            base_prepared_state_id: refinement.base_prepared_state_id.clone(),
+            base_prepared_state_digest: refinement.base_prepared_state_digest.clone(),
+            base_row_count: refinement.base_source_row_count,
+            base_schema_digest: refinement.base_source_schema_digest.clone(),
+            base_column_family_summary: refinement.base_source_column_family_summary.clone(),
+            delta_source_state_id: delta.source_state_id.clone(),
+            delta_source_state_digest: delta.source_state_digest.clone(),
+            delta_row_count: delta.vortex_report.row_count,
+            delta_schema_digest: delta.source_schema_digest.clone(),
+            delta_column_family_summary: delta.vortex_report.column_family_summary(),
+            delta_manifest_digest,
+            changed_byte_range_refs: refinement.changed_byte_range_refs.clone(),
+            changed_row_range_refs,
+            changed_segment_refs: delta_segment_refs,
+            delta_artifact_ref: delta.request.target_path.display().to_string(),
+            delta_artifact_digest: delta.vortex_report.artifact_digest.clone(),
+            native_io_certificate_refs,
+        },
+    )
+}
+
+fn automatic_append_only_delta_target_path(
+    base_target_path: &Path,
+    current_source_digest: &str,
+) -> Result<PathBuf, ShardLoomError> {
+    let target_path =
+        normalize_local_vortex_ingest_target_path(&base_target_path.display().to_string())?;
+    let file_name = target_path
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "automatic append-only delta target requires a local file name for '{}'; no fallback execution was attempted",
+                target_path.display()
+            ))
+        })?;
+    let parent = target_path.parent().unwrap_or_else(|| Path::new("."));
+    Ok(parent.join(".shardloom").join(format!(
+        "{file_name}.append-only-delta-{}.vortex",
+        current_source_digest.replace(':', "-")
+    )))
+}
+
+fn automatic_append_only_delta_source_path(
+    source_path: &Path,
+    source_format: LocalSourceFormat,
+    current_source_digest: &str,
+) -> Result<PathBuf, ShardLoomError> {
+    let source_path = if source_path.is_absolute() {
+        source_path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(source_path))
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to resolve automatic append-only delta source '{}': {error}; no fallback execution was attempted",
+                    source_path.display()
+                ))
+            })?
+    };
+    let file_name = source_path
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "automatic append-only delta source requires a local file name for '{}'; no fallback execution was attempted",
+                source_path.display()
+            ))
+        })?;
+    let parent = source_path.parent().unwrap_or_else(|| Path::new("."));
+    let extension = match source_format {
+        LocalSourceFormat::Csv => "csv",
+        LocalSourceFormat::JsonLines => "jsonl",
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "automatic append-only refinement supports CSV/JSONL delta sidecars only for the current slice, not {}; no fallback execution was attempted",
+                source_format.as_str()
+            )));
+        }
+    };
+    Ok(parent.join(".shardloom").join(format!(
+        "{file_name}.append-only-delta-{}.{}",
+        current_source_digest.replace(':', "-"),
+        extension
+    )))
+}
+
+fn write_automatic_append_only_delta_source(
+    source_path: &Path,
+    source_format: LocalSourceFormat,
+    refinement: &shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
+) -> Result<PathBuf, ShardLoomError> {
+    let bytes = fs::read(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read automatic append-only refinement source '{}': {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_start = usize::try_from(refinement.delta_byte_start).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "automatic append-only delta byte offset does not fit usize; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    if delta_start >= bytes.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "automatic append-only refinement found no delta bytes for '{}'; no fallback execution was attempted",
+            source_path.display()
+        )));
+    }
+    let content = std::str::from_utf8(&bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "automatic append-only refinement requires UTF-8 local text source '{}': {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_text = std::str::from_utf8(&bytes[delta_start..]).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "automatic append-only refinement delta bytes are not UTF-8 for '{}': {error}; no fallback execution was attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_path = automatic_append_only_delta_source_path(
+        source_path,
+        source_format,
+        &refinement.current_source_content_digest,
+    )?;
+    let parent = delta_path.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "automatic append-only delta source path '{}' has no parent; no fallback execution was attempted",
+            delta_path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create automatic append-only delta source directory '{}': {error}; no fallback execution was attempted",
+            parent.display()
+        ))
+    })?;
+
+    let delta_payload = match source_format {
+        LocalSourceFormat::Csv => {
+            let header_end = content.find('\n').ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "automatic CSV append-only refinement requires a header line in '{}'; no fallback execution was attempted",
+                    source_path.display()
+                ))
+            })?;
+            let header = content[..header_end].trim_end_matches('\r');
+            let body = delta_text.trim_start_matches(['\n', '\r']);
+            if body.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "automatic CSV append-only refinement found only empty delta rows in '{}'; no fallback execution was attempted",
+                    source_path.display()
+                )));
+            }
+            format!("{header}\n{body}")
+        }
+        LocalSourceFormat::JsonLines => {
+            let body = delta_text.trim_start_matches(['\n', '\r']);
+            if body.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "automatic JSONL append-only refinement found only empty delta rows in '{}'; no fallback execution was attempted",
+                    source_path.display()
+                )));
+            }
+            body.to_string()
+        }
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "automatic append-only refinement supports CSV/JSONL sources only for this slice, not {}; no fallback execution was attempted",
+                source_format.as_str()
+            )));
+        }
+    };
+    fs::write(&delta_path, delta_payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write automatic append-only delta source '{}': {error}; no fallback execution was attempted",
+            delta_path.display()
+        ))
+    })?;
+    Ok(delta_path)
 }
 
 fn scout_ingress_report(
@@ -4817,6 +5183,508 @@ impl VortexPreparedStateReuseCliReport {
     }
 }
 
+impl VortexPreparedStateRefinementCliReport {
+    fn summary(&self) -> String {
+        format!(
+            "vortex_ingest refined prepared Vortex artifact {} with append-only delta {}",
+            self.refinement_decision.prepared_artifact_ref.display(),
+            self.delta_report.request.target_path.display()
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn fields(&self) -> Vec<(String, String)> {
+        let refined_row_count = self.refinement_decision.base_source_row_count
+            + self.delta_report.vortex_report.row_count;
+        let mut fields = vec![
+            (
+                "schema_version".to_string(),
+                VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+            ),
+            ("execution_mode".to_string(), "prepared_vortex".to_string()),
+            (
+                "selected_execution_mode".to_string(),
+                "prepared_vortex".to_string(),
+            ),
+            ("engine_mode".to_string(), "batch".to_string()),
+            ("runtime_execution".to_string(), "true".to_string()),
+            (
+                "support_status".to_string(),
+                "fixture_smoke_supported".to_string(),
+            ),
+            ("source_io_performed".to_string(), "true".to_string()),
+            (
+                "source_io_scope".to_string(),
+                "append_only_delta_detection_and_delta_prepare".to_string(),
+            ),
+            (
+                "source_kind".to_string(),
+                "local_non_vortex_file".to_string(),
+            ),
+            (
+                "source_format".to_string(),
+                self.source_adapter.source_format.as_str().to_string(),
+            ),
+            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inference_kind".to_string(),
+                LocalInputAdapterSelection::inference_kind().to_string(),
+            ),
+            (
+                "source_format_inference_extension".to_string(),
+                self.source_adapter.source_extension_field(),
+            ),
+            (
+                "source_format_inference_registry_route".to_string(),
+                LocalInputAdapterSelection::inference_registry_route().to_string(),
+            ),
+            (
+                "source_adapter_id".to_string(),
+                self.source_adapter.source_format.adapter_id().to_string(),
+            ),
+            (
+                "source_adapter_registry_entry_id".to_string(),
+                self.source_adapter
+                    .source_format
+                    .adapter_registry_entry_id()
+                    .to_string(),
+            ),
+            (
+                "source_adapter_status".to_string(),
+                "smoke_supported".to_string(),
+            ),
+            (
+                "source_adapter_admitted_extensions".to_string(),
+                self.source_adapter
+                    .source_format
+                    .admitted_extensions()
+                    .to_string(),
+            ),
+            (
+                "source_adapter_feature_gate".to_string(),
+                self.source_adapter.source_format.feature_gate().to_string(),
+            ),
+            (
+                "source_adapter_boundary".to_string(),
+                self.source_adapter
+                    .source_format
+                    .adapter_boundary()
+                    .to_string(),
+            ),
+            (
+                "source_adapter_selection_reason".to_string(),
+                LocalInputAdapterSelection::selection_reason().to_string(),
+            ),
+            (
+                "source_adapter_blocker_id".to_string(),
+                "none_scoped_vortex_ingest_smoke_only".to_string(),
+            ),
+            ("ingress_route".to_string(), "vortex_ingest".to_string()),
+            (
+                "ingress_route_label".to_string(),
+                "Vortex ingest / automatic append-only refinement route".to_string(),
+            ),
+            ("ingress_status".to_string(), "smoke_supported".to_string()),
+            (
+                "ingress_certification_level".to_string(),
+                self.request.certification_level.as_str().to_string(),
+            ),
+            ("vortex_ingest_performed".to_string(), "true".to_string()),
+            (
+                "vortex_ingest_status".to_string(),
+                "prepared_state_refined_from_append_only_delta".to_string(),
+            ),
+            (
+                "vortex_ingest_blocker_id".to_string(),
+                "none_append_only_delta_refinement".to_string(),
+            ),
+            (
+                "vortex_ingest_base_reprepare_performed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_ingest_delta_prepare_performed".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepared_state_id".to_string(),
+                self.refined_prepared_state_id.clone(),
+            ),
+            (
+                "prepared_state_digest".to_string(),
+                self.refined_prepared_state_digest.clone(),
+            ),
+            ("prepared_state_created".to_string(), "false".to_string()),
+            ("prepared_state_reused".to_string(), "true".to_string()),
+            ("prepared_state_refined".to_string(), "true".to_string()),
+            (
+                "prepared_state_reuse_allowed".to_string(),
+                "true".to_string(),
+            ),
+            ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "prepared_state_reuse_reason".to_string(),
+                self.reuse_report.reason.clone(),
+            ),
+            (
+                "execution_route_label".to_string(),
+                "Prepared Vortex append-only refinement route".to_string(),
+            ),
+            (
+                "certification_policy".to_string(),
+                format!(
+                    "scoped_vortex_ingest_lifecycle_{}",
+                    self.request.certification_level.as_str()
+                ),
+            ),
+            (
+                "certification_status".to_string(),
+                "fixture_smoke_certified".to_string(),
+            ),
+            (
+                "certification_blocker_id".to_string(),
+                "not_claim_grade_fixture_smoke".to_string(),
+            ),
+            (
+                "source_path".to_string(),
+                self.request.source_path.display().to_string(),
+            ),
+            (
+                "source_bytes".to_string(),
+                self.refinement_decision
+                    .current_source_size_bytes
+                    .to_string(),
+            ),
+            (
+                "source_digest".to_string(),
+                self.refinement_decision
+                    .current_source_content_digest
+                    .clone(),
+            ),
+            (
+                "source_fingerprint_kind".to_string(),
+                "local_file_content_digest_append_only_refinement".to_string(),
+            ),
+            (
+                "source_state_id".to_string(),
+                format!(
+                    "source-state-refinement-{}",
+                    self.refined_prepared_state_digest.replace(':', "-")
+                ),
+            ),
+            (
+                "source_state_digest".to_string(),
+                fnv64_digest(&format!(
+                    "{}|{}|{}",
+                    self.refinement_decision.base_source_state_digest,
+                    self.delta_report.source_state_digest,
+                    self.differential_preparation.overlay_manifest_digest
+                )),
+            ),
+            (
+                "source_state_contract_schema_version".to_string(),
+                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "local_input_adapter_registry_version".to_string(),
+                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
+            ),
+            (
+                "source_state_read_plan".to_string(),
+                "base_manifest_plus_delta_source_state".to_string(),
+            ),
+            (
+                "source_state_read_plan_reason".to_string(),
+                "append_only_refinement_reads_delta_only_after_base_manifest_prefix_verification"
+                    .to_string(),
+            ),
+            (
+                "source_state_requested_columns".to_string(),
+                "all_columns".to_string(),
+            ),
+            (
+                "source_state_projection_pushdown_status".to_string(),
+                "not_requested_append_only_delta_refinement".to_string(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                "base_not_materialized_delta_prepared".to_string(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                "delta_only_parse_after_append_only_prefix_verification".to_string(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                self.delta_report
+                    .source
+                    .columnar_source_preserved
+                    .to_string(),
+            ),
+            (
+                "source_state_record_batch_count".to_string(),
+                self.delta_report.source.record_batch_count.to_string(),
+            ),
+            ("source_state_reuse_allowed".to_string(), "true".to_string()),
+            ("source_state_reuse_hit".to_string(), "true".to_string()),
+            (
+                "source_state_reuse_reason".to_string(),
+                "base_source_state_manifest_reused_delta_source_state_prepared".to_string(),
+            ),
+            (
+                "source_schema_digest".to_string(),
+                self.refinement_decision.base_source_schema_digest.clone(),
+            ),
+            (
+                "target_vortex_path".to_string(),
+                self.request.target_path.display().to_string(),
+            ),
+            (
+                "vortex_artifact_ref".to_string(),
+                self.refinement_decision
+                    .prepared_artifact_ref
+                    .display()
+                    .to_string(),
+            ),
+            (
+                "vortex_artifact_digest".to_string(),
+                self.refinement_decision.prepared_artifact_digest.clone(),
+            ),
+            (
+                "prepared_artifact_ref".to_string(),
+                self.refinement_decision
+                    .prepared_artifact_ref
+                    .display()
+                    .to_string(),
+            ),
+            (
+                "prepared_artifact_digest".to_string(),
+                self.refinement_decision.prepared_artifact_digest.clone(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            ("vortex_prepare_included".to_string(), "true".to_string()),
+            (
+                "vortex_base_prepare_included".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_delta_prepare_included".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "vortex_write_reopen_included".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "compatibility_import_included".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "preparation_included_in_timing".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "query_timing_starts_after_preparation".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "timing_scope".to_string(),
+                "automatic_append_only_delta_refinement".to_string(),
+            ),
+            (
+                "certification_level".to_string(),
+                self.request.certification_level.as_str().to_string(),
+            ),
+            (
+                "warm_query_timing_included".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_once_millis".to_string(),
+                (self.evaluation_millis + self.delta_report.prepare_once_total_millis).to_string(),
+            ),
+            (
+                "source_read_millis".to_string(),
+                self.delta_report.source.read_millis.to_string(),
+            ),
+            (
+                "compatibility_parse_millis".to_string(),
+                self.delta_report
+                    .source
+                    .compatibility_parse_millis
+                    .to_string(),
+            ),
+            (
+                "source_to_columnar_millis".to_string(),
+                self.delta_report
+                    .source
+                    .source_to_columnar_millis
+                    .to_string(),
+            ),
+            (
+                "vortex_array_build_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.array_build_micros),
+            ),
+            (
+                "vortex_ingest_millis".to_string(),
+                self.delta_report.prepare_once_total_millis.to_string(),
+            ),
+            (
+                "vortex_write_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.write_micros),
+            ),
+            (
+                "vortex_digest_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.digest_micros),
+            ),
+            (
+                "vortex_reopen_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
+            ),
+            (
+                "vortex_reopen_verify_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
+            ),
+            (
+                "vortex_scan_millis".to_string(),
+                micros_to_millis_string(self.delta_report.vortex_report.reopen_scan_micros),
+            ),
+            ("warm_query_millis".to_string(), "0".to_string()),
+            (
+                "evidence_render_millis".to_string(),
+                self.delta_report.evidence_render_millis.to_string(),
+            ),
+            (
+                "total_runtime_millis".to_string(),
+                (self.evaluation_millis
+                    + self.delta_report.prepare_once_total_millis
+                    + self.delta_report.evidence_render_millis)
+                    .to_string(),
+            ),
+            ("input_row_count".to_string(), refined_row_count.to_string()),
+            (
+                "writer_row_count".to_string(),
+                self.delta_report.vortex_report.writer_row_count.to_string(),
+            ),
+            (
+                "reopen_row_count".to_string(),
+                self.delta_report.vortex_report.reopen_row_count.to_string(),
+            ),
+            (
+                "refined_row_count".to_string(),
+                refined_row_count.to_string(),
+            ),
+            (
+                "overlay_consumer_row_count".to_string(),
+                refined_row_count.to_string(),
+            ),
+            (
+                "reopen_verification_status".to_string(),
+                "base_manifest_verified_delta_reopen_row_count_verified".to_string(),
+            ),
+            (
+                "vortex_artifact_bytes".to_string(),
+                self.refinement_decision
+                    .prepared_artifact_size_bytes
+                    .to_string(),
+            ),
+            (
+                "source_backed_scan_evidence_status".to_string(),
+                "base_manifest_plus_delta_reopen_count_consumer".to_string(),
+            ),
+            (
+                "materialization_boundary".to_string(),
+                "base_not_materialized_delta_only_prepared".to_string(),
+            ),
+            (
+                "legacy_materialization_boundary".to_string(),
+                "base_not_materialized_delta_only_prepared".to_string(),
+            ),
+            ("data_decoded".to_string(), "true".to_string()),
+            ("data_materialized".to_string(), "true".to_string()),
+            (
+                "source_native_io_certificate_status".to_string(),
+                "base_manifest_prefix_verified_delta_source_prepared".to_string(),
+            ),
+            (
+                "native_io_certificate_status".to_string(),
+                "certified_local_vortex_append_only_refinement".to_string(),
+            ),
+            (
+                "output_native_io_certificate_status".to_string(),
+                "not_requested".to_string(),
+            ),
+            (
+                "upstream_vortex_write_called".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "upstream_vortex_scan_called".to_string(),
+                self.delta_report
+                    .vortex_report
+                    .upstream_vortex_scan_called
+                    .to_string(),
+            ),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "claim_gate_reason".to_string(),
+                "one_scoped_local_vortex_ingest_append_only_refinement_smoke".to_string(),
+            ),
+            ("performance_claim_allowed".to_string(), "false".to_string()),
+            ("production_claim_allowed".to_string(), "false".to_string()),
+            (
+                "sql_dataframe_runtime_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "object_store_lakehouse_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+        ];
+        apply_prepared_state_reuse_fields(&mut fields, &self.reuse_report);
+        set_cli_field(&mut fields, "prepared_state_reused", "true");
+        set_cli_field(&mut fields, "prepared_state_refined", "true");
+        set_cli_field(
+            &mut fields,
+            "prepared_state_id",
+            self.refined_prepared_state_id.clone(),
+        );
+        set_cli_field(
+            &mut fields,
+            "prepared_state_digest",
+            self.refined_prepared_state_digest.clone(),
+        );
+        fields.extend(self.refinement_decision.evidence_fields());
+        fields.extend(self.differential_preparation.evidence_fields());
+        fields.extend(self.refinement_manifest.evidence_fields());
+        fields
+    }
+
+    fn to_text(&self) -> String {
+        format!(
+            "ShardLoom vortex_ingest append-only refinement\nsource: {}\nbase target: {}\ndelta target: {}\nrefined prepared state: {}\noverlay manifest: {}\nfallback execution: disabled",
+            self.request.source_path.display(),
+            self.request.target_path.display(),
+            self.delta_report.request.target_path.display(),
+            self.refined_prepared_state_id,
+            self.refinement_manifest.manifest_path.display()
+        )
+    }
+}
+
 fn apply_prepared_state_reuse_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexPreparedStateReuseReport,
@@ -4856,6 +5724,10 @@ fn set_cli_field(fields: &mut Vec<(String, String)>, key: &str, value: impl Into
     } else {
         fields.push((key.to_string(), value.into()));
     }
+}
+
+fn micros_to_millis_string(value: u128) -> String {
+    (value / 1_000).to_string()
 }
 
 #[allow(clippy::too_many_lines)]
@@ -32299,6 +33171,7 @@ mod tests {
         let first_report = match first {
             VortexIngestOutcome::Prepared(report) => report,
             VortexIngestOutcome::Reused(_) => panic!("first run must prepare"),
+            VortexIngestOutcome::Refined(_) => panic!("first run must not refine"),
         };
         let first_fields = field_map(first_report.fields());
         assert_field_eq(&first_fields, "vortex_ingest_performed", "true");
@@ -32330,6 +33203,7 @@ mod tests {
         let second_report = match second {
             VortexIngestOutcome::Reused(report) => report,
             VortexIngestOutcome::Prepared(_) => panic!("second run must reuse"),
+            VortexIngestOutcome::Refined(_) => panic!("second run must not refine"),
         };
         let second_fields = field_map(second_report.fields());
         assert_field_eq(&second_fields, "vortex_ingest_performed", "false");
@@ -32361,7 +33235,7 @@ mod tests {
 
     #[cfg(feature = "vortex-write")]
     #[test]
-    fn vortex_ingest_manifest_source_drift_reprepares_fail_closed() {
+    fn vortex_ingest_manifest_append_only_source_drift_refines_without_base_reprepare() {
         let root = vortex_ingest_reuse_test_root("drift");
         let source = root.join("input.csv");
         let target = root.join("prepared.vortex");
@@ -32374,6 +33248,7 @@ mod tests {
         ))
         .expect("first vortex_ingest run writes artifact");
         assert!(matches!(first, VortexIngestOutcome::Prepared(_)));
+        let base_artifact = fs::read(&target).expect("read base artifact");
 
         fs::write(&source, "id,label,amount\n1,alpha,10\n2,beta,99\n").expect("mutate source");
         let second = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
@@ -32381,26 +33256,41 @@ mod tests {
             target.clone(),
             true,
         ))
-        .expect("changed source reprepares with overwrite permission");
+        .expect("changed append-only source refines without base reprepare");
         let second_report = match second {
-            VortexIngestOutcome::Prepared(report) => report,
+            VortexIngestOutcome::Refined(report) => report,
+            VortexIngestOutcome::Prepared(_) => panic!("append-only drift must refine"),
             VortexIngestOutcome::Reused(_) => panic!("source drift must not reuse"),
         };
         let second_fields = field_map(second_report.fields());
+        assert_eq!(
+            fs::read(&target).expect("read base artifact after refinement"),
+            base_artifact
+        );
         assert_field_eq(&second_fields, "vortex_ingest_performed", "true");
-        assert_field_eq(&second_fields, "prepared_state_created", "true");
-        assert_field_eq(&second_fields, "prepared_state_reused", "false");
+        assert_field_eq(
+            &second_fields,
+            "vortex_ingest_status",
+            "prepared_state_refined_from_append_only_delta",
+        );
+        assert_field_eq(&second_fields, "prepared_state_created", "false");
+        assert_field_eq(&second_fields, "prepared_state_reused", "true");
+        assert_field_eq(&second_fields, "prepared_state_refined", "true");
         assert_field_eq(&second_fields, "prepared_state_reuse_hit", "false");
         assert_field_eq(
             &second_fields,
             "prepared_state_invalidation_reason",
             "source_content_digest_changed",
         );
-        assert_eq!(
-            second_fields
-                .get("prepared_state_reuse_reason")
-                .map(String::as_str),
-            Some("prepared_state_created_after_source_content_digest_changed")
+        assert_field_eq(
+            &second_fields,
+            "vortex_differential_preparation_refinement_status",
+            "admitted_append_only_refinement",
+        );
+        assert_field_eq(
+            &second_fields,
+            "vortex_differential_preparation_overlay_consumer_family",
+            "count",
         );
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");

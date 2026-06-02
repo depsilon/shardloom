@@ -867,8 +867,15 @@ VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION = (
 )
 VORTEX_DIFFERENTIAL_PREPARATION_STATUS_VOCABULARY = (
     "admitted_append_only_delta_overlay",
+    "admitted_append_only_refinement",
     "not_requested",
     "blocked_missing_base_identity",
+    "blocked_missing_base_manifest",
+    "blocked_reuse_manifest_digest_mismatch",
+    "blocked_current_source_not_larger",
+    "blocked_source_prefix_digest_mismatch",
+    "blocked_append_boundary_not_line_aligned",
+    "blocked_changed_compression_or_format_posture",
     "blocked_update_mode_policy",
     "blocked_schema_mismatch",
     "blocked_empty_delta_manifest",
@@ -881,8 +888,19 @@ VORTEX_DIFFERENTIAL_PREPARATION_FIELDS = (
     "vortex_differential_preparation_schema_version",
     "vortex_differential_preparation_status",
     "vortex_differential_preparation_update_mode",
+    "vortex_differential_preparation_refinement_schema_version",
+    "vortex_differential_preparation_refinement_mode",
+    "vortex_differential_preparation_refinement_status",
+    "vortex_differential_preparation_refinement_policy",
+    "vortex_differential_preparation_automatic_detection_status",
+    "vortex_differential_preparation_automatic_detection_reason",
+    "vortex_differential_preparation_blocker_id",
     "vortex_differential_preparation_base_source_state_id",
     "vortex_differential_preparation_base_source_state_digest",
+    "vortex_differential_preparation_base_source_content_digest",
+    "vortex_differential_preparation_current_source_content_digest",
+    "vortex_differential_preparation_base_source_size_bytes",
+    "vortex_differential_preparation_current_source_size_bytes",
     "vortex_differential_preparation_base_prepared_state_id",
     "vortex_differential_preparation_base_prepared_state_digest",
     "vortex_differential_preparation_base_row_count",
@@ -890,6 +908,14 @@ VORTEX_DIFFERENTIAL_PREPARATION_FIELDS = (
     "vortex_differential_preparation_delta_source_state_digest",
     "vortex_differential_preparation_delta_row_count",
     "vortex_differential_preparation_delta_manifest_digest",
+    "vortex_differential_preparation_refinement_manifest_path",
+    "vortex_differential_preparation_refinement_manifest_digest",
+    "vortex_differential_preparation_refinement_manifest_written",
+    "vortex_differential_preparation_refined_prepared_state_id",
+    "vortex_differential_preparation_refined_prepared_state_digest",
+    "vortex_differential_preparation_overlay_consumer_family",
+    "vortex_differential_preparation_overlay_consumer_status",
+    "vortex_differential_preparation_overlay_consumer_correctness_digest",
     "vortex_differential_preparation_overlay_manifest_digest",
     "vortex_differential_preparation_changed_byte_range_refs",
     "vortex_differential_preparation_changed_row_range_refs",
@@ -14097,7 +14123,8 @@ def vortex_differential_preparation_contract() -> dict[str, Any]:
         ),
         "current_scope": (
             "scoped local append-only delta artifact overlays with base/delta fingerprints, "
-            "schema compatibility, replay proof, Native I/O posture, and no-fallback evidence"
+            "automatic append-only refinement admission, schema compatibility, replay proof, "
+            "count-consumer correctness evidence, Native I/O posture, and no-fallback evidence"
         ),
         "non_goals": [
             "broad CDC or table transactions",
@@ -14114,9 +14141,11 @@ def vortex_differential_preparation_contract() -> dict[str, Any]:
         ),
         "claim_boundary": (
             "VortexDifferentialPreparation evidence is scoped local append-only overlay evidence "
-            "only. It links base and delta SourceState/VortexPreparedState fingerprints without "
-            "proving broad CDC, table transactions, update/delete/upsert, object-store/lakehouse, "
-            "production, performance, SQL/DataFrame, or Spark-replacement readiness."
+            "only. It can prove automatic local append-only prepared-state refinement for the "
+            "admitted count-family consumer when the old source is a verified prefix of the new "
+            "source, without proving broad CDC, table transactions, update/delete/upsert, "
+            "object-store/lakehouse, production, performance, SQL/DataFrame, or Spark-replacement "
+            "readiness."
         ),
     }
 
@@ -14995,6 +15024,18 @@ def vortex_differential_preparation_matrix(
                 "vortex_differential_preparation_update_mode": metrics.get(
                     "vortex_differential_preparation_update_mode"
                 ),
+                "vortex_differential_preparation_refinement_status": metrics.get(
+                    "vortex_differential_preparation_refinement_status"
+                ),
+                "vortex_differential_preparation_refinement_mode": metrics.get(
+                    "vortex_differential_preparation_refinement_mode"
+                ),
+                "vortex_differential_preparation_automatic_detection_status": metrics.get(
+                    "vortex_differential_preparation_automatic_detection_status"
+                ),
+                "vortex_differential_preparation_blocker_id": metrics.get(
+                    "vortex_differential_preparation_blocker_id"
+                ),
                 "vortex_differential_preparation_base_prepared_state_id": metrics.get(
                     "vortex_differential_preparation_base_prepared_state_id"
                 ),
@@ -15003,6 +15044,24 @@ def vortex_differential_preparation_matrix(
                 ),
                 "vortex_differential_preparation_delta_manifest_digest": metrics.get(
                     "vortex_differential_preparation_delta_manifest_digest"
+                ),
+                "vortex_differential_preparation_refinement_manifest_digest": metrics.get(
+                    "vortex_differential_preparation_refinement_manifest_digest"
+                ),
+                "vortex_differential_preparation_refinement_manifest_written": metrics.get(
+                    "vortex_differential_preparation_refinement_manifest_written"
+                ),
+                "vortex_differential_preparation_refined_prepared_state_id": metrics.get(
+                    "vortex_differential_preparation_refined_prepared_state_id"
+                ),
+                "vortex_differential_preparation_overlay_consumer_family": metrics.get(
+                    "vortex_differential_preparation_overlay_consumer_family"
+                ),
+                "vortex_differential_preparation_overlay_consumer_status": metrics.get(
+                    "vortex_differential_preparation_overlay_consumer_status"
+                ),
+                "vortex_differential_preparation_overlay_consumer_correctness_digest": metrics.get(
+                    "vortex_differential_preparation_overlay_consumer_correctness_digest"
                 ),
                 "vortex_differential_preparation_overlay_manifest_digest": metrics.get(
                     "vortex_differential_preparation_overlay_manifest_digest"
@@ -21557,9 +21616,19 @@ def render_vortex_differential_preparation_matrix(artifact: dict[str, Any]) -> s
                 str(row.get("execution_mode", "unknown")),
                 str(row.get("vortex_differential_preparation_status", "unknown")),
                 str(row.get("vortex_differential_preparation_update_mode", "unknown")),
+                str(row.get("vortex_differential_preparation_refinement_status", "not_requested")),
+                str(row.get("vortex_differential_preparation_refinement_mode", "not_requested")),
+                str(row.get("vortex_differential_preparation_automatic_detection_status", "not_requested")),
+                str(row.get("vortex_differential_preparation_blocker_id", "none")),
                 str(row.get("vortex_differential_preparation_base_prepared_state_id", "none")),
                 str(row.get("vortex_differential_preparation_delta_row_count", 0)),
                 str(row.get("vortex_differential_preparation_delta_manifest_digest", "none")),
+                str(row.get("vortex_differential_preparation_refinement_manifest_digest", "none")),
+                str(row.get("vortex_differential_preparation_refinement_manifest_written", False)),
+                str(row.get("vortex_differential_preparation_refined_prepared_state_id", "none")),
+                str(row.get("vortex_differential_preparation_overlay_consumer_family", "none")),
+                str(row.get("vortex_differential_preparation_overlay_consumer_status", "none")),
+                str(row.get("vortex_differential_preparation_overlay_consumer_correctness_digest", "none")),
                 str(row.get("vortex_differential_preparation_overlay_manifest_digest", "none")),
                 str(row.get("vortex_differential_preparation_changed_row_range_refs", "none")).replace("|", "\\|"),
                 str(row.get("vortex_differential_preparation_schema_compatibility_status", "unknown")),
@@ -21583,8 +21652,18 @@ def render_vortex_differential_preparation_matrix(artifact: dict[str, Any]) -> s
                 "none",
                 "report_only",
                 "not_requested",
+                "not_requested",
+                "not_requested",
+                "not_requested",
+                "none",
                 "none",
                 "0",
+                "none",
+                "none",
+                "false",
+                "none",
+                "none",
+                "none",
                 "none",
                 "none",
                 "none",
@@ -21608,9 +21687,19 @@ def render_vortex_differential_preparation_matrix(artifact: dict[str, Any]) -> s
             "Mode",
             "Differential status",
             "Update mode",
+            "Refinement status",
+            "Refinement mode",
+            "Auto detection",
+            "Blocker",
             "Base prepared state",
             "Delta rows",
             "Delta manifest",
+            "Refinement manifest",
+            "Manifest written",
+            "Refined prepared state",
+            "Consumer",
+            "Consumer status",
+            "Consumer digest",
             "Overlay manifest",
             "Changed rows",
             "Schema compatibility",

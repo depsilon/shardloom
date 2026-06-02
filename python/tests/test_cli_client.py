@@ -2478,6 +2478,17 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_differential_preparation_delta_artifact_written", "value": "true"},
                         {"key": "vortex_differential_preparation_native_io_certificate_status", "value": "certified_local_vortex_differential_preparation_overlay"},
                         {"key": "vortex_differential_preparation_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay"},
+                        {"key": "vortex_differential_preparation_refinement_status", "value": "admitted_append_only_refinement"},
+                        {"key": "vortex_differential_preparation_refinement_mode", "value": "automatic_append_only_delta"},
+                        {"key": "vortex_differential_preparation_automatic_detection_status", "value": "append_only_delta_detected"},
+                        {"key": "vortex_differential_preparation_blocker_id", "value": "none"},
+                        {"key": "vortex_differential_preparation_refinement_manifest_path", "value": "target/.shardloom/base.vortex.differential-refinement.manifest"},
+                        {"key": "vortex_differential_preparation_refinement_manifest_digest", "value": "fnv64:manifest"},
+                        {"key": "vortex_differential_preparation_refinement_manifest_written", "value": "true"},
+                        {"key": "vortex_differential_preparation_refined_prepared_state_id", "value": "vortex-prepared-state-refinement"},
+                        {"key": "vortex_differential_preparation_overlay_consumer_family", "value": "count"},
+                        {"key": "vortex_differential_preparation_overlay_consumer_status", "value": "admitted_base_manifest_plus_delta_reopen_row_count"},
+                        {"key": "vortex_differential_preparation_overlay_consumer_correctness_digest", "value": "fnv64:consumer"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
@@ -2516,6 +2527,46 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             result.vortex_differential_preparation_no_standalone_lane_status,
             "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_refinement_status,
+            "admitted_append_only_refinement",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_refinement_mode,
+            "automatic_append_only_delta",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_automatic_detection_status,
+            "append_only_delta_detected",
+        )
+        self.assertEqual(result.vortex_differential_preparation_blocker_id, "none")
+        self.assertEqual(
+            result.vortex_differential_preparation_refinement_manifest_path,
+            "target/.shardloom/base.vortex.differential-refinement.manifest",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_refinement_manifest_digest,
+            "fnv64:manifest",
+        )
+        self.assertTrue(
+            result.vortex_differential_preparation_refinement_manifest_written
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_refined_prepared_state_id,
+            "vortex-prepared-state-refinement",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_overlay_consumer_family,
+            "count",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_overlay_consumer_status,
+            "admitted_base_manifest_plus_delta_reopen_row_count",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_overlay_consumer_correctness_digest,
+            "fnv64:consumer",
         )
 
     def test_context_prepare_vortex_dispatches_vortex_ingest_smoke(self) -> None:

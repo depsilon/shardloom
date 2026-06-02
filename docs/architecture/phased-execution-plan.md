@@ -184,10 +184,11 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6E-3 runtime-admitted local layout/write advisor closeout.
+Updated after the GAR-RUNTIME-IMPL-6E-4 automatic append-only differential prepared-state
+refinement closeout.
 
-1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation remains active through
-   `GAR-RUNTIME-IMPL-6E-4` cracking-style differential prepared-state refinement.
+1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
+   evidence; proceed to output/fanout route promotion.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
@@ -296,62 +297,6 @@ decision. Otherwise it preserves the existing ShardLoom-native path or fails wit
 diagnostics.
 
 Implementation checklist, in required order:
-
-- [ ] GAR-RUNTIME-IMPL-6E-4 cracking-style differential prepared-state refinement.
-  Source: `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/architecture/io-reuse-and-fanout-architecture.md`, Database Cracking research, and the
-  existing `vortex_differential_preparation_*` report surface.
-  Current state: `vortex_ingest` can report append-only differential preparation and blocks
-  update/delete/upsert/schema mismatch cases. The next useful step is automatic refinement: when a
-  local source changes in an append-only way, ShardLoom should prepare only the delta and attach an
-  overlay/refinement manifest instead of rebuilding the base prepared state.
-  Next slice outcome: add a scoped automatic append-only delta refinement path for local prepared
-  state reuse. The first executable consumer should be narrow: count/filter/project/limit or the
-  smallest prepared benchmark-range family that can read base plus delta artifacts correctly.
-  Runtime enablement:
-  ```text
-  existing SourceState + existing VortexPreparedState
-    -> changed local source recognized as append-only delta
-    -> delta SourceState
-    -> delta vortex_ingest
-    -> overlay/refinement manifest
-    -> prepared_vortex consumer for admitted scenario family
-  ```
-  User-visible surface: CLI/Python/benchmark rows expose base/delta source IDs, base/delta
-  prepared-state IDs, overlay manifest digest, changed ranges, refinement mode, reuse status,
-  correctness digest, and deterministic blockers.
-  Implementation scope: extend existing differential preparation evidence into a runtime refinement
-  manifest; add automatic append-only delta detection from source fingerprint, size/row-count
-  movement, schema digest, and parse-plan digest; reuse the base prepared artifact only when schema,
-  source family, update mode, and certificate evidence match; add a prepared consumer for the first
-  admitted overlay scenario family; add deterministic blockers for update, delete, upsert, schema
-  drift, missing base manifest, changed compression/format posture, and unsupported operators.
-  Evidence required: append-only delta fixture that avoids base reprepare; full-reprepare reference
-  fixture used only for correctness comparison in tests; schema-mismatch fixture that blocks;
-  update/delete/upsert fixtures that block; overlay consumer correctness digest parity for the
-  first admitted scenario family.
-  Acceptance: append-only local changes refine an existing prepared state without rebuilding the
-  base; the overlay manifest is explicit, digest-backed, and invalidatable; unsupported CDC shapes
-  block before prepared execution; no hidden mutation of the base prepared artifact occurs.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io differential_preparation --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io differential
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no broad CDC/table transaction support, no deletes/updates/upserts, no object-store
-  manifests, no production incremental-processing claim, and no performance claim.
-  Dependencies/blockers: depends on prepared-state reuse manifests from 6E-1, differential
-  preparation report fields, append-only source-change detection, overlay manifest semantics, and a
-  narrow prepared consumer that can validate base-plus-delta correctness without fallback.
-  Claim boundary: may claim only scoped local append-only prepared-state refinement for the
-  admitted scenario family.
-  Fallback boundary: decoded/full-reprepare reference paths may be used in tests only; runtime
-  refinement must remain ShardLoom-native with `fallback_attempted=false` and
-  `external_engine_invoked=false`.
-  Ledger rule: move completed details and validation output to the completed ledger.
 
 #### GAR-RUNTIME-IMPL-6F - Bidirectional Format Conversion And Output Fanout Performance Promotion
 
