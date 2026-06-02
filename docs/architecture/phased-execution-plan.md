@@ -512,9 +512,15 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
   scalar values with exact byte-count/hex evidence and no fallback; binary source decoding, binary
   casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
+  Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
+  admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
+  `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
+  runtime evidence as the admitted SQL routes, including correlated `outer.<column>` HAVING
+  predicates, and keep non-admitted joined or broader derived-table builder shapes outside this
+  slice.
   Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
-  blocker refinement, scalar-left multi-column subquery ergonomics, additional front-door parity over
-  admitted routes, or decimal/timezone/locale blocker refinement.
+  blocker refinement, scalar-left multi-column subquery ergonomics, decimal/timezone/locale blocker
+  refinement, or another front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

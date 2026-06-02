@@ -432,6 +432,8 @@ class ColumnExpression:
         *,
         source_alias: object | None = None,
         where: object | None = None,
+        group_by: object | None = None,
+        having: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
         limit: int | None = None,
@@ -442,6 +444,8 @@ class ColumnExpression:
         source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
         tail = _sql_in_subquery_tail(
             where=where,
+            group_by=group_by,
+            having=having,
             order_by=order_by,
             descending=descending,
             limit=limit,
@@ -458,6 +462,8 @@ class ColumnExpression:
         *,
         source_alias: object | None = None,
         where: object | None = None,
+        group_by: object | None = None,
+        having: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
         limit: int | None = None,
@@ -472,6 +478,8 @@ class ColumnExpression:
             column,
             source_alias=source_alias,
             where=where,
+            group_by=group_by,
+            having=having,
             order_by=order_by,
             descending=descending,
             limit=limit,
@@ -485,6 +493,8 @@ class ColumnExpression:
         *,
         source_alias: object | None = None,
         where: object | None = None,
+        group_by: object | None = None,
+        having: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
         limit: int | None = None,
@@ -499,6 +509,8 @@ class ColumnExpression:
             column,
             source_alias=source_alias,
             where=where,
+            group_by=group_by,
+            having=having,
             order_by=order_by,
             descending=descending,
             limit=limit,
@@ -518,6 +530,8 @@ class ColumnExpression:
         *,
         source_alias: object | None = None,
         where: object | None = None,
+        group_by: object | None = None,
+        having: object | None = None,
         order_by: object | None = None,
         descending: bool = False,
         limit: int | None = None,
@@ -528,6 +542,8 @@ class ColumnExpression:
         source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
         tail = _sql_in_subquery_tail(
             where=where,
+            group_by=group_by,
+            having=having,
             order_by=order_by,
             descending=descending,
             limit=limit,
@@ -4787,6 +4803,8 @@ def row_in_source(
     *,
     source_alias: object | None = None,
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4799,6 +4817,8 @@ def row_in_source(
         source_columns,
         source_alias=source_alias,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -4813,6 +4833,8 @@ def row_not_in_source(
     *,
     source_alias: object | None = None,
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4825,6 +4847,8 @@ def row_not_in_source(
         source_columns,
         source_alias=source_alias,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -4840,6 +4864,8 @@ def any_source(
     *,
     source_alias: object | None = None,
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4854,6 +4880,8 @@ def any_source(
         source_column,
         source_alias=source_alias,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -4868,6 +4896,8 @@ def all_source(
     *,
     source_alias: object | None = None,
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4882,6 +4912,8 @@ def all_source(
         source_column,
         source_alias=source_alias,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -4894,6 +4926,8 @@ def exists_source(
     source_alias: object | None = None,
     select: object = "*",
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4905,6 +4939,8 @@ def exists_source(
         source_alias=source_alias,
         select=select,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -4918,6 +4954,8 @@ def not_exists_source(
     source_alias: object | None = None,
     select: object = "*",
     where: object | None = None,
+    group_by: object | None = None,
+    having: object | None = None,
     order_by: object | None = None,
     descending: bool = False,
     limit: int | None = None,
@@ -4929,6 +4967,8 @@ def not_exists_source(
         source_alias=source_alias,
         select=select,
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -7321,6 +7361,8 @@ def _row_value_in_source_predicate(
     *,
     source_alias: object | None,
     where: object | None,
+    group_by: object | None,
+    having: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
@@ -7337,6 +7379,8 @@ def _row_value_in_source_predicate(
     source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
     tail = _sql_in_subquery_tail(
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -7353,6 +7397,8 @@ def _exists_source_predicate(
     source_alias: object | None,
     select: object,
     where: object | None,
+    group_by: object | None,
+    having: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
@@ -7364,6 +7410,8 @@ def _exists_source_predicate(
     )
     tail = _sql_local_subquery_tail(
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -7386,6 +7434,8 @@ def _quantified_source_predicate(
     *,
     source_alias: object | None,
     where: object | None,
+    group_by: object | None,
+    having: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
@@ -7397,6 +7447,8 @@ def _quantified_source_predicate(
     )
     tail = _sql_local_subquery_tail(
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -7518,12 +7570,16 @@ def _sql_local_subquery_source(
 def _sql_in_subquery_tail(
     *,
     where: object | None,
+    group_by: object | None,
+    having: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
 ) -> str:
     return _sql_local_subquery_tail(
         where=where,
+        group_by=group_by,
+        having=having,
         order_by=order_by,
         descending=descending,
         limit=limit,
@@ -7536,6 +7592,8 @@ def _sql_in_subquery_tail(
 def _sql_local_subquery_tail(
     *,
     where: object | None,
+    group_by: object | None,
+    having: object | None,
     order_by: object | None,
     descending: bool,
     limit: int | None,
@@ -7546,6 +7604,13 @@ def _sql_local_subquery_tail(
     tail = ""
     if where is not None:
         tail = f"{tail} WHERE {_predicate_sql(where)}"
+    group_columns = _normalize_in_subquery_order_by(group_by)
+    if having is not None and not group_columns:
+        raise ValueError("source subquery HAVING requires group_by in this scoped helper")
+    if group_columns:
+        tail = f"{tail} GROUP BY {','.join(group_columns)}"
+    if having is not None:
+        tail = f"{tail} HAVING {_predicate_sql(having)}"
     order_columns = _normalize_in_subquery_order_by(order_by)
     if order_columns:
         direction = "desc" if descending else "asc"
