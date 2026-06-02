@@ -24181,15 +24181,6 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
             "SQL UNION is not admitted in single SELECT branch parsing; use the scoped top-level UNION runtime path",
         ));
     }
-    if contains_keyword_followed_by_char_outside_quotes(statement, "binary", '\'')
-        || contains_keyword_followed_by_char_outside_quotes(statement, "blob", '\'')
-        || contains_cast_target_matching(statement, "cast", target_is_binary_dtype)?
-        || contains_cast_target_matching(statement, "try_cast", target_is_binary_dtype)?
-    {
-        return Err(unsupported_sql_error(
-            "binary casts and BINARY/BLOB source literals are not admitted through the SQL local-source runtime; use scoped UNHEX(<utf8-column>) or FROM_BASE64(<utf8-column>) projections for binary helper decoding",
-        ));
-    }
     Ok(())
 }
 
@@ -24207,10 +24198,6 @@ fn target_is_variant_dtype(target_dtype: &str) -> bool {
 
 fn target_is_union_dtype(target_dtype: &str) -> bool {
     target_dtype_matches_any(target_dtype, &["union"])
-}
-
-fn target_is_binary_dtype(target_dtype: &str) -> bool {
-    target_dtype_matches_any(target_dtype, &["binary", "blob", "varbinary"])
 }
 
 fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool {
@@ -27818,7 +27805,24 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
     let target_dtype = parse_cast_target_dtype(target_raw)?;
 
     let tokens = split_whitespace_outside_quotes(tail)?;
-    let (op, value) = match tokens.as_slice() {
+    let (op, value) = parse_cast_predicate_literal(&target_dtype, tokens.as_slice())?;
+    Ok(Some(ParsedPredicate::CastCompare {
+        column: column.to_string(),
+        target_dtype,
+        mode,
+        op,
+        value,
+    }))
+}
+
+fn parse_cast_predicate_literal(
+    target_dtype: &LogicalDType,
+    tokens: &[String],
+) -> Result<(ComparisonOp, ScalarValue), ShardLoomError> {
+    if matches!(target_dtype, LogicalDType::Binary) {
+        return parse_binary_cast_predicate_literal(tokens);
+    }
+    let parsed = match tokens {
         [op_raw, date_keyword, literal_raw] if date_keyword.eq_ignore_ascii_case("date") => (
             parse_comparison_op(op_raw)?,
             parse_sql_date_literal(literal_raw)?,
@@ -27841,13 +27845,56 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
             ));
         }
     };
-    Ok(Some(ParsedPredicate::CastCompare {
-        column: column.to_string(),
-        target_dtype,
-        mode,
-        op,
-        value,
-    }))
+    Ok(parsed)
+}
+
+fn parse_binary_cast_predicate_literal(
+    tokens: &[String],
+) -> Result<(ComparisonOp, ScalarValue), ShardLoomError> {
+    let (op_raw, value) = match tokens {
+        [op_raw, literal_raw] => (op_raw, parse_binary_predicate_literal(literal_raw)?),
+        [op_raw, binary_keyword, literal_raw] => {
+            let bytes = parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?
+                .ok_or_else(|| {
+                    unsupported_sql_error(
+                        "binary CAST predicates admit X'<hex>', BINARY/BLOB '<utf8>', single-quoted UTF-8 byte literals, or NULL",
+                    )
+                })?;
+            (op_raw, ScalarValue::Binary(bytes))
+        }
+        _ => {
+            return Err(unsupported_sql_error(
+                "binary CAST predicates admit CAST(<column> AS binary) <op> X'<hex>', BINARY/BLOB '<utf8>', single-quoted UTF-8 byte literals, or NULL",
+            ));
+        }
+    };
+    let op = parse_comparison_op(op_raw)?;
+    if !matches!(op, ComparisonOp::Eq | ComparisonOp::NotEq) {
+        return Err(unsupported_sql_error(
+            "binary CAST predicates admit equality and inequality only",
+        ));
+    }
+    Ok((op, value))
+}
+
+fn parse_binary_predicate_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.eq_ignore_ascii_case("null") {
+        return Ok(ScalarValue::Null);
+    }
+    if is_sql_binary_hex_literal(trimmed) {
+        return parse_sql_binary_hex_literal(trimmed).map(ScalarValue::Binary);
+    }
+    if let Some(bytes) = parse_sql_binary_text_literal(trimmed)? {
+        return Ok(ScalarValue::Binary(bytes));
+    }
+    if trimmed.starts_with('\'') {
+        return parse_sql_string_literal(trimmed)
+            .map(|value| ScalarValue::Binary(value.into_bytes()));
+    }
+    Err(unsupported_sql_error(
+        "binary CAST predicates admit X'<hex>', BINARY/BLOB '<utf8>', single-quoted UTF-8 byte literals, or NULL",
+    ))
 }
 
 fn parse_date_arithmetic_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -28319,8 +28366,9 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
         "boolean" | "bool" => Ok(LogicalDType::Boolean),
         "date32" | "date" => Ok(LogicalDType::Date32),
         "timestamp_micros" | "timestamp" => Ok(LogicalDType::TimestampMicros),
+        "binary" | "blob" | "varbinary" => Ok(LogicalDType::Binary),
         _ => Err(unsupported_sql_error(
-            "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros",
+            "CAST target dtype must be one of int64, float64, utf8, boolean, date32, timestamp_micros, or binary",
         )),
     }
 }
@@ -30383,6 +30431,9 @@ fn parse_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomErr
     if is_sql_binary_hex_literal(trimmed) {
         return parse_sql_binary_hex_literal(trimmed).map(ScalarValue::Binary);
     }
+    if let Some(value) = parse_sql_binary_text_literal(trimmed)? {
+        return Ok(ScalarValue::Binary(value));
+    }
     parse_sql_literal(trimmed)
 }
 
@@ -30448,6 +30499,38 @@ fn parse_sql_binary_hex_literal(raw: &str) -> Result<Vec<u8>, ShardLoomError> {
             })
         })
         .collect()
+}
+
+fn parse_sql_binary_text_literal(raw: &str) -> Result<Option<Vec<u8>>, ShardLoomError> {
+    let trimmed = raw.trim();
+    for keyword in ["binary", "blob"] {
+        if let Some(literal) = strip_sql_binary_literal_keyword(trimmed, keyword) {
+            return parse_sql_string_literal(literal).map(|value| Some(value.into_bytes()));
+        }
+    }
+    Ok(None)
+}
+
+fn parse_sql_binary_keyword_literal(
+    keyword_raw: &str,
+    literal_raw: &str,
+) -> Result<Option<Vec<u8>>, ShardLoomError> {
+    for keyword in ["binary", "blob"] {
+        if keyword_raw.eq_ignore_ascii_case(keyword) {
+            return parse_sql_string_literal(literal_raw).map(|value| Some(value.into_bytes()));
+        }
+    }
+    Ok(None)
+}
+
+fn strip_sql_binary_literal_keyword<'a>(raw: &'a str, keyword: &str) -> Option<&'a str> {
+    raw.get(..keyword.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+        .then_some(())?;
+    if !keyword_boundary(raw, 0, keyword.len()) {
+        return None;
+    }
+    Some(raw[keyword.len()..].trim())
 }
 
 fn parse_csv_scalar(raw: &str) -> ScalarValue {
@@ -31504,12 +31587,12 @@ mod tests {
     #[test]
     fn parses_scoped_literal_projection_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,label,'north' AS segment,DATE '2026-05-19' AS batch_date,X'00ff10' AS payload FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+            "SELECT id,label,'north' AS segment,DATE '2026-05-19' AS batch_date,X'00ff10' AS payload,BINARY 'ok' AS text_payload,BLOB 'raw' AS blob_payload FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
         )
         .expect("literal projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert_eq!(parsed.literal_projections.len(), 3);
+        assert_eq!(parsed.literal_projections.len(), 5);
         assert_eq!(parsed.literal_projections[0].alias, "segment");
         assert_eq!(
             parsed.literal_projections[0].value,
@@ -31525,11 +31608,30 @@ mod tests {
             parsed.literal_projections[2].value,
             ScalarValue::Binary(vec![0x00, 0xff, 0x10])
         );
-        assert_eq!(parsed.literal_projection_dtypes(), "utf8,date32,binary");
+        assert_eq!(parsed.literal_projections[3].alias, "text_payload");
+        assert_eq!(
+            parsed.literal_projections[3].value,
+            ScalarValue::Binary(b"ok".to_vec())
+        );
+        assert_eq!(parsed.literal_projections[4].alias, "blob_payload");
+        assert_eq!(
+            parsed.literal_projections[4].value,
+            ScalarValue::Binary(b"raw".to_vec())
+        );
+        assert_eq!(
+            parsed.literal_projection_dtypes(),
+            "utf8,date32,binary,binary,binary"
+        );
         assert!(parsed.has_binary_literal_projection());
-        assert_eq!(parsed.binary_literal_projection_columns(), "payload");
-        assert_eq!(parsed.binary_literal_projection_byte_counts(), "3");
-        assert_eq!(parsed.binary_literal_projection_hex_values(), "00ff10");
+        assert_eq!(
+            parsed.binary_literal_projection_columns(),
+            "payload,text_payload,blob_payload"
+        );
+        assert_eq!(parsed.binary_literal_projection_byte_counts(), "3,2,3");
+        assert_eq!(
+            parsed.binary_literal_projection_hex_values(),
+            "00ff10,6f6b,726177"
+        );
         assert_eq!(
             parsed.statement_kind(),
             "local_source_literal_projection_filter_limit"
@@ -31554,6 +31656,28 @@ mod tests {
         ] {
             let error = parse_sql_local_source_statement(statement)
                 .expect_err("malformed binary hex literal remains blocked");
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn binary_text_literal_projection_blocks_malformed_literals_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,BINARY alpha AS payload FROM 'target/input.csv' LIMIT 5",
+                "SQL string literals must be single quoted",
+            ),
+            (
+                "SELECT id,BLOB 'raw AS payload FROM 'target/input.csv' LIMIT 5",
+                "SQL string literal is not closed",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("malformed binary text literal remains blocked");
             assert!(
                 error.to_string().contains(expected),
                 "expected {expected:?}, got {error}"
@@ -32135,13 +32259,13 @@ mod tests {
     #[test]
     fn parses_scoped_cast_projection_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+            "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(label AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
         )
         .expect("cast projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
         assert!(parsed.literal_projections.is_empty());
-        assert_eq!(parsed.cast_projections.len(), 2);
+        assert_eq!(parsed.cast_projections.len(), 3);
         assert_eq!(parsed.cast_projections[0].alias, "amount_float");
         assert_eq!(parsed.cast_projections[0].column, "amount");
         assert_eq!(
@@ -32156,13 +32280,26 @@ mod tests {
             LogicalDType::Date32
         );
         assert_eq!(parsed.cast_projections[1].mode, CastMode::Strict);
-        assert_eq!(parsed.cast_projection_source_columns(), "amount,event_date");
+        assert_eq!(parsed.cast_projections[2].alias, "label_bytes");
+        assert_eq!(parsed.cast_projections[2].column, "label");
+        assert_eq!(
+            parsed.cast_projections[2].target_dtype,
+            LogicalDType::Binary
+        );
+        assert_eq!(parsed.cast_projections[2].mode, CastMode::Strict);
+        assert_eq!(
+            parsed.cast_projection_source_columns(),
+            "amount,event_date,label"
+        );
         assert_eq!(
             parsed.cast_projection_output_columns(),
-            "amount_float,event_day"
+            "amount_float,event_day,label_bytes"
         );
-        assert_eq!(parsed.cast_projection_target_dtypes(), "float64,date32");
-        assert_eq!(parsed.cast_projection_modes(), "strict,strict");
+        assert_eq!(
+            parsed.cast_projection_target_dtypes(),
+            "float64,date32,binary"
+        );
+        assert_eq!(parsed.cast_projection_modes(), "strict,strict,strict");
         assert_eq!(
             parsed.statement_kind(),
             "local_source_computed_projection_filter_limit"
@@ -33471,6 +33608,69 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_binary_cast_and_text_literal_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label,amount\n1,alpha,42\n2,beta,7\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(label AS binary) AS label_bytes,TRY_CAST(amount AS blob) AS amount_bytes,BINARY 'ok' AS marker,BLOB 'raw' AS blob_payload FROM '{}' WHERE CAST(label AS binary) = X'616c706861' LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run binary cast and text literal smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label_bytes\":\"binary[hex=616c706861]\",\"amount_bytes\":\"binary[hex=3432]\",\"marker\":\"binary[hex=6f6b]\",\"blob_payload\":\"binary[hex=726177]\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "cast_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_source_column", "label");
+        assert_field_eq(&fields, "cast_target_dtype", "binary");
+        assert_field_eq(&fields, "cast_mode", "strict");
+        assert_field_eq(&fields, "cast_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_projection_source_column", "label,amount");
+        assert_field_eq(
+            &fields,
+            "cast_projection_output_column",
+            "label_bytes,amount_bytes",
+        );
+        assert_field_eq(&fields, "cast_projection_target_dtype", "binary,binary");
+        assert_field_eq(&fields, "cast_projection_mode", "strict,try");
+        assert_field_eq(&fields, "literal_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "literal_projection_columns", "marker,blob_payload");
+        assert_field_eq(&fields, "literal_projection_count", "2");
+        assert_field_eq(&fields, "literal_projection_dtype", "binary,binary");
+        assert_field_eq(
+            &fields,
+            "binary_literal_projection_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_literal_projection_columns",
+            "marker,blob_payload",
+        );
+        assert_field_eq(&fields, "binary_literal_projection_byte_count", "2,3");
+        assert_field_eq(
+            &fields,
+            "binary_literal_projection_hex_value",
+            "6f6b,726177",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn runs_scoped_binary_helper_projection_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
         fs::write(
@@ -33671,6 +33871,44 @@ mod tests {
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "date32");
         assert_eq!(parsed.predicate.cast_modes(), "strict");
+    }
+
+    #[test]
+    fn parses_scoped_binary_cast_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE CAST(label AS binary) = BINARY 'alpha' LIMIT 5",
+        )
+        .expect("binary cast predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Binary,
+                mode: CastMode::Strict,
+                op: ComparisonOp::Eq,
+                value: ScalarValue::Binary(ref value)
+            } if column == "label" && value == b"alpha"
+        ));
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_source_columns(), "label");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "binary");
+        assert_eq!(parsed.predicate.cast_modes(), "strict");
+    }
+
+    #[test]
+    fn binary_cast_predicate_blocks_ordering_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE CAST(label AS binary) > BINARY 'alpha' LIMIT 5",
+        )
+        .expect_err("binary cast ordering remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("binary CAST predicates admit equality and inequality only")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]
@@ -36489,14 +36727,6 @@ mod tests {
             (
                 "SELECT CAST(payload AS union) AS payload FROM 'target/input.csv' LIMIT 5",
                 "union dtype casts are not admitted",
-            ),
-            (
-                "SELECT id,BINARY '00ff' AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary casts and BINARY/BLOB source literals are not admitted",
-            ),
-            (
-                "SELECT CAST(label AS binary) AS payload FROM 'target/input.csv' LIMIT 5",
-                "binary casts and BINARY/BLOB source literals are not admitted",
             ),
         ] {
             let error = parse_sql_local_source_statement(statement)

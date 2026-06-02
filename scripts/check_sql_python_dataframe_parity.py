@@ -91,6 +91,8 @@ REQUIRED_SOURCE_MARKERS = {
         "test_local_csv_query_builder_quantified_subquery_filter_invokes_sql_smoke",
         "test_local_csv_query_builder_correlated_subquery_invokes_sql_smoke",
         "test_local_csv_query_builder_grouped_projected_subquery_helpers_invoke_sql_smoke",
+        "test_local_csv_query_builder_with_column_cast_invokes_sql_smoke",
+        "cast_projection_target_dtype",
         "test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke",
         "binary_helper_projection_runtime_execution",
         "binary_helper_projection_operator",

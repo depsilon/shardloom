@@ -1544,6 +1544,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.try_cast(sl.col("raw_amount"), "int64") == 42),
             "TRY_CAST(raw_amount AS int64) = 42",
         )
+        self.assertEqual(str(sl.col("payload").cast("binary")), "CAST(payload AS binary)")
+        self.assertEqual(str(sl.col("payload").cast("blob")), "CAST(payload AS binary)")
+        self.assertEqual(
+            str(sl.col("payload").try_cast("varbinary")),
+            "TRY_CAST(payload AS binary)",
+        )
         self.assertEqual(
             str(sl.col("label").isin(["alpha", "gamma"])),
             "label IN ('alpha','gamma')",
@@ -7914,7 +7920,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(label AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -7929,13 +7935,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount_float\\":8.0,\\"event_day\\":\\"2026-05-19\\"}\\n"},
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount_float\\":8.0,\\"event_day\\":\\"2026-05-19\\",\\"label_bytes\\":\\"binary[hex=616c706861]\\"}\\n"},
                         {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
                         {"key": "cast_projection_runtime_execution", "value": "true"},
-                        {"key": "cast_projection_source_column", "value": "amount,event_date"},
-                        {"key": "cast_projection_output_column", "value": "amount_float,event_day"},
-                        {"key": "cast_projection_target_dtype", "value": "float64,date32"},
-                        {"key": "cast_projection_mode", "value": "strict,strict"},
+                        {"key": "cast_projection_source_column", "value": "amount,event_date,label"},
+                        {"key": "cast_projection_output_column", "value": "amount_float,event_day,label_bytes"},
+                        {"key": "cast_projection_target_dtype", "value": "float64,date32,binary"},
+                        {"key": "cast_projection_mode", "value": "strict,strict,strict"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -7952,6 +7958,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .select("id")
             .with_column("amount_float", sl.col("amount").cast("float64"))
             .with_column("event_day", sl.col("event_date").cast("date32"))
+            .with_column("label_bytes", sl.col("label").cast("binary"))
             .filter(sl.col("id") >= 1)
             .limit(2)
             .collect()
@@ -7960,13 +7967,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertTrue(report.cast_projection_runtime_execution)
         self.assertEqual(
-            report.cast_projection_source_columns, ("amount", "event_date")
+            report.cast_projection_source_columns, ("amount", "event_date", "label")
         )
         self.assertEqual(
-            report.cast_projection_output_columns, ("amount_float", "event_day")
+            report.cast_projection_output_columns,
+            ("amount_float", "event_day", "label_bytes"),
         )
-        self.assertEqual(report.cast_projection_target_dtypes, ("float64", "date32"))
-        self.assertEqual(report.cast_projection_modes, ("strict", "strict"))
+        self.assertEqual(
+            report.cast_projection_target_dtypes, ("float64", "date32", "binary")
+        )
+        self.assertEqual(report.cast_projection_modes, ("strict", "strict", "strict"))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

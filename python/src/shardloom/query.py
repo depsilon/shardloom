@@ -6412,9 +6412,19 @@ def _normalize_cast_dtype(value: object) -> str:
     dtype = _require_non_empty("cast dtype", value).lower()
     if dtype == "timestamp":
         dtype = "timestamp_micros"
-    if dtype not in {"int64", "float64", "utf8", "boolean", "date32", "timestamp_micros"}:
+    if dtype in {"blob", "varbinary"}:
+        dtype = "binary"
+    if dtype not in {
+        "int64",
+        "float64",
+        "utf8",
+        "boolean",
+        "date32",
+        "timestamp_micros",
+        "binary",
+    }:
         raise ValueError(
-            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros')"
+            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary')"
         )
     return dtype
 

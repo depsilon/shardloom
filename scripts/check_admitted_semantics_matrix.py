@@ -466,6 +466,65 @@ def binary_hex_literal_projection_case() -> SqlFixtureCase:
     )
 
 
+def binary_text_literal_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_text_literal_projection",
+        source_name="binary-text-literal.csv",
+        source_text="id,label\n1,alpha\n2,beta\n",
+        statement_template=(
+            "SELECT id,BINARY 'ok' AS marker,BLOB 'raw' AS payload "
+            "FROM '{source}' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"marker":"binary[hex=6f6b]","payload":"binary[hex=726177]"}\n'
+            '{"id":2,"marker":"binary[hex=6f6b]","payload":"binary[hex=726177]"}\n'
+        ),
+        expected_fields={
+            "literal_projection_runtime_execution": "true",
+            "literal_projection_columns": "marker,payload",
+            "literal_projection_count": "2",
+            "literal_projection_dtype": "binary,binary",
+            "binary_literal_projection_runtime_execution": "true",
+            "binary_literal_projection_columns": "marker,payload",
+            "binary_literal_projection_byte_count": "2,3",
+            "binary_literal_projection_hex_value": "6f6b,726177",
+            "projected_columns": "id,marker,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def binary_cast_projection_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_cast_projection_predicate",
+        source_name="binary-cast.csv",
+        source_text="id,label,amount\n1,alpha,42\n2,beta,7\n3,,0\n",
+        statement_template=(
+            "SELECT id,CAST(label AS binary) AS label_bytes,"
+            "TRY_CAST(amount AS varbinary) AS amount_bytes FROM '{source}' "
+            "WHERE CAST(label AS binary) = X'616c706861' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label_bytes":"binary[hex=616c706861]",'
+            '"amount_bytes":"binary[hex=3432]"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "cast",
+            "cast_runtime_execution": "true",
+            "cast_source_column": "label",
+            "cast_target_dtype": "binary",
+            "cast_mode": "strict",
+            "cast_projection_runtime_execution": "true",
+            "cast_projection_source_column": "label,amount",
+            "cast_projection_output_column": "label_bytes,amount_bytes",
+            "cast_projection_target_dtype": "binary,binary",
+            "cast_projection_mode": "strict,try",
+            "projected_columns": "id,label_bytes,amount_bytes",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def binary_helper_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_helper_projection",
@@ -2435,6 +2494,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         interval_literal_temporal_arithmetic_case(),
         conditional_projection_case(),
         binary_hex_literal_projection_case(),
+        binary_text_literal_projection_case(),
+        binary_cast_projection_predicate_case(),
         binary_helper_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),

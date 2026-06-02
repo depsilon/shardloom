@@ -2202,6 +2202,19 @@ fn bool_ordering(left: bool, right: bool) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
+fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
+    let bytes = match value {
+        ScalarValue::Int64(value) => value.to_string().into_bytes(),
+        ScalarValue::Float64(value) if value.is_finite() => value.to_string().into_bytes(),
+        ScalarValue::Boolean(value) => value.to_string().into_bytes(),
+        ScalarValue::Utf8(value) => value.as_bytes().to_vec(),
+        ScalarValue::Date32(value) => format_iso_date32(*value).into_bytes(),
+        ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value).into_bytes(),
+        _ => return None,
+    };
+    Some(ScalarValue::Binary(bytes))
+}
+
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
@@ -2233,6 +2246,16 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         (ScalarValue::TimestampMicros(value), LogicalDType::Utf8) => {
             ScalarValue::Utf8(format_iso_timestamp_micros(*value))
         }
+        (source, LogicalDType::Binary) => scalar_binary_cast(source).ok_or_else(|| {
+            EvalFailure::unsupported(
+                "cast",
+                format!(
+                    "cast from {} to {} is not admitted by this slice",
+                    source.dtype().as_str(),
+                    target_dtype.as_str()
+                ),
+            )
+        })?,
         (ScalarValue::Date32(value), LogicalDType::TimestampMicros) => {
             ScalarValue::TimestampMicros(i64::from(*value) * MICROS_PER_DAY)
         }
@@ -3665,6 +3688,31 @@ mod tests {
         assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.value, Some(ScalarValue::Int64(42)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+    }
+
+    #[test]
+    fn expression_semantics_casts_scalars_to_binary_without_fallback() {
+        for (source, expected) in [
+            (ScalarValue::Utf8("alpha".to_string()), b"alpha".to_vec()),
+            (ScalarValue::Int64(42), b"42".to_vec()),
+            (ScalarValue::Float64(2.5), b"2.5".to_vec()),
+            (ScalarValue::Boolean(true), b"true".to_vec()),
+        ] {
+            let expression = Expression::cast(
+                expr_id("cast-binary"),
+                Expression::literal(expr_id("source"), source),
+                LogicalDType::Binary,
+            );
+            let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(report.operator_family, "cast");
+            assert_eq!(report.value, Some(ScalarValue::Binary(expected)));
+            assert_eq!(report.output_dtype, Some(LogicalDType::Binary));
+            assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
     }
 
     #[test]

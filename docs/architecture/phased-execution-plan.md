@@ -462,7 +462,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   remaining broad grammar blockers are explicit rows in
   `docs/status/admitted-semantics-matrix.json`: decimal casts, non-UTC/timezone semantics, arbitrary
   interval arithmetic outside scoped temporal helpers, locale/collation,
-  complex/list/struct/variant/union-dtype shapes, broad binary source dtype decoding/casts/literals,
+  complex/list/struct/variant/union-dtype shapes, broad binary source dtype decoding/ordering,
   scalar-left multi-column IN-subqueries, unbound qualified references, and remaining non-admitted
   broad ANSI subquery families.
   Scoped quantified `ANY` / `ALL` subquery
@@ -510,12 +510,16 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   predicates are admitted separately through ShardLoom-owned regex evaluation while locale-aware
   collation/regex semantics remain blocked.
   Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
-  scalar values with exact byte-count/hex evidence and no fallback. Scoped
+  scalar values with exact byte-count/hex evidence and no fallback. Scoped `BINARY '<utf8>'` and
+  `BLOB '<utf8>'` text literal projections are now admitted as ShardLoom-owned binary scalar bytes.
+  Scoped `CAST`/`TRY_CAST` to `binary`/`blob`/`varbinary` projections and equality/inequality
+  predicates are now admitted through ShardLoom-owned scalar cast and binary comparison semantics,
+  including Python/DataFrame cast aliases. Scoped
   `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are now admitted as
   ShardLoom-owned binary helper decoding over direct UTF-8 source columns, with strict invalid-input
   blockers, binary output evidence, null propagation, Python/DataFrame helpers, and no-fallback
-  fields. Broad binary source dtype decoding, binary casts, `BINARY`/`BLOB` source literals, binary
-  predicates, and nested binary helper expressions remain blocked.
+  fields. Broad binary source dtype decoding, binary ordering, and nested binary helper expressions
+  remain blocked.
   Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
   admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
   `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
@@ -524,8 +528,8 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   slice.
   Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
   blocker refinement, scalar-left multi-column subquery ergonomics, decimal/timezone/locale blocker
-  refinement, broad binary source dtype/cast support, or another front-door parity gap only after
-  the runtime route is already admitted.
+  refinement, broad binary source dtype refinement, or another front-door parity gap only after the
+  runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
