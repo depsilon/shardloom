@@ -18,7 +18,8 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped decimal arithmetic SQL/Python runtime slice
   - Date: 2026-06-02
-  - Branch/PR: `codex/scoped-decimal-arithmetic-runtime` / pending PR.
+  - Branch/PR: `codex/scoped-decimal-arithmetic-runtime` / PR #1031, merged as
+    `f9a5e8f7017d92c1599eced6c49301d1555584df`.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
     - Follow-up to the scoped decimal cast slice: same-scale decimal add/subtract/multiply was
@@ -49,6 +50,10 @@ phase plan first.
     - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-decimal-arithmetic.json` passed with `matrix_row_count=68`, `executable_fixture_count=61`, `diagnostic_case_count=7`, `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, `semantic_conformance_suite_status=passed`, no fallback, and no external engine invocation.
     - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture` passed.
     - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-matrix-decimal-arithmetic.json --output target/release-readiness-decimal-arithmetic.json` was run; admitted-semantics blockers were clear, while broader known release/package/benchmark-currentness/required-validation gates remained blocked.
+    - `cargo fmt --all -- --check`, `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings`,
+      `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets`, `PYTHONPATH=python/src python3 -m unittest discover python/tests`,
+      `git diff --check`, and the clean-index website-readiness mirror check passed before merge.
+    - GitHub Actions for PR #1031 completed green before the squash merge.
   - Claim boundary:
     - This closes scoped SQL/Python/DataFrame decimal add/subtract/multiply projection runtime
       evidence for bounded local-source routes only. It does not claim decimal division,
