@@ -80,8 +80,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   output;
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
   feature-gated local Vortex sinks with ResultBatchState, sink-driven OutputPlan
-  materialization/blocker evidence, shared fanout conversion DAG evidence, and local
-  replay/fidelity evidence;
+  materialization/blocker evidence, shared fanout conversion DAG evidence, thresholded output
+  capillary scheduling evidence, and local replay/fidelity evidence;
 - fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
   reads, and local-emulator read/write smokes with credential, network, and provider probes
   disabled;
@@ -365,6 +365,11 @@ Public rows should be read through these fields before comparing numbers:
   `vortex_capillary_preparation_prewrite_status`, pre-write gate fields, and prefixed
   PulseWeave/ProofBound fields, so readers can distinguish a skipped tiny fixture from an admitted
   bounded work-window plan that gated the local prepare/write/reopen route.
+- Output/fanout rows expose output capillary work shaping with `output_capillary_status`,
+  `output_capillary_task_roles`, `output_capillary_window_count`, `output_sink_pressure_status`,
+  `output_memory_pressure_status`, and `pulseweave_output_policy_applied`, so readers can
+  distinguish a below-threshold local output from an admitted bounded output conversion/write/replay
+  window. These fields are runtime evidence, not a performance claim.
 
 The route labels to expect are `ShardLoom Cold Certified Route`,
 `ShardLoom Prepare-Once First Query`, `ShardLoom Prepare-Once Batch`,

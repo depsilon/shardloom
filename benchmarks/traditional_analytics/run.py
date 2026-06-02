@@ -255,6 +255,12 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "fanout_shared_conversion_millis",
     "fanout_terminal_conversion_millis",
     "fanout_duplicate_conversion_avoided",
+    "output_capillary_status",
+    "output_capillary_task_roles",
+    "output_capillary_window_count",
+    "output_sink_pressure_status",
+    "output_memory_pressure_status",
+    "pulseweave_output_policy_applied",
     "vortex_native_claim_allowed",
     "compatibility_import_included",
     "vortex_prepare_included",
@@ -1008,6 +1014,12 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "fanout_shared_conversion_millis",
     "fanout_terminal_conversion_millis",
     "fanout_duplicate_conversion_avoided",
+    "output_capillary_status",
+    "output_capillary_task_roles",
+    "output_capillary_window_count",
+    "output_sink_pressure_status",
+    "output_memory_pressure_status",
+    "pulseweave_output_policy_applied",
     "output_conversion_millis",
     "output_write_millis",
     "sink_artifact_conversion_millis",
@@ -1058,6 +1070,12 @@ FANOUT_BENCHMARK_FIELDS = (
     "fanout_shared_conversion_millis",
     "fanout_terminal_conversion_millis",
     "fanout_duplicate_conversion_avoided",
+    "output_capillary_status",
+    "output_capillary_task_roles",
+    "output_capillary_window_count",
+    "output_sink_pressure_status",
+    "output_memory_pressure_status",
+    "pulseweave_output_policy_applied",
     "output_conversion_millis",
     "output_write_millis",
     "fanout_output_conversion_millis",
@@ -10445,6 +10463,40 @@ def output_plan_contract_metadata(
             False,
         )
     ) is True
+    output_capillary_status = output_plan_value(
+        "output_capillary_status",
+        "not_requested_below_threshold" if output_written else "not_applicable",
+    )
+    output_capillary_task_roles = output_plan_value(
+        "output_capillary_task_roles",
+        "none" if output_written else "not_applicable",
+    )
+    output_capillary_window_count = (
+        None
+        if not output_written
+        else parse_optional_float(
+            first_meaningful_field(
+                evidence.get("output_capillary_window_count"),
+                metrics.get("output_capillary_window_count"),
+                "0",
+            )
+        )
+    )
+    output_sink_pressure_status = output_plan_value(
+        "output_sink_pressure_status",
+        "not_requested_below_threshold" if output_written else "not_applicable",
+    )
+    output_memory_pressure_status = output_plan_value(
+        "output_memory_pressure_status",
+        "not_requested_below_threshold" if output_written else "not_applicable",
+    )
+    pulseweave_output_policy_applied = parse_optional_bool(
+        first_meaningful_field(
+            evidence.get("pulseweave_output_policy_applied"),
+            metrics.get("pulseweave_output_policy_applied"),
+            False,
+        )
+    ) is True
     return {
         "output_plan_contract_schema_version": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
         "output_plan_status_vocabulary": ",".join(
@@ -10494,6 +10546,12 @@ def output_plan_contract_metadata(
         "fanout_shared_conversion_millis": fanout_shared_conversion_millis,
         "fanout_terminal_conversion_millis": fanout_terminal_conversion_millis,
         "fanout_duplicate_conversion_avoided": fanout_duplicate_conversion_avoided,
+        "output_capillary_status": output_capillary_status,
+        "output_capillary_task_roles": output_capillary_task_roles,
+        "output_capillary_window_count": output_capillary_window_count,
+        "output_sink_pressure_status": output_sink_pressure_status,
+        "output_memory_pressure_status": output_memory_pressure_status,
+        "pulseweave_output_policy_applied": pulseweave_output_policy_applied,
         "output_conversion_millis": metrics.get("output_conversion_millis"),
         "output_write_millis": metrics.get("result_sink_write_millis"),
         "sink_artifact_conversion_millis": evidence.get(
@@ -15888,6 +15946,22 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "fanout_duplicate_conversion_avoided": metrics.get(
                     "fanout_duplicate_conversion_avoided"
                 ),
+                "output_capillary_status": metrics.get("output_capillary_status"),
+                "output_capillary_task_roles": metrics.get(
+                    "output_capillary_task_roles"
+                ),
+                "output_capillary_window_count": metrics.get(
+                    "output_capillary_window_count"
+                ),
+                "output_sink_pressure_status": metrics.get(
+                    "output_sink_pressure_status"
+                ),
+                "output_memory_pressure_status": metrics.get(
+                    "output_memory_pressure_status"
+                ),
+                "pulseweave_output_policy_applied": metrics.get(
+                    "pulseweave_output_policy_applied"
+                ),
                 "output_conversion_millis": metrics.get("output_conversion_millis"),
                 "output_write_millis": metrics.get("output_write_millis"),
                 "sink_artifact_conversion_millis": metrics.get(
@@ -15964,6 +16038,12 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "fanout_shared_conversion_millis": None,
                 "fanout_terminal_conversion_millis": None,
                 "fanout_duplicate_conversion_avoided": False,
+                "output_capillary_status": "report_only",
+                "output_capillary_task_roles": "report_only",
+                "output_capillary_window_count": 0,
+                "output_sink_pressure_status": "report_only",
+                "output_memory_pressure_status": "report_only",
+                "pulseweave_output_policy_applied": False,
                 "output_conversion_millis": None,
                 "output_write_millis": None,
                 "fanout_output_conversion_millis": None,
@@ -16416,6 +16496,44 @@ def execution_mode_metadata(
         parse_optional_bool(evidence.get("fanout_duplicate_conversion_avoided"))
         is True
     )
+    output_capillary_status = str(
+        evidence.get("output_capillary_status")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_capillary_task_roles = str(
+        evidence.get("output_capillary_task_roles")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_capillary_window_count = parse_optional_float(
+        evidence.get("output_capillary_window_count")
+    )
+    output_sink_pressure_status = str(
+        evidence.get("output_sink_pressure_status")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    output_memory_pressure_status = str(
+        evidence.get("output_memory_pressure_status")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    pulseweave_output_policy_applied = (
+        parse_optional_bool(evidence.get("pulseweave_output_policy_applied")) is True
+    )
     return {
         "requested_execution_mode": requested,
         "selected_execution_mode": selected,
@@ -16469,6 +16587,12 @@ def execution_mode_metadata(
         "fanout_shared_conversion_millis": fanout_shared_conversion_millis,
         "fanout_terminal_conversion_millis": fanout_terminal_conversion_millis,
         "fanout_duplicate_conversion_avoided": fanout_duplicate_conversion_avoided,
+        "output_capillary_status": output_capillary_status,
+        "output_capillary_task_roles": output_capillary_task_roles,
+        "output_capillary_window_count": output_capillary_window_count,
+        "output_sink_pressure_status": output_sink_pressure_status,
+        "output_memory_pressure_status": output_memory_pressure_status,
+        "pulseweave_output_policy_applied": pulseweave_output_policy_applied,
         "vortex_native_claim_allowed": vortex_native_claim_allowed,
         "compatibility_import_included": compatibility_import_included,
         "vortex_prepare_included": vortex_prepare_included,
@@ -22273,6 +22397,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 format_metric(row["fanout_shared_conversion_millis"], " ms"),
                 format_metric(row["fanout_terminal_conversion_millis"], " ms"),
                 str(row["fanout_duplicate_conversion_avoided"]),
+                str(row["output_capillary_status"]),
+                str(row["output_capillary_task_roles"]).replace("|", "\\|"),
+                format_metric(row["output_capillary_window_count"], ""),
+                str(row["output_sink_pressure_status"]),
+                str(row["output_memory_pressure_status"]),
+                str(row["pulseweave_output_policy_applied"]),
                 format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
                 str(row["sink_artifact_conversion_millis"]),
@@ -22320,6 +22450,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 "n/a",
                 "n/a",
                 "false",
+                "none",
+                "none",
+                "n/a",
+                "none",
+                "none",
+                "false",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -22366,6 +22502,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Shared conversion",
             "Terminal conversion",
             "Duplicate conversion avoided",
+            "Output capillary",
+            "Capillary roles",
+            "Capillary windows",
+            "Sink pressure",
+            "Memory pressure",
+            "PulseWeave output",
             "Output conversion",
             "Output write",
             "Sink conversion",
@@ -22411,6 +22553,12 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
                 format_metric(row["fanout_shared_conversion_millis"], " ms"),
                 format_metric(row["fanout_terminal_conversion_millis"], " ms"),
                 str(row["fanout_duplicate_conversion_avoided"]),
+                str(row["output_capillary_status"]),
+                str(row["output_capillary_task_roles"]).replace("|", "\\|"),
+                format_metric(row["output_capillary_window_count"], ""),
+                str(row["output_sink_pressure_status"]),
+                str(row["output_memory_pressure_status"]),
+                str(row["pulseweave_output_policy_applied"]),
                 format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
                 format_metric(row["fanout_output_conversion_millis"], " ms"),
@@ -22452,6 +22600,12 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Shared conversion",
             "Terminal conversion",
             "Duplicate conversion avoided",
+            "Output capillary",
+            "Capillary roles",
+            "Capillary windows",
+            "Sink pressure",
+            "Memory pressure",
+            "PulseWeave output",
             "Output conversion",
             "Output write",
             "Fanout conversion",

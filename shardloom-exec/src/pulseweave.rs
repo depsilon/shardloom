@@ -1203,9 +1203,13 @@ fn is_prepared_local_scope(input: &PulseWeaveInput) -> bool {
             | "native_vortex"
             | "native_vortex_batch"
             | "vortex_ingest_cold_preparation"
+            | "sql_local_source_output"
     );
     let scope_admitted = input.application_scope.contains("prepared_vortex_local")
-        || input.application_scope.contains("vortex_cold_preparation");
+        || input.application_scope.contains("vortex_cold_preparation")
+        || input
+            .application_scope
+            .contains("local_output_capillary_scheduling");
     route_admitted && scope_admitted
 }
 
@@ -1388,6 +1392,22 @@ mod tests {
         assert_eq!(report.status, "applied");
         assert!(report.runtime_decision_applied);
         assert_eq!(report.proofbound.pre_application_status, "admitted");
+        assert!(report.proofbound.claim_allowed);
+    }
+
+    #[test]
+    fn proofbound_admits_local_output_capillary_scope() {
+        let input = PulseWeaveInput {
+            route: "sql_local_source_output".to_string(),
+            application_scope: "local_output_capillary_scheduling".to_string(),
+            ..admitted_input()
+        };
+        let report = plan_pulseweave(input).expect("pulseweave report");
+
+        assert_eq!(report.status, "applied");
+        assert!(report.runtime_decision_applied);
+        assert_eq!(report.proofbound.pre_application_status, "admitted");
+        assert_eq!(report.proofbound.post_application_status, "certified");
         assert!(report.proofbound.claim_allowed);
     }
 

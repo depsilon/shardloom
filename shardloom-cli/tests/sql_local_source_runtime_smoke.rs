@@ -4388,7 +4388,7 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
+fn sql_local_source_output_capillary_skips_small_local_csv_output() {
     let source_path = unique_path("sql-local-source-csv-output", "csv");
     let output_path = unique_path("sql-local-source-csv-output", "csv");
     fs::write(
@@ -4501,6 +4501,25 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     assert!(stdout.contains(&field("sink_artifact_formats", "csv")));
     assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\""));
     assert!(stdout.contains(&field(
+        "output_capillary_status",
+        "not_requested_below_threshold"
+    )));
+    assert!(stdout.contains(&field(
+        "output_capillary_activation_reason",
+        "below_threshold_small_local_output"
+    )));
+    assert!(stdout.contains(&field("output_capillary_task_roles", "none")));
+    assert!(stdout.contains(&field("output_capillary_window_count", "0")));
+    assert!(stdout.contains(&field(
+        "output_sink_pressure_status",
+        "below_threshold_small_local_output"
+    )));
+    assert!(stdout.contains(&field(
+        "output_memory_pressure_status",
+        "below_threshold_small_local_output"
+    )));
+    assert!(stdout.contains(&field("pulseweave_output_policy_applied", "false")));
+    assert!(stdout.contains(&field(
         "sink_artifact_manifest_status",
         "verified_local_sink_artifacts"
     )));
@@ -4519,7 +4538,7 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
 
 #[test]
 #[allow(clippy::too_many_lines)]
-fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
+fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence() {
     let source_path = unique_path("sql-local-source-jsonl-csv-fanout", "csv");
     let jsonl_output_path = unique_path("sql-local-source-jsonl-csv-fanout", "jsonl");
     let csv_output_path = unique_path("sql-local-source-jsonl-csv-fanout", "csv");
@@ -4614,6 +4633,26 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     assert!(stdout.contains("\"fanout_shared_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("\"fanout_terminal_conversion_millis\",\"value\":\""));
     assert!(stdout.contains(&field("fanout_duplicate_conversion_avoided", "true")));
+    assert!(stdout.contains(&field(
+        "output_capillary_status",
+        "applied_output_pulseweave_control"
+    )));
+    assert!(stdout.contains(&field(
+        "output_capillary_task_roles",
+        "schema_map,columnar_export,terminal_encode,compression,local_write,digest,replay,evidence_render"
+    )));
+    assert!(stdout.contains(&field("output_capillary_task_count", "13")));
+    assert!(stdout.contains(&field("output_capillary_window_count", "13")));
+    assert!(stdout.contains(&field("output_capillary_window_size", "1")));
+    assert!(stdout.contains(&field(
+        "output_sink_pressure_status",
+        "bounded_by_output_sink_pressure"
+    )));
+    assert!(stdout.contains(&field(
+        "output_memory_pressure_status",
+        "within_declared_output_memory_budget"
+    )));
+    assert!(stdout.contains(&field("pulseweave_output_policy_applied", "true")));
     assert!(stdout.contains("\"output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\"jsonl:"));
     assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));

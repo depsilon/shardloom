@@ -1,8 +1,8 @@
 # I/O Reuse And Cross-Format Fanout Architecture
 
 Status: implemented for scoped local output/fanout runtime; broader cold-lane preparation,
-cache, object-store/table, Foundry, production, and claim-grade fanout remain gated by later
-`GAR-IOREUSE-1` follow-through.
+cache, object-store/table, Foundry, production, performance, and claim-grade fanout remain gated by
+later `GAR-IOREUSE-1` follow-through.
 
 ## Summary
 
@@ -33,11 +33,11 @@ benchmark contract for current-row local SourceState, VortexPreparedState, Execu
 OutputPlan, and SinkArtifact posture. `GAR-IOREUSE-1F` adds evidence-safe reuse-level visibility.
 `GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Scoped local fanout
 runtime now exists for local-source SQL/Python and generated-output workflows. Local SQL/Python
-output/fanout now uses `ResultBatchState`, sink-driven OutputPlan requirements, and a shared fanout
-conversion DAG before terminal sink encoders, and Python `ShardLoomSession` can reuse matching
-local query-builder output/fanout reports. Persistent cross-process caches, object-store I/O,
-table/lakehouse commits, Foundry production support, performance claims, broad output-fidelity
-claims, output capillary scheduling, and hidden fast modes remain out of scope.
+output/fanout now uses `ResultBatchState`, sink-driven OutputPlan requirements, a shared fanout
+conversion DAG, and thresholded output capillary scheduling before terminal sink encoders, and
+Python `ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
+cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
+performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
 `GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` and the adjacent `GAR-PERF-2J` / `GAR-PERF-2K`
 items add cold-lane attribution, Vortex-native source/sink/split preparation, differential
 preparation, capillary I/O with PulseWeave control, scout ingress/triage, layout/write strategy
@@ -443,15 +443,39 @@ fanout_terminal_conversion_millis
 fanout_duplicate_conversion_avoided
 ```
 
+Implemented `GAR-RUNTIME-IMPL-6F-4` local SQL/Python runtime fields:
+
+```text
+output_capillary_schema_version
+output_capillary_status
+output_capillary_activation_policy
+output_capillary_activation_reason
+output_capillary_task_count
+output_capillary_task_roles
+output_capillary_task_ids
+output_capillary_window_count
+output_capillary_window_size
+output_capillary_window_ids
+output_capillary_window_task_ids
+output_capillary_window_digests
+output_capillary_plan_digest
+output_sink_pressure_status
+output_memory_pressure_status
+pulseweave_output_policy_applied
+```
+
 The current implementation is intentionally scoped. It gives local SQL inline output, local sink
 writes, fanout, Python session reuse envelopes, and traditional benchmark contract rows a shared
-result-batch evidence layer plus a shared fanout conversion DAG. Local output/fanout routes now
-normalize result schema/rows once where safe, then feed terminal CSV/JSONL, feature-gated
-Parquet/Arrow IPC/Avro/ORC, and feature-gated Vortex writer paths from that shared state. CSV/JSONL
-remain terminal text materialization targets; Parquet, Arrow IPC, Avro, and ORC remain
-feature-gated compatibility exports; Vortex remains the highest-fidelity local sink. This does not
-yet claim output capillary scheduling, broad nested-schema output, object-store/table writes,
-production sink support, or performance improvement.
+result-batch evidence layer, a shared fanout conversion DAG, and output capillary scheduling
+evidence. Local output/fanout routes now normalize result schema/rows once where safe, then feed
+terminal CSV/JSONL, feature-gated Parquet/Arrow IPC/Avro/ORC, and feature-gated Vortex writer paths
+from that shared state. Small single-sink local outputs record explicit below-threshold capillary
+evidence; fanout or larger local outputs can activate ProofBound-admitted PulseWeave windows across
+schema-map, columnar-export, terminal-encode, compression, local-write, digest, replay, and
+evidence-render tasks. CSV/JSONL remain terminal text materialization targets; Parquet, Arrow IPC,
+Avro, and ORC remain feature-gated compatibility exports; Vortex remains the highest-fidelity local
+sink. This does not claim broad nested-schema output, object-store/table writes, production sink
+support, real query-data spill, or performance improvement.
 
 Planned output formats:
 
@@ -501,6 +525,12 @@ fanout_terminal_sink_count
 fanout_shared_conversion_millis
 fanout_terminal_conversion_millis
 fanout_duplicate_conversion_avoided
+output_capillary_status
+output_capillary_task_roles
+output_capillary_window_count
+output_sink_pressure_status
+output_memory_pressure_status
+pulseweave_output_policy_applied
 output_plan_reuse_hit
 output_plan_reuse_reason
 output_plan_millis
@@ -604,6 +634,12 @@ fanout_terminal_sink_count
 fanout_shared_conversion_millis
 fanout_terminal_conversion_millis
 fanout_duplicate_conversion_avoided
+output_capillary_status
+output_capillary_task_roles
+output_capillary_window_count
+output_sink_pressure_status
+output_memory_pressure_status
+pulseweave_output_policy_applied
 output_conversion_millis
 output_write_millis
 fanout_output_conversion_millis
@@ -627,6 +663,8 @@ for admitted local workflows with measured/evidence values for:
 operator_compute_millis
 fanout_conversion_dag_status=shared_fanout_conversion_dag_applied
 fanout_duplicate_conversion_avoided=true
+output_capillary_status=applied_output_pulseweave_control|not_requested_below_threshold
+pulseweave_output_policy_applied=true|false
 output_replay_millis
 total_runtime_millis
 fanout_output_count > 1

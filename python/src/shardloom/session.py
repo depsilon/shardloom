@@ -462,6 +462,42 @@ class SessionSqlResult:
         return self.report.fanout_duplicate_conversion_avoided
 
     @property
+    def output_capillary_status(self) -> str | None:
+        """Return output capillary scheduling status."""
+
+        return self.report.output_capillary_status
+
+    @property
+    def output_capillary_task_roles(self) -> str | None:
+        """Return typed output capillary task roles."""
+
+        return self.report.output_capillary_task_roles
+
+    @property
+    def output_capillary_window_count(self) -> int | None:
+        """Return the number of output capillary execution windows."""
+
+        return self.report.output_capillary_window_count
+
+    @property
+    def output_sink_pressure_status(self) -> str | None:
+        """Return output sink-pressure control status."""
+
+        return self.report.output_sink_pressure_status
+
+    @property
+    def output_memory_pressure_status(self) -> str | None:
+        """Return output memory-pressure control status."""
+
+        return self.report.output_memory_pressure_status
+
+    @property
+    def pulseweave_output_policy_applied(self) -> bool:
+        """Whether PulseWeave output policy was applied."""
+
+        return self.report.pulseweave_output_policy_applied
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate SQL output conversion time in milliseconds."""
 
@@ -591,6 +627,12 @@ class SessionSqlResult:
             "fanout_shared_conversion_millis": self.fanout_shared_conversion_millis,
             "fanout_terminal_conversion_millis": self.fanout_terminal_conversion_millis,
             "fanout_duplicate_conversion_avoided": self.fanout_duplicate_conversion_avoided,
+            "output_capillary_status": self.output_capillary_status,
+            "output_capillary_task_roles": self.output_capillary_task_roles,
+            "output_capillary_window_count": self.output_capillary_window_count,
+            "output_sink_pressure_status": self.output_sink_pressure_status,
+            "output_memory_pressure_status": self.output_memory_pressure_status,
+            "pulseweave_output_policy_applied": self.pulseweave_output_policy_applied,
             "output_conversion_millis": self.output_conversion_millis,
             "sink_artifact_conversion_millis": self.sink_artifact_conversion_millis,
             "fanout_output_conversion_millis": self.fanout_output_conversion_millis,
