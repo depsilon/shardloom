@@ -150,8 +150,8 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, LIKE/regex/string
 predicates, interval-backed temporal helper predicates, join/window, source-backed `IN` /
-`EXISTS` / `ANY` / `ALL`, row-level `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and
-bounded terminal paths.
+`EXISTS` / `ANY` / `ALL` including grouped/HAVING projected source-subquery tails, row-level
+`SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

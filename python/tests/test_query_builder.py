@@ -1599,8 +1599,30 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "id IN (SELECT allowed_id FROM 'target/allowed.csv' WHERE allowed_id = outer.id)",
         )
         self.assertEqual(
+            str(
+                sl.col("id").isin_source(
+                    "target/grouped.csv",
+                    "id",
+                    group_by="id",
+                    having="count(*) >= 2 AND id = outer.id",
+                )
+            ),
+            "id IN (SELECT id FROM 'target/grouped.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id)",
+        )
+        self.assertEqual(
             str(sl.col("id").not_in_source("target/blocked.csv", "id")),
             "id NOT IN (SELECT id FROM 'target/blocked.csv')",
+        )
+        self.assertEqual(
+            str(
+                sl.col("id").not_in_source(
+                    "target/grouped-blocked.csv",
+                    "id",
+                    group_by="id",
+                    having="count(*) >= 2 AND id = outer.id",
+                )
+            ),
+            "id NOT IN (SELECT id FROM 'target/grouped-blocked.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id)",
         )
         self.assertEqual(
             str(sl.col("id").any_source("=", "target/allowed.csv", "id")),
@@ -1631,6 +1653,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
             ),
             "amount > ALL (SELECT threshold FROM 'target/thresholds.csv' WHERE outer.group_id = group_id)",
+        )
+        self.assertEqual(
+            str(
+                sl.col("amount").all_source(
+                    ">",
+                    "target/grouped-thresholds.csv",
+                    "threshold",
+                    group_by="threshold",
+                    having="min(id) = outer.id AND count(*) >= 1",
+                    order_by="threshold",
+                    limit=10,
+                )
+            ),
+            "amount > ALL (SELECT threshold FROM 'target/grouped-thresholds.csv' GROUP BY threshold HAVING min(id) = outer.id AND count(*) >= 1 ORDER BY threshold ASC LIMIT 10)",
         )
         self.assertEqual(
             str(sl.row_in(["id", "label"], [(1, "alpha"), (3, "gamma"), (5, None)])),
@@ -1668,6 +1704,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             str(
+                sl.row_in_source(
+                    ("id", "label"),
+                    "target/grouped-pairs.csv",
+                    ("id", "label"),
+                    group_by=("id", "label"),
+                    having="count(*) >= 2 AND id = outer.id",
+                )
+            ),
+            "(id,label) IN (SELECT id,label FROM 'target/grouped-pairs.csv' GROUP BY id,label HAVING count(*) >= 2 AND id = outer.id)",
+        )
+        self.assertEqual(
+            str(
                 sl.row_not_in_source(
                     ["id", "label"],
                     "target/blocked.csv",
@@ -1700,13 +1748,39 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "EXISTS (SELECT * FROM 'target/allowed.csv' WHERE allowed_id = outer.id)",
         )
         self.assertEqual(
+            str(
+                sl.exists_source(
+                    "target/grouped.csv",
+                    select="id",
+                    group_by="id",
+                    having="count(*) >= 2 AND id = outer.id",
+                    order_by="id",
+                    limit=10,
+                )
+            ),
+            "EXISTS (SELECT id FROM 'target/grouped.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id ORDER BY id ASC LIMIT 10)",
+        )
+        self.assertEqual(
             str(sl.not_exists_source("target/blocked.csv", select=1, limit=0)),
             "NOT EXISTS (SELECT 1 FROM 'target/blocked.csv' LIMIT 0)",
+        )
+        self.assertEqual(
+            str(
+                sl.not_exists_source(
+                    "target/grouped-blocked.csv",
+                    select="id",
+                    group_by="id",
+                    having="count(*) >= 2 AND id = outer.id",
+                )
+            ),
+            "NOT EXISTS (SELECT id FROM 'target/grouped-blocked.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id)",
         )
         with self.assertRaises(ValueError):
             sl.outer("outer.id")
         with self.assertRaisesRegex(ValueError, "reserved"):
             sl.exists_source("target/allowed.csv", source_alias="outer")
+        with self.assertRaisesRegex(ValueError, "HAVING requires group_by"):
+            sl.exists_source("target/allowed.csv", having="count(*) >= 1")
         self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
@@ -3448,6 +3522,131 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.correlated_subquery_runtime_execution)
         self.assertEqual(report.correlated_subquery_outer_aliases, ("outer",))
         self.assertEqual(report.correlated_subquery_outer_columns, ("id",))
+        self.assertEqual(
+            report.correlated_subquery_evaluation_strategy,
+            "per_outer_row_bounded_subquery_materialization",
+        )
+        self.assertEqual(report.correlated_subquery_outer_row_evaluation_count, 4)
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_grouped_projected_subquery_helpers_invoke_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/grouped.csv' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "predicate_operator_family", "value": "in_subquery,correlated_subquery"},
+                        {"key": "in_predicate_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_source_column", "value": "id"},
+                        {"key": "in_subquery_source_format", "value": "csv"},
+                        {"key": "in_subquery_filter_runtime_execution", "value": "false"},
+                        {"key": "in_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_input_row_count", "value": "8"},
+                        {"key": "in_subquery_filtered_row_count", "value": "2"},
+                        {"key": "in_subquery_materialization_bound", "value": "32"},
+                        {"key": "in_subquery_materialized_value_count", "value": "2"},
+                        {"key": "in_subquery_materialized_null_value_count", "value": "0"},
+                        {"key": "projected_subquery_runtime_execution", "value": "true"},
+                        {"key": "projected_subquery_statement_kind", "value": "local_source_group_by_aggregate_order_by_topn_limit_having"},
+                        {"key": "projected_subquery_output_column_count", "value": "1"},
+                        {"key": "projected_subquery_join_runtime_execution", "value": "false"},
+                        {"key": "projected_subquery_group_by_runtime_execution", "value": "true"},
+                        {"key": "projected_subquery_having_runtime_execution", "value": "true"},
+                        {"key": "correlated_subquery_runtime_execution", "value": "true"},
+                        {"key": "correlated_subquery_outer_alias", "value": "outer"},
+                        {"key": "correlated_subquery_outer_column", "value": "amount,id"},
+                        {"key": "correlated_subquery_evaluation_strategy", "value": "per_outer_row_bounded_subquery_materialization"},
+                        {"key": "correlated_subquery_outer_row_evaluation_count", "value": "4"},
+                        {"key": "in_predicate_null_semantics", "value": "not_applicable"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        grouped = ctx.read_csv("target/grouped.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(
+                sl.col("id").isin_source(
+                    grouped,
+                    "id",
+                    group_by="id",
+                    having="count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount",
+                    order_by="id",
+                    limit=10,
+                )
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.predicate_operator_family,
+            "in_subquery,correlated_subquery",
+        )
+        self.assertTrue(report.in_predicate_runtime_execution)
+        self.assertTrue(report.in_subquery_runtime_execution)
+        self.assertEqual(report.in_subquery_source_columns, ("id",))
+        self.assertEqual(report.in_subquery_source_formats, ("csv",))
+        self.assertFalse(report.in_subquery_filter_runtime_execution)
+        self.assertTrue(report.in_subquery_order_by_runtime_execution)
+        self.assertTrue(report.in_subquery_limit_runtime_execution)
+        self.assertEqual(report.in_subquery_input_row_count, 8)
+        self.assertEqual(report.in_subquery_filtered_row_count, 2)
+        self.assertEqual(report.in_subquery_materialization_bound, 32)
+        self.assertEqual(report.in_subquery_materialized_value_count, 2)
+        self.assertEqual(report.in_subquery_materialized_null_value_count, 0)
+        self.assertTrue(report.projected_subquery_runtime_execution)
+        self.assertEqual(
+            report.projected_subquery_statement_kinds,
+            ("local_source_group_by_aggregate_order_by_topn_limit_having",),
+        )
+        self.assertEqual(report.projected_subquery_output_column_counts, (1,))
+        self.assertFalse(report.projected_subquery_join_runtime_execution)
+        self.assertTrue(report.projected_subquery_group_by_runtime_execution)
+        self.assertTrue(report.projected_subquery_having_runtime_execution)
+        self.assertTrue(report.correlated_subquery_runtime_execution)
+        self.assertEqual(report.correlated_subquery_outer_aliases, ("outer",))
+        self.assertEqual(report.correlated_subquery_outer_columns, ("amount", "id"))
         self.assertEqual(
             report.correlated_subquery_evaluation_strategy,
             "per_outer_row_bounded_subquery_materialization",

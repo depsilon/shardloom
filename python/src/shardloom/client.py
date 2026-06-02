@@ -2544,6 +2544,70 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def projected_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted projected source subquery."""
+
+        return (
+            self.envelope.field_bool("projected_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def projected_subquery_statement_kinds(self) -> tuple[str, ...]:
+        """Return statement kinds used by admitted projected source subqueries."""
+
+        value = self.envelope.field("projected_subquery_statement_kind", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def projected_subquery_output_column_counts(self) -> tuple[int, ...]:
+        """Return output-column counts for admitted projected source subqueries."""
+
+        value = self.envelope.field("projected_subquery_output_column_count", "")
+        if not value or value == "not_applicable":
+            return ()
+        counts: list[int] = []
+        for part in value.split(","):
+            if part:
+                counts.append(int(part))
+        return tuple(counts)
+
+    @property
+    def projected_subquery_join_runtime_execution(self) -> bool:
+        """Whether an admitted projected source subquery used a join."""
+
+        return (
+            self.envelope.field_bool(
+                "projected_subquery_join_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def projected_subquery_group_by_runtime_execution(self) -> bool:
+        """Whether an admitted projected source subquery used GROUP BY."""
+
+        return (
+            self.envelope.field_bool(
+                "projected_subquery_group_by_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def projected_subquery_having_runtime_execution(self) -> bool:
+        """Whether an admitted projected source subquery used HAVING."""
+
+        return (
+            self.envelope.field_bool(
+                "projected_subquery_having_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
     def correlated_subquery_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted correlated source subquery."""
 

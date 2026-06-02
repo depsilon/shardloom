@@ -617,9 +617,10 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `isin_source(source, column)` / `not_in_source(source, column)`, row-value source-backed
 `sl.row_in_source(columns, source, source_columns)` /
 `sl.row_not_in_source(columns, source, source_columns)`, source-backed
-`sl.exists_source(source, where=..., order_by=..., limit=...)` /
+`sl.exists_source(source, where=..., group_by=..., having=..., order_by=..., limit=...)` /
 `sl.not_exists_source(source, ...)`, source-backed `sl.any_source(...)` / `sl.all_source(...)`
-and `sl.col(...).any_source(...)` / `.all_source(...)`, `sl.outer(column)` for the reserved
+and `sl.col(...).any_source(...)` / `.all_source(...)` with the same grouped/HAVING tail
+parameters, `sl.outer(column)` for the reserved
 correlated outer-row alias, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
@@ -866,6 +867,22 @@ correlated_source_subquery_filtered = (
             "allowed.id",
             source_alias="allowed",
             where=sl.col("allowed.id") == sl.outer("id"),
+        )
+    )
+    .limit(10)
+    .collect()
+)
+grouped_source_subquery_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(
+        sl.col("id").isin_source(
+            ctx.read_csv("target/sql-local-source-grouped.csv"),
+            "id",
+            group_by="id",
+            having="count(*) >= 2 AND id = outer.id",
+            order_by="id",
+            limit=10,
         )
     )
     .limit(10)
@@ -1340,9 +1357,10 @@ print(join_grouped_topn.top_n_limit)
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
 null ordering, collation parity,
 broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
-IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, and scoped
-correlated `outer.<column>` source-subquery filters, arbitrary predicate-tree completeness
-beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
+IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, scoped
+correlated `outer.<column>` source-subquery filters, and grouped/HAVING projected source-subquery
+tails for those families, arbitrary predicate-tree completeness beyond the admitted
+parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
 HAVING over non-output source columns or aggregate-function expressions not emitted as aliases,

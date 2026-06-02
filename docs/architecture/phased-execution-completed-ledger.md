@@ -16,6 +16,93 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D grouped/HAVING projected Python front-door parity slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/grouped-projected-python-subquery-parity` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to PR #1024: the SQL runtime admitted correlated grouped/HAVING projected
+      source-subquery routes, while Python/DataFrame helpers still exposed only simple
+      source-backed subquery tails.
+  - Scope:
+    - Added explicit `group_by=` and `having=` tail parameters to source-backed scalar IN,
+      row-value IN, EXISTS, and quantified ANY/ALL helpers.
+    - Kept the helper scope narrow: tails lower to existing ShardLoom local-source SQL runtime
+      routes, including correlated `outer.<column>` HAVING predicates; joined or broader derived
+      table builder shapes remain outside this slice.
+    - Added typed Python report accessors for `projected_subquery_*` evidence fields so users and
+      agents can inspect route statement kind, output arity, join, group-by, and HAVING evidence
+      without ad hoc envelope parsing.
+    - Updated Python/README, root README, use-case source, generated use-case Markdown, website
+      use-case JSON/data, and the SQL/Python/DataFrame parity gate.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/tests/test_query_builder.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_grouped_projected_subquery_helpers_invoke_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-grouped-projected-subquery.json` passed.
+    - `python3 scripts/check_use_case_index.py`, `python3 scripts/check_use_case_backlinks.py`,
+      and `python3 scripts/check_workflow_recipes.py` passed.
+    - `git diff --check` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `python3 scripts/check_website_readiness.py` was rerun after generated content sync and only
+      failed on unrelated untracked duplicate `website/* 3.html` and `validate_static_assets 3.js`
+      artifacts already present in the local worktree.
+  - Claim boundary:
+    - This closes Python/DataFrame front-door parity for scoped grouped/HAVING projected
+      source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helper tails over admitted
+      local sources. It does not claim broad ANSI subquery parity, production DataFrame support,
+      performance equivalence, object-store/table SQL, or Spark replacement.
+  - Fallback boundary:
+    - The Python helpers only render SQL for ShardLoom's local-source runtime and report
+      `fallback_attempted=false` and `external_engine_invoked=false` through the runtime envelope.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D correlated grouped/HAVING projected subquery runtime slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/correlated-grouped-projected-subqueries` / PR #1024, merged as
+    `c4ce8b9f`.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to scoped correlated projected subqueries: correlated grouped/HAVING projected
+      scalar, row-value, EXISTS, and quantified subqueries were engine-capable through the local
+      grouped/HAVING evaluator but still lacked validator rows and runtime-admission proof.
+  - Scope:
+    - Added projected-plan outer-correlation validation for IN and EXISTS projected subqueries so
+      `outer.<column>` references remain admitted only in column-to-column predicates before
+      execution.
+    - Added runtime fixtures for correlated grouped/HAVING projected scalar IN, row-value IN,
+      quantified ALL, and EXISTS subqueries. The routes reuse ShardLoom's local-source parser,
+      binder, group/HAVING evaluator, hidden HAVING aggregate rewrites, and bounded per-outer-row
+      materializer.
+    - Added four admitted-semantics matrix rows, validator fixtures, release-readiness markers, and
+      compute-flow/status doc updates. Matrix evidence moved to `matrix_row_count=64` and
+      `executable_fixture_count=54`.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli correlated_grouped_having_projected -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-correlated-grouped-projected.json`
+      passed with `matrix_row_count=64`, `executable_fixture_count=54`, no fallback, no external
+      engine invocation, and decoded-reference execution performed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - Remote PR #1024 CI and CodeQL completed successfully before merge.
+  - Claim boundary:
+    - This closes scoped correlated grouped/HAVING projected local-source subquery runtime evidence
+      for scalar IN, row-value IN, EXISTS, and quantified ANY/ALL shapes. It does not claim broad
+      ANSI subquery parity, production SQL/DataFrame completeness, performance equivalence,
+      object-store/table SQL, or Spark replacement.
+  - Fallback boundary:
+    - All execution remains inside ShardLoom's local-source runtime and reports
+      `fallback_attempted=false` and `external_engine_invoked=false`. External engines remain
+      baselines/oracles only and are not used for execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped EXISTS/NOT EXISTS runtime slice
   - Date: 2026-06-01
   - Branch/PR: `codex/sql-exists-subquery-runtime` / pending PR.
