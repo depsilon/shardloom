@@ -223,7 +223,7 @@ const WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS: [&str; 17] = [
     "wrapper_connector_registry_claim_gate_status",
 ];
 
-const COMMAND_REGISTRY_FIELD_KEYS: [&str; 25] = [
+const COMMAND_REGISTRY_FIELD_KEYS: [&str; 31] = [
     "command_registry_schema_version",
     "command_registry_report_id",
     "command_registry_docs_ref",
@@ -233,6 +233,7 @@ const COMMAND_REGISTRY_FIELD_KEYS: [&str; 25] = [
     "command_registry_help_aliases",
     "command_registry_registered_command_count",
     "command_registry_support_state_vocabulary",
+    "command_registry_user_surface_graduation_posture_vocabulary",
     "command_registry_row_order",
     "command_registry_family_order",
     "command_registry_executable_count",
@@ -241,6 +242,11 @@ const COMMAND_REGISTRY_FIELD_KEYS: [&str; 25] = [
     "command_registry_report_only_count",
     "command_registry_blocked_count",
     "command_registry_future_count",
+    "command_registry_high_level_context_count",
+    "command_registry_client_only_count",
+    "command_registry_diagnostic_graduation_count",
+    "command_registry_feature_gated_graduation_count",
+    "command_registry_not_user_facing_count",
     "command_registry_evidence_fields",
     "command_registry_claim_boundary",
     "command_registry_fallback_boundary",
@@ -251,10 +257,11 @@ const COMMAND_REGISTRY_FIELD_KEYS: [&str; 25] = [
     "command_registry_claim_gate_status",
 ];
 
-const COMMAND_REGISTRY_ROW_SUFFIXES: [&str; 12] = [
+const COMMAND_REGISTRY_ROW_SUFFIXES: [&str; 13] = [
     "command",
     "family",
     "support_state",
+    "user_surface_graduation_posture",
     "side_effect_level",
     "usage_fragment",
     "feature_gate_status",
@@ -3778,6 +3785,10 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
         "command_registry_support_state_vocabulary",
         "executable,feature_gated,diagnostic_only,report_only,blocked,future"
     )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_user_surface_graduation_posture_vocabulary",
+        "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"
+    )));
     assert!(output.contains(&field_pair("command_registry_fallback_attempted", false)));
     assert!(output.contains(&field_pair(
         "command_registry_external_engine_invoked",
@@ -3802,6 +3813,10 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_ingest_smoke_input_contract",
         "local_source_or_vortex_artifact_args"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_row_vortex_ingest_smoke_user_surface_graduation_posture",
+        "high_level_context"
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_ingest_smoke_output_contract",

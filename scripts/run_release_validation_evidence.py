@@ -132,6 +132,10 @@ REQUIRED_VALIDATION_COMMANDS = [
         [sys.executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
     ),
     (
+        "user_surface_graduation_matrix",
+        [sys.executable, "scripts/check_user_surface_graduation_matrix.py"],
+    ),
+    (
         "user_route_capability_report",
         [sys.executable, "scripts/check_user_route_capability_report.py"],
     ),

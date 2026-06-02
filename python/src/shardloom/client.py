@@ -6225,6 +6225,16 @@ class CommandMetadataReport:
         return _csv_values(self.envelope.field("command_registry_support_state_vocabulary"))
 
     @property
+    def user_surface_graduation_posture_vocabulary(self) -> tuple[str, ...]:
+        """Return the user-surface graduation posture vocabulary."""
+
+        return _csv_values(
+            self.envelope.field(
+                "command_registry_user_surface_graduation_posture_vocabulary"
+            )
+        )
+
+    @property
     def registered_commands(self) -> tuple[str, ...]:
         """Return registered CLI command names in usage order."""
 
@@ -6241,6 +6251,14 @@ class CommandMetadataReport:
         """Return command name to support-state mappings."""
 
         return _csv_key_value_map(self.envelope.field("registered_command_support_states"))
+
+    @property
+    def registered_command_user_surface_graduation_postures(self) -> Mapping[str, str]:
+        """Return command name to user-surface graduation posture mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_user_surface_graduation_postures")
+        )
 
     @property
     def registered_command_side_effect_levels(self) -> Mapping[str, str]:
@@ -6299,6 +6317,12 @@ class CommandMetadataReport:
         """Return the selected command support state, when present."""
 
         return self.envelope.field("selected_command_support_state")
+
+    @property
+    def selected_command_user_surface_graduation_posture(self) -> str | None:
+        """Return the selected command user-surface graduation posture, when present."""
+
+        return self.envelope.field("selected_command_user_surface_graduation_posture")
 
     @property
     def selected_command_side_effect_level(self) -> str | None:
@@ -6370,6 +6394,11 @@ class CommandMetadataReport:
         """Return the registered support state for a command."""
 
         return self.registered_command_support_states[command]
+
+    def user_surface_graduation_posture_for(self, command: str) -> str:
+        """Return the registered user-surface graduation posture for a command."""
+
+        return self.registered_command_user_surface_graduation_postures[command]
 
     def side_effect_level_for(self, command: str) -> str:
         """Return the registered side-effect level for a command."""

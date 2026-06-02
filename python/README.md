@@ -123,6 +123,14 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
+Use `ctx.user_surface_graduation_matrix()` to decide whether a Python or CLI
+surface belongs on the ergonomic context path. The matrix uses five postures:
+`high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, and
+`not_user_facing`. `high_level_context` rows are the scoped workflows promoted
+for normal context use; `client_only` rows stay explicit lower-level CLI/client
+access; `diagnostic_only` and `feature_gated` rows must not be described as
+runtime support without the matching evidence.
+
 For normal Python use, start from the simple context and query surface. `repo_root` and
 `profile_order` are optional development configuration overrides, not arguments users should have
 to put in ordinary application code. Source-tree or CI runs can set `SHARDLOOM_BIN` or

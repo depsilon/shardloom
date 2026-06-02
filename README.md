@@ -329,6 +329,13 @@ For local compatibility-file benchmark families, the benchmark route report maps
 scenario to a direct or prepare-once ShardLoom route and keeps fixture-scoped nested JSON, CDC
 overlay, many-small-files, partition, dirty-data, sort/window, join, and aggregate coverage
 separate from broad production or performance claims.
+
+For user surface graduation, use `ctx.user_surface_graduation_matrix()` before assuming a public
+method or command is a runtime workflow. The matrix assigns each grouped CLI/Python surface one of
+`high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or `not_user_facing`.
+`high_level_context` means a scoped ergonomic context route exists with evidence; `client_only`
+keeps an explicit low-level CLI/client surface available. `diagnostic_only` and `feature_gated`
+mark planning, unsafe, or gated commands as outside the admitted high-level runtime path.
 Scoped complex projection rows are result-boundary evidence only: they prove ShardLoom can carry
 bounded `ARRAY[...]` and `STRUCT(...)` values to JSONL/user-facing rows without fallback, not that
 flat compatibility sinks, complex equality, accessors, casts, or nested source decoding are broadly
