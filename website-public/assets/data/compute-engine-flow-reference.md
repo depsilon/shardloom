@@ -2051,6 +2051,17 @@ no-fallback fields. Append-only overlays are admitted when fingerprints and sche
 delete, upsert, schema mismatch, missing-base, and empty-delta shapes block before prepared-state
 reuse.
 
+`GAR-RUNTIME-IMPL-6E-4` adds the automatic local append-only refinement branch to that same route.
+When the artifact-adjacent prepared-state reuse manifest misses only because the current local
+CSV/JSONL source digest/size changed, `vortex_ingest` verifies the old source as a byte prefix,
+checks the base prepared artifact fingerprint, writes a content-addressed delta source/artifact
+without rewriting the base artifact, and writes a digest-backed differential refinement manifest.
+The first admitted prepared consumer is count-family only: base manifest row count plus delta reopen
+row count produces refined prepared-state and correctness digests. Non-append drift,
+update/delete/upsert, schema drift, missing base manifests, changed compression/format posture, and
+unsupported consumers block or require explicit user-requested full preparation; they are not
+hidden fallback execution.
+
 `GAR-IOREUSE-1K` adds scoped local VortexCapillaryPreparation evidence to that same route.
 `vortex-ingest-smoke` now emits `vortex_capillary_preparation_*` fields for source split
 discovery, read chunk, columnarize/encode, Vortex segment write, reopen verification, and sink
