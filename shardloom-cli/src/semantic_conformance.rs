@@ -9,8 +9,8 @@ use std::process::ExitCode;
 use shardloom_core::{
     CommandStatus, ComparisonOp, Diagnostic, DiagnosticCode, ExprId, Expression,
     ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind, LogicalDType, OutputFormat,
-    ScalarValue, evaluate_expression, format_iso_date32, format_iso_timestamp_micros,
-    parse_iso_date32, parse_iso_timestamp_micros,
+    ScalarValue, decimal128_dtype, evaluate_expression, format_iso_date32,
+    format_iso_timestamp_micros, parse_iso_date32, parse_iso_timestamp_micros,
 };
 
 use crate::{
@@ -229,7 +229,7 @@ fn predicate_semantic_rows() -> Vec<SemanticFixtureRow> {
 
 fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
     let mut rows = basic_numeric_scalar_rows();
-    rows.extend(decimal_scalar_blocker_rows());
+    rows.extend(decimal_scalar_rows());
     rows.extend(utc_timestamp_scalar_rows());
     rows.extend(timezone_interval_scalar_blocker_rows());
     rows.extend(date_string_scalar_rows());
@@ -267,18 +267,14 @@ fn basic_numeric_scalar_rows() -> Vec<SemanticFixtureRow> {
     ]
 }
 
-fn decimal_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
-    vec![SemanticFixtureRow::executed_blocker(
+fn decimal_scalar_rows() -> Vec<SemanticFixtureRow> {
+    vec![SemanticFixtureRow::executed(
         "decimal_precision_scale",
         "decimal precision/scale",
         "scalar_expressions",
-        "unsupported_diagnostic_certified",
-        "decimal precision/scale casts fail deterministically until a native decimal dtype policy lands",
-        SemanticBlockerEvidence {
-            blocker_id: "gar-runtime-impl-4d-f1.decimal_precision_scale_unsupported",
-            required_future_evidence: "decimal_dtype_policy,precision_scale_fixture,overflow_diagnostic",
-        },
-        decimal_precision_scale_blocker_fixture(),
+        "scoped_fixture_certified",
+        "fixed-scale decimal128 casts preserve declared precision/scale and reject invalid scoped inputs without fallback",
+        decimal_precision_scale_fixture(),
     )]
 }
 
@@ -708,19 +704,44 @@ fn integer_overflow_fixture() -> bool {
     i64::MAX.checked_add(1).is_none()
 }
 
-fn decimal_precision_scale_blocker_fixture() -> bool {
-    let expression = Expression::cast(
-        ExprId::new("decimal-cast").expect("fixture expression id"),
+fn decimal_precision_scale_fixture() -> bool {
+    let valid = Expression::cast(
+        ExprId::new("decimal-valid-cast").expect("fixture expression id"),
         Expression::literal(
-            ExprId::new("decimal-source").expect("fixture expression id"),
+            ExprId::new("decimal-valid-source").expect("fixture expression id"),
             ScalarValue::Utf8("12.34".to_string()),
         ),
-        LogicalDType::Extension("decimal128(10,2)".to_string()),
+        decimal128_dtype(10, 2),
     );
-    unsupported_report_certified(&evaluate_expression(
-        &expression,
-        &ExpressionInputRow::new(),
-    ))
+    let exponent = Expression::cast(
+        ExprId::new("decimal-exponent-cast").expect("fixture expression id"),
+        Expression::literal(
+            ExprId::new("decimal-exponent-source").expect("fixture expression id"),
+            ScalarValue::Utf8("1e3".to_string()),
+        ),
+        decimal128_dtype(10, 2),
+    );
+    let overflow = Expression::cast(
+        ExprId::new("decimal-overflow-cast").expect("fixture expression id"),
+        Expression::literal(
+            ExprId::new("decimal-overflow-source").expect("fixture expression id"),
+            ScalarValue::Utf8("123456789.01".to_string()),
+        ),
+        decimal128_dtype(10, 2),
+    );
+    let valid_report = evaluate_expression(&valid, &ExpressionInputRow::new());
+    valid_report.status == ExpressionEvaluationStatus::Evaluated
+        && valid_report.value
+            == Some(ScalarValue::Decimal128 {
+                value: 1234,
+                precision: 10,
+                scale: 2,
+            })
+        && valid_report.output_dtype == Some(decimal128_dtype(10, 2))
+        && !valid_report.fallback_attempted
+        && !valid_report.external_engine_invoked
+        && invalid_report_certified(&evaluate_expression(&exponent, &ExpressionInputRow::new()))
+        && invalid_report_certified(&evaluate_expression(&overflow, &ExpressionInputRow::new()))
 }
 
 fn string_case_sensitivity_fixture() -> bool {
@@ -865,6 +886,18 @@ fn unsupported_cast_dtype_fixture(target_dtype: LogicalDType) -> bool {
 
 fn unsupported_report_certified(report: &shardloom_core::ExpressionEvaluationReport) -> bool {
     report.status == ExpressionEvaluationStatus::Unsupported
+        && report.has_errors()
+        && !report.fallback_attempted
+        && !report.external_engine_invoked
+        && !report.fallback_execution_allowed()
+        && report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.fallback.attempted)
+}
+
+fn invalid_report_certified(report: &shardloom_core::ExpressionEvaluationReport) -> bool {
+    report.status == ExpressionEvaluationStatus::InvalidInput
         && report.has_errors()
         && !report.fallback_attempted
         && !report.external_engine_invoked

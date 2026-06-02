@@ -640,9 +640,11 @@ plan before coding.
   admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
   timezone database conversion, interval arithmetic outside scoped temporal helpers, and
   locale-aware collation. Scoped ANSI interval literals inside temporal helper functions and scoped
-  UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation, while the remaining
-  advanced scalar blockers still fail through shared policy guards before execution with no
-  fallback/external engine invocation.
+  UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation; later
+  GAR-RUNTIME-IMPL-6D evidence also promotes scoped `decimal128(p,s)` / `decimal(p,s)` /
+  `numeric(p,s)` casts through exact fixed-scale projection/predicate runtime and keeps decimal
+  arithmetic/coercion/typed sinks blocked. The remaining advanced scalar blockers still fail through
+  shared policy guards before execution with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout added executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
   variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,

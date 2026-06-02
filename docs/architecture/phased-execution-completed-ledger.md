@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped decimal cast SQL/Python runtime slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/scoped-decimal-cast-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the scoped binary and complex projection slices: decimal precision/scale casts
+      were still represented as unsupported even though a scoped exact fixed-scale route can be
+      admitted without claiming decimal arithmetic, broad ANSI coercion, or typed decimal sinks.
+  - Scope:
+    - Added `ScalarValue::Decimal128` plus normalized `decimal128(p,s)` extension dtypes in the core
+      expression evaluator.
+    - Promoted scoped SQL `CAST`/`TRY_CAST(<column> AS decimal128|decimal|numeric(p,s))` projection
+      and predicate routes through ShardLoom-owned local-source runtime lowering.
+    - Added exact fixed-scale parsing, comparison for same-scale decimal values, TRY_CAST null-on-
+      invalid behavior, JSONL exact decimal string rendering, and CSV exact decimal text rendering.
+    - Added decimal-specific runtime evidence fields for source/output columns, target dtype,
+      precision, scale, cast mode, and the exact output boundary while preserving generic
+      `cast_*` / `cast_projection_*` evidence.
+    - Kept decimal arithmetic, broad ANSI decimal coercion, exponent notation, unsupported source
+      dtypes, and typed Parquet/Arrow IPC/Avro/ORC/Vortex decimal sink preservation as deterministic
+      blockers.
+    - Updated Python query-builder dtype normalization/accessors, admitted semantics matrix rows,
+      release-readiness metadata, phase docs, root README, Python README, compute-flow reference,
+      RFC/global review references, and status artifacts.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo check -p shardloom-core -p shardloom-cli -p shardloom-vortex` passed.
+    - `cargo fmt --all && CARGO_INCREMENTAL=0 cargo test -p shardloom-core decimal128 -- --nocapture && CARGO_INCREMENTAL=0 cargo test -p shardloom-cli decimal_cast -- --nocapture` passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/tests/test_query_builder.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_decimal_cast_invokes_sql_smoke` passed.
+    - `target/debug/shardloom semantic-conformance-suite --format json` passed with
+      `executed_fixture_count=23`, `passed_fixture_count=23`, `failed_fixture_count=0`, and
+      `semantic_row_decimal_precision_scale_current_support=scoped_fixture_certified`.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-decimal-cast.json` passed with `matrix_row_count=67`, `executable_fixture_count=60`, `unsupported_diagnostic_count=7`, `semantic_conformance_suite_status=passed`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-decimal-cast.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-decimal-cast.json` passed after the inventory scanner was hardened to ignore local duplicate-copy status artifacts such as `name 3.json`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture` passed.
+    - `cargo fmt --all -- --check`, `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings`, `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets`, `PYTHONPATH=python/src python3 -m unittest discover python/tests`, and `git diff --check` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-matrix-decimal-cast.json --output target/release-readiness-decimal-cast.json` was run; admitted-semantics blockers were clear, while broader known release/package/benchmark-evidence gates remained blocked.
+  - Claim boundary:
+    - This closes scoped SQL/Python/DataFrame decimal cast runtime evidence for bounded local-source
+      projection and predicate routes only. It does not claim decimal arithmetic, broad ANSI decimal
+      coercion, exponent notation, typed decimal sink preservation, production SQL/DataFrame support,
+      performance equivalence, object-store/table support, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime and core expression evaluator.
+      Positive routes and deterministic blockers report or append `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex projection SQL/Python runtime slice
   - Date: 2026-06-02
   - Branch/PR: `codex/complex-literal-projections-runtime` / pending PR.

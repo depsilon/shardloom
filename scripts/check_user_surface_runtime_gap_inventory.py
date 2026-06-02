@@ -364,6 +364,11 @@ def load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def is_local_duplicate_copy(path: Path) -> bool:
+    stem, separator, suffix = path.stem.rpartition(" ")
+    return bool(stem and separator and suffix.isdecimal())
+
+
 def common_row(
     *,
     source: str,
@@ -541,6 +546,8 @@ def website_status_gap_rows(repo_root: Path, status_dir: Path) -> tuple[list[dic
     rows: list[dict[str, Any]] = []
     blockers: list[str] = []
     for path in sorted(status_dir.glob("*.json")):
+        if is_local_duplicate_copy(path):
+            continue
         payload = load_json(path)
         status = str(payload.get("status", ""))
         if status not in INVENTORIED_WEBSITE_STATUSES:

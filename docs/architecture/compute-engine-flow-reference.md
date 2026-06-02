@@ -351,13 +351,13 @@ result replay/fidelity proof, persistent OutputPlan cache support, or object-sto
 support.
 
 4D/5G/F1 closeout note: current release-gated admitted semantics now include `matrix_row_count=67`
-and `executable_fixture_count=59`, including scoped UTF-8 regex predicates, composed string functions, temporal arithmetic/
+and `executable_fixture_count=60`, including scoped UTF-8 regex predicates, composed string functions, temporal arithmetic/
 difference, CASE, IN-list NULL semantics, row-value literal IN predicates, row-value IN-subquery predicates, projected row-value/EXISTS/quantified subqueries, correlated joined and grouped/HAVING projected scalar/row-value/EXISTS/quantified subqueries, scoped quantified ANY/ALL subqueries, scoped SQL UNION
 composition, bounded scalar IN subqueries with admitted WHERE/ORDER BY/LIMIT clauses, nested scalar
 IN subqueries, joined and grouped/HAVING projected scalar IN/EXISTS subqueries, HAVING
 IN/EXISTS/quantified subquery predicates, scoped correlated `outer.<column>` scalar/row-value/EXISTS/quantified filters, COUNT(DISTINCT), hidden HAVING aggregates, mixed
-window row_number/rank/lag/ntile semantics, multi-key joins, source-qualified local subqueries, scoped SQL `X'<hex>'`, `BINARY '<utf8>'`, and `BLOB '<utf8>'` binary literal projections, scoped binary casts and equality/inequality cast predicates, scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, and deterministic unsupported
-diagnostics for decimal, timezone, arbitrary interval arithmetic, collation, complex equality/accessors/casts/nested source decoding/flat sinks beyond scoped JSONL/result-boundary `ARRAY[...]` and `STRUCT(<source column>, ...)` projections, variant,
+window row_number/rank/lag/ntile semantics, multi-key joins, source-qualified local subqueries, scoped SQL `X'<hex>'`, `BINARY '<utf8>'`, and `BLOB '<utf8>'` binary literal projections, scoped binary casts and equality/inequality cast predicates, scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, scoped decimal128/decimal/numeric cast projection and predicate fixtures with exact JSONL string and CSV text boundaries, and deterministic unsupported
+diagnostics for non-UTC timestamp/timezone, arbitrary interval arithmetic, collation, decimal arithmetic or typed decimal sinks, complex equality/accessors/casts/nested source decoding/flat sinks beyond scoped JSONL/result-boundary `ARRAY[...]` and `STRUCT(<source column>, ...)` projections, variant,
 union dtype, broad binary source dtype decoding, binary ordering, scalar-left multi-column IN-subquery, unbound qualified references, and remaining non-admitted broad ANSI subquery shapes, and
 non-admitted quantified shapes while scoped EXISTS, scoped quantified ANY/ALL, HAVING-level scoped
 EXISTS/quantified subqueries, scoped UTF-8 regex predicates, and scoped interval literals inside temporal helper functions are admitted. `runtime.5g-f1` now exposes the current physical operator plan, operator

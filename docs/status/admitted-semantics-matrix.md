@@ -32,8 +32,8 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=67
-executable_fixture_count=59
-unsupported_diagnostic_count=8
+executable_fixture_count=60
+unsupported_diagnostic_count=7
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -68,6 +68,7 @@ Covered fixture rows:
 - `complex_array_literal_projection`
 - `complex_struct_source_projection`
 - `binary_cast_projection_predicate`
+- `decimal_cast_projection_predicate`
 - `binary_helper_projection`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
@@ -109,7 +110,6 @@ Covered fixture rows:
 - `join_multi_key_expression_condition`
 - `select_distinct_join`
 - `unsupported_numeric_division_by_zero`
-- `unsupported_cast_decimal128`
 - `unsupported_non_utc_timestamp_literal`
 - `unsupported_timezone_database_policy`
 - `unsupported_locale_collation`
@@ -124,8 +124,8 @@ subqueries, projected row-value/quantified subquery, correlated joined and group
 scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS, scoped quantified ANY/ALL, and
 HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
-property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
-locale/collation, variant/union dtype families, list/struct accessors, complex equality, broad
+property lane. Non-UTC timestamp/timezone database semantics, locale/collation,
+variant/union dtype families, list/struct accessors, complex equality, broad
 binary source dtype decoding, binary ordering, scalar-left multi-column subqueries, and remaining
 non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics with no
 fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
@@ -143,7 +143,11 @@ predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 
 `NULL`. Scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
 with strict UTF-8 text decoding, binary output evidence, null propagation, and deterministic
 invalid-input blockers, while broad binary source dtype decoding, binary ordering, and nested binary
-helper expressions remain outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
+helper expressions remain outside the claim boundary. Scoped `CAST`/`TRY_CAST` to
+`decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
+fixtures with exact fixed-scale JSONL string and CSV text output. Decimal arithmetic, broad ANSI
+decimal coercion, exponent notation, and typed Parquet/Arrow/Vortex decimal sink preservation remain
+outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
 ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through

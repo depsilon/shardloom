@@ -106,6 +106,30 @@ DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS = (
 )
 
 
+def _split_field_list(value: str | None) -> tuple[str, ...]:
+    """Split comma-separated evidence values while preserving parenthesized dtype args."""
+
+    if not value or value == "not_applicable":
+        return ()
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    for index, char in enumerate(value):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(0, depth - 1)
+        elif char == "," and depth == 0:
+            part = value[start:index]
+            if part:
+                parts.append(part)
+            start = index + 1
+    tail = value[start:]
+    if tail:
+        parts.append(tail)
+    return tuple(parts)
+
+
 @dataclass(frozen=True, slots=True)
 class LiveEtlReplayResult:
     """Result of a CSV universal-I/O run and optional native Vortex replay."""
@@ -3318,9 +3342,7 @@ class SqlLocalSourceSmokeReport:
         """Return cast predicate target dtypes emitted by the smoke."""
 
         value = self.envelope.field("cast_target_dtype", "")
-        if not value or value == "not_applicable":
-            return ()
-        return tuple(part for part in value.split(",") if part)
+        return _split_field_list(value)
 
     @property
     def cast_modes(self) -> tuple[str, ...]:
@@ -3360,9 +3382,7 @@ class SqlLocalSourceSmokeReport:
         """Return cast projection target dtypes emitted by the smoke."""
 
         value = self.envelope.field("cast_projection_target_dtype", "")
-        if not value or value == "not_applicable":
-            return ()
-        return tuple(part for part in value.split(",") if part)
+        return _split_field_list(value)
 
     @property
     def cast_projection_modes(self) -> tuple[str, ...]:
@@ -3372,6 +3392,73 @@ class SqlLocalSourceSmokeReport:
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted scoped decimal cast."""
+
+        return self.envelope.field_bool("decimal_cast_runtime_execution", False) is True
+
+    @property
+    def decimal_cast_source_columns(self) -> tuple[str, ...]:
+        """Return source columns used by admitted scoped decimal casts."""
+
+        value = self.envelope.field("decimal_cast_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_output_columns(self) -> tuple[str, ...]:
+        """Return decimal cast projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("decimal_cast_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_target_dtypes(self) -> tuple[str, ...]:
+        """Return normalized decimal cast target dtypes emitted by the smoke."""
+
+        value = self.envelope.field("decimal_cast_target_dtype", "")
+        return _split_field_list(value)
+
+    @property
+    def decimal_cast_precisions(self) -> tuple[int, ...]:
+        """Return decimal cast precisions emitted by the smoke."""
+
+        value = self.envelope.field("decimal_cast_precision", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(int(part) for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_scales(self) -> tuple[int, ...]:
+        """Return decimal cast scales emitted by the smoke."""
+
+        value = self.envelope.field("decimal_cast_scale", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(int(part) for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_modes(self) -> tuple[str, ...]:
+        """Return decimal cast modes emitted by the smoke."""
+
+        value = self.envelope.field("decimal_cast_mode", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def decimal_cast_output_boundary(self) -> str | None:
+        """Return the exact-result boundary for admitted scoped decimal casts."""
+
+        value = self.envelope.field("decimal_cast_output_boundary")
+        if value == "not_applicable":
+            return None
+        return value
 
     @property
     def null_coalesce_projection_runtime_execution(self) -> bool:

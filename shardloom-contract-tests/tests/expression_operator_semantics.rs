@@ -1,9 +1,9 @@
 use shardloom_core::{
     BinaryOp, ColumnRef, ComparisonOp, ExprId, Expression, ExpressionEvaluationStatus,
     ExpressionInputRow, ExpressionKind, LogicalDType, NullBehavior, ScalarValue, UnaryOp,
-    date32_day, date32_month, date32_year, evaluate_expression, evaluate_filter, evaluate_limit,
-    evaluate_projection, format_iso_date32, format_iso_timestamp_micros, parse_iso_date32,
-    parse_iso_timestamp_micros, timestamp_micros_day, timestamp_micros_hour,
+    date32_day, date32_month, date32_year, decimal128_dtype, evaluate_expression, evaluate_filter,
+    evaluate_limit, evaluate_projection, format_iso_date32, format_iso_timestamp_micros,
+    parse_iso_date32, parse_iso_timestamp_micros, timestamp_micros_day, timestamp_micros_hour,
     timestamp_micros_minute, timestamp_micros_month, timestamp_micros_second,
     timestamp_micros_year,
 };
@@ -99,15 +99,17 @@ fn expression_semantics_advanced_scalar_blockers_are_deterministic() {
     );
     let decimal_report = evaluate_expression(&decimal, &ExpressionInputRow::new());
 
+    assert_eq!(decimal_report.status, ExpressionEvaluationStatus::Evaluated);
     assert_eq!(
-        decimal_report.status,
-        ExpressionEvaluationStatus::Unsupported
+        decimal_report.value,
+        Some(ScalarValue::Decimal128 {
+            value: 1234,
+            precision: 10,
+            scale: 2
+        })
     );
-    assert!(decimal_report.has_errors());
-    assert_eq!(
-        decimal_report.output_dtype,
-        Some(LogicalDType::Extension("decimal128(10,2)".to_string()))
-    );
+    assert!(!decimal_report.has_errors());
+    assert_eq!(decimal_report.output_dtype, Some(decimal128_dtype(10, 2)));
     assert!(!decimal_report.fallback_attempted);
     assert!(!decimal_report.external_engine_invoked);
     assert!(
