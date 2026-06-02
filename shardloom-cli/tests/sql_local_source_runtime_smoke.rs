@@ -2302,6 +2302,79 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-decimal-arithmetic", "csv");
+    fs::write(&source_path, "id,amount\n1,12.34\n2,15.50\n3,21.25\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,CAST(amount AS decimal128(10,2)) + CAST('1.25' AS decimal128(10,2)) AS adjusted,CAST(amount AS decimal128(10,2)) * 2 AS doubled FROM '{}' WHERE id >= 1 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_source_column",
+        "amount,amount"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_output_column",
+        "adjusted,doubled"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_operator_family",
+        "cast+numeric_binary,cast+numeric_binary"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,adjusted,doubled")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"adjusted\\\":\\\"13.59\\\",\\\"doubled\\\":\\\"24.68\\\"}\\n{\\\"id\\\":2,\\\"adjusted\\\":\\\"16.75\\\",\\\"doubled\\\":\\\"31.00\\\"}\\n{\\\"id\\\":3,\\\"adjusted\\\":\\\"22.50\\\",\\\"doubled\\\":\\\"42.50\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,CAST(amount AS decimal128(10,2)) + CAST('1.250' AS decimal128(10,3)) AS broken FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("mixed-scale decimal128"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-star-computed-projection", "csv");
     fs::write(

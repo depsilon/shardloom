@@ -688,7 +688,9 @@ precision, scale, mode, and exact-output-boundary evidence while preserving gene
 `cast_projection_*` / `cast_*` fields; binary cast projections emit `cast_projection_*` evidence with
 `binary` target dtypes; binary helper projections emit
 `binary_helper_projection_*` evidence; scoped complex projections emit
-`complex_projection_*` evidence. Sorting after an input-backed computed projection is admitted
+`complex_projection_*` evidence. Scoped decimal cast-plus-arithmetic projections use the generic
+expression projection surface and emit `generic_expression_projection_*` evidence with exact
+decimal string result rows. Sorting after an input-backed computed projection is admitted
 for bounded top-N workflows when the sort key resolves to a projected computed alias or a source
 column; those workflows emit `computed_projection_top_n_runtime_execution=true`,
 `computed_projection_operator_family=computed_projection_topn`, and the ordinary `sort_*` and
@@ -704,7 +706,9 @@ Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scop
 equality/inequality predicates are admitted through the SQL local-source runtime; broad binary
 source dtype decoding, binary ordering, and nested binary helper expressions still block before
 fallback. Scoped decimal casts are admitted for fixed-scale projection and predicate fixtures with
-exact JSONL string and CSV text output; decimal arithmetic, broad ANSI decimal coercion, exponent
+exact JSONL string and CSV text output; scoped `decimal128` add/subtract/multiply projections over
+same-scale decimal operands and integer operands are admitted through the generic expression route.
+Decimal division, mixed-scale decimal arithmetic/coercion, broad ANSI decimal coercion, exponent
 notation, and typed Parquet/Arrow/Vortex decimal sink preservation still block before fallback.
 Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
 bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,

@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=67
-executable_fixture_count=60
+matrix_row_count=68
+executable_fixture_count=61
 diagnostic_case_count=7
 unsupported_diagnostic_count=5
 runtime_error_diagnostic_count=1
@@ -72,6 +72,7 @@ Covered fixture rows:
 - `complex_struct_source_projection`
 - `binary_cast_projection_predicate`
 - `decimal_cast_projection_predicate`
+- `decimal_arithmetic_projection`
 - `binary_helper_projection`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
@@ -138,6 +139,10 @@ fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ..
 executable through the JSONL result boundary only; nested source decoding, complex equality,
 subquery membership materialization, and flat/structured sink persistence remain outside the claim
 boundary.
+Scoped `decimal128` add/subtract/multiply projections over same-scale decimal operands and integer
+operands are executable through the same generic-expression local-source runtime and exact
+JSONL/CSV text result boundary. Decimal division, mixed-scale decimal arithmetic/coercion, broad
+ANSI decimal coercion, and typed decimal sink preservation remain outside the claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -151,9 +156,11 @@ with strict UTF-8 text decoding, binary output evidence, null propagation, and d
 invalid-input blockers, while broad binary source dtype decoding, binary ordering, and nested binary
 helper expressions remain outside the claim boundary. Scoped `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
-fixtures with exact fixed-scale JSONL string and CSV text output. Decimal arithmetic, broad ANSI
-decimal coercion, exponent notation, and typed Parquet/Arrow/Vortex decimal sink preservation remain
-outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
+fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`
+add/subtract/multiply projections are executable for same-scale decimal operands and integer
+operands through generic expression projection evidence. Decimal division, mixed-scale decimal
+arithmetic/coercion, broad ANSI decimal coercion, exponent notation, and typed Parquet/Arrow/Vortex
+decimal sink preservation remain outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
 ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through

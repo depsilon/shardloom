@@ -16,9 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped decimal arithmetic SQL/Python runtime slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/scoped-decimal-arithmetic-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the scoped decimal cast slice: same-scale decimal add/subtract/multiply was
+      still represented as blocked even though the admitted decimal cast route can provide exact
+      `decimal128` operands through ShardLoom-owned generic expression projection.
+  - Scope:
+    - Promoted scoped `decimal128` add/subtract/multiply expression semantics over same-scale
+      decimal operands and integer operands inside `shardloom-core`.
+    - Added deterministic blockers for decimal division, mixed-scale decimal add/subtract,
+      decimal rescale/output precision overflow, and unsupported decimal arithmetic operands.
+    - Extended SQL local-source generic expression parsing so `CAST(<column-or-literal> AS
+      decimal128|decimal|numeric(p,s))` can participate in arithmetic projection trees.
+    - Extended Python/DataFrame builder coverage for decimal cast-plus-arithmetic lowering through
+      the same SQL local-source smoke route.
+    - Added `decimal_arithmetic_projection` to the admitted-semantics executable fixture matrix and
+      updated README, Python README, compute-flow, global review, RFC traceability, release
+      readiness, and phase-plan documentation.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-core decimal128 -- --nocapture` passed with 7
+      decimal tests, including decimal add, decimal multiply with integer operand, typed-NULL
+      propagation, mixed-scale blocker, and division blocker.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli decimal_arithmetic -- --nocapture` passed,
+      including the SQL local-source runtime smoke for `decimal_arithmetic_projection`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli parses_scoped_decimal_generic_arithmetic_projection_statement -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_decimal_arithmetic_invokes_sql_smoke` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-decimal-arithmetic.json` passed with `matrix_row_count=68`, `executable_fixture_count=61`, `diagnostic_case_count=7`, `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, `semantic_conformance_suite_status=passed`, no fallback, and no external engine invocation.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-matrix-decimal-arithmetic.json --output target/release-readiness-decimal-arithmetic.json` was run; admitted-semantics blockers were clear, while broader known release/package/benchmark-currentness/required-validation gates remained blocked.
+  - Claim boundary:
+    - This closes scoped SQL/Python/DataFrame decimal add/subtract/multiply projection runtime
+      evidence for bounded local-source routes only. It does not claim decimal division,
+      mixed-scale decimal coercion, broad ANSI decimal arithmetic/coercion, typed decimal sink
+      preservation, production SQL/DataFrame support, performance equivalence, object-store/table
+      support, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime and core expression evaluator.
+      Positive routes and deterministic blockers require `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D admitted-semantics diagnostic posture split
   - Date: 2026-06-02
-  - Branch/PR: pending branch / pending PR.
+  - Branch/PR: `codex/admitted-semantics-diagnostic-posture` / PR #1030, merged as
+    `557bded91a795c1d3788e927027b493b3e6bdc2b`.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
     - User runtime-go direction that ShardLoom user surfaces should not call an engine-capable path
