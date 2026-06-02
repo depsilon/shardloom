@@ -22,6 +22,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.user_route_capability_report.v1"
 GATE_ID = "gar-runtime-impl-6d.user_route_capability_report"
+PUBLIC_FRONT_DOOR_ROUTE_SCHEMA_VERSION = "shardloom.public_front_door_route_rows.v1"
 
 ROUTE_RUNTIME_STATUSES = {
     "scoped_runtime_supported",
@@ -91,6 +92,11 @@ REQUIRED_LOCAL_BENCHMARK_ROUTE_IDS = {
     "schema_quality_preview",
     "broad_sql_python_dataframe_runtime",
     "performance_equivalence_evidence",
+}
+
+REQUIRED_PUBLIC_FRONT_DOOR_ROUTE_IDS = {
+    "local_source_auto_prepare_vortex_front_door",
+    "generated_source_prepare_vortex_front_door",
 }
 
 REQUIRED_OUTPUT_TOKENS = {
@@ -295,6 +301,54 @@ def row_payload(row: Any) -> dict[str, Any]:
         "external_engine_invoked": row.external_engine_invoked,
         "blocker_id": row.blocker_id or "none",
         "owner": row.owner,
+        "required_evidence": list(row.required_evidence),
+        "claim_gate_status": row.claim_gate_status,
+        "performance_claim_allowed": row.performance_claim_allowed,
+        "production_claim_allowed": row.production_claim_allowed,
+        "spark_replacement_claim_allowed": row.spark_replacement_claim_allowed,
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def public_front_door_row_payload(row: Any) -> dict[str, Any]:
+    return {
+        "front_door_id": row.front_door_id,
+        "owning_route_id": row.owning_route_id,
+        "route_lane_id": row.route_lane_id,
+        "route_display_name": row.route_display_name,
+        "input_family": row.input_family,
+        "public_user_surface": row.public_user_surface,
+        "benchmark_public_surface": row.benchmark_public_surface,
+        "front_door_start_state": row.front_door_start_state,
+        "front_door_end_state": row.front_door_end_state,
+        "route_lane_start_state": row.route_lane_start_state,
+        "route_lane_end_state": row.route_lane_end_state,
+        "vortex_normalization_point": row.vortex_normalization_point,
+        "source_route": row.source_route,
+        "preparation_route": row.preparation_route,
+        "execution_mode": row.execution_mode,
+        "includes_preparation": row.includes_preparation,
+        "includes_query": row.includes_query,
+        "includes_output": row.includes_output,
+        "includes_evidence": row.includes_evidence,
+        "preparation_included": row.preparation_included,
+        "query_timing_starts_after_preparation": (
+            row.query_timing_starts_after_preparation
+        ),
+        "owning_route_comparable_to_external_end_to_end": (
+            row.owning_route_comparable_to_external_end_to_end
+        ),
+        "prepared_state_reused": row.prepared_state_reused,
+        "prepared_state_reuse_scope": row.prepared_state_reuse_scope,
+        "prepared_state_reuse_manifest_path": row.prepared_state_reuse_manifest_path,
+        "prepared_state_reuse_policy": row.prepared_state_reuse_policy,
+        "prepared_state_reuse_hit": row.prepared_state_reuse_hit,
+        "prepared_state_reuse_reason": row.prepared_state_reuse_reason,
+        "prepared_state_reuse_manifest_digest": row.prepared_state_reuse_manifest_digest,
+        "prepared_state_invalidation_reason": row.prepared_state_invalidation_reason,
+        "route_runtime_status": row.route_runtime_status,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
         "required_evidence": list(row.required_evidence),
         "claim_gate_status": row.claim_gate_status,
         "performance_claim_allowed": row.performance_claim_allowed,
@@ -991,6 +1045,179 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
     return blockers
 
 
+def validate_public_front_door_routes(
+    rows: list[dict[str, Any]],
+    user_rows: list[dict[str, Any]],
+) -> list[str]:
+    blockers: list[str] = []
+    by_id = {str(row["front_door_id"]): row for row in rows}
+    user_by_id = {str(row["route_id"]): row for row in user_rows}
+
+    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_ROUTE_IDS - by_id.keys())
+    if missing:
+        blockers.append(
+            "public front-door route report missing rows: " + ",".join(missing)
+        )
+    extra = sorted(by_id.keys() - REQUIRED_PUBLIC_FRONT_DOOR_ROUTE_IDS)
+    if extra:
+        blockers.append(
+            "public front-door route report has unclassified extra rows: "
+            + ",".join(extra)
+        )
+    duplicate_count = len(rows) - len(by_id)
+    if duplicate_count:
+        blockers.append(
+            f"public front-door route report has duplicate ids: {duplicate_count}"
+        )
+
+    for row in rows:
+        front_door_id = str(row.get("front_door_id") or "")
+        owning_route_id = str(row.get("owning_route_id") or "")
+        owning = user_by_id.get(owning_route_id)
+        if owning is None:
+            blockers.append(
+                f"{front_door_id}: owning_route_id {owning_route_id!r} is not in user route report"
+            )
+        else:
+            for field in (
+                "route_display_name",
+                "input_family",
+                "vortex_normalization_point",
+                "source_route",
+                "preparation_route",
+                "execution_mode",
+                "route_runtime_status",
+                "prepared_state_reuse_scope",
+                "prepared_state_reuse_manifest_path",
+                "prepared_state_reuse_policy",
+                "prepared_state_reuse_hit",
+                "prepared_state_reuse_reason",
+                "prepared_state_reuse_manifest_digest",
+                "prepared_state_invalidation_reason",
+                "claim_gate_status",
+                "claim_boundary",
+            ):
+                if row.get(field) != owning.get(field):
+                    blockers.append(
+                        f"{front_door_id}: {field} must match owning route {owning_route_id}"
+                    )
+
+        for field in (
+            "front_door_id",
+            "owning_route_id",
+            "route_lane_id",
+            "route_display_name",
+            "input_family",
+            "public_user_surface",
+            "benchmark_public_surface",
+            "front_door_start_state",
+            "front_door_end_state",
+            "route_lane_start_state",
+            "route_lane_end_state",
+            "vortex_normalization_point",
+            "source_route",
+            "preparation_route",
+            "execution_mode",
+            "claim_boundary",
+        ):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                blockers.append(f"{front_door_id}: missing {field}")
+
+        if row.get("route_runtime_status") != "scoped_runtime_supported":
+            blockers.append(
+                f"{front_door_id}: route_runtime_status must be scoped_runtime_supported"
+            )
+        if row.get("front_door_end_state") != "VortexPreparedState":
+            blockers.append(f"{front_door_id}: front_door_end_state must be VortexPreparedState")
+        if "VortexPreparedState" not in str(row.get("vortex_normalization_point", "")):
+            blockers.append(f"{front_door_id}: must name VortexPreparedState normalization")
+        for field in (
+            "includes_preparation",
+            "includes_output",
+            "includes_evidence",
+            "preparation_included",
+            "owning_route_comparable_to_external_end_to_end",
+        ):
+            if row.get(field) is not True:
+                blockers.append(f"{front_door_id}: {field} must be true")
+        if row.get("includes_query") is not False:
+            blockers.append(
+                f"{front_door_id}: prepare front-door row must set includes_query=false"
+            )
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"{front_door_id}: fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"{front_door_id}: external_engine_invoked must be false")
+        for field in (
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ):
+            if row.get(field) is not False:
+                blockers.append(f"{front_door_id}: {field} must be false")
+        if row.get("claim_gate_status") != "not_claim_grade":
+            blockers.append(f"{front_door_id}: claim_gate_status must be not_claim_grade")
+        required_evidence = row.get("required_evidence")
+        if not isinstance(required_evidence, list) or not required_evidence:
+            blockers.append(f"{front_door_id}: missing required_evidence")
+        elif "prepared_state_reuse_manifest" not in required_evidence:
+            blockers.append(
+                f"{front_door_id}: required_evidence must include prepared_state_reuse_manifest"
+            )
+
+        surface = str(row.get("public_user_surface") or "")
+        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+            if owning_route_id != "local_file_prepare_once_first_query":
+                blockers.append(
+                    f"{front_door_id}: must own local_file_prepare_once_first_query"
+                )
+            if row.get("route_lane_id") != "prepare_once_first_query":
+                blockers.append(f"{front_door_id}: route_lane_id must be prepare_once_first_query")
+            for token in ("ctx.read_csv", ".prepare_vortex", "workspace="):
+                if token not in surface:
+                    blockers.append(f"{front_door_id}: public_user_surface must include {token}")
+            if "SourceState" not in str(row.get("vortex_normalization_point", "")):
+                blockers.append(f"{front_door_id}: must name SourceState normalization")
+            if row.get("prepared_state_reuse_scope") != PREPARED_STATE_REUSE_MANIFEST_SCOPE:
+                blockers.append(f"{front_door_id}: must use workspace manifest reuse scope")
+            if (
+                row.get("prepared_state_reuse_manifest_path")
+                != PREPARED_STATE_REUSE_MANIFEST_PATH
+            ):
+                blockers.append(f"{front_door_id}: must expose workspace manifest path")
+            if row.get("prepared_state_reuse_policy") != PREPARED_STATE_REUSE_MANIFEST_POLICY:
+                blockers.append(f"{front_door_id}: must expose workspace manifest policy")
+
+        if front_door_id == "generated_source_prepare_vortex_front_door":
+            if owning_route_id != "generated_rows_local_output":
+                blockers.append(f"{front_door_id}: must own generated_rows_local_output")
+            if row.get("route_lane_id") != "generated_rows_local_output":
+                blockers.append(f"{front_door_id}: route_lane_id must be generated_rows_local_output")
+            for token in ("ctx.from_rows", ".prepare_vortex", "workspace="):
+                if token not in surface:
+                    blockers.append(f"{front_door_id}: public_user_surface must include {token}")
+            if "GeneratedSourceState" not in str(row.get("vortex_normalization_point", "")):
+                blockers.append(f"{front_door_id}: must name GeneratedSourceState normalization")
+            if (
+                row.get("prepared_state_reuse_scope")
+                != GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
+            ):
+                blockers.append(f"{front_door_id}: must use artifact-adjacent manifest reuse scope")
+            if (
+                row.get("prepared_state_reuse_manifest_path")
+                != GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
+            ):
+                blockers.append(f"{front_door_id}: must expose artifact-adjacent manifest path")
+            if (
+                row.get("prepared_state_reuse_policy")
+                != GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
+            ):
+                blockers.append(f"{front_door_id}: must expose artifact-adjacent manifest policy")
+
+    return blockers
+
+
 def build_report(repo_root: Path) -> dict[str, Any]:
     route_report = load_report(repo_root)
     from shardloom import ShardLoomContext
@@ -1000,6 +1227,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         ShardLoomContext(client=None).local_file_benchmark_route_report()
     )
     rows = [row_payload(row) for row in route_report.rows]
+    public_front_door_rows = [
+        public_front_door_row_payload(row)
+        for row in route_report.public_front_door_route_rows
+    ]
     local_vortex_primitive_rows = [
         primitive_row_payload(row) for row in local_vortex_report.rows
     ]
@@ -1010,6 +1241,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     user_route_ids = {str(row["route_id"]) for row in rows}
     scenario_catalog = load_scenario_catalog(repo_root)
     blockers = validate_rows(route_report, rows)
+    blockers.extend(validate_public_front_door_routes(public_front_door_rows, rows))
     blockers.extend(
         validate_local_vortex_primitives(
             local_vortex_report,
@@ -1058,6 +1290,15 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         (row for row in rows if row.get("route_id") == "generated_rows_local_output"),
         None,
     )
+    public_front_door_by_id = {
+        str(row["front_door_id"]): row for row in public_front_door_rows
+    }
+    local_auto_front_door = public_front_door_by_id.get(
+        "local_source_auto_prepare_vortex_front_door"
+    )
+    generated_front_door = public_front_door_by_id.get(
+        "generated_source_prepare_vortex_front_door"
+    )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1082,6 +1323,11 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "route_runtime_status_counts": runtime_status_counts,
         "local_benchmark_range_route_ids": local_benchmark_route_ids,
         "local_benchmark_range_route_count": len(local_benchmark_route_ids),
+        "public_front_door_route_schema_version": PUBLIC_FRONT_DOOR_ROUTE_SCHEMA_VERSION,
+        "public_front_door_route_count": len(public_front_door_rows),
+        "public_front_door_route_ids": [
+            str(row["front_door_id"]) for row in public_front_door_rows
+        ],
         "admitted_route_output_options": admitted_route_output_options,
         "admitted_local_file_benchmark_output_options": admitted_local_file_output_options,
         "unsupported_local_benchmark_route_ids": list(route_report.unsupported_local_benchmark_route_ids),
@@ -1123,6 +1369,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "claim_gate_status": route_report.claim_gate_status,
         "vortex_normalization_contract": route_report.vortex_normalization_contract,
         "rows": rows,
+        "public_front_door_route_rows": public_front_door_rows,
         "local_vortex_primitive_rows": local_vortex_primitive_rows,
         "local_file_benchmark_rows": local_file_benchmark_rows,
         "acceptance_summary": {
@@ -1174,6 +1421,51 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 in generated_reuse_row.get("required_evidence", [])
                 and "feature_gated_local_vortex_output"
                 in generated_reuse_row.get("desired_outputs", [])
+            ),
+            "public_front_door_routes_expose_auto_and_generated_prepared_surfaces": (
+                local_auto_front_door is not None
+                and "ctx.read_csv"
+                in str(local_auto_front_door.get("public_user_surface"))
+                and ".prepare_vortex"
+                in str(local_auto_front_door.get("public_user_surface"))
+                and "SourceState"
+                in str(local_auto_front_door.get("vortex_normalization_point"))
+                and "VortexPreparedState"
+                in str(local_auto_front_door.get("vortex_normalization_point"))
+                and generated_front_door is not None
+                and "ctx.from_rows"
+                in str(generated_front_door.get("public_user_surface"))
+                and ".prepare_vortex"
+                in str(generated_front_door.get("public_user_surface"))
+                and "GeneratedSourceState"
+                in str(generated_front_door.get("vortex_normalization_point"))
+                and "VortexPreparedState"
+                in str(generated_front_door.get("vortex_normalization_point"))
+            ),
+            "public_front_door_routes_expose_prepared_state_reuse_contracts": all(
+                row.get("prepared_state_reuse_scope")
+                in {
+                    PREPARED_STATE_REUSE_MANIFEST_SCOPE,
+                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE,
+                }
+                and row.get("prepared_state_reuse_manifest_path")
+                in {
+                    PREPARED_STATE_REUSE_MANIFEST_PATH,
+                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH,
+                }
+                and row.get("prepared_state_reuse_policy")
+                in {
+                    PREPARED_STATE_REUSE_MANIFEST_POLICY,
+                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY,
+                }
+                and "prepared_state_reuse_manifest"
+                in row.get("required_evidence", [])
+                for row in public_front_door_rows
+            ),
+            "public_front_door_routes_preserve_no_fallback": all(
+                row.get("fallback_attempted") is False
+                and row.get("external_engine_invoked") is False
+                for row in public_front_door_rows
             ),
             "no_generic_unsupported_local_benchmark_route": not route_report.unsupported_local_benchmark_route_ids,
             "all_local_vortex_primitive_routes_supported": (

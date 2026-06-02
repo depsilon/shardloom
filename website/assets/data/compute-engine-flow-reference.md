@@ -2338,9 +2338,15 @@ than treating a query-result sink as prepared-source reuse.
 `.vortex` outputs and emits a dedicated reuse report on manifest hits, so repeated identical local
 ingest skips writer/reopen work while source/artifact/plan/policy drift remains fail-closed. The
 generated-source Vortex-output route now projects its artifact-adjacent manifest reuse contract in
-user route capability reports. The remaining 6E-1 work is benchmark/public row promotion for the new
-auto/generated front doors and any additional CLI/Python route-report wiring needed for
-route-comparable prepared execution.
+user route capability reports. The user route capability report now also publishes
+`public_front_door_route_rows` for `local_source_auto_prepare_vortex_front_door` and
+`generated_source_prepare_vortex_front_door`. These rows make
+`ctx.read_csv(...).prepare_vortex(workspace=...)` and
+`ctx.from_rows(...).prepare_vortex(workspace=...)` machine-readable public route examples with
+start/end state, preparation inclusion, reuse-manifest, no-fallback, and claim-boundary fields.
+Remaining 6E-1 work is actual benchmark artifact/website row promotion beyond the route capability
+report and any additional CLI/Python route-report wiring needed for route-comparable prepared
+execution.
 
 Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
 and `N=100` when the artifact contains enough child query evidence. If an amortization count is

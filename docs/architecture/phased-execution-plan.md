@@ -350,15 +350,23 @@ Implementation checklist, in required order:
   caller-owned local `.vortex` targets. User route capability reports now project that generated
   local Vortex-output path as `GeneratedSourceState -> VortexPreparedState`, expose the
   artifact-adjacent reuse manifest scope/path/policy/reason/digest/invalidation fields, and gate the
-  contract through the release-readiness acceptance summary.
-  Remaining 6E-1 work is benchmark/public row promotion for the new auto/generated front doors and
-  any additional CLI/Python route-report wiring needed for route-comparable prepared execution.
-  Next slice outcome: promote the new high-level local-source and generated-source `auto` front
-  doors into benchmark/public route rows and validators. Public rows should show
+  contract through the release-readiness acceptance summary. User route capability reports now also
+  publish `public_front_door_route_rows` for
+  `local_source_auto_prepare_vortex_front_door` and
+  `generated_source_prepare_vortex_front_door`. Those rows make
   `ctx.read_csv(...).prepare_vortex(workspace=...)` and
-  `ctx.from_rows(...).prepare_vortex(...)` as first-class ShardLoom routes, with start/end state,
-  preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields instead of burying
-  those routes in generic user-route prose.
+  `ctx.from_rows(...).prepare_vortex(...)` first-class machine-readable public route examples with
+  start/end state, preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields,
+  and release readiness requires the rows to stay present.
+  Remaining 6E-1 work is actual benchmark artifact/website row promotion for the new
+  auto/generated front doors and any additional CLI/Python route-report wiring needed for
+  route-comparable prepared execution.
+  Next slice outcome: promote the new high-level local-source and generated-source `auto` front-door
+  identities into benchmark artifact/website rows. Public benchmark rows should show
+  `ctx.read_csv(...).prepare_vortex(workspace=...)` and
+  `ctx.from_rows(...).prepare_vortex(...)` alongside their route lane identity, route timing
+  boundary, preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields instead of
+  burying those routes in generic user-route prose.
   Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
   through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
   prepared execution when the reuse manifest is valid.
