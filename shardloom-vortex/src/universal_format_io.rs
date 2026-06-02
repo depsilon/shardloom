@@ -1081,6 +1081,8 @@ fn scalar_family(value: &ScalarValue) -> &'static str {
         ScalarValue::TimestampMicros(_) => "timestamp_micros",
         ScalarValue::Null => "null",
         ScalarValue::Binary(_) => "binary",
+        ScalarValue::List(_) => "list",
+        ScalarValue::Struct(_) => "struct",
     }
 }
 

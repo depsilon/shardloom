@@ -494,6 +494,58 @@ def binary_text_literal_projection_case() -> SqlFixtureCase:
     )
 
 
+def complex_array_literal_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="complex_array_literal_projection",
+        source_name="complex-array-literal.csv",
+        source_text="id,label\n1,alpha\n2,beta\n",
+        statement_template="SELECT id,ARRAY[1,2,NULL] AS values FROM '{source}' LIMIT 10",
+        expected_jsonl=(
+            '{"id":1,"values":[1,2,null]}\n'
+            '{"id":2,"values":[1,2,null]}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_complex_projection_limit",
+            "complex_projection_runtime_execution": "true",
+            "complex_projection_columns": "values",
+            "complex_projection_count": "1",
+            "complex_projection_kind": "array_literal",
+            "complex_projection_output_dtype": "list",
+            "complex_projection_source_column": "not_applicable",
+            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
+            "complex_projection_equality_semantics": "not_admitted_distinct_join_membership_or_subquery_equality",
+            "projected_columns": "id,values",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def complex_struct_source_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="complex_struct_source_projection",
+        source_name="complex-struct-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,\n",
+        statement_template="SELECT id,STRUCT(label, amount) AS payload FROM '{source}' LIMIT 10",
+        expected_jsonl=(
+            '{"id":1,"payload":{"label":"alpha","amount":8}}\n'
+            '{"id":2,"payload":{"label":"beta","amount":null}}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_complex_projection_limit",
+            "complex_projection_runtime_execution": "true",
+            "complex_projection_columns": "payload",
+            "complex_projection_count": "1",
+            "complex_projection_kind": "struct_source_columns",
+            "complex_projection_output_dtype": "struct",
+            "complex_projection_source_column": "label,amount",
+            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
+            "complex_projection_equality_semantics": "not_admitted_distinct_join_membership_or_subquery_equality",
+            "projected_columns": "id,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def binary_cast_projection_predicate_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_cast_projection_predicate",
@@ -2495,6 +2547,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         conditional_projection_case(),
         binary_hex_literal_projection_case(),
         binary_text_literal_projection_case(),
+        complex_array_literal_projection_case(),
+        complex_struct_source_projection_case(),
         binary_cast_projection_predicate_case(),
         binary_helper_projection_case(),
         in_predicate_literal_null_case(),
@@ -2588,22 +2642,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="SQL COLLATE and locale-aware collation semantics are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_list_literal",
-            source_name="list-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template="SELECT id,ARRAY[1,2] AS values FROM '{source}' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="list and array literals, accessors, and equality semantics are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_struct_literal",
-            source_name="struct-unsupported.csv",
-            source_text="id,label,amount\n1,alpha,8\n",
-            statement_template="SELECT id,STRUCT(label, amount) AS payload FROM '{source}' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="struct and row constructor equality/access semantics are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_variant_access",

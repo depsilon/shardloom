@@ -375,12 +375,12 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics decoded_reference_differential_execution_performed missing"
             )
-        if admitted_semantics.get("executable_fixture_count") != 57:
+        if admitted_semantics.get("executable_fixture_count") != 59:
             admitted_semantics_blockers.append(
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 10:
+        if admitted_semantics.get("unsupported_diagnostic_count") != 8:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))

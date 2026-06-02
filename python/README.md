@@ -667,7 +667,9 @@ conditional projections such as
 `sl.col("payload").cast("binary")` / `.cast("blob")` / `.cast("varbinary")`, and scoped binary
 helper projections such as `sl.col("hex_payload").unhex()` / `sl.unhex(sl.col("hex_payload"))` and
 `sl.col("b64_payload").from_base64()` / `sl.from_base64(sl.col("b64_payload"))` over direct UTF-8
-source columns. Literal projections emit
+source columns, plus scoped complex projection helpers such as
+`sl.array(1, 2, None)` and `sl.struct("label", "amount")` through the JSONL/result boundary only.
+Literal projections emit
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
 projections emit `numeric_abs_projection_*` evidence; numeric rounding projections emit
@@ -683,7 +685,8 @@ projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*
 conditional projections emit
 `conditional_projection_*` evidence; binary cast projections emit `cast_projection_*` evidence with
 `binary` target dtypes; binary helper projections emit
-`binary_helper_projection_*` evidence. Sorting after an input-backed computed projection is admitted
+`binary_helper_projection_*` evidence; scoped complex projections emit
+`complex_projection_*` evidence. Sorting after an input-backed computed projection is admitted
 for bounded top-N workflows when the sort key resolves to a projected computed alias or a source
 column; those workflows emit `computed_projection_top_n_runtime_execution=true`,
 `computed_projection_operator_family=computed_projection_topn`, and the ordinary `sort_*` and
@@ -698,7 +701,10 @@ standard padded base64 decoding, null propagation, and deterministic invalid-inp
 Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scoped binary cast
 equality/inequality predicates are admitted through the SQL local-source runtime; broad binary
 source dtype decoding, binary ordering, and nested binary helper expressions still block before
-fallback. Unsupported computed-column expressions still block before fallback.
+fallback. Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
+bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,
+casts, nested source decoding, and flat compatibility sinks still block before fallback.
+Unsupported computed-column expressions still block before fallback.
 For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.select(...)`,
 `.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
 projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
@@ -1209,9 +1215,10 @@ lower through the same runtime, may filter aggregate output rows with `HAVING`, 
 numeric aggregate output aliases or UTF-8 group keys before a bounded `limit(...)`.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate families,
+expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate and
+scoped JSONL/result-boundary complex projection families,
 generalized grouped aggregation or HAVING expressions beyond emitted aggregate output columns,
-ordering/collation parity, nested JSON,
+ordering/collation parity, nested JSON source decoding, complex equality/accessors/casts,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -1236,7 +1243,8 @@ place `having(...)` or post-aggregate `filter(...)` before
 `sort("total_amount", descending=True).limit(n)` when the HAVING predicate binds only emitted
 aggregate output aliases or group keys. Broad
 DataFrame joins remain blocked: arbitrary join predicate trees beyond the admitted expression ON
-families, unqualified join predicates, nested/complex structured data, and
+families, unqualified join predicates, complex equality/accessor/cast semantics, nested source
+decoding, and
 object-store/table joins still return deterministic unsupported diagnostics or
 fail closed through the scoped SQL binder.
 
@@ -1470,7 +1478,7 @@ JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
 projection/optional-filter/limit bridges are marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
-and scoped ranking-window shapes described above.
+JSONL/result-boundary complex projection, and scoped ranking-window shapes described above.
 Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`,
 `sort_values`, `distinct`, `drop_duplicates`, and `unique` are included in the matrix so wrappers
 and agents can distinguish familiar method names that lower to existing runtime evidence from

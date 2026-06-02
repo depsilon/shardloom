@@ -46,6 +46,8 @@ pub enum ScalarValue {
     Binary(Vec<u8>),
     Date32(i32),
     TimestampMicros(i64),
+    List(Vec<ScalarValue>),
+    Struct(Vec<(String, ScalarValue)>),
 }
 impl ScalarValue {
     #[must_use]
@@ -60,6 +62,8 @@ impl ScalarValue {
             Self::Binary(_) => LogicalDType::Binary,
             Self::Date32(_) => LogicalDType::Date32,
             Self::TimestampMicros(_) => LogicalDType::TimestampMicros,
+            Self::List(_) => LogicalDType::List,
+            Self::Struct(_) => LogicalDType::Struct,
         }
     }
     #[must_use]
@@ -78,6 +82,8 @@ impl ScalarValue {
             Self::Binary(v) => format!("binary[len={}]", v.len()),
             Self::Date32(v) => format!("date32:{v}"),
             Self::TimestampMicros(v) => format!("ts_micros:{v}"),
+            Self::List(v) => format!("list[len={}]", v.len()),
+            Self::Struct(v) => format!("struct[fields={}]", v.len()),
         }
     }
 }
@@ -128,6 +134,12 @@ impl BinaryOp {
 pub enum ExpressionKind {
     Literal(ScalarValue),
     Column(ColumnRef),
+    List {
+        values: Vec<Expression>,
+    },
+    Struct {
+        fields: Vec<(String, Expression)>,
+    },
     Alias {
         expr: Box<Expression>,
         alias: String,
@@ -262,6 +274,8 @@ impl Expression {
             match &self.kind {
                 ExpressionKind::Literal(v) => format!("literal({})", v.summary()),
                 ExpressionKind::Column(c) => format!("column({})", c.as_str()),
+                ExpressionKind::List { values } => format!("list({})", values.len()),
+                ExpressionKind::Struct { fields } => format!("struct({})", fields.len()),
                 ExpressionKind::Alias { alias, .. } => format!("alias({alias})"),
                 ExpressionKind::Cast { target_dtype, .. } => {
                     format!("cast({})", target_dtype.as_str())
@@ -721,6 +735,8 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
                     ),
                 )
             }),
+        ExpressionKind::List { values } => eval_list(values, row),
+        ExpressionKind::Struct { fields } => eval_struct(fields, row),
         ExpressionKind::Alias { expr, .. } => eval_expression(expr, row),
         ExpressionKind::Cast { expr, target_dtype } => {
             let value = eval_expression(expr, row)?;
@@ -749,6 +765,38 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
             Err(EvalFailure::unsupported(feature.clone(), reason.clone()))
         }
     }
+}
+
+fn eval_list(values: &[Expression], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+    let mut evaluated = Vec::with_capacity(values.len());
+    let mut data_materialized = false;
+    for value in values {
+        let value = eval_expression(value, row)?;
+        data_materialized |= value.data_materialized;
+        evaluated.push(value.value);
+    }
+    Ok(EvalValue::new(
+        ScalarValue::List(evaluated),
+        LogicalDType::List,
+        NullBehavior::NullAware,
+    )
+    .carry_materialization(data_materialized))
+}
+
+fn eval_struct(fields: &[(String, Expression)], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+    let mut evaluated = Vec::with_capacity(fields.len());
+    let mut data_materialized = false;
+    for (name, expression) in fields {
+        let value = eval_expression(expression, row)?;
+        data_materialized |= value.data_materialized;
+        evaluated.push((name.clone(), value.value));
+    }
+    Ok(EvalValue::new(
+        ScalarValue::Struct(evaluated),
+        LogicalDType::Struct,
+        NullBehavior::NullAware,
+    )
+    .carry_materialization(data_materialized))
 }
 
 fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
@@ -2342,6 +2390,8 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
     match &expression.kind {
         ExpressionKind::Literal(_) => "literal",
         ExpressionKind::Column(_) => "column",
+        ExpressionKind::List { .. } => "list_construct",
+        ExpressionKind::Struct { .. } => "struct_construct",
         ExpressionKind::Alias { .. } => "alias",
         ExpressionKind::Cast { .. } => "cast",
         ExpressionKind::TryCast { .. } => "try_cast",
@@ -3341,6 +3391,65 @@ mod tests {
         let e = Expression::literal(ExprId::new("e1").expect("ok"), ScalarValue::Int64(1));
         assert_eq!(e.dtype, Some(LogicalDType::Int64));
     }
+
+    #[test]
+    fn expression_evaluates_list_and_struct_constructs() {
+        let list = Expression::new(
+            expr_id("list"),
+            ExpressionKind::List {
+                values: vec![
+                    Expression::literal(expr_id("one"), ScalarValue::Int64(1)),
+                    Expression::literal(expr_id("null"), ScalarValue::Null),
+                ],
+            },
+        )
+        .with_dtype(LogicalDType::List);
+        let struct_expr = Expression::new(
+            expr_id("struct"),
+            ExpressionKind::Struct {
+                fields: vec![
+                    (
+                        "label".to_string(),
+                        Expression::column(expr_id("label"), col("label")),
+                    ),
+                    (
+                        "amount".to_string(),
+                        Expression::column(expr_id("amount"), col("amount")),
+                    ),
+                ],
+            },
+        )
+        .with_dtype(LogicalDType::Struct);
+
+        let list_report = evaluate_expression(&list, &ExpressionInputRow::new());
+        assert_eq!(
+            list_report.value,
+            Some(ScalarValue::List(vec![
+                ScalarValue::Int64(1),
+                ScalarValue::Null
+            ]))
+        );
+        assert_eq!(list_report.output_dtype, Some(LogicalDType::List));
+        assert_eq!(list_report.null_behavior, NullBehavior::NullAware);
+
+        let struct_report = evaluate_expression(
+            &struct_expr,
+            &row(&[
+                ("label", ScalarValue::Utf8("alpha".to_string())),
+                ("amount", ScalarValue::Int64(8)),
+            ]),
+        );
+        assert_eq!(
+            struct_report.value,
+            Some(ScalarValue::Struct(vec![
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                ("amount".to_string(), ScalarValue::Int64(8))
+            ]))
+        );
+        assert_eq!(struct_report.output_dtype, Some(LogicalDType::Struct));
+        assert!(struct_report.data_materialized);
+    }
+
     #[test]
     fn expression_cast_sets_dtype() {
         let input = Expression::literal(expr_id("e1"), ScalarValue::Int64(1));

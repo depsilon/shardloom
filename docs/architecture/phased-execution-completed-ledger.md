@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex projection SQL/Python runtime slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/complex-literal-projections-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the scoped binary cast/helper slices: list/struct shapes were still represented
+      as blanket complex dtype blockers even though scoped bounded result-boundary projections can
+      be admitted without claiming complex equality, nested source decoding, or flat nested sinks.
+  - Scope:
+    - Promoted scoped SQL `ARRAY[...] AS <alias>` scalar-literal projections and
+      `STRUCT(<source column>, ...) AS <alias>` source-column payload projections through the
+      ShardLoom local-source SQL runtime and core expression evaluator.
+    - Added `ScalarValue::List` / `ScalarValue::Struct` and `ExpressionKind::List` /
+      `ExpressionKind::Struct` support for evaluated row values, JSONL rendering, operator-family
+      labels, and null-aware materialization evidence.
+    - Added Python/DataFrame helpers through `sl.array(...)` and `sl.struct(...)`, plus export
+      wiring for `ComplexProjectionExpression`.
+    - Kept complex equality, `SELECT DISTINCT`, `ORDER BY`, subquery membership, accessors, casts,
+      nested source decoding, row/list/struct functions, and flat CSV/Parquet/Arrow IPC/Avro/ORC/
+      Vortex sinks as deterministic blockers.
+    - Updated the admitted semantics matrix, release-readiness metadata, phase docs, root README,
+      Python README, compute-flow reference, RFC/global review references, and synced website data
+      assets.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/__init__.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_complex_projection_invokes_sql_smoke` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-core expression_evaluates_list_and_struct_constructs -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli complex_projection -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-complex-projection.json` passed with `matrix_row_count=67`, `executable_fixture_count=59`, `unsupported_diagnostic_count=8`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-complex-projection.json` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_website_readiness.py --output target/website-readiness-complex-projection.json` passed in a clean temporary worktree with this tracked diff applied.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH node website/validate_static_assets.js` passed in the same clean temporary worktree.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped SQL/Python/DataFrame complex projection runtime evidence for bounded local
+      JSONL/result rows only. It does not claim complex equality, ordering, DISTINCT,
+      subquery-membership materialization, accessors, casts, nested JSON/source decoding, flat
+      structured sink persistence, broad SQL/DataFrame completeness, production support,
+      performance equivalence, object-store/table SQL, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime and core expression evaluator. Flat
+      nested sinks and comparison routes fail before write/ordering/equality execution, and positive
+      routes plus deterministic diagnostics report or append `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast/literal SQL/Python runtime slice
   - Date: 2026-06-02
   - Branch/PR: `codex/binary-cast-source-runtime` / pending PR.

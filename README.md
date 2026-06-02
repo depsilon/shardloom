@@ -62,6 +62,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   scalar aggregates, multi-key group-by, single-key top-N, selected
   casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped binary
   casts/literals and binary equality/inequality cast predicates, scoped
+  `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
+  boundary, scoped
   `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
   row-value literal `IN`/`NOT IN`, bounded scalar and row-value local-source
   `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
@@ -153,6 +155,7 @@ the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`,
 predicates, interval-backed temporal helper predicates, scoped `CAST`/`TRY_CAST` to
 `binary`/`blob`/`varbinary`, scoped SQL `BINARY`/`BLOB` byte literal evidence,
 scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, join/window,
+scoped `ARRAY[...]` / `STRUCT(<source column>, ...)` complex projections through JSONL/result rows,
 source-backed `IN` /
 `EXISTS` / `ANY` / `ALL` including grouped/HAVING projected source-subquery tails, row-level
 `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
@@ -275,6 +278,10 @@ For local compatibility-file benchmark families, the benchmark route report maps
 scenario to a direct or prepare-once ShardLoom route and keeps fixture-scoped nested JSON, CDC
 overlay, many-small-files, partition, dirty-data, sort/window, join, and aggregate coverage
 separate from broad production or performance claims.
+Scoped complex projection rows are result-boundary evidence only: they prove ShardLoom can carry
+bounded `ARRAY[...]` and `STRUCT(...)` values to JSONL/user-facing rows without fallback, not that
+flat compatibility sinks, complex equality, accessors, casts, or nested source decoding are broadly
+runtime-ready.
 
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can

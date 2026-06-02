@@ -6974,6 +6974,80 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_complex_projection_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' WHERE amount >= 0 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source complex projection",
+                    "human_text": "sql local source complex projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"values\\":[1,2,null],\\"payload\\":{\\"label\\":\\"alpha\\",\\"amount\\":8}}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_complex_projection_filter_limit"},
+                        {"key": "complex_projection_runtime_execution", "value": "true"},
+                        {"key": "complex_projection_columns", "value": "values,payload"},
+                        {"key": "complex_projection_count", "value": "2"},
+                        {"key": "complex_projection_kind", "value": "array_literal,struct_source_columns"},
+                        {"key": "complex_projection_output_dtype", "value": "list,struct"},
+                        {"key": "complex_projection_source_column", "value": "label,amount"},
+                        {"key": "complex_projection_output_boundary", "value": "jsonl_nested_result_boundary_only"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_columns(
+                {
+                    "values": sl.array(1, 2, None),
+                    "payload": sl.struct("label", "amount"),
+                }
+            )
+            .filter(sl.col("amount") >= 0)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.envelope.field("sql_statement_kind"),
+            "local_source_complex_projection_filter_limit",
+        )
+        self.assertEqual(
+            report.envelope.field("complex_projection_columns"), "values,payload"
+        )
+        self.assertEqual(
+            report.envelope.field("complex_projection_kind"),
+            "array_literal,struct_source_columns",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_with_column_numeric_arithmetic_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
