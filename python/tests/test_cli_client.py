@@ -2117,6 +2117,11 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_scout_ingress_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
                         {"key": "vortex_layout_write_advisor_status", "value": "admitted_local_layout_write_strategy"},
                         {"key": "vortex_layout_write_advisor_strategy_admitted", "value": "true"},
+                        {"key": "vortex_layout_write_advisor_runtime_decision_applied", "value": "true"},
+                        {"key": "vortex_layout_write_advisor_selected_strategy", "value": "single_local_vortex_artifact"},
+                        {"key": "vortex_layout_write_advisor_strategy_decision_digest", "value": "fnv64:layout"},
+                        {"key": "vortex_layout_write_advisor_provider_admitted", "value": "true"},
+                        {"key": "vortex_layout_write_advisor_blocker", "value": "none"},
                         {"key": "vortex_layout_write_advisor_layout_strategy", "value": "single_local_vortex_artifact"},
                         {"key": "vortex_layout_write_advisor_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
                         {"key": "vortex_capillary_preparation_status", "value": "applied_capillary_pulseweave_control"},
@@ -2285,6 +2290,17 @@ class ShardLoomClientTests(unittest.TestCase):
             "admitted_local_layout_write_strategy",
         )
         self.assertTrue(result.vortex_layout_write_advisor_strategy_admitted)
+        self.assertTrue(result.vortex_layout_write_advisor_runtime_decision_applied)
+        self.assertEqual(
+            result.vortex_layout_write_advisor_selected_strategy,
+            "single_local_vortex_artifact",
+        )
+        self.assertEqual(
+            result.vortex_layout_write_advisor_strategy_decision_digest,
+            "fnv64:layout",
+        )
+        self.assertTrue(result.vortex_layout_write_advisor_provider_admitted)
+        self.assertEqual(result.vortex_layout_write_advisor_blocker, "none")
         self.assertEqual(
             result.vortex_layout_write_advisor_layout_strategy,
             "single_local_vortex_artifact",

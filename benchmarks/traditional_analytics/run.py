@@ -740,6 +740,11 @@ VORTEX_LAYOUT_WRITE_ADVISOR_FIELDS = (
     "vortex_layout_write_advisor_expected_read_tradeoff",
     "vortex_layout_write_advisor_expected_write_tradeoff",
     "vortex_layout_write_advisor_strategy_admitted",
+    "vortex_layout_write_advisor_runtime_decision_applied",
+    "vortex_layout_write_advisor_selected_strategy",
+    "vortex_layout_write_advisor_strategy_decision_digest",
+    "vortex_layout_write_advisor_provider_admitted",
+    "vortex_layout_write_advisor_blocker",
     "vortex_layout_write_advisor_unsupported_diagnostic_code",
     "vortex_layout_write_advisor_correctness_refs",
     "vortex_layout_write_advisor_benchmark_refs",
@@ -8954,6 +8959,17 @@ def vortex_layout_write_advisor_metadata(
     else:
         advisor_status = "not_requested"
     admitted = advisor_status == "admitted_local_layout_write_strategy"
+    runtime_decision_applied = (
+        parse_optional_bool(
+            evidence.get("vortex_layout_write_advisor_runtime_decision_applied")
+        )
+        if evidence.get("vortex_layout_write_advisor_runtime_decision_applied") is not None
+        else False
+    )
+    runtime_blocker = first_meaningful_field(
+        evidence.get("vortex_layout_write_advisor_blocker"),
+        "pending_runtime_write_decision" if admitted else advisor_status,
+    )
     return {
         "vortex_layout_write_advisor_schema_version": (
             VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION
@@ -9081,6 +9097,33 @@ def vortex_layout_write_advisor_metadata(
             if evidence.get("vortex_layout_write_advisor_strategy_admitted") is not None
             else admitted
         ),
+        "vortex_layout_write_advisor_runtime_decision_applied": (
+            runtime_decision_applied
+        ),
+        "vortex_layout_write_advisor_selected_strategy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_selected_strategy"),
+            "single_local_vortex_artifact" if admitted else "not_admitted",
+        ),
+        "vortex_layout_write_advisor_strategy_decision_digest": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_strategy_decision_digest"),
+            "sha256:"
+            + hashlib.sha256(
+                "|".join(
+                    [
+                        "vortex_layout_write_advisor_runtime_decision",
+                        str(metrics.get("source_state_digest") or "none"),
+                        str(metrics.get("schema_digest") or "none"),
+                        "single_local_vortex_artifact" if admitted else advisor_status,
+                    ]
+                ).encode("utf-8")
+            ).hexdigest()[:16],
+        ),
+        "vortex_layout_write_advisor_provider_admitted": (
+            parse_optional_bool(evidence.get("vortex_layout_write_advisor_provider_admitted"))
+            if evidence.get("vortex_layout_write_advisor_provider_admitted") is not None
+            else admitted
+        ),
+        "vortex_layout_write_advisor_blocker": runtime_blocker,
         "vortex_layout_write_advisor_unsupported_diagnostic_code": first_meaningful_field(
             evidence.get("vortex_layout_write_advisor_unsupported_diagnostic_code"),
             "none" if admitted else advisor_status,
@@ -13970,9 +14013,11 @@ def vortex_layout_write_advisor_contract() -> dict[str, Any]:
             "VortexPreparedState"
         ),
         "current_scope": (
-            "scoped local layout/write strategy admission, SourceState statistics "
-            "posture, writer provider/version/surface visibility, write/reopen "
-            "verification depth, and no-standalone-lane evidence inside vortex_ingest"
+            "scoped local layout/write strategy admission plus writer-sourced "
+            "runtime decision fields for the workspace-safe single-artifact Vortex writer, "
+            "SourceState statistics posture, writer provider/version/surface visibility, "
+            "write/reopen verification depth, and no-standalone-lane evidence inside "
+            "vortex_ingest"
         ),
         "non_goals": [
             "standalone layout benchmark lane",
@@ -14736,6 +14781,21 @@ def vortex_layout_write_advisor_matrix(
                 ),
                 "vortex_layout_write_advisor_strategy_admitted": metrics.get(
                     "vortex_layout_write_advisor_strategy_admitted"
+                ),
+                "vortex_layout_write_advisor_runtime_decision_applied": metrics.get(
+                    "vortex_layout_write_advisor_runtime_decision_applied"
+                ),
+                "vortex_layout_write_advisor_selected_strategy": metrics.get(
+                    "vortex_layout_write_advisor_selected_strategy"
+                ),
+                "vortex_layout_write_advisor_strategy_decision_digest": metrics.get(
+                    "vortex_layout_write_advisor_strategy_decision_digest"
+                ),
+                "vortex_layout_write_advisor_provider_admitted": metrics.get(
+                    "vortex_layout_write_advisor_provider_admitted"
+                ),
+                "vortex_layout_write_advisor_blocker": metrics.get(
+                    "vortex_layout_write_advisor_blocker"
                 ),
                 "vortex_layout_write_advisor_unsupported_diagnostic_code": metrics.get(
                     "vortex_layout_write_advisor_unsupported_diagnostic_code"
@@ -21220,6 +21280,21 @@ def render_vortex_layout_write_advisor_matrix(artifact: dict[str, Any]) -> str:
                 str(row.get("vortex_layout_write_advisor_writer_provider_surface", "none")),
                 str(row.get("vortex_layout_write_advisor_write_reopen_verification_depth", "none")),
                 str(row.get("vortex_layout_write_advisor_strategy_admitted", False)),
+                str(
+                    row.get(
+                        "vortex_layout_write_advisor_runtime_decision_applied",
+                        False,
+                    )
+                ),
+                str(row.get("vortex_layout_write_advisor_selected_strategy", "none")),
+                str(
+                    row.get(
+                        "vortex_layout_write_advisor_strategy_decision_digest",
+                        "none",
+                    )
+                ),
+                str(row.get("vortex_layout_write_advisor_provider_admitted", False)),
+                str(row.get("vortex_layout_write_advisor_blocker", "none")),
                 str(row.get("vortex_layout_write_advisor_unsupported_diagnostic_code", "none")),
                 str(row.get("vortex_layout_write_advisor_no_standalone_lane_status", "unknown")),
                 str(row.get("vortex_layout_write_advisor_claim_gate_status", "not_claim_grade")),
@@ -21248,6 +21323,11 @@ def render_vortex_layout_write_advisor_matrix(artifact: dict[str, Any]) -> str:
                 "none",
                 "none",
                 "false",
+                "false",
+                "none",
+                "none",
+                "false",
+                "none",
                 "not_reported",
                 "not_reported",
                 "not_claim_grade",
@@ -21275,6 +21355,11 @@ def render_vortex_layout_write_advisor_matrix(artifact: dict[str, Any]) -> str:
             "Provider surface",
             "Reopen proof",
             "Admitted",
+            "Applied",
+            "Selected strategy",
+            "Decision digest",
+            "Provider admitted",
+            "Blocker",
             "Diagnostic",
             "Lane status",
             "Claim gate",

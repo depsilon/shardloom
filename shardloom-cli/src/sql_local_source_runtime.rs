@@ -3142,7 +3142,7 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
 }
 
 fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved {
+    if source.columnar_source_preserved && source.row_count > 0 {
         "vortex_array_kernel"
     } else {
         "shardloom_kernel"
@@ -3150,8 +3150,10 @@ fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str 
 }
 
 fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved {
+    if source.columnar_source_preserved && source.row_count > 0 {
         "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
+    } else if source.columnar_source_preserved {
+        "shardloom_empty_columnar_struct_builder;VortexSession::write_options().write(ArrayStream)"
     } else {
         "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
     }
@@ -3506,8 +3508,11 @@ fn run_scalar_vortex_ingest_smoke(
     )
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
     .capillary_prewrite_input(prewrite_input);
     let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+    let layout_write_advisor =
+        layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
@@ -3625,6 +3630,7 @@ fn run_columnar_vortex_ingest_smoke(
     )
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
+    .layout_write_advisor(layout_write_advisor.clone())
     .capillary_prewrite_input(capillary_prewrite_input(
         &source,
         &request.target_path,
@@ -3634,6 +3640,8 @@ fn run_columnar_vortex_ingest_smoke(
     ));
     let vortex_report =
         shardloom_vortex::write_flat_columnar_vortex_prepared_state(vortex_request)?;
+    let layout_write_advisor =
+        layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();

@@ -388,6 +388,20 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
         "true"
     )));
     assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_runtime_decision_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_selected_strategy",
+        "single_local_vortex_artifact"
+    )));
+    assert!(stdout.contains("\"key\":\"vortex_layout_write_advisor_strategy_decision_digest\""));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_provider_admitted",
+        "true"
+    )));
+    assert!(stdout.contains(&field("vortex_layout_write_advisor_blocker", "none")));
+    assert!(stdout.contains(&field(
         "vortex_layout_write_advisor_no_standalone_lane_status",
         "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
     )));
@@ -1287,6 +1301,19 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
         "vortex_preparation_spine_provider_kind",
         "vortex_array_kernel"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_runtime_decision_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_selected_strategy",
+        "single_local_vortex_artifact"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_provider_admitted",
+        "true"
+    )));
+    assert!(stdout.contains(&field("vortex_layout_write_advisor_blocker", "none")));
     assert!(stdout.contains(&field(
         "vortex_preparation_spine_source_surface",
         "local_columnar_source_state_arrow_record_batches"

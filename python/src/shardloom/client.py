@@ -1000,6 +1000,50 @@ class VortexIngestSmokeReport:
         )
 
     @property
+    def vortex_layout_write_advisor_runtime_decision_applied(self) -> bool:
+        """Whether the admitted layout/write decision governed the writer path."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_layout_write_advisor_runtime_decision_applied",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_layout_write_advisor_selected_strategy(self) -> str | None:
+        """Return the writer-validated layout/write strategy selection."""
+
+        return self.envelope.field("vortex_layout_write_advisor_selected_strategy")
+
+    @property
+    def vortex_layout_write_advisor_strategy_decision_digest(self) -> str | None:
+        """Return the stable digest for the writer-validated strategy decision."""
+
+        return self.envelope.field(
+            "vortex_layout_write_advisor_strategy_decision_digest"
+        )
+
+    @property
+    def vortex_layout_write_advisor_provider_admitted(self) -> bool:
+        """Whether the selected writer provider was admitted for the route."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_layout_write_advisor_provider_admitted",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_layout_write_advisor_blocker(self) -> str | None:
+        """Return the layout/write runtime blocker, or ``none`` when applied."""
+
+        return self.envelope.field("vortex_layout_write_advisor_blocker")
+
+    @property
     def vortex_layout_write_advisor_layout_strategy(self) -> str | None:
         """Return the admitted or blocked layout strategy."""
 

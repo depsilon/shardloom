@@ -560,6 +560,12 @@ def workflow_local_csv_to_prepared_and_fanout(
                     "admitted_local_layout_write_strategy"
                 ),
                 "vortex_layout_write_advisor_strategy_admitted": "true",
+                "vortex_layout_write_advisor_runtime_decision_applied": "true",
+                "vortex_layout_write_advisor_selected_strategy": (
+                    "single_local_vortex_artifact"
+                ),
+                "vortex_layout_write_advisor_provider_admitted": "true",
+                "vortex_layout_write_advisor_blocker": "none",
                 "vortex_layout_write_advisor_no_standalone_lane_status": (
                     "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
                 ),
@@ -675,6 +681,7 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "certification_status",
                 "vortex_scout_ingress_status",
                 "vortex_layout_write_advisor_status",
+                "vortex_layout_write_advisor_runtime_decision_applied",
                 "vortex_preparation_spine_native_io_certificate_status",
                 "vortex_capillary_preparation_prewrite_status",
                 "vortex_copy_budget_status",

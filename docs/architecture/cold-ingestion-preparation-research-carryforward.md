@@ -145,8 +145,11 @@ after, anomaly families, malformed row refs where safe, quarantine planning, red
 unsupported diagnostic codes, correctness policy, no-fallback posture, and the explicit
 no-standalone-lane route. The layout/write advisor surface emits
 `vortex_layout_write_advisor_*` fields for workload constitution, source statistics, pushdown/sink
-requirements, strategy/provider posture, write/reopen verification depth, correctness refs,
-benchmark refs, and no-standalone-lane route. The copy-budget surface emits
+requirements, strategy/provider posture, write/reopen verification depth, runtime decision applied
+status, selected strategy, decision digest, provider admission, blocker, correctness refs,
+benchmark refs, and no-standalone-lane route. The current runtime-applied strategy is limited to
+the workspace-safe local single-artifact Vortex writer; broader layout optimization remains gated.
+The copy-budget surface emits
 `vortex_copy_budget_*` fields for allocation/copy scope, measured or `not_measured` copy segments,
 ownership policy, buffer reuse blockers, unsafe-lifetime posture, correctness parity refs, and
 no-standalone-lane route.

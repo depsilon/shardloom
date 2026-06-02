@@ -1019,6 +1019,7 @@ pub struct VortexPreparedStateWriteRequest {
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
+    pub layout_write_advisor: Option<VortexLayoutWriteAdvisorReport>,
     pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
 }
 
@@ -1030,6 +1031,7 @@ pub struct VortexPreparedStateColumnarWriteRequest {
     pub source: FlatLocalColumnarSource,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
+    pub layout_write_advisor: Option<VortexLayoutWriteAdvisorReport>,
     pub capillary_prewrite_input: Option<VortexCapillaryPreparationInput>,
 }
 
@@ -1043,6 +1045,7 @@ impl VortexPreparedStateColumnarWriteRequest {
             source,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
+            layout_write_advisor: None,
             capillary_prewrite_input: None,
         }
     }
@@ -1068,6 +1071,14 @@ impl VortexPreparedStateColumnarWriteRequest {
     #[must_use]
     pub fn capillary_prewrite_input(mut self, input: VortexCapillaryPreparationInput) -> Self {
         self.capillary_prewrite_input = Some(input);
+        self
+    }
+
+    /// Attach the caller's layout/write advisor decision so the writer can
+    /// fail closed before applying unsupported write behavior.
+    #[must_use]
+    pub fn layout_write_advisor(mut self, report: VortexLayoutWriteAdvisorReport) -> Self {
+        self.layout_write_advisor = Some(report);
         self
     }
 }
@@ -1086,6 +1097,7 @@ impl VortexPreparedStateWriteRequest {
             rows,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
+            layout_write_advisor: None,
             capillary_prewrite_input: None,
         }
     }
@@ -1111,6 +1123,14 @@ impl VortexPreparedStateWriteRequest {
     #[must_use]
     pub fn capillary_prewrite_input(mut self, input: VortexCapillaryPreparationInput) -> Self {
         self.capillary_prewrite_input = Some(input);
+        self
+    }
+
+    /// Attach the caller's layout/write advisor decision so the writer can
+    /// fail closed before applying unsupported write behavior.
+    #[must_use]
+    pub fn layout_write_advisor(mut self, report: VortexLayoutWriteAdvisorReport) -> Self {
+        self.layout_write_advisor = Some(report);
         self
     }
 }
@@ -2234,6 +2254,11 @@ pub struct VortexLayoutWriteAdvisorReport {
     pub expected_read_tradeoff: String,
     pub expected_write_tradeoff: String,
     pub strategy_admitted: bool,
+    pub runtime_decision_applied: bool,
+    pub selected_strategy: String,
+    pub strategy_decision_digest: String,
+    pub provider_admitted: bool,
+    pub blocker: String,
     pub unsupported_diagnostic_code: String,
     pub correctness_refs: String,
     pub benchmark_refs: String,
@@ -2244,12 +2269,68 @@ pub struct VortexLayoutWriteAdvisorReport {
     pub external_engine_invoked: bool,
 }
 
+/// Runtime decision returned by the local Vortex writer after it validates a
+/// scoped layout/write advisor strategy and applies it to the writer path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLayoutWriteRuntimeDecision {
+    pub runtime_decision_applied: bool,
+    pub selected_strategy: String,
+    pub strategy_decision_digest: String,
+    pub provider_admitted: bool,
+    pub blocker: String,
+}
+
+#[cfg(feature = "vortex-write")]
+impl VortexLayoutWriteRuntimeDecision {
+    fn not_requested() -> Self {
+        let blocker = "layout_write_advisor_not_attached_to_writer".to_string();
+        Self {
+            runtime_decision_applied: false,
+            selected_strategy: "not_requested".to_string(),
+            strategy_decision_digest: fnv64_digest_text(&format!(
+                "layout_write_runtime_decision|not_requested|{blocker}"
+            )),
+            provider_admitted: false,
+            blocker,
+        }
+    }
+
+    fn applied(
+        advisor: &VortexLayoutWriteAdvisorReport,
+        target_path: &Path,
+        expected_provider_kind: &str,
+        expected_provider_surface: &str,
+        certification_level: VortexIngestCertificationLevel,
+    ) -> Self {
+        let selected_strategy = advisor.layout_strategy.clone();
+        let strategy_decision_digest = fnv64_digest_text(&format!(
+            "layout_write_runtime_decision|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            advisor.schema_version,
+            advisor.source_state_digest,
+            advisor.source_schema_digest,
+            selected_strategy,
+            expected_provider_kind,
+            expected_provider_surface,
+            advisor.writer_admission_policy,
+            certification_level.as_str(),
+            target_path.display()
+        ));
+        Self {
+            runtime_decision_applied: true,
+            selected_strategy,
+            strategy_decision_digest,
+            provider_admitted: true,
+            blocker: "none".to_string(),
+        }
+    }
+}
+
 impl VortexLayoutWriteAdvisorReport {
     /// Return stable evidence fields for CLI/API surfaces.
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn evidence_fields(&self) -> Vec<(String, String)> {
-        let mut fields = Vec::with_capacity(38);
+        let mut fields = Vec::with_capacity(43);
         Self::push_field(
             &mut fields,
             "vortex_layout_write_advisor_schema_version",
@@ -2397,6 +2478,31 @@ impl VortexLayoutWriteAdvisorReport {
         );
         Self::push_field(
             &mut fields,
+            "vortex_layout_write_advisor_runtime_decision_applied",
+            self.runtime_decision_applied.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_selected_strategy",
+            &self.selected_strategy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_strategy_decision_digest",
+            &self.strategy_decision_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_provider_admitted",
+            self.provider_admitted.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_blocker",
+            &self.blocker,
+        );
+        Self::push_field(
+            &mut fields,
             "vortex_layout_write_advisor_unsupported_diagnostic_code",
             &self.unsupported_diagnostic_code,
         );
@@ -2441,6 +2547,20 @@ impl VortexLayoutWriteAdvisorReport {
     fn push_field(fields: &mut Vec<(String, String)>, key: &'static str, value: impl Into<String>) {
         fields.push((key.to_string(), value.into()));
     }
+
+    /// Attach a writer-validated runtime decision to the public advisor
+    /// evidence after the writer path has actually applied or blocked it.
+    #[must_use]
+    pub fn with_runtime_decision(mut self, decision: &VortexLayoutWriteRuntimeDecision) -> Self {
+        self.runtime_decision_applied = decision.runtime_decision_applied;
+        self.selected_strategy
+            .clone_from(&decision.selected_strategy);
+        self.strategy_decision_digest
+            .clone_from(&decision.strategy_decision_digest);
+        self.provider_admitted = decision.provider_admitted;
+        self.blocker.clone_from(&decision.blocker);
+        self
+    }
 }
 
 /// Evaluate scoped local Vortex layout/write advisor evidence.
@@ -2449,6 +2569,28 @@ pub fn evaluate_vortex_layout_write_advisor(
     input: VortexLayoutWriteAdvisorInput,
 ) -> VortexLayoutWriteAdvisorReport {
     let status = layout_write_advisor_status(&input);
+    let provider_admitted = status == "admitted_local_layout_write_strategy";
+    let selected_strategy = if provider_admitted {
+        input.layout_strategy.clone()
+    } else {
+        "not_admitted".to_string()
+    };
+    let blocker = if provider_admitted {
+        "pending_runtime_write_decision".to_string()
+    } else if input.unsupported_diagnostic_code == "none" {
+        status.to_string()
+    } else {
+        input.unsupported_diagnostic_code.clone()
+    };
+    let strategy_decision_digest = fnv64_digest_text(&format!(
+        "layout_write_advisor_evaluation|{}|{}|{}|{}|{}|{}",
+        input.source_state_digest,
+        input.source_schema_digest,
+        selected_strategy,
+        input.writer_provider_kind,
+        input.writer_admission_policy,
+        blocker
+    ));
     VortexLayoutWriteAdvisorReport {
         schema_version: VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
         status: status.to_string(),
@@ -2479,6 +2621,11 @@ pub fn evaluate_vortex_layout_write_advisor(
         expected_read_tradeoff: input.expected_read_tradeoff,
         expected_write_tradeoff: input.expected_write_tradeoff,
         strategy_admitted: input.strategy_admitted,
+        runtime_decision_applied: false,
+        selected_strategy,
+        strategy_decision_digest,
+        provider_admitted,
+        blocker,
         unsupported_diagnostic_code: input.unsupported_diagnostic_code,
         correctness_refs: input.correctness_refs,
         benchmark_refs: input.benchmark_refs,
@@ -2499,6 +2646,104 @@ fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'stati
     } else {
         "admitted_local_layout_write_strategy"
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn admit_layout_write_runtime_decision(
+    advisor: Option<&VortexLayoutWriteAdvisorReport>,
+    expected_provider_kind: &str,
+    expected_provider_surface: &str,
+    target_path: &Path,
+    certification_level: VortexIngestCertificationLevel,
+) -> Result<VortexLayoutWriteRuntimeDecision> {
+    let Some(advisor) = advisor else {
+        return Ok(VortexLayoutWriteRuntimeDecision::not_requested());
+    };
+    let blocker =
+        layout_write_runtime_blocker(advisor, expected_provider_kind, expected_provider_surface);
+    if blocker != "none" {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest layout/write advisor blocked writer strategy '{}': {}; no fallback execution was attempted",
+            advisor.layout_strategy, blocker
+        )));
+    }
+    Ok(VortexLayoutWriteRuntimeDecision::applied(
+        advisor,
+        target_path,
+        expected_provider_kind,
+        expected_provider_surface,
+        certification_level,
+    ))
+}
+
+#[cfg(feature = "vortex-write")]
+fn layout_write_runtime_blocker(
+    advisor: &VortexLayoutWriteAdvisorReport,
+    expected_provider_kind: &str,
+    expected_provider_surface: &str,
+) -> String {
+    if advisor.status != "admitted_local_layout_write_strategy" {
+        return format!(
+            "vortex_layout_write_advisor.status_not_admitted:{}",
+            advisor.status
+        );
+    }
+    if !advisor.strategy_admitted {
+        return "vortex_layout_write_advisor.strategy_not_admitted".to_string();
+    }
+    if advisor.unsupported_diagnostic_code != "none" {
+        return advisor.unsupported_diagnostic_code.clone();
+    }
+    if advisor.layout_strategy != "single_local_vortex_artifact" {
+        return "vortex_layout_write_advisor.unsupported_layout_strategy".to_string();
+    }
+    if advisor.sink_requirements != "workspace_safe_local_vortex_file_sink" {
+        return "vortex_layout_write_advisor.unsupported_sink_requirements".to_string();
+    }
+    if advisor.writer_admission_policy != "scoped_local_vortex_ingest_prepare_once" {
+        return "vortex_layout_write_advisor.unsupported_writer_admission_policy".to_string();
+    }
+    if !matches!(
+        advisor.chunking_strategy.as_str(),
+        "single_chunk_for_scoped_local_fixture"
+            | "single_chunk_for_scoped_fixture"
+            | "writer_default_chunking_no_performance_claim"
+    ) {
+        return "vortex_layout_write_advisor.unsupported_chunking_strategy".to_string();
+    }
+    if !matches!(
+        advisor.segmentation_strategy.as_str(),
+        "single_segment_local_fixture" | "single_segment_fixture"
+    ) {
+        return "vortex_layout_write_advisor.unsupported_segmentation_strategy".to_string();
+    }
+    if advisor.dictionary_strategy != "writer_default_no_dictionary_claim" {
+        return "vortex_layout_write_advisor.unsupported_dictionary_strategy".to_string();
+    }
+    if advisor.statistics_policy != "writer_default_statistics_no_pruning_claim" {
+        return "vortex_layout_write_advisor.unsupported_statistics_policy".to_string();
+    }
+    if advisor.writer_provider_kind != expected_provider_kind {
+        return format!(
+            "vortex_layout_write_advisor.provider_kind_mismatch:expected={expected_provider_kind};actual={}",
+            advisor.writer_provider_kind
+        );
+    }
+    if !advisor
+        .writer_provider_surface
+        .contains(expected_provider_surface)
+    {
+        return format!(
+            "vortex_layout_write_advisor.provider_surface_mismatch:expected={expected_provider_surface}"
+        );
+    }
+    if !advisor
+        .writer_provider_surface
+        .contains("VortexSession::write_options().write(ArrayStream)")
+    {
+        return "vortex_layout_write_advisor.missing_vortex_writer_surface".to_string();
+    }
+    "none".to_string()
 }
 
 /// Inputs used to expose cold-lane copy-budget and buffer-lifecycle evidence.
@@ -4271,6 +4516,7 @@ pub struct VortexPreparedStateWriteReport {
     pub array_build_record_batch_count: usize,
     pub manual_scalar_copy_avoided: bool,
     pub preparation_spine: VortexPreparationSpineReport,
+    pub layout_write_decision: VortexLayoutWriteRuntimeDecision,
     pub capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
@@ -4359,6 +4605,13 @@ pub fn write_flat_scalar_vortex_prepared_state(
 
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
     let column_families = scalar_column_families(&request.columns, &request.rows)?;
+    let layout_write_decision = admit_layout_write_runtime_decision(
+        request.layout_write_advisor.as_ref(),
+        "shardloom_kernel",
+        "shardloom_scalar_rows_to_vortex_struct",
+        &request.target_path,
+        request.certification_level,
+    )?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
@@ -4385,6 +4638,7 @@ pub fn write_flat_scalar_vortex_prepared_state(
         array_build_record_batch_count: 0,
         manual_scalar_copy_avoided: false,
         capillary_prewrite_control,
+        layout_write_decision,
         preparation_spine: VortexPreparationSpineFinalizeInput {
             vortex_first_decision: "implement_shardloom_kernel",
             feature_gate: "vortex-write",
@@ -4418,6 +4672,21 @@ pub fn write_flat_columnar_vortex_prepared_state(
     }
 
     let source_shape = validate_flat_columnar_source_shape(&request.source)?;
+    let (expected_provider_kind, expected_provider_surface) = if request.source.batches.is_empty() {
+        (
+            "shardloom_kernel",
+            "shardloom_empty_columnar_struct_builder",
+        )
+    } else {
+        ("vortex_array_kernel", "ArrayRef::from_arrow(RecordBatch)")
+    };
+    let layout_write_decision = admit_layout_write_runtime_decision(
+        request.layout_write_advisor.as_ref(),
+        expected_provider_kind,
+        expected_provider_surface,
+        &request.target_path,
+        request.certification_level,
+    )?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
@@ -4465,6 +4734,7 @@ pub fn write_flat_columnar_vortex_prepared_state(
         array_build_record_batch_count: request.source.batches.len(),
         manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
         capillary_prewrite_control,
+        layout_write_decision,
         preparation_spine: VortexPreparationSpineFinalizeInput {
             vortex_first_decision,
             feature_gate: "vortex-write,universal-format-io",
@@ -4595,6 +4865,7 @@ struct VortexPreparedStateFinalizeInput<'a> {
     array_build_record_batch_count: usize,
     manual_scalar_copy_avoided: bool,
     capillary_prewrite_control: VortexCapillaryPreWriteControlReport,
+    layout_write_decision: VortexLayoutWriteRuntimeDecision,
     preparation_spine: VortexPreparationSpineFinalizeInput,
 }
 
@@ -4686,6 +4957,7 @@ fn finalize_vortex_prepared_state_write(
         array_build_record_batch_count: input.array_build_record_batch_count,
         manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
         preparation_spine,
+        layout_write_decision: input.layout_write_decision,
         capillary_prewrite_control,
         workspace_write_report: write_result.workspace_write_report,
     })
@@ -5611,6 +5883,11 @@ mod tests {
         assert_eq!(report.array_build_input_layout, "materialized_rows");
         assert_eq!(report.array_build_record_batch_count, 0);
         assert!(!report.manual_scalar_copy_avoided);
+        assert!(!report.layout_write_decision.runtime_decision_applied);
+        assert_eq!(
+            report.layout_write_decision.blocker,
+            "layout_write_advisor_not_attached_to_writer"
+        );
         assert_eq!(
             report.preparation_spine.schema_version,
             VORTEX_PREPARATION_SPINE_SCHEMA_VERSION
@@ -5637,6 +5914,80 @@ mod tests {
         assert!(!report.preparation_spine.external_engine_invoked);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_rows_apply_layout_write_advisor_before_write() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-layout-advisor-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let advisor = evaluate_vortex_layout_write_advisor(layout_advisor_input(true, "none"));
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ]],
+        )
+        .layout_write_advisor(advisor);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert!(report.layout_write_decision.runtime_decision_applied);
+        assert_eq!(
+            report.layout_write_decision.selected_strategy,
+            "single_local_vortex_artifact"
+        );
+        assert!(
+            report
+                .layout_write_decision
+                .strategy_decision_digest
+                .starts_with("fnv64:")
+        );
+        assert!(report.layout_write_decision.provider_admitted);
+        assert_eq!(report.layout_write_decision.blocker, "none");
+        assert_eq!(report.reopen_row_count, 1);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_rows_block_unsupported_layout_strategy_before_write() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-layout-advisor-blocked-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let advisor = evaluate_vortex_layout_write_advisor(layout_advisor_input(
+            false,
+            "vortex_layout_write_advisor.unsupported_layout_strategy",
+        ));
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ]],
+        )
+        .layout_write_advisor(advisor);
+
+        let error = write_flat_scalar_vortex_prepared_state(request)
+            .expect_err("unsupported layout strategy must block");
+
+        assert!(error.to_string().contains(
+            "vortex_layout_write_advisor.status_not_admitted:blocked_layout_write_strategy"
+        ));
+        assert!(
+            !path.exists(),
+            "blocked layout/write advisor must not create {}",
+            path.display()
+        );
     }
 
     #[test]
@@ -6271,6 +6622,11 @@ mod tests {
 
         assert_eq!(report.status, "admitted_local_layout_write_strategy");
         assert!(report.strategy_admitted);
+        assert!(!report.runtime_decision_applied);
+        assert_eq!(report.selected_strategy, "single_local_vortex_artifact");
+        assert!(report.strategy_decision_digest.starts_with("fnv64:"));
+        assert!(report.provider_admitted);
+        assert_eq!(report.blocker, "pending_runtime_write_decision");
         assert_eq!(
             report.no_standalone_lane_status,
             "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
@@ -6288,6 +6644,13 @@ mod tests {
 
         assert_eq!(report.status, "blocked_layout_write_strategy");
         assert!(!report.strategy_admitted);
+        assert!(!report.runtime_decision_applied);
+        assert_eq!(report.selected_strategy, "not_admitted");
+        assert!(!report.provider_admitted);
+        assert_eq!(
+            report.blocker,
+            "vortex_layout_write_advisor.unsupported_layout_strategy"
+        );
         assert_eq!(
             report.unsupported_diagnostic_code,
             "vortex_layout_write_advisor.unsupported_layout_strategy"
@@ -6479,8 +6842,9 @@ mod tests {
             dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
             statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
             writer_provider_kind: "shardloom_kernel".to_string(),
-            writer_provider_surface: "VortexSession::write_options().write(ArrayStream)"
-                .to_string(),
+            writer_provider_surface:
+                "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
+                    .to_string(),
             writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
             write_reopen_verification_depth: "writer_and_reopen_row_count".to_string(),
             materialization_boundary_status: "materialized_scalar_rows_before_write".to_string(),
