@@ -466,6 +466,40 @@ def binary_hex_literal_projection_case() -> SqlFixtureCase:
     )
 
 
+def binary_helper_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_helper_projection",
+        source_name="binary-helper-projection.csv",
+        source_text=(
+            "id,hex_payload,b64_payload\n"
+            "1,00ff10,AP8Q\n"
+            "2,616c706861,YWxwaGE=\n"
+            "3,,\n"
+        ),
+        statement_template=(
+            "SELECT id,UNHEX(hex_payload) AS payload_hex,"
+            "FROM_BASE64(b64_payload) AS payload_b64 FROM '{source}' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"payload_hex":"binary[hex=00ff10]",'
+            '"payload_b64":"binary[hex=00ff10]"}\n'
+            '{"id":2,"payload_hex":"binary[hex=616c706861]",'
+            '"payload_b64":"binary[hex=616c706861]"}\n'
+            '{"id":3,"payload_hex":null,"payload_b64":null}\n'
+        ),
+        expected_fields={
+            "binary_helper_projection_runtime_execution": "true",
+            "binary_helper_projection_operator": "unhex,from_base64",
+            "binary_helper_projection_source_column": "hex_payload,b64_payload",
+            "binary_helper_projection_output_column": "payload_hex,payload_b64",
+            "binary_helper_projection_output_dtype": "binary",
+            "binary_helper_projection_null_semantics": "null_propagating_utf8_decode",
+            "projected_columns": "id,payload_hex,payload_b64",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_predicate_literal_null_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_predicate_literal_null_semantics",
@@ -2401,6 +2435,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         interval_literal_temporal_arithmetic_case(),
         conditional_projection_case(),
         binary_hex_literal_projection_case(),
+        binary_helper_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),
