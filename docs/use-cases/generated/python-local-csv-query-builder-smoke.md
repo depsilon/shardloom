@@ -243,6 +243,12 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `sink_artifact_conversion_millis`
 - `fanout_output_conversion_millis`
 - `output_format`
+- `output_plan_materialization_required`
+- `output_plan_required_columns`
+- `output_plan_ordering_required`
+- `output_plan_statistics_required`
+- `output_plan_text_materialization_boundary`
+- `output_plan_conversion_blocker`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
 - `output_certificate_ref`
@@ -264,7 +270,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence and output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

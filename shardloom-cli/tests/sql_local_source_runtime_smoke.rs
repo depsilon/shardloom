@@ -4387,6 +4387,7 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     let source_path = unique_path("sql-local-source-csv-output", "csv");
     let output_path = unique_path("sql-local-source-csv-output", "csv");
@@ -4455,6 +4456,31 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
         "sql-local-source.csv.local-csv-output.native-io.v1"
     )));
     assert!(stdout.contains("\"output_plan_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("output_plan_status", "smoke_supported")));
+    assert!(stdout.contains(&field(
+        "output_plan_materialization_required",
+        "terminal_text_materialization_required"
+    )));
+    assert!(stdout.contains(&field("output_plan_required_columns", "id,label")));
+    assert!(stdout.contains(&field("output_plan_ordering_required", "false")));
+    assert!(stdout.contains(&field(
+        "output_plan_statistics_required",
+        "not_required_for_text_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_text_materialization_boundary",
+        "csv_terminal_encoder"
+    )));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field(
+        "output_plan_type_nullability_support",
+        "flat_scalar_text_values_null_as_empty_boundary"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_compression_encoding_posture",
+        "csv_uncompressed_text_terminal_encoder"
+    )));
+    assert!(stdout.contains(&field("output_plan_replay_depth", "write_digest_replay")));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains(&field(
         "output_replay_status",
@@ -4558,6 +4584,27 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     assert!(stdout.contains(&field("output_fanout_performed", "true")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "jsonl,csv")));
+    assert!(stdout.contains(&field(
+        "output_plan_materialization_required",
+        "jsonl:terminal_text_materialization_required,csv:terminal_text_materialization_required"
+    )));
+    assert!(stdout.contains(&field("output_plan_required_columns", "id,label,amount")));
+    assert!(stdout.contains(&field(
+        "output_plan_ordering_required",
+        "jsonl:false,csv:false"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_statistics_required",
+        "jsonl:not_required_for_text_sink,csv:not_required_for_text_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_text_materialization_boundary",
+        "jsonl:jsonl_terminal_encoder,csv:csv_terminal_encoder"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "jsonl:none,csv:none"
+    )));
     assert!(stdout.contains("\"output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\"jsonl:"));
     assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
@@ -4936,6 +4983,23 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     assert!(stdout.contains(&field("output_route", "local_fanout")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "csv,vortex")));
+    assert!(stdout.contains(&field(
+        "output_plan_materialization_required",
+        "csv:terminal_text_materialization_required,vortex:flat_scalar_vortex_writer_bridge_required_no_text_rendering"
+    )));
+    assert!(stdout.contains(&field("output_plan_required_columns", "id,label,amount")));
+    assert!(stdout.contains(&field(
+        "output_plan_statistics_required",
+        "csv:not_required_for_text_sink,vortex:row_count_reopen_statistics_required"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_text_materialization_boundary",
+        "csv:csv_terminal_encoder,vortex:not_required_for_requested_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "csv:none,vortex:none"
+    )));
     assert!(stdout.contains("csv:sql-local-source.csv.local-csv-output.native-io.v1"));
     assert!(stdout.contains("vortex:sql-local-source.local-vortex-output.native-io.v1"));
     assert!(stdout.contains("vortex:certified_local_vortex_sink"));
@@ -4987,6 +5051,7 @@ fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("output_plan_conversion_blocker=vortex_write_feature_not_enabled"));
     assert!(stdout.contains("requires building shardloom-cli with --features vortex-write"));
     assert!(stdout.contains("external_engine_invoked=false"));
     assert!(!output_path.exists());
@@ -5027,6 +5092,7 @@ fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("output_plan_conversion_blocker=vortex_write_feature_not_enabled"));
     assert!(stdout.contains("requires building shardloom-cli with --features vortex-write"));
     assert!(stdout.contains("external_engine_invoked=false"));
     assert!(!csv_output_path.exists());
@@ -5101,6 +5167,23 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     assert!(stdout.contains(&field("result_batch_state_column_count", "3")));
     assert!(stdout.contains(&field("fanout_output_count", "2")));
     assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains(&field(
+        "output_plan_materialization_required",
+        "parquet:flat_scalar_row_bridge_required_no_text_rendering,arrow_ipc:flat_scalar_row_bridge_required_no_text_rendering"
+    )));
+    assert!(stdout.contains(&field("output_plan_required_columns", "id,label,amount")));
+    assert!(stdout.contains(&field(
+        "output_plan_statistics_required",
+        "parquet:schema_and_row_count_replay_required,arrow_ipc:schema_and_row_count_replay_required"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_text_materialization_boundary",
+        "parquet:not_required_for_requested_sink,arrow_ipc:not_required_for_requested_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "parquet:none,arrow_ipc:none"
+    )));
     assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("parquet:sql-local-source.local-parquet-output.native-io.v1"));
     assert!(stdout.contains("arrow_ipc:sql-local-source.local-arrow-ipc-output.native-io.v1"));
@@ -5263,6 +5346,9 @@ fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
+    assert!(
+        stdout.contains("output_plan_conversion_blocker=universal_format_io_feature_not_enabled")
+    );
     assert!(stdout.contains(
         "local Parquet output runtime requires building shardloom-cli with --features universal-format-io"
     ));

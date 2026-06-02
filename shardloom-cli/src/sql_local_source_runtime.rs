@@ -138,6 +138,192 @@ struct SqlLocalSourceOutputTarget {
     path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputPlanSinkRequirement {
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+    required_columns: Vec<String>,
+    materialization_required: &'static str,
+    ordering_required: bool,
+    statistics_required: &'static str,
+    text_materialization_boundary: &'static str,
+    type_nullability_support: &'static str,
+    dictionary_required: &'static str,
+    compression_encoding_posture: &'static str,
+    replay_depth: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputPlanRequirements {
+    sinks: Vec<SqlOutputPlanSinkRequirement>,
+    inline_result_format: Option<SqlLocalSourceOutputFormat>,
+}
+
+impl SqlOutputPlanRequirements {
+    fn plan(
+        request: &SqlLocalSourceRequest,
+        batch: &SqlResultBatchState,
+    ) -> Result<Self, ShardLoomError> {
+        let required_columns = batch.column_names();
+        let mut sinks = Vec::new();
+        if let Some(path) = request.output_path.as_ref() {
+            sinks.push(SqlOutputPlanSinkRequirement::plan(
+                request.output_format,
+                path.clone(),
+                &required_columns,
+                batch,
+            )?);
+        }
+        for target in &request.fanout_outputs {
+            sinks.push(SqlOutputPlanSinkRequirement::plan(
+                target.format,
+                target.path.clone(),
+                &required_columns,
+                batch,
+            )?);
+        }
+        let inline_result_format = if sinks.is_empty() {
+            Some(request.output_format)
+        } else {
+            None
+        };
+        Ok(Self {
+            sinks,
+            inline_result_format,
+        })
+    }
+
+    fn materialization_required(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.materialization_required.to_string(),
+            |format| format.materialization_required().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn required_columns(&self) -> String {
+        self.sinks.first().map_or_else(
+            || "not_applicable_inline_result".to_string(),
+            |sink| csv_or_not_applicable(sink.required_columns.iter().cloned()),
+        )
+    }
+
+    fn ordering_required(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.ordering_required.to_string(),
+            |_| "false".to_string(),
+            "not_requested",
+        )
+    }
+
+    fn statistics_required(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.statistics_required.to_string(),
+            |format| format.statistics_required().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn text_materialization_boundary(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.text_materialization_boundary.to_string(),
+            |format| format.text_materialization_boundary().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn conversion_blocker(&self) -> String {
+        if self.sinks.is_empty() {
+            return "none".to_string();
+        }
+        self.labeled(|_| "none".to_string())
+    }
+
+    fn type_nullability_support(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.type_nullability_support.to_string(),
+            |format| format.type_nullability_support().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn dictionary_required(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.dictionary_required.to_string(),
+            |format| format.dictionary_required().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn compression_encoding_posture(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.compression_encoding_posture.to_string(),
+            |format| format.compression_encoding_posture().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn replay_depth(&self) -> String {
+        self.labeled_or_inline(
+            |sink| sink.replay_depth.to_string(),
+            |format| format.replay_depth().to_string(),
+            "not_requested",
+        )
+    }
+
+    fn labeled(&self, value: impl Fn(&SqlOutputPlanSinkRequirement) -> String) -> String {
+        if self.sinks.is_empty() {
+            return "not_applicable_inline_result".to_string();
+        }
+        if self.sinks.len() == 1 {
+            return value(&self.sinks[0]);
+        }
+        self.sinks
+            .iter()
+            .map(|sink| format!("{}:{}", sink.format.sink_format(), value(sink)))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn labeled_or_inline(
+        &self,
+        sink_value: impl Fn(&SqlOutputPlanSinkRequirement) -> String,
+        inline_value: impl Fn(SqlLocalSourceOutputFormat) -> String,
+        empty_value: &'static str,
+    ) -> String {
+        if !self.sinks.is_empty() {
+            return self.labeled(sink_value);
+        }
+        self.inline_result_format
+            .map_or_else(|| empty_value.to_string(), inline_value)
+    }
+}
+
+impl SqlOutputPlanSinkRequirement {
+    fn plan(
+        format: SqlLocalSourceOutputFormat,
+        path: PathBuf,
+        required_columns: &[String],
+        batch: &SqlResultBatchState,
+    ) -> Result<Self, ShardLoomError> {
+        validate_sql_output_plan_sink(format, batch)?;
+        validate_sql_output_plan_sink_target(format, &path)?;
+        Ok(Self {
+            format,
+            path,
+            required_columns: required_columns.to_vec(),
+            materialization_required: format.materialization_required(),
+            ordering_required: false,
+            statistics_required: format.statistics_required(),
+            text_materialization_boundary: format.text_materialization_boundary(),
+            type_nullability_support: format.type_nullability_support(),
+            dictionary_required: format.dictionary_required(),
+            compression_encoding_posture: format.compression_encoding_posture(),
+            replay_depth: format.replay_depth(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct SqlResultBatchColumnState {
     name: String,
@@ -412,6 +598,80 @@ impl SqlLocalSourceOutputFormat {
             Self::Avro => AVRO_OUTPUT_CERTIFICATE_ID,
             Self::Orc => ORC_OUTPUT_CERTIFICATE_ID,
             Self::Vortex => VORTEX_OUTPUT_CERTIFICATE_ID,
+        }
+    }
+
+    const fn materialization_required(self) -> &'static str {
+        match self {
+            Self::InlineJsonl | Self::Csv => "terminal_text_materialization_required",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "flat_scalar_row_bridge_required_no_text_rendering"
+            }
+            Self::Vortex => "flat_scalar_vortex_writer_bridge_required_no_text_rendering",
+        }
+    }
+
+    const fn statistics_required(self) -> &'static str {
+        match self {
+            Self::Vortex => "row_count_reopen_statistics_required",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "schema_and_row_count_replay_required"
+            }
+            Self::InlineJsonl | Self::Csv => "not_required_for_text_sink",
+        }
+    }
+
+    const fn text_materialization_boundary(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => "jsonl_terminal_encoder",
+            Self::Csv => "csv_terminal_encoder",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc | Self::Vortex => {
+                "not_required_for_requested_sink"
+            }
+        }
+    }
+
+    const fn type_nullability_support(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => "logical_values_including_nested_json_boundary",
+            Self::Csv => "flat_scalar_text_values_null_as_empty_boundary",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "flat_scalar_nullable_values_required"
+            }
+            Self::Vortex => "flat_scalar_nullable_values_required_for_current_vortex_writer",
+        }
+    }
+
+    const fn dictionary_required(self) -> &'static str {
+        match self {
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc | Self::Vortex => {
+                "not_required_current_local_sink"
+            }
+            Self::InlineJsonl | Self::Csv => "not_applicable_text_sink",
+        }
+    }
+
+    const fn compression_encoding_posture(self) -> &'static str {
+        match self {
+            Self::InlineJsonl => "jsonl_uncompressed_text_terminal_encoder",
+            Self::Csv => "csv_uncompressed_text_terminal_encoder",
+            Self::Parquet => "parquet_provider_default_encoding",
+            Self::ArrowIpc => "arrow_ipc_provider_default_encoding",
+            Self::Avro => "avro_provider_default_encoding",
+            Self::Orc => "orc_provider_default_encoding",
+            Self::Vortex => "vortex_writer_default_encoding",
+        }
+    }
+
+    const fn replay_depth(self) -> &'static str {
+        match self {
+            Self::Vortex => "write_digest_reopen_row_count",
+            Self::InlineJsonl
+            | Self::Csv
+            | Self::Parquet
+            | Self::ArrowIpc
+            | Self::Avro
+            | Self::Orc => "write_digest_replay",
         }
     }
 
@@ -2385,6 +2645,7 @@ struct SqlLocalSourceReport {
     distinct_projection_input_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_batch_state: SqlResultBatchState,
+    output_plan: SqlOutputPlanRequirements,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -2494,6 +2755,7 @@ struct SqlLocalSourceUnionReport {
     branch_reports: Vec<SqlLocalSourceReport>,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_batch_state: SqlResultBatchState,
+    output_plan: SqlOutputPlanRequirements,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -6775,13 +7037,12 @@ fn run_sql_local_source_smoke_single(
     let output_columns = output_column_names(&parsed, &source);
     let result_batch_state =
         SqlResultBatchState::from_rows(&output_columns, &evaluated_output.output_rows)?;
+    let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
     let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
-    let inline_output_content = request
-        .output_format
-        .inline_result_rows(&result_batch_state)?;
+    let inline_output_content =
+        inline_sql_output_content_for_evidence(request, &result_batch_state, &result_jsonl)?;
     let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
-    let prepared_outputs = prepare_sql_outputs(request, &result_batch_state)?;
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = sql_local_source_plan_digest(
         &parsed,
@@ -6793,6 +7054,7 @@ fn run_sql_local_source_smoke_single(
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
     preflight_sql_output_writes(request)?;
+    let prepared_outputs = prepare_sql_outputs(&output_plan, &result_batch_state)?;
     let written_outputs = write_sql_outputs(
         prepared_outputs,
         &result_batch_state,
@@ -6824,6 +7086,7 @@ fn run_sql_local_source_smoke_single(
         distinct_projection_input_row_count: evaluated_output.distinct_projection_input_row_count,
         output_rows: evaluated_output.output_rows,
         result_batch_state,
+        output_plan,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -6917,13 +7180,12 @@ fn run_sql_local_source_union_smoke(
 
     let evidence_start = Instant::now();
     let result_batch_state = SqlResultBatchState::from_rows(&output_columns, &output_rows)?;
+    let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
     let result_jsonl = result_batch_state.to_jsonl();
     let result_digest = fnv64_digest(&result_jsonl);
-    let inline_output_content = request
-        .output_format
-        .inline_result_rows(&result_batch_state)?;
+    let inline_output_content =
+        inline_sql_output_content_for_evidence(request, &result_batch_state, &result_jsonl)?;
     let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
-    let prepared_outputs = prepare_sql_outputs(request, &result_batch_state)?;
     let source_schema_digest = fnv64_digest(&csv_or_not_applicable(
         branch_reports
             .iter()
@@ -6938,6 +7200,7 @@ fn run_sql_local_source_union_smoke(
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
     preflight_sql_output_writes(request)?;
+    let prepared_outputs = prepare_sql_outputs(&output_plan, &result_batch_state)?;
     let written_outputs = write_sql_outputs(
         prepared_outputs,
         &result_batch_state,
@@ -6960,6 +7223,7 @@ fn run_sql_local_source_union_smoke(
         branch_reports,
         output_rows,
         result_batch_state,
+        output_plan,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -11562,40 +11826,42 @@ fn usize_to_f64(value: usize) -> f64 {
         .expect("usize decimal text parses as finite f64")
 }
 
-fn prepare_sql_outputs(
+fn inline_sql_output_content_for_evidence(
     request: &SqlLocalSourceRequest,
     batch: &SqlResultBatchState,
-) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
-    let mut prepared = Vec::new();
-    if let Some(output_path) = request.output_path.as_ref() {
-        prepared.push(prepare_sql_output(
+    result_jsonl: &str,
+) -> Result<Vec<u8>, ShardLoomError> {
+    if request.output_path.is_some()
+        || matches!(
             request.output_format,
-            output_path.clone(),
-            batch,
-        )?);
+            SqlLocalSourceOutputFormat::InlineJsonl
+        )
+    {
+        return Ok(result_jsonl.as_bytes().to_vec());
     }
-    prepared.extend(
-        request
-            .fanout_outputs
-            .iter()
-            .map(|target| prepare_sql_output(target.format, target.path.clone(), batch))
-            .collect::<Result<Vec<_>, _>>()?,
-    );
-    Ok(prepared)
+    request.output_format.inline_result_rows(batch)
+}
+
+fn prepare_sql_outputs(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
+    output_plan
+        .sinks
+        .iter()
+        .map(|sink| prepare_sql_output(sink, batch))
+        .collect()
 }
 
 fn prepare_sql_output(
-    format: SqlLocalSourceOutputFormat,
-    path: PathBuf,
+    sink: &SqlOutputPlanSinkRequirement,
     batch: &SqlResultBatchState,
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
     let conversion_start = Instant::now();
-    let payload = if matches!(format, SqlLocalSourceOutputFormat::Vortex) {
-        validate_flat_scalar_result_batch(batch, format)?;
-        validate_sql_vortex_output_plan(&path)?;
+    let payload = if matches!(sink.format, SqlLocalSourceOutputFormat::Vortex) {
         SqlOutputPayload::Vortex
     } else {
-        let content = format.render_batch(batch)?;
+        let content = sink.format.render_batch(batch)?;
         let digest = fnv64_digest_bytes(&content);
         let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
         SqlOutputPayload::Bytes {
@@ -11605,8 +11871,8 @@ fn prepare_sql_output(
         }
     };
     Ok(SqlRenderedOutput {
-        format,
-        path,
+        format: sink.format,
+        path: sink.path.clone(),
         payload,
         conversion_millis: conversion_start.elapsed().as_millis(),
     })
@@ -21329,6 +21595,57 @@ impl SqlLocalSourceUnionReport {
                 self.request.output_format.sink_format().to_string(),
             ),
             ("output_path".to_string(), self.output_path()),
+            ("output_plan_id".to_string(), self.output_plan_id()),
+            ("output_plan_digest".to_string(), self.output_plan_digest()),
+            (
+                "output_plan_status".to_string(),
+                self.output_plan_status().to_string(),
+            ),
+            (
+                "output_plan_materialization_required".to_string(),
+                self.output_plan.materialization_required(),
+            ),
+            (
+                "output_plan_required_columns".to_string(),
+                self.output_plan.required_columns(),
+            ),
+            (
+                "output_plan_ordering_required".to_string(),
+                self.output_plan.ordering_required(),
+            ),
+            (
+                "output_plan_statistics_required".to_string(),
+                self.output_plan.statistics_required(),
+            ),
+            (
+                "output_plan_text_materialization_boundary".to_string(),
+                self.output_plan.text_materialization_boundary(),
+            ),
+            (
+                "output_plan_conversion_blocker".to_string(),
+                self.output_plan.conversion_blocker(),
+            ),
+            (
+                "output_plan_type_nullability_support".to_string(),
+                self.output_plan.type_nullability_support(),
+            ),
+            (
+                "output_plan_dictionary_required".to_string(),
+                self.output_plan.dictionary_required(),
+            ),
+            (
+                "output_plan_compression_encoding_posture".to_string(),
+                self.output_plan.compression_encoding_posture(),
+            ),
+            (
+                "output_plan_replay_depth".to_string(),
+                self.output_plan.replay_depth(),
+            ),
+            (
+                "output_plan_reuse_allowed".to_string(),
+                self.output_fanout_performed().to_string(),
+            ),
+            ("output_plan_reuse_hit".to_string(), "false".to_string()),
             (
                 "output_io_performed".to_string(),
                 self.output_io_performed().to_string(),
@@ -21586,6 +21903,18 @@ impl SqlLocalSourceUnionReport {
         !self.written_outputs.is_empty()
     }
 
+    fn output_fanout_performed(&self) -> bool {
+        !self.request.fanout_outputs.is_empty()
+    }
+
+    fn output_plan_status(&self) -> &'static str {
+        if self.output_io_performed() {
+            "smoke_supported"
+        } else {
+            "not_applicable_inline_result"
+        }
+    }
+
     fn result_batch_state_status(&self) -> &'static str {
         result_batch_state_status_value(&self.result_batch_state)
     }
@@ -21693,6 +22022,51 @@ impl SqlLocalSourceUnionReport {
         } else {
             "not_applicable_inline_result".to_string()
         }
+    }
+
+    fn output_plan_id(&self) -> String {
+        if self.output_fanout_performed() {
+            format!(
+                "sql-local-source.union.{}.fanout.output-plan.v1",
+                self.parsed.mode.as_str()
+            )
+        } else {
+            format!(
+                "sql-local-source.union.{}.{}.output-plan.v1",
+                self.parsed.mode.as_str(),
+                self.request.output_format.sink_format()
+            )
+        }
+    }
+
+    fn output_plan_digest(&self) -> String {
+        let mut fragments = Vec::new();
+        if let Some(path) = &self.request.output_path {
+            fragments.push(format!(
+                "primary:{}={}",
+                self.request.output_format.sink_format(),
+                path.display()
+            ));
+        }
+        fragments.extend(self.request.fanout_outputs.iter().map(|target| {
+            format!(
+                "fanout:{}={}",
+                target.format.sink_format(),
+                target.path.display()
+            )
+        }));
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}",
+            self.output_plan_id(),
+            self.source_schema_digest,
+            self.plan_digest,
+            fragments.join(";"),
+            self.output_plan.materialization_required(),
+            self.output_plan.required_columns(),
+            self.output_plan.statistics_required(),
+            self.output_plan.text_materialization_boundary(),
+            self.output_plan.conversion_blocker()
+        ))
     }
 
     fn execution_certificate_ref(&self) -> String {
@@ -23705,12 +24079,47 @@ impl SqlLocalSourceReport {
             ("output_plan_digest".to_string(), self.output_plan_digest()),
             (
                 "output_plan_status".to_string(),
-                if self.output_io_performed() {
-                    "smoke_supported"
-                } else {
-                    "not_applicable_inline_result"
-                }
-                .to_string(),
+                self.output_plan_status().to_string(),
+            ),
+            (
+                "output_plan_materialization_required".to_string(),
+                self.output_plan.materialization_required(),
+            ),
+            (
+                "output_plan_required_columns".to_string(),
+                self.output_plan.required_columns(),
+            ),
+            (
+                "output_plan_ordering_required".to_string(),
+                self.output_plan.ordering_required(),
+            ),
+            (
+                "output_plan_statistics_required".to_string(),
+                self.output_plan.statistics_required(),
+            ),
+            (
+                "output_plan_text_materialization_boundary".to_string(),
+                self.output_plan.text_materialization_boundary(),
+            ),
+            (
+                "output_plan_conversion_blocker".to_string(),
+                self.output_plan.conversion_blocker(),
+            ),
+            (
+                "output_plan_type_nullability_support".to_string(),
+                self.output_plan.type_nullability_support(),
+            ),
+            (
+                "output_plan_dictionary_required".to_string(),
+                self.output_plan.dictionary_required(),
+            ),
+            (
+                "output_plan_compression_encoding_posture".to_string(),
+                self.output_plan.compression_encoding_posture(),
+            ),
+            (
+                "output_plan_replay_depth".to_string(),
+                self.output_plan.replay_depth(),
             ),
             (
                 "output_plan_reuse_allowed".to_string(),
@@ -24557,6 +24966,14 @@ impl SqlLocalSourceReport {
         }
     }
 
+    fn output_plan_status(&self) -> &'static str {
+        if self.output_io_performed() {
+            "smoke_supported"
+        } else {
+            "not_applicable_inline_result"
+        }
+    }
+
     fn output_plan_id(&self) -> String {
         if self.output_fanout_performed() {
             format!(
@@ -24589,11 +25006,16 @@ impl SqlLocalSourceReport {
             )
         }));
         fnv64_digest(&format!(
-            "{}|{}|{}|{}",
+            "{}|{}|{}|{}|materialization={}|required_columns={}|statistics={}|text_boundary={}|blocker={}",
             self.output_plan_id(),
             self.source_schema_digest,
             self.plan_digest,
-            fragments.join(";")
+            fragments.join(";"),
+            self.output_plan.materialization_required(),
+            self.output_plan.required_columns(),
+            self.output_plan.statistics_required(),
+            self.output_plan.text_materialization_boundary(),
+            self.output_plan.conversion_blocker()
         ))
     }
 
@@ -25317,7 +25739,7 @@ fn normalize_local_vortex_ingest_target_path(value: &str) -> Result<PathBuf, Sha
 fn validate_sql_vortex_output_plan(path: &Path) -> Result<(), ShardLoomError> {
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         return Err(unsupported_sql_error(
-            "local Vortex SQL output runtime requires building shardloom-cli with --features vortex-write; default builds expose Vortex as a deterministic blocked sink",
+            "output_plan_conversion_blocker=vortex_write_feature_not_enabled; local Vortex SQL output runtime requires building shardloom-cli with --features vortex-write; default builds expose Vortex as a deterministic blocked sink",
         ));
     }
     let extension = path
@@ -25326,7 +25748,7 @@ fn validate_sql_vortex_output_plan(path: &Path) -> Result<(), ShardLoomError> {
         .unwrap_or_default();
     if !extension.eq_ignore_ascii_case("vortex") {
         return Err(ShardLoomError::InvalidOperation(
-            "local Vortex SQL output writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
+            "output_plan_conversion_blocker=vortex_target_extension_required; local Vortex SQL output writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
                 .to_string(),
         ));
     }
@@ -33299,6 +33721,84 @@ fn validate_flat_scalar_result_batch(
     Ok(())
 }
 
+fn validate_sql_output_plan_sink(
+    format: SqlLocalSourceOutputFormat,
+    batch: &SqlResultBatchState,
+) -> Result<(), ShardLoomError> {
+    match sql_output_plan_conversion_blocker(format, batch) {
+        Some("flat_scalar_result_batch_required") => Err(unsupported_sql_error(&format!(
+            "output_plan_conversion_blocker=flat_scalar_result_batch_required; local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
+            format.sink_format()
+        ))),
+        Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
+            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string and CSV text result boundaries in this scoped runtime slice",
+            format.sink_format()
+        ))),
+        Some(blocker) => Err(unsupported_sql_error(&format!(
+            "output_plan_conversion_blocker={blocker}; local {} output sink is blocked before conversion begins; no fallback execution was attempted",
+            format.sink_format()
+        ))),
+        None => Ok(()),
+    }
+}
+
+fn validate_sql_output_plan_sink_target(
+    format: SqlLocalSourceOutputFormat,
+    path: &Path,
+) -> Result<(), ShardLoomError> {
+    match format {
+        SqlLocalSourceOutputFormat::Vortex => validate_sql_vortex_output_plan(path),
+        SqlLocalSourceOutputFormat::Parquet
+        | SqlLocalSourceOutputFormat::ArrowIpc
+        | SqlLocalSourceOutputFormat::Avro
+        | SqlLocalSourceOutputFormat::Orc => validate_sql_universal_format_output_plan(format),
+        SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv => Ok(()),
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn validate_sql_universal_format_output_plan(
+    _format: SqlLocalSourceOutputFormat,
+) -> Result<(), ShardLoomError> {
+    Ok(())
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn validate_sql_universal_format_output_plan(
+    format: SqlLocalSourceOutputFormat,
+) -> Result<(), ShardLoomError> {
+    let label = match format {
+        SqlLocalSourceOutputFormat::Parquet => "Parquet",
+        SqlLocalSourceOutputFormat::ArrowIpc => "Arrow IPC",
+        SqlLocalSourceOutputFormat::Avro => "Avro",
+        SqlLocalSourceOutputFormat::Orc => "ORC",
+        SqlLocalSourceOutputFormat::InlineJsonl
+        | SqlLocalSourceOutputFormat::Csv
+        | SqlLocalSourceOutputFormat::Vortex => {
+            return Ok(());
+        }
+    };
+    Err(unsupported_sql_error(&format!(
+        "output_plan_conversion_blocker=universal_format_io_feature_not_enabled; local {label} output runtime requires building shardloom-cli with --features universal-format-io; default builds expose {label} as a deterministic blocked sink"
+    )))
+}
+
+fn sql_output_plan_conversion_blocker(
+    format: SqlLocalSourceOutputFormat,
+    batch: &SqlResultBatchState,
+) -> Option<&'static str> {
+    if matches!(format, SqlLocalSourceOutputFormat::InlineJsonl) {
+        return None;
+    }
+    if batch.contains_complex_values() {
+        return Some("flat_scalar_result_batch_required");
+    }
+    if batch.contains_decimal_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+        return Some("typed_decimal128_preservation_not_admitted");
+    }
+    None
+}
+
 fn scalar_value_is_complex(value: &ScalarValue) -> bool {
     match value {
         ScalarValue::List(_) | ScalarValue::Struct(_) => true,
@@ -35878,6 +36378,7 @@ mod tests {
     #[test]
     fn complex_projection_blocks_flat_scalar_sinks_without_fallback() {
         let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("csv");
         fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
@@ -35886,7 +36387,7 @@ mod tests {
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::Csv,
-            output_path: None,
+            output_path: Some(output_path.clone()),
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
@@ -35896,9 +36397,15 @@ mod tests {
         assert!(
             error
                 .to_string()
+                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required")
+        );
+        assert!(
+            error
+                .to_string()
                 .contains("local csv output currently admits flat scalar rows only")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert!(!output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
     }

@@ -243,6 +243,12 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "output_format",
     "output_plan_id",
     "output_plan_status",
+    "output_plan_materialization_required",
+    "output_plan_required_columns",
+    "output_plan_ordering_required",
+    "output_plan_statistics_required",
+    "output_plan_text_materialization_boundary",
+    "output_plan_conversion_blocker",
     "vortex_native_claim_allowed",
     "compatibility_import_included",
     "vortex_prepare_included",
@@ -977,6 +983,16 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "output_plan_reuse_allowed",
     "output_metadata_preservation_status",
     "output_materialization_required",
+    "output_plan_materialization_required",
+    "output_plan_required_columns",
+    "output_plan_ordering_required",
+    "output_plan_statistics_required",
+    "output_plan_text_materialization_boundary",
+    "output_plan_conversion_blocker",
+    "output_plan_type_nullability_support",
+    "output_plan_dictionary_required",
+    "output_plan_compression_encoding_posture",
+    "output_plan_replay_depth",
     "output_plan_reuse_hit",
     "output_plan_reuse_reason",
     "output_plan_millis",
@@ -1020,6 +1036,10 @@ FANOUT_BENCHMARK_FIELDS = (
     "vortex_prepare_millis",
     "operator_compute_millis",
     "output_plan_millis",
+    "output_plan_materialization_required",
+    "output_plan_required_columns",
+    "output_plan_text_materialization_boundary",
+    "output_plan_conversion_blocker",
     "output_conversion_millis",
     "output_write_millis",
     "fanout_output_conversion_millis",
@@ -10315,6 +10335,51 @@ def output_plan_contract_metadata(
         if is_shardloom and output_written
         else "none"
     )
+    def output_plan_value(field: str, default: str) -> str:
+        if not is_shardloom:
+            return "external_baseline_only"
+        return first_meaningful_field(evidence.get(field), metrics.get(field), default)
+
+    output_plan_materialization_required = output_plan_value(
+        "output_plan_materialization_required",
+        "result_sink_materializes_computed_result" if output_written else "not_applicable",
+    )
+    output_plan_required_columns = output_plan_value(
+        "output_plan_required_columns",
+        "all_result_columns" if output_written else "not_applicable",
+    )
+    output_plan_ordering_required = output_plan_value(
+        "output_plan_ordering_required",
+        "false" if output_written else "not_applicable",
+    )
+    output_plan_statistics_required = output_plan_value(
+        "output_plan_statistics_required",
+        "row_count_replay_required" if output_written else "not_applicable",
+    )
+    output_plan_text_materialization_boundary = output_plan_value(
+        "output_plan_text_materialization_boundary",
+        "not_required_for_requested_sink" if output_written else "not_applicable",
+    )
+    output_plan_conversion_blocker = output_plan_value(
+        "output_plan_conversion_blocker",
+        "none" if output_written else "not_applicable",
+    )
+    output_plan_type_nullability_support = output_plan_value(
+        "output_plan_type_nullability_support",
+        "not_reported" if output_written else "not_applicable",
+    )
+    output_plan_dictionary_required = output_plan_value(
+        "output_plan_dictionary_required",
+        "not_reported" if output_written else "not_applicable",
+    )
+    output_plan_compression_encoding_posture = output_plan_value(
+        "output_plan_compression_encoding_posture",
+        "not_reported" if output_written else "not_applicable",
+    )
+    output_plan_replay_depth = output_plan_value(
+        "output_plan_replay_depth",
+        "write_digest_replay" if output_written else "not_applicable",
+    )
     return {
         "output_plan_contract_schema_version": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
         "output_plan_status_vocabulary": ",".join(
@@ -10337,8 +10402,22 @@ def output_plan_contract_metadata(
             "native_vortex_highest_fidelity" if output_written else "not_applicable"
         ),
         "output_materialization_required": (
-            "result_sink_materializes_computed_result" if output_written else "not_applicable"
+            output_plan_materialization_required
         ),
+        "output_plan_materialization_required": output_plan_materialization_required,
+        "output_plan_required_columns": output_plan_required_columns,
+        "output_plan_ordering_required": output_plan_ordering_required,
+        "output_plan_statistics_required": output_plan_statistics_required,
+        "output_plan_text_materialization_boundary": (
+            output_plan_text_materialization_boundary
+        ),
+        "output_plan_conversion_blocker": output_plan_conversion_blocker,
+        "output_plan_type_nullability_support": output_plan_type_nullability_support,
+        "output_plan_dictionary_required": output_plan_dictionary_required,
+        "output_plan_compression_encoding_posture": (
+            output_plan_compression_encoding_posture
+        ),
+        "output_plan_replay_depth": output_plan_replay_depth,
         "output_plan_reuse_hit": output_plan_reuse_hit,
         "output_plan_reuse_reason": output_plan_reuse_reason(
             engine, status, output_plan_status, output_written, output_plan_reuse_hit
@@ -15693,6 +15772,34 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "output_materialization_required": metrics.get(
                     "output_materialization_required"
                 ),
+                "output_plan_materialization_required": metrics.get(
+                    "output_plan_materialization_required"
+                ),
+                "output_plan_required_columns": metrics.get(
+                    "output_plan_required_columns"
+                ),
+                "output_plan_ordering_required": metrics.get(
+                    "output_plan_ordering_required"
+                ),
+                "output_plan_statistics_required": metrics.get(
+                    "output_plan_statistics_required"
+                ),
+                "output_plan_text_materialization_boundary": metrics.get(
+                    "output_plan_text_materialization_boundary"
+                ),
+                "output_plan_conversion_blocker": metrics.get(
+                    "output_plan_conversion_blocker"
+                ),
+                "output_plan_type_nullability_support": metrics.get(
+                    "output_plan_type_nullability_support"
+                ),
+                "output_plan_dictionary_required": metrics.get(
+                    "output_plan_dictionary_required"
+                ),
+                "output_plan_compression_encoding_posture": metrics.get(
+                    "output_plan_compression_encoding_posture"
+                ),
+                "output_plan_replay_depth": metrics.get("output_plan_replay_depth"),
                 "output_plan_reuse_hit": metrics.get("output_plan_reuse_hit"),
                 "output_plan_reuse_reason": metrics.get("output_plan_reuse_reason"),
                 "output_plan_millis": metrics.get("output_plan_millis"),
@@ -15762,6 +15869,10 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "vortex_prepare_millis": None,
                 "operator_compute_millis": None,
                 "output_plan_millis": None,
+                "output_plan_materialization_required": "report_only",
+                "output_plan_required_columns": "report_only",
+                "output_plan_text_materialization_boundary": "report_only",
+                "output_plan_conversion_blocker": case["blocker_id"],
                 "output_conversion_millis": None,
                 "output_write_millis": None,
                 "fanout_output_conversion_millis": None,
@@ -16142,6 +16253,54 @@ def execution_mode_metadata(
         result_batch_state_decode_required = False
 
     requested = str(evidence.get("requested_execution_mode") or selected)
+    output_plan_materialization_required = str(
+        evidence.get("output_plan_materialization_required")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
+    output_plan_required_columns = str(
+        evidence.get("output_plan_required_columns")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
+    output_plan_ordering_required = str(
+        evidence.get("output_plan_ordering_required")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
+    output_plan_statistics_required = str(
+        evidence.get("output_plan_statistics_required")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
+    output_plan_text_materialization_boundary = str(
+        evidence.get("output_plan_text_materialization_boundary")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
+    output_plan_conversion_blocker = str(
+        evidence.get("output_plan_conversion_blocker")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "see_output_plan_contract"
+        )
+    )
     return {
         "requested_execution_mode": requested,
         "selected_execution_mode": selected,
@@ -16181,6 +16340,14 @@ def execution_mode_metadata(
         "output_format": output_format,
         "output_plan_id": output_plan_id,
         "output_plan_status": output_plan_status,
+        "output_plan_materialization_required": output_plan_materialization_required,
+        "output_plan_required_columns": output_plan_required_columns,
+        "output_plan_ordering_required": output_plan_ordering_required,
+        "output_plan_statistics_required": output_plan_statistics_required,
+        "output_plan_text_materialization_boundary": (
+            output_plan_text_materialization_boundary
+        ),
+        "output_plan_conversion_blocker": output_plan_conversion_blocker,
         "vortex_native_claim_allowed": vortex_native_claim_allowed,
         "compatibility_import_included": compatibility_import_included,
         "vortex_prepare_included": vortex_prepare_included,
@@ -21970,6 +22137,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_reuse_allowed"]),
                 str(row["output_metadata_preservation_status"]),
                 str(row["output_materialization_required"]),
+                str(row["output_plan_materialization_required"]),
+                str(row["output_plan_required_columns"]).replace("|", "\\|"),
+                str(row["output_plan_ordering_required"]),
+                str(row["output_plan_statistics_required"]),
+                str(row["output_plan_text_materialization_boundary"]),
+                str(row["output_plan_conversion_blocker"]),
                 str(row["output_plan_reuse_hit"]),
                 str(row["output_plan_reuse_reason"]).replace("|", "\\|"),
                 format_metric(row["output_plan_millis"], " ms"),
@@ -22003,6 +22176,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 "none",
                 "none",
                 "false",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
                 "none",
                 "none",
                 "false",
@@ -22039,6 +22218,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Reuse allowed",
             "Metadata preservation",
             "Materialization",
+            "Plan materialization",
+            "Required columns",
+            "Ordering required",
+            "Statistics required",
+            "Text boundary",
+            "Conversion blocker",
             "Reuse hit",
             "Reuse reason",
             "Output plan",
@@ -22077,6 +22262,10 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
                 format_metric(row["vortex_prepare_millis"], " ms"),
                 format_metric(row["operator_compute_millis"], " ms"),
                 format_metric(row["output_plan_millis"], " ms"),
+                str(row["output_plan_materialization_required"]),
+                str(row["output_plan_required_columns"]),
+                str(row["output_plan_text_materialization_boundary"]),
+                str(row["output_plan_conversion_blocker"]),
                 format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
                 format_metric(row["fanout_output_conversion_millis"], " ms"),
@@ -22108,6 +22297,10 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Vortex prepare",
             "Operator compute",
             "Output plan",
+            "Plan materialization",
+            "Required columns",
+            "Text boundary",
+            "Conversion blocker",
             "Output conversion",
             "Output write",
             "Fanout conversion",

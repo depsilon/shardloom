@@ -184,12 +184,13 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary closeout.
+Updated after the GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements
+closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is active
-   through `GAR-RUNTIME-IMPL-6F-2` sink-driven OutputPlan materialization requirements.
+   through `GAR-RUNTIME-IMPL-6F-3` shared fanout conversion DAG.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
    implementable slices.
@@ -316,9 +317,11 @@ Current state: local SQL/Python output and fanout paths can write JSONL, CSV, Vo
 feature-gated Parquet/Arrow IPC/Avro/ORC. `GAR-RUNTIME-IMPL-6F-1` added a scoped local
 `ResultBatchState` columnar output boundary, result-batch evidence fields, Python/session accessors,
 benchmark contract fields, and per-sink conversion timing for admitted local SQL output/fanout
-routes. The next bottleneck is sink-driven planning: terminal sinks still need clearer
-materialization requirements before conversion begins, and the later shared conversion DAG is still
-planned.
+routes. `GAR-RUNTIME-IMPL-6F-2` added sink-driven OutputPlan requirements before conversion begins:
+requested sinks now declare materialization, required columns, ordering/statistics needs,
+type/nullability support, dictionary/compression/encoding posture, replay depth, text boundaries,
+and deterministic conversion blockers. The next bottleneck is the shared conversion DAG, because
+multi-output fanout can still perform independent terminal conversion work per sink.
 
 Runtime enablement: this section promotes the output side of the route:
 
@@ -338,42 +341,6 @@ optimization-enabling runtime work, not public speed claims.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements.
-  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
-  `docs/skills/streaming-zero-copy.md`, and the compute-flow route model.
-  Current state: output planning records useful sink artifact fields, but execution does not yet
-  use sink requirements early enough to avoid producing unused or prematurely materialized
-  representations.
-  Next slice outcome: make every local sink declare required columns, ordering, type/nullability
-  support, dictionary/statistics needs, compression/encoding posture, replay depth, and
-  materialization requirements before result conversion begins.
-  Runtime enablement: planner can avoid building byte payloads, formatted strings, or decoded
-  scalar rows that no requested sink needs.
-  User-visible surface: `output_plan_materialization_required`, `output_plan_required_columns`,
-  `output_plan_ordering_required`, `output_plan_statistics_required`,
-  `output_plan_text_materialization_boundary`, and `output_plan_conversion_blocker`.
-  Implementation scope: OutputPlan evidence structs/helpers in CLI runtime, fanout planning,
-  Python fields, benchmark route rows, and static validators.
-  Evidence required: fixture where Parquet/Arrow/Vortex sinks avoid text rendering; fixture where
-  CSV/JSONL explicitly require late text materialization; unsupported schema diagnostics.
-  Acceptance: output plans explain why materialization happened or was avoided; sinks never
-  silently coerce unsupported data; route timing separates planning, conversion, write, replay, and
-  evidence.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_plan
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no object-store/table commit planning, no Iceberg/Delta transaction semantics, no
-  production sink claim.
-  Dependencies/blockers: depends on ResultBatchState or equivalent output boundary, existing
-  OutputPlan evidence fields, per-sink capability declarations, replay/certificate requirements,
-  and deterministic blockers for unsupported sink/type/materialization combinations.
-  Claim boundary: may claim only deterministic local sink materialization planning.
-  Fallback boundary: compatibility export is translation, never fallback execution.
-  Ledger rule: move completed details to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG.
   Source: fanout architecture, output-conversion bottleneck review, and translation-layer skill.
   Current state: multi-output fanout can write several local sink artifacts, but each sink can

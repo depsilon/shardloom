@@ -4427,6 +4427,66 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("result_batch_state_build_millis")
 
     @property
+    def output_plan_materialization_required(self) -> str | None:
+        """Return the sink-driven OutputPlan materialization requirement."""
+
+        return self.envelope.field("output_plan_materialization_required")
+
+    @property
+    def output_plan_required_columns(self) -> tuple[str, ...]:
+        """Return result columns required by requested local sinks."""
+
+        return _csv_values(self.envelope.field("output_plan_required_columns"))
+
+    @property
+    def output_plan_ordering_required(self) -> str | None:
+        """Return whether requested sinks require ordering."""
+
+        return self.envelope.field("output_plan_ordering_required")
+
+    @property
+    def output_plan_statistics_required(self) -> str | None:
+        """Return sink statistics/replay requirements."""
+
+        return self.envelope.field("output_plan_statistics_required")
+
+    @property
+    def output_plan_text_materialization_boundary(self) -> str | None:
+        """Return the terminal text-materialization boundary, when any."""
+
+        return self.envelope.field("output_plan_text_materialization_boundary")
+
+    @property
+    def output_plan_conversion_blocker(self) -> str | None:
+        """Return the deterministic OutputPlan conversion blocker, if any."""
+
+        return self.envelope.field("output_plan_conversion_blocker")
+
+    @property
+    def output_plan_type_nullability_support(self) -> str | None:
+        """Return sink type/nullability support posture."""
+
+        return self.envelope.field("output_plan_type_nullability_support")
+
+    @property
+    def output_plan_dictionary_required(self) -> str | None:
+        """Return sink dictionary requirement posture."""
+
+        return self.envelope.field("output_plan_dictionary_required")
+
+    @property
+    def output_plan_compression_encoding_posture(self) -> str | None:
+        """Return sink compression/encoding posture."""
+
+        return self.envelope.field("output_plan_compression_encoding_posture")
+
+    @property
+    def output_plan_replay_depth(self) -> str | None:
+        """Return sink replay depth required by the OutputPlan."""
+
+        return self.envelope.field("output_plan_replay_depth")
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate local output conversion time in milliseconds."""
 
