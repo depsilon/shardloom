@@ -184,19 +184,19 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor
-closeout.
+Updated after the GAR-RUNTIME-IMPL-6C user-surface graduation matrix closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is closed
    through completed 6F-5 ledger evidence.
-3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix is the next unchecked runtime item, then
-   `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
-   implementable slices.
-4. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
+3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix is closed through completed 6C ledger
+   evidence.
+4. `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` is the next unchecked runtime item, to split
+   remaining true runtime blockers into implementable slices.
+5. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
    breadth work after the route/reuse/output contracts are landed.
-5. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
+6. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
    runtime queue has reduced the blockers it depends on.
 
 Read order: the runtime implementation queue appears first below. Cross-cutting global-review,
@@ -227,10 +227,11 @@ Live plan hygiene:
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
 queues below. After the 6E automatic preparation/reuse closeout and the 6F output/fanout closeout,
-the current runtime sequence is `GAR-RUNTIME-IMPL-6C`, then
-`GAR-RUNTIME-IMPL-6D:gap-family-burn-down` where needed to classify the remaining true blocker
+the current runtime sequence is `GAR-RUNTIME-IMPL-6D:gap-family-burn-down`, which classifies the
+remaining true blocker
 families, then the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D
-breadth item forward only when it unblocks 6C or prevents a misleading runtime-support posture. The
+breadth item forward only when it unblocks blocker-family classification or prevents a misleading
+runtime posture. The
 remaining 4/5-series queue stays as internal-engine backstop work after the route/reuse/output
 boundary work.
 
@@ -248,48 +249,6 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
-- [ ] GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion.
-  Source: `docs/architecture/repo-readiness-user-surface-audit.md`,
-  `shardloom-cli/src/command_registry.rs`, `python/src/shardloom/client.py`,
-  `python/src/shardloom/context.py`, `python/README.md`, and current use-case/website surfaces.
-  Current state: the repo exposes broad CLI and Python surfaces, but only part of that surface is
-  ergonomic high-level user workflow API; many report-only, feature-gated, and effectful rows are
-  intentionally present but not yet separated into a single source-of-truth graduation matrix. The
-  first 6C artifact is the SQL/Python/DataFrame front-door parity matrix, which makes scoped local
-  parity versus broad language/runtime/performance gaps explicit.
-  Next slice outcome: every registered CLI command family and Python user workflow is assigned one
-  of `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
-  `not_user_facing`, with deterministic criteria for promotion and no implied runtime support.
-  Runtime enablement: user-facing API/CLI/docs posture becomes a validated route-classification
-  surface that prevents report-only, diagnostic-only, or feature-gated commands from being mistaken
-  for runtime-supported workflows.
-  User-visible surface: `shardloom help`, `command-metadata`, Python `ShardLoomClient`,
-  `ShardLoomContext`, README examples, use-case index entries, and website readiness narratives.
-  Implementation scope: add the graduation matrix, wire a validator for CLI/Python/doc posture, and
-  promote only surfaces with real ShardLoom CLI/runtime evidence into high-level context helpers;
-  keep report-only or unsafe/effectful families diagnostic-only until evidence lands.
-  Evidence required: matrix artifact, Python tests for promoted helpers, docs/examples for admitted
-  user workflows, and no-fallback/external-engine fields preserved.
-  Acceptance: a validator fails if an executable or feature-gated user-facing command lacks a
-  deliberate Python/context posture or if docs imply support beyond the matrix.
-  Verification:
-  ```bash
-  python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
-  python3 scripts/check_use_case_index.py
-  python3 scripts/check_website_readiness.py
-  cargo test -p shardloom-cli --all-targets
-  cargo test -p shardloom-contract-tests --test release_readiness_metadata
-  git diff --check
-  ```
-  Non-goals: no promotion of report-only planners to runtime execution, no hidden external engine
-  delegation, no package publication, and no broad performance or production-readiness claim.
-  Dependencies/blockers: depends on the 6B audit inventory, current command registry metadata,
-  Python client/context inventories, and stable no-fallback diagnostics for unsupported surfaces.
-  Claim boundary: graduation means the user surface is deliberately classified and validated; it
-  does not mean all classified surfaces are supported runtime capabilities.
-  Fallback boundary: every promoted surface must preserve explicit no-fallback and
-  external-engine-not-invoked evidence where execution or certification is involved.
-  Ledger rule: move completed details and validation output to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6D:gap-family-burn-down true runtime gap family burn-down plan.
   Source: the 38 unchecked global architecture review rows and the runtime gap families listed in
   `docs/architecture/repo-readiness-user-surface-audit.md`.

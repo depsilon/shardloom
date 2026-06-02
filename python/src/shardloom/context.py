@@ -461,6 +461,159 @@ class FoundryGeneratedOutputReport:
 
 
 @dataclass(frozen=True, slots=True)
+class UserSurfaceGraduationRow:
+    """Graduation posture for one CLI/Python user-surface workflow family."""
+
+    row_id: str
+    surface_kind: str
+    surface: str
+    graduation_posture: str
+    support_state: str
+    cli_commands: tuple[str, ...]
+    context_methods: tuple[str, ...]
+    client_methods: tuple[str, ...]
+    runtime_route: str
+    promotion_criteria: str
+    evidence_refs: tuple[str, ...]
+    claim_boundary: str
+    fallback_attempted: bool = False
+    external_engine_invoked: bool = False
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this row preserves the no-fallback/no-external-engine boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def high_level_context(self) -> bool:
+        """Whether the row is promoted to the high-level context surface."""
+
+        return self.graduation_posture == "high_level_context"
+
+
+@dataclass(frozen=True, slots=True)
+class UserSurfaceGraduationMatrix:
+    """Single-source user-surface graduation posture for context/client workflows."""
+
+    rows: tuple[UserSurfaceGraduationRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the graduation matrix schema version."""
+
+        return "shardloom.user_surface_graduation_matrix.v1"
+
+    @property
+    def posture_vocabulary(self) -> tuple[str, ...]:
+        """Return the allowed graduation posture vocabulary."""
+
+        return (
+            "high_level_context",
+            "client_only",
+            "diagnostic_only",
+            "feature_gated",
+            "not_user_facing",
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return row ids in stable matrix order."""
+
+        return tuple(row.row_id for row in self.rows)
+
+    @property
+    def posture_counts(self) -> Mapping[str, int]:
+        """Return row counts by graduation posture."""
+
+        counts = {posture: 0 for posture in self.posture_vocabulary}
+        for row in self.rows:
+            counts[row.graduation_posture] = counts.get(row.graduation_posture, 0) + 1
+        return counts
+
+    @property
+    def context_method_order(self) -> tuple[str, ...]:
+        """Return every public context method covered by this matrix."""
+
+        methods: list[str] = []
+        for row in self.rows:
+            for method in row.context_methods:
+                if method not in methods:
+                    methods.append(method)
+        return tuple(methods)
+
+    @property
+    def client_method_order(self) -> tuple[str, ...]:
+        """Return every public client method covered by this matrix."""
+
+        methods: list[str] = []
+        for row in self.rows:
+            for method in row.client_methods:
+                if method not in methods:
+                    methods.append(method)
+        return tuple(methods)
+
+    @property
+    def high_level_context_rows(self) -> tuple[UserSurfaceGraduationRow, ...]:
+        """Return rows promoted to high-level context helpers."""
+
+        return tuple(row for row in self.rows if row.high_level_context)
+
+    @property
+    def all_rows_have_allowed_posture(self) -> bool:
+        """Whether all rows use the declared posture vocabulary."""
+
+        vocabulary = set(self.posture_vocabulary)
+        return all(row.graduation_posture in vocabulary for row in self.rows)
+
+    @property
+    def all_high_level_rows_have_runtime_evidence(self) -> bool:
+        """Whether high-level rows name runtime routes and evidence refs."""
+
+        return all(
+            bool(row.runtime_route.strip()) and bool(row.evidence_refs)
+            for row in self.high_level_context_rows
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves the no-fallback/no-external-engine boundary."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+
+def _graduation_row(
+    row_id: str,
+    surface_kind: str,
+    surface: str,
+    graduation_posture: str,
+    support_state: str,
+    *,
+    cli_commands: Sequence[str] = (),
+    context_methods: Sequence[str] = (),
+    client_methods: Sequence[str] = (),
+    runtime_route: str,
+    promotion_criteria: str,
+    evidence_refs: Sequence[str],
+    claim_boundary: str,
+) -> UserSurfaceGraduationRow:
+    return UserSurfaceGraduationRow(
+        row_id=row_id,
+        surface_kind=surface_kind,
+        surface=surface,
+        graduation_posture=graduation_posture,
+        support_state=support_state,
+        cli_commands=tuple(cli_commands),
+        context_methods=tuple(context_methods),
+        client_methods=tuple(client_methods),
+        runtime_route=runtime_route,
+        promotion_criteria=promotion_criteria,
+        evidence_refs=tuple(evidence_refs),
+        claim_boundary=claim_boundary,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class FrontDoorParityRow:
     """SQL/Python/DataFrame parity posture for one user-facing workflow family."""
 
@@ -3052,6 +3205,414 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "observability, and no-fallback evidence. Broad runtime profiling, resource tracing, "
             "quarantine output, production observability, and performance claims remain blocked."
         ),
+    ),
+)
+
+
+USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
+    _graduation_row(
+        "context_construction",
+        "python_context",
+        "Context construction and environment/repo binding",
+        "high_level_context",
+        "side_effect_free_constructor",
+        context_methods=("from_env", "from_repo"),
+        client_methods=("from_env", "from_repo"),
+        runtime_route="constructor_only_no_runtime_execution",
+        promotion_criteria="constructs a high-level context without probing data, catalogs, or engines",
+        evidence_refs=("context_constructor_no_side_effect_docstrings", "python_import_smoke"),
+        claim_boundary="Construction is ergonomic API readiness only; it does not prove runtime support.",
+    ),
+    _graduation_row(
+        "client_invocation_core",
+        "python_client",
+        "Low-level client invocation and binary resolution",
+        "client_only",
+        "explicit_cli_invocation",
+        client_methods=("run", "binary_command"),
+        runtime_route="explicit_user_requested_cli_command",
+        promotion_criteria="low-level escape hatch stays available but is not promoted as a context workflow",
+        evidence_refs=("ShardLoomClient.run", "command_metadata", "no_fallback_policy"),
+        claim_boundary="Client invocation is explicit CLI access only; callers own command selection.",
+    ),
+    _graduation_row(
+        "metadata_capability_and_route_discovery",
+        "python_context",
+        "Status, capabilities, route reports, and release/claim diagnostics",
+        "diagnostic_only",
+        "side_effect_free_metadata_or_report",
+        cli_commands=(
+            "help",
+            "command-metadata",
+            "evidence-schema",
+            "status",
+            "runs-today",
+            "capabilities",
+            "compute-capability-matrix",
+            "semantic-conformance-suite",
+            "workload-certification-dossier",
+            "claim-gate-closeout",
+            "workflow-unsupported-plan",
+        ),
+        context_methods=(
+            "smoke_check",
+            "capabilities",
+            "adapters",
+            "adapter_registry",
+            "functions",
+            "operators",
+            "sql_support",
+            "dataframe_method_matrix",
+            "front_door_parity_matrix",
+            "user_surface_graduation_matrix",
+            "user_route_capability_report",
+            "local_vortex_primitive_route_report",
+            "local_file_benchmark_route_report",
+            "dataframe_notebook_package_readiness",
+            "etl_workflow_matrix",
+            "compatibility_scoreboard",
+            "wrapper_connector_registry",
+            "deployment",
+            "observability",
+            "certification",
+            "engines",
+            "workflow_capabilities",
+            "remote_api_capabilities",
+            "cross_cg_capability_parity",
+            "engine_selection",
+            "engine_capability_matrix",
+            "workload_certification_dossier",
+            "claim_gate_closeout",
+            "compute_capability_matrix",
+            "semantic_conformance_suite",
+            "sql_parse",
+            "sql_bind",
+            "sql_plan",
+            "sql_execute",
+        ),
+        client_methods=(
+            "status",
+            "smoke_check",
+            "runs_today",
+            "command_metadata",
+            "evidence_schema",
+            "api_compat_plan",
+            "python_wrapper_plan",
+            "capabilities",
+            "engine_selection_plan",
+            "engine_capability_matrix",
+            "workload_certification_dossier",
+            "claim_gate_closeout",
+            "compute_capability_matrix",
+            "semantic_conformance_suite",
+            "workflow_unsupported_plan",
+            "workflow_readiness_smoke",
+            "input_adapters",
+            "input_plan",
+            "vortex_input_plan",
+            "vortex_read_plan",
+            "execution_certificate_plan",
+            "native_io_envelope_plan",
+        ),
+        runtime_route="side_effect_free_metadata_or_deterministic_diagnostic",
+        promotion_criteria="safe discovery/report surfaces may be called from context but are not runtime support",
+        evidence_refs=(
+            "command_registry",
+            "runs_today_support_matrix",
+            "front_door_parity_matrix",
+            "user_route_capability_report",
+        ),
+        claim_boundary="Discovery and route reports classify support; they do not authorize execution or claims.",
+    ),
+    _graduation_row(
+        "local_sql_python_dataframe_runtime",
+        "python_context",
+        "Local SQL/Python/DataFrame filter/project/join/aggregate/window workflows",
+        "high_level_context",
+        "scoped_runtime_supported",
+        cli_commands=("sql-local-source-smoke",),
+        context_methods=("sql", "read", "read_csv", "read_json"),
+        client_methods=("sql_local_source_smoke",),
+        runtime_route="sql-local-source-smoke",
+        promotion_criteria="scoped local-source routes lower to the real ShardLoom local runtime with no fallback",
+        evidence_refs=(
+            "sql_python_dataframe_parity_gate",
+            "sql_local_source_runtime_smoke_tests",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary="Scoped local compatibility-file workflows only; broad arbitrary SQL/DataFrame and performance equivalence remain gated.",
+    ),
+    _graduation_row(
+        "feature_gated_structured_local_inputs",
+        "python_context",
+        "Feature-gated Parquet, Arrow IPC, Avro, and ORC local input adapters",
+        "feature_gated",
+        "feature_gated",
+        context_methods=("read_parquet", "read_arrow_ipc", "read_avro", "read_orc"),
+        client_methods=("compatibility_source_smoke",),
+        runtime_route="sql-local-source-smoke_or_vortex-ingest-smoke_with_explicit_feature_gate",
+        promotion_criteria="structured adapters remain explicit feature-gated compatibility inputs",
+        evidence_refs=("feature_gated_structured_adapter_tests", "universal_input_contract"),
+        claim_boundary="Feature-gated compatibility input support only; no production adapter or performance claim.",
+    ),
+    _graduation_row(
+        "generated_source_output_runtime",
+        "python_context",
+        "Source-free generated rows/ranges/SQL values and local output",
+        "high_level_context",
+        "scoped_runtime_supported",
+        cli_commands=(
+            "generated-source-user-rows-smoke",
+            "generated-source-range-smoke",
+            "generated-source-sequence-smoke",
+            "generated-source-sql-smoke",
+        ),
+        context_methods=(
+            "sequence",
+            "sql_values",
+            "sql_literal_select",
+            "dataframe_source_free_projection",
+            "dataframe_generated_with_column",
+            "from_rows",
+            "literal_table",
+            "range",
+            "calendar",
+        ),
+        client_methods=(
+            "generated_source_user_rows_smoke",
+            "generated_source_range_smoke",
+            "generated_source_sequence_smoke",
+            "generated_source_sql_smoke",
+        ),
+        runtime_route="generated-source-*-smoke",
+        promotion_criteria="generated local outputs use ShardLoom generated-source certificates and local sink evidence",
+        evidence_refs=("generated_source_certificate", "output_native_io_certificate", "fanout_evidence"),
+        claim_boundary="Local generated/source-free output only; no external platform or production sink claim.",
+    ),
+    _graduation_row(
+        "prepare_once_and_native_vortex_runtime",
+        "python_context",
+        "Prepare-once compatibility routes and scoped native Vortex primitive routes",
+        "high_level_context",
+        "scoped_runtime_supported",
+        cli_commands=(
+            "vortex-ingest-smoke",
+            "session-cache-smoke",
+            "traditional-analytics-vortex-run",
+            "traditional-analytics-vortex-batch-run",
+            "traditional-analytics-prepare-batch-run",
+            "vortex-count",
+            "vortex-count-where",
+            "vortex-project",
+            "vortex-filter",
+            "vortex-filter-project",
+            "vortex-local-exec",
+            "vortex-bounded-local-exec",
+            "vortex-run",
+            "vortex-query-trace",
+        ),
+        context_methods=("prepare_vortex", "read_vortex", "native_vortex_route", "session"),
+        client_methods=(
+            "vortex_ingest_smoke",
+            "vortex_run",
+            "vortex_count",
+            "vortex_count_where",
+            "vortex_filter",
+            "vortex_project",
+            "vortex_filter_project",
+            "local_vortex_primitive_smoke",
+            "traditional_analytics_vortex_run",
+            "traditional_analytics_vortex_batch_run",
+            "traditional_analytics_prepare_batch_run",
+            "prepare_traditional_analytics_vortex_artifacts",
+            "prepare_and_run_traditional_analytics_vortex_batch",
+            "session_cache_smoke",
+        ),
+        runtime_route="vortex-ingest-smoke|prepared_vortex|native_vortex_primitive",
+        promotion_criteria="routes normalize into Vortex-prepared or Vortex-native state with reuse/no-fallback evidence",
+        evidence_refs=(
+            "prepared_state_reuse_manifest",
+            "local_vortex_primitive_route_report",
+            "local_file_benchmark_route_report",
+            "vortex_native_output_evidence",
+        ),
+        claim_boundary="Scoped local prepare/native Vortex routes only; broad Vortex read-transform-write and performance claims remain gated.",
+    ),
+    _graduation_row(
+        "local_object_store_table_and_foundry_fixtures",
+        "python_context",
+        "Local-emulator object-store, local table, and Foundry-shaped fixture routes",
+        "high_level_context",
+        "fixture_smoke_supported",
+        cli_commands=(
+            "object-store-read-smoke",
+            "object-store-write-smoke",
+            "local-table-metadata-read-smoke",
+            "local-table-append-commit-rehearsal-smoke",
+        ),
+        context_methods=(
+            "generated_output_to_object_store",
+            "foundry_generated_output",
+            "object_store_read_smoke",
+            "object_store_write_smoke",
+            "local_table_metadata_read_smoke",
+            "local_table_append_commit_rehearsal_smoke",
+        ),
+        client_methods=(
+            "local_table_metadata_read_smoke",
+            "object_store_read_smoke",
+            "object_store_write_smoke",
+            "local_table_append_commit_rehearsal_smoke",
+        ),
+        runtime_route="generated_source_output_to_local_emulator_or_local_manifest_fixture",
+        promotion_criteria="only credential-safe local fixture routes are promoted",
+        evidence_refs=("object_store_local_fixture_smokes", "local_table_commit_rehearsal", "foundry_local_proof"),
+        claim_boundary="Local fixture/platform-shaped proof only; no live cloud, catalog, table commit, or Foundry runtime claim.",
+    ),
+    _graduation_row(
+        "local_effect_sqlite_and_udf_fixtures",
+        "python_context",
+        "SQLite local fixture and deterministic built-in scalar UDF fixture",
+        "high_level_context",
+        "fixture_smoke_supported",
+        cli_commands=("sqlite-local-import-export-smoke", "udf-local-scalar-fixture-smoke"),
+        context_methods=("sqlite_local_import_export_smoke", "udf_local_scalar_fixture_smoke"),
+        client_methods=("sqlite_local_import_export_smoke", "udf_local_scalar_fixture_smoke"),
+        runtime_route="sqlite-local-import-export-smoke|udf-local-scalar-fixture-smoke",
+        promotion_criteria="only deterministic local fixture effects with explicit policy are promoted",
+        evidence_refs=("sqlite_fixture_smoke", "deterministic_udf_fixture", "effect_budget_policy"),
+        claim_boundary="Scoped deterministic local fixtures only; arbitrary UDF, plugin, LLM/API, embedding, and external effect execution remain gated.",
+    ),
+    _graduation_row(
+        "extension_and_effect_diagnostics",
+        "python_context",
+        "Extension inspection and effect/UDF policy diagnostics",
+        "diagnostic_only",
+        "side_effect_free_metadata_or_report",
+        context_methods=("extension_registry", "extension_inspect", "udf_runtime_plan"),
+        client_methods=("extension_registry", "extension_inspect", "udf_runtime_plan"),
+        runtime_route="side_effect_free_extension_or_effect_policy_report",
+        promotion_criteria="inspection reports never load extension code or authorize arbitrary effects",
+        evidence_refs=("extension_manifest_effect_capability_matrix", "effect_budget_plan"),
+        claim_boundary="Diagnostic inspection only; no dynamic extension/plugin or arbitrary UDF runtime claim.",
+    ),
+    _graduation_row(
+        "rest_remote_api_and_engine_diagnostics",
+        "python_context",
+        "REST, engine-mode, and remote API planning surfaces",
+        "diagnostic_only",
+        "side_effect_free_or_fixture_scoped",
+        cli_commands=(
+            "rest-api-contract-plan",
+            "rest-api-plan-preview",
+            "rest-api-local-lifecycle",
+            "rest-api-event-stream",
+            "rest-api-security-governance",
+            "rest-api-data-plane",
+        ),
+        context_methods=(
+            "rest_api_contract_plan",
+            "serve_discovery_contract",
+            "rest_api_plan_preview",
+            "rest_api_local_lifecycle",
+            "rest_api_event_stream",
+            "rest_api_security_governance",
+            "rest_api_data_plane",
+            "live_change_contract_plan",
+        ),
+        client_methods=(
+            "rest_api_contract_plan",
+            "serve_discovery_contract",
+            "rest_api_plan_preview",
+            "rest_api_local_lifecycle",
+            "rest_api_event_stream",
+            "rest_api_security_governance",
+            "rest_api_data_plane",
+            "live_change_contract_plan",
+        ),
+        runtime_route="rest_contract_report_or_engine_mode_diagnostic",
+        promotion_criteria="contract and engine-mode reports are exposed, while remote/live production execution remains gated",
+        evidence_refs=("rest_event_remote_api_surface", "engine_selection_report"),
+        claim_boundary="Contract/report scope only; no production REST, remote data-plane, streaming, or platform claim.",
+    ),
+    _graduation_row(
+        "live_hybrid_fixture_runtime",
+        "python_context",
+        "Local live/hybrid fixture execution",
+        "high_level_context",
+        "fixture_smoke_supported",
+        cli_commands=("live-fixture-run", "hybrid-overlay-run"),
+        context_methods=("live_fixture_run", "hybrid_overlay_run"),
+        client_methods=(
+            "live_fixture_run",
+            "hybrid_overlay_run",
+            "live_etl_smoke",
+            "live_etl_csv_to_vortex_replay",
+        ),
+        runtime_route="live-fixture-run|hybrid-overlay-run",
+        promotion_criteria="only in-memory local fixture live/hybrid operators are promoted",
+        evidence_refs=("live_hybrid_fixture_evidence", "engine_selection_report", "no_fallback_evidence"),
+        claim_boundary="Local fixture scope only; no production streaming, remote state, or platform live/hybrid claim.",
+    ),
+    _graduation_row(
+        "materialized_python_interop_boundaries",
+        "python_context",
+        "Pandas, Arrow, IPC, and decoded materialized input boundaries",
+        "diagnostic_only",
+        "deterministic_boundary_diagnostic",
+        context_methods=("from_pandas", "from_arrow_table", "from_arrow_ipc"),
+        runtime_route="workflow-unsupported-plan_or_generated_rows_reentry_boundary",
+        promotion_criteria="decoded/materialized boundaries must re-enter through explicit ShardLoom routes",
+        evidence_refs=("decoded_materialization_interop", "workflow_unsupported_plan", "no_fallback_evidence"),
+        claim_boundary="Boundary diagnostics and scoped re-entry only; no hidden pandas/Arrow execution fallback.",
+    ),
+    _graduation_row(
+        "benchmark_release_and_claim_planning",
+        "python_client",
+        "Benchmark, release, claim, optimizer, table, object-store, and commit planning commands",
+        "client_only",
+        "report_only_or_explicit_low_level_cli",
+        client_methods=(
+            "traditional_analytics_run",
+            "dynamic_work_shaping_plan",
+            "sizing_feedback_plan",
+            "benchmark_plan",
+            "benchmark_constitution",
+            "benchmark_claim_evidence_plan",
+            "world_class_sufficiency_plan",
+            "translation_plan",
+            "plan_import",
+            "plan_export",
+            "vortex_output_plan",
+            "vortex_write_intent_plan",
+            "vortex_output_payload_plan",
+            "vortex_staged_manifest_file_plan",
+            "vortex_commit_marker_plan",
+            "vortex_commit_intent_plan",
+            "vortex_commit_protocol_plan",
+            "vortex_local_commit_recovery_plan",
+            "table_compat_plan",
+            "table_intelligence_plan",
+            "layout_health_plan",
+            "compaction_plan",
+            "catalog_metadata_gate",
+            "object_store_runtime_gate",
+            "object_store_request_plan",
+            "object_store_range_plan",
+            "object_store_coalesce_plan",
+            "object_store_schedule_plan",
+            "object_store_checkpoint_retry_plan",
+            "object_store_commit_plan",
+            "correctness_plan",
+            "explain",
+            "optimizer_plan",
+            "estimate",
+        ),
+        runtime_route="explicit_low_level_cli_report_or_benchmark_command",
+        promotion_criteria="available through ShardLoomClient but not promoted as default context workflows",
+        evidence_refs=("release_readiness_gate", "benchmark_publication_claim_gate", "no_fallback_policy"),
+        claim_boundary="Planning/benchmark/report access only; no public release, production, superiority, or Spark-replacement claim.",
     ),
 )
 
@@ -8288,6 +8849,16 @@ class ShardLoomContext:
 
         _ = check
         return UserRouteCapabilityReport(rows=USER_ROUTE_CAPABILITY_ROWS)
+
+    def user_surface_graduation_matrix(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> UserSurfaceGraduationMatrix:
+        """Return the 6C user-surface graduation posture matrix."""
+
+        _ = check
+        return UserSurfaceGraduationMatrix(rows=USER_SURFACE_GRADUATION_ROWS)
 
     def local_vortex_primitive_route_report(
         self,

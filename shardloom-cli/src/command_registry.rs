@@ -22,13 +22,20 @@ const SUPPORT_STATE_VOCABULARY: &[&str] = &[
     "blocked",
     "future",
 ];
+const USER_SURFACE_GRADUATION_POSTURE_VOCABULARY: &[&str] = &[
+    "high_level_context",
+    "client_only",
+    "diagnostic_only",
+    "feature_gated",
+    "not_user_facing",
+];
 const REGISTRY_REPORT_ID: &str = "review-p1-1.command_registry";
 const REGISTRY_SOURCE: &str = "shardloom-cli/src/command_registry.rs";
 const REGISTRY_DOCS_REF: &str = "docs/status/cli-command-registry.md";
 const CLAIM_BOUNDARY: &str = "command metadata only; runtime support and public claims remain governed by runs-today, capabilities, certificates, and release gates";
 const FALLBACK_BOUNDARY: &str =
     "metadata rendering is side-effect-free and never invokes fallback or external engines";
-const COMMAND_EVIDENCE_FIELDS: &str = "command|family|support_state|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked";
+const COMMAND_EVIDENCE_FIELDS: &str = "command|family|support_state|user_surface_graduation_posture|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked";
 const HELP_ALIAS_HINT: &str = "shardloom --help; shardloom -h; shardloom <command> --help";
 
 pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
@@ -245,6 +252,11 @@ impl CommandDescriptor {
     }
 
     #[must_use]
+    pub(crate) fn user_surface_graduation_posture(self) -> &'static str {
+        command_user_surface_graduation_posture(self.command)
+    }
+
+    #[must_use]
     pub(crate) fn side_effect_level(self) -> &'static str {
         command_side_effect_level(self.command)
     }
@@ -437,6 +449,10 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
             SUPPORT_STATE_VOCABULARY.join(","),
         ),
         (
+            "command_registry_user_surface_graduation_posture_vocabulary".to_string(),
+            USER_SURFACE_GRADUATION_POSTURE_VOCABULARY.join(","),
+        ),
+        (
             "registered_commands".to_string(),
             descriptors
                 .iter()
@@ -457,6 +473,20 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
             descriptors
                 .iter()
                 .map(|descriptor| format!("{}={}", descriptor.command, descriptor.support_state()))
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "registered_command_user_surface_graduation_postures".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| {
+                    format!(
+                        "{}={}",
+                        descriptor.command,
+                        descriptor.user_surface_graduation_posture()
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(","),
         ),
@@ -551,6 +581,10 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
                 descriptor.support_state().to_string(),
             ),
             (
+                "selected_command_user_surface_graduation_posture".to_string(),
+                descriptor.user_surface_graduation_posture().to_string(),
+            ),
+            (
                 "selected_command_side_effect_level".to_string(),
                 descriptor.side_effect_level().to_string(),
             ),
@@ -586,10 +620,11 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
 fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
     if let Some(descriptor) = selected {
         return format!(
-            "{}\nfamily={}\nsupport_state={}\nside_effect_level={}\nusage={}\nfeature_gate_status={}\ninput_contract={}\noutput_contract={}\nowning_phase_item={}\nevidence_fields={COMMAND_EVIDENCE_FIELDS}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
+            "{}\nfamily={}\nsupport_state={}\nuser_surface_graduation_posture={}\nside_effect_level={}\nusage={}\nfeature_gate_status={}\ninput_contract={}\noutput_contract={}\nowning_phase_item={}\nevidence_fields={COMMAND_EVIDENCE_FIELDS}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
             descriptor.command,
             descriptor.family(),
             descriptor.support_state(),
+            descriptor.user_surface_graduation_posture(),
             descriptor.side_effect_level(),
             descriptor.usage_fragment(),
             descriptor.feature_gate_status(),
@@ -602,10 +637,11 @@ fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
     let commands = registered_commands()
         .map(|descriptor| {
             format!(
-                "{} [{}; {}; {}]",
+                "{} [{}; {}; {}; {}]",
                 descriptor.command,
                 descriptor.family(),
                 descriptor.support_state(),
+                descriptor.user_surface_graduation_posture(),
                 descriptor.side_effect_level()
             )
         })
@@ -658,6 +694,10 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
             SUPPORT_STATE_VOCABULARY.join(","),
         ),
         (
+            "command_registry_user_surface_graduation_posture_vocabulary".to_string(),
+            USER_SURFACE_GRADUATION_POSTURE_VOCABULARY.join(","),
+        ),
+        (
             "command_registry_row_order".to_string(),
             descriptors
                 .iter()
@@ -692,6 +732,26 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
         (
             "command_registry_future_count".to_string(),
             support_state_count(&descriptors, "future").to_string(),
+        ),
+        (
+            "command_registry_high_level_context_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "high_level_context").to_string(),
+        ),
+        (
+            "command_registry_client_only_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "client_only").to_string(),
+        ),
+        (
+            "command_registry_diagnostic_graduation_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "diagnostic_only").to_string(),
+        ),
+        (
+            "command_registry_feature_gated_graduation_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "feature_gated").to_string(),
+        ),
+        (
+            "command_registry_not_user_facing_count".to_string(),
+            user_surface_graduation_posture_count(&descriptors, "not_user_facing").to_string(),
         ),
         (
             "command_registry_evidence_fields".to_string(),
@@ -734,6 +794,10 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
             (
                 format!("{prefix}_support_state"),
                 descriptor.support_state().to_string(),
+            ),
+            (
+                format!("{prefix}_user_surface_graduation_posture"),
+                descriptor.user_surface_graduation_posture().to_string(),
             ),
             (
                 format!("{prefix}_side_effect_level"),
@@ -991,6 +1055,49 @@ fn command_support_state(command: &str) -> &'static str {
     }
 }
 
+fn command_user_surface_graduation_posture(command: &str) -> &'static str {
+    match command_support_state(command) {
+        "feature_gated" => "feature_gated",
+        "diagnostic_only" | "report_only" | "blocked" => "diagnostic_only",
+        "future" => "not_user_facing",
+        _ if is_high_level_context_command(command) => "high_level_context",
+        _ => "client_only",
+    }
+}
+
+fn is_high_level_context_command(command: &str) -> bool {
+    matches!(
+        command,
+        "generated-source-user-rows-smoke"
+            | "generated-source-range-smoke"
+            | "generated-source-sequence-smoke"
+            | "generated-source-sql-smoke"
+            | "sql-local-source-smoke"
+            | "vortex-ingest-smoke"
+            | "sqlite-local-import-export-smoke"
+            | "udf-local-scalar-fixture-smoke"
+            | "object-store-read-smoke"
+            | "object-store-write-smoke"
+            | "local-table-metadata-read-smoke"
+            | "local-table-append-commit-rehearsal-smoke"
+            | "live-fixture-run"
+            | "hybrid-overlay-run"
+            | "session-cache-smoke"
+            | "traditional-analytics-vortex-run"
+            | "traditional-analytics-vortex-batch-run"
+            | "traditional-analytics-prepare-batch-run"
+            | "vortex-count"
+            | "vortex-count-where"
+            | "vortex-project"
+            | "vortex-filter"
+            | "vortex-filter-project"
+            | "vortex-local-exec"
+            | "vortex-bounded-local-exec"
+            | "vortex-run"
+            | "vortex-query-trace"
+    )
+}
+
 fn command_side_effect_level(command: &str) -> &'static str {
     if matches!(
         command,
@@ -1155,6 +1262,16 @@ fn support_state_count(descriptors: &[CommandDescriptor], support_state: &str) -
     descriptors
         .iter()
         .filter(|descriptor| descriptor.support_state() == support_state)
+        .count()
+}
+
+fn user_surface_graduation_posture_count(
+    descriptors: &[CommandDescriptor],
+    posture: &str,
+) -> usize {
+    descriptors
+        .iter()
+        .filter(|descriptor| descriptor.user_surface_graduation_posture() == posture)
         .count()
 }
 

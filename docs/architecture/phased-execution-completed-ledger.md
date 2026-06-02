@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion
+  - Date: 2026-06-02
+  - Branch/PR: `codex/user-surface-graduation-matrix` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6C user-surface graduation matrix and ergonomic runtime promotion`.
+    - `docs/architecture/repo-readiness-user-surface-audit.md`, command registry metadata,
+      Python context/client inventories, README/Python README, release-readiness gates, and current
+      use-case/website posture validators.
+    - User direction that ShardLoom should feel flexible and easy to use while keeping runtime
+      support, claim evidence, and unsupported/feature-gated status explicit.
+  - Scope:
+    - Added `user_surface_graduation_posture` to the CLI command registry evidence contract and
+      command metadata, with vocabulary `high_level_context`, `client_only`, `diagnostic_only`,
+      `feature_gated`, and `not_user_facing`.
+    - Added Python `CommandMetadataReport` accessors for the graduation vocabulary, selected
+      command posture, and registered command posture map.
+    - Added `UserSurfaceGraduationMatrix` and `UserSurfaceGraduationRow` to the Python context API,
+      assigning every public `ShardLoomContext` and `ShardLoomClient` method plus every registered
+      CLI command to a deliberate posture.
+    - Added `scripts/check_user_surface_graduation_matrix.py` and regression tests so new public
+      Python methods, CLI commands, feature-gated commands, high-level context commands, docs
+      markers, fallback fields, and claim boundaries fail closed when they drift.
+    - Wired the graduation matrix into CI, release-readiness evidence collection, CI gate matrix
+      docs, README, Python README, and command-registry status docs.
+    - Updated the active phase plan so `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` is the next
+      unchecked runtime item.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_graduation_matrix.py --output target/user-surface-graduation-matrix.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory.json` passed.
+    - `python3 -m py_compile scripts/check_user_surface_graduation_matrix.py scripts/check_release_readiness.py scripts/check_ci_gate_matrix.py scripts/run_release_validation_evidence.py python/src/shardloom/client.py python/src/shardloom/context.py python/tests/test_cli_client.py python/tests/test_user_surface_graduation_matrix.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_user_surface_graduation_matrix` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_command_metadata_returns_typed_registry_report` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 400 tests and
+      2 skipped.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json` passed.
+    - `python3 scripts/check_use_case_index.py` passed.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 scripts/check_website_readiness.py` passed in a clean tracked worktree with this
+      patch applied; the local working directory contains unrelated untracked duplicate website
+      files that are not part of this PR and make the validator fail if run directly there.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --test capability_discovery_snapshots wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --all-targets` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Claim boundary:
+    - This closes the user-surface graduation matrix and ergonomic posture validator. It may claim
+      that registered CLI commands and public Python context/client methods are deliberately
+      classified and release-gated by posture. It does not claim that every classified surface is a
+      supported runtime capability, does not widen SQL/DataFrame/object-store/effect/live/spill
+      execution, and does not authorize package release, production support, performance claims, or
+      Spark replacement.
+  - Fallback boundary:
+    - The matrix and validators are classification and evidence gates only. Promoted high-level
+      rows retain explicit no-fallback/no-external-engine evidence requirements, and this work adds
+      no Spark/DataFusion/DuckDB/Polars/Velox runtime fallback or Vortex query-engine integration.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor
   - Date: 2026-06-02
   - Branch/PR: `codex/output-layout-write-advisor` / pending PR.

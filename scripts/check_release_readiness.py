@@ -117,6 +117,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/user-surface-runtime-gap-inventory.json"),
     )
     parser.add_argument(
+        "--user-surface-graduation-matrix-report",
+        type=Path,
+        default=Path("target/user-surface-graduation-matrix.json"),
+    )
+    parser.add_argument(
         "--user-route-capability-report",
         type=Path,
         default=Path("target/user-route-capability-report.json"),
@@ -177,6 +182,10 @@ def main() -> int:
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
         args.user_surface_runtime_gap_inventory_report,
+    )
+    user_surface_graduation_matrix_path = resolve(
+        repo_root,
+        args.user_surface_graduation_matrix_report,
     )
     user_route_capability_report_path = resolve(repo_root, args.user_route_capability_report)
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
@@ -1038,6 +1047,66 @@ def main() -> int:
         )
     )
 
+    user_surface_graduation_matrix = load_json(user_surface_graduation_matrix_path)
+    user_surface_graduation_blockers: list[str] = []
+    if user_surface_graduation_matrix is None:
+        user_surface_graduation_blockers.append("missing user-surface graduation matrix report")
+    else:
+        if (
+            user_surface_graduation_matrix.get("schema_version")
+            != "shardloom.user_surface_graduation_matrix.v1"
+        ):
+            user_surface_graduation_blockers.append(
+                "user-surface graduation matrix schema_version="
+                + str(user_surface_graduation_matrix.get("schema_version", "missing"))
+            )
+        if user_surface_graduation_matrix.get("status") != "passed":
+            user_surface_graduation_blockers.extend(
+                user_surface_graduation_matrix.get(
+                    "blockers", ["user-surface graduation matrix blocked"]
+                )
+            )
+        acceptance = user_surface_graduation_matrix.get("acceptance_summary")
+        if not isinstance(acceptance, dict):
+            user_surface_graduation_blockers.append(
+                "user-surface graduation matrix missing acceptance_summary"
+            )
+        else:
+            for field in [
+                "all_python_context_methods_classified",
+                "all_python_client_methods_classified",
+                "all_cli_commands_classified",
+                "all_high_level_cli_commands_have_context_matrix_refs",
+                "all_no_fallback_no_external_engine",
+            ]:
+                if acceptance.get(field) is not True:
+                    user_surface_graduation_blockers.append(
+                        f"user-surface graduation matrix {field} must be true"
+                    )
+        for field in [
+            "fallback_attempted",
+            "external_engine_invoked",
+            "runtime_support_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+        ]:
+            if user_surface_graduation_matrix.get(field) is not False:
+                user_surface_graduation_blockers.append(
+                    f"user-surface graduation matrix {field} must be false"
+                )
+        if user_surface_graduation_matrix.get("claim_gate_status") != "not_claim_grade":
+            user_surface_graduation_blockers.append(
+                "user-surface graduation matrix claim_gate_status="
+                + str(user_surface_graduation_matrix.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "user_surface_graduation_matrix",
+            str(args.user_surface_graduation_matrix_report).replace("\\", "/"),
+            user_surface_graduation_blockers,
+        )
+    )
+
     user_route_capability = load_json(user_route_capability_report_path)
     user_route_capability_blockers: list[str] = []
     if user_route_capability is None:
@@ -1272,6 +1341,7 @@ def main() -> int:
         "python scripts/check_python_user_surface_completion.py",
         "python scripts/check_sql_python_dataframe_parity.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
+        "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_user_route_capability_report.py",
     ]
     validation_blockers = []

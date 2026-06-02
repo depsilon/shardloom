@@ -314,9 +314,11 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["command_registry_schema_version", "shardloom.command_registry.v1"],
                     ["registered_command_count", "4"],
                     ["command_registry_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
+                    ["command_registry_user_surface_graduation_posture_vocabulary", "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"],
                     ["registered_commands", "help,command-metadata,status,vortex-ingest-smoke"],
                     ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
                     ["registered_command_support_states", "help=executable,command-metadata=executable,status=executable,vortex-ingest-smoke=executable"],
+                    ["registered_command_user_surface_graduation_postures", "help=client_only,command-metadata=client_only,status=client_only,vortex-ingest-smoke=high_level_context"],
                     ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
                     ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-ingest-smoke=not_required_for_metadata"],
                     ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-ingest-smoke=local_source_or_vortex_artifact_args"],
@@ -325,12 +327,13 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["selected_command", "vortex-ingest-smoke"],
                     ["selected_command_family", "prepared_source_backed_execution"],
                     ["selected_command_support_state", "executable"],
+                    ["selected_command_user_surface_graduation_posture", "high_level_context"],
                     ["selected_command_side_effect_level", "local_runtime_or_local_artifact_effect_possible"],
                     ["selected_command_usage_fragment", "vortex-ingest-smoke <local-source-path> <target.vortex>"],
                     ["selected_command_feature_gate_status", "not_required_for_metadata"],
                     ["selected_command_input_contract", "local_source_or_vortex_artifact_args"],
                     ["selected_command_output_contract", "typed_envelope_plus_local_runtime_or_artifact_evidence"],
-                    ["selected_command_evidence_fields", "command|family|support_state|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked"],
+                    ["selected_command_evidence_fields", "command|family|support_state|user_surface_graduation_posture|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked"],
                     ["selected_command_owning_phase_item", "GAR-RUNTIME-IMPL-4"],
                     ["fallback_attempted", "false"],
                     ["external_engine_invoked", "false"],
@@ -366,6 +369,16 @@ class ShardLoomClientTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
+            report.user_surface_graduation_posture_vocabulary,
+            (
+                "high_level_context",
+                "client_only",
+                "diagnostic_only",
+                "feature_gated",
+                "not_user_facing",
+            ),
+        )
+        self.assertEqual(
             report.registered_commands,
             ("help", "command-metadata", "status", "vortex-ingest-smoke"),
         )
@@ -376,6 +389,10 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(report.family_for("command-metadata"), "status_capabilities")
         self.assertEqual(report.support_state_for("vortex-ingest-smoke"), "executable")
+        self.assertEqual(
+            report.user_surface_graduation_posture_for("vortex-ingest-smoke"),
+            "high_level_context",
+        )
         self.assertEqual(
             report.side_effect_level_for("vortex-ingest-smoke"),
             "local_runtime_or_local_artifact_effect_possible",
@@ -399,6 +416,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             report.selected_command_feature_gate_status,
             "not_required_for_metadata",
+        )
+        self.assertEqual(
+            report.selected_command_user_surface_graduation_posture,
+            "high_level_context",
         )
         self.assertEqual(
             report.selected_command_input_contract,
