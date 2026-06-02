@@ -184,13 +184,13 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG
+Updated after the GAR-RUNTIME-IMPL-6F-4 output capillary scheduling
 closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is active
-   through `GAR-RUNTIME-IMPL-6F-4` output capillary scheduling with PulseWeave admission.
+   through `GAR-RUNTIME-IMPL-6F-5` format-aware output layout/write advisor.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
    implementable slices.
@@ -323,9 +323,11 @@ type/nullability support, dictionary/compression/encoding posture, replay depth,
 and deterministic conversion blockers. `GAR-RUNTIME-IMPL-6F-3` added a scoped shared fanout
 conversion DAG: local output/fanout routes normalize result schema/rows once, then feed terminal
 encoders and Vortex writers from that shared state while reporting shared-stage, terminal-sink,
-conversion-timing, and duplicate-conversion-avoidance evidence. The next bottleneck is output
-capillary scheduling, because large or multi-sink output conversion/write/replay stages are not yet
-first-class scheduled capillary tasks.
+conversion-timing, and duplicate-conversion-avoidance evidence. `GAR-RUNTIME-IMPL-6F-4` added
+thresholded output capillary scheduling for local output/fanout routes: small single-sink outputs
+record explicit below-threshold evidence, while multi-sink or larger local outputs can be governed
+by ProofBound-admitted PulseWeave output windows across schema-map, columnar-export, terminal
+encode, compression, local write, digest, replay, and evidence-render tasks.
 
 Runtime enablement: this section promotes the output side of the route:
 
@@ -345,43 +347,6 @@ optimization-enabling runtime work, not public speed claims.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission.
-  Source: `docs/architecture/pulseweave-runtime-control.md`, capillary I/O work, and output fanout
-  bottleneck review.
-  Current state: PulseWeave and capillary task evidence exist for prepared/local and
-  cold-preparation surfaces, but output conversion/write/replay stages are not yet first-class
-  scheduled capillary tasks.
-  Next slice outcome: represent output conversion as typed tasks: schema map, columnar export,
-  terminal encode, compression, local write, digest, replay, and evidence render.
-  Runtime enablement: large or multi-sink local outputs can use bounded output windows controlled
-  by FlowInventory, ScarcityLedger, EndoPulse, and ProofBound instead of unbounded per-sink
-  conversion.
-  User-visible surface: `output_capillary_status`, `output_capillary_task_roles`,
-  `output_capillary_window_count`, `output_sink_pressure_status`,
-  `output_memory_pressure_status`, and `pulseweave_output_policy_applied`.
-  Implementation scope: PulseWeave input task shapes, CLI output writer, shardloom-vortex format
-  encoders, benchmark output timing fields, Python envelope validation.
-  Evidence required: small-output fixture where capillary remains below threshold; large/fanout
-  fixture where output capillary scheduling applies; blocked fixture when certificates or replay
-  evidence are incomplete.
-  Acceptance: at least one local fanout route proves output conversion/write windows are actually
-  governed by capillary scheduling; blocked policy preserves existing safe behavior or fails
-  explicitly.
-  Verification:
-  ```bash
-  cargo test -p shardloom-exec pulseweave --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io output_capillary
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no distributed writer, no object-store sink, no real query-data spill, no performance
-  claim.
-  Dependencies/blockers: depends on output task shape definitions, PulseWeave ProofBound admission,
-  FlowInventory/ScarcityLedger/EndoPulse task-window controls, result/fanout conversion evidence,
-  and bounded-memory estimates for conversion/write/replay stages.
-  Claim boundary: may claim only certificate-gated local output work shaping.
-  Fallback boundary: PulseWeave cannot authorize external engine execution.
-  Ledger rule: move completed details to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6F-5 format-aware output layout/write advisor.
   Source: Vortex-native output skill, translation-layer skill, Parquet/ORC/Arrow
   compatibility-output research, and existing layout/write advisor posture.

@@ -4523,6 +4523,42 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_bool("fanout_duplicate_conversion_avoided", False) is True
 
     @property
+    def output_capillary_status(self) -> str | None:
+        """Return output capillary scheduling status."""
+
+        return self.envelope.field("output_capillary_status")
+
+    @property
+    def output_capillary_task_roles(self) -> str | None:
+        """Return typed output capillary task roles."""
+
+        return self.envelope.field("output_capillary_task_roles")
+
+    @property
+    def output_capillary_window_count(self) -> int | None:
+        """Return the number of output capillary execution windows."""
+
+        return self.envelope.field_int("output_capillary_window_count")
+
+    @property
+    def output_sink_pressure_status(self) -> str | None:
+        """Return output sink-pressure control status."""
+
+        return self.envelope.field("output_sink_pressure_status")
+
+    @property
+    def output_memory_pressure_status(self) -> str | None:
+        """Return output memory-pressure control status."""
+
+        return self.envelope.field("output_memory_pressure_status")
+
+    @property
+    def pulseweave_output_policy_applied(self) -> bool:
+        """Whether PulseWeave output policy was applied."""
+
+        return self.envelope.field_bool("pulseweave_output_policy_applied", False) is True
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate local output conversion time in milliseconds."""
 

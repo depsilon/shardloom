@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission
+  - Date: 2026-06-02
+  - Branch/PR: `codex/output-capillary-scheduling` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission`.
+    - User direction that benchmark/output rows should use real ShardLoom runtime routes, keep
+      local laptop-safe benchmark execution in mind, and make output/fanout readiness explicit
+      without hidden fast modes or external execution fallback.
+  - Scope:
+    - Added a scoped local SQL/Python output capillary admission layer after `ResultBatchState`,
+      sink-driven OutputPlan requirements, and the shared fanout conversion DAG.
+    - Small single-sink local outputs now emit explicit below-threshold evidence with no capillary
+      task manifest, while fanout or larger local outputs can activate typed output task roles:
+      `schema_map`, `columnar_export`, `terminal_encode`, `compression`, `local_write`, `digest`,
+      `replay`, and `evidence_render`.
+    - Extended PulseWeave ProofBound admission to the local output capillary scope so activated
+      routes are governed by deterministic bounded output windows instead of unbounded per-sink
+      conversion/write/replay loops.
+    - Added post-write evidence checks that keep the policy blocked unless sink artifacts,
+      output certificates, and replay evidence are present.
+    - Added `output_capillary_status`, `output_capillary_task_roles`,
+      `output_capillary_window_count`, `output_sink_pressure_status`,
+      `output_memory_pressure_status`, `pulseweave_output_policy_applied`, and companion
+      activation/window/digest fields to CLI JSON, Python client/session accessors, benchmark
+      contracts, OutputPlan/fanout matrices, and smoke/contract tests.
+    - Updated the active phase plan to advance 6F to the format-aware output layout/write advisor,
+      and updated output/fanout architecture, README, compute-flow, website compute-flow snapshots,
+      and generated use-case docs to describe output capillary scheduling without making
+      performance, production, object-store, or broad writer-fidelity claims.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/src/shardloom/session.py python/tests/test_cli_client.py` passed.
+    - Static benchmark contract duplicate-field inspection passed for
+      `EXECUTION_MODE_CONTRACT_FIELDS`, `OUTPUT_PLAN_CONTRACT_FIELDS`, and
+      `FANOUT_BENCHMARK_FIELDS`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-exec pulseweave --lib` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io output_capillary -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and
+      2 skipped.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed after
+      refactoring the capillary planner and shared output-write path under clippy line-count and
+      pass-by-value thresholds.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `docs/architecture/compute-engine-flow-reference.md` matched both checked-in website compute-flow snapshots.
+  - Claim boundary:
+    - This closes scoped local output capillary scheduling for admitted local SQL/Python
+      output/fanout routes only. It may claim thresholded, certificate-gated local output work
+      shaping and evidence visibility. It does not authorize a performance claim, production sink
+      support, object-store/table writes, broad nested-schema output fidelity, real query-data
+      spill, broad SQL/DataFrame support, package release, or Spark replacement.
+  - Fallback boundary:
+    - PulseWeave admission controls only ShardLoom-owned local output task ordering and windowing.
+      Compatibility export remains translation, never fallback execution. No
+      Spark/DataFusion/DuckDB/Polars/Velox or Vortex query-engine integration was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG
   - Date: 2026-06-02
   - Branch/PR: `codex/shared-fanout-conversion-dag` / pending PR.

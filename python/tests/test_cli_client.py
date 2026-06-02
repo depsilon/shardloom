@@ -3884,6 +3884,12 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "fanout_shared_conversion_millis", "value": "1"}},
                             {{"key": "fanout_terminal_conversion_millis", "value": "4"}},
                             {{"key": "fanout_duplicate_conversion_avoided", "value": "true"}},
+                            {{"key": "output_capillary_status", "value": "applied_output_pulseweave_control"}},
+                            {{"key": "output_capillary_task_roles", "value": "schema_map,columnar_export,terminal_encode,compression,local_write,digest,replay,evidence_render"}},
+                            {{"key": "output_capillary_window_count", "value": "13"}},
+                            {{"key": "output_sink_pressure_status", "value": "bounded_by_output_sink_pressure"}},
+                            {{"key": "output_memory_pressure_status", "value": "within_declared_output_memory_budget"}},
+                            {{"key": "pulseweave_output_policy_applied", "value": "true"}},
                             {{"key": "output_conversion_millis", "value": "5"}},
                             {{"key": "sink_artifact_conversion_millis", "value": "jsonl:2,csv:2"}},
                             {{"key": "fanout_output_conversion_millis", "value": "4"}},
@@ -3980,6 +3986,24 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(second.fanout_shared_conversion_millis, 1)
             self.assertEqual(second.fanout_terminal_conversion_millis, 4)
             self.assertTrue(second.fanout_duplicate_conversion_avoided)
+            self.assertEqual(
+                second.output_capillary_status,
+                "applied_output_pulseweave_control",
+            )
+            self.assertEqual(
+                second.output_capillary_task_roles,
+                "schema_map,columnar_export,terminal_encode,compression,local_write,digest,replay,evidence_render",
+            )
+            self.assertEqual(second.output_capillary_window_count, 13)
+            self.assertEqual(
+                second.output_sink_pressure_status,
+                "bounded_by_output_sink_pressure",
+            )
+            self.assertEqual(
+                second.output_memory_pressure_status,
+                "within_declared_output_memory_budget",
+            )
+            self.assertTrue(second.pulseweave_output_policy_applied)
             self.assertEqual(second.output_conversion_millis, 5)
             self.assertEqual(second.sink_artifact_conversion_millis, "jsonl:2,csv:2")
             self.assertEqual(second.fanout_output_conversion_millis, 4)
@@ -4023,6 +4047,24 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(third_evidence["fanout_shared_conversion_millis"], 1)
             self.assertEqual(third_evidence["fanout_terminal_conversion_millis"], 4)
             self.assertTrue(third_evidence["fanout_duplicate_conversion_avoided"])
+            self.assertEqual(
+                third_evidence["output_capillary_status"],
+                "applied_output_pulseweave_control",
+            )
+            self.assertEqual(
+                third_evidence["output_capillary_task_roles"],
+                "schema_map,columnar_export,terminal_encode,compression,local_write,digest,replay,evidence_render",
+            )
+            self.assertEqual(third_evidence["output_capillary_window_count"], 13)
+            self.assertEqual(
+                third_evidence["output_sink_pressure_status"],
+                "bounded_by_output_sink_pressure",
+            )
+            self.assertEqual(
+                third_evidence["output_memory_pressure_status"],
+                "within_declared_output_memory_budget",
+            )
+            self.assertTrue(third_evidence["pulseweave_output_policy_applied"])
             self.assertEqual(third_evidence["output_conversion_millis"], 5)
 
             evidence = sess.evidence()

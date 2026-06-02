@@ -242,6 +242,12 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `output_conversion_millis`
 - `sink_artifact_conversion_millis`
 - `fanout_output_conversion_millis`
+- `output_capillary_status`
+- `output_capillary_task_roles`
+- `output_capillary_window_count`
+- `output_sink_pressure_status`
+- `output_memory_pressure_status`
+- `pulseweave_output_policy_applied`
 - `output_format`
 - `output_plan_materialization_required`
 - `output_plan_required_columns`
@@ -270,7 +276,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result helpers, local source/source-state/route fields, certificate refs, materialization and claim-gate fields, predicate evidence including boolean, generic-expression, temporal-difference, timestamp-arithmetic, string-predicate/LIKE ESCAPE, string-function, bounded IN, source-backed subquery, EXISTS, quantified, projected_subquery, correlated_subquery, and HAVING evidence when requested, admitted projection evidence, local output replay/fidelity and Vortex output fields when requested, ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG status/stage/timing evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, output conversion timing for admitted output/fanout routes, count/scalar/grouped/top-N/join/window/schema/data-quality fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

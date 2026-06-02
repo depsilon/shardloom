@@ -28,6 +28,9 @@ use shardloom_core::{
     evaluate_projection, format_decimal128_value, format_iso_date32, format_iso_timestamp_micros,
     parse_iso_date32, parse_iso_timestamp_micros,
 };
+use shardloom_exec::{
+    OperatorMemoryClass, PulseWeaveInput, PulseWeaveReport, PulseWeaveTaskShape, plan_pulseweave,
+};
 
 use crate::{
     cli_output::{emit, emit_error},
@@ -57,6 +60,11 @@ const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
 const MAX_TIMESTAMP_ARITHMETIC_SECONDS: i64 = (MAX_DATE_ARITHMETIC_DAYS as i64) * 86_400;
 const ADMITTED_LOCAL_SOURCE_EXTENSIONS: &str =
     ".csv,.json,.jsonl,.ndjson,.parquet,.arrow,.ipc,.feather,.avro,.orc";
+const OUTPUT_CAPILLARY_SCHEMA_VERSION: &str = "shardloom.output_capillary.local_sink.v1";
+const OUTPUT_CAPILLARY_ACTIVATION_POLICY: &str = "dynamic_output_size_fanout_gate.v1";
+const OUTPUT_CAPILLARY_ACTIVATION_THRESHOLD_BYTES: u64 = 16 * 1024 * 1024;
+const OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES: u64 = 64 * 1024 * 1024;
+const OUTPUT_CAPILLARY_MAX_PARALLELISM: usize = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LocalSourceReadPlan {
@@ -361,6 +369,246 @@ struct SqlPreparedOutputDag {
     evidence: SqlFanoutConversionDagEvidence,
 }
 
+struct SqlOutputWriteEvidence<'a> {
+    result_digest: &'a str,
+    plan_digest: &'a str,
+    source_schema_digest: &'a str,
+    inline_output_digest: &'a str,
+    inline_output_bytes: u64,
+}
+
+struct SqlOutputWriteOutcome {
+    fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_capillary: SqlOutputCapillaryReport,
+    written_outputs: Vec<SqlWrittenOutput>,
+    output_write_millis: u128,
+    output_digest: String,
+    output_bytes: u64,
+}
+
+struct SqlOutputCapillaryEvidence<'a> {
+    fanout_conversion_dag: &'a SqlFanoutConversionDagEvidence,
+    result_digest: &'a str,
+    plan_digest: &'a str,
+    source_schema_digest: &'a str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputCapillaryTask {
+    task_id: String,
+    role: &'static str,
+    operator_memory_class: OperatorMemoryClass,
+    estimated_memory_bytes: u64,
+    sink_ref: String,
+    estimated_rows: u64,
+}
+
+impl SqlOutputCapillaryTask {
+    fn to_pulseweave_shape(
+        &self,
+        result_batch_ref: &str,
+    ) -> Result<PulseWeaveTaskShape, ShardLoomError> {
+        PulseWeaveTaskShape::new(
+            self.task_id.as_str(),
+            self.role,
+            self.operator_memory_class,
+            self.estimated_memory_bytes,
+        )
+        .map(|shape| {
+            shape
+                .with_estimated_rows(self.estimated_rows)
+                .with_refs(
+                    result_batch_ref.to_string(),
+                    format!("output-capillary-task://{}", self.task_id),
+                )
+                .with_shape_permissions(true, true, true)
+                .with_materialization_and_sink(
+                    matches!(self.operator_memory_class, OperatorMemoryClass::Translation),
+                    if matches!(self.operator_memory_class, OperatorMemoryClass::Sink) {
+                        "workspace_safe_local_output_sink".to_string()
+                    } else {
+                        self.sink_ref.clone()
+                    },
+                )
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputCapillaryActivation {
+    activated: bool,
+    reason: &'static str,
+    estimated_bytes: u64,
+}
+
+struct SqlOutputCapillaryPlan {
+    tasks: Vec<SqlOutputCapillaryTask>,
+    task_ids: String,
+    task_roles: String,
+    pulseweave_report: PulseWeaveReport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputCapillaryWindow {
+    window_id: String,
+    task_ids: Vec<String>,
+    digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputCapillaryReport {
+    schema_version: &'static str,
+    status: String,
+    activation_policy: &'static str,
+    activation_reason: String,
+    task_count: usize,
+    task_roles: String,
+    task_ids: String,
+    window_count: usize,
+    window_size: usize,
+    window_ids: String,
+    window_task_ids: String,
+    window_digests: String,
+    plan_digest: String,
+    sink_pressure_status: String,
+    memory_pressure_status: String,
+    scheduler_applied: bool,
+    pulseweave_report: PulseWeaveReport,
+}
+
+impl SqlOutputCapillaryReport {
+    fn not_requested(status: &'static str, reason: &'static str) -> Self {
+        Self {
+            schema_version: OUTPUT_CAPILLARY_SCHEMA_VERSION,
+            status: status.to_string(),
+            activation_policy: OUTPUT_CAPILLARY_ACTIVATION_POLICY,
+            activation_reason: reason.to_string(),
+            task_count: 0,
+            task_roles: "none".to_string(),
+            task_ids: "none".to_string(),
+            window_count: 0,
+            window_size: 0,
+            window_ids: "none".to_string(),
+            window_task_ids: "none".to_string(),
+            window_digests: "none".to_string(),
+            plan_digest: "none".to_string(),
+            sink_pressure_status: reason.to_string(),
+            memory_pressure_status: reason.to_string(),
+            scheduler_applied: false,
+            pulseweave_report: PulseWeaveReport::not_requested(
+                "local_output_capillary_scheduling",
+                reason,
+                false,
+                false,
+            ),
+        }
+    }
+
+    fn with_post_write_evidence(self, written_outputs: &[SqlWrittenOutput]) -> Self {
+        if !self.scheduler_applied {
+            return self;
+        }
+        let sink_artifact_present = !written_outputs.is_empty();
+        let certificates_verified = written_outputs
+            .iter()
+            .all(|output| output.format.certificate_status().starts_with("certified_"));
+        let replay_verified = written_outputs.iter().all(|output| output.replay.verified);
+        self.with_post_write_status(
+            sink_artifact_present,
+            certificates_verified,
+            replay_verified,
+        )
+    }
+
+    fn with_post_write_status(
+        mut self,
+        sink_artifact_present: bool,
+        certificates_verified: bool,
+        replay_verified: bool,
+    ) -> Self {
+        if !self.scheduler_applied {
+            return self;
+        }
+        if !sink_artifact_present {
+            self.status = "blocked_missing_sink_artifact".to_string();
+            self.scheduler_applied = false;
+            return self;
+        }
+        if !certificates_verified {
+            self.status = "blocked_missing_output_certificate".to_string();
+            self.scheduler_applied = false;
+            return self;
+        }
+        if !replay_verified {
+            self.status = "blocked_missing_replay_evidence".to_string();
+            self.scheduler_applied = false;
+            return self;
+        }
+        self.status = "applied_output_pulseweave_control".to_string();
+        self
+    }
+
+    fn write_window_size(&self, sink_count: usize) -> usize {
+        if self.scheduler_applied && self.window_size > 0 {
+            self.window_size
+        } else {
+            sink_count.max(1)
+        }
+    }
+
+    fn pulseweave_output_policy_applied(&self) -> bool {
+        self.status == "applied_output_pulseweave_control"
+    }
+
+    fn fields(&self) -> [(&'static str, String); 16] {
+        [
+            (
+                "output_capillary_schema_version",
+                self.schema_version.to_string(),
+            ),
+            ("output_capillary_status", self.status.clone()),
+            (
+                "output_capillary_activation_policy",
+                self.activation_policy.to_string(),
+            ),
+            (
+                "output_capillary_activation_reason",
+                self.activation_reason.clone(),
+            ),
+            ("output_capillary_task_count", self.task_count.to_string()),
+            ("output_capillary_task_roles", self.task_roles.clone()),
+            ("output_capillary_task_ids", self.task_ids.clone()),
+            (
+                "output_capillary_window_count",
+                self.window_count.to_string(),
+            ),
+            ("output_capillary_window_size", self.window_size.to_string()),
+            ("output_capillary_window_ids", self.window_ids.clone()),
+            (
+                "output_capillary_window_task_ids",
+                self.window_task_ids.clone(),
+            ),
+            (
+                "output_capillary_window_digests",
+                self.window_digests.clone(),
+            ),
+            ("output_capillary_plan_digest", self.plan_digest.clone()),
+            (
+                "output_sink_pressure_status",
+                self.sink_pressure_status.clone(),
+            ),
+            (
+                "output_memory_pressure_status",
+                self.memory_pressure_status.clone(),
+            ),
+            (
+                "pulseweave_output_policy_applied",
+                self.pulseweave_output_policy_applied().to_string(),
+            ),
+        ]
+    }
+}
+
 impl SqlOutputPlanSinkRequirement {
     fn plan(
         format: SqlLocalSourceOutputFormat,
@@ -563,6 +811,19 @@ struct SqlRenderedOutput {
     path: PathBuf,
     payload: SqlOutputPayload,
     conversion_millis: u128,
+}
+
+impl SqlRenderedOutput {
+    fn estimated_output_bytes(&self) -> u64 {
+        match &self.payload {
+            SqlOutputPayload::Bytes { bytes, .. } => (*bytes).max(1),
+            SqlOutputPayload::Vortex { columns, rows } => u64::try_from(rows.len())
+                .unwrap_or(u64::MAX)
+                .saturating_mul(u64::try_from(columns.len()).unwrap_or(u64::MAX))
+                .saturating_mul(32)
+                .max(1),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2718,6 +2979,7 @@ struct SqlLocalSourceReport {
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
     fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_capillary: SqlOutputCapillaryReport,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -2829,6 +3091,7 @@ struct SqlLocalSourceUnionReport {
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
     fanout_conversion_dag: SqlFanoutConversionDagEvidence,
+    output_capillary: SqlOutputCapillaryReport,
     result_jsonl: String,
     plan_digest: String,
     source_schema_digest: String,
@@ -5180,7 +5443,7 @@ impl VortexIngestReport {
         } else {
             "writer_row_count_and_digest_recorded_ingest_minimal"
         };
-        vec![
+        let fields = vec![
             (
                 "vortex_preparation_spine_source_state_id".to_string(),
                 self.source_state_id.clone(),
@@ -5254,7 +5517,8 @@ impl VortexIngestReport {
                 "vortex_preparation_spine_no_standalone_lane_status".to_string(),
                 "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
             ),
-        ]
+        ];
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -7126,23 +7390,26 @@ fn run_sql_local_source_smoke_single(
     );
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
-    preflight_sql_output_writes(request)?;
-    let prepared_output_dag = prepare_sql_outputs(&output_plan, &result_batch_state)?;
-    let fanout_conversion_dag = prepared_output_dag.evidence.clone();
-    let written_outputs = write_sql_outputs(
-        prepared_output_dag.rendered_outputs,
-        request.allow_overwrite,
-    )?;
-    let output_write_millis = written_outputs
-        .iter()
-        .map(|output| output.write_millis)
-        .sum::<u128>();
-    let (output_digest, output_bytes) = primary_output_evidence(
+    let output_write_outcome = execute_sql_output_writes(
         request,
-        &written_outputs,
-        &inline_output_digest,
-        inline_output_bytes,
+        &output_plan,
+        &result_batch_state,
+        &SqlOutputWriteEvidence {
+            result_digest: &result_digest,
+            plan_digest: &plan_digest,
+            source_schema_digest: &source_schema_digest,
+            inline_output_digest: &inline_output_digest,
+            inline_output_bytes,
+        },
     );
+    let SqlOutputWriteOutcome {
+        fanout_conversion_dag,
+        output_capillary,
+        written_outputs,
+        output_write_millis,
+        output_digest,
+        output_bytes,
+    } = output_write_outcome?;
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -7161,6 +7428,7 @@ fn run_sql_local_source_smoke_single(
         result_batch_state,
         output_plan,
         fanout_conversion_dag,
+        output_capillary,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -7273,23 +7541,26 @@ fn run_sql_local_source_union_smoke(
     );
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
-    preflight_sql_output_writes(request)?;
-    let prepared_output_dag = prepare_sql_outputs(&output_plan, &result_batch_state)?;
-    let fanout_conversion_dag = prepared_output_dag.evidence.clone();
-    let written_outputs = write_sql_outputs(
-        prepared_output_dag.rendered_outputs,
-        request.allow_overwrite,
-    )?;
-    let output_write_millis = written_outputs
-        .iter()
-        .map(|output| output.write_millis)
-        .sum::<u128>();
-    let (output_digest, output_bytes) = primary_output_evidence(
+    let output_write_outcome = execute_sql_output_writes(
         request,
-        &written_outputs,
-        &inline_output_digest,
-        inline_output_bytes,
+        &output_plan,
+        &result_batch_state,
+        &SqlOutputWriteEvidence {
+            result_digest: &result_digest,
+            plan_digest: &plan_digest,
+            source_schema_digest: &source_schema_digest,
+            inline_output_digest: &inline_output_digest,
+            inline_output_bytes,
+        },
     );
+    let SqlOutputWriteOutcome {
+        fanout_conversion_dag,
+        output_capillary,
+        written_outputs,
+        output_write_millis,
+        output_digest,
+        output_bytes,
+    } = output_write_outcome?;
 
     Ok(SqlLocalSourceUnionReport {
         request: request.clone(),
@@ -7299,6 +7570,7 @@ fn run_sql_local_source_union_smoke(
         result_batch_state,
         output_plan,
         fanout_conversion_dag,
+        output_capillary,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -11917,6 +12189,50 @@ fn inline_sql_output_content_for_evidence(
     request.output_format.inline_result_rows(batch)
 }
 
+fn execute_sql_output_writes(
+    request: &SqlLocalSourceRequest,
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    evidence: &SqlOutputWriteEvidence<'_>,
+) -> Result<SqlOutputWriteOutcome, ShardLoomError> {
+    preflight_sql_output_writes(request)?;
+    let prepared_output_dag = prepare_sql_outputs(output_plan, batch)?;
+    let fanout_conversion_dag = prepared_output_dag.evidence.clone();
+    let mut output_capillary = plan_sql_output_capillary_prewrite(
+        output_plan,
+        batch,
+        &prepared_output_dag.rendered_outputs,
+        &fanout_conversion_dag,
+        evidence.result_digest,
+        evidence.plan_digest,
+        evidence.source_schema_digest,
+    )?;
+    let written_outputs = write_sql_outputs(
+        prepared_output_dag.rendered_outputs,
+        request.allow_overwrite,
+        output_capillary.write_window_size(output_plan.sinks.len()),
+    )?;
+    output_capillary = output_capillary.with_post_write_evidence(&written_outputs);
+    let output_write_millis = written_outputs
+        .iter()
+        .map(|output| output.write_millis)
+        .sum::<u128>();
+    let (output_digest, output_bytes) = primary_output_evidence(
+        request,
+        &written_outputs,
+        evidence.inline_output_digest,
+        evidence.inline_output_bytes,
+    );
+    Ok(SqlOutputWriteOutcome {
+        fanout_conversion_dag,
+        output_capillary,
+        written_outputs,
+        output_write_millis,
+        output_digest,
+        output_bytes,
+    })
+}
+
 fn prepare_sql_outputs(
     output_plan: &SqlOutputPlanRequirements,
     batch: &SqlResultBatchState,
@@ -11992,6 +12308,346 @@ fn prepare_sql_output_from_shared(
         payload,
         conversion_millis: conversion_start.elapsed().as_millis(),
     })
+}
+
+fn plan_sql_output_capillary_prewrite(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    rendered_outputs: &[SqlRenderedOutput],
+    fanout_conversion_dag: &SqlFanoutConversionDagEvidence,
+    result_digest: &str,
+    plan_digest: &str,
+    source_schema_digest: &str,
+) -> Result<SqlOutputCapillaryReport, ShardLoomError> {
+    if output_plan.sinks.is_empty() {
+        return Ok(SqlOutputCapillaryReport::not_requested(
+            "not_requested_inline_result",
+            "inline_result_has_no_local_sink_tasks",
+        ));
+    }
+    let activation = should_activate_sql_output_capillary(output_plan, batch, rendered_outputs);
+    if !activation.activated {
+        return Ok(SqlOutputCapillaryReport::not_requested(
+            "not_requested_below_threshold",
+            activation.reason,
+        ));
+    }
+
+    let evidence = SqlOutputCapillaryEvidence {
+        fanout_conversion_dag,
+        result_digest,
+        plan_digest,
+        source_schema_digest,
+    };
+    let plan = build_sql_output_capillary_plan(
+        output_plan,
+        batch,
+        rendered_outputs,
+        &activation,
+        &evidence,
+    )?;
+    Ok(build_sql_output_capillary_report(
+        batch,
+        &activation,
+        fanout_conversion_dag,
+        plan_digest,
+        source_schema_digest,
+        plan,
+    ))
+}
+
+fn build_sql_output_capillary_plan(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    rendered_outputs: &[SqlRenderedOutput],
+    activation: &SqlOutputCapillaryActivation,
+    evidence: &SqlOutputCapillaryEvidence<'_>,
+) -> Result<SqlOutputCapillaryPlan, ShardLoomError> {
+    let tasks = sql_output_capillary_tasks(output_plan, batch, rendered_outputs, activation);
+    let task_ids = csv_or_not_applicable(tasks.iter().map(|task| task.task_id.clone()));
+    let task_roles = stable_unique_csv(tasks.iter().map(|task| task.role.to_string()));
+    let task_shapes = tasks
+        .iter()
+        .map(|task| task.to_pulseweave_shape(&format!("result-batch://{}", batch.digest)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let peak_memory_bytes = tasks
+        .iter()
+        .map(|task| task.estimated_memory_bytes)
+        .sum::<u64>()
+        .min(OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES);
+    let execution_certificate_id = format!(
+        "sql-output-capillary-{}",
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}|{}",
+            evidence.plan_digest,
+            evidence.source_schema_digest,
+            batch.digest,
+            task_ids,
+            evidence.fanout_conversion_dag.status
+        ))
+        .replace(':', "-")
+    );
+    let pulseweave_report = plan_pulseweave(
+        PulseWeaveInput::new(
+            "sql_local_source_output",
+            "local_output_capillary_scheduling",
+            format!(
+                "sql_output:{}:{}",
+                evidence.plan_digest, evidence.source_schema_digest
+            ),
+            task_shapes,
+            OUTPUT_CAPILLARY_MEMORY_BUDGET_BYTES,
+            OUTPUT_CAPILLARY_MAX_PARALLELISM,
+            activation.estimated_bytes.max(1),
+        )?
+        .with_task_byte_limits(
+            4 * 1024,
+            activation.estimated_bytes.saturating_mul(4).max(4 * 1024),
+        )
+        .with_boundaries(true, true)
+        .with_result_sink(true, true)
+        .with_correctness_and_output(evidence.result_digest, &batch.digest)
+        .with_execution_certificate(execution_certificate_id, "certified")
+        .with_native_io_certificate_status("certified")
+        .with_memory_observations(tasks.len(), tasks.len(), 0, peak_memory_bytes)
+        .with_spill(false, false)
+        .with_no_fallback_policy(false, false, false),
+    )?;
+    Ok(SqlOutputCapillaryPlan {
+        tasks,
+        task_ids,
+        task_roles,
+        pulseweave_report,
+    })
+}
+
+fn build_sql_output_capillary_report(
+    batch: &SqlResultBatchState,
+    activation: &SqlOutputCapillaryActivation,
+    fanout_conversion_dag: &SqlFanoutConversionDagEvidence,
+    plan_digest: &str,
+    source_schema_digest: &str,
+    plan: SqlOutputCapillaryPlan,
+) -> SqlOutputCapillaryReport {
+    let SqlOutputCapillaryPlan {
+        tasks,
+        task_ids,
+        task_roles,
+        pulseweave_report,
+    } = plan;
+    let scheduler_applied = pulseweave_report.runtime_decision_applied;
+    let window_size = if scheduler_applied {
+        pulseweave_report.batch_window_size(OUTPUT_CAPILLARY_MAX_PARALLELISM)
+    } else {
+        0
+    };
+    let windows = sql_output_capillary_windows(&tasks, scheduler_applied, window_size);
+    let status = if scheduler_applied {
+        "prewrite_output_pulseweave_control_admitted"
+    } else {
+        "report_only_blocked_pulseweave_control"
+    };
+    let sink_pressure_status =
+        if scheduler_applied && pulseweave_report.flow_inventory.held_for_downstream_count > 0 {
+            "bounded_by_output_sink_pressure"
+        } else if scheduler_applied {
+            "workspace_safe_local_sink_pressure_controlled"
+        } else {
+            "report_only_not_applied"
+        };
+    let memory_pressure_status =
+        if scheduler_applied && pulseweave_report.flow_inventory.held_for_memory_count > 0 {
+            "bounded_by_output_memory_pressure"
+        } else if scheduler_applied {
+            "within_declared_output_memory_budget"
+        } else {
+            "report_only_not_applied"
+        };
+    let window_ids = csv_or_not_applicable(windows.iter().map(|window| window.window_id.clone()));
+    let window_task_ids = csv_or_not_applicable(
+        windows
+            .iter()
+            .map(|window| format!("{}={}", window.window_id, window.task_ids.join("|"))),
+    );
+    let window_digests = csv_or_not_applicable(windows.iter().map(|window| window.digest.clone()));
+    SqlOutputCapillaryReport {
+        schema_version: OUTPUT_CAPILLARY_SCHEMA_VERSION,
+        status: status.to_string(),
+        activation_policy: OUTPUT_CAPILLARY_ACTIVATION_POLICY,
+        activation_reason: activation.reason.to_string(),
+        task_count: tasks.len(),
+        task_roles,
+        task_ids,
+        window_count: windows.len(),
+        window_size,
+        window_ids,
+        window_task_ids,
+        window_digests,
+        plan_digest: fnv64_digest(&format!(
+            "output-capillary|{plan_digest}|{source_schema_digest}|{}|{}|{}",
+            batch.digest,
+            activation.estimated_bytes,
+            fanout_conversion_dag.total_conversion_millis()
+        )),
+        sink_pressure_status: sink_pressure_status.to_string(),
+        memory_pressure_status: memory_pressure_status.to_string(),
+        scheduler_applied,
+        pulseweave_report,
+    }
+}
+
+fn should_activate_sql_output_capillary(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    rendered_outputs: &[SqlRenderedOutput],
+) -> SqlOutputCapillaryActivation {
+    let estimated_bytes = estimated_sql_output_bytes(batch, rendered_outputs);
+    let reason = if output_plan.sinks.len() > 1 {
+        "fanout_sink_count_above_threshold"
+    } else if estimated_bytes >= OUTPUT_CAPILLARY_ACTIVATION_THRESHOLD_BYTES {
+        "output_bytes_above_threshold"
+    } else if batch.row_count >= MAX_LIMIT_ROWS {
+        "output_row_count_above_threshold"
+    } else if batch.column_count() >= 64 {
+        "wide_output_above_threshold"
+    } else {
+        "below_threshold_small_local_output"
+    };
+    SqlOutputCapillaryActivation {
+        activated: reason != "below_threshold_small_local_output",
+        reason,
+        estimated_bytes,
+    }
+}
+
+fn sql_output_capillary_tasks(
+    output_plan: &SqlOutputPlanRequirements,
+    batch: &SqlResultBatchState,
+    rendered_outputs: &[SqlRenderedOutput],
+    activation: &SqlOutputCapillaryActivation,
+) -> Vec<SqlOutputCapillaryTask> {
+    let row_count = u64::try_from(batch.row_count).unwrap_or(u64::MAX).max(1);
+    let shared_estimate = activation.estimated_bytes.saturating_div(8).max(1);
+    let mut tasks = vec![
+        SqlOutputCapillaryTask {
+            task_id: "output-capillary-schema-map".to_string(),
+            role: "schema_map",
+            operator_memory_class: OperatorMemoryClass::Translation,
+            estimated_memory_bytes: shared_estimate,
+            sink_ref: "result_batch_schema".to_string(),
+            estimated_rows: row_count,
+        },
+        SqlOutputCapillaryTask {
+            task_id: "output-capillary-columnar-export".to_string(),
+            role: "columnar_export",
+            operator_memory_class: OperatorMemoryClass::Translation,
+            estimated_memory_bytes: shared_estimate,
+            sink_ref: "result_batch_columnar_export".to_string(),
+            estimated_rows: row_count,
+        },
+    ];
+    for (index, rendered) in rendered_outputs.iter().enumerate() {
+        let sink_number = index + 1;
+        let format = rendered.format.sink_format();
+        let sink_ref = output_plan.sinks.get(index).map_or_else(
+            || format!("{}:{}", format, rendered.path.display()),
+            |sink| format!("{}:{}", sink.format.sink_format(), sink.path.display()),
+        );
+        let sink_estimate = rendered.estimated_output_bytes().max(1);
+        tasks.extend([
+            SqlOutputCapillaryTask {
+                task_id: format!("output-capillary-{sink_number}-{format}-terminal-encode"),
+                role: "terminal_encode",
+                operator_memory_class: OperatorMemoryClass::Translation,
+                estimated_memory_bytes: sink_estimate,
+                sink_ref: sink_ref.clone(),
+                estimated_rows: row_count,
+            },
+            SqlOutputCapillaryTask {
+                task_id: format!("output-capillary-{sink_number}-{format}-compression"),
+                role: "compression",
+                operator_memory_class: OperatorMemoryClass::Translation,
+                estimated_memory_bytes: sink_estimate.saturating_div(8).max(1),
+                sink_ref: sink_ref.clone(),
+                estimated_rows: row_count,
+            },
+            SqlOutputCapillaryTask {
+                task_id: format!("output-capillary-{sink_number}-{format}-local-write"),
+                role: "local_write",
+                operator_memory_class: OperatorMemoryClass::Sink,
+                estimated_memory_bytes: sink_estimate,
+                sink_ref: sink_ref.clone(),
+                estimated_rows: row_count,
+            },
+            SqlOutputCapillaryTask {
+                task_id: format!("output-capillary-{sink_number}-{format}-digest"),
+                role: "digest",
+                operator_memory_class: OperatorMemoryClass::Sink,
+                estimated_memory_bytes: sink_estimate.saturating_div(16).max(1),
+                sink_ref: sink_ref.clone(),
+                estimated_rows: row_count,
+            },
+            SqlOutputCapillaryTask {
+                task_id: format!("output-capillary-{sink_number}-{format}-replay"),
+                role: "replay",
+                operator_memory_class: OperatorMemoryClass::Sink,
+                estimated_memory_bytes: sink_estimate,
+                sink_ref,
+                estimated_rows: row_count,
+            },
+        ]);
+    }
+    tasks.push(SqlOutputCapillaryTask {
+        task_id: "output-capillary-evidence-render".to_string(),
+        role: "evidence_render",
+        operator_memory_class: OperatorMemoryClass::Translation,
+        estimated_memory_bytes: shared_estimate,
+        sink_ref: "output_evidence".to_string(),
+        estimated_rows: row_count,
+    });
+    tasks
+}
+
+fn sql_output_capillary_windows(
+    tasks: &[SqlOutputCapillaryTask],
+    scheduler_applied: bool,
+    window_size: usize,
+) -> Vec<SqlOutputCapillaryWindow> {
+    if !scheduler_applied || window_size == 0 {
+        return Vec::new();
+    }
+    tasks
+        .chunks(window_size)
+        .enumerate()
+        .map(|(index, window)| {
+            let task_ids = window
+                .iter()
+                .map(|task| task.task_id.clone())
+                .collect::<Vec<_>>();
+            let window_id = format!("output-capillary-window-{}", index + 1);
+            let digest = fnv64_digest(&format!("{}|{}", window_id, task_ids.join("|")));
+            SqlOutputCapillaryWindow {
+                window_id,
+                task_ids,
+                digest,
+            }
+        })
+        .collect()
+}
+
+fn estimated_sql_output_bytes(
+    batch: &SqlResultBatchState,
+    rendered_outputs: &[SqlRenderedOutput],
+) -> u64 {
+    let rendered_bytes = rendered_outputs
+        .iter()
+        .map(SqlRenderedOutput::estimated_output_bytes)
+        .sum::<u64>();
+    let row_column_bytes = u64::try_from(batch.row_count)
+        .unwrap_or(u64::MAX)
+        .saturating_mul(u64::try_from(batch.column_count()).unwrap_or(u64::MAX))
+        .saturating_mul(32);
+    rendered_bytes.max(row_column_bytes).max(1)
 }
 
 fn validate_shared_fanout_materialization(
@@ -12121,11 +12777,22 @@ fn sink_artifact_conversion_millis_value(written_outputs: &[SqlWrittenOutput]) -
 fn write_sql_outputs(
     rendered_outputs: Vec<SqlRenderedOutput>,
     allow_overwrite: bool,
+    capillary_window_size: usize,
 ) -> Result<Vec<SqlWrittenOutput>, ShardLoomError> {
-    rendered_outputs
-        .into_iter()
-        .map(|rendered| write_sql_output(rendered, allow_overwrite))
-        .collect()
+    let mut written_outputs = Vec::with_capacity(rendered_outputs.len());
+    let mut window = Vec::with_capacity(capillary_window_size.max(1));
+    for rendered in rendered_outputs {
+        window.push(rendered);
+        if window.len() == capillary_window_size.max(1) {
+            for rendered in window.drain(..) {
+                written_outputs.push(write_sql_output(rendered, allow_overwrite)?);
+            }
+        }
+    }
+    for rendered in window {
+        written_outputs.push(write_sql_output(rendered, allow_overwrite)?);
+    }
+    Ok(written_outputs)
 }
 
 fn write_sql_output(
@@ -21448,7 +22115,7 @@ impl SqlLocalSourceUnionReport {
             .iter()
             .map(|report| report.source.source_bytes)
             .sum::<u64>();
-        vec![
+        let mut fields = vec![
             ("schema_version".to_string(), SCHEMA_VERSION.to_string()),
             (
                 "execution_mode".to_string(),
@@ -21905,7 +22572,14 @@ impl SqlLocalSourceUnionReport {
                 "object_store_lakehouse_claim_allowed".to_string(),
                 "false".to_string(),
             ),
-        ]
+        ];
+        fields.extend(
+            self.output_capillary
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value)),
+        );
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -24657,6 +25331,12 @@ impl SqlLocalSourceReport {
                 "false".to_string(),
             ),
         ];
+        fields.extend(
+            self.output_capillary
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value)),
+        );
         if let Some(output) = self.primary_written_output() {
             fields.extend(output.workspace_write_report.evidence_fields("output"));
         } else {
@@ -34086,6 +34766,21 @@ fn csv_or_not_applicable(values: impl Iterator<Item = String>) -> String {
     }
 }
 
+fn stable_unique_csv(values: impl Iterator<Item = String>) -> String {
+    let mut seen = BTreeSet::new();
+    let mut ordered = Vec::new();
+    for value in values {
+        if seen.insert(value.clone()) {
+            ordered.push(value);
+        }
+    }
+    if ordered.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        ordered.join(",")
+    }
+}
+
 fn fnv64_digest(value: &str) -> String {
     fnv64_digest_bytes(value.as_bytes())
 }
@@ -34133,6 +34828,36 @@ mod tests {
 
     fn assert_field_eq(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
         assert_eq!(fields.get(key).map(String::as_str), Some(expected));
+    }
+
+    #[test]
+    fn sql_output_capillary_blocks_incomplete_replay_evidence() {
+        let report = SqlOutputCapillaryReport {
+            status: "prewrite_output_pulseweave_control_admitted".to_string(),
+            scheduler_applied: true,
+            task_count: 1,
+            task_roles: "replay".to_string(),
+            task_ids: "output-capillary-1-jsonl-replay".to_string(),
+            window_count: 1,
+            window_size: 1,
+            window_ids: "output-capillary-window-1".to_string(),
+            window_task_ids: "output-capillary-window-1=output-capillary-1-jsonl-replay"
+                .to_string(),
+            window_digests: "fnv64:window".to_string(),
+            plan_digest: "fnv64:plan".to_string(),
+            sink_pressure_status: "bounded_by_output_sink_pressure".to_string(),
+            memory_pressure_status: "within_declared_output_memory_budget".to_string(),
+            ..SqlOutputCapillaryReport::not_requested(
+                "not_requested_below_threshold",
+                "test_fixture",
+            )
+        };
+
+        let blocked = report.with_post_write_status(true, true, false);
+
+        assert_eq!(blocked.status, "blocked_missing_replay_evidence");
+        assert!(!blocked.scheduler_applied);
+        assert!(!blocked.pulseweave_output_policy_applied());
     }
 
     #[cfg(feature = "vortex-write")]

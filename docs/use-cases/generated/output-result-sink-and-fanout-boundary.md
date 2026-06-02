@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `compatibility_import_certified`
 - **Engine mode:** `batch`
-- **Claim boundary:** Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, output capillary scheduling, performance evidence, or production sink support.
+- **Claim boundary:** Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, output capillary evidence distinguishes below-threshold local outputs from ProofBound-admitted bounded output conversion/write/replay windows, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, performance evidence, or production sink support.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Output and fanout boundary has a scoped local path. Treat it as technical-previe
 
 ## Claim Boundary
 
-Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, output capillary scheduling, performance evidence, or production sink support.
+Result-sink and fanout smoke is local and scoped; local Vortex output/fanout is feature-gated and flat-scalar only. Local replay/fidelity evidence verifies sink artifacts, shared fanout conversion DAG evidence verifies scoped shared schema/row normalization before terminal encoders, output capillary evidence distinguishes below-threshold local outputs from ProofBound-admitted bounded output conversion/write/replay windows, and Python ShardLoomSession can reuse local query/output reports only when statement, source fingerprints, and output artifact fingerprints still match. CLI session-cache-smoke proves scoped OutputPlan cache lifecycle, invalidation, close, and cleanup evidence only. This is not broad writer fidelity, S3/object-store write, table commit, persistent OutputPlan cache, broad Vortex writer behavior, performance evidence, or production sink support.
 
 ## How To Try It
 
@@ -30,7 +30,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Internal Flow
 
-`local_benchmark_fixture, prepared_vortex_artifact -> compatibility_import_certified -> batch -> ResultBatchState -> local_result_sink_artifact, local_jsonl_csv_fanout, feature_gated_structured_fanout, feature_gated_local_vortex_output, output_certificate -> evidence -> claim gate`
+`local_benchmark_fixture, prepared_vortex_artifact -> compatibility_import_certified -> batch -> ResultBatchState -> OutputPlan -> shared fanout conversion DAG -> output capillary admission -> local_result_sink_artifact, local_jsonl_csv_fanout, feature_gated_structured_fanout, feature_gated_local_vortex_output, output_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -46,6 +46,12 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `output_conversion_millis`
 - `sink_artifact_conversion_millis`
 - `fanout_output_conversion_millis`
+- `output_capillary_status`
+- `output_capillary_task_roles`
+- `output_capillary_window_count`
+- `output_sink_pressure_status`
+- `output_memory_pressure_status`
+- `pulseweave_output_policy_applied`
 - `output_native_io_certificate_status`
 - `output_format`
 - `output_plan_id`
@@ -88,7 +94,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A local result-sink or fanout proof artifact with shared ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, per-output conversion timing, per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
+A local result-sink or fanout proof artifact with shared ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, shared fanout conversion DAG evidence, thresholded output capillary status/window/sink-pressure/memory-pressure/PulseWeave policy evidence, per-output conversion timing, per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
 
 ## Common Mistakes
 
