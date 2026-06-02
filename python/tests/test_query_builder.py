@@ -1578,6 +1578,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(
                 sl.col("id").isin_source(
                     "target/allowed.csv",
+                    sl.col("allowed.id"),
+                    source_alias="allowed",
+                    where=sl.col("allowed.active").is_true(),
+                    order_by=sl.col("allowed.score"),
+                    descending=True,
+                    limit=2,
+                )
+            ),
+            "id IN (SELECT allowed.id FROM 'target/allowed.csv' AS allowed WHERE allowed.active IS TRUE ORDER BY allowed.score DESC LIMIT 2)",
+        )
+        self.assertEqual(
+            str(
+                sl.col("id").isin_source(
+                    "target/allowed.csv",
                     "allowed_id",
                     where=sl.col("allowed_id") == sl.outer("id"),
                 )
@@ -1631,14 +1645,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 sl.row_in_source(
                     ("id", "label"),
                     "target/allowed.csv",
-                    ("allowed_id", "allowed_label"),
-                    where=sl.col("active").is_true(),
-                    order_by="score",
+                    ("allowed.id", "allowed.label"),
+                    source_alias="allowed",
+                    where=sl.col("allowed.active").is_true(),
+                    order_by="allowed.score",
                     descending=True,
                     limit=3,
                 )
             ),
-            "(id,label) IN (SELECT allowed_id,allowed_label FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 3)",
+            "(id,label) IN (SELECT allowed.id,allowed.label FROM 'target/allowed.csv' AS allowed WHERE allowed.active IS TRUE ORDER BY allowed.score DESC LIMIT 3)",
         )
         self.assertEqual(
             str(
@@ -1665,13 +1680,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(
                 sl.exists_source(
                     "target/allowed.csv",
-                    where=sl.col("active").is_true(),
-                    order_by="score",
+                    source_alias="allowed",
+                    select=["allowed.id", "allowed.label"],
+                    where=sl.col("allowed.active").is_true(),
+                    order_by="allowed.score",
                     descending=True,
                     limit=1,
                 )
             ),
-            "EXISTS (SELECT * FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 1)",
+            "EXISTS (SELECT allowed.id,allowed.label FROM 'target/allowed.csv' AS allowed WHERE allowed.active IS TRUE ORDER BY allowed.score DESC LIMIT 1)",
         )
         self.assertEqual(
             str(
@@ -1688,6 +1705,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             sl.outer("outer.id")
+        with self.assertRaisesRegex(ValueError, "reserved"):
+            sl.exists_source("target/allowed.csv", source_alias="outer")
         self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",

@@ -574,9 +574,11 @@ evaluate a two-valued bounded presence test over another admitted local source. 
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
 source and apply SQL three-valued comparison semantics. Scoped correlated `outer.<column>`
 subquery filters are admitted for scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` /
-`ALL` predicates through the reserved outer-row alias. Scalar-left multi-column, non-`outer`
-qualified, broad projected correlated, and broader arbitrary subquery shapes remain deterministic
-blockers.
+`ALL` predicates through the reserved outer-row alias. Source-qualified local subquery references
+are admitted for the subquery's explicit `AS <alias>` or SQL-identifier file stem and can be
+bound from Python with `source_alias=` and rendered with `sl.col("alias.column")`.
+Scalar-left multi-column, unbound qualified, broad projected correlated, and broader arbitrary
+subquery shapes remain deterministic blockers.
 Typed reports expose `in_predicate_runtime_execution`,
 `in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
 `row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
@@ -861,8 +863,9 @@ correlated_source_subquery_filtered = (
     .filter(
         sl.col("id").isin_source(
             allowed_ids,
-            "allowed_id",
-            where=sl.col("allowed_id") == sl.outer("id"),
+            "allowed.id",
+            source_alias="allowed",
+            where=sl.col("allowed.id") == sl.outer("id"),
         )
     )
     .limit(10)

@@ -57,11 +57,14 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   bounded scalar local-source `IN` subqueries, nested bounded scalar local-source `IN` subqueries,
   row-value local-source `IN` subqueries, scoped local `EXISTS`, quantified `ANY`/`ALL`, and scoped
   correlated `outer.<column>` source-subquery filters now share the same ShardLoom SQL runtime
-  evidence boundary. Python/DataFrame users can express those routes with `isin_source(...)`,
-  `not_in_source(...)`, `sl.row_in(...)`, `sl.row_not_in(...)`, `sl.row_in_source(...)`,
-  `sl.row_not_in_source(...)`, `sl.exists_source(...)`, `sl.not_exists_source(...)`,
-  `any_source(...)`, `all_source(...)`, and `sl.outer(...)` for the reserved correlated outer-row
-  alias.
+  evidence boundary. Source-qualified local subquery references bind to an explicit source
+  `AS <alias>` or SQL-identifier file stem; Python helpers expose the alias with `source_alias=`
+  and render qualified refs with `sl.col("alias.column")`. Python/DataFrame users can express
+  those routes with
+  `isin_source(...)`, `not_in_source(...)`, `sl.row_in(...)`, `sl.row_not_in(...)`,
+  `sl.row_in_source(...)`, `sl.row_not_in_source(...)`, `sl.exists_source(...)`,
+  `sl.not_exists_source(...)`, `any_source(...)`, `all_source(...)`, and `sl.outer(...)` for the
+  reserved correlated outer-row alias.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
   and window workflows lower to `sql-local-source-smoke`.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
@@ -191,8 +194,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   bounded local-source projection, aggregate/HAVING, join, and window output rows is now admitted,
   scoped row-value literal `IN`/`NOT IN` predicates are admitted through SQL and Python helpers,
   scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
-  materialization evidence, and scoped correlated source-subquery filters are reachable through the
-  `sl.outer(...)` helper over the admitted local-source subquery families;
+  materialization evidence, source-qualified selected/filter/order refs are reachable through
+  `source_alias=` plus `sl.col("alias.column")`, and scoped correlated source-subquery filters are
+  reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;
   arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence

@@ -812,6 +812,52 @@ def correlated_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def source_qualified_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="source_qualified_in_subquery_semantics",
+        source_name="source-qualified-in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN ("
+            "SELECT allowed.id FROM '{allowed}' AS allowed "
+            "WHERE allowed.id = outer.id AND allowed.active IS TRUE "
+            "AND outer.amount >= allowed.min_amount "
+            "ORDER BY allowed.min_amount ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "source-qualified-in-subquery-allowed.csv",
+                (
+                    "id,min_amount,active\n"
+                    "1,5,true\n"
+                    "1,99,true\n"
+                    "2,25,true\n"
+                    "3,25,false\n"
+                    "3,20,true\n"
+                    "5,1,true\n"
+                ),
+            ),
+        ),
+    )
+
+
 def correlated_row_value_in_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="correlated_row_value_in_subquery_semantics",
@@ -1885,6 +1931,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
         correlated_in_subquery_case(),
+        source_qualified_in_subquery_case(),
         correlated_row_value_in_subquery_case(),
         correlated_exists_subquery_case(),
         correlated_quantified_subquery_case(),
@@ -2001,17 +2048,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="multi-column IN subqueries require row-value source columns",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_non_outer_qualified_in_subquery",
-            source_name="qualified-subquery-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id FROM '{source}' WHERE id IN "
-                "(SELECT id FROM '{source}' WHERE allowed.id = id) LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="correlated or qualified IN subquery predicates admit only outer.<column>",
         ),
     ]
 

@@ -582,9 +582,10 @@ plan before coding.
   IN-subquery predicates over aggregate output rows, exposes subquery filter/order/limit and
   input/filtered/materialization-bound evidence through SQL/Python reports. Later 6D slices promote
   row-value, nested scalar, joined/grouped projected scalar/row-value/quantified, `EXISTS`,
-  `ANY` / `ALL`, and scoped correlated `outer.<column>` scalar/row-value/EXISTS/quantified
-  subquery families; scalar-left multi-column and non-`outer` qualified or broad correlated
-  subquery shapes remain deterministic blockers with no fallback/external engine invocation.
+  `ANY` / `ALL`, source-qualified local subquery references, and scoped correlated
+  `outer.<column>` scalar/row-value/EXISTS/quantified subquery families; scalar-left multi-column,
+  unbound qualified, or broad correlated subquery shapes remain deterministic blockers with no
+  fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D scoped UTF-8 string functions add native `CONCAT`, `SUBSTR` /
   `SUBSTRING`, and `REPLACE` predicate/projection execution for admitted local-source SQL/Python
   paths, emit `string_function_*` and `string_function_projection_*` evidence, preserve
@@ -655,7 +656,8 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-6D follow-through promotes bounded row-value local-source IN-subqueries over
   local sources with admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` tails, source-column arity
   validation, row-value null-semantics evidence, SQL/Python query-builder access, and
-  deterministic blockers for scalar-left multi-column and non-`outer` qualified or broad correlated
+  source-qualified local refs for explicit source aliases or SQL-identifier file stems and keeps
+  deterministic blockers for scalar-left multi-column, unbound qualified, or broad correlated
   subquery shapes with no fallback/external engine invocation. Later 6D slices now admit nested
   scalar IN-subqueries, joined and grouped/HAVING projected scalar, row-value, and quantified
   subqueries through the full local-source runtime path, scoped local `EXISTS` / `NOT EXISTS`,
