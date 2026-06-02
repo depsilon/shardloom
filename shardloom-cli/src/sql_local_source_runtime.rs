@@ -929,6 +929,7 @@ struct ParsedExistsSubquery {
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
+    projected_plan: Option<Box<ParsedSqlLocalSource>>,
     source_format: Option<LocalSourceFormat>,
     source_digest: Option<String>,
     input_row_count: usize,
@@ -954,6 +955,22 @@ impl ParsedInSubquery {
 }
 
 impl ParsedRowValueInSubquery {
+    fn uses_outer_correlation(&self) -> bool {
+        self.predicate.uses_outer_correlation()
+            || self
+                .projected_plan
+                .as_deref()
+                .is_some_and(ParsedSqlLocalSource::uses_outer_correlation)
+    }
+
+    fn has_projected_filter(&self) -> bool {
+        self.projected_plan
+            .as_deref()
+            .is_some_and(ParsedSqlLocalSource::has_filter)
+    }
+}
+
+impl ParsedExistsSubquery {
     fn uses_outer_correlation(&self) -> bool {
         self.predicate.uses_outer_correlation()
             || self
@@ -6104,7 +6121,7 @@ fn materialize_in_subquery_predicates(
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
                 materialize_exists_subquery(subquery)
@@ -6160,7 +6177,7 @@ fn materialize_correlated_subquery_predicates(
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
-            if subquery.predicate.uses_outer_correlation() {
+            if subquery.uses_outer_correlation() {
                 materialize_exists_subquery_for_outer_row(subquery, outer_row)
             } else {
                 materialize_exists_subquery(subquery)
@@ -6246,6 +6263,7 @@ fn materialize_exists_subquery_for_outer_row(
         scoped.predicate.as_ref(),
         outer_row,
     )?);
+    rewrite_projected_subquery_plan_for_outer_row(&mut scoped.projected_plan, outer_row)?;
     scoped.source_format = None;
     scoped.source_digest = None;
     scoped.input_row_count = 0;
@@ -6336,6 +6354,7 @@ fn rewrite_outer_correlated_predicate(
                 subquery.predicate.as_ref(),
                 outer_row,
             )?);
+            rewrite_projected_subquery_plan_for_outer_row(&mut subquery.projected_plan, outer_row)?;
             Ok(ParsedPredicate::ExistsSubquery {
                 subquery: Box::new(subquery),
             })
@@ -6635,6 +6654,9 @@ fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<()
     if subquery.source_format.is_some() {
         return Ok(());
     }
+    if subquery.projected_plan.is_some() {
+        return materialize_projected_exists_subquery(subquery);
+    }
     materialize_in_subquery_predicates(&mut subquery.predicate)?;
     let source_read_plan = LocalSourceReadPlan::required(
         exists_subquery_required_columns(subquery),
@@ -6656,6 +6678,44 @@ fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<()
     subquery.exists = !bounded_row_indexes.is_empty();
     subquery.source_format = Some(source.source_format);
     subquery.source_digest = Some(source.source_digest);
+    Ok(())
+}
+
+fn materialize_projected_exists_subquery(
+    subquery: &mut ParsedExistsSubquery,
+) -> Result<(), ShardLoomError> {
+    let plan = subquery.projected_plan.take().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "projected EXISTS subquery materializer called without a projected plan".to_string(),
+        )
+    })?;
+    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let SqlLocalSourcePreparedEvaluation {
+        parsed,
+        source,
+        right_source,
+        evaluated_output,
+        ..
+    } = prepared;
+    let (projection_kind, selected_columns) = projected_exists_subquery_projection(&parsed)?;
+    if evaluated_output.output_rows.len() > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "EXISTS projected subqueries admit at most {MAX_IN_LIST_VALUES} bounded rows in this scoped runtime slice"
+        )));
+    }
+    subquery.projection_kind = projection_kind;
+    subquery.selected_columns = selected_columns;
+    subquery.source_path.clone_from(&parsed.source_path);
+    *subquery.predicate = parsed.predicate.clone();
+    subquery.order_by.clone_from(&parsed.order_by);
+    subquery.limit = Some(parsed.limit);
+    subquery.input_row_count = source.rows.len();
+    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.bounded_row_count = evaluated_output.output_rows.len();
+    subquery.exists = !evaluated_output.output_rows.is_empty();
+    subquery.source_format = Some(source.source_format);
+    subquery.source_digest = Some(sql_source_digest(&source, right_source.as_ref()));
+    subquery.projected_plan = Some(Box::new(parsed));
     Ok(())
 }
 
@@ -14071,8 +14131,12 @@ fn quantified_subquery_plan_digest_fragment(
 }
 
 fn exists_subquery_plan_digest_fragment(subquery: &ParsedExistsSubquery) -> String {
+    let projected_plan = subquery.projected_plan.as_ref().map_or_else(
+        || "simple_single_source".to_string(),
+        |plan| format!("projected:{}", plan.statement_kind()),
+    );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
         subquery.projection_kind.as_str(),
         subquery
@@ -14082,6 +14146,7 @@ fn exists_subquery_plan_digest_fragment(subquery: &ParsedExistsSubquery) -> Stri
         subquery.bounded_row_count,
         subquery.exists,
         subquery.predicate.family(),
+        projected_plan,
         subquery
             .order_by
             .as_ref()
@@ -14143,7 +14208,7 @@ impl ParsedPredicate {
                 left.uses_outer_correlation() || right.uses_outer_correlation()
             }
             Self::Not { inner } => inner.uses_outer_correlation(),
-            Self::ExistsSubquery { subquery } => subquery.predicate.uses_outer_correlation(),
+            Self::ExistsSubquery { subquery } => subquery.uses_outer_correlation(),
             Self::InSubquery {
                 column, subquery, ..
             }
@@ -14175,6 +14240,9 @@ impl ParsedPredicate {
             }
             Self::ExistsSubquery { subquery } => {
                 subquery.predicate.push_outer_correlation_columns(columns);
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    plan.push_outer_correlation_columns(columns);
+                }
             }
             Self::Logical { left, right, .. } => {
                 left.push_outer_correlation_columns(columns);
@@ -17585,7 +17653,9 @@ impl ParsedPredicate {
 
     fn exists_subquery_filter_runtime_execution(&self) -> bool {
         match self {
-            Self::ExistsSubquery { subquery } => !subquery.predicate.is_all(),
+            Self::ExistsSubquery { subquery } => {
+                !subquery.predicate.is_all() || subquery.has_projected_filter()
+            }
             Self::Logical { left, right, .. } => {
                 left.exists_subquery_filter_runtime_execution()
                     || right.exists_subquery_filter_runtime_execution()
@@ -17775,6 +17845,7 @@ impl ParsedPredicate {
                 subquery.projected_plan.is_some()
             }
             Self::RowValueInSubquery { subquery, .. } => subquery.projected_plan.is_some(),
+            Self::ExistsSubquery { subquery } => subquery.projected_plan.is_some(),
             Self::Logical { left, right, .. } => {
                 left.uses_projected_subquery() || right.uses_projected_subquery()
             }
@@ -17799,7 +17870,6 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => false,
         }
     }
@@ -17868,6 +17938,13 @@ impl ParsedPredicate {
                     plan.having.for_each_projected_subquery_plan(visit);
                 }
             }
+            Self::ExistsSubquery { subquery } => {
+                if let Some(plan) = subquery.projected_plan.as_deref() {
+                    visit(plan);
+                    plan.predicate.for_each_projected_subquery_plan(visit);
+                    plan.having.for_each_projected_subquery_plan(visit);
+                }
+            }
             Self::Logical { left, right, .. } => {
                 left.for_each_projected_subquery_plan(visit);
                 right.for_each_projected_subquery_plan(visit);
@@ -17893,7 +17970,6 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. } => {}
         }
     }
@@ -28883,6 +28959,36 @@ fn bounded_projected_subquery_statement(raw: &str) -> Result<String, ShardLoomEr
     }
 }
 
+fn projected_exists_subquery_projection(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<(ParsedExistsSubqueryProjectionKind, Vec<String>), ShardLoomError> {
+    if parsed.projection_order.len() == 1 {
+        match parsed.projection_order.first() {
+            Some(ParsedProjectionOutput::Raw(column)) if column == "*" => {
+                return Ok((ParsedExistsSubqueryProjectionKind::Wildcard, Vec::new()));
+            }
+            Some(ParsedProjectionOutput::Literal(_)) => {
+                return Ok((ParsedExistsSubqueryProjectionKind::Literal, Vec::new()));
+            }
+            _ => {}
+        }
+    }
+    let output_columns = projected_subquery_output_columns(parsed).map_err(|_| {
+        unsupported_sql_error(
+            "projected EXISTS subqueries admit SELECT *, a scalar literal, or explicit output columns",
+        )
+    })?;
+    if output_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "projected EXISTS subqueries require at least one output column, SELECT *, or a scalar literal",
+        ));
+    }
+    Ok((
+        ParsedExistsSubqueryProjectionKind::ColumnList,
+        output_columns,
+    ))
+}
+
 fn projected_subquery_output_columns(
     parsed: &ParsedSqlLocalSource,
 ) -> Result<Vec<String>, ShardLoomError> {
@@ -29038,6 +29144,9 @@ fn parse_exists_subquery_predicate(raw: &str) -> Result<Option<ParsedPredicate>,
 
 fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomError> {
     let raw = raw.trim();
+    if is_projected_local_source_subquery(raw)? {
+        return parse_projected_exists_subquery(raw);
+    }
     validate_exists_subquery_shape(raw)?;
     let from_clause = find_keyword_outside_quotes_and_parentheses(raw, "from")?.ok_or_else(|| {
         unsupported_sql_error(
@@ -29078,6 +29187,34 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
         predicate: Box::new(predicate),
         order_by,
         limit,
+        projected_plan: None,
+        source_format: None,
+        source_digest: None,
+        input_row_count: 0,
+        filtered_row_count: 0,
+        bounded_row_count: 0,
+        exists: false,
+    })
+}
+
+fn parse_projected_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomError> {
+    let statement = bounded_projected_subquery_statement(raw)?;
+    let projected_plan = parse_sql_local_source_statement(&statement)?;
+    if projected_plan.limit > MAX_IN_LIST_VALUES {
+        return Err(unsupported_sql_error(&format!(
+            "EXISTS projected subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows in this scoped runtime slice"
+        )));
+    }
+    let (projection_kind, selected_columns) =
+        projected_exists_subquery_projection(&projected_plan)?;
+    Ok(ParsedExistsSubquery {
+        projection_kind,
+        selected_columns,
+        source_path: projected_plan.source_path.clone(),
+        predicate: Box::new(ParsedPredicate::All),
+        order_by: projected_plan.order_by.clone(),
+        limit: Some(projected_plan.limit),
+        projected_plan: Some(Box::new(projected_plan)),
         source_format: None,
         source_digest: None,
         input_row_count: 0,
@@ -34382,6 +34519,141 @@ mod tests {
     }
 
     #[test]
+    fn runs_joined_projected_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("joined-exists-subquery-source.csv");
+        let candidates_path = sql_local_source_test_path("joined-exists-subquery-candidates.csv");
+        let allowed_path = sql_local_source_test_path("joined-exists-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(&candidates_path, "id,min_amount\n1,5\n2,25\n3,20\n5,1\n")
+            .expect("write candidates csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,false,20\n3,true,40\n5,false,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "c.id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "2");
+        assert_field_eq(&fields, "exists_subquery_result", "true");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "selected_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_grouped_having_projected_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("grouped-exists-subquery-source.csv");
+        let grouped_path = sql_local_source_test_path("grouped-exists-subquery-values.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(&grouped_path, "id,amount\n1,10\n1,20\n2,5\n3,7\n3,9\n4,1\n")
+            .expect("write grouped csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run grouped HAVING projected EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "false");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_input_row_count", "6");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "2");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_join_runtime_execution",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "selected_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
     fn runs_correlated_joined_projected_in_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("correlated-joined-projected-in-source.csv");
         let candidates_path =
@@ -34598,6 +34870,86 @@ mod tests {
 
         fs::remove_file(&source_path).expect("remove source csv");
         fs::remove_file(&thresholds_path).expect("remove thresholds csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_exists_subquery_csv_statement_without_fallback() {
+        let source_path =
+            sql_local_source_test_path("correlated-joined-projected-exists-source.csv");
+        let candidates_path =
+            sql_local_source_test_path("correlated-joined-projected-exists-candidates.csv");
+        let allowed_path =
+            sql_local_source_test_path("correlated-joined-projected-exists-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &candidates_path,
+            "id,min_amount\n1,5\n1,99\n2,25\n3,20\n5,1\n",
+        )
+        .expect("write candidates csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "c.id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
         fs::remove_file(&allowed_path).expect("remove allowed csv");
     }
 

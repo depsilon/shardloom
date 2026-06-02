@@ -476,13 +476,15 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   inner bounded local values are materialized before the parent subquery filter executes, with
   nested predicate count, max depth, materialization order, source-format, row-count, and
   no-fallback evidence.
-  Scoped joined and grouped/HAVING projected `IN` subqueries are now promoted by routing the
-  subquery through the same ShardLoom local-source parser, binder, join/group/HAVING evaluator, and
-  bounded materializer used by top-level SQL routes. The admitted projected cases cover scalar
-  `IN`, row-value `IN`, and quantified `ANY` / `ALL` materialization where the projected output
-  arity matches the left operand. Report rows expose `projected_subquery_runtime_execution`,
-  statement kind, output-column count, and join/group/HAVING execution flags so these are visible
-  runtime-supported routes rather than hidden mini-evaluators.
+  Scoped joined and grouped/HAVING projected subqueries are now promoted by routing the subquery
+  through the same ShardLoom local-source parser, binder, join/group/HAVING evaluator, and bounded
+  materializer used by top-level SQL routes. The admitted projected cases cover scalar `IN`,
+  row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` materialization where the projected output
+  arity matches the membership/quantified operand; projected `EXISTS` uses the same bounded
+  projected output as a two-valued presence test. Report rows expose
+  `projected_subquery_runtime_execution`, statement kind, output-column count, and
+  join/group/HAVING execution flags so these are visible runtime-supported routes rather than hidden
+  mini-evaluators.
   Scoped correlated local-source subquery filters are now admitted when the subquery predicate uses
   the reserved `outer.<column>` alias in column-to-column comparisons. The admitted runtime family
   covers scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates through
@@ -490,10 +492,10 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   and no-fallback evidence fields. Python/DataFrame front doors now expose the reserved
   `sl.outer(...)` helper and typed correlated-subquery report fields for those admitted routes.
   Scoped correlated joined projected subqueries are now admitted for scalar `IN`, row-value `IN`,
-  and quantified `ANY` / `ALL` predicates when the projected local-source plan carries admitted
-  `outer.<column>` column-to-column comparisons in its filter/HAVING path. These routes reuse the
-  existing ShardLoom local-source parser, binder, join evaluator, and bounded per-outer-row
-  materializer, and report both correlated and projected subquery evidence.
+  `EXISTS`, and quantified `ANY` / `ALL` predicates when the projected local-source plan carries
+  admitted `outer.<column>` column-to-column comparisons in its filter/HAVING path. These routes
+  reuse the existing ShardLoom local-source parser, binder, join evaluator, and bounded
+  per-outer-row materializer, and report both correlated and projected subquery evidence.
   Source-qualified local subquery references are now admitted for the subquery's explicit `AS`
   alias or SQL-identifier file stem in selected columns, filters, and bounded ordering; Python
   helpers bind explicit aliases with `source_alias=` and render those refs with
@@ -511,7 +513,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
   Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
   blocker refinement, scalar-left multi-column subquery ergonomics, additional front-door parity over
-  admitted routes, broader `EXISTS` projected/correlated composition, or decimal/timezone/locale
+  admitted routes, correlated grouped/HAVING projected composition, or decimal/timezone/locale
   blocker refinement.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
