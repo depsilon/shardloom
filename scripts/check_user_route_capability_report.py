@@ -169,6 +169,24 @@ PREPARED_STATE_REUSE_MANIFEST_POLICY = (
     "shardloom.python.prepared_vortex_reuse_manifest.v1"
 )
 PREPARED_STATE_NOT_APPLICABLE = "not_applicable_no_prepared_state"
+GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE = (
+    "artifact_adjacent_manifest_local_vortex_artifacts"
+)
+GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH = (
+    "<target-dir>/.shardloom/<target-name>.prepared-state-reuse.manifest"
+)
+GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY = (
+    "artifact_adjacent_local_prepared_state_reuse.v1"
+)
+GENERATED_PREPARED_STATE_REUSE_REASON = (
+    "runtime_evaluated_artifact_adjacent_manifest_lookup"
+)
+GENERATED_PREPARED_STATE_INVALIDATION_REASON = (
+    "runtime_evaluated_on_source_schema_plan_policy_or_artifact_drift"
+)
+GENERATED_SOURCE_SPLIT_MANIFEST_ID = (
+    "not_applicable_generated_source_no_source_splits"
+)
 
 REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
     "vortex_count_all",
@@ -830,12 +848,111 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
                 f"{row['route_id']}: prepared compatibility route must expose reuse manifest policy"
             )
 
+    generated_route = by_id.get("generated_rows_local_output")
+    if generated_route is not None:
+        normalization = str(generated_route.get("vortex_normalization_point", ""))
+        if (
+            "GeneratedSourceState" not in normalization
+            or "VortexPreparedState" not in normalization
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source Vortex output route must name "
+                "GeneratedSourceState and VortexPreparedState"
+            )
+        if (
+            generated_route.get("prepared_state_reuse_scope")
+            != GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must use "
+                "artifact-adjacent manifest reuse scope"
+            )
+        if (
+            generated_route.get("prepared_state_reuse_manifest_path")
+            != GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "artifact-adjacent reuse manifest path"
+            )
+        if (
+            generated_route.get("prepared_state_reuse_policy")
+            != GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "artifact-adjacent reuse manifest policy"
+            )
+        if generated_route.get("prepared_state_reuse_hit") != "runtime_evaluated":
+            blockers.append(
+                "generated_rows_local_output: generated-source route must evaluate reuse at runtime"
+            )
+        if (
+            generated_route.get("prepared_state_reuse_reason")
+            != GENERATED_PREPARED_STATE_REUSE_REASON
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "artifact-adjacent reuse reason"
+            )
+        if (
+            generated_route.get("prepared_state_invalidation_reason")
+            != GENERATED_PREPARED_STATE_INVALIDATION_REASON
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "source/schema/plan/policy/artifact invalidation reason"
+            )
+        if (
+            generated_route.get("source_split_manifest_id")
+            != GENERATED_SOURCE_SPLIT_MANIFEST_ID
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must not claim "
+                "source split manifest evidence"
+            )
+        if (
+            generated_route.get("prepared_state_reuse_manifest_digest")
+            != "runtime_prepared_state_reuse_manifest_digest_pending"
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "runtime manifest digest status"
+            )
+        if (
+            generated_route.get("prepared_state_fingerprint")
+            != "runtime_prepared_state_fingerprint_pending"
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must expose "
+                "runtime prepared-state fingerprint status"
+            )
+        required_evidence = generated_route.get("required_evidence")
+        if (
+            not isinstance(required_evidence, list)
+            or "prepared_state_reuse_manifest" not in required_evidence
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must require "
+                "prepared_state_reuse_manifest evidence"
+            )
+        desired_outputs = generated_route.get("desired_outputs")
+        if (
+            not isinstance(desired_outputs, list)
+            or "feature_gated_local_vortex_output" not in desired_outputs
+        ):
+            blockers.append(
+                "generated_rows_local_output: generated-source route must advertise "
+                "feature_gated_local_vortex_output"
+            )
+
     for row in rows:
         if row["route_id"] in {
             "local_file_cold_certified_route",
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
             "prepared_vortex_warm_query",
+            "generated_rows_local_output",
         }:
             continue
         if row.get("prepared_state_fingerprint") == PREPARED_STATE_NOT_APPLICABLE and (
@@ -937,6 +1054,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         for row in local_file_benchmark_rows
         if row.get("route_runtime_status") == "prepared_route_supported"
     ]
+    generated_reuse_row = next(
+        (row for row in rows if row.get("route_id") == "generated_rows_local_output"),
+        None,
+    )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1030,6 +1151,29 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 and row.get("prepared_state_reuse_policy")
                 == PREPARED_STATE_REUSE_MANIFEST_POLICY
                 for row in prepared_route_reuse_rows
+            ),
+            "generated_source_route_exposes_artifact_adjacent_manifest_reuse_contract": (
+                generated_reuse_row is not None
+                and "GeneratedSourceState"
+                in str(generated_reuse_row.get("vortex_normalization_point"))
+                and "VortexPreparedState"
+                in str(generated_reuse_row.get("vortex_normalization_point"))
+                and generated_reuse_row.get("prepared_state_reuse_scope")
+                == GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
+                and generated_reuse_row.get("prepared_state_reuse_manifest_path")
+                == GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
+                and generated_reuse_row.get("prepared_state_reuse_policy")
+                == GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
+                and generated_reuse_row.get("prepared_state_reuse_reason")
+                == GENERATED_PREPARED_STATE_REUSE_REASON
+                and generated_reuse_row.get("prepared_state_invalidation_reason")
+                == GENERATED_PREPARED_STATE_INVALIDATION_REASON
+                and generated_reuse_row.get("source_split_manifest_id")
+                == GENERATED_SOURCE_SPLIT_MANIFEST_ID
+                and "prepared_state_reuse_manifest"
+                in generated_reuse_row.get("required_evidence", [])
+                and "feature_gated_local_vortex_output"
+                in generated_reuse_row.get("desired_outputs", [])
             ),
             "no_generic_unsupported_local_benchmark_route": not route_report.unsupported_local_benchmark_route_ids,
             "all_local_vortex_primitive_routes_supported": (
