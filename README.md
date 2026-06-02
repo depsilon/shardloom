@@ -60,7 +60,8 @@ Current runtime support is intentionally scoped and evidence-gated:
 - scoped SQL local-source execution for projection, row-level `SELECT DISTINCT` over projection,
   aggregate/HAVING, join, and window output rows, filter, limit,
   scalar aggregates, multi-key group-by, single-key top-N, selected
-  casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped
+  casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped binary
+  casts/literals and binary equality/inequality cast predicates, scoped
   `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
   row-value literal `IN`/`NOT IN`, bounded scalar and row-value local-source
   `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
@@ -149,8 +150,10 @@ For familiar Python/DataFrame code, aliases such as `.project(...)`, `.with_colu
 `.distinct()`, `.drop_duplicates()`, `.unique()`, `.union(...)`, and `.union_all(...)` are accepted
 only as thin names over
 the admitted ShardLoom `select`, `with_column`, `group_by`, `agg/count`, `sort`, LIKE/regex/string
-predicates, interval-backed temporal helper predicates, scoped `UNHEX(<utf8-column>)` /
-`FROM_BASE64(<utf8-column>)` binary helper projections, join/window, source-backed `IN` /
+predicates, interval-backed temporal helper predicates, scoped `CAST`/`TRY_CAST` to
+`binary`/`blob`/`varbinary`, scoped SQL `BINARY`/`BLOB` byte literal evidence,
+scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, join/window,
+source-backed `IN` /
 `EXISTS` / `ANY` / `ALL` including grouped/HAVING projected source-subquery tails, row-level
 `SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and

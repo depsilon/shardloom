@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast/literal SQL/Python runtime slice
+  - Date: 2026-06-02
+  - Branch/PR: `codex/binary-cast-source-runtime` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the scoped binary helper slice: binary helper projections were executable, but
+      scoped binary casts, `BINARY`/`BLOB` text byte literals, and binary cast predicates still
+      appeared as blocked user routes.
+  - Scope:
+    - Promoted scoped `CAST`/`TRY_CAST(<column> AS binary|blob|varbinary)` projections through the
+      ShardLoom local-source SQL runtime and core scalar expression evaluator.
+    - Promoted scoped binary cast equality/inequality predicates against `X'<hex>'`,
+      `BINARY`/`BLOB` text byte literals, single-quoted UTF-8 byte literals, or `NULL`.
+    - Promoted scoped SQL `BINARY '<utf8>'` and `BLOB '<utf8>'` projection literals through the
+      existing binary literal evidence fields.
+    - Added Python/DataFrame cast alias lowering for `binary`, `blob`, and `varbinary`, while
+      canonicalizing report target dtypes to `binary`.
+    - Kept broad binary source dtype decoding, binary ordering, and nested binary helper
+      expressions as deterministic blockers.
+    - Updated the admitted semantics matrix, SQL/Python/DataFrame parity gate markers, release
+      readiness metadata, phase docs, root README, Python README, compute flow reference, and synced
+      website data assets.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/query.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py scripts/check_release_readiness.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_cast_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-core binary -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli binary -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-binary-cast.json` passed with `matrix_row_count=67`, `executable_fixture_count=57`, `unsupported_diagnostic_count=10`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-binary-cast.json` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics -- --nocapture` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_website_readiness.py --output target/website-readiness-binary-cast.json` passed in a clean temporary worktree with this tracked diff applied.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped SQL/Python/DataFrame binary cast projection, binary text literal
+      projection, and binary cast equality/inequality predicate runtime evidence. It does not claim
+      broad binary source dtype decoding, binary ordering, nested binary helper expressions,
+      production SQL/DataFrame completeness, performance equivalence, object-store/table SQL, or
+      Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime and core expression evaluator. The
+      positive route and deterministic invalid-input diagnostics report or append
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary helper SQL/Python runtime slice
   - Date: 2026-06-02
   - Branch/PR: `codex/binary-helper-sql-python-runtime` / pending PR.

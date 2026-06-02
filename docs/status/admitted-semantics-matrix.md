@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=65
-executable_fixture_count=55
+matrix_row_count=67
+executable_fixture_count=57
 unsupported_diagnostic_count=10
 property_lane_count=1
 property_seed_order=20260521
@@ -64,6 +64,8 @@ Covered fixture rows:
 - `interval_literal_temporal_arithmetic`
 - `conditional_projection_case_when`
 - `binary_hex_literal_projection`
+- `binary_text_literal_projection`
+- `binary_cast_projection_predicate`
 - `binary_helper_projection`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
@@ -124,17 +126,21 @@ HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
 property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
 locale/collation, complex list/struct/variant/union dtype families, broad binary source dtype
-decoding, binary casts, `BINARY`/`BLOB` source literals, scalar-left multi-column subqueries, and
-remaining non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics
-with no fallback.
+decoding, binary ordering, scalar-left multi-column subqueries, and remaining non-admitted broad
+ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
 the claim boundary. Scoped SQL `X'<hex>'` binary literal projections are executable with exact
-hex evidence. Scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are
-executable with strict UTF-8 text decoding, binary output evidence, null propagation, and
-deterministic invalid-input blockers, while binary source dtype decoding and binary casts remain
-outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`, and single-character
+hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'` text byte literal projections are
+executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to `binary`/`blob`/`varbinary`
+projects admitted scalar values as UTF-8 bytes, and scoped binary cast equality/inequality
+predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 byte literals, or
+`NULL`. Scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
+with strict UTF-8 text decoding, binary output evidence, null propagation, and deterministic
+invalid-input blockers, while broad binary source dtype decoding, binary ordering, and nested binary
+helper expressions remain outside the claim boundary. Scoped UTF-8 `LIKE` predicates with `%`, `_`,
+and single-character
 `ESCAPE` clauses are executable through
 ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through
 `RLIKE`/`REGEXP`/`REGEXP_LIKE`; case-folding and locale-aware regex/collation semantics remain

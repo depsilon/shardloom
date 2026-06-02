@@ -646,7 +646,8 @@ columns and finite numeric literals, scoped
 `sl.round(...)` numeric rounding projections, plus scoped UTF-8
 `sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
 `sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
-`sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")`
+`sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")` /
+`.cast("binary")`
 projections, and scoped Date32/UTC timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
@@ -662,8 +663,9 @@ scoped null-cleanup projections such as
 cleanup projections such as `sl.col("label").null_if("missing")` or
 `sl.col("event_date").cast("date32").null_if(date(2026, 1, 1))`, plus scoped single-branch
 conditional projections such as
-`sl.case_when(sl.col("amount") >= 10, "large", "small")`, and scoped binary helper projections
-such as `sl.col("hex_payload").unhex()` / `sl.unhex(sl.col("hex_payload"))` and
+`sl.case_when(sl.col("amount") >= 10, "large", "small")`, scoped binary cast projections such as
+`sl.col("payload").cast("binary")` / `.cast("blob")` / `.cast("varbinary")`, and scoped binary
+helper projections such as `sl.col("hex_payload").unhex()` / `sl.unhex(sl.col("hex_payload"))` and
 `sl.col("b64_payload").from_base64()` / `sl.from_base64(sl.col("b64_payload"))` over direct UTF-8
 source columns. Literal projections emit
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
@@ -679,7 +681,8 @@ projections emit `date_arithmetic_projection_*` evidence; UTC timestamp arithmet
 projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
 conditional projections emit
-`conditional_projection_*` evidence; binary helper projections emit
+`conditional_projection_*` evidence; binary cast projections emit `cast_projection_*` evidence with
+`binary` target dtypes; binary helper projections emit
 `binary_helper_projection_*` evidence. Sorting after an input-backed computed projection is admitted
 for bounded top-N workflows when the sort key resolves to a projected computed alias or a source
 column; those workflows emit `computed_projection_top_n_runtime_execution=true`,
@@ -691,10 +694,11 @@ generic expression missing-source-column and division-by-zero cases, `COALESCE(.
 mismatches block deterministically before fallback. `CASE WHEN` projections currently admit one
 branch, admitted predicate leaves, non-NULL literal branches, and matching branch dtypes only.
 Binary helper projections admit direct source columns only, with strict even-length hexadecimal or
-standard padded base64 decoding, null propagation, and deterministic invalid-input blockers; broad
-binary source dtype decoding, binary casts, `BINARY`/`BLOB` source literals, binary predicates, and
-nested binary helper expressions still block before fallback. Unsupported computed-column
-expressions still block before fallback.
+standard padded base64 decoding, null propagation, and deterministic invalid-input blockers.
+Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scoped binary cast
+equality/inequality predicates are admitted through the SQL local-source runtime; broad binary
+source dtype decoding, binary ordering, and nested binary helper expressions still block before
+fallback. Unsupported computed-column expressions still block before fallback.
 For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.select(...)`,
 `.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
 projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
