@@ -33,7 +33,10 @@ admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=67
 executable_fixture_count=60
-unsupported_diagnostic_count=7
+diagnostic_case_count=7
+unsupported_diagnostic_count=5
+runtime_error_diagnostic_count=1
+invalid_shape_diagnostic_count=1
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -109,13 +112,13 @@ Covered fixture rows:
 - `select_distinct_window`
 - `join_multi_key_expression_condition`
 - `select_distinct_join`
-- `unsupported_numeric_division_by_zero`
+- `runtime_error_numeric_division_by_zero`
 - `unsupported_non_utc_timestamp_literal`
 - `unsupported_timezone_database_policy`
 - `unsupported_locale_collation`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
-- `unsupported_scalar_multi_column_in_subquery`
+- `invalid_shape_scalar_multi_column_in_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
 IN-subquery, nested scalar IN-subquery, row-value IN-subquery, source-qualified local subquery,
@@ -124,10 +127,13 @@ subqueries, projected row-value/quantified subquery, correlated joined and group
 scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS, scoped quantified ANY/ALL, and
 HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
-property lane. Non-UTC timestamp/timezone database semantics, locale/collation,
+property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
+than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
+deterministic invalid-shape diagnostic because row-value left operands are required. Non-UTC
+timestamp/timezone database semantics, locale/collation,
 variant/union dtype families, list/struct accessors, complex equality, broad
-binary source dtype decoding, binary ordering, scalar-left multi-column subqueries, and remaining
-non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics with no
+binary source dtype decoding, binary ordering, and remaining non-admitted broad ANSI subquery
+shapes now have deterministic unsupported diagnostics with no
 fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
 executable through the JSONL result boundary only; nested source decoding, complex equality,
 subquery membership materialization, and flat/structured sink persistence remain outside the claim
