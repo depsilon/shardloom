@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG
+  - Date: 2026-06-02
+  - Branch/PR: `codex/shared-fanout-conversion-dag` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG`.
+    - User direction that ShardLoom rows should use the real engine/runtime path, avoid artificial
+      piecemeal output helpers, and make local laptop-safe output/fanout routes runtime-ready
+      before later benchmark reruns.
+  - Scope:
+    - Added `SqlPreparedOutputDag` and `SqlFanoutConversionDagEvidence` for scoped local SQL/Python
+      output/fanout routes.
+    - Replaced independent per-sink schema/row normalization with a shared conversion stage that
+      builds normalized columns/rows once where safe, then feeds terminal CSV/JSONL,
+      feature-gated Parquet/Arrow IPC/Avro/ORC, and feature-gated Vortex writer paths.
+    - Changed local Vortex output writes to consume the shared normalized columns/rows from the DAG
+      instead of rebuilding row state during the writer call.
+    - Added deterministic incompatible-materialization admission for complex JSONL plus flat-sink
+      fanout so mixed logical nested JSON and flat-scalar sink materialization blocks before any
+      partial fanout writes.
+    - Added `fanout_conversion_dag_status`, `fanout_shared_stage_count`,
+      `fanout_terminal_sink_count`, `fanout_shared_conversion_millis`,
+      `fanout_terminal_conversion_millis`, and `fanout_duplicate_conversion_avoided` to CLI JSON,
+      Python client/session accessors, benchmark contracts, OutputPlan/fanout matrices, and
+      smoke/contract tests.
+    - Updated the active phase plan to advance 6F to output capillary scheduling, and updated the
+      README, compute-flow reference, I/O reuse architecture, website compute-flow snapshots, and
+      generated use-case docs to describe shared fanout conversion without making performance or
+      production claims.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/src/shardloom/session.py python/tests/test_cli_client.py` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and
+      2 skipped.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `docs/architecture/compute-engine-flow-reference.md` matched both checked-in website compute-flow snapshots.
+  - Claim boundary:
+    - This closes scoped local shared fanout conversion for admitted local SQL/Python output/fanout
+      routes only. It does not authorize output capillary scheduling, output layout/write advisor
+      decisions, object-store/table commits, production sink support, broad nested-schema output
+      fidelity, benchmark speedup/performance claims, package release, broad SQL/DataFrame support,
+      or Spark replacement.
+  - Fallback boundary:
+    - Compatibility export remains translation, never fallback execution. No
+      Spark/DataFusion/DuckDB/Polars/Velox or Vortex query-engine integration was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements
   - Date: 2026-06-02
   - Branch/PR: `codex/output-plan-materialization-requirements` / pending PR.

@@ -426,6 +426,42 @@ class SessionSqlResult:
         return self.report.output_plan_replay_depth
 
     @property
+    def fanout_conversion_dag_status(self) -> str | None:
+        """Return the shared fanout conversion DAG status."""
+
+        return self.report.fanout_conversion_dag_status
+
+    @property
+    def fanout_shared_stage_count(self) -> int | None:
+        """Return the number of shared conversion DAG stages."""
+
+        return self.report.fanout_shared_stage_count
+
+    @property
+    def fanout_terminal_sink_count(self) -> int | None:
+        """Return the number of terminal sinks in the conversion DAG."""
+
+        return self.report.fanout_terminal_sink_count
+
+    @property
+    def fanout_shared_conversion_millis(self) -> int | None:
+        """Return shared fanout conversion time in milliseconds."""
+
+        return self.report.fanout_shared_conversion_millis
+
+    @property
+    def fanout_terminal_conversion_millis(self) -> int | None:
+        """Return terminal sink conversion time in milliseconds."""
+
+        return self.report.fanout_terminal_conversion_millis
+
+    @property
+    def fanout_duplicate_conversion_avoided(self) -> bool:
+        """Whether the shared DAG avoided duplicate conversion work."""
+
+        return self.report.fanout_duplicate_conversion_avoided
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate SQL output conversion time in milliseconds."""
 
@@ -549,6 +585,12 @@ class SessionSqlResult:
                 self.output_plan_compression_encoding_posture
             ),
             "output_plan_replay_depth": self.output_plan_replay_depth,
+            "fanout_conversion_dag_status": self.fanout_conversion_dag_status,
+            "fanout_shared_stage_count": self.fanout_shared_stage_count,
+            "fanout_terminal_sink_count": self.fanout_terminal_sink_count,
+            "fanout_shared_conversion_millis": self.fanout_shared_conversion_millis,
+            "fanout_terminal_conversion_millis": self.fanout_terminal_conversion_millis,
+            "fanout_duplicate_conversion_avoided": self.fanout_duplicate_conversion_avoided,
             "output_conversion_millis": self.output_conversion_millis,
             "sink_artifact_conversion_millis": self.sink_artifact_conversion_millis,
             "fanout_output_conversion_millis": self.fanout_output_conversion_millis,

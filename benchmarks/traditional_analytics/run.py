@@ -249,6 +249,12 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "output_plan_statistics_required",
     "output_plan_text_materialization_boundary",
     "output_plan_conversion_blocker",
+    "fanout_conversion_dag_status",
+    "fanout_shared_stage_count",
+    "fanout_terminal_sink_count",
+    "fanout_shared_conversion_millis",
+    "fanout_terminal_conversion_millis",
+    "fanout_duplicate_conversion_avoided",
     "vortex_native_claim_allowed",
     "compatibility_import_included",
     "vortex_prepare_included",
@@ -996,6 +1002,12 @@ OUTPUT_PLAN_CONTRACT_FIELDS = (
     "output_plan_reuse_hit",
     "output_plan_reuse_reason",
     "output_plan_millis",
+    "fanout_conversion_dag_status",
+    "fanout_shared_stage_count",
+    "fanout_terminal_sink_count",
+    "fanout_shared_conversion_millis",
+    "fanout_terminal_conversion_millis",
+    "fanout_duplicate_conversion_avoided",
     "output_conversion_millis",
     "output_write_millis",
     "sink_artifact_conversion_millis",
@@ -1040,6 +1052,12 @@ FANOUT_BENCHMARK_FIELDS = (
     "output_plan_required_columns",
     "output_plan_text_materialization_boundary",
     "output_plan_conversion_blocker",
+    "fanout_conversion_dag_status",
+    "fanout_shared_stage_count",
+    "fanout_terminal_sink_count",
+    "fanout_shared_conversion_millis",
+    "fanout_terminal_conversion_millis",
+    "fanout_duplicate_conversion_avoided",
     "output_conversion_millis",
     "output_write_millis",
     "fanout_output_conversion_millis",
@@ -10380,6 +10398,53 @@ def output_plan_contract_metadata(
         "output_plan_replay_depth",
         "write_digest_replay" if output_written else "not_applicable",
     )
+    fanout_conversion_dag_status = output_plan_value(
+        "fanout_conversion_dag_status",
+        "single_sink_conversion_dag_available" if output_written else "not_applicable",
+    )
+    fanout_shared_stage_count = (
+        None
+        if not output_written
+        else parse_optional_float(
+            first_meaningful_field(
+                evidence.get("fanout_shared_stage_count"),
+                metrics.get("fanout_shared_stage_count"),
+                "0",
+            )
+        )
+    )
+    fanout_terminal_sink_count = (
+        None
+        if not output_written
+        else parse_optional_float(
+            first_meaningful_field(
+                evidence.get("fanout_terminal_sink_count"),
+                metrics.get("fanout_terminal_sink_count"),
+                "1",
+            )
+        )
+    )
+    fanout_shared_conversion_millis = parse_optional_float(
+        first_meaningful_field(
+            evidence.get("fanout_shared_conversion_millis"),
+            metrics.get("fanout_shared_conversion_millis"),
+            None,
+        )
+    )
+    fanout_terminal_conversion_millis = parse_optional_float(
+        first_meaningful_field(
+            evidence.get("fanout_terminal_conversion_millis"),
+            metrics.get("fanout_terminal_conversion_millis"),
+            None,
+        )
+    )
+    fanout_duplicate_conversion_avoided = parse_optional_bool(
+        first_meaningful_field(
+            evidence.get("fanout_duplicate_conversion_avoided"),
+            metrics.get("fanout_duplicate_conversion_avoided"),
+            False,
+        )
+    ) is True
     return {
         "output_plan_contract_schema_version": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
         "output_plan_status_vocabulary": ",".join(
@@ -10423,6 +10488,12 @@ def output_plan_contract_metadata(
             engine, status, output_plan_status, output_written, output_plan_reuse_hit
         ),
         "output_plan_millis": None,
+        "fanout_conversion_dag_status": fanout_conversion_dag_status,
+        "fanout_shared_stage_count": fanout_shared_stage_count,
+        "fanout_terminal_sink_count": fanout_terminal_sink_count,
+        "fanout_shared_conversion_millis": fanout_shared_conversion_millis,
+        "fanout_terminal_conversion_millis": fanout_terminal_conversion_millis,
+        "fanout_duplicate_conversion_avoided": fanout_duplicate_conversion_avoided,
         "output_conversion_millis": metrics.get("output_conversion_millis"),
         "output_write_millis": metrics.get("result_sink_write_millis"),
         "sink_artifact_conversion_millis": evidence.get(
@@ -15803,6 +15874,20 @@ def output_plan_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "output_plan_reuse_hit": metrics.get("output_plan_reuse_hit"),
                 "output_plan_reuse_reason": metrics.get("output_plan_reuse_reason"),
                 "output_plan_millis": metrics.get("output_plan_millis"),
+                "fanout_conversion_dag_status": metrics.get(
+                    "fanout_conversion_dag_status"
+                ),
+                "fanout_shared_stage_count": metrics.get("fanout_shared_stage_count"),
+                "fanout_terminal_sink_count": metrics.get("fanout_terminal_sink_count"),
+                "fanout_shared_conversion_millis": metrics.get(
+                    "fanout_shared_conversion_millis"
+                ),
+                "fanout_terminal_conversion_millis": metrics.get(
+                    "fanout_terminal_conversion_millis"
+                ),
+                "fanout_duplicate_conversion_avoided": metrics.get(
+                    "fanout_duplicate_conversion_avoided"
+                ),
                 "output_conversion_millis": metrics.get("output_conversion_millis"),
                 "output_write_millis": metrics.get("output_write_millis"),
                 "sink_artifact_conversion_millis": metrics.get(
@@ -15873,6 +15958,12 @@ def fanout_benchmark_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any
                 "output_plan_required_columns": "report_only",
                 "output_plan_text_materialization_boundary": "report_only",
                 "output_plan_conversion_blocker": case["blocker_id"],
+                "fanout_conversion_dag_status": "report_only",
+                "fanout_shared_stage_count": 0,
+                "fanout_terminal_sink_count": 0,
+                "fanout_shared_conversion_millis": None,
+                "fanout_terminal_conversion_millis": None,
+                "fanout_duplicate_conversion_avoided": False,
                 "output_conversion_millis": None,
                 "output_write_millis": None,
                 "fanout_output_conversion_millis": None,
@@ -16301,6 +16392,30 @@ def execution_mode_metadata(
             else "see_output_plan_contract"
         )
     )
+    fanout_conversion_dag_status = str(
+        evidence.get("fanout_conversion_dag_status")
+        or (
+            "external_baseline_only"
+            if selected == "external_baseline_only"
+            else "not_reported"
+        )
+    )
+    fanout_shared_stage_count = parse_optional_float(
+        evidence.get("fanout_shared_stage_count")
+    )
+    fanout_terminal_sink_count = parse_optional_float(
+        evidence.get("fanout_terminal_sink_count")
+    )
+    fanout_shared_conversion_millis = parse_optional_float(
+        evidence.get("fanout_shared_conversion_millis")
+    )
+    fanout_terminal_conversion_millis = parse_optional_float(
+        evidence.get("fanout_terminal_conversion_millis")
+    )
+    fanout_duplicate_conversion_avoided = (
+        parse_optional_bool(evidence.get("fanout_duplicate_conversion_avoided"))
+        is True
+    )
     return {
         "requested_execution_mode": requested,
         "selected_execution_mode": selected,
@@ -16348,6 +16463,12 @@ def execution_mode_metadata(
             output_plan_text_materialization_boundary
         ),
         "output_plan_conversion_blocker": output_plan_conversion_blocker,
+        "fanout_conversion_dag_status": fanout_conversion_dag_status,
+        "fanout_shared_stage_count": fanout_shared_stage_count,
+        "fanout_terminal_sink_count": fanout_terminal_sink_count,
+        "fanout_shared_conversion_millis": fanout_shared_conversion_millis,
+        "fanout_terminal_conversion_millis": fanout_terminal_conversion_millis,
+        "fanout_duplicate_conversion_avoided": fanout_duplicate_conversion_avoided,
         "vortex_native_claim_allowed": vortex_native_claim_allowed,
         "compatibility_import_included": compatibility_import_included,
         "vortex_prepare_included": vortex_prepare_included,
@@ -22146,6 +22267,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_reuse_hit"]),
                 str(row["output_plan_reuse_reason"]).replace("|", "\\|"),
                 format_metric(row["output_plan_millis"], " ms"),
+                str(row["fanout_conversion_dag_status"]),
+                format_metric(row["fanout_shared_stage_count"], ""),
+                format_metric(row["fanout_terminal_sink_count"], ""),
+                format_metric(row["fanout_shared_conversion_millis"], " ms"),
+                format_metric(row["fanout_terminal_conversion_millis"], " ms"),
+                str(row["fanout_duplicate_conversion_avoided"]),
                 format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
                 str(row["sink_artifact_conversion_millis"]),
@@ -22187,6 +22314,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
                 "false",
                 "no OutputPlan rows were emitted",
                 "n/a",
+                "none",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "false",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -22227,6 +22360,12 @@ def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
             "Reuse hit",
             "Reuse reason",
             "Output plan",
+            "Fanout DAG",
+            "Shared stages",
+            "Terminal sinks",
+            "Shared conversion",
+            "Terminal conversion",
+            "Duplicate conversion avoided",
             "Output conversion",
             "Output write",
             "Sink conversion",
@@ -22266,6 +22405,12 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
                 str(row["output_plan_required_columns"]),
                 str(row["output_plan_text_materialization_boundary"]),
                 str(row["output_plan_conversion_blocker"]),
+                str(row["fanout_conversion_dag_status"]),
+                format_metric(row["fanout_shared_stage_count"], ""),
+                format_metric(row["fanout_terminal_sink_count"], ""),
+                format_metric(row["fanout_shared_conversion_millis"], " ms"),
+                format_metric(row["fanout_terminal_conversion_millis"], " ms"),
+                str(row["fanout_duplicate_conversion_avoided"]),
                 format_metric(row["output_conversion_millis"], " ms"),
                 format_metric(row["output_write_millis"], " ms"),
                 format_metric(row["fanout_output_conversion_millis"], " ms"),
@@ -22301,6 +22446,12 @@ def render_fanout_benchmark_matrix(artifact: dict[str, Any]) -> str:
             "Required columns",
             "Text boundary",
             "Conversion blocker",
+            "Fanout DAG",
+            "Shared stages",
+            "Terminal sinks",
+            "Shared conversion",
+            "Terminal conversion",
+            "Duplicate conversion avoided",
             "Output conversion",
             "Output write",
             "Fanout conversion",

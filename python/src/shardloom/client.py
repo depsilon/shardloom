@@ -4487,6 +4487,42 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("output_plan_replay_depth")
 
     @property
+    def fanout_conversion_dag_status(self) -> str | None:
+        """Return the shared fanout conversion DAG status."""
+
+        return self.envelope.field("fanout_conversion_dag_status")
+
+    @property
+    def fanout_shared_stage_count(self) -> int | None:
+        """Return the number of shared conversion DAG stages."""
+
+        return self.envelope.field_int("fanout_shared_stage_count")
+
+    @property
+    def fanout_terminal_sink_count(self) -> int | None:
+        """Return the number of terminal sinks in the conversion DAG."""
+
+        return self.envelope.field_int("fanout_terminal_sink_count")
+
+    @property
+    def fanout_shared_conversion_millis(self) -> int | None:
+        """Return shared fanout conversion time in milliseconds."""
+
+        return self.envelope.field_int("fanout_shared_conversion_millis")
+
+    @property
+    def fanout_terminal_conversion_millis(self) -> int | None:
+        """Return terminal sink conversion time in milliseconds."""
+
+        return self.envelope.field_int("fanout_terminal_conversion_millis")
+
+    @property
+    def fanout_duplicate_conversion_avoided(self) -> bool:
+        """Whether the shared DAG avoided duplicate conversion work."""
+
+        return self.envelope.field_bool("fanout_duplicate_conversion_avoided", False) is True
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate local output conversion time in milliseconds."""
 

@@ -4605,6 +4605,15 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
         "output_plan_conversion_blocker",
         "jsonl:none,csv:none"
     )));
+    assert!(stdout.contains(&field(
+        "fanout_conversion_dag_status",
+        "shared_fanout_conversion_dag_applied"
+    )));
+    assert!(stdout.contains(&field("fanout_shared_stage_count", "3")));
+    assert!(stdout.contains(&field("fanout_terminal_sink_count", "2")));
+    assert!(stdout.contains("\"fanout_shared_conversion_millis\",\"value\":\""));
+    assert!(stdout.contains("\"fanout_terminal_conversion_millis\",\"value\":\""));
+    assert!(stdout.contains(&field("fanout_duplicate_conversion_avoided", "true")));
     assert!(stdout.contains("\"output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("\"sink_artifact_conversion_millis\",\"value\":\"jsonl:"));
     assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
@@ -4669,6 +4678,50 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(jsonl_output_path).expect("remove jsonl fanout");
     fs::remove_file(csv_output_path).expect("remove csv fanout");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_incompatible_complex_fanout_without_partial_writes() {
+    let source_path = unique_path("sql-local-source-complex-fanout-blocked", "csv");
+    let jsonl_output_path = unique_path("sql-local-source-complex-fanout-blocked", "jsonl");
+    let csv_output_path = unique_path("sql-local-source-complex-fanout-blocked", "csv");
+    fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,ARRAY[1,2,NULL] AS values FROM '{}' LIMIT 1",
+        source_path.display()
+    );
+    let jsonl_target = format!("jsonl={}", jsonl_output_path.display());
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &jsonl_target,
+            "--fanout-output",
+            &csv_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("fanout_conversion_dag_status=blocked_incompatible_materialization"));
+    assert!(stdout.contains("no partial fanout writes or fallback execution were attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!jsonl_output_path.exists());
+    assert!(!csv_output_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -5000,6 +5053,13 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
         "output_plan_conversion_blocker",
         "csv:none,vortex:none"
     )));
+    assert!(stdout.contains(&field(
+        "fanout_conversion_dag_status",
+        "shared_fanout_conversion_dag_applied"
+    )));
+    assert!(stdout.contains(&field("fanout_shared_stage_count", "3")));
+    assert!(stdout.contains(&field("fanout_terminal_sink_count", "2")));
+    assert!(stdout.contains(&field("fanout_duplicate_conversion_avoided", "true")));
     assert!(stdout.contains("csv:sql-local-source.csv.local-csv-output.native-io.v1"));
     assert!(stdout.contains("vortex:sql-local-source.local-vortex-output.native-io.v1"));
     assert!(stdout.contains("vortex:certified_local_vortex_sink"));
@@ -5184,6 +5244,13 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
         "output_plan_conversion_blocker",
         "parquet:none,arrow_ipc:none"
     )));
+    assert!(stdout.contains(&field(
+        "fanout_conversion_dag_status",
+        "shared_fanout_conversion_dag_applied"
+    )));
+    assert!(stdout.contains(&field("fanout_shared_stage_count", "3")));
+    assert!(stdout.contains(&field("fanout_terminal_sink_count", "2")));
+    assert!(stdout.contains(&field("fanout_duplicate_conversion_avoided", "true")));
     assert!(stdout.contains("\"fanout_output_conversion_millis\",\"value\":\""));
     assert!(stdout.contains("parquet:sql-local-source.local-parquet-output.native-io.v1"));
     assert!(stdout.contains("arrow_ipc:sql-local-source.local-arrow-ipc-output.native-io.v1"));

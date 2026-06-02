@@ -184,13 +184,13 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements
+Updated after the GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG
 closeout.
 
 1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
    evidence.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is active
-   through `GAR-RUNTIME-IMPL-6F-3` shared fanout conversion DAG.
+   through `GAR-RUNTIME-IMPL-6F-4` output capillary scheduling with PulseWeave admission.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
    implementable slices.
@@ -320,8 +320,12 @@ benchmark contract fields, and per-sink conversion timing for admitted local SQL
 routes. `GAR-RUNTIME-IMPL-6F-2` added sink-driven OutputPlan requirements before conversion begins:
 requested sinks now declare materialization, required columns, ordering/statistics needs,
 type/nullability support, dictionary/compression/encoding posture, replay depth, text boundaries,
-and deterministic conversion blockers. The next bottleneck is the shared conversion DAG, because
-multi-output fanout can still perform independent terminal conversion work per sink.
+and deterministic conversion blockers. `GAR-RUNTIME-IMPL-6F-3` added a scoped shared fanout
+conversion DAG: local output/fanout routes normalize result schema/rows once, then feed terminal
+encoders and Vortex writers from that shared state while reporting shared-stage, terminal-sink,
+conversion-timing, and duplicate-conversion-avoidance evidence. The next bottleneck is output
+capillary scheduling, because large or multi-sink output conversion/write/replay stages are not yet
+first-class scheduled capillary tasks.
 
 Runtime enablement: this section promotes the output side of the route:
 
@@ -341,40 +345,6 @@ optimization-enabling runtime work, not public speed claims.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6F-3 shared fanout conversion DAG.
-  Source: fanout architecture, output-conversion bottleneck review, and translation-layer skill.
-  Current state: multi-output fanout can write several local sink artifacts, but each sink can
-  still trigger independent conversion/rendering work.
-  Next slice outcome: replace per-output independent rendering with a shared conversion DAG: one
-  result state, one schema/type normalization pass, one optional cast/nullability pass, then
-  format-specific terminal encoders.
-  Runtime enablement: `prepared_vortex` or local result routes can write Vortex + Parquet + Arrow
-  IPC + CSV/JSONL fanout while sharing all conversion stages that are semantically identical.
-  User-visible surface: `fanout_conversion_dag_status`, `fanout_shared_stage_count`,
-  `fanout_terminal_sink_count`, `fanout_shared_conversion_millis`,
-  `fanout_terminal_conversion_millis`, and `fanout_duplicate_conversion_avoided`.
-  Implementation scope: `prepare_sql_outputs`, `write_sql_outputs`, format encoders, sink artifact
-  evidence, benchmark fanout rows, Python fanout result envelopes.
-  Evidence required: fanout fixture proving shared stages are used; digest parity with old
-  per-sink rendering; one blocked fixture where sinks require incompatible materialization.
-  Acceptance: repeated schema/scalar normalization is done once per fanout plan where safe;
-  terminal sinks still emit separate artifacts, digests, replay statuses, and certificate
-  statuses.
-  Verification:
-  ```bash
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io fanout
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  python3 -m unittest python/tests/test_cli_client.py
-  git diff --check
-  ```
-  Non-goals: no remote fanout, no table/lakehouse commits, no hidden sink batching that changes
-  output semantics.
-  Dependencies/blockers: depends on shared result boundary, sink-driven OutputPlan requirements,
-  terminal encoder parity tests, per-sink artifact/digest/replay evidence, and compatibility
-  blockers for sinks that require incompatible materialization.
-  Claim boundary: may claim scoped local shared fanout conversion, not benchmark speedup.
-  Fallback boundary: no DuckDB/Polars/Spark/DataFusion/Velox or Vortex query-engine integration.
-  Ledger rule: move completed details to the completed ledger.
 - [ ] GAR-RUNTIME-IMPL-6F-4 output capillary scheduling with PulseWeave admission.
   Source: `docs/architecture/pulseweave-runtime-control.md`, capillary I/O work, and output fanout
   bottleneck review.

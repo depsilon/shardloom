@@ -79,8 +79,9 @@ Current runtime support is intentionally scoped and evidence-gated:
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
-  feature-gated local Vortex sinks with sink-driven OutputPlan materialization/blocker evidence
-  plus local replay/fidelity evidence;
+  feature-gated local Vortex sinks with ResultBatchState, sink-driven OutputPlan
+  materialization/blocker evidence, shared fanout conversion DAG evidence, and local
+  replay/fidelity evidence;
 - fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
   reads, and local-emulator read/write smokes with credential, network, and provider probes
   disabled;
