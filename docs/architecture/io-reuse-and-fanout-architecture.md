@@ -380,7 +380,31 @@ and correctness/evidence requirements.
 
 `OutputPlan` is output-side planning that is decoupled from input format. It owns sink target kind,
 schema mapping, metadata preservation/degradation report, required materialization, layout/write
-strategy, replay policy, and unsupported diagnostics.
+strategy, replay policy, and unsupported diagnostics. Scoped local SQL output/fanout routes now
+build sink requirements before terminal conversion, so unsupported sink/schema/feature-gate cases
+block before payload rendering or partial fanout writes.
+
+Implemented `GAR-RUNTIME-IMPL-6F-2` local SQL/Python runtime fields:
+
+```text
+output_plan_materialization_required
+output_plan_required_columns
+output_plan_ordering_required
+output_plan_statistics_required
+output_plan_text_materialization_boundary
+output_plan_conversion_blocker
+output_plan_type_nullability_support
+output_plan_dictionary_required
+output_plan_compression_encoding_posture
+output_plan_replay_depth
+```
+
+CSV and JSONL declare terminal text encoders. Parquet, Arrow IPC, Avro, ORC, and Vortex declare
+non-text requested-sink boundaries for admitted flat-scalar rows, with current row-bridge or Vortex
+writer bridge requirements reported explicitly. Complex values and typed decimal preservation block
+deterministically for sinks that cannot preserve them; feature-gated sinks also block during
+OutputPlan admission when the required feature is absent. This is deterministic local sink planning,
+not a shared conversion DAG or performance claim.
 
 ### ResultBatchState
 
@@ -445,6 +469,16 @@ output_write_mode
 output_plan_reuse_allowed
 output_metadata_preservation_status
 output_materialization_required
+output_plan_materialization_required
+output_plan_required_columns
+output_plan_ordering_required
+output_plan_statistics_required
+output_plan_text_materialization_boundary
+output_plan_conversion_blocker
+output_plan_type_nullability_support
+output_plan_dictionary_required
+output_plan_compression_encoding_posture
+output_plan_replay_depth
 output_plan_reuse_hit
 output_plan_reuse_reason
 output_plan_millis

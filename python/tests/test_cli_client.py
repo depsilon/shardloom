@@ -3868,6 +3868,16 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "result_batch_state_materialization_required", "value": "terminal_text_materialization_required"}},
                             {{"key": "result_batch_state_decode_required", "value": "false"}},
                             {{"key": "result_batch_state_build_millis", "value": "1"}},
+                            {{"key": "output_plan_materialization_required", "value": "jsonl:terminal_text_materialization_required,csv:terminal_text_materialization_required"}},
+                            {{"key": "output_plan_required_columns", "value": "id,count"}},
+                            {{"key": "output_plan_ordering_required", "value": "jsonl:false,csv:false"}},
+                            {{"key": "output_plan_statistics_required", "value": "jsonl:not_required_for_text_sink,csv:not_required_for_text_sink"}},
+                            {{"key": "output_plan_text_materialization_boundary", "value": "jsonl:jsonl_terminal_encoder,csv:csv_terminal_encoder"}},
+                            {{"key": "output_plan_conversion_blocker", "value": "jsonl:none,csv:none"}},
+                            {{"key": "output_plan_type_nullability_support", "value": "jsonl:logical_values_including_nested_json_boundary,csv:flat_scalar_text_values_null_as_empty_boundary"}},
+                            {{"key": "output_plan_dictionary_required", "value": "jsonl:not_applicable_text_sink,csv:not_applicable_text_sink"}},
+                            {{"key": "output_plan_compression_encoding_posture", "value": "jsonl:jsonl_uncompressed_text_terminal_encoder,csv:csv_uncompressed_text_terminal_encoder"}},
+                            {{"key": "output_plan_replay_depth", "value": "jsonl:write_digest_replay,csv:write_digest_replay"}},
                             {{"key": "output_conversion_millis", "value": "4"}},
                             {{"key": "sink_artifact_conversion_millis", "value": "jsonl:2,csv:2"}},
                             {{"key": "fanout_output_conversion_millis", "value": "4"}},
@@ -3921,6 +3931,40 @@ class ShardLoomClientTests(unittest.TestCase):
                 "terminal_text_materialization_required",
             )
             self.assertFalse(second.result_batch_state_decode_required)
+            self.assertEqual(
+                second.output_plan_materialization_required,
+                "jsonl:terminal_text_materialization_required,csv:terminal_text_materialization_required",
+            )
+            self.assertEqual(second.output_plan_required_columns, ("id", "count"))
+            self.assertEqual(
+                second.output_plan_ordering_required,
+                "jsonl:false,csv:false",
+            )
+            self.assertEqual(
+                second.output_plan_statistics_required,
+                "jsonl:not_required_for_text_sink,csv:not_required_for_text_sink",
+            )
+            self.assertEqual(
+                second.output_plan_text_materialization_boundary,
+                "jsonl:jsonl_terminal_encoder,csv:csv_terminal_encoder",
+            )
+            self.assertEqual(second.output_plan_conversion_blocker, "jsonl:none,csv:none")
+            self.assertEqual(
+                second.output_plan_type_nullability_support,
+                "jsonl:logical_values_including_nested_json_boundary,csv:flat_scalar_text_values_null_as_empty_boundary",
+            )
+            self.assertEqual(
+                second.output_plan_dictionary_required,
+                "jsonl:not_applicable_text_sink,csv:not_applicable_text_sink",
+            )
+            self.assertEqual(
+                second.output_plan_compression_encoding_posture,
+                "jsonl:jsonl_uncompressed_text_terminal_encoder,csv:csv_uncompressed_text_terminal_encoder",
+            )
+            self.assertEqual(
+                second.output_plan_replay_depth,
+                "jsonl:write_digest_replay,csv:write_digest_replay",
+            )
             self.assertEqual(second.output_conversion_millis, 4)
             self.assertEqual(second.sink_artifact_conversion_millis, "jsonl:2,csv:2")
             self.assertEqual(second.fanout_output_conversion_millis, 4)
@@ -3946,6 +3990,14 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             self.assertEqual(
                 third_evidence["result_batch_state_digest"], "fnv64:result-batch-2"
+            )
+            self.assertEqual(
+                third_evidence["output_plan_text_materialization_boundary"],
+                "jsonl:jsonl_terminal_encoder,csv:csv_terminal_encoder",
+            )
+            self.assertEqual(
+                third_evidence["output_plan_conversion_blocker"],
+                "jsonl:none,csv:none",
             )
             self.assertEqual(third_evidence["output_conversion_millis"], 4)
 

@@ -79,7 +79,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
-  feature-gated local Vortex sinks with local replay/fidelity evidence;
+  feature-gated local Vortex sinks with sink-driven OutputPlan materialization/blocker evidence
+  plus local replay/fidelity evidence;
 - fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
   reads, and local-emulator read/write smokes with credential, network, and provider probes
   disabled;
@@ -179,7 +180,9 @@ The Python and SQL front doors stay format-neutral after the read/ingest boundar
 infers the local source adapter from the file extension; explicit helpers such as `read_csv(...)`
 remain aliases for code that wants them. A caller writes to a requested sink and lets ShardLoom
 manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, certificates, and
-no-fallback evidence internally.
+no-fallback evidence internally. OutputPlan evidence declares requested sink columns,
+materialization/text boundaries, statistics needs, replay depth, and deterministic conversion
+blockers before terminal conversion begins.
 
 When a single local source should be prepared and reused before later work, the lazy source can enter
 the same `vortex-ingest-smoke` runtime path without dropping to the low-level client:

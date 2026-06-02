@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements
+  - Date: 2026-06-02
+  - Branch/PR: `codex/output-plan-materialization-requirements` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6F-2 sink-driven OutputPlan materialization requirements`.
+    - User direction that ShardLoom output/fanout rows should use real runtime routes, avoid
+      artificial piecemeal evidence, and make route readiness easy for users and agents to inspect.
+  - Scope:
+    - Added `SqlOutputPlanRequirements` and per-sink `SqlOutputPlanSinkRequirement` planning for
+      local SQL output/fanout routes before terminal conversion begins.
+    - Each requested local sink now declares required result columns, materialization requirement,
+      ordering/statistics posture, type/nullability support, dictionary requirement,
+      compression/encoding posture, text-materialization boundary, replay depth, and deterministic
+      conversion blocker.
+    - Moved feature-gated Vortex and universal-format sink target admission into OutputPlan
+      planning, so unsupported feature/path/schema cases block before conversion and before partial
+      fanout writes.
+    - Avoided redundant inline output rendering for file-sink routes; inline rendering remains only
+      for inline results while sink routes prepare only requested sink payloads.
+    - Added `output_plan_materialization_required`, `output_plan_required_columns`,
+      `output_plan_ordering_required`, `output_plan_statistics_required`,
+      `output_plan_text_materialization_boundary`, `output_plan_conversion_blocker`, and companion
+      type/dictionary/encoding/replay fields to CLI JSON, Python client/session accessors,
+      benchmark contracts, and smoke/contract tests.
+    - Updated active architecture and use-case docs so 6F-3 shared fanout conversion DAG is the next
+      live output/fanout item.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/src/shardloom/session.py python/tests/test_cli_client.py` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io sql_local_source --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io complex_projection_blocks_flat_scalar_sinks_without_fallback -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli blocks_vortex --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli blocks_feature_gated_fanout --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and
+      2 skipped.
+    - `git diff --check` passed.
+    - `docs/architecture/compute-engine-flow-reference.md` matched both checked-in website compute-flow snapshots.
+  - Claim boundary:
+    - This closes deterministic local sink materialization planning for admitted scoped local SQL
+      output/fanout routes only. It does not authorize shared fanout conversion DAG claims, output
+      capillary scheduling, output layout/write advisor decisions, object-store/table commits,
+      production sink support, broad nested-schema output fidelity, performance claims, package
+      release, broad SQL/DataFrame support, or Spark replacement.
+  - Fallback boundary:
+    - Compatibility export remains translation, never fallback execution. No
+      Spark/DataFusion/DuckDB/Polars/Velox or Vortex query-engine integration was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6F-1 ResultBatchState columnar output boundary
   - Date: 2026-06-02
   - Branch/PR: `codex/output-fanout-performance-promotion` / pending PR.

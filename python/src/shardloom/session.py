@@ -366,6 +366,66 @@ class SessionSqlResult:
         return self.report.result_batch_state_decode_required
 
     @property
+    def output_plan_materialization_required(self) -> str | None:
+        """Return the sink-driven OutputPlan materialization requirement."""
+
+        return self.report.output_plan_materialization_required
+
+    @property
+    def output_plan_required_columns(self) -> tuple[str, ...]:
+        """Return result columns required by requested local sinks."""
+
+        return self.report.output_plan_required_columns
+
+    @property
+    def output_plan_ordering_required(self) -> str | None:
+        """Return whether requested sinks require ordering."""
+
+        return self.report.output_plan_ordering_required
+
+    @property
+    def output_plan_statistics_required(self) -> str | None:
+        """Return sink statistics/replay requirements."""
+
+        return self.report.output_plan_statistics_required
+
+    @property
+    def output_plan_text_materialization_boundary(self) -> str | None:
+        """Return the terminal text-materialization boundary, when any."""
+
+        return self.report.output_plan_text_materialization_boundary
+
+    @property
+    def output_plan_conversion_blocker(self) -> str | None:
+        """Return the deterministic OutputPlan conversion blocker, if any."""
+
+        return self.report.output_plan_conversion_blocker
+
+    @property
+    def output_plan_type_nullability_support(self) -> str | None:
+        """Return sink type/nullability support posture."""
+
+        return self.report.output_plan_type_nullability_support
+
+    @property
+    def output_plan_dictionary_required(self) -> str | None:
+        """Return sink dictionary requirement posture."""
+
+        return self.report.output_plan_dictionary_required
+
+    @property
+    def output_plan_compression_encoding_posture(self) -> str | None:
+        """Return sink compression/encoding posture."""
+
+        return self.report.output_plan_compression_encoding_posture
+
+    @property
+    def output_plan_replay_depth(self) -> str | None:
+        """Return sink replay depth required by the OutputPlan."""
+
+        return self.report.output_plan_replay_depth
+
+    @property
     def output_conversion_millis(self) -> int | None:
         """Return aggregate SQL output conversion time in milliseconds."""
 
@@ -471,6 +531,24 @@ class SessionSqlResult:
                 self.result_batch_state_materialization_required
             ),
             "result_batch_state_decode_required": self.result_batch_state_decode_required,
+            "output_plan_materialization_required": (
+                self.output_plan_materialization_required
+            ),
+            "output_plan_required_columns": self.output_plan_required_columns,
+            "output_plan_ordering_required": self.output_plan_ordering_required,
+            "output_plan_statistics_required": self.output_plan_statistics_required,
+            "output_plan_text_materialization_boundary": (
+                self.output_plan_text_materialization_boundary
+            ),
+            "output_plan_conversion_blocker": self.output_plan_conversion_blocker,
+            "output_plan_type_nullability_support": (
+                self.output_plan_type_nullability_support
+            ),
+            "output_plan_dictionary_required": self.output_plan_dictionary_required,
+            "output_plan_compression_encoding_posture": (
+                self.output_plan_compression_encoding_posture
+            ),
+            "output_plan_replay_depth": self.output_plan_replay_depth,
             "output_conversion_millis": self.output_conversion_millis,
             "sink_artifact_conversion_millis": self.sink_artifact_conversion_millis,
             "fanout_output_conversion_millis": self.fanout_output_conversion_millis,

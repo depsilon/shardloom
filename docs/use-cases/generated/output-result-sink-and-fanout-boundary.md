@@ -50,6 +50,12 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `output_format`
 - `output_plan_id`
 - `output_plan_digest`
+- `output_plan_materialization_required`
+- `output_plan_required_columns`
+- `output_plan_ordering_required`
+- `output_plan_statistics_required`
+- `output_plan_text_materialization_boundary`
+- `output_plan_conversion_blocker`
 - `output_fanout_performed`
 - `fanout_output_count`
 - `fanout_output_formats`
@@ -82,7 +88,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A local result-sink or fanout proof artifact with shared ResultBatchState identity/layout/materialization evidence, per-output conversion timing, per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
+A local result-sink or fanout proof artifact with shared ResultBatchState identity/layout/materialization evidence, sink-driven OutputPlan materialization/required-column/statistics/text-boundary/blocker evidence, per-output conversion timing, per-output digest/certificate fields plus result_replay_verified, output_replay_status, output_fidelity_report_status, output_fidelity_loss, and fanout replay/fidelity status lists for admitted local sinks; Vortex rows include artifact digest and upstream writer/reopen proof when built with --features vortex-write. Python session reuse adds session_id, output_plan_reuse_hit, result_replay_reuse_hit, and reuse_reason; session-cache-smoke adds scoped OutputPlan reuse, invalidation, close, and cleanup evidence. Claim-grade/broad replay remains gated to later OutputPlan slices.
 
 ## Common Mistakes
 
