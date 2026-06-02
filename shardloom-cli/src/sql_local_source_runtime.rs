@@ -26135,7 +26135,7 @@ fn parse_numeric_cast_expression(
     }
     let close_index = matching_closing_parenthesis(raw, 4)?.ok_or_else(|| {
         unsupported_sql_error(
-            "generic numeric CAST expressions must use CAST(<expr> AS int64|float64)",
+            "generic numeric CAST expressions must use CAST(<expr> AS int64|float64|decimal128(p,s))",
         )
     })?;
     if !raw[close_index + 1..].trim().is_empty() {
@@ -26150,16 +26150,33 @@ fn parse_numeric_cast_expression(
     let source_raw = inner[..as_index].trim();
     let target_raw = inner[as_index + "as".len()..].trim();
     let target_dtype = parse_cast_target_dtype(target_raw)?;
-    if !matches!(target_dtype, LogicalDType::Int64 | LogicalDType::Float64) {
+    let target_is_decimal = logical_dtype_is_decimal128(&target_dtype);
+    if !matches!(target_dtype, LogicalDType::Int64 | LogicalDType::Float64) && !target_is_decimal {
         return Err(unsupported_sql_error(
-            "generic numeric CAST projections currently admit int64 and float64 targets only",
+            "generic numeric CAST projections currently admit int64, float64, and scoped decimal128 targets only",
         ));
     }
+    let source_expression = if target_is_decimal {
+        match parse_projection_literal_value(source_raw) {
+            Ok(value) => {
+                Expression::literal(ExprId::new(format!("{id_prefix}.cast.literal"))?, value)
+            }
+            Err(_) => {
+                parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?
+            }
+        }
+    } else {
+        parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?
+    };
     Ok(Some(Expression::cast(
         ExprId::new(format!("{id_prefix}.cast"))?,
-        parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?,
+        source_expression,
         target_dtype,
     )))
+}
+
+fn logical_dtype_is_decimal128(dtype: &LogicalDType) -> bool {
+    matches!(dtype, LogicalDType::Extension(value) if value.starts_with("decimal128("))
 }
 
 fn expression_contains_temporal_difference_call(raw: &str) -> Result<bool, ShardLoomError> {
@@ -32778,6 +32795,35 @@ mod tests {
         assert_eq!(
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_decimal_generic_arithmetic_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(amount AS decimal128(10,2)) + CAST('1.25' AS decimal128(10,2)) AS adjusted FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("decimal generic arithmetic projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(parsed.generic_expression_projections.len(), 1);
+        assert_eq!(parsed.generic_expression_projections[0].alias, "adjusted");
+        assert_eq!(
+            parsed.generic_expression_projection_source_columns(),
+            "amount"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "adjusted"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_operator_families(),
+            "cast+numeric_binary"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
         );
     }
 

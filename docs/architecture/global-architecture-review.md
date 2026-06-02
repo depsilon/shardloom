@@ -642,8 +642,9 @@ plan before coding.
   locale-aware collation. Scoped ANSI interval literals inside temporal helper functions and scoped
   UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation; later
   GAR-RUNTIME-IMPL-6D evidence also promotes scoped `decimal128(p,s)` / `decimal(p,s)` /
-  `numeric(p,s)` casts through exact fixed-scale projection/predicate runtime and keeps decimal
-  arithmetic/coercion/typed sinks blocked. The remaining advanced scalar blockers still fail through
+  `numeric(p,s)` casts through exact fixed-scale projection/predicate runtime plus scoped
+  same-scale decimal add/subtract/multiply projection runtime, while keeping decimal division,
+  mixed-scale coercion, broad ANSI coercion, and typed sinks blocked. The remaining advanced scalar blockers still fail through
   shared policy guards before execution with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout added executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,

@@ -623,6 +623,35 @@ def decimal_cast_projection_predicate_case() -> SqlFixtureCase:
     )
 
 
+def decimal_arithmetic_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="decimal_arithmetic_projection",
+        source_name="decimal-arithmetic.csv",
+        source_text="id,amount\n1,12.34\n2,15.50\n3,21.25\n",
+        statement_template=(
+            "SELECT id,CAST(amount AS decimal128(10,2)) + "
+            "CAST('1.25' AS decimal128(10,2)) AS adjusted,"
+            "CAST(amount AS decimal128(10,2)) * 2 AS doubled "
+            "FROM '{source}' WHERE id >= 1 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"adjusted":"13.59","doubled":"24.68"}\n'
+            '{"id":2,"adjusted":"16.75","doubled":"31.00"}\n'
+            '{"id":3,"adjusted":"22.50","doubled":"42.50"}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_computed_projection_filter_limit",
+            "generic_expression_projection_runtime_execution": "true",
+            "generic_expression_projection_source_column": "amount,amount",
+            "generic_expression_projection_output_column": "adjusted,doubled",
+            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary",
+            "generic_expression_projection_binary_operator_count": "2",
+            "projected_columns": "id,adjusted,doubled",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def binary_helper_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_helper_projection",
@@ -2597,6 +2626,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         complex_struct_source_projection_case(),
         binary_cast_projection_predicate_case(),
         decimal_cast_projection_predicate_case(),
+        decimal_arithmetic_projection_case(),
         binary_helper_projection_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),

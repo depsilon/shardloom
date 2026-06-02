@@ -545,11 +545,16 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   diagnostic instead of an unsupported arithmetic feature. The admitted-semantics matrix now
   distinguishes `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, and
   `invalid_shape_diagnostic_count=1` while preserving no-fallback evidence for all diagnostic rows.
+  Scoped `decimal128` add/subtract/multiply projections are now admitted over same-scale decimal
+  operands and integer operands through the generic-expression local-source runtime, exact
+  JSONL/CSV text result boundary, Python/DataFrame cast-plus-arithmetic lowering, and
+  admitted-semantics evidence. Decimal division, mixed-scale decimal arithmetic/coercion, broad ANSI
+  decimal coercion, and typed decimal sink preservation remain deterministic blockers.
   Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
-  likely candidates are decimal arithmetic/coercion or typed-sink follow-through, timezone/locale
-  blocker refinement, broad binary source dtype refinement, complex access/equality follow-through
-  after a dedicated semantics contract, or another front-door parity gap only after the runtime route
-  is already admitted.
+  likely candidates are typed decimal sink follow-through, timezone/locale blocker refinement, broad
+  binary source dtype refinement, complex access/equality follow-through after a dedicated semantics
+  contract, decimal division/mixed-scale coercion after a dedicated semantics contract, or another
+  front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
