@@ -491,11 +491,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   per-outer-row bounded materialization, with correlated runtime, outer-column, evaluation-strategy,
   and no-fallback evidence fields. Python/DataFrame front doors now expose the reserved
   `sl.outer(...)` helper and typed correlated-subquery report fields for those admitted routes.
-  Scoped correlated joined projected subqueries are now admitted for scalar `IN`, row-value `IN`,
-  `EXISTS`, and quantified `ANY` / `ALL` predicates when the projected local-source plan carries
-  admitted `outer.<column>` column-to-column comparisons in its filter/HAVING path. These routes
-  reuse the existing ShardLoom local-source parser, binder, join evaluator, and bounded
-  per-outer-row materializer, and report both correlated and projected subquery evidence.
+  Scoped correlated joined and grouped/HAVING projected subqueries are now admitted for scalar
+  `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates when the projected
+  local-source plan carries admitted `outer.<column>` column-to-column comparisons in its
+  filter/HAVING path. These routes reuse the existing ShardLoom local-source parser, binder,
+  join/group/HAVING evaluators, hidden HAVING aggregate rewrites, and bounded per-outer-row
+  materializer, and report both correlated and projected subquery evidence.
   Source-qualified local subquery references are now admitted for the subquery's explicit `AS`
   alias or SQL-identifier file stem in selected columns, filters, and bounded ordering; Python
   helpers bind explicit aliases with `source_alias=` and render those refs with
@@ -513,8 +514,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   casts, `BINARY`/`BLOB` source literals, `UNHEX`, and `FROM_BASE64` remain blocked.
   Next slice outcome: choose the next broad SQL grammar family; likely candidates are complex dtype
   blocker refinement, scalar-left multi-column subquery ergonomics, additional front-door parity over
-  admitted routes, correlated grouped/HAVING projected composition, or decimal/timezone/locale
-  blocker refinement.
+  admitted routes, or decimal/timezone/locale blocker refinement.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
