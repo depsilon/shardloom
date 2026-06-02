@@ -208,14 +208,37 @@ delta cases block before prepared-state reuse. This is not a standalone CDC lane
 funnelled through SourceState -> VortexPreparedState -> differential overlay refs and preserves
 `fallback_attempted=false` and `external_engine_invoked=false`.
 
+`GAR-RUNTIME-IMPL-6E-4` promotes that evidence into a scoped automatic runtime refinement path for
+artifact-adjacent local prepared-state reuse manifests. When a current local CSV/JSONL source is
+larger than the manifest source, the old source bytes are verified as the current source prefix, the
+base prepared artifact fingerprint still matches, and schema/parse-plan/provider/certification
+posture match, `vortex_ingest` writes only a content-addressed delta source/artifact under the
+artifact-adjacent `.shardloom` directory. The base artifact is not rewritten. The first executable
+overlay consumer is the count family: base manifest row count plus delta reopen row count yields a
+digest-backed refined prepared-state id and a differential refinement manifest. Non-append drift,
+missing base manifests, changed compression/format posture, schema mismatch, update/delete/upsert,
+and unsupported consumers remain deterministic blockers; no broad CDC, table transaction,
+production, object-store, or performance claim is implied.
+
 ```text
 vortex_differential_preparation_schema_version
 vortex_differential_preparation_status
 vortex_differential_preparation_update_mode
+vortex_differential_preparation_refinement_status
+vortex_differential_preparation_refinement_mode
+vortex_differential_preparation_automatic_detection_status
+vortex_differential_preparation_blocker_id
 vortex_differential_preparation_base_source_state_id
 vortex_differential_preparation_base_prepared_state_id
 vortex_differential_preparation_delta_source_state_id
 vortex_differential_preparation_delta_manifest_digest
+vortex_differential_preparation_refinement_manifest_path
+vortex_differential_preparation_refinement_manifest_digest
+vortex_differential_preparation_refinement_manifest_written
+vortex_differential_preparation_refined_prepared_state_id
+vortex_differential_preparation_overlay_consumer_family
+vortex_differential_preparation_overlay_consumer_status
+vortex_differential_preparation_overlay_consumer_correctness_digest
 vortex_differential_preparation_changed_byte_range_refs
 vortex_differential_preparation_changed_row_range_refs
 vortex_differential_preparation_changed_segment_refs

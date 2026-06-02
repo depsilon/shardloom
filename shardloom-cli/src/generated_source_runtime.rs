@@ -2592,6 +2592,8 @@ fn write_generated_vortex_output(
             source_state_id: reuse_context.source_state_id.clone(),
             source_state_digest: reuse_context.source_state_digest.clone(),
             source_schema_digest: reuse_context.source_schema_digest.clone(),
+            source_row_count: report.row_count,
+            source_column_family_summary: report.column_family_summary(),
             prepared_state_id,
             prepared_state_digest,
             prepared_artifact_digest: report.artifact_digest.clone(),

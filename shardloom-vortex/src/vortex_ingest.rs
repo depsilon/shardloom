@@ -36,6 +36,12 @@ pub const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str = "shardloom.vortex_prep
 /// Evidence schema emitted by scoped local differential Vortex preparation overlays.
 pub const VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION: &str =
     "shardloom.vortex_differential_preparation.v1";
+/// Evidence schema emitted by automatic append-only differential refinement manifests.
+pub const VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION: &str =
+    "shardloom.vortex_differential_refinement_manifest.v1";
+/// Admission policy for automatic local append-only prepared-state refinement.
+pub const VORTEX_DIFFERENTIAL_REFINEMENT_POLICY: &str =
+    "artifact_adjacent_append_only_prepared_state_refinement.v1";
 /// Evidence schema emitted by scoped local capillary cold-preparation task control.
 pub const VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION: &str =
     "shardloom.vortex_capillary_preparation.v1";
@@ -89,6 +95,8 @@ pub struct VortexPreparedStateReuseWriteEvidence {
     pub source_state_id: String,
     pub source_state_digest: String,
     pub source_schema_digest: String,
+    pub source_row_count: u64,
+    pub source_column_family_summary: String,
     pub prepared_state_id: String,
     pub prepared_state_digest: String,
     pub prepared_artifact_digest: String,
@@ -117,6 +125,8 @@ pub struct VortexPreparedStateReuseReport {
     pub source_size_bytes: u64,
     pub source_mtime_ns: String,
     pub source_schema_digest: String,
+    pub source_row_count: u64,
+    pub source_column_family_summary: String,
     pub parse_decode_plan_digest: String,
     pub selected_columns: String,
     pub output_policy: String,
@@ -299,6 +309,14 @@ impl VortexPreparedStateReuseReport {
             (
                 "vortex_prepared_state_reuse_source_schema_digest".to_string(),
                 self.source_schema_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_row_count".to_string(),
+                self.source_row_count.to_string(),
+            ),
+            (
+                "vortex_prepared_state_reuse_source_column_family_summary".to_string(),
+                self.source_column_family_summary.clone(),
             ),
             (
                 "vortex_prepared_state_reuse_parse_decode_plan_digest".to_string(),
@@ -506,6 +524,14 @@ pub fn evaluate_vortex_prepared_state_reuse(
             .get("source_schema_digest")
             .cloned()
             .unwrap_or_else(|| request.source_schema_digest.clone().unwrap_or_default()),
+        source_row_count: fields
+            .get("source_row_count")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0),
+        source_column_family_summary: fields
+            .get("source_column_family_summary")
+            .cloned()
+            .unwrap_or_default(),
         parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
         selected_columns: request.selected_columns.clone(),
         output_policy: request.output_policy.clone(),
@@ -589,6 +615,14 @@ pub fn write_vortex_prepared_state_reuse_manifest(
         evidence.source_schema_digest.clone(),
     );
     fields.insert(
+        "source_row_count".to_string(),
+        evidence.source_row_count.to_string(),
+    );
+    fields.insert(
+        "source_column_family_summary".to_string(),
+        evidence.source_column_family_summary.clone(),
+    );
+    fields.insert(
         "parse_decode_plan_digest".to_string(),
         request.parse_decode_plan_digest.clone(),
     );
@@ -667,6 +701,8 @@ pub fn write_vortex_prepared_state_reuse_manifest(
         source_size_bytes: request.source_size_bytes,
         source_mtime_ns: request.source_mtime_ns.clone(),
         source_schema_digest: evidence.source_schema_digest,
+        source_row_count: evidence.source_row_count,
+        source_column_family_summary: evidence.source_column_family_summary,
         parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
         selected_columns: request.selected_columns.clone(),
         output_policy: request.output_policy.clone(),
@@ -683,6 +719,619 @@ pub fn write_vortex_prepared_state_reuse_manifest(
         certificate_refs: evidence.certificate_refs,
         fallback_attempted: evidence.fallback_attempted,
         external_engine_invoked: evidence.external_engine_invoked,
+    })
+}
+
+/// Decision for automatic append-only refinement of an existing prepared state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexPreparedStateAppendOnlyRefinementDecision {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub policy: &'static str,
+    pub reason: String,
+    pub blocker_id: String,
+    pub automatic_detection_status: String,
+    pub manifest_path: PathBuf,
+    pub reuse_manifest_digest: String,
+    pub source_path: PathBuf,
+    pub source_format: String,
+    pub base_source_content_digest: String,
+    pub current_source_content_digest: String,
+    pub base_source_size_bytes: u64,
+    pub current_source_size_bytes: u64,
+    pub delta_byte_start: u64,
+    pub delta_byte_end: u64,
+    pub changed_byte_range_refs: String,
+    pub source_prefix_verification_status: String,
+    pub base_source_state_id: String,
+    pub base_source_state_digest: String,
+    pub base_source_row_count: u64,
+    pub base_source_schema_digest: String,
+    pub base_source_column_family_summary: String,
+    pub base_prepared_state_id: String,
+    pub base_prepared_state_digest: String,
+    pub prepared_artifact_ref: PathBuf,
+    pub prepared_artifact_digest: String,
+    pub prepared_artifact_size_bytes: u64,
+    pub certificate_refs: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexPreparedStateAppendOnlyRefinementDecision {
+    /// Whether this decision admits automatic append-only refinement.
+    #[must_use]
+    pub fn is_admitted(&self) -> bool {
+        self.status == "admitted_append_only_refinement"
+    }
+
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_differential_preparation_refinement_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_mode".to_string(),
+                "automatic_append_only_delta".to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_policy".to_string(),
+                self.policy.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_automatic_detection_status".to_string(),
+                self.automatic_detection_status.clone(),
+            ),
+            (
+                "vortex_differential_preparation_automatic_detection_reason".to_string(),
+                self.reason.clone(),
+            ),
+            (
+                "vortex_differential_preparation_blocker_id".to_string(),
+                self.blocker_id.clone(),
+            ),
+            (
+                "vortex_differential_preparation_base_source_content_digest".to_string(),
+                self.base_source_content_digest.clone(),
+            ),
+            (
+                "vortex_differential_preparation_current_source_content_digest".to_string(),
+                self.current_source_content_digest.clone(),
+            ),
+            (
+                "vortex_differential_preparation_base_source_size_bytes".to_string(),
+                self.base_source_size_bytes.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_current_source_size_bytes".to_string(),
+                self.current_source_size_bytes.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_delta_byte_start".to_string(),
+                self.delta_byte_start.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_delta_byte_end".to_string(),
+                self.delta_byte_end.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_source_prefix_verification_status".to_string(),
+                self.source_prefix_verification_status.clone(),
+            ),
+            (
+                "vortex_differential_preparation_reuse_manifest_path".to_string(),
+                self.manifest_path.display().to_string(),
+            ),
+            (
+                "vortex_differential_preparation_reuse_manifest_digest".to_string(),
+                self.reuse_manifest_digest.clone(),
+            ),
+        ]
+    }
+}
+
+/// Manifest write result for a scoped automatic differential refinement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexDifferentialRefinementManifestReport {
+    pub schema_version: &'static str,
+    pub manifest_path: PathBuf,
+    pub manifest_digest: String,
+    pub manifest_written: bool,
+    pub refined_prepared_state_id: String,
+    pub refined_prepared_state_digest: String,
+    pub overlay_consumer_family: String,
+    pub overlay_consumer_status: String,
+    pub overlay_consumer_correctness_digest: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexDifferentialRefinementManifestReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "vortex_differential_preparation_refinement_manifest_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_manifest_path".to_string(),
+                self.manifest_path.display().to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_manifest_digest".to_string(),
+                self.manifest_digest.clone(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_manifest_written".to_string(),
+                self.manifest_written.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refined_prepared_state_id".to_string(),
+                self.refined_prepared_state_id.clone(),
+            ),
+            (
+                "vortex_differential_preparation_refined_prepared_state_digest".to_string(),
+                self.refined_prepared_state_digest.clone(),
+            ),
+            (
+                "vortex_differential_preparation_overlay_consumer_family".to_string(),
+                self.overlay_consumer_family.clone(),
+            ),
+            (
+                "vortex_differential_preparation_overlay_consumer_status".to_string(),
+                self.overlay_consumer_status.clone(),
+            ),
+            (
+                "vortex_differential_preparation_overlay_consumer_correctness_digest".to_string(),
+                self.overlay_consumer_correctness_digest.clone(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "vortex_differential_preparation_refinement_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
+/// Return the artifact-adjacent differential refinement manifest path.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the artifact path has no
+/// local file name.
+pub fn vortex_differential_refinement_manifest_path(
+    prepared_artifact_path: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let path = absolute_local_path(prepared_artifact_path.as_ref())?;
+    let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "differential refinement manifest requires a local artifact file name for '{}'; no fallback execution was attempted",
+            path.display()
+        )));
+    };
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    Ok(parent
+        .join(".shardloom")
+        .join(format!("{file_name}.differential-refinement.manifest")))
+}
+
+/// Evaluate whether a prepared-state reuse miss can become an automatic
+/// append-only refinement instead of a base reprepare.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the manifest exists but
+/// cannot be read or parsed deterministically.
+#[allow(clippy::too_many_lines)]
+pub fn evaluate_vortex_prepared_state_append_only_refinement(
+    request: &VortexPreparedStateReuseRequest,
+) -> Result<VortexPreparedStateAppendOnlyRefinementDecision> {
+    if !request.manifest_path.exists() {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_missing_base_manifest",
+            "missing_base_manifest",
+            "none",
+            &BTreeMap::new(),
+        ));
+    }
+    let fields = read_reuse_manifest_fields(&request.manifest_path)?;
+    let manifest_digest = fields
+        .get("manifest_digest")
+        .cloned()
+        .unwrap_or_else(|| "none".to_string());
+    let expected_digest = reuse_manifest_digest(&fields);
+    if manifest_digest != expected_digest {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_reuse_manifest_digest_mismatch",
+            "reuse_manifest_digest_mismatch",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if fields.get("schema_version").map(String::as_str)
+        != Some(VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION)
+    {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_reuse_manifest_schema_mismatch",
+            "reuse_manifest_schema_mismatch",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if fields.get("fallback_attempted").map(String::as_str) != Some("false") {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_reuse_manifest_fallback_attempted",
+            "reuse_manifest_fallback_attempted",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if fields.get("external_engine_invoked").map(String::as_str) != Some("false") {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_reuse_manifest_external_engine_invoked",
+            "reuse_manifest_external_engine_invoked",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if let Some(reason) = append_only_refinement_static_mismatch_reason(request, &fields) {
+        return Ok(append_only_refinement_blocked(
+            request,
+            &format!("blocked_{reason}"),
+            &reason,
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if !matches!(request.source_format.as_str(), "csv" | "jsonl") {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_changed_compression_or_format_posture",
+            "changed_compression_or_format_posture",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+
+    let Some(base_source_digest) = fields.get("source_content_digest").cloned() else {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_missing_base_source_content_digest",
+            "missing_base_source_content_digest",
+            &manifest_digest,
+            &fields,
+        ));
+    };
+    let Some(base_source_size_bytes) = fields
+        .get("source_size_bytes")
+        .and_then(|value| value.parse::<u64>().ok())
+    else {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_missing_base_source_size_bytes",
+            "missing_base_source_size_bytes",
+            &manifest_digest,
+            &fields,
+        ));
+    };
+    if request.source_size_bytes <= base_source_size_bytes {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_current_source_not_larger",
+            "current_source_not_larger",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if request.source_content_digest == base_source_digest {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_no_source_change",
+            "no_source_change",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    let prefix_digest = fnv64_file_prefix_digest(
+        &request.source_path,
+        base_source_size_bytes,
+        "append-only refinement source prefix",
+    )?;
+    if prefix_digest != base_source_digest {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_source_prefix_digest_mismatch",
+            "source_prefix_digest_mismatch",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    let previous_terminal_byte = byte_at_offset(
+        &request.source_path,
+        base_source_size_bytes.saturating_sub(1),
+        "append-only refinement source boundary",
+    )?;
+    if !matches!(previous_terminal_byte, b'\n' | b'\r') {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_append_boundary_not_line_aligned",
+            "append_boundary_not_line_aligned",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if missing_refinement_manifest_field(&fields, "source_row_count")
+        || missing_refinement_manifest_field(&fields, "source_column_family_summary")
+        || missing_refinement_manifest_field(&fields, "source_schema_digest")
+    {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_missing_base_refinement_manifest_fields",
+            "missing_base_refinement_manifest_fields",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    let Ok(artifact_fingerprint) = LocalReuseFileFingerprint::from_path(
+        &request.prepared_artifact_path,
+        "base prepared-state refinement artifact",
+    ) else {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_missing_base_prepared_artifact",
+            "missing_base_prepared_artifact",
+            &manifest_digest,
+            &fields,
+        ));
+    };
+    if fields
+        .get("prepared_artifact_size_bytes")
+        .map(String::as_str)
+        != Some(artifact_fingerprint.size_bytes.to_string().as_str())
+    {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_base_prepared_artifact_size_changed",
+            "base_prepared_artifact_size_changed",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+    if fields.get("prepared_artifact_digest").map(String::as_str)
+        != Some(artifact_fingerprint.content_digest.as_str())
+    {
+        return Ok(append_only_refinement_blocked(
+            request,
+            "blocked_base_prepared_artifact_digest_changed",
+            "base_prepared_artifact_digest_changed",
+            &manifest_digest,
+            &fields,
+        ));
+    }
+
+    let delta_byte_start = base_source_size_bytes;
+    let delta_byte_end = request.source_size_bytes;
+    let changed_byte_range_refs = format!(
+        "{}#bytes={}..{}",
+        request.source_path.display(),
+        delta_byte_start,
+        delta_byte_end
+    );
+    Ok(VortexPreparedStateAppendOnlyRefinementDecision {
+        schema_version: VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION,
+        status: "admitted_append_only_refinement".to_string(),
+        policy: VORTEX_DIFFERENTIAL_REFINEMENT_POLICY,
+        reason: "source_prefix_verified_and_delta_bytes_detected".to_string(),
+        blocker_id: "none".to_string(),
+        automatic_detection_status: "append_only_delta_detected".to_string(),
+        manifest_path: request.manifest_path.clone(),
+        reuse_manifest_digest: manifest_digest,
+        source_path: request.source_path.clone(),
+        source_format: request.source_format.clone(),
+        base_source_content_digest: base_source_digest,
+        current_source_content_digest: request.source_content_digest.clone(),
+        base_source_size_bytes,
+        current_source_size_bytes: request.source_size_bytes,
+        delta_byte_start,
+        delta_byte_end,
+        changed_byte_range_refs,
+        source_prefix_verification_status: "verified_old_source_bytes_are_current_prefix"
+            .to_string(),
+        base_source_state_id: fields.get("source_state_id").cloned().unwrap_or_default(),
+        base_source_state_digest: fields
+            .get("source_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        base_source_row_count: fields
+            .get("source_row_count")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0),
+        base_source_schema_digest: fields
+            .get("source_schema_digest")
+            .cloned()
+            .unwrap_or_default(),
+        base_source_column_family_summary: fields
+            .get("source_column_family_summary")
+            .cloned()
+            .unwrap_or_default(),
+        base_prepared_state_id: fields.get("prepared_state_id").cloned().unwrap_or_default(),
+        base_prepared_state_digest: fields
+            .get("prepared_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        prepared_artifact_ref: request.prepared_artifact_path.clone(),
+        prepared_artifact_digest: artifact_fingerprint.content_digest,
+        prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
+        certificate_refs: fields
+            .get("certificate_refs")
+            .cloned()
+            .unwrap_or_else(|| "manifest_certificate_refs_missing".to_string()),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+/// Write a digest-backed automatic differential refinement manifest.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the manifest path cannot
+/// be written atomically.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub fn write_vortex_differential_refinement_manifest(
+    manifest_path: impl AsRef<Path>,
+    decision: &VortexPreparedStateAppendOnlyRefinementDecision,
+    differential: &VortexDifferentialPreparationReport,
+    refined_prepared_state_id: impl Into<String>,
+    refined_prepared_state_digest: impl Into<String>,
+    overlay_consumer_family: impl Into<String>,
+    overlay_consumer_status: impl Into<String>,
+    overlay_consumer_correctness_digest: impl Into<String>,
+) -> Result<VortexDifferentialRefinementManifestReport> {
+    let manifest_path = absolute_local_path(manifest_path.as_ref())?;
+    let refined_prepared_state_id = refined_prepared_state_id.into();
+    let refined_prepared_state_digest = refined_prepared_state_digest.into();
+    let overlay_consumer_family = overlay_consumer_family.into();
+    let overlay_consumer_status = overlay_consumer_status.into();
+    let overlay_consumer_correctness_digest = overlay_consumer_correctness_digest.into();
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "schema_version".to_string(),
+        VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION.to_string(),
+    );
+    fields.insert(
+        "policy".to_string(),
+        VORTEX_DIFFERENTIAL_REFINEMENT_POLICY.to_string(),
+    );
+    fields.insert("status".to_string(), differential.status.clone());
+    fields.insert(
+        "automatic_detection_status".to_string(),
+        decision.automatic_detection_status.clone(),
+    );
+    fields.insert(
+        "base_source_state_id".to_string(),
+        differential.base_source_state_id.clone(),
+    );
+    fields.insert(
+        "base_source_state_digest".to_string(),
+        differential.base_source_state_digest.clone(),
+    );
+    fields.insert(
+        "base_prepared_state_id".to_string(),
+        differential.base_prepared_state_id.clone(),
+    );
+    fields.insert(
+        "base_prepared_state_digest".to_string(),
+        differential.base_prepared_state_digest.clone(),
+    );
+    fields.insert(
+        "delta_source_state_id".to_string(),
+        differential.delta_source_state_id.clone(),
+    );
+    fields.insert(
+        "delta_source_state_digest".to_string(),
+        differential.delta_source_state_digest.clone(),
+    );
+    fields.insert(
+        "base_row_count".to_string(),
+        differential.base_row_count.to_string(),
+    );
+    fields.insert(
+        "delta_row_count".to_string(),
+        differential.delta_row_count.to_string(),
+    );
+    fields.insert(
+        "delta_manifest_digest".to_string(),
+        differential.delta_manifest_digest.clone(),
+    );
+    fields.insert(
+        "overlay_manifest_digest".to_string(),
+        differential.overlay_manifest_digest.clone(),
+    );
+    fields.insert(
+        "changed_byte_range_refs".to_string(),
+        differential.changed_byte_range_refs.clone(),
+    );
+    fields.insert(
+        "changed_row_range_refs".to_string(),
+        differential.changed_row_range_refs.clone(),
+    );
+    fields.insert(
+        "changed_segment_refs".to_string(),
+        differential.changed_segment_refs.clone(),
+    );
+    fields.insert(
+        "delta_artifact_ref".to_string(),
+        differential.delta_artifact_ref.clone(),
+    );
+    fields.insert(
+        "delta_artifact_digest".to_string(),
+        differential.delta_artifact_digest.clone(),
+    );
+    fields.insert(
+        "refined_prepared_state_id".to_string(),
+        refined_prepared_state_id.clone(),
+    );
+    fields.insert(
+        "refined_prepared_state_digest".to_string(),
+        refined_prepared_state_digest.clone(),
+    );
+    fields.insert(
+        "overlay_consumer_family".to_string(),
+        overlay_consumer_family.clone(),
+    );
+    fields.insert(
+        "overlay_consumer_status".to_string(),
+        overlay_consumer_status.clone(),
+    );
+    fields.insert(
+        "overlay_consumer_correctness_digest".to_string(),
+        overlay_consumer_correctness_digest.clone(),
+    );
+    fields.insert(
+        "fallback_attempted".to_string(),
+        differential.fallback_attempted.to_string(),
+    );
+    fields.insert(
+        "external_engine_invoked".to_string(),
+        differential.external_engine_invoked.to_string(),
+    );
+    let manifest_digest = reuse_manifest_digest(&fields);
+    fields.insert("manifest_digest".to_string(), manifest_digest.clone());
+    write_key_value_manifest_fields(
+        &manifest_path,
+        &fields,
+        "ShardLoom differential refinement manifest",
+        "differential refinement manifest",
+    )?;
+    Ok(VortexDifferentialRefinementManifestReport {
+        schema_version: VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION,
+        manifest_path,
+        manifest_digest,
+        manifest_written: true,
+        refined_prepared_state_id,
+        refined_prepared_state_digest,
+        overlay_consumer_family,
+        overlay_consumer_status,
+        overlay_consumer_correctness_digest,
+        fallback_attempted: differential.fallback_attempted,
+        external_engine_invoked: differential.external_engine_invoked,
     })
 }
 
@@ -775,6 +1424,181 @@ fn fnv64_file_digest(path: &Path, label: &str) -> Result<String> {
     Ok(format!("fnv64:{hash:016x}"))
 }
 
+fn fnv64_file_prefix_digest(path: &Path, prefix_len: u64, label: &str) -> Result<String> {
+    let mut file = fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for digest: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut buffer = [0_u8; 8192];
+    let mut remaining = prefix_len;
+    while remaining > 0 {
+        let to_read = usize::try_from(remaining.min(buffer.len() as u64)).map_err(|_| {
+            ShardLoomError::InvalidOperation(
+                "append-only refinement prefix length does not fit usize; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let read = file.read(&mut buffer[..to_read]).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} '{}' for digest: {error}; no fallback execution was attempted",
+                path.display()
+            ))
+        })?;
+        if read == 0 {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{label} '{}' ended before expected prefix length {prefix_len}; no fallback execution was attempted",
+                path.display()
+            )));
+        }
+        remaining -= u64::try_from(read).map_err(|_| {
+            ShardLoomError::InvalidOperation(
+                "append-only refinement read length does not fit u64; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        for byte in &buffer[..read] {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    Ok(format!("fnv64:{hash:016x}"))
+}
+
+fn byte_at_offset(path: &Path, offset: u64, label: &str) -> Result<u8> {
+    use std::io::{Seek as _, SeekFrom};
+
+    let mut file = fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for boundary check: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    file.seek(SeekFrom::Start(offset)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to seek {label} '{}' to byte {offset}: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    let mut byte = [0_u8; 1];
+    file.read_exact(&mut byte).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} '{}' at byte {offset}: {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    Ok(byte[0])
+}
+
+fn append_only_refinement_static_mismatch_reason(
+    request: &VortexPreparedStateReuseRequest,
+    fields: &BTreeMap<String, String>,
+) -> Option<String> {
+    let source_path = request.source_path.display().to_string();
+    let prepared_artifact_path = request.prepared_artifact_path.display().to_string();
+    for (key, expected) in [
+        ("policy", VORTEX_PREPARED_STATE_REUSE_POLICY),
+        ("source_path", source_path.as_str()),
+        ("source_format", request.source_format.as_str()),
+        (
+            "parse_decode_plan_digest",
+            request.parse_decode_plan_digest.as_str(),
+        ),
+        ("selected_columns", request.selected_columns.as_str()),
+        ("output_policy", request.output_policy.as_str()),
+        ("prepared_artifact_path", prepared_artifact_path.as_str()),
+        ("provider_version", request.provider_version.as_str()),
+        ("feature_gates", request.feature_gates.as_str()),
+        ("certification_level", request.certification_level.as_str()),
+    ] {
+        if fields.get(key).map(String::as_str) != Some(expected) {
+            return Some(format!("{key}_changed"));
+        }
+    }
+    if let Some(schema_digest) = request.source_schema_digest.as_deref() {
+        if fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest) {
+            return Some("source_schema_digest_changed".to_string());
+        }
+    }
+    None
+}
+
+fn missing_refinement_manifest_field(fields: &BTreeMap<String, String>, key: &str) -> bool {
+    fields.get(key).is_none_or(|value| value.trim().is_empty())
+}
+
+fn append_only_refinement_blocked(
+    request: &VortexPreparedStateReuseRequest,
+    status: &str,
+    reason: &str,
+    manifest_digest: &str,
+    fields: &BTreeMap<String, String>,
+) -> VortexPreparedStateAppendOnlyRefinementDecision {
+    let base_source_size_bytes = fields
+        .get("source_size_bytes")
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+    VortexPreparedStateAppendOnlyRefinementDecision {
+        schema_version: VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION,
+        status: status.to_string(),
+        policy: VORTEX_DIFFERENTIAL_REFINEMENT_POLICY,
+        reason: reason.to_string(),
+        blocker_id: reason.to_string(),
+        automatic_detection_status: "blocked_before_append_only_delta_detection".to_string(),
+        manifest_path: request.manifest_path.clone(),
+        reuse_manifest_digest: manifest_digest.to_string(),
+        source_path: request.source_path.clone(),
+        source_format: request.source_format.clone(),
+        base_source_content_digest: fields
+            .get("source_content_digest")
+            .cloned()
+            .unwrap_or_else(|| "none".to_string()),
+        current_source_content_digest: request.source_content_digest.clone(),
+        base_source_size_bytes,
+        current_source_size_bytes: request.source_size_bytes,
+        delta_byte_start: base_source_size_bytes,
+        delta_byte_end: request.source_size_bytes,
+        changed_byte_range_refs: "none".to_string(),
+        source_prefix_verification_status: "not_verified".to_string(),
+        base_source_state_id: fields.get("source_state_id").cloned().unwrap_or_default(),
+        base_source_state_digest: fields
+            .get("source_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        base_source_row_count: fields
+            .get("source_row_count")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0),
+        base_source_schema_digest: fields
+            .get("source_schema_digest")
+            .cloned()
+            .unwrap_or_default(),
+        base_source_column_family_summary: fields
+            .get("source_column_family_summary")
+            .cloned()
+            .unwrap_or_default(),
+        base_prepared_state_id: fields.get("prepared_state_id").cloned().unwrap_or_default(),
+        base_prepared_state_digest: fields
+            .get("prepared_state_digest")
+            .cloned()
+            .unwrap_or_default(),
+        prepared_artifact_ref: request.prepared_artifact_path.clone(),
+        prepared_artifact_digest: fields
+            .get("prepared_artifact_digest")
+            .cloned()
+            .unwrap_or_else(|| "none".to_string()),
+        prepared_artifact_size_bytes: fields
+            .get("prepared_artifact_size_bytes")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0),
+        certificate_refs: fields.get("certificate_refs").cloned().unwrap_or_default(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    }
+}
+
 fn prepared_state_reuse_miss(
     request: &VortexPreparedStateReuseRequest,
     reason: &str,
@@ -805,6 +1629,8 @@ fn prepared_state_reuse_miss_with_digest(
         source_size_bytes: request.source_size_bytes,
         source_mtime_ns: request.source_mtime_ns.clone(),
         source_schema_digest: request.source_schema_digest.clone().unwrap_or_default(),
+        source_row_count: 0,
+        source_column_family_summary: String::new(),
         parse_decode_plan_digest: request.parse_decode_plan_digest.clone(),
         selected_columns: request.selected_columns.clone(),
         output_policy: request.output_policy.clone(),
@@ -899,50 +1725,63 @@ fn read_reuse_manifest_fields(path: &Path) -> Result<BTreeMap<String, String>> {
 }
 
 fn write_reuse_manifest_fields(path: &Path, fields: &BTreeMap<String, String>) -> Result<()> {
+    write_key_value_manifest_fields(
+        path,
+        fields,
+        "ShardLoom prepared-state reuse manifest",
+        "prepared-state reuse manifest",
+    )
+}
+
+fn write_key_value_manifest_fields(
+    path: &Path,
+    fields: &BTreeMap<String, String>,
+    title: &str,
+    error_label: &str,
+) -> Result<()> {
     let parent = path.parent().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
-            "prepared-state reuse manifest path '{}' has no parent directory; no fallback execution was attempted",
+            "{error_label} path '{}' has no parent directory; no fallback execution was attempted",
             path.display()
         ))
     })?;
     fs::create_dir_all(parent).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to create prepared-state reuse manifest directory '{}': {error}; no fallback execution was attempted",
+            "failed to create {error_label} directory '{}': {error}; no fallback execution was attempted",
             parent.display()
         ))
     })?;
     let tmp_path = path.with_extension("tmp");
     let mut file = fs::File::create(&tmp_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to create prepared-state reuse manifest temp file '{}': {error}; no fallback execution was attempted",
+            "failed to create {error_label} temp file '{}': {error}; no fallback execution was attempted",
             tmp_path.display()
         ))
     })?;
-    file.write_all(b"# ShardLoom prepared-state reuse manifest\n")
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to write prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
-                tmp_path.display()
-            ))
-        })?;
+    writeln!(file, "# {title}").map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write {error_label} '{}': {error}; no fallback execution was attempted",
+            tmp_path.display()
+        ))
+    })?;
     for (key, value) in fields {
         writeln!(file, "{key}={}", escape_manifest_value(value)).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to write prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+                "failed to write {error_label} '{}': {error}; no fallback execution was attempted",
                 tmp_path.display()
             ))
         })?;
     }
     file.sync_all().map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to sync prepared-state reuse manifest '{}': {error}; no fallback execution was attempted",
+            "failed to sync {error_label} '{}': {error}; no fallback execution was attempted",
             tmp_path.display()
         ))
     })?;
     drop(file);
     fs::rename(&tmp_path, path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to publish prepared-state reuse manifest '{}' to '{}': {error}; no fallback execution was attempted",
+            "failed to publish {error_label} '{}' to '{}': {error}; no fallback execution was attempted",
             tmp_path.display(),
             path.display()
         ))
@@ -5825,6 +6664,42 @@ fn usize_to_u64(value: usize) -> Result<u64> {
 mod tests {
     use super::*;
 
+    fn temp_test_root(name: &str) -> PathBuf {
+        let mut root = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        root.push(format!(
+            "shardloom-vortex-ingest-{name}-{}-{nanos}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create temp root");
+        root
+    }
+
+    fn reuse_request_for_test(
+        source: &Path,
+        target: &Path,
+        manifest_path: &Path,
+    ) -> VortexPreparedStateReuseRequest {
+        VortexPreparedStateReuseRequest::new_local(
+            source,
+            target,
+            manifest_path.to_path_buf(),
+            "csv",
+            None,
+            "fnv64:parse-plan",
+            "all_columns",
+            "caller_owned_local_vortex_artifact",
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .expect("reuse request")
+    }
+
     #[test]
     fn local_flat_scalar_rows_write_and_reopen_vortex_artifact() {
         let path = std::env::temp_dir().join(format!(
@@ -6751,6 +7626,179 @@ mod tests {
         );
         assert!(report.delta_artifact_written);
         assert!(!report.overlay_applied);
+    }
+
+    #[test]
+    fn append_only_refinement_admits_verified_source_prefix_delta() {
+        let root = temp_test_root("append-only-refinement-admit");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        std::fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write base source");
+        std::fs::write(&target, b"prepared-vortex-artifact").expect("write prepared artifact");
+        let manifest_path =
+            vortex_prepared_state_reuse_manifest_path(&target).expect("manifest path");
+        let base_request = reuse_request_for_test(&source, &target, &manifest_path);
+        let base_decision =
+            evaluate_vortex_prepared_state_reuse(&base_request).expect("base reuse decision");
+        let artifact_digest = fnv64_file_digest(&target, "test artifact").expect("artifact digest");
+        write_vortex_prepared_state_reuse_manifest(
+            &base_request,
+            &base_decision,
+            VortexPreparedStateReuseWriteEvidence {
+                source_state_id: "source-state-base".to_string(),
+                source_state_digest: "fnv64:source-base".to_string(),
+                source_schema_digest: "fnv64:schema".to_string(),
+                source_row_count: 2,
+                source_column_family_summary: "id:int64,label:utf8".to_string(),
+                prepared_state_id: "prepared-base".to_string(),
+                prepared_state_digest: "fnv64:prepared-base".to_string(),
+                prepared_artifact_digest: artifact_digest,
+                certificate_refs: "reopen_row_count_scan".to_string(),
+                fallback_attempted: false,
+                external_engine_invoked: false,
+            },
+        )
+        .expect("write reuse manifest");
+
+        std::fs::write(&source, "id,label\n1,alpha\n2,beta\n3,gamma\n").expect("append source");
+        let current_request = reuse_request_for_test(&source, &target, &manifest_path);
+        let decision = evaluate_vortex_prepared_state_append_only_refinement(&current_request)
+            .expect("refinement decision");
+
+        assert!(decision.is_admitted());
+        assert_eq!(decision.status, "admitted_append_only_refinement");
+        assert_eq!(
+            decision.automatic_detection_status,
+            "append_only_delta_detected"
+        );
+        assert_eq!(
+            decision.source_prefix_verification_status,
+            "verified_old_source_bytes_are_current_prefix"
+        );
+        assert_eq!(decision.base_source_row_count, 2);
+        assert_eq!(
+            decision.base_source_column_family_summary,
+            "id:int64,label:utf8"
+        );
+        assert!(decision.changed_byte_range_refs.contains("#bytes="));
+        assert!(!decision.fallback_attempted);
+        assert!(!decision.external_engine_invoked);
+
+        std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn append_only_refinement_blocks_prefix_mismatch() {
+        let root = temp_test_root("append-only-refinement-prefix");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        std::fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write base source");
+        std::fs::write(&target, b"prepared-vortex-artifact").expect("write prepared artifact");
+        let manifest_path =
+            vortex_prepared_state_reuse_manifest_path(&target).expect("manifest path");
+        let base_request = reuse_request_for_test(&source, &target, &manifest_path);
+        let base_decision =
+            evaluate_vortex_prepared_state_reuse(&base_request).expect("base reuse decision");
+        let artifact_digest = fnv64_file_digest(&target, "test artifact").expect("artifact digest");
+        write_vortex_prepared_state_reuse_manifest(
+            &base_request,
+            &base_decision,
+            VortexPreparedStateReuseWriteEvidence {
+                source_state_id: "source-state-base".to_string(),
+                source_state_digest: "fnv64:source-base".to_string(),
+                source_schema_digest: "fnv64:schema".to_string(),
+                source_row_count: 2,
+                source_column_family_summary: "id:int64,label:utf8".to_string(),
+                prepared_state_id: "prepared-base".to_string(),
+                prepared_state_digest: "fnv64:prepared-base".to_string(),
+                prepared_artifact_digest: artifact_digest,
+                certificate_refs: "reopen_row_count_scan".to_string(),
+                fallback_attempted: false,
+                external_engine_invoked: false,
+            },
+        )
+        .expect("write reuse manifest");
+
+        std::fs::write(&source, "id,label\n1,ALPHA\n2,beta\n3,gamma\n")
+            .expect("rewrite and append source");
+        let current_request = reuse_request_for_test(&source, &target, &manifest_path);
+        let decision = evaluate_vortex_prepared_state_append_only_refinement(&current_request)
+            .expect("refinement decision");
+
+        assert!(!decision.is_admitted());
+        assert_eq!(decision.status, "blocked_source_prefix_digest_mismatch");
+        assert_eq!(decision.blocker_id, "source_prefix_digest_mismatch");
+        assert!(!decision.fallback_attempted);
+        assert!(!decision.external_engine_invoked);
+
+        std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn differential_refinement_manifest_is_digest_backed() {
+        let root = temp_test_root("append-only-refinement-manifest");
+        let manifest_path = root.join("refinement.manifest");
+        let decision = VortexPreparedStateAppendOnlyRefinementDecision {
+            schema_version: VORTEX_DIFFERENTIAL_REFINEMENT_MANIFEST_SCHEMA_VERSION,
+            status: "admitted_append_only_refinement".to_string(),
+            policy: VORTEX_DIFFERENTIAL_REFINEMENT_POLICY,
+            reason: "source_prefix_verified_and_delta_bytes_detected".to_string(),
+            blocker_id: "none".to_string(),
+            automatic_detection_status: "append_only_delta_detected".to_string(),
+            manifest_path: root.join("reuse.manifest"),
+            reuse_manifest_digest: "fnv64:reuse".to_string(),
+            source_path: root.join("input.csv"),
+            source_format: "csv".to_string(),
+            base_source_content_digest: "fnv64:base-source".to_string(),
+            current_source_content_digest: "fnv64:current-source".to_string(),
+            base_source_size_bytes: 10,
+            current_source_size_bytes: 20,
+            delta_byte_start: 10,
+            delta_byte_end: 20,
+            changed_byte_range_refs: "input.csv#bytes=10..20".to_string(),
+            source_prefix_verification_status: "verified_old_source_bytes_are_current_prefix"
+                .to_string(),
+            base_source_state_id: "source-state-base".to_string(),
+            base_source_state_digest: "fnv64:source-base".to_string(),
+            base_source_row_count: 2,
+            base_source_schema_digest: "fnv64:schema".to_string(),
+            base_source_column_family_summary: "id:int64,label:utf8".to_string(),
+            base_prepared_state_id: "prepared-base".to_string(),
+            base_prepared_state_digest: "fnv64:prepared-base".to_string(),
+            prepared_artifact_ref: root.join("prepared.vortex"),
+            prepared_artifact_digest: "fnv64:artifact".to_string(),
+            prepared_artifact_size_bytes: 64,
+            certificate_refs: "reopen_row_count_scan".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
+        let differential = evaluate_vortex_differential_preparation(differential_input(
+            VortexDifferentialUpdateMode::AppendOnly,
+        ));
+
+        let report = write_vortex_differential_refinement_manifest(
+            &manifest_path,
+            &decision,
+            &differential,
+            "refined-prepared",
+            "fnv64:refined",
+            "count",
+            "admitted_base_manifest_plus_delta_reopen_row_count",
+            "fnv64:consumer",
+        )
+        .expect("write refinement manifest");
+
+        assert!(report.manifest_written);
+        assert!(report.manifest_digest.starts_with("fnv64:"));
+        let manifest = std::fs::read_to_string(&manifest_path).expect("read manifest");
+        assert!(
+            manifest
+                .contains("schema_version=shardloom.vortex_differential_refinement_manifest.v1")
+        );
+        assert!(manifest.contains("overlay_consumer_family=count"));
+        assert!(manifest.contains("manifest_digest=fnv64:"));
+
+        std::fs::remove_dir_all(root).expect("remove temp root");
     }
 
     fn differential_input(

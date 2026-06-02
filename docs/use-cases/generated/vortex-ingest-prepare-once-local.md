@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `vortex_ingest_to_prepared_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
+- **Claim boundary:** Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation/refinement, and capillary evidence all stay inside vortex_ingest. Automatic append-only refinement is scoped to local CSV/JSONL sources whose old bytes are verified as the current source prefix, writes only a delta Vortex artifact, leaves the base artifact unchanged, and admits count-family consumer evidence only. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, non-append drift, missing base manifests, changed compression/format posture, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Vortex ingest prepare-once local smoke has a scoped local path. Treat it as tech
 
 ## Claim Boundary
 
-Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation, and capillary evidence all stay inside vortex_ingest. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
+Feature-gated local prepare-once fixture smoke over flat non-null scalar rows only. Certification depth is explicit: ingest_minimal records artifact bytes/digest and writer evidence, ingest_certified reopens/scans for row-count proof, and ingest_full_replay blocks until downstream output replay evidence exists. Scout ingress, layout/write advisor, copy-budget, append-only differential preparation/refinement, and capillary evidence all stay inside vortex_ingest. Automatic append-only refinement is scoped to local CSV/JSONL sources whose old bytes are verified as the current source prefix, writes only a delta Vortex artifact, leaves the base artifact unchanged, and admits count-family consumer evidence only. Malformed sources, unsupported layout/write strategies, unsafe lifetime shortcuts, non-append drift, missing base manifests, changed compression/format posture, and update/delete/upsert/schema-mismatch overlays block before runtime claims. Capillary evidence includes source split/read/encode/write/reopen/sink tasks, pre-write gate status for local array build/write/reopen/sink evidence, execution-window IDs/counts/digests when PulseWeave applies, and certificate-gated PulseWeave fields. Python ShardLoomSession reuse is local, caller-owned, and fingerprint-gated. No broad Vortex writer, object-store/table sink, standalone cold lane, CDC/table transaction, memory-efficiency, production SQL/DataFrame, persistent/distributed cache, performance, superiority, Foundry, package-publication, or Spark-replacement claim.
 
 ## How To Try It
 
@@ -66,7 +66,18 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `vortex_copy_budget_no_standalone_lane_status`
 - `vortex_differential_preparation_status`
 - `vortex_differential_preparation_update_mode`
+- `vortex_differential_preparation_refinement_status`
+- `vortex_differential_preparation_refinement_mode`
+- `vortex_differential_preparation_automatic_detection_status`
+- `vortex_differential_preparation_blocker_id`
 - `vortex_differential_preparation_delta_manifest_digest`
+- `vortex_differential_preparation_refinement_manifest_path`
+- `vortex_differential_preparation_refinement_manifest_digest`
+- `vortex_differential_preparation_refinement_manifest_written`
+- `vortex_differential_preparation_refined_prepared_state_id`
+- `vortex_differential_preparation_overlay_consumer_family`
+- `vortex_differential_preparation_overlay_consumer_status`
+- `vortex_differential_preparation_overlay_consumer_correctness_digest`
 - `vortex_differential_preparation_changed_row_range_refs`
 - `vortex_differential_preparation_overlay_applied`
 - `vortex_differential_preparation_no_standalone_lane_status`

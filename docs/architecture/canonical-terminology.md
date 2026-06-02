@@ -574,9 +574,15 @@ candidates.
   preparation, write/reopen/scan verification, optional result-sink/replay, and evidence-rendering
   portion before warm `prepared_vortex` query timing. It is valid workflow work, but it must not be
   reported as pure operator/query compute.
-- **differential preparation**: delta-only `vortex_ingest` append-only overlay from a declared base
-  SourceState, base VortexPreparedState, and delta manifest. It requires schema, update-mode,
-  changed-range, replay, Native I/O, and no-fallback evidence before support can be claimed.
+- **differential preparation**: delta-only `vortex_ingest` append-only overlay from a declared or
+  automatically detected base SourceState, base VortexPreparedState, and delta manifest. It
+  requires schema, update-mode, changed-range, replay, Native I/O, refinement/consumer where
+  applicable, and no-fallback evidence before support can be claimed.
+- **automatic prepared-state refinement**: artifact-adjacent prepared-state reuse path where a
+  changed local source is admitted as append-only only after the old source bytes are verified as
+  the current source prefix, the base prepared artifact fingerprint still matches, and a
+  digest-backed delta/refinement manifest plus scoped consumer evidence is emitted. The current
+  admitted consumer is count-family only; this is not broad CDC/table transaction support.
 - **capillary I/O**: cold-lane source/sink task model where preparation work is represented as
   typed split/read/columnarize/write/reopen/evidence units with byte/row ranges, pressure, retry,
   materialization, PulseWeave, and no-fallback evidence. It remains inside `vortex_ingest`; it is

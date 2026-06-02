@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6E-4 automatic append-only differential prepared-state
+      refinement
+  - Date: 2026-06-02
+  - Branch/PR: `codex/append-only-differential-refinement` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6E-4 cracking-style differential prepared-state refinement`.
+    - User direction that ShardLoom rows should exercise the real engine path, avoid hidden
+      piecemeal benchmark evidence, and treat Vortex preparation as the central boundary.
+  - Scope:
+    - Extended artifact-adjacent prepared-state reuse manifests with source row count and
+      column-family summary so changed local sources can be evaluated for delta refinement without
+      guessing base ranges.
+    - Added automatic append-only refinement admission for local CSV/JSONL sources: source digest
+      and size drift are admitted only when the old source bytes are verified as the current source
+      prefix, the base prepared artifact fingerprint still matches the reuse manifest, and source
+      format, parse plan, output policy, provider version, feature gates, certification level, and
+      no-fallback evidence match.
+    - Added a content-addressed delta source/artifact sidecar under the artifact-adjacent
+      `.shardloom` directory. The runtime writes only the delta artifact and leaves the base
+      prepared artifact unchanged.
+    - Added a digest-backed differential refinement manifest, logical refined prepared-state
+      id/digest, and the first admitted overlay consumer family: count over base manifest row count
+      plus delta reopen row count.
+    - Added CLI evidence fields for automatic detection status, blocker id, base/current source
+      fingerprints, refinement manifest path/digest/write status, refined prepared-state identity,
+      overlay consumer status, consumer correctness digest, and base/delta reprepare posture.
+    - Added Python client accessors, benchmark contract/matrix fields, and architecture/use-case
+      docs for the automatic refinement route.
+  - Evidence:
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py python/src/shardloom/client.py python/tests/test_cli_client.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_delta_overlay_route` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io differential_preparation --lib -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io append_only_refinement --lib -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-vortex --features vortex-write,universal-format-io differential_refinement --lib -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io differential -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --features vortex-write,universal-format-io automatic --test sql_local_source_runtime_smoke -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python/tests/test_cli_client.py` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 397 tests and 2
+      skipped.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped local append-only prepared-state refinement for admitted CSV/JSONL
+      manifest sources and count-family overlay consumer evidence only. It does not authorize broad
+      CDC, deletes, updates, upserts, table transactions, object-store manifests, object-store/table
+      writes, production incremental processing, performance claims, package release, broad
+      SQL/DataFrame support, or Spark replacement.
+  - Fallback boundary:
+    - Automatic refinement uses the existing ShardLoom `vortex_ingest` writer/reopen path for the
+      delta artifact and verifies the base artifact by manifest/fingerprint. No Spark/DataFusion or
+      external query-engine fallback was added. Full-reprepare comparison remains test/reference
+      evidence only.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6E-3 runtime-admitted local layout/write advisor
   - Date: 2026-06-02
   - Branch/PR: `codex/runtime-layout-write-advisor` / pending PR.

@@ -361,14 +361,16 @@ evidence bundle is merged.
 refreshed rows carry
 `vortex_differential_preparation_schema_version=shardloom.traditional_analytics.vortex_differential_preparation.v1`,
 base SourceState/VortexPreparedState IDs and digests, delta SourceState and manifest digests,
-changed byte/row/segment refs, update-mode policy, schema compatibility, overlay manifest and
-correctness digests, Native I/O certificate posture,
+changed byte/row/segment refs, update-mode policy, schema compatibility, automatic refinement
+status/mode/detection reason, refinement manifest path/digest, refined prepared-state id/digest,
+count-family overlay consumer status/correctness digest, overlay manifest and correctness digests,
+Native I/O certificate posture,
 `vortex_differential_preparation_no_standalone_lane_status`,
 `vortex_differential_preparation_fallback_attempted=false`,
 `vortex_differential_preparation_external_engine_invoked=false`, and
 `vortex_differential_preparation_claim_gate_status=not_claim_grade`. This distinguishes full cold
-prepare from scoped append-only differential overlay evidence without rerunning benchmark data yet
-or claiming broad CDC/table transaction support.
+prepare from scoped append-only differential overlay/refinement evidence without rerunning
+benchmark data yet or claiming broad CDC/table transaction support.
 `GAR-IOREUSE-1K` adds the VortexCapillaryPreparation contract to the benchmark harness. Future
 refreshed rows carry
 `vortex_capillary_preparation_schema_version=shardloom.vortex_capillary_preparation.v1`,
