@@ -397,9 +397,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "benchmark_route_publication_source": "user_route_capability_report",
             "benchmark_route_publication_claim_boundary": claim_boundary,
             "route_runtime_status": "scoped_runtime_supported",
-            "front_door_end_state": "VortexPreparedState",
             "includes_preparation": True,
-            "includes_query": False,
             "includes_output": True,
             "includes_evidence": True,
             "preparation_included": True,
@@ -437,19 +435,21 @@ class ReleaseScriptTests(unittest.TestCase):
                 "route_lane_id": "prepare_once_first_query",
                 "route_display_name": "ShardLoom Prepare-Once First Query",
                 "front_door_start_state": "SourceState",
+                "front_door_end_state": "result_sink",
+                "includes_query": True,
                 "public_user_surface": (
                     "ctx.read_csv('fact.csv').prepare_vortex("
-                    "workspace='target/shardloom-prepared')"
+                    "workspace='target/shardloom-prepared').query('selective filter').collect()"
                 ),
                 "benchmark_public_surface": (
                     "ctx.read_csv('fact.csv').prepare_vortex("
-                    "workspace='target/shardloom-prepared')"
+                    "workspace='target/shardloom-prepared').query('selective filter').collect()"
                 ),
                 "benchmark_timing_boundary": (
-                    "ctx.read_csv(...).prepare_vortex(workspace=...) stops at "
-                    "VortexPreparedState; the owning ShardLoom Prepare-Once First "
-                    "Query route timing includes preparation plus first prepared "
-                    "query/output"
+                    "ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect() "
+                    "is the ShardLoom Prepare-Once First Query route identity: "
+                    "preparation plus first prepared query/output are the comparable route; "
+                    "this static row is not a measured timing row"
                 ),
                 "vortex_normalization_point": "SourceState -> VortexPreparedState",
             },
@@ -460,6 +460,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 "route_lane_id": "generated_rows_local_output",
                 "route_display_name": "Generated Rows Local Output",
                 "front_door_start_state": "GeneratedSourceState",
+                "front_door_end_state": "VortexPreparedState",
+                "includes_query": False,
                 "public_user_surface": (
                     "ctx.from_rows([{'id': 1, 'label': 'alpha'}]).prepare_vortex("
                     "workspace='target/shardloom-prepared')"
@@ -3148,9 +3150,9 @@ jobs:
                   <h2>Public front doors</h2>
                   <p>Route rows name the user-facing prepared paths.</p>
                   <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
-                    <code>ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)</code>
+                    <code>ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
                     <p>SourceState</p>
-                    <p>VortexPreparedState</p>
+                    <p>result_sink</p>
                     <p>not_timing_row_route_identity_only</p>
                   </article>
                   <article data-public-front-door-id="generated_source_prepare_vortex_front_door">

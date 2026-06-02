@@ -313,13 +313,16 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(local_auto["route_lane_id"], "prepare_once_first_query")
         self.assertIn("ctx.read_csv", local_auto["public_user_surface"])
         self.assertIn(".prepare_vortex", local_auto["public_user_surface"])
+        self.assertIn(".query", local_auto["public_user_surface"])
+        self.assertIn(".collect", local_auto["public_user_surface"])
         self.assertIn("SourceState", local_auto["vortex_normalization_point"])
         self.assertIn("VortexPreparedState", local_auto["vortex_normalization_point"])
         self.assertEqual(
             local_auto["prepared_state_reuse_scope"],
             "workspace_manifest_local_vortex_artifacts",
         )
-        self.assertFalse(local_auto["includes_query"])
+        self.assertEqual(local_auto["front_door_end_state"], "result_sink")
+        self.assertTrue(local_auto["includes_query"])
         self.assertTrue(local_auto["includes_output"])
         self.assertFalse(local_auto["fallback_attempted"])
         self.assertFalse(local_auto["external_engine_invoked"])
@@ -518,6 +521,8 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             for row in route_report.public_front_door_route_rows
         ]
         public_rows[0]["public_user_surface"] = "ctx.read('fact.csv')"
+        public_rows[0]["includes_query"] = False
+        public_rows[0]["front_door_end_state"] = "VortexPreparedState"
         public_rows[0]["prepared_state_reuse_manifest_path"] = "missing"
         public_rows[1]["public_user_surface"] = "ctx.generated_internal_only()"
         public_rows[1]["required_evidence"] = []
@@ -528,6 +533,8 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertTrue(
             any("public_user_surface must include ctx.read_csv" in blocker for blocker in blockers)
         )
+        self.assertTrue(any("must set includes_query=true" in blocker for blocker in blockers))
+        self.assertTrue(any("front_door_end_state must be result_sink" in blocker for blocker in blockers))
         self.assertTrue(
             any("public_user_surface must include ctx.from_rows" in blocker for blocker in blockers)
         )

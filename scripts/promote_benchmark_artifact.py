@@ -1605,10 +1605,10 @@ def public_front_door_benchmark_rows() -> list[dict[str, Any]]:
         )
         if front_door.front_door_id == "local_source_auto_prepare_vortex_front_door":
             timing_boundary = (
-                "ctx.read_csv(...).prepare_vortex(workspace=...) stops at "
-                "VortexPreparedState; the owning ShardLoom Prepare-Once First "
-                "Query route timing includes preparation plus first prepared "
-                "query/output"
+                "ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect() "
+                "is the ShardLoom Prepare-Once First Query route identity: "
+                "preparation plus first prepared query/output are the comparable route; "
+                "this static row is not a measured timing row"
             )
         elif front_door.front_door_id == "generated_source_prepare_vortex_front_door":
             timing_boundary = (

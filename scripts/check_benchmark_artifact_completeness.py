@@ -856,8 +856,18 @@ def validate_public_front_door_rows(
             blockers.append(f"{front_door_id}: missing public front-door publication source")
         if row.get("route_runtime_status") != "scoped_runtime_supported":
             blockers.append(f"{front_door_id}: route_runtime_status must be scoped_runtime_supported")
-        if row.get("front_door_end_state") != "VortexPreparedState":
+        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+            if row.get("front_door_end_state") != "result_sink":
+                blockers.append(f"{front_door_id}: front door must end at result_sink")
+            if row.get("includes_query") is not True:
+                blockers.append(f"{front_door_id}: first-query row must include query")
+            for token in (".query", ".collect"):
+                if token not in str(row.get("public_user_surface") or ""):
+                    blockers.append(f"{front_door_id}: public surface must show {token}")
+        elif row.get("front_door_end_state") != "VortexPreparedState":
             blockers.append(f"{front_door_id}: front door must end at VortexPreparedState")
+        elif row.get("includes_query") is not False:
+            blockers.append(f"{front_door_id}: prepared-output row must not include query")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{front_door_id}: fallback_attempted must be false")
         if row.get("external_engine_invoked") is not False:

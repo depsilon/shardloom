@@ -340,7 +340,15 @@ def validate_public_front_door_rows(
             examples.append(f"{prefix}:benchmark_route_publication_claim_boundary")
         if row.get("route_runtime_status") != "scoped_runtime_supported":
             examples.append(f"{prefix}:route_runtime_status")
-        if row.get("front_door_end_state") != "VortexPreparedState":
+        expected_end_state = (
+            "result_sink"
+            if front_door_id == "local_source_auto_prepare_vortex_front_door"
+            else "VortexPreparedState"
+        )
+        expected_includes_query = (
+            front_door_id == "local_source_auto_prepare_vortex_front_door"
+        )
+        if row.get("front_door_end_state") != expected_end_state:
             examples.append(f"{prefix}:front_door_end_state")
         for field in (
             "front_door_id",
@@ -370,7 +378,7 @@ def validate_public_front_door_rows(
         ):
             if row.get(field) is not True:
                 examples.append(f"{prefix}:{field}")
-        if row.get("includes_query") is not False:
+        if row.get("includes_query") is not expected_includes_query:
             examples.append(f"{prefix}:includes_query")
         for field in (
             "fallback_attempted",

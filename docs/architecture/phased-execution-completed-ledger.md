@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6E-1 public front-door prepared first-query route-report closeout
+  - Date: 2026-06-02
+  - Branch/PR: `codex/auto-prepared-route-report-wiring` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6E-1 automatic SourceState and VortexPreparedState reuse spine`.
+    - User direction that benchmark/public route rows must reflect realistic ShardLoom routes rather
+      than artificial stage pieces or prepare-only labels.
+  - Scope:
+    - Promoted the local auto public front-door row from prepare-only identity to the route-comparable
+      `ShardLoom Prepare-Once First Query` identity:
+      `ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()`.
+    - Kept the generated-source public row as generated-source Vortex output/preparation evidence,
+      since that owning route writes a local Vortex prepared artifact rather than a prepared query.
+    - Updated route capability validation, benchmark artifact completeness, benchmark publication
+      claim-gate validation, website readiness validation, benchmark promotion output, release-script
+      fixtures, and committed static benchmark/website artifacts to enforce the first-query boundary.
+    - Removed the completed 6E-1 item from the live phase plan so the next unchecked runtime item is
+      `GAR-RUNTIME-IMPL-6E-3`.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/context.py scripts/check_user_route_capability_report.py scripts/promote_benchmark_artifact.py scripts/check_benchmark_publication_claim_gate.py scripts/check_benchmark_artifact_completeness.py scripts/check_website_readiness.py python/tests/test_user_route_capability_report.py python/tests/test_release_scripts.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_user_route_capability_report` passed.
+    - `python3 -m unittest python/tests/test_release_scripts.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree --output target/benchmark-publication-claim-gate.json` passed.
+    - Clean temporary website build ran `node website-src/scripts/sync-content.mjs`,
+      `node website-src/node_modules/astro/bin/astro.mjs build`,
+      `node website-src/scripts/postbuild-static.mjs`, and
+      `node website/validate_static_assets.js`; static asset validation passed.
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-report.json`
+      passed from the clean temporary build workspace. Running it in the local repo remains polluted
+      by unrelated untracked duplicate website files.
+  - Claim boundary:
+    - This closes route-report and static-publication evidence for the scoped local auto
+      prepare-once first-query route only. The public front-door rows are still static route identity
+      evidence, not timing rows, and do not authorize performance, production, package-release, broad
+      SQL/DataFrame, object-store/table, or Spark-replacement claims.
+  - Fallback boundary:
+    - The route report and validators require `fallback_attempted=false` and
+      `external_engine_invoked=false`; no external engine fallback was added.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6B repo-wide readiness and user-surface audit baseline
   - Date: 2026-06-02
   - Branch/PR: `codex/repo-readiness-user-surface-audit` / PR #991, merged as

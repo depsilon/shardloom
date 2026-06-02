@@ -1128,8 +1128,6 @@ def validate_public_front_door_routes(
             blockers.append(
                 f"{front_door_id}: route_runtime_status must be scoped_runtime_supported"
             )
-        if row.get("front_door_end_state") != "VortexPreparedState":
-            blockers.append(f"{front_door_id}: front_door_end_state must be VortexPreparedState")
         if "VortexPreparedState" not in str(row.get("vortex_normalization_point", "")):
             blockers.append(f"{front_door_id}: must name VortexPreparedState normalization")
         for field in (
@@ -1141,10 +1139,6 @@ def validate_public_front_door_routes(
         ):
             if row.get(field) is not True:
                 blockers.append(f"{front_door_id}: {field} must be true")
-        if row.get("includes_query") is not False:
-            blockers.append(
-                f"{front_door_id}: prepare front-door row must set includes_query=false"
-            )
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{front_door_id}: fallback_attempted must be false")
         if row.get("external_engine_invoked") is not False:
@@ -1174,7 +1168,17 @@ def validate_public_front_door_routes(
                 )
             if row.get("route_lane_id") != "prepare_once_first_query":
                 blockers.append(f"{front_door_id}: route_lane_id must be prepare_once_first_query")
-            for token in ("ctx.read_csv", ".prepare_vortex", "workspace="):
+            if row.get("front_door_end_state") != "result_sink":
+                blockers.append(f"{front_door_id}: front_door_end_state must be result_sink")
+            if row.get("route_lane_end_state") != "result_sink":
+                blockers.append(f"{front_door_id}: route_lane_end_state must be result_sink")
+            if row.get("includes_query") is not True:
+                blockers.append(f"{front_door_id}: prepare-once first query must set includes_query=true")
+            if row.get("query_timing_starts_after_preparation") is not True:
+                blockers.append(
+                    f"{front_door_id}: query_timing_starts_after_preparation must be true"
+                )
+            for token in ("ctx.read_csv", ".prepare_vortex", "workspace=", ".query", ".collect"):
                 if token not in surface:
                     blockers.append(f"{front_door_id}: public_user_surface must include {token}")
             if "SourceState" not in str(row.get("vortex_normalization_point", "")):
@@ -1194,6 +1198,10 @@ def validate_public_front_door_routes(
                 blockers.append(f"{front_door_id}: must own generated_rows_local_output")
             if row.get("route_lane_id") != "generated_rows_local_output":
                 blockers.append(f"{front_door_id}: route_lane_id must be generated_rows_local_output")
+            if row.get("front_door_end_state") != "VortexPreparedState":
+                blockers.append(f"{front_door_id}: front_door_end_state must be VortexPreparedState")
+            if row.get("includes_query") is not False:
+                blockers.append(f"{front_door_id}: generated prepared-output row must set includes_query=false")
             for token in ("ctx.from_rows", ".prepare_vortex", "workspace="):
                 if token not in surface:
                     blockers.append(f"{front_door_id}: public_user_surface must include {token}")
@@ -1428,6 +1436,12 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 in str(local_auto_front_door.get("public_user_surface"))
                 and ".prepare_vortex"
                 in str(local_auto_front_door.get("public_user_surface"))
+                and ".query"
+                in str(local_auto_front_door.get("public_user_surface"))
+                and ".collect"
+                in str(local_auto_front_door.get("public_user_surface"))
+                and local_auto_front_door.get("includes_query") is True
+                and local_auto_front_door.get("front_door_end_state") == "result_sink"
                 and "SourceState"
                 in str(local_auto_front_door.get("vortex_normalization_point"))
                 and "VortexPreparedState"
