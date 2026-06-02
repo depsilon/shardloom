@@ -813,15 +813,16 @@ class UserRouteCapabilityReport:
                 input_family=local.input_family,
                 public_user_surface=(
                     "ctx.read_csv('fact.csv').prepare_vortex("
-                    "workspace='target/shardloom-prepared')"
+                    "workspace='target/shardloom-prepared').query("
+                    "'selective filter').collect()"
                 ),
                 benchmark_public_surface=(
                     "Public front door for ShardLoom Prepare-Once First Query: raw "
-                    "compatibility source -> SourceState -> VortexPreparedState; the "
-                    "owning route continues with first prepared query -> result/evidence"
+                    "compatibility source -> SourceState -> VortexPreparedState -> "
+                    "first prepared query -> result/evidence"
                 ),
                 front_door_start_state=local.start_state,
-                front_door_end_state="VortexPreparedState",
+                front_door_end_state="result_sink",
                 route_lane_start_state=local.start_state,
                 route_lane_end_state="result_sink",
                 vortex_normalization_point=local.vortex_normalization_point,
@@ -829,7 +830,7 @@ class UserRouteCapabilityReport:
                 preparation_route=local.preparation_route,
                 execution_mode=local.execution_mode,
                 includes_preparation=True,
-                includes_query=False,
+                includes_query=True,
                 includes_output=True,
                 includes_evidence=True,
                 preparation_included=True,

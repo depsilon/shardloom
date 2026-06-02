@@ -226,7 +226,9 @@ object-store/table reuse, and non-local workflow reuse remain outside this scope
 
 The explicit prepare-once Vortex lifecycle is available for advanced validation through a
 feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, then call
-`ctx.read_csv(...).prepare_vortex(workspace=...)`,
+`ctx.read_csv(...).prepare_vortex(workspace=...)` for a prepared source,
+`ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()` for the public
+Prepare-Once First Query route,
 `ctx.from_rows(...).prepare_vortex(workspace=...)`,
 `ShardLoomClient.vortex_ingest_smoke(...)`, or `ctx.prepare_vortex(...)` when you intentionally need
 to inspect the `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` boundary:

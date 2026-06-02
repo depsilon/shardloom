@@ -544,8 +544,18 @@ def check_public_front_door_benchmark_payload(
         surface = str(row.get("public_user_surface") or "")
         if row.get("route_runtime_status") != "scoped_runtime_supported":
             blockers.append(f"{front_door_id}: public front-door runtime status drift")
-        if row.get("front_door_end_state") != "VortexPreparedState":
-            blockers.append(f"{front_door_id}: public front-door end-state drift")
+        if front_door_id == "local_source_auto_prepare_vortex_front_door":
+            if row.get("front_door_end_state") != "result_sink":
+                blockers.append(f"{front_door_id}: public front-door end-state drift")
+            if row.get("includes_query") is not True:
+                blockers.append(f"{front_door_id}: public front-door query-inclusion drift")
+            if ".query" not in surface or ".collect" not in surface:
+                blockers.append(f"{front_door_id}: public front-door surface missing query collect")
+        else:
+            if row.get("front_door_end_state") != "VortexPreparedState":
+                blockers.append(f"{front_door_id}: public front-door end-state drift")
+            if row.get("includes_query") is not False:
+                blockers.append(f"{front_door_id}: public front-door query-inclusion drift")
         if row.get("benchmark_timing_status") != "not_timing_row_route_identity_only":
             blockers.append(f"{front_door_id}: public front-door timing status drift")
         if row.get("benchmark_timing_row") is not False:

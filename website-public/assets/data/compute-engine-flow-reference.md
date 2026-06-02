@@ -2341,15 +2341,14 @@ generated-source Vortex-output route now projects its artifact-adjacent manifest
 user route capability reports. The user route capability report now also publishes
 `public_front_door_route_rows` for `local_source_auto_prepare_vortex_front_door` and
 `generated_source_prepare_vortex_front_door`. These rows make
-`ctx.read_csv(...).prepare_vortex(workspace=...)` and
+`ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()` and
 `ctx.from_rows(...).prepare_vortex(workspace=...)` machine-readable public route examples with
-start/end state, preparation inclusion, reuse-manifest, no-fallback, and claim-boundary fields.
-Benchmark publication now mirrors those rows as `public_front_door_benchmark_rows` and the website
-renders them as public front-door route identity evidence. They bind the public Python prepared
-front doors to route lane identity, timing boundary, prepared-state reuse scope, no-fallback
-posture, and claim boundary without adding comparative timing rows or performance claims. Remaining
-6E-1 work is any additional CLI/Python route-report wiring needed for route-comparable prepared
-execution.
+start/end state, preparation/query inclusion, reuse-manifest, no-fallback, and claim-boundary
+fields. Benchmark publication now mirrors those rows as `public_front_door_benchmark_rows` and the
+website renders them as public front-door route identity evidence. They bind the public Python
+prepared front doors to route lane identity, timing boundary, prepared-state reuse scope,
+no-fallback posture, and claim boundary without adding comparative timing rows or performance
+claims.
 
 Prepared-batch reports should publish amortized route summaries for `N=1`, `N=5`, `N=10`, `N=50`,
 and `N=100` when the artifact contains enough child query evidence. If an amortization count is

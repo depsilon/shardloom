@@ -184,9 +184,10 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after PR #1037.
+Updated after the GAR-RUNTIME-IMPL-6E-1 public front-door route-report closeout.
 
-1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation and prepared-state reuse.
+1. `GAR-RUNTIME-IMPL-6E-3` runtime-admitted layout/write advisor for one local route, then
+   `GAR-RUNTIME-IMPL-6E-4` cracking-style differential prepared-state refinement.
 2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion.
 3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix, then
    `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` only to split remaining true runtime blockers into
@@ -295,118 +296,6 @@ diagnostics.
 
 Implementation checklist, in required order:
 
-- [ ] GAR-RUNTIME-IMPL-6E-1 automatic SourceState and VortexPreparedState reuse spine.
-  Source: `docs/architecture/io-reuse-and-fanout-architecture.md`,
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-  `docs/architecture/universal-input-contract.md`, and Database Cracking's reuse/refinement
-  principle.
-  Current state: benchmark/report rows expose SourceState, VortexPreparedState, reuse-level, cache
-  invalidation, and fingerprint fields. The runtime can create scoped prepared Vortex artifacts,
-  but repeated local workflows still do too much explicit preparation unless callers manually keep
-  track of the prepared artifact.
-  In-progress update: Python `CompatibilityPreparedVortexRoute` handles now write an explicit
-  workspace manifest at `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json` after a
-  successful local compatibility preparation. A repeated compatible `ctx.prepare_vortex(...,
-  workspace=...).run_batch(...)` or session route call can skip compatibility preparation and run
-  `traditional-analytics-vortex-batch-run` over the existing local Vortex artifacts when source,
-  artifact, and prepare-policy fingerprints match. Source or artifact drift invalidates the
-  manifest and re-enters the normal prepare/batch route. The user-route capability report and
-  local-file benchmark route report now expose the prepared-state reuse scope, manifest path,
-  reuse policy, runtime hit/reason placeholders, manifest digest placeholder, and invalidation
-  reason placeholder, and release readiness requires that prepared route rows keep the workspace
-  manifest contract visible. Benchmark promotion now also preserves prepared-state reuse
-  diagnostics in public rows and rejects reuse rows whose scope, reason, digest, or invalidation
-  evidence is missing; in-process prepared-batch reuse, explicit warm-prepared reuse, and workspace
-  manifest reuse are labeled as distinct scopes. Rust/CLI traditional analytics reports now emit the
-  same first-class reuse fields for cold first-preparation rows
-  (`prepared_state_created_not_reused`), caller-supplied warm/prepared Vortex rows
-  (`explicit_prepared_state_input`), native Vortex rows (`not_applicable_native_vortex_input`), and
-  single-process prepare/batch rows (`in_process_prepared_batch_vortex_artifacts`). The typed
-  `compute_flow_evidence` envelope includes those reuse fields so CLI JSON consumers no longer need
-  benchmark-promotion inference to determine scope, policy, hit status, digest, or invalidation
-  reason. Rust/CLI `vortex-ingest-smoke` now adds a real artifact-adjacent prepared-state reuse
-  path: successful local `.vortex` preparation writes a deterministic
-  `.shardloom/<artifact>.prepared-state-reuse.manifest`, repeated identical local ingest emits a
-  dedicated reuse report instead of rewriting the artifact, and source/artifact/plan/policy drift
-  invalidates reuse before any prepared-state claim. Rust/CLI
-  `traditional-analytics-prepare-batch-run` now also participates in workspace-manifest reuse
-  outside the Python handle: it validates
-  `<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`, skips compatibility preparation on
-  fingerprint/policy/artifact hits, calls the prepared Vortex batch route over existing local
-  artifacts, and records workspace hit/reason/digest/invalidation evidence. Remaining 6E-1 work is
-  broader local-source auto-route wiring across the higher-level `auto` front doors. Python
-  `LazyFrame.prepare_vortex(...)` now covers the first high-level local-source auto front door for
-  single-source CSV/JSONL/Parquet/Arrow IPC/Avro/ORC paths: the
-  `ctx.read_csv(...).prepare_vortex(workspace=...)` call derives a caller-owned local `.vortex`
-  target, calls the real
-  `vortex-ingest-smoke` route, and exposes typed `prepared_state_reuse_hit`,
-  `prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and
-  `prepared_state_invalidation_reason` fields from the artifact-adjacent manifest decision.
-  Python generated-source helpers now also expose `prepare_vortex(...)` for user rows,
-  literal/calendar rows, range/sequence generators, and scoped source-free SQL rows. Those calls use
-  the real generated-source Vortex writer and return `GeneratedSourceWriteReport` with
-  `prepared_state_created`, artifact-adjacent reuse scope/reason/digest/invalidation evidence,
-  upstream Vortex write/reopen evidence on misses, and manifest-hit reuse on repeated compatible
-  caller-owned local `.vortex` targets. User route capability reports now project that generated
-  local Vortex-output path as `GeneratedSourceState -> VortexPreparedState`, expose the
-  artifact-adjacent reuse manifest scope/path/policy/reason/digest/invalidation fields, and gate the
-  contract through the release-readiness acceptance summary. User route capability reports now also
-  publish `public_front_door_route_rows` for
-  `local_source_auto_prepare_vortex_front_door` and
-  `generated_source_prepare_vortex_front_door`. Those rows make
-  `ctx.read_csv(...).prepare_vortex(workspace=...)` and
-  `ctx.from_rows(...).prepare_vortex(...)` first-class machine-readable public route examples with
-  start/end state, preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields,
-  and release readiness requires the rows to stay present.
-  Benchmark publication now mirrors those route examples as
-  `public_front_door_benchmark_rows`, the website renders them as static public front-door route
-  identity evidence, and artifact/publication/website validators require both rows to stay present.
-  Those rows show `ctx.read_csv(...).prepare_vortex(workspace=...)` and
-  `ctx.from_rows(...).prepare_vortex(...)` alongside route lane identity, route timing boundary,
-  preparation-inclusion, reuse-manifest, no-fallback, and claim-boundary fields without adding
-  comparative timing rows or performance claims. Remaining 6E-1 work is any additional CLI/Python
-  route-report wiring needed for route-comparable prepared execution.
-  Next slice outcome: close the remaining route-report wiring gap only where a public
-  `auto` front door still needs stronger route-comparable prepared execution visibility through an
-  existing runtime path.
-  Runtime enablement: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC or generated local rows can move
-  through SourceState -> VortexPreparedState once, then reuse the prepared state for subsequent
-  prepared execution when the reuse manifest is valid.
-  User-visible surface: Python context/session helpers, CLI `vortex-ingest-smoke`/local-source
-  runtime reports, benchmark publication rows, route capability reports, README/quickstart route
-  examples, and website benchmark/status content expose the same prepared-route identity.
-  Implementation scope: `python/src/shardloom/context.py` route reports,
-  `scripts/check_user_route_capability_report.py`, benchmark promotion/publication validators,
-  website/static benchmark metadata when generated from current artifacts, README/compute-flow docs,
-  and focused Python/report tests. Additional CLI/Python route-report wiring is allowed only where
-  needed to make route-comparable prepared execution visible through existing runtime paths.
-  Evidence required: deterministic validators that fail if the local-source or generated-source
-  front doors disappear from public route rows; no-fallback evidence on every ShardLoom row;
-  preparation-included/reused fields that distinguish cold, prepare-once, warm prepared, and native
-  Vortex routes; manifest hit/miss/invalidation evidence where reuse is claimed.
-  Acceptance: public benchmark/readiness rows expose auto/generated prepared routes as ShardLoom
-  runtime-supported where the underlying route is admitted; generated and local compatibility
-  inputs are visibly normalized through SourceState/GeneratedSourceState -> VortexPreparedState;
-  invalidated prepared state is never reported as reused; explicit prepare paths still work.
-  Verification:
-  ```bash
-  cargo test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib
-  cargo test -p shardloom-cli --features vortex-write,universal-format-io vortex_ingest
-  python3 -m unittest python/tests/test_cli_client.py
-  cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-  git diff --check
-  ```
-  Non-goals: no daemon, no process-global cache, no persistent learning database, no object-store
-  cache, and no performance claim.
-  Dependencies/blockers: depends on SourceState/VortexPreparedState fingerprint stability,
-  artifact-adjacent or workspace-scoped manifest storage, Vortex write/read certificate evidence,
-  Python result model compatibility, and invalidation diagnostics for source/schema/plan drift.
-  Claim boundary: may claim only scoped local prepared-state reuse with manifest/certificate
-  evidence.
-  Fallback boundary: reuse never invokes DuckDB, Polars, Spark, DataFusion, Velox, pandas, or a
-  Vortex query-engine integration.
-  Ledger rule: move completed details and validation output to
-  `docs/architecture/phased-execution-completed-ledger.md`.
 - [ ] GAR-RUNTIME-IMPL-6E-3 runtime-admitted layout/write advisor for one local route.
   Source: `docs/architecture/bayesian-performance-layout-advisor.md`,
   `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
