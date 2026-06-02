@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=60
-executable_fixture_count=50
+matrix_row_count=64
+executable_fixture_count=54
 unsupported_diagnostic_count=10
 property_lane_count=1
 property_seed_order=20260521
@@ -87,6 +87,10 @@ Covered fixture rows:
 - `correlated_joined_projected_row_value_in_subquery_semantics`
 - `correlated_joined_projected_quantified_subquery_semantics`
 - `correlated_joined_projected_exists_subquery_semantics`
+- `correlated_grouped_having_projected_in_subquery_semantics`
+- `correlated_grouped_having_projected_row_value_in_subquery_semantics`
+- `correlated_grouped_having_projected_quantified_subquery_semantics`
+- `correlated_grouped_having_projected_exists_subquery_semantics`
 - `nested_in_subquery_semantics`
 - `having_in_subquery_semantics`
 - `having_exists_subquery_semantics`
@@ -113,7 +117,7 @@ Covered fixture rows:
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
 IN-subquery, nested scalar IN-subquery, row-value IN-subquery, source-qualified local subquery,
 scoped correlated `outer.<column>` local subquery filter, joined/grouped projected IN/EXISTS
-subqueries, projected row-value/quantified subquery, correlated joined projected
+subqueries, projected row-value/quantified subquery, correlated joined and grouped/HAVING projected
 scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS, scoped quantified ANY/ALL, and
 HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
