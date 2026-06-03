@@ -967,6 +967,16 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("preparation_millis", "vortex_prepare_millis")
         )
 
+    def route_stage_millis(
+        primary_keys: tuple[str, ...],
+        prepare_batch_keys: tuple[str, ...] = (),
+    ) -> float | None:
+        if route_lane_id == "prepare_once_batch" and batch_count and batch_count > 0:
+            prepare_batch_value = first_numeric_field(fields, prepare_batch_keys)
+            if prepare_batch_value is not None:
+                return prepare_batch_value / batch_count
+        return first_numeric_field(fields, primary_keys + prepare_batch_keys)
+
     output_delivery = output_delivery_millis(fields)
     evidence_render = evidence_render_route_millis(fields)
     total_route = total_runtime
@@ -986,33 +996,31 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "source_admission_ms": source_admission_millis(fields),
         "source_read_ms": first_numeric_field(fields, ("source_read_millis",)),
-        "source_parse_or_columnar_decode_ms": first_numeric_field(
-            fields,
+        "source_parse_or_columnar_decode_ms": route_stage_millis(
             (
                 "compatibility_parse_millis",
                 "source_parse_millis",
                 "source_to_columnar_millis",
-                "prepare_batch_source_to_columnar_millis",
             ),
+            ("prepare_batch_source_to_columnar_millis",),
         ),
-        "source_to_vortex_array_ms": first_numeric_field(
-            fields,
+        "source_to_vortex_array_ms": route_stage_millis(
             (
                 "vortex_array_build_millis",
-                "prepare_batch_vortex_array_build_millis",
                 "compatibility_to_vortex_import_millis",
             ),
+            ("prepare_batch_vortex_array_build_millis",),
         ),
-        "vortex_write_ms": first_numeric_field(
-            fields, ("vortex_write_millis", "prepare_batch_vortex_write_millis")
+        "vortex_write_ms": route_stage_millis(
+            ("vortex_write_millis",),
+            ("prepare_batch_vortex_write_millis",),
         ),
-        "vortex_reopen_or_verify_ms": first_numeric_field(
-            fields,
+        "vortex_reopen_or_verify_ms": route_stage_millis(
             (
                 "vortex_reopen_verify_millis",
                 "vortex_reopen_millis",
-                "prepare_batch_vortex_reopen_verify_millis",
             ),
+            ("prepare_batch_vortex_reopen_verify_millis",),
         ),
         "prepared_state_lookup_or_create_ms": prepared_state_lookup,
         "vortex_scan_ms": first_numeric_field(fields, ("vortex_scan_millis",)),
@@ -1584,7 +1592,10 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
             if total_runtime is not None and preparation is not None
             else total_runtime
         )
-        prepared = dict(base)
+        first_query_stage_fields = route_stage_fields_for_row(
+            {**row, "route_lane_id": "prepare_once_first_query"}
+        )
+        prepared = {**base, **first_query_stage_fields}
         prepared.update(
             {
                 "route_lane_id": "prepare_once_first_query",

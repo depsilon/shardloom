@@ -5052,7 +5052,7 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_selected_strategy",
-        "vortex:single_local_vortex_artifact"
+        "csv:advisory_only_no_runtime_write_knob_applied,vortex:single_local_vortex_artifact"
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_runtime_decision_applied",
@@ -5174,7 +5174,7 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_selected_strategy",
-        "vortex:single_local_vortex_artifact"
+        "csv:advisory_only_no_runtime_write_knob_applied,vortex:single_local_vortex_artifact"
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_runtime_decision_applied",

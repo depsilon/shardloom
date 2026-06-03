@@ -26,6 +26,7 @@ from .client import (
     VortexIngestSmokeReport,
 )
 from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
+from .prepared_route import CompatibilityPreparedVortexRoute
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
 MAX_DATE_ARITHMETIC_DAYS = 366_000
@@ -2330,8 +2331,11 @@ class SqlWorkflow:
         normalized = self.statement.strip().rstrip(";").strip()
         if not _is_local_source_sql_statement(normalized):
             return None
-        if _contains_sql_keyword_outside_quotes(normalized, "limit"):
-            return normalized
+        limit_index = _find_top_level_sql_keyword_outside_quotes(normalized, "limit")
+        if limit_index is not None:
+            if default_limit is None:
+                return normalized
+            return _cap_top_level_sql_limit(normalized, limit_index, default_limit)
         if default_limit is None:
             return None
         return f"{normalized} LIMIT {default_limit}"
@@ -3789,17 +3793,25 @@ class LazyFrame:
         self,
         target_vortex_path: str | os.PathLike[str] | None = None,
         *,
+        dim: str | os.PathLike[str] | None = None,
         workspace: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        cdc_delta: str | os.PathLike[str] | None = None,
+        result_workspace: str | os.PathLike[str] | None = None,
+        evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         check: bool = True,
-    ) -> VortexIngestSmokeReport:
+    ) -> VortexIngestSmokeReport | CompatibilityPreparedVortexRoute:
         """Prepare this raw local source into a caller-owned `VortexPreparedState`.
 
         When `workspace` is supplied without `target_vortex_path`, the target is derived as
         `<workspace>/<source-stem>.vortex`. The real CLI `vortex-ingest-smoke` route owns
         fingerprint-backed reuse and fail-closed invalidation through its artifact-adjacent
-        manifest.
+        manifest. Supplying ``dim=...`` returns the queryable compatibility prepared route used by
+        ``ctx.prepare_vortex(..., dim=..., workspace=...).query(...).collect()``.
         """
 
         if self.engine_mode not in {"auto", "batch"}:
@@ -3821,6 +3833,57 @@ class LazyFrame:
             raise ValueError(
                 "LazyFrame.prepare_vortex prepares the raw local source before query operators; "
                 "call it directly on read_*(...) or use write_vortex(...) for a query-result sink"
+            )
+        route_requested = any(
+            value is not None
+            for value in (
+                dim,
+                input_format,
+                cdc_delta,
+                result_workspace,
+                evidence_level,
+                memory_gb,
+                max_parallelism,
+            )
+        )
+        if route_requested:
+            if dim is None:
+                raise ValueError(
+                    "LazyFrame.prepare_vortex query routes require dim=... so the traditional "
+                    "analytics prepared route has an explicit dimension input"
+                )
+            if workspace is None:
+                raise ValueError(
+                    "LazyFrame.prepare_vortex query routes require workspace=... so "
+                    "VortexPreparedState artifacts have an explicit caller-owned location"
+                )
+            if target_vortex_path is not None:
+                raise ValueError(
+                    "target_vortex_path applies only to the single-source vortex-ingest-smoke "
+                    "helper; prepared query routes use workspace=... plus dim=..."
+                )
+            if allow_overwrite:
+                raise ValueError(
+                    "allow_overwrite applies only to the single-source vortex-ingest-smoke helper; "
+                    "prepared query routes use manifest-based reuse policy"
+                )
+            if certification_level != "ingest_certified":
+                raise ValueError(
+                    "certification_level applies only to the single-source vortex-ingest-smoke "
+                    "helper; prepared query routes use traditional-analytics route evidence"
+                )
+            return CompatibilityPreparedVortexRoute.from_inputs(
+                client=self.client,
+                fact_input=self.source.uri,
+                dim_input=dim,
+                workspace=workspace,
+                input_format=input_format,
+                cdc_delta_input=cdc_delta,
+                result_workspace=result_workspace,
+                evidence_level=evidence_level,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
             )
         target = _prepared_vortex_target_path(
             self.source.uri,

@@ -163,6 +163,84 @@ def check(name: str, ref: str, blockers: list[str]) -> dict[str, Any]:
     return {"name": name, "ref": ref, "status": "passed" if not blockers else "blocked", "blockers": blockers}
 
 
+def runtime_gap_family_burn_down_blockers(
+    runtime_gap_family_burn_down: dict[str, Any] | None,
+) -> list[str]:
+    blockers: list[str] = []
+    if runtime_gap_family_burn_down is None:
+        blockers.append("missing runtime gap family burn-down report")
+        return blockers
+    if (
+        runtime_gap_family_burn_down.get("schema_version")
+        != "shardloom.runtime_gap_family_burn_down.v1"
+    ):
+        blockers.append(
+            "runtime gap family burn-down schema_version="
+            + str(runtime_gap_family_burn_down.get("schema_version", "missing"))
+        )
+    if runtime_gap_family_burn_down.get("status") != "passed":
+        blockers.extend(
+            runtime_gap_family_burn_down.get(
+                "blockers", ["runtime gap family burn-down blocked"]
+            )
+        )
+    global_review_unchecked_count = runtime_gap_family_burn_down.get(
+        "global_review_unchecked_count"
+    )
+    mapped_gap_count = runtime_gap_family_burn_down.get("mapped_gap_count")
+    if not isinstance(global_review_unchecked_count, int):
+        blockers.append(
+            "runtime gap family burn-down global_review_unchecked_count="
+            + str(
+                global_review_unchecked_count
+                if global_review_unchecked_count is not None
+                else "missing"
+            )
+        )
+    if not isinstance(mapped_gap_count, int):
+        blockers.append(
+            "runtime gap family burn-down mapped_gap_count="
+            + str(mapped_gap_count if mapped_gap_count is not None else "missing")
+        )
+    if (
+        isinstance(global_review_unchecked_count, int)
+        and isinstance(mapped_gap_count, int)
+        and mapped_gap_count != global_review_unchecked_count
+    ):
+        blockers.append(
+            "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: "
+            + f"{mapped_gap_count} != {global_review_unchecked_count}"
+        )
+    acceptance = runtime_gap_family_burn_down.get("acceptance_summary")
+    if not isinstance(acceptance, dict):
+        blockers.append("runtime gap family burn-down missing acceptance_summary")
+    else:
+        for field in [
+            "all_unchecked_global_review_rows_mapped",
+            "all_families_have_phase_items",
+            "all_families_have_evidence_and_validators",
+            "all_no_fallback_invariants_named",
+            "all_claim_boundaries_named",
+        ]:
+            if acceptance.get(field) is not True:
+                blockers.append(f"runtime gap family burn-down {field} must be true")
+    for field in [
+        "fallback_attempted",
+        "external_engine_invoked",
+        "runtime_support_claim_allowed",
+        "performance_claim_allowed",
+        "production_claim_allowed",
+    ]:
+        if runtime_gap_family_burn_down.get(field) is not False:
+            blockers.append(f"runtime gap family burn-down {field} must be false")
+    if runtime_gap_family_burn_down.get("claim_gate_status") != "not_claim_grade":
+        blockers.append(
+            "runtime gap family burn-down claim_gate_status="
+            + str(runtime_gap_family_burn_down.get("claim_gate_status", "missing"))
+        )
+    return blockers
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -1118,84 +1196,9 @@ def main() -> int:
     )
 
     runtime_gap_family_burn_down = load_json(runtime_gap_family_burn_down_path)
-    runtime_gap_family_blockers: list[str] = []
-    if runtime_gap_family_burn_down is None:
-        runtime_gap_family_blockers.append("missing runtime gap family burn-down report")
-    else:
-        if (
-            runtime_gap_family_burn_down.get("schema_version")
-            != "shardloom.runtime_gap_family_burn_down.v1"
-        ):
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down schema_version="
-                + str(runtime_gap_family_burn_down.get("schema_version", "missing"))
-            )
-        if runtime_gap_family_burn_down.get("status") != "passed":
-            runtime_gap_family_blockers.extend(
-                runtime_gap_family_burn_down.get(
-                    "blockers", ["runtime gap family burn-down blocked"]
-                )
-            )
-        global_review_unchecked_count = runtime_gap_family_burn_down.get(
-            "global_review_unchecked_count"
-        )
-        mapped_gap_count = runtime_gap_family_burn_down.get("mapped_gap_count")
-        if not isinstance(global_review_unchecked_count, int):
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down global_review_unchecked_count="
-                + str(
-                    global_review_unchecked_count
-                    if global_review_unchecked_count is not None
-                    else "missing"
-                )
-            )
-        if not isinstance(mapped_gap_count, int):
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down mapped_gap_count="
-                + str(mapped_gap_count if mapped_gap_count is not None else "missing")
-            )
-        if (
-            isinstance(global_review_unchecked_count, int)
-            and isinstance(mapped_gap_count, int)
-            and mapped_gap_count != global_review_unchecked_count
-        ):
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: "
-                + f"{mapped_gap_count} != {global_review_unchecked_count}"
-            )
-        acceptance = runtime_gap_family_burn_down.get("acceptance_summary")
-        if not isinstance(acceptance, dict):
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down missing acceptance_summary"
-            )
-        else:
-            for field in [
-                "all_unchecked_global_review_rows_mapped",
-                "all_families_have_phase_items",
-                "all_families_have_evidence_and_validators",
-                "all_no_fallback_invariants_named",
-                "all_claim_boundaries_named",
-            ]:
-                if acceptance.get(field) is not True:
-                    runtime_gap_family_blockers.append(
-                        f"runtime gap family burn-down {field} must be true"
-                    )
-        for field in [
-            "fallback_attempted",
-            "external_engine_invoked",
-            "runtime_support_claim_allowed",
-            "performance_claim_allowed",
-            "production_claim_allowed",
-        ]:
-            if runtime_gap_family_burn_down.get(field) is not False:
-                runtime_gap_family_blockers.append(
-                    f"runtime gap family burn-down {field} must be false"
-                )
-        if runtime_gap_family_burn_down.get("claim_gate_status") != "not_claim_grade":
-            runtime_gap_family_blockers.append(
-                "runtime gap family burn-down claim_gate_status="
-                + str(runtime_gap_family_burn_down.get("claim_gate_status", "missing"))
-            )
+    runtime_gap_family_blockers = runtime_gap_family_burn_down_blockers(
+        runtime_gap_family_burn_down
+    )
     checks.append(
         check(
             "runtime_gap_family_burn_down",

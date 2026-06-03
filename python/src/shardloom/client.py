@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import platform
@@ -3298,10 +3299,7 @@ class SqlLocalSourceSmokeReport:
     def string_predicate_like_escape_character(self) -> tuple[str, ...]:
         """Return LIKE ESCAPE characters emitted by the smoke."""
 
-        value = self.envelope.field("string_predicate_like_escape_character", "")
-        if not value or value == "not_applicable":
-            return ()
-        return tuple(part for part in value.split(",") if part)
+        return _csv_values(self.envelope.field("string_predicate_like_escape_character"))
 
     @property
     def string_transform_runtime_execution(self) -> bool:
@@ -11368,15 +11366,23 @@ def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any
 def _csv_values(value: str | None) -> tuple[str, ...]:
     if value is None or value == "" or value == "none":
         return ()
-    return tuple(part.strip() for part in value.split(",") if part.strip())
+    row = next(csv.reader([value]), [])
+    return tuple(part.strip() for part in row if part.strip())
 
 
-ABSENT_REFERENCE_VALUES = {"none", "null", "not_requested", "not_applicable", "not_available"}
+ABSENT_REFERENCE_VALUES = {
+    "none",
+    "null",
+    "not_requested",
+    "not_applicable",
+    "not_available",
+    "not_applicable_inline_result",
+}
 
 
 def _is_absent_csv_value(value: str) -> bool:
     normalized = value.strip().lower()
-    return normalized in ABSENT_REFERENCE_VALUES or normalized.startswith("not_applicable_")
+    return normalized in ABSENT_REFERENCE_VALUES
 
 
 def _csv_present_values(value: str | None) -> tuple[str, ...]:

@@ -5451,4 +5451,23 @@ mod tests {
                 .contains("dataframe_generated_with_column admits exactly one")
         );
     }
+
+    #[test]
+    fn dataframe_generated_with_column_source_kind_requires_one_generated_row() {
+        let error = GeneratedUserRowsSmokeRequest::parse(
+            "target/out.jsonl",
+            GeneratedOutputFormat::Jsonl,
+            vec![],
+            UserRowsGeneratedSourceKind::DataFrameGeneratedWithColumn,
+            "value:int64",
+            "value=1;value=2",
+            false,
+        )
+        .expect_err("generated with column must remain one scoped generated row");
+        assert!(
+            error
+                .to_string()
+                .contains("dataframe_generated_with_column admits exactly one")
+        );
+    }
 }

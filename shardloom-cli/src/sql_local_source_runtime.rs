@@ -4054,6 +4054,10 @@ fn run_vortex_ingest_append_only_refinement(
         &delta_report,
         request,
     );
+    ensure_automatic_append_only_refinement_admitted(
+        &differential_preparation,
+        &request.source_path,
+    )?;
     let refined_prepared_state_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}|{}",
         refinement_decision.base_prepared_state_digest,
@@ -4100,6 +4104,20 @@ fn run_vortex_ingest_append_only_refinement(
         refined_prepared_state_digest,
         evaluation_millis,
     }))
+}
+
+fn ensure_automatic_append_only_refinement_admitted(
+    differential_preparation: &shardloom_vortex::VortexDifferentialPreparationReport,
+    source_path: &Path,
+) -> Result<(), ShardLoomError> {
+    if differential_preparation.is_admitted() {
+        return Ok(());
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "vortex_ingest automatic append-only refinement for '{}' was rejected by differential preparation status {}; refinement manifest was not written; no fallback execution was attempted",
+        source_path.display(),
+        differential_preparation.status
+    )))
 }
 
 fn run_vortex_ingest_prepare_once_without_reuse(
@@ -36042,6 +36060,54 @@ mod tests {
         fs::remove_dir_all(root).expect("remove reuse drift root");
     }
 
+    #[test]
+    fn automatic_refinement_blocks_manifest_when_differential_preparation_rejects_overlay() {
+        let report = shardloom_vortex::evaluate_vortex_differential_preparation(
+            shardloom_vortex::VortexDifferentialPreparationInput {
+                update_mode: shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly,
+                base_source_state_id: "base-source".to_string(),
+                base_source_state_digest: "fnv64:base-source".to_string(),
+                base_prepared_state_id: "base-prepared".to_string(),
+                base_prepared_state_digest: "fnv64:base-prepared".to_string(),
+                base_row_count: 1,
+                base_schema_digest: "fnv64:base-schema".to_string(),
+                base_column_family_summary: "id:int64,label:utf8".to_string(),
+                delta_source_state_id: "delta-source".to_string(),
+                delta_source_state_digest: "fnv64:delta-source".to_string(),
+                delta_row_count: 1,
+                delta_schema_digest: "fnv64:changed-schema".to_string(),
+                delta_column_family_summary: "id:int64,label:utf8,extra:utf8".to_string(),
+                delta_manifest_digest: "fnv64:delta-manifest".to_string(),
+                changed_byte_range_refs: "target/input.csv#bytes=10..20".to_string(),
+                changed_row_range_refs: "target/input.csv#rows=1..2".to_string(),
+                changed_segment_refs: "delta-segment".to_string(),
+                delta_artifact_ref: "target/input.delta.vortex".to_string(),
+                delta_artifact_digest: "fnv64:delta-artifact".to_string(),
+                native_io_certificate_refs: "base=base-prepared;delta=delta-prepared".to_string(),
+            },
+        );
+
+        assert!(!report.is_admitted());
+        let error = ensure_automatic_append_only_refinement_admitted(
+            &report,
+            Path::new("target/input.csv"),
+        )
+        .expect_err("rejected differential preparation must block refinement manifest");
+
+        assert!(
+            error
+                .to_string()
+                .contains("refinement manifest was not written"),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted"),
+            "{error}"
+        );
+    }
+
     #[cfg(feature = "universal-format-io")]
     #[test]
     fn direct_transient_arrow_ipc_reports_columnar_source_state_boundary() {
@@ -38668,6 +38734,46 @@ mod tests {
             &[Some(1234), Some(800)],
         );
         assert_arrow_decimal_column(&arrow_output, "invalid_decimal", 10, 2, &[None, None]);
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&parquet_output).expect("remove parquet output");
+        fs::remove_file(&arrow_output).expect("remove arrow output");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn decimal_generic_expression_writes_all_null_typed_parquet_and_arrow_sinks() {
+        let path = sql_local_source_test_path("csv");
+        let parquet_output = sql_local_source_test_path("parquet");
+        let arrow_output = sql_local_source_test_path("arrow");
+        fs::write(&path, "id,amount,raw_amount\n1,,\n2,,\n").expect("write csv source");
+
+        let statement = format!(
+            "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(raw_amount AS decimal128(10,2)) AS adjusted FROM '{}' ORDER BY id LIMIT 2",
+            path.display()
+        );
+        let parquet_request = SqlLocalSourceRequest {
+            statement: statement.clone(),
+            output_format: SqlLocalSourceOutputFormat::Parquet,
+            output_path: Some(parquet_output.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        run_sql_local_source_smoke_single(&parquet_request)
+            .expect("write parquet all-null computed decimal");
+
+        let arrow_request = SqlLocalSourceRequest {
+            statement,
+            output_format: SqlLocalSourceOutputFormat::ArrowIpc,
+            output_path: Some(arrow_output.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        run_sql_local_source_smoke_single(&arrow_request)
+            .expect("write arrow all-null computed decimal");
+
+        assert_parquet_decimal_column(&parquet_output, "adjusted", 11, 2, &[None, None]);
+        assert_arrow_decimal_column(&arrow_output, "adjusted", 11, 2, &[None, None]);
 
         fs::remove_file(&path).expect("remove csv source");
         fs::remove_file(&parquet_output).expect("remove parquet output");

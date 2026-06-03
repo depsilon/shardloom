@@ -138,7 +138,7 @@ REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
 REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS = {
     "Public front doors",
     "Route rows name the user-facing prepared paths.",
-    "ctx.prepare_vortex(&#39;fact.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()",
+    "ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()",
     "ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
     "not_timing_row_route_identity_only",
     "SourceState",

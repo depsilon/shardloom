@@ -1314,20 +1314,33 @@ fn is_reference_field_key(key: &str) -> bool {
 
 fn field_value_is_reference(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
-    if normalized.is_empty()
-        || matches!(
-            normalized.as_str(),
-            "false" | "true" | "0" | "none" | "null"
-        )
-    {
+    if !field_value_is_nonempty_reference_candidate(&normalized) {
         return false;
     }
-    !matches!(
-        normalized.as_str(),
-        "not_performed" | "not_available" | "not_applicable" | "not_requested"
-    ) && !normalized.starts_with("not_applicable_")
+    !normalized.starts_with("not_applicable_")
         && !normalized.starts_with("not_available_")
         && !normalized.starts_with("not_requested_")
+}
+
+fn field_value_is_nonempty_reference_candidate(normalized: &str) -> bool {
+    !normalized.is_empty()
+        && !matches!(
+            normalized,
+            "false"
+                | "true"
+                | "0"
+                | "none"
+                | "null"
+                | "not_performed"
+                | "not_available"
+                | "not_applicable"
+                | "not_requested"
+                | "not_applicable_inline_result"
+        )
+}
+
+fn sink_artifact_value_is_reference(value: &str) -> bool {
+    field_value_is_nonempty_reference_candidate(&value.trim().to_ascii_lowercase())
 }
 
 fn typed_ref_status(value: &str) -> &'static str {
@@ -1400,7 +1413,7 @@ fn add_typed_ref_if_present(envelope: OutputEnvelope, key: &str, value: &str) ->
 }
 
 fn add_sink_artifact_refs(mut envelope: OutputEnvelope, value: &str) -> OutputEnvelope {
-    if !field_value_is_reference(value) {
+    if !sink_artifact_value_is_reference(value) {
         return envelope;
     }
     for token in value
@@ -1409,7 +1422,7 @@ fn add_sink_artifact_refs(mut envelope: OutputEnvelope, value: &str) -> OutputEn
         .filter(|token| !token.is_empty())
     {
         let uri = sink_artifact_ref_uri(token);
-        if !field_value_is_reference(uri) {
+        if !sink_artifact_value_is_reference(uri) {
             continue;
         }
         envelope = envelope.with_artifact_ref(
@@ -1643,6 +1656,37 @@ mod tests {
         );
 
         assert!(envelope.artifact_refs.is_empty());
+    }
+
+    #[test]
+    fn sink_artifact_refs_preserve_sentinel_like_paths() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("test", "ok", "ok"),
+            "test",
+            vec![(
+                "sink_artifact_refs".to_string(),
+                concat!(
+                    "jsonl:not_applicable_output.jsonl,",
+                    "csv:target/not_applicable_output.csv,",
+                    "not_applicable_inline_result,not_requested"
+                )
+                .to_string(),
+            )],
+        );
+
+        assert_eq!(envelope.artifact_refs.len(), 2);
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.id == "jsonl:not_applicable_output.jsonl"
+                && reference.kind == "sink_artifact"
+                && reference.status == "available"
+                && reference.uri.as_deref() == Some("not_applicable_output.jsonl")
+        }));
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.id == "csv:target/not_applicable_output.csv"
+                && reference.kind == "sink_artifact"
+                && reference.status == "available"
+                && reference.uri.as_deref() == Some("target/not_applicable_output.csv")
+        }));
     }
 
     #[test]

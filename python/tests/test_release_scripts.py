@@ -920,6 +920,10 @@ class ReleaseScriptTests(unittest.TestCase):
             "metrics": {
                 "persistent_runner_status": "single_process_batch_runner_supported",
                 "prepare_batch_preparation_millis": 100.0,
+                "prepare_batch_source_to_columnar_millis": 20.0,
+                "prepare_batch_vortex_array_build_millis": 30.0,
+                "prepare_batch_vortex_write_millis": 40.0,
+                "prepare_batch_vortex_reopen_verify_millis": 10.0,
                 "batch_scenario_count": 20,
                 "query_runtime_millis": 2.0,
                 "total_runtime_millis": 2.0,
@@ -939,6 +943,26 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 10.5)
         self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 105.5)
+        self.assertEqual(
+            by_lane["prepare_once_batch"]["source_parse_or_columnar_decode_ms"],
+            1.0,
+        )
+        self.assertEqual(by_lane["prepare_once_batch"]["source_to_vortex_array_ms"], 1.5)
+        self.assertEqual(by_lane["prepare_once_batch"]["vortex_write_ms"], 2.0)
+        self.assertEqual(by_lane["prepare_once_batch"]["vortex_reopen_or_verify_ms"], 0.5)
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["source_parse_or_columnar_decode_ms"],
+            20.0,
+        )
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["source_to_vortex_array_ms"],
+            30.0,
+        )
+        self.assertEqual(by_lane["prepare_once_first_query"]["vortex_write_ms"], 40.0)
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["vortex_reopen_or_verify_ms"],
+            10.0,
+        )
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_row_derivation_status"],
             module.DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS,
@@ -1334,6 +1358,105 @@ class ReleaseScriptTests(unittest.TestCase):
             benchmark_run.runtime_evidence_claim_gate_status(True, "skipped_by_gate"),
             "blocked",
         )
+
+    def test_release_readiness_accepts_burned_down_runtime_gap_count(self) -> None:
+        module = self._load_script_module(
+            "check_release_readiness.py",
+            "check_release_readiness_runtime_gap_for_test",
+        )
+        report = {
+            "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
+            "status": "passed",
+            "global_review_unchecked_count": 37,
+            "mapped_gap_count": 37,
+            "acceptance_summary": {
+                "all_unchecked_global_review_rows_mapped": True,
+                "all_families_have_phase_items": True,
+                "all_families_have_evidence_and_validators": True,
+                "all_no_fallback_invariants_named": True,
+                "all_claim_boundaries_named": True,
+            },
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_support_claim_allowed": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "claim_gate_status": "not_claim_grade",
+        }
+
+        self.assertEqual(module.runtime_gap_family_burn_down_blockers(report), [])
+        mismatched = dict(report, mapped_gap_count=38)
+        self.assertIn(
+            "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: 38 != 37",
+            module.runtime_gap_family_burn_down_blockers(mismatched),
+        )
+
+    def test_differential_preparation_matrix_preserves_refinement_evidence(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        evidence = {
+            "vortex_differential_preparation_status": "admitted_append_only_delta_overlay",
+            "vortex_differential_preparation_update_mode": "append_only",
+            "vortex_differential_preparation_delta_row_count": "1",
+            "vortex_differential_preparation_delta_manifest_digest": "fnv64:delta",
+            "vortex_differential_preparation_overlay_applied": "true",
+            "vortex_differential_preparation_delta_artifact_written": "true",
+            "vortex_differential_preparation_refinement_status": "admitted_append_only_refinement",
+            "vortex_differential_preparation_refinement_mode": "automatic_append_only_delta",
+            "vortex_differential_preparation_automatic_detection_status": "append_only_delta_detected",
+            "vortex_differential_preparation_blocker_id": "none",
+            "vortex_differential_preparation_refinement_manifest_path": "target/.shardloom/base.vortex.differential-refinement.manifest",
+            "vortex_differential_preparation_refinement_manifest_digest": "fnv64:manifest",
+            "vortex_differential_preparation_refinement_manifest_written": "true",
+            "vortex_differential_preparation_refined_prepared_state_id": "vortex-prepared-state-refinement",
+            "vortex_differential_preparation_overlay_consumer_family": "count",
+            "vortex_differential_preparation_overlay_consumer_status": "admitted_base_manifest_plus_delta_reopen_row_count",
+            "vortex_differential_preparation_overlay_consumer_correctness_digest": "fnv64:consumer",
+        }
+        metrics = benchmark_run.vortex_differential_preparation_metadata(
+            "shardloom",
+            "success",
+            metrics={},
+            evidence=evidence,
+        )
+        rows = benchmark_run.vortex_differential_preparation_matrix(
+            [
+                {
+                    "scenario_name": "append_only_refinement",
+                    "engine": "shardloom",
+                    "status": "success",
+                    "selected_execution_mode": "compatibility_import",
+                    "metrics": metrics,
+                }
+            ]
+        )
+
+        self.assertEqual(
+            rows[0]["vortex_differential_preparation_refinement_status"],
+            "admitted_append_only_refinement",
+        )
+        self.assertEqual(
+            rows[0]["vortex_differential_preparation_refinement_mode"],
+            "automatic_append_only_delta",
+        )
+        self.assertEqual(
+            rows[0]["vortex_differential_preparation_refinement_manifest_digest"],
+            "fnv64:manifest",
+        )
+        self.assertTrue(
+            rows[0]["vortex_differential_preparation_refinement_manifest_written"]
+        )
+        self.assertEqual(
+            rows[0]["vortex_differential_preparation_overlay_consumer_status"],
+            "admitted_base_manifest_plus_delta_reopen_row_count",
+        )
+
+        rendered = benchmark_run.render_vortex_differential_preparation_matrix(
+            {"vortex_differential_preparation_matrix": rows}
+        )
+        self.assertIn("admitted_append_only_refinement", rendered)
+        self.assertIn("fnv64:manifest", rendered)
+        self.assertIn("admitted_base_manifest_plus_delta_reopen_row_count", rendered)
 
     def test_cold_lane_accepts_shared_batch_process_timing(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
@@ -3231,7 +3354,7 @@ jobs:
                   <h2>Public front doors</h2>
                   <p>Route rows name the user-facing prepared paths.</p>
                   <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
-                    <code>ctx.prepare_vortex(&#39;fact.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
+                    <code>ctx.prepare_vortex(&#39;fact.csv&#39;, dim=&#39;dim.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
                     <p>SourceState</p>
                     <p>result_sink</p>
                     <p>not_timing_row_route_identity_only</p>

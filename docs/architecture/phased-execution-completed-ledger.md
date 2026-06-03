@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D PR980+ backlog and post-hotpath benchmark optimization
+  - Date: 2026-06-03
+  - Branch/PR: `codex/cold-route-artifact-backlog-optimization` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - User direction to review unresolved Codex comments on PR #980 and later without subagents.
+    - User direction to optimize ShardLoom-owned benchmark routes, keep ShardLoom as the route
+      winner where possible, clean the phase plan, update the benchmark website page, and rerun the
+      expensive benchmark only after all code/docs/site edits.
+  - Scope:
+    - Resolved the PR #980+ backlog clusters that were not already covered: exact sink-artifact
+      sentinel filtering, sentinel-like path preservation, Python SQL preview limit capping,
+      mixed SourceState evidence, decimal/all-null hint blockers, automatic refinement manifest
+      guards, generated-source shape validation, prepare-once benchmark attribution, release
+      readiness burn-down checks, and public front-door website/readiness drift.
+    - Optimized ShardLoom traditional-analytics cold routes with selected-field CSV parsing,
+      JSONL row push without clone-after-parse, scenario-aware optional text-column selection, and
+      full optional-column preservation for shared prepared/native artifacts and compatibility
+      outputs.
+    - Reduced the remaining prepare-batch hot paths by replacing ordered maps with hash maps in
+      join-aggregate and CDC overlay loops, preserving deterministic output ordering where the
+      result surface requires it.
+    - Refreshed CLI benchmark flags, Python/runtime tests, benchmark promoter behavior, phase-plan
+      source text, website benchmark copy, website benchmark data, static benchmark chunks, and
+      public benchmark assets.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_query_builder python.tests.test_release_scripts` passed with 395 tests and 2 skipped.
+    - `target/bench-venv/bin/python scripts/check_benchmark_environment.py --profile full_local --json-output target/benchmark-environment-full-local-post-hotpath.json` passed.
+    - `target/bench-venv/bin/python benchmarks/traditional_analytics/run.py --rows 100000 --iterations 3 --claim-readiness-rerun --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local-post-hotpath.json --markdown-output target/benchmark-artifacts/traditional-full-local-post-hotpath.md --data-dir target/benchmark-artifacts/traditional-full-local-post-hotpath-data --regenerate` passed.
+    - `target/bench-venv/bin/python scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local-post-hotpath.json` passed.
+    - Published engine-level route geomeans from `total_route_ms`: ShardLoom certified cold route
+      144.27 ms, ShardLoom native Vortex 5.56 ms, ShardLoom prepared Vortex 5.63 ms, ShardLoom
+      prepare-batch 9.42 ms, pandas 188.56 ms, Polars eager 44.59 ms, Polars lazy 31.25 ms, DuckDB
+      74.45 ms, DataFusion 37.35 ms, and Dask 298.15 ms.
+    - Published local fastest route counts: ShardLoom native Vortex 80, ShardLoom prepared Vortex
+      40, and every non-ShardLoom engine 0. A code/text JSON inspection found
+      `non_shardloom_best_groups=0` across the 120 comparable route groups.
+    - Cold certified-route stage inspection on the promoted rows found `vortex_write_ms` geomean
+      81.73 ms and primary bottleneck in 83/120 rows, `source_read_ms` geomean 44.69 ms and primary
+      bottleneck in 37/120 rows, and `source_parse_or_columnar_decode_ms` geomean 30.22 ms.
+    - `cd website-src && node scripts/sync-content.mjs && astro build && node scripts/postbuild-static.mjs && astro check` passed using the bundled Node runtime.
+    - `target/bench-venv/bin/python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree` passed with 600 ShardLoom `claim_grade` rows, 600 ShardLoom rows, 720 external-baseline-only rows, and no fallback or external-engine invocation.
+    - `target/bench-venv/bin/python scripts/check_benchmark_constitution.py` passed.
+    - `target/bench-venv/bin/python scripts/check_website_readiness.py` passed.
+    - `node website/validate_static_assets.js` passed.
+    - `python3 -m py_compile scripts/check_website_readiness.py` passed.
+  - Claim boundary:
+    - This closes the current PR980+ backlog and benchmark-driven optimization batch. It may claim
+      the refreshed full-local artifact and website benchmark page show ShardLoom-family lanes as
+      the fastest route for every comparable local route group in this workload. It does not claim
+      broad production readiness, package publication, Spark replacement, broad SQL/DataFrame
+      parity, object-store/table support, or general performance superiority outside this
+      reproducible local benchmark scope.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The batch adds no Spark/DataFusion/DuckDB/
+      Polars/Velox execution fallback, no Vortex query-engine integration, and no external-engine
+      residual evaluation for ShardLoom rows. The promoted artifact reports
+      `fallback_attempted=false` and `external_engine_invoked=false` for ShardLoom rows.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D post-PR1060 benchmark refresh and website publication
   - Date: 2026-06-03
   - Branch/PR: `codex/address-pr980-plus-comments` / pending PR.

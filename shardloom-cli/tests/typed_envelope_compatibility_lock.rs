@@ -81,6 +81,20 @@ fn run_case(case: &EnvelopeCase<'_>) {
     }
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn extract_json_field_value(output: &str, key: &str) -> String {
+    let needle = format!("{{\"key\":\"{key}\",\"value\":\"");
+    let start = output
+        .find(&needle)
+        .unwrap_or_else(|| panic!("missing field {key} in output: {output}"))
+        + needle.len();
+    let rest = &output[start..];
+    let end = rest
+        .find("\"}")
+        .unwrap_or_else(|| panic!("unterminated field {key} in output: {output}"));
+    rest[..end].to_string()
+}
+
 #[test]
 #[allow(clippy::too_many_lines)]
 fn representative_cli_json_paths_keep_typed_envelope_contract() {
@@ -953,6 +967,143 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
     for case in cases {
         run_case(&case);
     }
+}
+
+#[test]
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn traditional_analytics_cli_reuse_preserves_optional_text_columns_for_prepared_vortex() {
+    let root = std::env::temp_dir().join(format!(
+        "shardloom-cli-prepared-reuse-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time after epoch")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).expect("temp root");
+    let fact_csv = root.join("fact.csv");
+    let dim_csv = root.join("dim.csv");
+    std::fs::write(
+        &fact_csv,
+        "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,6000,2.5,1,A,2024-03-01,1.25,2024-01-01T00:00:00Z,6000,Y\n2,11,2,1000,3.5,0,B,2024-07-01,,not-a-timestamp,bad-number,N\n3,10,1,8000,4.0,1,A,2024-05-01,3.75,2024-01-03T00:00:00Z,8000,Y\n",
+    )
+    .expect("fact csv");
+    std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").expect("dim csv");
+    let fact_arg = fact_csv.display().to_string();
+    let dim_arg = dim_csv.display().to_string();
+    let workspace_arg = root.join("workspace").display().to_string();
+
+    let import_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "traditional-analytics-run",
+            "csv/file ingest",
+            &fact_arg,
+            &dim_arg,
+            "--workspace",
+            &workspace_arg,
+            "--input-format",
+            "csv",
+            "--execution-mode",
+            "compatibility_import_certified",
+            "--preserve-all-text-columns-for-reuse",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("shardloom import command runs");
+    let import_stdout = String::from_utf8(import_output.stdout).expect("stdout is utf8");
+    let import_stderr = String::from_utf8(import_output.stderr).expect("stderr is utf8");
+    let import_case = EnvelopeCase {
+        name: "traditional analytics CLI prepared reuse import",
+        args: &[],
+        command: "traditional-analytics-run",
+        status: "success",
+        family: "benchmarks",
+        success: true,
+        allow_stderr: false,
+        fields: &[],
+        fragments: &[],
+    };
+    assert!(
+        import_output.status.success(),
+        "{}: stdout={import_stdout} stderr={import_stderr}",
+        import_case.name
+    );
+    assert!(
+        import_stderr.is_empty(),
+        "{}: stderr={import_stderr}",
+        import_case.name
+    );
+    assert_common_typed_slots(&import_stdout, &import_case);
+    assert_field(
+        &import_stdout,
+        "fallback_attempted",
+        "false",
+        import_case.name,
+    );
+    assert_field(
+        &import_stdout,
+        "external_engine_invoked",
+        "false",
+        import_case.name,
+    );
+
+    let fact_vortex = extract_json_field_value(&import_stdout, "fact_vortex_path");
+    let dim_vortex = extract_json_field_value(&import_stdout, "dim_vortex_path");
+    for (scenario, expected_result) in [
+        (
+            "partition pruning",
+            "{\\\"row_count\\\":2,\\\"metric_sum\\\":6.5}",
+        ),
+        (
+            "null-heavy aggregate",
+            "{\\\"row_count\\\":2,\\\"metric_sum\\\":5.0}",
+        ),
+        (
+            "clean/cast/filter/write",
+            "{\\\"row_count\\\":2,\\\"metric_sum\\\":14000.0}",
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "traditional-analytics-vortex-run",
+                scenario,
+                &fact_vortex,
+                &dim_vortex,
+                "--execution-mode",
+                "prepared_vortex",
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("shardloom prepared vortex command runs");
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
+        let case = EnvelopeCase {
+            name: scenario,
+            args: &[],
+            command: "traditional-analytics-vortex-run",
+            status: "success",
+            family: "benchmarks",
+            success: true,
+            allow_stderr: false,
+            fields: &[],
+            fragments: &[],
+        };
+        assert!(
+            output.status.success(),
+            "{}: stdout={stdout} stderr={stderr}",
+            case.name
+        );
+        assert!(stderr.is_empty(), "{}: stderr={stderr}", case.name);
+        assert_common_typed_slots(&stdout, &case);
+        assert_field(&stdout, "fallback_attempted", "false", case.name);
+        assert_field(&stdout, "external_engine_invoked", "false", case.name);
+        assert_contains(&stdout, expected_result, case.name);
+    }
+
+    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
