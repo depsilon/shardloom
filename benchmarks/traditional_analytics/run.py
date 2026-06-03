@@ -13056,6 +13056,7 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             if metrics.get("vortex_array_build_strategy") not in {
                 "vortex_from_arrow_record_batch",
                 "vortex_from_arrow_record_batch_without_traditional_rows",
+                "vortex_from_arrow_record_batch_mixed_traditional_and_direct_columnar",
             }:
                 raise RuntimeError(
                     "compatibility-import rows must report the Vortex RecordBatch build strategy"

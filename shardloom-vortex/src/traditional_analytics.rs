@@ -2550,6 +2550,10 @@ impl TraditionalVortexWriteTiming {
         "vortex_from_arrow_record_batch_without_traditional_rows";
     const VORTEX_DIRECT_COLUMNAR_INPUT_LAYOUT: &'static str =
         "traditional_vortex_provider_record_batch";
+    const VORTEX_MIXED_RECORD_BATCH_STRATEGY: &'static str =
+        "vortex_from_arrow_record_batch_mixed_traditional_and_direct_columnar";
+    const VORTEX_MIXED_RECORD_BATCH_INPUT_LAYOUT: &'static str =
+        "mixed_traditional_arrow_record_batch_and_traditional_vortex_provider_record_batch";
 
     fn vortex_record_batch_provider(array_build_micros: u64, vortex_write_micros: u64) -> Self {
         Self::vortex_record_batch_provider_with_layout(
@@ -2607,15 +2611,13 @@ impl TraditionalVortexWriteTiming {
                 other.array_build_provider_surface,
                 "traditional analytics Vortex array build provider surface",
             )?,
-            array_build_strategy: merge_static_evidence_field(
+            array_build_strategy: merge_vortex_record_batch_strategy(
                 self.array_build_strategy,
                 other.array_build_strategy,
-                "traditional analytics Vortex array build strategy",
             )?,
-            array_build_input_layout: merge_static_evidence_field(
+            array_build_input_layout: merge_vortex_record_batch_input_layout(
                 self.array_build_input_layout,
                 other.array_build_input_layout,
-                "traditional analytics Vortex array build input layout",
             )?,
             array_build_record_batch_count: self
                 .array_build_record_batch_count
@@ -2644,6 +2646,58 @@ fn merge_static_evidence_field(
         Err(ShardLoomError::InvalidOperation(format!(
             "{label} mismatch: {left} vs {right}; no fallback execution was attempted"
         )))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_vortex_record_batch_strategy(
+    left: &'static str,
+    right: &'static str,
+) -> Result<&'static str> {
+    merge_vortex_record_batch_evidence_field(
+        left,
+        right,
+        TraditionalVortexWriteTiming::VORTEX_RECORD_BATCH_STRATEGY,
+        TraditionalVortexWriteTiming::VORTEX_DIRECT_COLUMNAR_STRATEGY,
+        TraditionalVortexWriteTiming::VORTEX_MIXED_RECORD_BATCH_STRATEGY,
+        "traditional analytics Vortex array build strategy",
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_vortex_record_batch_input_layout(
+    left: &'static str,
+    right: &'static str,
+) -> Result<&'static str> {
+    merge_vortex_record_batch_evidence_field(
+        left,
+        right,
+        TraditionalVortexWriteTiming::VORTEX_RECORD_BATCH_INPUT_LAYOUT,
+        TraditionalVortexWriteTiming::VORTEX_DIRECT_COLUMNAR_INPUT_LAYOUT,
+        TraditionalVortexWriteTiming::VORTEX_MIXED_RECORD_BATCH_INPUT_LAYOUT,
+        "traditional analytics Vortex array build input layout",
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_vortex_record_batch_evidence_field(
+    left: &'static str,
+    right: &'static str,
+    row_strategy: &'static str,
+    direct_columnar_strategy: &'static str,
+    mixed_strategy: &'static str,
+    label: &str,
+) -> Result<&'static str> {
+    if left == right {
+        return Ok(left);
+    }
+    let is_record_batch_strategy = |value| {
+        value == row_strategy || value == direct_columnar_strategy || value == mixed_strategy
+    };
+    if is_record_batch_strategy(left) && is_record_batch_strategy(right) {
+        Ok(mixed_strategy)
+    } else {
+        merge_static_evidence_field(left, right, label)
     }
 }
 
@@ -23211,6 +23265,31 @@ mod tests {
     #![allow(clippy::too_many_lines)]
 
     use super::*;
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn record_batch_strategy_merge_preserves_mixed_provider_evidence() {
+        let row_timing = TraditionalVortexWriteTiming::vortex_record_batch_provider(7, 11);
+        let direct_timing =
+            TraditionalVortexWriteTiming::direct_columnar_record_batch_provider(13, 17);
+
+        let merged = row_timing
+            .add(direct_timing)
+            .expect("merge mixed strategies");
+
+        assert_eq!(
+            merged.array_build_strategy,
+            TraditionalVortexWriteTiming::VORTEX_MIXED_RECORD_BATCH_STRATEGY
+        );
+        assert_eq!(
+            merged.array_build_input_layout,
+            TraditionalVortexWriteTiming::VORTEX_MIXED_RECORD_BATCH_INPUT_LAYOUT
+        );
+        assert_eq!(merged.array_build_micros, 20);
+        assert_eq!(merged.vortex_write_micros, 28);
+        assert_eq!(merged.array_build_record_batch_count, 2);
+        assert!(merged.manual_scalar_copy_avoided);
+    }
 
     #[test]
     fn scenario_parse_accepts_harness_labels() {
