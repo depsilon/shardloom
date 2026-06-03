@@ -2011,7 +2011,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "sink_artifact_refs", "value": "not_applicable,not_requested,none"},
                     {"key": "sink_artifact_digest", "value": "not_requested"},
                     {"key": "sink_artifact_digests", "value": "not_applicable,not_requested"},
-                    {"key": "output_plan_required_columns", "value": "not_applicable_inline_result"},
+                    {
+                        "key": "output_plan_required_columns",
+                        "value": "not_applicable_inline_result,not_applicable_id",
+                    },
                 ],
             }
         )
@@ -2021,7 +2024,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(report.sink_artifact_refs, ())
         self.assertIsNone(report.sink_artifact_digest)
         self.assertEqual(report.sink_artifact_digests, ())
-        self.assertEqual(report.output_plan_required_columns, ())
+        self.assertEqual(report.output_plan_required_columns, ("not_applicable_id",))
 
     def test_sql_local_source_report_window_evidence_accessors(self) -> None:
         envelope = OutputEnvelope.from_json(

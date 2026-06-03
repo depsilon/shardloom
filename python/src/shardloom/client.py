@@ -4436,7 +4436,9 @@ class SqlLocalSourceSmokeReport:
     def output_plan_required_columns(self) -> tuple[str, ...]:
         """Return result columns required by requested local sinks."""
 
-        return _csv_present_values(self.envelope.field("output_plan_required_columns"))
+        return _csv_output_plan_required_columns(
+            self.envelope.field("output_plan_required_columns")
+        )
 
     @property
     def output_plan_ordering_required(self) -> str | None:
@@ -11379,6 +11381,18 @@ def _is_absent_csv_value(value: str) -> bool:
 
 def _csv_present_values(value: str | None) -> tuple[str, ...]:
     return tuple(part for part in _csv_values(value) if not _is_absent_csv_value(part))
+
+
+def _csv_output_plan_required_columns(value: str | None) -> tuple[str, ...]:
+    return tuple(
+        part
+        for part in _csv_values(value)
+        if part.strip().lower()
+        not in {
+            *ABSENT_REFERENCE_VALUES,
+            "not_applicable_inline_result",
+        }
+    )
 
 
 def _csv_reference_values(value: str | None) -> tuple[str, ...]:
