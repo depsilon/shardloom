@@ -2673,6 +2673,14 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(fields["query_timing_starts_after_preparation"])
         self.assertEqual(fields["input_format"], "arrow-ipc")
 
+    def test_context_prepare_vortex_rejects_mixed_inferred_input_formats(self) -> None:
+        with self.assertRaisesRegex(ValueError, "infer the same input_format"):
+            ShardLoomContext(client=ShardLoomClient(binary=("unused",))).prepare_vortex(
+                "fact.parquet",
+                "dim.csv",
+                workspace="target/prepared",
+            )
+
     def test_lazy_frame_prepare_vortex_auto_uses_artifact_manifest_reuse(
         self,
     ) -> None:

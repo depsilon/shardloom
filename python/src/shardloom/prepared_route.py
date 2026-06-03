@@ -75,6 +75,14 @@ def _infer_input_format(
 ) -> str:
     fact_format = _format_from_suffix(fact_input)
     dim_format = _format_from_suffix(dim_input)
+    if fact_format is not None and dim_format is not None and fact_format != dim_format:
+        raise ValueError(
+            "prepared Vortex compatibility routes require fact and dimension inputs "
+            "to infer the same input_format; "
+            f"got fact={fact_format!r} and dim={dim_format!r}. "
+            "Pass input_format explicitly only when the inputs are intentionally handled "
+            "as one compatibility format."
+        )
     if fact_format is not None and dim_format is not None and fact_format == dim_format:
         return fact_format
     if fact_format is not None and dim_format is None:

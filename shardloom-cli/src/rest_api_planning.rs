@@ -2148,6 +2148,12 @@ fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     fields.push((key.to_string(), value.to_string()));
 }
 
+fn push_field_if_missing(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    if !fields.iter().any(|(name, _)| name == key) {
+        push_field(fields, key, value);
+    }
+}
+
 fn set_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     if let Some((_, existing_value)) = fields.iter_mut().find(|(name, _)| name == key) {
         *existing_value = value.to_string();
@@ -2162,6 +2168,22 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
+}
+
+fn append_rest_api_advertised_policy_fields(fields: &mut Vec<(String, String)>) {
+    for (key, value) in [
+        ("requested_execution_mode", "surface_default"),
+        ("engine_mode", "surface_default"),
+        ("fallback_policy", "disabled_no_external_engine"),
+        ("materialization_policy", "explicit_boundary_required"),
+        ("result_policy", "declared_per_surface"),
+        ("evidence_policy", "certificate_or_diagnostic_ref_required"),
+        ("effect_policy", "deny_unapproved_external_effects"),
+        ("network_policy", "no_listener_by_default"),
+        ("security_governance_policy", "local_only_no_secret_values"),
+    ] {
+        push_field_if_missing(fields, key, value);
+    }
 }
 
 #[allow(clippy::fn_params_excessive_bools)]
@@ -2221,6 +2243,7 @@ fn append_rest_api_surface_parity_fields(
         "rest_api_policy_fields",
         &REST_API_POLICY_PARITY_FIELDS.join(","),
     );
+    append_rest_api_advertised_policy_fields(fields);
     push_field(
         fields,
         "rest_api_mode_selection_schema_version",
@@ -2255,6 +2278,11 @@ fn append_rest_api_surface_parity_fields(
         external_engine_invoked,
     );
     push_bool_field(fields, "rest_api_execution_delegated", execution_delegated);
+    push_field_if_missing(
+        fields,
+        "execution_delegated",
+        &execution_delegated.to_string(),
+    );
     push_bool_field(
         fields,
         "rest_api_no_fallback_no_external_engine",
@@ -2332,7 +2360,11 @@ mod tests {
                 field_value(&fields, "rest_api_runtime_equivalent_api_claim_allowed"),
                 "false"
             );
-            assert!(field_value(&fields, "rest_api_policy_fields").contains("fallback_policy"));
+            let advertised_policy_fields = field_value(&fields, "rest_api_policy_fields");
+            assert!(advertised_policy_fields.contains("fallback_policy"));
+            for policy_field in advertised_policy_fields.split(',') {
+                assert_ne!(field_value(&fields, policy_field), "");
+            }
             assert!(
                 field_value(&fields, "rest_api_mode_selection_fields")
                     .contains("claim_gate_status")

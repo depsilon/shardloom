@@ -271,7 +271,7 @@ fn assert_prepared_vortex_scan_pushdown_summary_fields(output: &str) {
     assert!(output.contains(&field("prepared_vortex_scan_pushdown_row_count", "22")));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_supported_count",
-        "12"
+        "13"
     )));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_partially_supported_count",
@@ -279,7 +279,7 @@ fn assert_prepared_vortex_scan_pushdown_summary_fields(output: &str) {
     )));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_unsupported_count",
-        "3"
+        "2"
     )));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_claim_gate_status",
@@ -322,7 +322,19 @@ fn assert_prepared_vortex_scan_pushdown_row_fields(output: &str) {
     )));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_row_many_small_files_scan_pushdown_status",
-        "scan_pushdown_unsupported"
+        "scan_pushdown_supported"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_projection_status",
+        "pushed_down"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_output_columns_read",
+        "metric"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_blocker_id",
+        "none"
     )));
     assert!(output.contains(&field(
         "prepared_vortex_scan_pushdown_row_many_small_files_scan_external_engine_invoked",

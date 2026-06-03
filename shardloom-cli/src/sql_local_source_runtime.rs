@@ -937,6 +937,19 @@ impl SqlResultBatchState {
             .any(|column| column.values.iter().any(scalar_value_is_decimal))
     }
 
+    fn contains_decimal_dtype_hint(&self) -> bool {
+        self.columns.iter().any(|column| {
+            column
+                .dtype
+                .as_ref()
+                .is_some_and(logical_dtype_is_decimal128)
+        })
+    }
+
+    fn contains_typed_decimal128(&self) -> bool {
+        self.contains_decimal_values() || self.contains_decimal_dtype_hint()
+    }
+
     fn to_rows(&self) -> SqlOutputRows {
         (0..self.row_count)
             .map(|row_index| {
@@ -5117,6 +5130,111 @@ fn output_column_dtypes(
 
 fn scoped_compatibility_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
     logical_dtype_is_decimal128(dtype).then(|| dtype.clone())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DecimalOperandDTypeHint {
+    precision: u8,
+    scale: u8,
+    is_decimal: bool,
+}
+
+fn generic_expression_output_dtype_hint(expression: &Expression) -> Option<LogicalDType> {
+    expression
+        .dtype
+        .as_ref()
+        .and_then(scoped_compatibility_output_dtype_hint)
+        .or_else(|| match &expression.kind {
+            ExpressionKind::Binary { left, op, right } => {
+                decimal_binary_expression_dtype_hint(left, *op, right)
+            }
+            _ => None,
+        })
+}
+
+fn decimal_binary_expression_dtype_hint(
+    left: &Expression,
+    op: BinaryOp,
+    right: &Expression,
+) -> Option<LogicalDType> {
+    let left = numeric_expression_decimal_operand_hint(left)?;
+    let right = numeric_expression_decimal_operand_hint(right)?;
+    if !left.is_decimal && !right.is_decimal {
+        return None;
+    }
+    let (precision, scale) = match op {
+        BinaryOp::Add | BinaryOp::Subtract => {
+            let common_scale = left.scale.max(right.scale);
+            let left_precision = left.precision.checked_add(common_scale - left.scale)?;
+            let right_precision = right.precision.checked_add(common_scale - right.scale)?;
+            (
+                left_precision.max(right_precision).checked_add(1)?,
+                common_scale,
+            )
+        }
+        BinaryOp::Multiply => (
+            left.precision.checked_add(right.precision)?,
+            left.scale.checked_add(right.scale)?,
+        ),
+        BinaryOp::Divide => (38, left.scale.max(right.scale).max(6)),
+        BinaryOp::And | BinaryOp::Or => return None,
+    };
+    (precision <= 38 && scale <= precision).then(|| decimal128_dtype(precision, scale))
+}
+
+fn numeric_expression_decimal_operand_hint(
+    expression: &Expression,
+) -> Option<DecimalOperandDTypeHint> {
+    if let Some((precision, scale)) = expression
+        .dtype
+        .as_ref()
+        .and_then(decimal_dtype_precision_scale)
+    {
+        return Some(DecimalOperandDTypeHint {
+            precision,
+            scale,
+            is_decimal: true,
+        });
+    }
+    match &expression.kind {
+        ExpressionKind::Literal(ScalarValue::Decimal128 {
+            precision, scale, ..
+        }) => Some(DecimalOperandDTypeHint {
+            precision: *precision,
+            scale: *scale,
+            is_decimal: true,
+        }),
+        ExpressionKind::Literal(ScalarValue::Int64(value)) => Some(DecimalOperandDTypeHint {
+            precision: i128_decimal_digit_count(i128::from(*value)),
+            scale: 0,
+            is_decimal: false,
+        }),
+        ExpressionKind::Literal(ScalarValue::UInt64(value)) => Some(DecimalOperandDTypeHint {
+            precision: i128_decimal_digit_count(i128::from(*value)),
+            scale: 0,
+            is_decimal: false,
+        }),
+        ExpressionKind::Binary { left, op, right } => {
+            decimal_binary_expression_dtype_hint(left, *op, right)
+                .and_then(|dtype| decimal_dtype_precision_scale(&dtype))
+                .map(|(precision, scale)| DecimalOperandDTypeHint {
+                    precision,
+                    scale,
+                    is_decimal: true,
+                })
+        }
+        _ => None,
+    }
+}
+
+fn i128_decimal_digit_count(value: i128) -> u8 {
+    let mut value = value.unsigned_abs();
+    let mut digits = 1;
+    while value >= 10 {
+        value /= 10;
+        digits += 1;
+    }
+    digits
 }
 
 #[allow(clippy::too_many_lines)]
@@ -15751,6 +15869,16 @@ impl ParsedSqlLocalSource {
                             scoped_compatibility_output_dtype_hint(&projection.target_dtype)
                         }),
                 ),
+                ParsedProjectionOutput::GenericExpression(alias) => {
+                    output_dtypes.push(
+                        self.generic_expression_projections
+                            .iter()
+                            .find(|projection| projection.alias == *alias)
+                            .and_then(|projection| {
+                                generic_expression_output_dtype_hint(&projection.expression)
+                            }),
+                    );
+                }
                 ParsedProjectionOutput::Raw(_)
                 | ParsedProjectionOutput::Literal(_)
                 | ParsedProjectionOutput::Complex(_)
@@ -15769,8 +15897,7 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::BinaryHelper(_)
                 | ParsedProjectionOutput::NumericArithmetic(_)
                 | ParsedProjectionOutput::NumericAbs(_)
-                | ParsedProjectionOutput::NumericRounding(_)
-                | ParsedProjectionOutput::GenericExpression(_) => output_dtypes.push(None),
+                | ParsedProjectionOutput::NumericRounding(_) => output_dtypes.push(None),
             }
         }
         output_dtypes
@@ -35183,7 +35310,7 @@ fn validate_flat_scalar_result_batch(
             format.sink_format()
         )));
     }
-    if batch.contains_decimal_values()
+    if batch.contains_typed_decimal128()
         && !matches!(format, SqlLocalSourceOutputFormat::Csv)
         && !format.preserves_typed_decimal128()
     {
@@ -35267,7 +35394,7 @@ fn sql_output_plan_conversion_blocker(
     if batch.contains_complex_values() {
         return Some("flat_scalar_result_batch_required");
     }
-    if batch.contains_decimal_values()
+    if batch.contains_typed_decimal128()
         && !matches!(format, SqlLocalSourceOutputFormat::Csv)
         && !format.preserves_typed_decimal128()
     {
@@ -38203,6 +38330,88 @@ mod tests {
         };
         let error = run_sql_local_source_smoke_single(&request)
             .expect_err("vortex typed decimal sink remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("local vortex output does not yet admit typed decimal128 preservation"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn decimal_cast_all_null_typed_hint_blocks_vortex_sink() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,amount\n1,not-decimal\n2,still-bad\n").expect("write csv source");
+        let hinted_batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["amount_decimal".to_string()],
+            &[Some(decimal128_dtype(10, 2))],
+            &[vec![("amount_decimal".to_string(), ScalarValue::Null)]],
+        )
+        .expect("all-null decimal hinted batch");
+
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &hinted_batch),
+            Some("typed_decimal128_preservation_not_admitted")
+        );
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,TRY_CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("all-null typed decimal hint remains blocked for vortex");
+
+        assert!(
+            error
+                .to_string()
+                .contains("local vortex output does not yet admit typed decimal128 preservation"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn decimal_generic_expression_preserves_all_null_typed_hint() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(raw_amount AS decimal128(10,2)) AS adjusted FROM 'target/input.csv' LIMIT 2",
+        )
+        .expect("decimal generic expression statement parses");
+        assert_eq!(
+            parsed.output_column_dtypes(&[
+                "id".to_string(),
+                "amount".to_string(),
+                "raw_amount".to_string()
+            ]),
+            vec![None, Some(decimal128_dtype(11, 2))]
+        );
+
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,amount,raw_amount\n1,,\n2,,\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(raw_amount AS decimal128(10,2)) AS adjusted FROM '{}' LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("all-null computed decimal output remains blocked for vortex");
 
         assert!(
             error
