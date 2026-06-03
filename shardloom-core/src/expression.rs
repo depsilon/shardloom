@@ -2561,12 +2561,15 @@ fn decimal128_null_output_dtype(
     let output = match op {
         BinaryOp::Add | BinaryOp::Subtract => eval_decimal128_add_sub(left, op, right)?,
         BinaryOp::Multiply => eval_decimal128_multiply(left, right)?,
-        BinaryOp::Divide => Decimal128Operand {
-            value: 0,
-            precision: 38,
-            scale: decimal128_divide_output_scale(left, right)?,
-            source: Decimal128OperandSource::Decimal,
-        },
+        BinaryOp::Divide => {
+            validate_decimal128_arithmetic_scale_boundary(left, right)?;
+            Decimal128Operand {
+                value: 0,
+                precision: 38,
+                scale: decimal128_divide_output_scale(left, right)?,
+                source: Decimal128OperandSource::Decimal,
+            }
+        }
         BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
     };
     Ok(Some(decimal128_dtype(output.precision, output.scale)))
@@ -4898,6 +4901,35 @@ mod tests {
         );
         assert!(!multiply_report.fallback_attempted);
         assert!(!multiply_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_mixed_scale_typed_null_decimal128_division_without_fallback() {
+        let typed_null_divide = Expression::new(
+            expr_id("decimal-mixed-scale-null-divide"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::cast(
+                    expr_id("div-left-null"),
+                    Expression::literal(expr_id("div-null"), ScalarValue::Null),
+                    decimal128_dtype(10, 2),
+                )),
+                op: BinaryOp::Divide,
+                right: Box::new(Expression::literal(
+                    expr_id("div-right"),
+                    ScalarValue::Decimal128 {
+                        value: 1,
+                        precision: 10,
+                        scale: 3,
+                    },
+                )),
+            },
+        );
+        let report = evaluate_expression(&typed_null_divide, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(format!("{:?}", report.diagnostics).contains("mixed-scale decimal128 arithmetic"));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]
