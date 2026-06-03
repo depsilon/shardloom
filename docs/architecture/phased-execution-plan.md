@@ -184,20 +184,27 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-Updated after the GAR-RUNTIME-IMPL-6D runtime gap family burn-down closeout.
+1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` until the
+   refreshed local benchmark evidence no longer shows obvious ShardLoom-owned preparation,
+   Vortex-I/O, output/evidence, or residual-native tail overhead that can be fixed safely in the
+   current runtime family.
+2. Work the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` breadth items in order: broad SQL grammar,
+   Python/DataFrame API breadth, object-store/lakehouse runtime, generated-output platform runtime,
+   data-quality/quarantine/profile runtime, effectful operations, live/hybrid runtime,
+   distributed/spill/OOM runtime, and front-door performance benchmark publication.
+3. After the 6D breadth queue has reduced the blockers it owns, return to the residual
+   `GAR-RUNTIME-IMPL-4/6A` completion gate and internal backstop queue.
 
-1. `GAR-RUNTIME-IMPL-6E` automatic dynamic preparation is closed through completed 6E-4 ledger
-   evidence.
-2. `GAR-RUNTIME-IMPL-6F` output/fanout conversion and sink-driven performance promotion is closed
-   through completed 6F-5 ledger evidence.
-3. `GAR-RUNTIME-IMPL-6C` user-surface graduation matrix is closed through completed 6C ledger
-   evidence.
-4. `GAR-RUNTIME-IMPL-6D:gap-family-burn-down` is closed through completed 6D burn-down ledger
-   evidence.
-5. Remaining `GAR-RUNTIME-IMPL-6D:last_order.*` SQL/Python/DataFrame/object-store/effect/live/spill
-   breadth work after the route/reuse/output contracts are landed.
-6. Residual 4/5-series internal-engine backstops and the 6A completion gate after the active
-   runtime queue has reduced the blockers it depends on.
+Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
+`docs/architecture/phased-execution-completed-ledger.md`; they are not active Planned work.
+Required traceability labels retained for release/readiness tests:
+`GAR-RUNTIME-IMPL-6E` automatic dynamic preparation;
+`GAR-RUNTIME-IMPL-6F` output/fanout conversion;
+`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout;
+`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`;
+`GAR-RUNTIME-IMPL-4D-F2` complex dtype; and
+`GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery. Keep their detailed status in the completed
+ledger unless a new blocker is promoted into an unchecked item here.
 
 Read order: the runtime implementation queue appears first below. Cross-cutting global-review,
 P0, and non-runtime closeout context follows the active runtime queues so the next autonomous
@@ -268,100 +275,24 @@ Python, DataFrame, context, session, CLI, diagnostics, or docs.
 
 Current state:
 
-- ShardLoom has runnable local-source SQL/Python/DataFrame paths for scoped local file workflows,
-  generated-output workflows, bounded decoded interop, and local Vortex primitive report paths.
-- These front doors are not separate execution engines. Native `.vortex` inputs start at the
-  Vortex-native boundary, while CSV/JSONL/Parquet/Arrow/Avro/ORC, generated rows, and materialized
-  Python/Arrow inputs must be treated as adapters into an explicit Vortex-normalized ShardLoom
-  runtime path before the route is runtime-ready or claim-grade.
-- The benchmark harness exercises broader ShardLoom runtime families through
-  `direct_compatibility_transient`, `compatibility_import_certified`, `prepared_vortex`,
-  `native_vortex`, and `shardloom-prepare-batch` lanes.
-- Benchmark publication now separates route execution, runtime support, and claim readiness.
-  Public rows use route-runtime fields, route-comparable lane names, and stage-attribution tables;
-  current published artifacts report `ShardLoom unsupported rows: 0` and six unsupported external
-  DataFusion baseline rows.
-- The first 6D child slice landed in #998. It added the deterministic
-  `target/user-surface-runtime-gap-inventory.json` validator/artifact, classified 31 current
-  user-surface gap rows, separated ShardLoom runtime posture from six external DataFusion baseline
-  limitations, and wired the inventory into release-readiness/CI checks.
-- The second 6D child slice landed in #999. It added the deterministic
-  `target/user-route-capability-report.json` validator/artifact and the
-  `ShardLoomContext.user_route_capability_report()` surface so users and agents can ask which
-  ShardLoom route applies, where it normalizes to Vortex, what output/evidence it emits, and what
-  claim boundary applies.
-- The local Vortex primitive front-door slice landed in #1000. It added
-  `ShardLoomContext.local_vortex_primitive_route_report()` and release-readiness validation for
-  operation-level count, count-where, filter, project, select-star, filter-project, and
-  source-order limit route coverage across SQL, Python, DataFrame-style, context, session, and CLI
-  surfaces.
-- The third 6D child slice adds `ShardLoomContext.local_file_benchmark_route_report()` and
-  release-readiness validation for scenario-level local compatibility-file benchmark route coverage.
-  Selective filter and filter/projection/limit are mapped to scoped direct transient routes; group,
-  multi-key aggregate, join aggregate, sort/top-k, row-number window, top-N per group, dirty
-  clean/cast/filter/write, partition-pruning, many-small-files, null-heavy aggregate,
-  high-cardinality group/distinct, nested JSON fixture, and CDC overlay fixture rows are mapped to
-  prepare-once ShardLoom routes with explicit Vortex normalization, output/evidence, no-fallback,
-  and claim-boundary fields.
-- The fourth 6D child slice adds the additive benchmark route timing ledger, first-class
-  `ShardLoom Prepare-Once First Query` route rows, and `N=1/5/10/50/100` prepared-route
-  amortization summaries. Public benchmark artifacts now publish 600 ShardLoom scoped-runtime rows
-  across cold certified, prepare-once first query, prepare-once batch, warm prepared, and native
-  Vortex routes. Each published row records `route_total_formula`, `route_timing_scope`,
-  `stage_parent_id`, included/excluded timing stage IDs, timing-inclusion booleans, and a
-  zero-delta route-total reproduction check.
-- The fifth 6D child slice adds `shardloom.traditional_analytics.cold_bottleneck.v1` row fields
-  and website summaries for cold certified and prepare-once routes. Cold rows now expose primary
-  and secondary bottleneck stages, diagnostic-only optimization hints, source split/open/read
-  pressure, projection posture, and prepared-state fingerprint/reuse fields. Warm prepared/native
-  rows explicitly report cold bottlenecks as not applicable instead of inheriting cold labels.
-- The sixth 6D child slice adds source/prepared route diagnostics to user-route packets and
-  benchmark rows: source-state fingerprint, schema fingerprint, parse-plan ID, split-manifest ID,
-  anomaly/quarantine posture, prepared-state fingerprint, nearest runnable route, required feature
-  gate, and deterministic runtime blocker code. These fields are guidance and evidence pointers;
-  they do not execute fallback work.
-- The seventh 6D child slice makes the benchmark website route-first. The page now leads with
-  route cards for cold certified, prepare-once first query, prepare-once batch, warm prepared,
-  native Vortex, and external baseline end-to-end rows; stage attribution follows the cards; route
-  filters separate comparable end-to-end, prepared-state steady-state, native Vortex, and
-  diagnostic/stage views. Runtime, evidence, and claim badges are visually distinct and covered by
-  website/static validators so warm prepared sub-ms rows cannot be mistaken for cold raw-source
-  end-to-end timing.
-- The eighth 6D child slice adds `shardloom.route_fast_path_attribution.v1` to promoted benchmark
-  rows and website summaries. Route evidence now separates `runtime_execution_ms`,
-  `output_delivery_ms`, `evidence_capture_ms`, `evidence_render_ms`, and `certificate_link_ms`;
-  claim-grade ShardLoom rows must carry `evidence_required_for_claim=true`,
-  `certificate_link_status=linked_certified_runtime_execution`, and a certified
-  runtime-execution certificate. The benchmark page now shows total-route timing separately from
-  runtime/evidence attribution so sub-ms prepared/native query slices cannot be mistaken for full
-  route totals.
-- The ninth 6D child slice adds `shardloom.operator_mode_inventory.v1` to promoted benchmark rows
-  and website summaries. Public rows now distinguish `operator_execution_mode` from
-  route-runtime support and publish `encoded_native_operators`, `residual_native_operators`,
-  `materialized_temporary_operators`, `operator_blocker_code`, and
-  `operator_hot_path_candidate`. Current ShardLoom benchmark rows remain residual-native or
-  materialized-temporary, not encoded-native; the selected first promotion candidate is
-  `selective_filter_selection_vector_metric_aggregation` with deterministic blocker
-  `blocked_selection_vector_metric_aggregation_not_admitted`.
-- The tenth 6D child slice adds `scripts/check_benchmark_publish_doctor.py`, a static
-  publication/handoff doctor that wraps benchmark artifact completeness, publication claim-gate,
-  website mirror-drift, route row counts, route-runtime-status, operator-mode, timing-ledger, and
-  nearest-next-command checks. It also writes compact JSON/Markdown route packets for agent
-  handoff without pulling the full benchmark corpus into prompt context.
-- Route-total integrity follow-up is pulled forward before the next runtime item: the benchmark
-  promoter and website must make `total_route_ms` mean the full published route timing for every
-  route card and route-lane table, while query/runtime-only slices stay labeled as attribution.
-  Visual QA found the current route cards can show a route geomean beside a stage split that omits
-  included preparation totals, and prepare-once/warm/native formulas exclude output/evidence despite
-  route identity fields ending at `result_sink`. Fix the promoter formulas, card labels, stage
-  summaries, and static validators so benchmark readers cannot confuse route totals with query-only
-  or partial-stage timers.
-- Some user-facing capability/parity surfaces still say `unsupported`, `blocked`, or `not complete`
-  where the accurate problem is front-door connection, output ergonomics, claim-grade evidence, or
-  benchmark publication rather than engine impossibility.
-- The user target is runtime-go: for any capability in the local benchmark range, users should have
-  a clear SQL/Python/DataFrame/context/session/CLI route that runs ShardLoom, emits structured
-  evidence, preserves `fallback_attempted=false`, and makes input/output boundaries obvious.
+- ShardLoom has runnable local-source SQL/Python/DataFrame/context/session/CLI routes for scoped
+  local file workflows, generated-output workflows, bounded decoded interop, local Vortex primitive
+  report paths, prepared Vortex artifacts, native `.vortex` inputs, and benchmark-range route
+  capability reports.
+- Route/reuse/output/evidence foundations from the earlier 6D child slices are complete and are
+  recorded in `docs/architecture/phased-execution-completed-ledger.md`. Do not re-list those
+  completed route slices in this live queue.
+- Remaining work in this section is the last-order breadth below: benchmark-driven hot-path
+  optimization, broad SQL grammar, Python/DataFrame API breadth, object-store/lakehouse runtime,
+  generated-output platform runtime, data-quality/quarantine/profile runtime, effectful operations,
+  live/hybrid runtime, distributed/spill/OOM runtime, and claim-grade front-door benchmark
+  publication.
+- Native `.vortex` inputs start at the Vortex-native boundary. CSV/JSONL/Parquet/Arrow/Avro/ORC,
+  generated rows, and materialized Python/Arrow inputs remain adapters into explicit
+  Vortex-normalized ShardLoom routes before they can be called runtime-ready or claim-grade.
+- The user target is runtime-go: for every local benchmark-range capability, users should have a
+  clear route that runs ShardLoom, emits structured evidence, preserves
+  `fallback_attempted=false`, and makes input/output boundaries obvious.
 
 Runtime enablement: this item enables the end-to-end user route:
 
@@ -380,133 +311,50 @@ user expression
      materialization/decode boundary, no-fallback/no-external-engine fields
 ```
 
-Next slice outcome: remove misleading unsupported posture from engine-capable benchmark-range
-workflows by wiring the missing user-facing routes or reclassifying them as concrete
-runtime-expansion checklist items with file/module ownership and verification. Do not weaken
-claim-gates; `not_claim_grade` remains valid until benchmark/correctness/certificate evidence is
-attached.
-
-Implementation checklist, in required order:
-
-- Closed: For compatibility imports, expose an intuitive user route for
-  `compatibility_import_certified -> prepared_vortex` and `shardloom-prepare-batch` so users can
-  start from CSV/JSONL/Parquet/Arrow IPC/Avro/ORC, prepare once, run benchmark-range scenarios from
-  prepared Vortex artifacts, and understand whether timing includes preparation. This is the primary
-  non-Vortex input-to-Vortex transition and should be visible in reports instead of hidden behind a
-  generic read helper. Closed by the context/session `prepare_vortex(..., workspace=...)` route
-  handle and `CompatibilityPreparedVortexRoute`/`PreparedVortexQuery` tests.
-- Closed: For native `.vortex` input, expose a user route that runs the same native/prepared Vortex
-  runtime family used by benchmark rows, not piecemeal artificial helpers. The surface must make
-  source, selected execution mode, scenario/operator, memory/parallelism, and result-sink choice
-  explicit. Closed by `ctx.native_vortex_route(...)` / `session.native_vortex_route(...)`,
-  `NativeVortexRoute`/`NativeVortexQuery`, and CLI/client resource-policy arguments for
-  `traditional-analytics-vortex-run` and `traditional-analytics-vortex-batch-run`.
-- Closed: For outputs, ensure every admitted benchmark-range route has at least one clear output option:
-  machine-readable report, bounded preview, local compatibility output, native Vortex output,
-  result-sink replay proof, or fanout. Missing output wiring is a runtime-output checklist item, not
-  a vague unsupported user surface. Closed by the user-route capability output-option classifier,
-  admitted-route output maps, and fail-closed route-report regression tests.
-- Closed: Reclassify engine-capable but unwired front-door gaps away from generic `unsupported` language
-  in the Python context matrices, parity validator payload, benchmark coverage table, and docs.
-  Use precise labels such as `front_door_connection_pending`, `output_route_pending`,
-  `claim_evidence_pending`, or `benchmark_publication_pending`. Closed by
-  `FrontDoorParityRow.runtime_gap_status`, parity/user-route/gap-inventory report fields, the
-  `benchmark_publication_pending` route status, and docs that distinguish front-door gaps from
-  unsupported engine paths.
-- Closed: Add regression tests that fail if any benchmark-range local ShardLoom route reports
-  `unsupported` merely because SQL/Python/DataFrame/context/session wiring is missing. Closed by
-  user-route, local-file benchmark, parity, and runtime-gap inventory fail-closed tests.
-- Closed: Keep claim boundaries strict: performance equivalence, production support, Spark
-  displacement, object-store/table runtime, and broad arbitrary language support remain
-  `not_claim_grade` until their correctness, Native I/O, execution-certificate, no-fallback, and
-  benchmark evidence exists. Closed by the parity and route validators requiring
-  `claim_gate_status=not_claim_grade` and false performance/production/Spark replacement claim
-  flags while these rows remain pending.
+Next slice outcome: complete or measurably reduce the first unchecked last-order item, then move to
+the next last-order item without reintroducing already-closed route-surface history into Planned.
+Do not weaken claim gates; `not_claim_grade` remains valid until benchmark/correctness/certificate
+evidence is attached.
 
 Last-order runtime expansion checklist, not to be left as vague unsupported prose:
 
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization:
   Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
   optimization for runtime-ready local routes.
-  Current state: the full-local benchmark artifacts on `2026-05-31` report 600 successful,
-  claim-grade, scoped-runtime-supported ShardLoom rows with zero ShardLoom unsupported rows and six
-  unsupported external DataFusion baseline rows. The route ledger is valid, but the current
-  post-merge publication gate blocks public claim refresh because the artifact was generated at
-  commit `6e2d2559` while current `main` is `a48f20d7`. The timing evidence shows prepared/native
-  query work is already small (`ShardLoom Native Vortex Query` about 6.12 ms geomean total route
-  and about 3.24 ms average scan/compute across the full published row set; simple operators are
-  often sub-millisecond while many-small-files, join+aggregate, and nested JSON scan dominate the
-  tail), while raw compatibility routes are dominated by preparation:
-  JSONL prepare-once first query is about 1.1 s, CSV about 313 ms, and non-text columnar formats are
-  still dominated by a roughly 94-100 ms Vortex write stage. Code review found full-file string
-  reads for CSV/JSONL, per-row JSON map parsing, row-struct materialization for columnar inputs
-  before rebuilding Arrow/Vortex arrays, repeated Vortex runtime/session construction, in-memory
-  writer buffering, result-sink replay overhead in hot routes, residual-native and
-  materialized-temporary operator modes, and several copy-budget/layout fields still marked
-  `not_measured` or writer-default/no-performance-claim. This branch has replaced JSONL
-  `BTreeMap` parsing with lookup-only maps and then promoted canonical benchmark-shaped JSONL rows
-  to a schema-specific no-map fast path with fallback to the generic flat JSONL parser, added a
-  no-quote CSV fast path, reused Vortex file I/O runtime/session context in the cold
-  write/result-sink path, and promoted cold columnar imports to
-  `arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary`. The final focused
-  ShardLoom-only rerun at
-  `target/benchmark-artifacts/codex-6d-final-20260603T000000Z/traditional_analytics_existing_data.json`
-  produced 48 successful rows and zero errors across `shardloom`, `shardloom-vortex`,
-  `shardloom-prepared-vortex`, and `shardloom-prepare-batch` for CSV/JSONL/Parquet/Arrow
-  IPC/Avro/ORC selective-filter and filter-projection-limit scenarios. Compared with
-  `target/benchmark-artifacts/codex-5j-full-local-external-fix-20260531T152911Z/traditional-full-local-broad.json`,
-  the 12 matching cold `shardloom` compatibility-import rows moved average
-  `total_runtime_millis` from 341.728 ms to 125.254 ms, source parsing from 205.411 ms to
-  23.386 ms, compatibility-to-Vortex import from 331.386 ms to 114.196 ms, Vortex array build from
-  21.710 ms to 0.043 ms, Vortex write from 94.601 ms to 80.033 ms, and CLI process wall time from
-  361.242 ms to 155.041 ms. Within that final rerun, JSONL cold rows averaged 83.499 ms total,
-  32.922 ms source parse/read, and 72.226 ms compatibility-to-Vortex import. A JSONL-only
-  intermediate rerun at
-  `target/benchmark-artifacts/codex-6d-jsonl-fastpath-20260603T000000Z/traditional_analytics_jsonl_fastpath.json`
-  produced two successful ShardLoom rows and zero errors and was superseded by the final full-format
-  rerun. A bounded `Vec` capacity hint around the Vortex writer buffer was
-  measured separately in
-  `target/benchmark-artifacts/codex-6d-write-buffer-capacity-20260603T000000Z/traditional_analytics_existing_data.json`
-  and rejected because it regressed structured cold `vortex_write_millis` by about 8% versus the
-  prior optimized artifact; future write-stage work should inspect Vortex writer encoding/layout
-  behavior or admitted writer configuration rather than local preallocation. A follow-up
-  many-small-files hot-path slice promoted `many-small-files scan` from the full-table
-  materialization fallback to the existing projected Vortex streaming scan over `metric`. The
-  accepted harness-level rerun at
-  `target/benchmark-artifacts/codex-many-small-streaming-20260603T000000Z/traditional_many_small_csv_jsonl.json`
-  produced six successful ShardLoom CSV/JSONL rows and zero errors for `many_small_files`; query
-  timings ranged from 0.5767 ms to 0.73 ms with `operator_execution_class=residual_native`,
-  `data_materialized=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
-  Direct patched release CLI measurements against the existing Parquet/Arrow IPC prepared Vortex
-  artifacts from the `codex-5j` benchmark moved the old materialized Parquet/Arrow IPC
-  many-small-files hot route from about 21.859-22.948 ms to median scenario-compute timings of
-  0.638-0.747 ms for native/prepared runs and 0.655-0.719 ms for batch prepared runs. The local
-  Python environment lacked `pyarrow` and `polars`, so a fresh compatible Parquet/Arrow harness
-  rerun with external Polars rows could not be regenerated locally; the comparison baseline remains
-  the existing `codex-5j` JSON artifact.
+  Current state: benchmark publication and prior optimization evidence are recorded in
+  `docs/architecture/phased-execution-completed-ledger.md`. The live remaining work is to keep
+  using refreshed local benchmark evidence to remove fixable ShardLoom-owned overhead before any
+  performance claim: preparation and Vortex write/read stages on cold routes, result-sink/evidence
+  overhead in route totals, and residual-native tail operators in prepared/native routes.
+  Completed hot-path slices already covered JSONL/CSV parsing, cold columnar RecordBatch import,
+  repeated Vortex I/O setup in the cold write/result-sink path, many-small-files projected
+  streaming, and generated nested JSON payload extraction; do not re-list their detailed benchmark
+  rows here.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
-  Next slice outcome: reduce the measured Vortex write-stage and tail operator overhead
-  without changing semantics by inspecting admitted Vortex writer encoding/layout configuration,
-  tightening result-sink/evidence overhead, and continuing encoded operator hot-path promotion in
-  follow-up slices.
+  Next slice outcome: run one coherent benchmark-driven optimization batch that reduces the
+  currently measured prepared/native tail without changing semantics. Candidate work belongs here
+  only when it is ShardLoom-owned, no-fallback, covered by focused tests, and measured by the
+  benchmark harness after all code/docs edits in the batch are complete.
   User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
   routes, Python/context prepared/native route helpers, result-sink evidence, route capability
   reports, and release-readiness benchmark validators.
   Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`,
   `shardloom-vortex/src/vortex_ingest.rs` if shared helper extraction is needed,
-  benchmark promoter/static validators when stage semantics change, Python/CLI docs when user
-  behavior changes, and benchmark/release evidence artifacts after the runtime path changes.
+  `docs/architecture/phased-execution-plan.md` when the active queue drifts, benchmark
+  promoter/static validators when stage semantics change, Python/CLI docs when user behavior
+  changes, and benchmark/release evidence artifacts after runtime changes.
   Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, route
   ledger zero deltas, no-fallback/no-external-engine fields, benchmark artifact completeness,
   copy-budget/layout fields updated when measurements improve, and a refreshed local benchmark
-  before any public performance claim.
-  Acceptance: route behavior and evidence remain identical or stricter, repeated Vortex I/O setup is
-  removed where safe, hot-stage timing fields still reproduce route totals, and the next benchmark
-  run can show whether write/read/evidence overhead changed without weakening claim gates.
+  after all code changes and before any public performance claim.
+  Acceptance: route behavior and evidence remain identical or stricter, fixable ShardLoom-owned hot
+  loops avoid unnecessary reads, decodes, allocations, string clones, or materialization, hot-stage
+  timing fields still reproduce route totals, and the refreshed benchmark run reports no
+  ShardLoom fallback/external-engine flags.
   Verification: focused Rust tests for traditional analytics Vortex I/O paths, `cargo fmt --all
   -- --check`, relevant `cargo test` package/feature targets, benchmark artifact validators when
   generated artifacts change, and `git diff --check`.
@@ -522,124 +370,16 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   exists.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
-  Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,
-  row-level `SELECT DISTINCT` deduplication over projection, aggregate/HAVING, join, and window
-  output rows, joins, sorting, aliases, and deterministic no-fallback diagnostics for unbounded
-  collect. Row-value literal `IN` / `NOT IN` predicates such as
-  `(id, label) IN ((1, 'alpha'), (3, 'gamma'))` are now promoted through the same executable
-  ShardLoom-owned runtime path with SQL three-valued row comparison evidence. Bounded local
-  row-value `IN (SELECT ...)` / `NOT IN (SELECT ...)` predicates now materialize scoped
-  multi-column local sources through the same ShardLoom-owned IN-subquery path with arity,
-  null-semantics, source-format, filter/order/limit, and no-fallback evidence. Scoped top-level SQL
-  `UNION` and `UNION ALL` composition is now promoted over already-admitted local-source branch
-  `SELECT` plans, with matching output-column/dtype checks, fail-closed branch bounds, optional
-  global `ORDER BY`, global `LIMIT`, Python/DataFrame `union(...)` / `union_all(...)` lowering,
-  and no-fallback evidence fields. Scoped local `EXISTS` / `NOT EXISTS` predicates are now
-  promoted as bounded two-valued presence tests over admitted local sources, with projection kind,
-  source-format, filter/order/limit, row-count, result, Python helper, and no-fallback evidence
-  fields. Scoped ANSI interval literals are now admitted only inside
-  `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`, with
-  malformed literals, unsupported units, and out-of-range values blocked before fallback. The
-  remaining broad grammar blockers are explicit rows in
-  `docs/status/admitted-semantics-matrix.json`: non-UTC/timezone semantics, arbitrary
-  interval arithmetic outside scoped temporal helpers, locale/collation,
-  complex equality/accessors/casts/nested source decoding/flat sinks outside the scoped JSONL
-  `ARRAY[...]`/`STRUCT(...)` result-boundary projection route, variant/union-dtype shapes, broad
-  binary source dtype decoding/ordering,
-  scalar-left multi-column IN-subqueries, unbound qualified references, and remaining non-admitted
-  broad ANSI subquery families.
-  Scoped quantified `ANY` / `ALL` subquery
-  predicates over bounded local scalar
-  sources are now part of the admitted ShardLoom-owned route with SQL three-valued null-semantics,
-  materialization-bound, source-format, filter/order/limit, Python helper, and no-fallback evidence.
-  HAVING-level scoped local `EXISTS` and quantified `ANY` / `ALL` subqueries over aggregate output
-  rows are now admitted through the same aggregate/HAVING route, with decoded-reference fixtures and
-  Python query-builder lowering.
-  Scoped nested local scalar `IN` subqueries are now promoted through depth-first materialization:
-  inner bounded local values are materialized before the parent subquery filter executes, with
-  nested predicate count, max depth, materialization order, source-format, row-count, and
-  no-fallback evidence.
-  Scoped joined and grouped/HAVING projected subqueries are now promoted by routing the subquery
-  through the same ShardLoom local-source parser, binder, join/group/HAVING evaluator, and bounded
-  materializer used by top-level SQL routes. The admitted projected cases cover scalar `IN`,
-  row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` materialization where the projected output
-  arity matches the membership/quantified operand; projected `EXISTS` uses the same bounded
-  projected output as a two-valued presence test. Report rows expose
-  `projected_subquery_runtime_execution`, statement kind, output-column count, and
-  join/group/HAVING execution flags so these are visible runtime-supported routes rather than hidden
-  mini-evaluators.
-  Scoped correlated local-source subquery filters are now admitted when the subquery predicate uses
-  the reserved `outer.<column>` alias in column-to-column comparisons. The admitted runtime family
-  covers scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates through
-  per-outer-row bounded materialization, with correlated runtime, outer-column, evaluation-strategy,
-  and no-fallback evidence fields. Python/DataFrame front doors now expose the reserved
-  `sl.outer(...)` helper and typed correlated-subquery report fields for those admitted routes.
-  Scoped correlated joined and grouped/HAVING projected subqueries are now admitted for scalar
-  `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` / `ALL` predicates when the projected
-  local-source plan carries admitted `outer.<column>` column-to-column comparisons in its
-  filter/HAVING path. These routes reuse the existing ShardLoom local-source parser, binder,
-  join/group/HAVING evaluators, hidden HAVING aggregate rewrites, and bounded per-outer-row
-  materializer, and report both correlated and projected subquery evidence.
-  Source-qualified local subquery references are now admitted for the subquery's explicit `AS`
-  alias or SQL-identifier file stem in selected columns, filters, and bounded ordering; Python
-  helpers bind explicit aliases with `source_alias=` and render those refs with
-  `sl.col("alias.column")`. Unbound source aliases, outer references outside column-to-column
-  predicates, scalar-left multi-column subqueries, and remaining non-admitted broad ANSI subquery
-  families remain deterministic blockers.
-  Scoped UTF-8 `LIKE` predicates now admit `%` and `_` wildcard shapes plus single-character
-  `ESCAPE` clauses through ShardLoom-owned predicate lowering, with deterministic blockers for
-  malformed escape literals, trailing escapes, and escape misuse. Case-folding and
-  locale/collation semantics remain blocked. Scoped UTF-8 `RLIKE` / `REGEXP` / `REGEXP_LIKE`
-  predicates are admitted separately through ShardLoom-owned regex evaluation while locale-aware
-  collation/regex semantics remain blocked.
-  Scoped SQL `X'<hex>'` binary literal projections are now admitted as ShardLoom-owned binary
-  scalar values with exact byte-count/hex evidence and no fallback. Scoped `BINARY '<utf8>'` and
-  `BLOB '<utf8>'` text literal projections are now admitted as ShardLoom-owned binary scalar bytes.
-  Scoped `CAST`/`TRY_CAST` to `binary`/`blob`/`varbinary` projections and equality/inequality
-  predicates are now admitted through ShardLoom-owned scalar cast and binary comparison semantics,
-  including Python/DataFrame cast aliases. Scoped
-  `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are now admitted as
-  ShardLoom-owned binary helper decoding over direct UTF-8 source columns, with strict invalid-input
-  blockers, binary output evidence, null propagation, Python/DataFrame helpers, and no-fallback
-  fields. Broad binary source dtype decoding, binary ordering, and nested binary helper expressions
-  remain blocked.
-  Scoped `CAST`/`TRY_CAST` to `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` projections and
-  predicates are now admitted through ShardLoom-owned exact fixed-scale `Decimal128` scalar
-  semantics, with Python/DataFrame cast aliases, decimal-specific precision/scale/mode evidence,
-  exact JSONL string and CSV text output boundaries, and feature-gated Parquet/Arrow IPC
-  compatibility sinks that preserve scoped `decimal128(p,s)` output columns. Local Vortex typed
-  decimal output plus Avro/ORC typed decimal sinks remain explicit blockers until their encoders and
-  replay evidence are admitted. Scoped mixed-scale
-  `decimal128` add/subtract/multiply projections, mixed-scale decimal comparisons, and exact
-  fixed-scale decimal division over decimal and integer operands are now admitted through the same
-  ShardLoom-owned local-source route. Non-exact decimal division, broad ANSI decimal coercion,
-  exponent notation, local Vortex typed decimal output, and Avro/ORC typed decimal sinks remain
-  deterministic blockers.
-  Python/DataFrame front doors now expose grouped/HAVING projected source-subquery parity for
-  admitted source-backed IN, row-value IN, EXISTS, and quantified ANY/ALL helpers through explicit
-  `group_by=` and `having=` clauses. These helpers lower to the same ShardLoom SQL local-source
-  runtime evidence as the admitted SQL routes, including correlated `outer.<column>` HAVING
-  predicates, and keep non-admitted joined or broader derived-table builder shapes outside this
-  slice.
-  Scoped complex projections are now admitted for `ARRAY[...]` scalar-literal arrays and
-  `STRUCT(<source column>, ...)` source-column payloads over bounded local-source routes, with
-  explicit JSONL/result evidence, Python `sl.array(...)` / `sl.struct(...)` lowering helpers, and
-  flat-sink blockers where CSV, Parquet, Arrow IPC, Avro, ORC, and local Vortex output cannot yet
-  preserve nested values. Complex equality, DISTINCT, subquery membership, accessors, casts, nested
-  source decoding, and broader row/list/struct functions remain deterministic blockers. Scalar-left
-  multi-column subqueries now report a deterministic invalid-shape diagnostic instead of an
-  unsupported engine gap. Numeric division by zero likewise reports a deterministic runtime-error
-  diagnostic instead of an unsupported arithmetic feature. The admitted-semantics matrix now
-  distinguishes `unsupported_diagnostic_count=5`, `runtime_error_diagnostic_count=1`, and
-  `invalid_shape_diagnostic_count=1` while preserving no-fallback evidence for all diagnostic rows.
-  Scoped `decimal128` add/subtract/multiply projections are now admitted over same-scale and
-  mixed-scale decimal operands plus integer operands through the generic-expression local-source
-  runtime, exact JSONL/CSV text result boundary, Python/DataFrame cast-plus-arithmetic lowering,
-  feature-gated Parquet/Arrow IPC typed decimal compatibility sink preservation, and
-  admitted-semantics evidence. Scoped exact decimal division now emits
-  `decimal128(38,max(input_scales,6))` when the quotient is exact at that scale; non-exact decimal
-  division, broad ANSI decimal coercion, local Vortex typed decimal output, and Avro/ORC typed
-  decimal sinks remain deterministic blockers.
+  Current state: admitted scoped SQL syntax families and their evidence rows live in
+  `docs/status/admitted-semantics-matrix.json` and the completed ledger. The live remaining
+  blockers are the non-admitted broad grammar families that still need either ShardLoom-owned
+  runtime promotion or deterministic diagnostics: non-UTC/timezone semantics, locale/collation,
+  arbitrary interval arithmetic outside scoped temporal helpers, complex equality/accessors/casts,
+  nested source decoding and flat sinks beyond scoped result-boundary projections,
+  variant/union-dtype shapes, broad binary source dtype decoding/ordering, local Vortex typed
+  decimal output, Avro/ORC typed decimal sinks, broad ANSI decimal coercion/exponent notation,
+  scalar-left multi-column subqueries, outer references outside admitted column-to-column
+  correlations, unbound source aliases, and remaining broad ANSI subquery families.
   Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
   likely candidates are timezone/locale blocker refinement, broad binary source dtype refinement,
   complex access/equality follow-through after a dedicated semantics contract, local Vortex typed
@@ -904,30 +644,11 @@ Ledger rule: when a child slice is completed and merged, move the completed deta
 here.
 
 #### GAR-RUNTIME-IMPL-4/6A - Residual Completion Gate And Internal Backstop Queue
-Current runtime ordering note (updated 2026-06-02): the completed engine-internal queue remains
-recorded here as backstop context, but the active runtime sequence above now intentionally works the
-remaining 6D user-surface breadth before this residual completion/backstop queue unless a specific
-internal-engine item blocks the active route/reuse/output and user-surface breadth work. The
-`GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
-rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
-`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
-local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
-closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
-`GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control,
-`GAR-RUNTIME-IMPL-5C` Python workflow/method-matrix alignment,
-`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission,
-`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission,
-`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout, and the parent
-`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`
-advanced scalar deterministic semantics closeout and `GAR-RUNTIME-IMPL-4D-F2` complex dtype
-deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery
-semantics closeout plus `GAR-RUNTIME-IMPL-5P` Foundry dev-stack generated-output and transform
-proof are complete and recorded in the ledger.
-The remaining internal-engine follow-ups below are residual backstops after the active
-route/reuse/output and user-surface breadth sequence, not the current top runtime priority.
-Completed queue blocks have moved to
-`docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
-work.
+Current runtime ordering note (updated 2026-06-03): this section is a residual backstop after the
+active 6D user-surface breadth queue. Completed engine-internal closeouts are recorded in
+`docs/architecture/phased-execution-completed-ledger.md`; do not copy their titles back into this
+live queue. Work this section only when a specific remaining 6A/completion-gate blocker must be
+reduced or when it directly blocks the active 6D route/runtime work.
 
 This queue exists to keep the remaining "fully functional / usable compute engine" work from
 hiding inside broad architecture items. Treat these as the explicit runtime implementation slices

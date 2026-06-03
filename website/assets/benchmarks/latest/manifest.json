@@ -7,27 +7,27 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 300,
-        "sha256": "91c58263e0c91e1e2b2929dcd0242a3378756da433a18501c2de82c546c93909"
+        "sha256": "1949f27a0995607a12ff3be65319bebc15e20c072ceec722baf8fa4347bc917f"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 300,
-        "sha256": "08679bd281f712f9dae3caa3d90563dba3aea1d5e57e2f17e40628f520ed93d0"
+        "sha256": "46e80ebc4d2d589a3f7e485f65f17896e60e35f4f84582997054751f94edc86f"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 300,
-        "sha256": "381cd1ba053ed8fa453d20b615df96bc0bc949f7bb53f210ee3cad09f987ec1c"
+        "sha256": "129c5cc19b338b03511d590e6c134fadc80a5681f0b111d7e0887f074ca19778"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 300,
-        "sha256": "c0c14745bd17d2245d5011845103dac3b2bc3b96a87af829d82cbe3238cbcd2b"
+        "sha256": "c602f2bb9226eb95a0da4e7dcf2d3abe293c538f98af185927e4c4c9d96edf73"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
         "row_count": 120,
-        "sha256": "3627c486ef4e537a7c8ef6d0a7d4cf917278cc9f1737dd8747713379f9bfbf9e"
+        "sha256": "fcfb9a52eb0f8cd3c77009549c41444a9462defac03343ed95ba7e03f402ccb0"
       }
     ]
   },
@@ -68,14 +68,14 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "6e2d255940d74263d54a5dba6082e92f52d26744",
+  "benchmark_git_sha": "ec01058998d676e189726ae1bd8779672b3a1409",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
     "artifact_environment": {
       "cpu_count": 10,
       "machine": "arm64",
-      "platform": "macOS-26.5-arm64-arm-64bit",
+      "platform": "macOS-26.5.1-arm64-arm-64bit",
       "processor": "arm",
       "python_version": "3.9.6",
       "total_memory_bytes": 17179869184
@@ -97,7 +97,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-05-31T15:40:03.441059+00:00",
+  "generated_at_utc": "2026-06-03T12:16:06.477684+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2024.8.0",
     "datafusion": "available, version 50.1.0",
@@ -105,10 +105,10 @@
     "pandas": "available, version 2.3.3",
     "polars-eager": "available, version 1.36.1",
     "polars-lazy": "available, version 1.36.1 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-fa0ce127-dirty",
-    "shardloom-prepare-batch": "available, version workspace-local-release-fa0ce127-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-fa0ce127-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-fa0ce127-dirty"
+    "shardloom": "available, version workspace-local-release-ec010589-dirty",
+    "shardloom-prepare-batch": "available, version workspace-local-release-ec010589-dirty",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-ec010589-dirty",
+    "shardloom-vortex": "available, version workspace-local-release-ec010589-dirty"
   },
   "lane_versions": {
     "dask": "2024.8.0",
@@ -117,10 +117,10 @@
     "pandas": "2.3.3",
     "polars-eager": "1.36.1",
     "polars-lazy": "1.36.1 (lazy scan API)",
-    "shardloom": "workspace-local-release-fa0ce127-dirty",
-    "shardloom-prepare-batch": "workspace-local-release-fa0ce127-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-fa0ce127-dirty",
-    "shardloom-vortex": "workspace-local-release-fa0ce127-dirty"
+    "shardloom": "workspace-local-release-ec010589-dirty",
+    "shardloom-prepare-batch": "workspace-local-release-ec010589-dirty",
+    "shardloom-prepared-vortex": "workspace-local-release-ec010589-dirty",
+    "shardloom-vortex": "workspace-local-release-ec010589-dirty"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -760,5 +760,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "6e2d255940d74263d54a5dba6082e92f52d26744"
+  "shardloom_git_sha": "ec01058998d676e189726ae1bd8779672b3a1409"
 }

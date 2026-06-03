@@ -11241,6 +11241,35 @@ impl TraditionalGroupAccum {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Default, Clone, PartialEq)]
+struct TraditionalStringInterner {
+    values: Vec<String>,
+    by_value: std::collections::HashMap<String, u32>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalStringInterner {
+    fn intern(&mut self, value: &str) -> Result<u32> {
+        if let Some(id) = self.by_value.get(value) {
+            return Ok(*id);
+        }
+        let id = u32::try_from(self.values.len()).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics string interner exceeded u32 ids: {error}"
+            ))
+        })?;
+        self.values.push(value.to_string());
+        self.by_value.insert(value.to_string(), id);
+        Ok(id)
+    }
+
+    fn value(&self, id: u32) -> Option<&str> {
+        let index = usize::try_from(id).ok()?;
+        self.values.get(index).map(String::as_str)
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default, Clone)]
 struct TraditionalComplexAccum {
     row_count: u64,
@@ -17824,10 +17853,10 @@ where
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn utf8_field(
+fn varbin_view_field(
     fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
     name: &str,
-) -> Result<Vec<String>> {
+) -> Result<vortex::array::arrays::VarBinViewArray> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::VarBinViewArray;
 
@@ -17839,6 +17868,15 @@ fn utf8_field(
         .clone()
         .execute::<VarBinViewArray>(&mut ctx)
         .map_err(vortex_error)?;
+    Ok(utf8)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn utf8_field(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    name: &str,
+) -> Result<Vec<String>> {
+    let utf8 = varbin_view_field(fields, name)?;
     let mut values = Vec::with_capacity(utf8.len());
     for index in 0..utf8.len() {
         let bytes = utf8.bytes_at(index);
@@ -17850,6 +17888,22 @@ fn utf8_field(
         values.push(text.to_string());
     }
     Ok(values)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn intern_utf8_value_at(
+    interner: &mut TraditionalStringInterner,
+    utf8: &vortex::array::arrays::VarBinViewArray,
+    name: &str,
+    index: usize,
+) -> Result<u32> {
+    let bytes = utf8.bytes_at(index);
+    let text = std::str::from_utf8(bytes.as_slice()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "Vortex UTF-8 field '{name}' contained invalid UTF-8 at row {index}: {error}"
+        ))
+    })?;
+    interner.intern(text)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -20292,7 +20346,7 @@ fn run_streaming_hash_join_scenario_with_dim_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_by_key = &dim_state.dim_by_key;
     let dim_stats = &dim_state.stats;
-    let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
+    let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "metric"],
@@ -20308,15 +20362,15 @@ fn run_streaming_hash_join_scenario_with_dim_state(
                 )));
             }
             for (dim_key, metric) in dim_keys.into_iter().zip(metrics) {
-                if let Some(dim_label) = dim_by_key.get(&dim_key) {
-                    groups.entry(dim_label.clone()).or_default().add(metric);
+                if dim_by_key.contains_key(&dim_key) {
+                    groups.entry(dim_key).or_default().add(metric);
                 }
             }
             Ok(())
         },
     )?;
 
-    let result_json = string_group_rows_json(groups, "dim_label");
+    let result_json = dim_key_group_rows_json(groups, dim_by_key)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -20382,14 +20436,15 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_by_key = &dim_state.dim_by_key;
     let dim_stats = &dim_state.stats;
-    let mut groups = std::collections::BTreeMap::<(String, String), TraditionalGroupAccum>::new();
+    let mut category_interner = TraditionalStringInterner::default();
+    let mut groups = std::collections::BTreeMap::<(u32, u32), TraditionalGroupAccum>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
         Some(join_aggregate_fact_filter_expr()),
         |fields, chunk_rows| {
             let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
-            let categories = utf8_field(fields, "category")?;
+            let categories = varbin_view_field(fields, "category")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if dim_keys.len() != chunk_rows
                 || categories.len() != chunk_rows
@@ -20402,10 +20457,16 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                     metrics.len()
                 )));
             }
-            for ((dim_key, category), metric) in dim_keys.into_iter().zip(categories).zip(metrics) {
-                if let Some(dim_label) = dim_by_key.get(&dim_key) {
+            for (index, (dim_key, metric)) in dim_keys.into_iter().zip(metrics).enumerate() {
+                if dim_by_key.contains_key(&dim_key) {
+                    let category_id = intern_utf8_value_at(
+                        &mut category_interner,
+                        &categories,
+                        "category",
+                        index,
+                    )?;
                     groups
-                        .entry((dim_label.clone(), category))
+                        .entry((dim_key, category_id))
                         .or_default()
                         .add(metric);
                 }
@@ -20414,7 +20475,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
         },
     )?;
 
-    let result_json = dim_category_rows_json(groups);
+    let result_json = dim_key_category_id_rows_json(groups, dim_by_key, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -21183,8 +21244,9 @@ fn run_streaming_nested_json_field_scan_scenario(
                 }
                 saw_nested_payload = true;
                 let row_index = source_row_offset + index;
-                metric_sum += generated_nested_score(&payload, row_index)?;
-                if generated_nested_flag(&payload, row_index)? {
+                let nested_fields = generated_nested_payload_fields(&payload, row_index)?;
+                metric_sum += nested_fields.score;
+                if nested_fields.flag {
                     flagged += 1;
                 }
                 row_count += 1;
@@ -23027,8 +23089,9 @@ fn nested_json_field_scan_json(fact: &VortexFactTable) -> Result<String> {
             continue;
         }
         let payload = fact.nested_payload[index].as_str();
-        metric_sum += generated_nested_score(payload, index)?;
-        if generated_nested_flag(payload, index)? {
+        let nested_fields = generated_nested_payload_fields(payload, index)?;
+        metric_sum += nested_fields.score;
+        if nested_fields.flag {
             flagged += 1;
         }
         row_count += 1;
@@ -23040,16 +23103,56 @@ fn nested_json_field_scan_json(fact: &VortexFactTable) -> Result<String> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn generated_nested_score(payload: &str, row_index: usize) -> Result<f64> {
-    let Some(start) = payload
-        .find("\"score\":")
-        .map(|index| index + "\"score\":".len())
-    else {
-        return Err(ShardLoomError::InvalidOperation(format!(
+#[derive(Debug)]
+struct GeneratedNestedPayloadFields {
+    score: f64,
+    flag: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_payload_fields(
+    payload: &str,
+    row_index: usize,
+) -> Result<GeneratedNestedPayloadFields> {
+    const SCORE_MARKER: &[u8] = b"\"score\":";
+    const FLAG_MARKER: &[u8] = b"\"flag\":";
+
+    let mut score = None;
+    let mut flag = None;
+    let bytes = payload.as_bytes();
+    let mut cursor = 0_usize;
+    while cursor < bytes.len() && (score.is_none() || flag.is_none()) {
+        if score.is_none() && bytes[cursor..].starts_with(SCORE_MARKER) {
+            let start = cursor + SCORE_MARKER.len();
+            score = Some(parse_generated_nested_score(payload, start, row_index)?);
+            cursor = start;
+            continue;
+        }
+        if flag.is_none() && bytes[cursor..].starts_with(FLAG_MARKER) {
+            let start = cursor + FLAG_MARKER.len();
+            flag = Some(parse_generated_nested_flag(payload, start, row_index)?);
+            cursor = start;
+            continue;
+        }
+        cursor += 1;
+    }
+    let score = score.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
             "nested_payload row {} missing metrics.score",
             row_index + 1
-        )));
-    };
+        ))
+    })?;
+    let flag = flag.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} missing event.flag",
+            row_index + 1
+        ))
+    })?;
+    Ok(GeneratedNestedPayloadFields { score, flag })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_generated_nested_score(payload: &str, start: usize, row_index: usize) -> Result<f64> {
     let tail = &payload[start..];
     let end = tail
         .find(|ch: char| !matches!(ch, '-' | '+' | '.' | '0'..='9' | 'e' | 'E'))
@@ -23063,16 +23166,7 @@ fn generated_nested_score(payload: &str, row_index: usize) -> Result<f64> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn generated_nested_flag(payload: &str, row_index: usize) -> Result<bool> {
-    let Some(start) = payload
-        .find("\"flag\":")
-        .map(|index| index + "\"flag\":".len())
-    else {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "nested_payload row {} missing event.flag",
-            row_index + 1
-        )));
-    };
+fn parse_generated_nested_flag(payload: &str, start: usize, row_index: usize) -> Result<bool> {
     let tail = &payload[start..];
     if tail.starts_with("true") {
         Ok(true)
@@ -23197,6 +23291,46 @@ fn string_group_rows_json(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_traditional_group_accum(
+    target: &mut TraditionalGroupAccum,
+    source: &TraditionalGroupAccum,
+    overflow_context: &str,
+) -> Result<()> {
+    target.row_count = target
+        .row_count
+        .checked_add(source.row_count)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "{overflow_context}; fallback execution was not attempted"
+            ))
+        })?;
+    target.metric_sum += source.metric_sum;
+    Ok(())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_key_group_rows_json(
+    groups: std::collections::BTreeMap<u32, TraditionalGroupAccum>,
+    dim_by_key: &std::collections::HashMap<u32, String>,
+) -> Result<String> {
+    let mut label_groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
+    for (dim_key, accum) in groups {
+        let dim_label = dim_by_key.get(&dim_key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "dimension label missing for joined dim_key {dim_key}; fallback execution was not attempted"
+            ))
+        })?;
+        let label_accum = label_groups.entry(dim_label.clone()).or_default();
+        merge_traditional_group_accum(
+            label_accum,
+            &accum,
+            "hash join label group row count overflow",
+        )?;
+    }
+    Ok(string_group_rows_json(label_groups, "dim_label"))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn group_category_rows_json(
     groups: std::collections::BTreeMap<(u32, String), TraditionalGroupAccum>,
 ) -> String {
@@ -23212,6 +23346,57 @@ fn group_category_rows_json(
         })
         .collect::<Vec<_>>();
     format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_key_category_rows_json(
+    groups: std::collections::BTreeMap<(u32, String), TraditionalGroupAccum>,
+    dim_by_key: &std::collections::HashMap<u32, String>,
+) -> Result<String> {
+    let mut label_groups =
+        std::collections::BTreeMap::<(String, String), TraditionalGroupAccum>::new();
+    for ((dim_key, category), accum) in groups {
+        let dim_label = dim_by_key.get(&dim_key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "dimension label missing for joined dim_key {dim_key}; fallback execution was not attempted"
+            ))
+        })?;
+        let label_accum = label_groups
+            .entry((dim_label.clone(), category))
+            .or_default();
+        merge_traditional_group_accum(
+            label_accum,
+            &accum,
+            "join aggregate label/category group row count overflow",
+        )?;
+    }
+    Ok(dim_category_rows_json(label_groups))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_key_category_id_rows_json(
+    groups: std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum>,
+    dim_by_key: &std::collections::HashMap<u32, String>,
+    category_interner: &TraditionalStringInterner,
+) -> Result<String> {
+    let mut category_groups =
+        std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+    for ((dim_key, category_id), accum) in groups {
+        let category = category_interner.value(category_id).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "category label missing for joined category id {category_id}; fallback execution was not attempted"
+            ))
+        })?;
+        let category_accum = category_groups
+            .entry((dim_key, category.to_string()))
+            .or_default();
+        merge_traditional_group_accum(
+            category_accum,
+            &accum,
+            "join aggregate category group row count overflow",
+        )?;
+    }
+    dim_key_category_rows_json(category_groups, dim_by_key)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -29831,6 +30016,173 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn generated_nested_payload_fields_extracts_score_and_flag_in_one_pass_shape() {
+        let fields = generated_nested_payload_fields(
+            r#"{"event":{"date":"2024-01-01","flag":true},"metrics":{"value":0,"score":7.25},"labels":["c0","g0"]}"#,
+            0,
+        )
+        .unwrap();
+
+        assert!((fields.score - 7.25).abs() < f64::EPSILON);
+        assert!(fields.flag);
+
+        let reversed = generated_nested_payload_fields(
+            r#"{"metrics":{"score":-3.5e1},"event":{"flag":false}}"#,
+            1,
+        )
+        .unwrap();
+
+        assert!((reversed.score + 35.0).abs() < f64::EPSILON);
+        assert!(!reversed.flag);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn generated_nested_payload_fields_preserves_deterministic_diagnostics() {
+        let missing_score =
+            generated_nested_payload_fields(r#"{"event":{"flag":true},"metrics":{}}"#, 4)
+                .unwrap_err()
+                .to_string();
+        assert!(missing_score.contains("nested_payload row 5 missing metrics.score"));
+
+        let invalid_flag = generated_nested_payload_fields(
+            r#"{"event":{"flag":maybe},"metrics":{"score":1.0}}"#,
+            2,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(invalid_flag.contains("nested_payload row 3 has invalid event.flag"));
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dim_key_group_rows_json_coalesces_labels_after_compact_hot_loop() {
+        let dim_by_key = std::collections::HashMap::from([
+            (1, "same".to_string()),
+            (2, "same".to_string()),
+            (3, "zzz".to_string()),
+        ]);
+        let groups = std::collections::BTreeMap::from([
+            (
+                1,
+                TraditionalGroupAccum {
+                    row_count: 2,
+                    metric_sum: 2.5,
+                },
+            ),
+            (
+                2,
+                TraditionalGroupAccum {
+                    row_count: 3,
+                    metric_sum: 3.5,
+                },
+            ),
+            (
+                3,
+                TraditionalGroupAccum {
+                    row_count: 1,
+                    metric_sum: 10.0,
+                },
+            ),
+        ]);
+
+        let result_json = dim_key_group_rows_json(groups, &dim_by_key).unwrap();
+
+        assert_eq!(
+            result_json,
+            "[{\"dim_label\":\"same\",\"row_count\":5,\"metric_sum\":6.0},{\"dim_label\":\"zzz\",\"row_count\":1,\"metric_sum\":10.0}]"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dim_key_category_id_rows_json_coalesces_labels_and_preserves_order() {
+        let dim_by_key = std::collections::HashMap::from([
+            (1, "same".to_string()),
+            (2, "same".to_string()),
+            (3, "zzz".to_string()),
+        ]);
+        let mut category_interner = TraditionalStringInterner::default();
+        let b_id = category_interner.intern("b").unwrap();
+        let a_id = category_interner.intern("a").unwrap();
+        let groups = std::collections::BTreeMap::from([
+            (
+                (1, b_id),
+                TraditionalGroupAccum {
+                    row_count: 2,
+                    metric_sum: 2.5,
+                },
+            ),
+            (
+                (2, b_id),
+                TraditionalGroupAccum {
+                    row_count: 3,
+                    metric_sum: 3.5,
+                },
+            ),
+            (
+                (3, a_id),
+                TraditionalGroupAccum {
+                    row_count: 1,
+                    metric_sum: 10.0,
+                },
+            ),
+        ]);
+
+        let result_json =
+            dim_key_category_id_rows_json(groups, &dim_by_key, &category_interner).unwrap();
+
+        assert_eq!(
+            result_json,
+            "[{\"dim_label\":\"same\",\"category\":\"b\",\"row_count\":5,\"metric_sum\":6.0},{\"dim_label\":\"zzz\",\"category\":\"a\",\"row_count\":1,\"metric_sum\":10.0}]"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dim_key_group_rows_json_fails_closed_for_missing_dimension_labels() {
+        let dim_by_key = std::collections::HashMap::from([(1, "one".to_string())]);
+        let groups = std::collections::BTreeMap::from([(
+            9,
+            TraditionalGroupAccum {
+                row_count: 1,
+                metric_sum: 1.0,
+            },
+        )]);
+
+        let error = dim_key_group_rows_json(groups, &dim_by_key)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains(
+            "dimension label missing for joined dim_key 9; fallback execution was not attempted"
+        ));
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dim_key_category_id_rows_json_fails_closed_for_missing_categories() {
+        let dim_by_key = std::collections::HashMap::from([(1, "one".to_string())]);
+        let category_interner = TraditionalStringInterner::default();
+        let groups = std::collections::BTreeMap::from([(
+            (1, 4),
+            TraditionalGroupAccum {
+                row_count: 1,
+                metric_sum: 1.0,
+            },
+        )]);
+
+        let error = dim_key_category_id_rows_json(groups, &dim_by_key, &category_interner)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains(
+            "category label missing for joined category id 4; fallback execution was not attempted"
+        ));
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
