@@ -13053,7 +13053,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError(
                     "compatibility-import rows must report the Vortex RecordBatch provider surface"
                 )
-            if metrics.get("vortex_array_build_strategy") != "vortex_from_arrow_record_batch":
+            if metrics.get("vortex_array_build_strategy") not in {
+                "vortex_from_arrow_record_batch",
+                "vortex_from_arrow_record_batch_without_traditional_rows",
+            }:
                 raise RuntimeError(
                     "compatibility-import rows must report the Vortex RecordBatch build strategy"
                 )
