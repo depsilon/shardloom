@@ -119,6 +119,17 @@ const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 type JsonlFieldMap = std::collections::HashMap<String, String>;
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct FastFactJsonlTail<'a> {
+    category_token: &'a str,
+    event_date: Option<String>,
+    nullable_metric_00: Option<String>,
+    nested_payload: Option<String>,
+    raw_event_time: Option<String>,
+    dirty_numeric: Option<String>,
+    dirty_flag: Option<String>,
+}
+
 /// Runtime evidence level requested by the scoped prepared/native batch runner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraditionalRuntimeEvidenceLevel {
@@ -18453,10 +18464,10 @@ fn parse_benchmark_fact_jsonl_fast(
     else {
         return Ok(None);
     };
-    if !fast_json_terminal_string_token(cursor) {
+    let Some(tail) = parse_benchmark_fact_jsonl_tail(cursor, path, line_number)? else {
         return Ok(None);
-    }
-    let category = parse_json_string_token(cursor, path, line_number, "category")?;
+    };
+    let category = parse_json_string_token(tail.category_token, path, line_number, "category")?;
     Ok(Some(TraditionalFactRow {
         id,
         group_key,
@@ -18465,12 +18476,134 @@ fn parse_benchmark_fact_jsonl_fast(
         metric,
         flag,
         category,
-        event_date: None,
-        nullable_metric_00: None,
-        nested_payload: None,
-        raw_event_time: None,
-        dirty_numeric: None,
-        dirty_flag: None,
+        event_date: tail.event_date,
+        nullable_metric_00: tail.nullable_metric_00,
+        nested_payload: tail.nested_payload,
+        raw_event_time: tail.raw_event_time,
+        dirty_numeric: tail.dirty_numeric,
+        dirty_flag: tail.dirty_flag,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_tail<'a>(
+    mut cursor: &'a str,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<Option<FastFactJsonlTail<'a>>> {
+    if fast_json_terminal_string_token(cursor) {
+        return Ok(Some(FastFactJsonlTail {
+            category_token: cursor,
+            event_date: None,
+            nullable_metric_00: None,
+            nested_payload: None,
+            raw_event_time: None,
+            dirty_numeric: None,
+            dirty_flag: None,
+        }));
+    }
+    let Some((category_token, cursor_after_category)) =
+        split_fast_json_value_then(cursor, ",\"nullable_metric_00\":")
+    else {
+        return Ok(None);
+    };
+    cursor = cursor_after_category;
+    let Some((nullable_metric_00_token, cursor_after_nullable_metric_00)) =
+        split_fast_json_value_then(cursor, ",\"nullable_metric_01\":")
+    else {
+        return Ok(None);
+    };
+    let nullable_metric_00 = parse_fast_json_optional_string_token(
+        nullable_metric_00_token,
+        path,
+        line_number,
+        "nullable_metric_00",
+    )?;
+    let Some((_skipped_nullable_metrics, cursor_after_event_date_prefix)) =
+        split_fast_json_value_then(cursor_after_nullable_metric_00, ",\"event_date\":")
+    else {
+        return Ok(None);
+    };
+    cursor = cursor_after_event_date_prefix;
+    let Some((event_date_token, cursor_after_event_date)) =
+        split_fast_json_value_then(cursor, ",\"partition_year\":")
+    else {
+        return Ok(None);
+    };
+    let event_date =
+        parse_fast_json_optional_string_token(event_date_token, path, line_number, "event_date")?;
+    parse_benchmark_fact_jsonl_tail_after_event_date(
+        category_token,
+        cursor_after_event_date,
+        event_date,
+        nullable_metric_00,
+        path,
+        line_number,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_tail_after_event_date<'a>(
+    category_token: &'a str,
+    cursor_after_event_date: &'a str,
+    event_date: Option<String>,
+    nullable_metric_00: Option<String>,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<Option<FastFactJsonlTail<'a>>> {
+    let Some((_skipped_partition_fields, cursor_after_raw_event_time_prefix)) =
+        split_fast_json_value_then(cursor_after_event_date, ",\"raw_event_time\":")
+    else {
+        return Ok(None);
+    };
+    let Some((raw_event_time_token, cursor_after_raw_event_time)) =
+        split_fast_json_value_then(cursor_after_raw_event_time_prefix, ",\"dirty_numeric\":")
+    else {
+        return Ok(None);
+    };
+    let raw_event_time = parse_fast_json_optional_string_token(
+        raw_event_time_token,
+        path,
+        line_number,
+        "raw_event_time",
+    )?;
+    let Some((dirty_numeric_token, cursor_after_dirty_numeric)) =
+        split_fast_json_value_then(cursor_after_raw_event_time, ",\"dirty_flag\":")
+    else {
+        return Ok(None);
+    };
+    let dirty_numeric = parse_fast_json_optional_string_token(
+        dirty_numeric_token,
+        path,
+        line_number,
+        "dirty_numeric",
+    )?;
+    let Some((dirty_flag_token, cursor_after_dirty_flag)) =
+        split_fast_json_value_then(cursor_after_dirty_numeric, ",\"nested_payload\":")
+    else {
+        return Ok(None);
+    };
+    let dirty_flag =
+        parse_fast_json_optional_string_token(dirty_flag_token, path, line_number, "dirty_flag")?;
+    let Some((nested_payload_token, _cursor_after_nested_payload)) =
+        split_fast_json_value_then(cursor_after_dirty_flag, ",\"nested_group\":")
+    else {
+        return Ok(None);
+    };
+    let nested_payload = parse_fast_json_optional_string_token(
+        nested_payload_token,
+        path,
+        line_number,
+        "nested_payload",
+    )?;
+    Ok(Some(FastFactJsonlTail {
+        category_token,
+        event_date,
+        nullable_metric_00,
+        nested_payload,
+        raw_event_time,
+        dirty_numeric,
+        dirty_flag,
     }))
 }
 
@@ -18603,6 +18736,14 @@ fn split_fast_json_string_then_number<'a>(
     cursor: &'a str,
     next_prefix: &str,
 ) -> Option<(&'a str, &'a str)> {
+    split_fast_json_value_then(cursor, next_prefix)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn split_fast_json_value_then<'a>(
+    cursor: &'a str,
+    next_prefix: &str,
+) -> Option<(&'a str, &'a str)> {
     let mut escaped = false;
     let mut in_string = false;
     let bytes = cursor.as_bytes();
@@ -18625,6 +18766,21 @@ fn split_fast_json_string_then_number<'a>(
         index += 1;
     }
     None
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_fast_json_optional_string_token(
+    value: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<Option<String>> {
+    let trimmed = value.trim();
+    if trimmed == "null" {
+        Ok(None)
+    } else {
+        parse_json_string_token(trimmed, path, line_number, field).map(Some)
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -23508,6 +23664,30 @@ mod tests {
         assert_eq!(row.flag, 1);
         assert_eq!(row.category, "c7");
         assert_eq!(row.event_date, None);
+
+        let wide_row = parse_benchmark_fact_jsonl_fast(
+            "{\"id\":8,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c8\",\"nullable_metric_00\":\"7.50\",\"nullable_metric_01\":null,\"nullable_metric_02\":\"2.00\",\"nullable_metric_03\":null,\"nullable_metric_04\":\"4.00\",\"nullable_metric_05\":\"5.00\",\"nullable_metric_06\":null,\"nullable_metric_07\":\"7.00\",\"nullable_metric_08\":\"8.00\",\"nullable_metric_09\":null,\"nullable_metric_10\":\"10.00\",\"nullable_metric_11\":\"11.00\",\"nullable_metric_12\":null,\"nullable_metric_13\":\"13.00\",\"nullable_metric_14\":\"14.00\",\"nullable_metric_15\":null,\"nullable_category_00\":\"n0\",\"nullable_category_01\":null,\"nullable_category_02\":\"n2\",\"nullable_category_03\":\"n3\",\"event_date\":\"2024-03-01\",\"partition_year\":2024,\"partition_month\":3,\"cluster_bucket\":7,\"file_bucket\":1,\"schema_version_tag\":\"v2\",\"optional_metric_v2\":\"9.25\",\"renamed_metric_candidate\":\"11.50\",\"raw_event_time\":\"not-a-timestamp\",\"dirty_numeric\":\"bad-number\",\"dirty_flag\":\"Y\",\"nested_payload\":\"{\\\"event\\\":{\\\"date\\\":\\\"2024-03-01\\\"},\\\"metrics\\\":{\\\"value\\\":84}}\",\"nested_group\":\"g4\",\"nested_score\":2.5,\"cdc_op\":\"insert\",\"cdc_sequence\":8,\"effective_ts\":\"2024-03-01T00:00:00Z\",\"is_deleted\":false}",
+            &path,
+            2,
+        )
+        .unwrap()
+        .expect("wide benchmark fact row should use fast path");
+        assert_eq!(wide_row.id, 8);
+        assert_eq!(wide_row.group_key, 4);
+        assert_eq!(wide_row.dim_key, 5);
+        assert_eq!(wide_row.value, 84);
+        assert!((wide_row.metric - 2.5).abs() < f64::EPSILON);
+        assert_eq!(wide_row.flag, 0);
+        assert_eq!(wide_row.category, "c8");
+        assert_eq!(wide_row.nullable_metric_00.as_deref(), Some("7.50"));
+        assert_eq!(wide_row.event_date.as_deref(), Some("2024-03-01"));
+        assert_eq!(wide_row.raw_event_time.as_deref(), Some("not-a-timestamp"));
+        assert_eq!(wide_row.dirty_numeric.as_deref(), Some("bad-number"));
+        assert_eq!(wide_row.dirty_flag.as_deref(), Some("Y"));
+        assert_eq!(
+            wide_row.nested_payload.as_deref(),
+            Some("{\"event\":{\"date\":\"2024-03-01\"},\"metrics\":{\"value\":84}}")
+        );
 
         let dim = parse_benchmark_dim_jsonl_fast(
             "{\"dim_key\":3,\"dim_label\":\"d3\",\"weight\":9.5}",
