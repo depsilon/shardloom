@@ -1,17 +1,17 @@
 ---
 title: "compatibility_import_certified"
-description: "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs."
+description: "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution."
 sidebar: {"label":"compatibility_import_certified"}
 ---
 
 
 <span class="status-chip status-smoke-supported">smoke_supported</span>
 
-The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.
 
 ## Plain-English Meaning
 
-The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.
 
 ## Why It Matters
 
@@ -30,7 +30,11 @@ Status: `smoke_supported`
 
 - `timing_scope=cold_certified_end_to_end`
 - `source_read_millis`
+- `source_state_materialization_layout`
+- `source_state_record_batch_count`
+- `vortex_array_build_strategy`
 - `vortex_write_millis`
+- `vortex_digest_millis`
 - `claim_gate_status`
 
 ## What It Does Not Claim

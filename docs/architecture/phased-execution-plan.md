@@ -197,7 +197,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Measurably reduce ShardLoom-owned prepared/native route overhead, then refresh benchmark evidence. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Finish the current code/docs/site optimization batch for CSV/JSONL text-adapter RecordBatch import and writer-byte Vortex digest attribution, then refresh benchmark evidence. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -345,9 +345,12 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
   Next slice outcome: run one coherent benchmark-driven optimization batch that reduces the
-  currently measured prepared/native tail without changing semantics. Candidate work belongs here
-  only when it is ShardLoom-owned, no-fallback, covered by focused tests, and measured by the
-  benchmark harness after all code/docs edits in the batch are complete.
+  currently measured prepared/native tail without changing semantics. The active batch targets the
+  code/text timing hot spots from the post-1059 artifact: CSV/JSONL cold compatibility import now
+  bypasses persistent traditional row buffers by parsing into text-adapter RecordBatches, and Vortex
+  artifact digests are derived from writer bytes instead of rereading just-written files. Candidate
+  work belongs here only when it is ShardLoom-owned, no-fallback, covered by focused tests, and
+  measured by the benchmark harness after all code/docs edits in the batch are complete.
   User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
   routes, Python/context prepared/native route helpers, result-sink evidence, route capability
   reports, and release-readiness benchmark validators.

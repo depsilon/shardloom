@@ -93,7 +93,7 @@
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="execution-routes">Execution Routes</h2><a class="sl-anchor-link" href="#execution-routes"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Execution Routes”</span></a></div>
 <ul>
-<li><a href="/field-guide/compatibility-import-certified/">compatibility_import_certified</a> - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.</li>
+<li><a href="/field-guide/compatibility-import-certified/">compatibility_import_certified</a> - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.</li>
 <li><a href="/field-guide/direct-compatibility-transient/">direct_compatibility_transient</a> - A scoped one-shot local route without persistent Vortex preparation.</li>
 <li><a href="/field-guide/generated-source-route/">Generated source route</a> - No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.</li>
 </ul>
@@ -127,7 +127,7 @@
 <div class="sl-heading-wrapper level-h2"><h2 id="benchmarks">Benchmarks</h2><a class="sl-anchor-link" href="#benchmarks"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Benchmarks”</span></a></div>
 <ul>
 <li><a href="/field-guide/benchmark-evidence/">Benchmark evidence</a> - Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.</li>
-<li><a href="/field-guide/certified-cold-route/">Certified cold route</a> - Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.</li>
+<li><a href="/field-guide/certified-cold-route/">Certified cold route</a> - Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.</li>
 <li><a href="/field-guide/prepared-warm-route/">Prepared warm route</a> - Timing scope for query/runtime after VortexPreparedState already exists.</li>
 <li><a href="/field-guide/external-baseline-only/">external_baseline_only</a> - Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.</li>
 </ul>

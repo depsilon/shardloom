@@ -14,11 +14,14 @@
   "evidence": [
     "source_format",
     "source_state_id",
+    "source_state_materialization_layout",
+    "source_state_record_batch_count",
+    "vortex_array_build_strategy",
     "fallback_attempted=false",
     "external_engine_invoked=false",
     "claim_gate_status"
   ],
-  "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths.",
+  "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths. Current certified cold-route evidence distinguishes text-adapter RecordBatch import when present.",
   "blocked": "Nested JSON, JSONPath, broad schema evolution, and production JSON processing remain outside the claim.",
   "references": [
     "docs/use-cases/use-case-index.yml",

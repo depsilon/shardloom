@@ -14,11 +14,15 @@
     "platform": "local",
     "evidence": [
       "source_adapter_status",
+      "source_state_materialization_layout",
+      "source_state_record_batch_count",
+      "vortex_array_build_strategy",
+      "vortex_digest_millis",
       "fallback_attempted=false",
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "Scoped local CSV smokes cover Python query-builder paths, SQL local-source smokes, certified import/stage runs, and feature-gated Vortex ingest.",
+    "works": "Scoped local CSV smokes cover Python query-builder paths, SQL local-source smokes, certified import/stage runs, and feature-gated Vortex ingest. Current certified cold-route evidence distinguishes text-adapter RecordBatch import and Vortex digest attribution when present.",
     "blocked": "Not production CSV ETL, not broad SQL/DataFrame parity, and not a performance claim.",
     "references": [
       "python/README.md",
@@ -41,11 +45,14 @@
     "evidence": [
       "source_format",
       "source_state_id",
+      "source_state_materialization_layout",
+      "source_state_record_batch_count",
+      "vortex_array_build_strategy",
       "fallback_attempted=false",
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths.",
+    "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths. Current certified cold-route evidence distinguishes text-adapter RecordBatch import when present.",
     "blocked": "Nested JSON, JSONPath, broad schema evolution, and production JSON processing remain outside the claim.",
     "references": [
       "docs/use-cases/use-case-index.yml",
@@ -620,13 +627,16 @@
     "evidence": [
       "benchmark_profile",
       "expected_lanes",
+      "source_state_materialization_layout",
+      "vortex_array_build_strategy",
+      "vortex_digest_millis",
       "performance_claim_allowed=false",
       "fallback_attempted=false",
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "Committed static benchmark artifacts expose lanes, missing reasons, coverage, and claim boundaries.",
-    "blocked": "Benchmark evidence is not a leaderboard, public speed claim, or Spark-replacement claim.",
+    "works": "Committed static benchmark artifacts expose lanes, missing reasons, coverage, claim boundaries, and stage-attribution fields for source-state layout, Vortex array build, write, digest, scan, result sink, and evidence rendering.",
+    "blocked": "Benchmark evidence is not a leaderboard, public speed claim, or Spark-replacement claim. The next promoted artifact must be refreshed before updated performance interpretation.",
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
       "docs/benchmarks/baseline-comparison-boundary.md"

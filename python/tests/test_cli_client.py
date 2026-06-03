@@ -8891,12 +8891,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepared_state_digest", "value": "fnv1a64:abc"},
                         {"key": "source_state_id", "value": "source-state://abc"},
                         {"key": "source_state_digest", "value": "fnv1a64:source"},
-                        {"key": "source_state_columnar_preserved", "value": "true"},
+                        {"key": "source_state_columnar_preserved", "value": "false"},
                         {"key": "source_state_record_batch_count", "value": "2"},
                         {"key": "vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
                         {"key": "vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
-                        {"key": "vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
+                        {"key": "vortex_array_build_strategy", "value": "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows"},
+                        {"key": "vortex_array_build_input_layout", "value": "traditional_text_adapter_record_batch"},
                         {"key": "vortex_array_build_record_batch_count", "value": "2"},
                         {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "vortex_preparation_spine_status", "value": "admitted_local_preparation_spine"},
@@ -8927,7 +8927,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(artifacts.artifact_digest, "fact=sha256:f,dim=sha256:d")
         self.assertEqual(artifacts.prepared_state_id, "prepared-state://abc")
         self.assertEqual(artifacts.source_state_digest, "fnv1a64:source")
-        self.assertTrue(artifacts.source_state_columnar_preserved)
+        self.assertFalse(artifacts.source_state_columnar_preserved)
         self.assertEqual(artifacts.source_state_record_batch_count, 2)
         self.assertEqual(artifacts.vortex_array_build_provider_kind, "vortex_array_kernel")
         self.assertEqual(
@@ -8936,11 +8936,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             artifacts.vortex_array_build_strategy,
-            "vortex_from_arrow_record_batch",
+            "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows",
         )
         self.assertEqual(
             artifacts.vortex_array_build_input_layout,
-            "traditional_arrow_record_batch",
+            "traditional_text_adapter_record_batch",
         )
         self.assertEqual(artifacts.vortex_array_build_record_batch_count, 2)
         self.assertTrue(artifacts.vortex_array_build_manual_scalar_copy_avoided)
@@ -9129,13 +9129,13 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepare_batch_cdc_delta_vortex_digest", "value": "sha256:c"},
                         {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "prepare_batch_source_state_columnar_preserved", "value": "true"},
+                        {"key": "prepare_batch_source_state_columnar_preserved", "value": "false"},
                         {"key": "prepare_batch_source_state_record_batch_count", "value": "2"},
                         {"key": "prepare_batch_vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
                         {"key": "prepare_batch_vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "prepare_batch_vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
-                        {"key": "prepare_batch_vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
-                        {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "2"},
+                        {"key": "prepare_batch_vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch_mixed_traditional_text_and_direct_columnar"},
+                        {"key": "prepare_batch_vortex_array_build_input_layout", "value": "mixed_traditional_arrow_record_batch_text_adapter_and_vortex_provider_record_batch"},
+                        {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "3"},
                         {"key": "prepare_batch_vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "scenario_order", "value": "selective-filter,filter---projection---limit"},
                         {"key": "source_state_digest", "value": "fnv1a64:batch"},
