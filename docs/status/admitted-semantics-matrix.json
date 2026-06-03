@@ -1296,7 +1296,7 @@
       "source_format": "csv",
       "support_state": "runtime_error_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "numeric arithmetic projection division by zero is not admitted"
+      "unsupported_diagnostic_message": "numeric arithmetic projection division by zero is a runtime data error"
     },
     {
       "claim_boundary": "blocked non-UTC/offset timestamp literal only",

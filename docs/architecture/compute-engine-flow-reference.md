@@ -310,8 +310,9 @@ cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke <lo
 ```
 
 From Python, the same local preparation shape is exposed as
-`ctx.read_csv(...).prepare_vortex(workspace=...)`,
-`ctx.from_rows(...).prepare_vortex(workspace=...)`, `ctx.prepare_vortex(...)`, and
+`ctx.prepare_vortex(<local-source>, <target.vortex>)`,
+`ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace=...).prepare()`,
+`ctx.from_rows(...).prepare_vortex(workspace=...)`, and
 `ShardLoomClient.vortex_ingest_smoke(...)`. Compatibility-file preparation calls
 `vortex-ingest-smoke`; generated-source preparation calls the generated-source Vortex writer and
 surfaces prepared-state creation/reuse-boundary fields on `GeneratedSourceWriteReport`. The command
@@ -2387,7 +2388,7 @@ generated-source Vortex-output route now projects its artifact-adjacent manifest
 user route capability reports. The user route capability report now also publishes
 `public_front_door_route_rows` for `local_source_auto_prepare_vortex_front_door` and
 `generated_source_prepare_vortex_front_door`. These rows make
-`ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()` and
+`ctx.prepare_vortex(..., workspace=...).query(...).collect()` and
 `ctx.from_rows(...).prepare_vortex(workspace=...)` machine-readable public route examples with
 start/end state, preparation/query inclusion, reuse-manifest, no-fallback, and claim-boundary
 fields. Benchmark publication now mirrors those rows as `public_front_door_benchmark_rows` and the

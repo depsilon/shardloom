@@ -506,10 +506,9 @@ impl SqlOutputLayoutWriteAdvisorReport {
                     .map(|decision| format!("vortex:{}", decision.blocker.replace(',', ";"))),
             )
         };
-        self.selected_strategy = csv_or_not_applicable(
-            vortex_decisions
-                .iter()
-                .map(|decision| format!("vortex:{}", decision.selected_strategy)),
+        self.selected_strategy = output_layout_selected_strategy_for_written_outputs(
+            written_outputs,
+            &self.selected_strategy,
         );
         self.strategy_decision_digest = csv_or_not_applicable(
             vortex_decisions
@@ -926,9 +925,10 @@ impl SqlResultBatchState {
     }
 
     fn contains_complex_values(&self) -> bool {
-        self.columns
-            .iter()
-            .any(|column| column.values.iter().any(scalar_value_is_complex))
+        self.columns.iter().any(|column| {
+            column.values.iter().any(scalar_value_is_complex)
+                || column.dtype.as_ref().is_some_and(logical_dtype_is_complex)
+        })
     }
 
     fn contains_decimal_values(&self) -> bool {
@@ -3382,6 +3382,15 @@ struct SqlLocalSourceUnionReport {
     union_distinct_input_row_count: usize,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct SqlUnionComputedOutput {
+    output_columns: Vec<String>,
+    output_column_dtypes: Vec<Option<LogicalDType>>,
+    output_rows: SqlOutputRows,
+    union_input_row_count: usize,
+    union_distinct_input_row_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct VortexIngestRequest {
     source_path: PathBuf,
@@ -4540,7 +4549,7 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
 }
 
 fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && source.row_count > 0 {
+    if source.columnar_source_preserved && source.record_batch_count > 0 {
         "vortex_array_kernel"
     } else {
         "shardloom_kernel"
@@ -4548,7 +4557,7 @@ fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str 
 }
 
 fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && source.row_count > 0 {
+    if source.columnar_source_preserved && source.record_batch_count > 0 {
         "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
     } else if source.columnar_source_preserved {
         "shardloom_empty_columnar_struct_builder;VortexSession::write_options().write(ArrayStream)"
@@ -7885,30 +7894,14 @@ fn run_sql_local_source_union_smoke(
     validate_sql_union_branch_boundaries(&branch_reports)?;
 
     let compute_start = Instant::now();
-    let output_columns = sql_union_output_columns(&branch_reports)?;
-    let output_column_dtypes = validate_sql_union_column_dtypes(&branch_reports)?;
-    let union_input_row_count = branch_reports
-        .iter()
-        .map(|report| report.output_rows.len())
-        .sum::<usize>();
-    let mut output_rows = sql_union_output_rows(parsed.mode, &branch_reports);
-    let union_distinct_input_row_count = output_rows.len();
-    if let Some(order_by) = parsed.order_by.as_ref() {
-        let ordered =
-            ordered_output_row_indexes(&output_rows, order_by, "UNION ORDER BY output column")?;
-        output_rows = ordered
-            .into_iter()
-            .map(|index| output_rows[index].clone())
-            .collect();
-    }
-    output_rows.truncate(parsed.limit);
+    let computed_output = compute_sql_union_output(&parsed, &branch_reports)?;
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
     let result_batch_state = SqlResultBatchState::from_rows_with_dtypes(
-        &output_columns,
-        &output_column_dtypes,
-        &output_rows,
+        &computed_output.output_columns,
+        &computed_output.output_column_dtypes,
+        &computed_output.output_rows,
     )?;
     let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
     let result_jsonl = result_batch_state.to_jsonl();
@@ -7955,7 +7948,7 @@ fn run_sql_local_source_union_smoke(
         request: request.clone(),
         parsed,
         branch_reports,
-        output_rows,
+        output_rows: computed_output.output_rows,
         result_batch_state,
         output_plan,
         fanout_conversion_dag,
@@ -7972,6 +7965,44 @@ fn run_sql_local_source_union_smoke(
         operator_compute_millis,
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
+        union_input_row_count: computed_output.union_input_row_count,
+        union_distinct_input_row_count: computed_output.union_distinct_input_row_count,
+    })
+}
+
+fn compute_sql_union_output(
+    parsed: &ParsedSqlLocalSourceUnion,
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<SqlUnionComputedOutput, ShardLoomError> {
+    let output_columns = sql_union_output_columns(branch_reports)?;
+    validate_sql_union_complex_projection_boundary(parsed.mode, branch_reports)?;
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        validate_order_by_output_columns(
+            order_by,
+            &output_columns,
+            "UNION ORDER BY output column",
+        )?;
+    }
+    let output_column_dtypes = validate_sql_union_column_dtypes(branch_reports)?;
+    let union_input_row_count = branch_reports
+        .iter()
+        .map(|report| report.output_rows.len())
+        .sum::<usize>();
+    let mut output_rows = sql_union_output_rows(parsed.mode, branch_reports);
+    let union_distinct_input_row_count = output_rows.len();
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        let ordered =
+            ordered_output_row_indexes(&output_rows, order_by, "UNION ORDER BY output column")?;
+        output_rows = ordered
+            .into_iter()
+            .map(|index| output_rows[index].clone())
+            .collect();
+    }
+    output_rows.truncate(parsed.limit);
+    Ok(SqlUnionComputedOutput {
+        output_columns,
+        output_column_dtypes,
+        output_rows,
         union_input_row_count,
         union_distinct_input_row_count,
     })
@@ -8033,6 +8064,24 @@ fn sql_union_output_columns(
     Ok(first_columns)
 }
 
+fn validate_sql_union_complex_projection_boundary(
+    mode: SqlUnionMode,
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<(), ShardLoomError> {
+    if !matches!(mode, SqlUnionMode::Distinct) {
+        return Ok(());
+    }
+    if branch_reports
+        .iter()
+        .any(|report| report.parsed.has_complex_projection())
+    {
+        return Err(unsupported_sql_error(
+            "SQL UNION DISTINCT over ARRAY or STRUCT projection outputs is not admitted until complex equality semantics are admitted; use UNION ALL or JSONL result-boundary projection without distinct composition",
+        ));
+    }
+    Ok(())
+}
+
 fn validate_sql_union_column_dtypes(
     branch_reports: &[SqlLocalSourceReport],
 ) -> Result<Vec<Option<LogicalDType>>, ShardLoomError> {
@@ -8045,7 +8094,7 @@ fn validate_sql_union_column_dtypes(
     );
     let mut dtypes: Vec<Option<LogicalDType>> = vec![None; width];
     for (branch_index, report) in branch_reports.iter().enumerate() {
-        let branch_dtypes = report.result_batch_state.column_dtypes();
+        let branch_dtypes = report.parsed.output_column_dtypes(&report.source.header);
         if branch_dtypes.len() != width {
             return Err(unsupported_sql_error(&format!(
                 "SQL UNION branch {} declared {} dtype hints but first branch width is {}; use matching projections before UNION",
@@ -8053,6 +8102,17 @@ fn validate_sql_union_column_dtypes(
                 branch_dtypes.len(),
                 width
             )));
+        }
+        if report.output_rows.is_empty() {
+            for (column_index, dtype) in branch_dtypes.iter().enumerate() {
+                if dtype.is_none() {
+                    return Err(unsupported_sql_error(&format!(
+                        "SQL UNION branch {} column {} has no row values and no schema dtype hint; scoped UNION requires dtype evidence before admitting empty-branch composition",
+                        branch_index + 1,
+                        column_index + 1
+                    )));
+                }
+            }
         }
         for (column_index, dtype) in branch_dtypes.into_iter().enumerate() {
             let Some(dtype) = dtype else {
@@ -8724,7 +8784,7 @@ fn materialize_projected_in_subquery(
     subquery.order_by.clone_from(&parsed.order_by);
     subquery.limit = Some(parsed.limit);
     subquery.input_row_count = source.rows.len();
-    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.filtered_row_count = projected_subquery_filtered_row_count(&evaluated_output);
     subquery.values = evaluated_output
         .output_rows
         .iter()
@@ -8835,7 +8895,7 @@ fn materialize_projected_row_value_in_subquery(
     subquery.order_by.clone_from(&parsed.order_by);
     subquery.limit = Some(parsed.limit);
     subquery.input_row_count = source.rows.len();
-    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.filtered_row_count = projected_subquery_filtered_row_count(&evaluated_output);
     subquery.tuples = evaluated_output
         .output_rows
         .iter()
@@ -8907,13 +8967,25 @@ fn materialize_projected_exists_subquery(
     subquery.order_by.clone_from(&parsed.order_by);
     subquery.limit = Some(parsed.limit);
     subquery.input_row_count = source.rows.len();
-    subquery.filtered_row_count = evaluated_output.output_rows.len();
+    subquery.filtered_row_count = projected_subquery_filtered_row_count(&evaluated_output);
     subquery.bounded_row_count = evaluated_output.output_rows.len();
     subquery.exists = !evaluated_output.output_rows.is_empty();
     subquery.source_format = Some(source.source_format);
     subquery.source_digest = Some(sql_source_digest(&source, right_source.as_ref()));
     subquery.projected_plan = Some(Box::new(parsed));
     Ok(())
+}
+
+fn projected_subquery_filtered_row_count(
+    evaluated_output: &SqlLocalSourceEvaluationOutput,
+) -> usize {
+    if evaluated_output.distinct_projection_input_row_count > 0 {
+        evaluated_output.distinct_projection_input_row_count
+    } else if evaluated_output.having_input_row_count > 0 {
+        evaluated_output.having_selected_row_count
+    } else {
+        evaluated_output.selected_row_count
+    }
 }
 
 fn in_subquery_required_columns(subquery: &ParsedInSubquery) -> BTreeSet<String> {
@@ -9171,12 +9243,34 @@ fn apply_in_subquery_date_literal_column_coercions(
         {
             coerce_source_column_to_date32(source, column)
         }
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::Date32(_))) =>
+        {
+            coerce_source_column_to_date32(source, column)
+        }
         ParsedPredicate::RowValueInList { columns, tuples }
             if row_value_tuples_contain_literal(tuples, |value| {
                 matches!(value, ScalarValue::Date32(_))
             }) =>
         {
             for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) {
+                coerce_source_column_to_date32(source, &columns[column_index])?;
+            }
+            Ok(())
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::Date32(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
                 matches!(value, ScalarValue::Date32(_))
             }) {
                 coerce_source_column_to_date32(source, &columns[column_index])?;
@@ -9247,12 +9341,34 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         {
             coerce_source_column_to_timestamp_micros(source, column)
         }
+        ParsedPredicate::InSubquery { column, subquery }
+        | ParsedPredicate::QuantifiedSubquery {
+            column, subquery, ..
+        } if subquery
+            .values
+            .iter()
+            .any(|value| matches!(value, ScalarValue::TimestampMicros(_))) =>
+        {
+            coerce_source_column_to_timestamp_micros(source, column)
+        }
         ParsedPredicate::RowValueInList { columns, tuples }
             if row_value_tuples_contain_literal(tuples, |value| {
                 matches!(value, ScalarValue::TimestampMicros(_))
             }) =>
         {
             for column_index in row_value_literal_column_indexes(tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) {
+                coerce_source_column_to_timestamp_micros(source, &columns[column_index])?;
+            }
+            Ok(())
+        }
+        ParsedPredicate::RowValueInSubquery { columns, subquery }
+            if row_value_tuples_contain_literal(&subquery.tuples, |value| {
+                matches!(value, ScalarValue::TimestampMicros(_))
+            }) =>
+        {
+            for column_index in row_value_literal_column_indexes(&subquery.tuples, |value| {
                 matches!(value, ScalarValue::TimestampMicros(_))
             }) {
                 coerce_source_column_to_timestamp_micros(source, &columns[column_index])?;
@@ -13230,6 +13346,46 @@ fn output_metadata_loss_for_written_outputs(written_outputs: &[SqlWrittenOutput]
     }))
 }
 
+fn output_layout_selected_strategy_for_written_outputs(
+    written_outputs: &[SqlWrittenOutput],
+    prewrite_selected_strategy: &str,
+) -> String {
+    let sink_decisions = written_outputs
+        .iter()
+        .map(|output| {
+            (
+                output.format,
+                output
+                    .vortex_report
+                    .as_ref()
+                    .map(|report| report.layout_write_decision.selected_strategy.clone()),
+            )
+        })
+        .collect::<Vec<_>>();
+    output_layout_selected_strategy_for_sink_decisions(&sink_decisions, prewrite_selected_strategy)
+}
+
+fn output_layout_selected_strategy_for_sink_decisions(
+    sink_decisions: &[(SqlLocalSourceOutputFormat, Option<String>)],
+    prewrite_selected_strategy: &str,
+) -> String {
+    if sink_decisions.is_empty() {
+        return prewrite_selected_strategy.to_string();
+    }
+    if sink_decisions.len() == 1 {
+        let (format, selected_strategy) = &sink_decisions[0];
+        return selected_strategy
+            .clone()
+            .unwrap_or_else(|| format.output_selected_layout_write_strategy().to_string());
+    }
+    csv_or_not_applicable(sink_decisions.iter().map(|(format, selected_strategy)| {
+        let selected = selected_strategy
+            .clone()
+            .unwrap_or_else(|| format.output_selected_layout_write_strategy().to_string());
+        format!("{}:{selected}", format.sink_format())
+    }))
+}
+
 fn validate_shared_fanout_materialization(
     output_plan: &SqlOutputPlanRequirements,
     batch: &SqlResultBatchState,
@@ -14260,6 +14416,11 @@ fn bind_join_sql_local_source(
             "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
         ));
     }
+    if parsed.predicate.uses_outer_correlation() || parsed.having.uses_outer_correlation() {
+        return Err(unsupported_sql_error(
+            "JOIN predicates do not admit correlated subqueries with outer.<column> references until joined-row per-row subquery materialization is admitted",
+        ));
+    }
     let qualified_header =
         qualified_join_header(left_alias, left_header, &join.right_alias, right_header);
     validate_join_distinct_projection_shape(parsed, &qualified_header)?;
@@ -14296,31 +14457,7 @@ fn bind_join_sql_local_source(
             right_header,
         )?;
     } else {
-        if !parsed.group_by.is_empty() {
-            return Err(unsupported_sql_error(
-                "GROUP BY requires at least one aggregate function in this scoped smoke",
-            ));
-        }
-        if parsed.projections.is_empty() {
-            return Err(unsupported_sql_error(
-                "JOIN projection smoke requires at least one qualified projection column",
-            ));
-        }
-        if parsed.projections.len() == 1 && parsed.projections[0] == "*" {
-            return Err(unsupported_sql_error(
-                "JOIN projection smoke requires explicit qualified projection columns",
-            ));
-        }
-        if parsed.has_computed_projection()
-            && (parsed.projections.is_empty()
-                || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
-        {
-            return Err(unsupported_sql_error(
-                "computed JOIN projection smoke requires explicit raw qualified projection columns before computed projections",
-            ));
-        }
-        validate_projection_source_columns(parsed, &qualified_header)?;
-        validate_projection_output_names(parsed, &qualified_header)?;
+        validate_join_non_aggregate_projection(parsed, &qualified_header)?;
     }
     validate_aggregate_output_names(parsed)?;
     if parsed.has_having() && !parsed.is_aggregate() {
@@ -14336,6 +14473,37 @@ fn bind_join_sql_local_source(
         &join.right_alias,
         right_header,
     )
+}
+
+fn validate_join_non_aggregate_projection(
+    parsed: &ParsedSqlLocalSource,
+    qualified_header: &[String],
+) -> Result<(), ShardLoomError> {
+    if !parsed.group_by.is_empty() {
+        return Err(unsupported_sql_error(
+            "GROUP BY requires at least one aggregate function in this scoped smoke",
+        ));
+    }
+    if parsed.projections.is_empty() {
+        return Err(unsupported_sql_error(
+            "JOIN projection smoke requires at least one qualified projection column",
+        ));
+    }
+    if parsed.projections.len() == 1 && parsed.projections[0] == "*" {
+        return Err(unsupported_sql_error(
+            "JOIN projection smoke requires explicit qualified projection columns",
+        ));
+    }
+    if parsed.has_computed_projection()
+        && (parsed.projections.is_empty()
+            || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
+    {
+        return Err(unsupported_sql_error(
+            "computed JOIN projection smoke requires explicit raw qualified projection columns before computed projections",
+        ));
+    }
+    validate_projection_source_columns(parsed, qualified_header)?;
+    validate_projection_output_names(parsed, qualified_header)
 }
 
 fn validate_join_distinct_projection_shape(
@@ -15879,9 +16047,14 @@ impl ParsedSqlLocalSource {
                             }),
                     );
                 }
+                ParsedProjectionOutput::Complex(alias) => output_dtypes.push(
+                    self.complex_projections
+                        .iter()
+                        .find(|projection| projection.alias == *alias)
+                        .map(|projection| projection.kind.output_dtype()),
+                ),
                 ParsedProjectionOutput::Raw(_)
                 | ParsedProjectionOutput::Literal(_)
-                | ParsedProjectionOutput::Complex(_)
                 | ParsedProjectionOutput::NullCoalesce(_)
                 | ParsedProjectionOutput::NullIf(_)
                 | ParsedProjectionOutput::Conditional(_)
@@ -18255,7 +18428,11 @@ impl ParsedPredicate {
         if escapes.is_empty() {
             "not_applicable".to_string()
         } else {
-            escapes.join(",")
+            escapes
+                .into_iter()
+                .map(|value| csv_escape(&value))
+                .collect::<Vec<_>>()
+                .join(",")
         }
     }
 
@@ -28303,7 +28480,7 @@ fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>
         ));
     }
     validate_sql_identifier(alias)?;
-    let value = parse_projection_literal_value(literal_raw)?;
+    let value = parse_top_level_projection_literal_value(literal_raw)?;
     if matches!(value, ScalarValue::Null) {
         return Err(unsupported_sql_error(
             "literal projections do not admit NULL values in this scoped runtime slice",
@@ -28711,7 +28888,7 @@ fn parse_numeric_arithmetic_projection(
         )
     ) {
         return Err(unsupported_sql_error(
-            "numeric arithmetic projection division by zero is not admitted",
+            "numeric arithmetic projection division by zero is a runtime data error",
         ));
     }
     Ok(Some(ParsedNumericArithmeticProjection {
@@ -29029,6 +29206,12 @@ fn parse_conditional_projection(
             "CASE projections require non-empty predicate, THEN branch, and ELSE branch",
         ));
     }
+    let predicate = parse_predicate(predicate_raw)?;
+    if predicate.uses_outer_correlation() {
+        return Err(unsupported_sql_error(
+            "CASE projection predicates do not admit outer.<column> references; correlated subqueries are admitted only in WHERE/HAVING per-row materialization paths",
+        ));
+    }
     let then_branch = parse_conditional_projection_branch(then_raw, "THEN")?;
     let else_branch = parse_conditional_projection_branch(else_raw, "ELSE")?;
     let then_dtype = then_branch.literal_dtype();
@@ -29044,7 +29227,7 @@ fn parse_conditional_projection(
     }
     Ok(Some(ParsedConditionalProjection {
         alias: alias.to_string(),
-        predicate: parse_predicate(predicate_raw)?,
+        predicate,
         then_branch,
         else_branch,
         then_dtype,
@@ -29064,7 +29247,11 @@ fn parse_conditional_projection_branch(
         }
         Ok(ParsedConditionalBranch::Literal(value))
     } else {
-        validate_sql_column_ref(raw)?;
+        validate_sql_column_ref(raw).map_err(|_| {
+            unsupported_sql_error(
+                "CASE projection branches must be literals or source columns in this scoped runtime slice",
+            )
+        })?;
         Ok(ParsedConditionalBranch::Column(raw.to_string()))
     }
 }
@@ -29172,9 +29359,15 @@ fn parse_predicate_projection(
         return Ok(None);
     }
     validate_sql_identifier(alias)?;
+    let predicate = parse_predicate(expression_raw)?;
+    if predicate.uses_outer_correlation() {
+        return Err(unsupported_sql_error(
+            "predicate projections do not admit outer.<column> references; correlated subqueries are admitted only in WHERE/HAVING per-row materialization paths",
+        ));
+    }
     Ok(Some(ParsedPredicateProjection {
         alias: alias.to_string(),
-        predicate: parse_predicate(expression_raw)?,
+        predicate,
     }))
 }
 
@@ -31780,8 +31973,58 @@ fn parse_decimal_cast_predicate_literal(
         ));
     };
     let op = parse_comparison_op(op_raw)?;
-    let source = parse_sql_literal(literal_raw)?;
+    let source = parse_decimal_cast_predicate_literal_source(literal_raw, target_dtype)?;
     Ok((op, cast_scalar_literal_to_dtype(source, target_dtype)?))
+}
+
+fn parse_decimal_cast_predicate_literal_source(
+    raw: &str,
+    target_dtype: &LogicalDType,
+) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.eq_ignore_ascii_case("null") {
+        return Ok(ScalarValue::Null);
+    }
+    if trimmed.starts_with('\'') {
+        return parse_sql_string_literal(trimmed).map(ScalarValue::Utf8);
+    }
+    if trimmed.is_empty() {
+        return Err(unsupported_sql_error(
+            "decimal CAST predicate literal must not be empty",
+        ));
+    }
+    if let Some((_, scale)) = decimal_dtype_precision_scale(target_dtype) {
+        if let Some(normalized) = normalize_decimal_literal_to_target_scale(trimmed, scale) {
+            return Ok(ScalarValue::Utf8(normalized));
+        }
+    }
+    Ok(ScalarValue::Utf8(trimmed.to_string()))
+}
+
+fn normalize_decimal_literal_to_target_scale(raw: &str, target_scale: u8) -> Option<String> {
+    let dot_index = raw.find('.')?;
+    let integer = &raw[..dot_index];
+    let fraction = &raw[dot_index + 1..];
+    let unsigned_integer = integer
+        .strip_prefix('+')
+        .or_else(|| integer.strip_prefix('-'))
+        .unwrap_or(integer);
+    if unsigned_integer.is_empty()
+        || fraction.is_empty()
+        || !unsigned_integer.chars().all(|ch| ch.is_ascii_digit())
+        || !fraction.chars().all(|ch| ch.is_ascii_digit())
+    {
+        return None;
+    }
+    let target_scale = usize::from(target_scale);
+    if fraction.len() <= target_scale || !fraction[target_scale..].chars().all(|ch| ch == '0') {
+        return None;
+    }
+    if target_scale == 0 {
+        Some(integer.to_string())
+    } else {
+        Some(format!("{}.{}", integer, &fraction[..target_scale]))
+    }
 }
 
 fn cast_scalar_literal_to_dtype(
@@ -32278,8 +32521,8 @@ fn parse_timestamp_arithmetic_seconds(raw: &str) -> Result<i64, ShardLoomError> 
 
 fn starts_with_interval_keyword(raw: &str) -> bool {
     let keyword = "interval";
-    raw.len() >= keyword.len()
-        && raw[..keyword.len()].eq_ignore_ascii_case(keyword)
+    raw.get(..keyword.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
         && keyword_boundary(raw, 0, keyword.len())
 }
 
@@ -32439,7 +32682,7 @@ fn parse_numeric_arithmetic_predicate(
         )
     ) {
         return Err(unsupported_sql_error(
-            "numeric arithmetic division by zero is not admitted",
+            "numeric arithmetic division by zero is a runtime data error",
         ));
     }
     let comparison = parse_comparison_op(&tokens[3])?;
@@ -33742,7 +33985,11 @@ fn parse_local_subquery_source_ref(
     let (source_path_raw, explicit_alias) = parse_optional_local_subquery_alias(source_raw)?;
     let source_path = parse_source_path(&source_path_raw)?;
     let _source_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
-    let qualifier = explicit_alias.or_else(|| inferred_local_source_qualifier(&source_path));
+    let qualifier = if let Some(alias) = explicit_alias {
+        Some(alias)
+    } else {
+        inferred_local_source_qualifier(&source_path)?
+    };
     Ok(ParsedLocalSubquerySourceRef {
         path: source_path,
         qualifier,
@@ -33776,11 +34023,19 @@ fn parse_optional_local_subquery_alias(
     }
 }
 
-fn inferred_local_source_qualifier(source_path: &Path) -> Option<String> {
-    let stem = source_path.file_stem()?.to_str()?;
-    validate_sql_identifier(stem)
-        .is_ok()
-        .then(|| stem.to_string())
+fn inferred_local_source_qualifier(source_path: &Path) -> Result<Option<String>, ShardLoomError> {
+    let Some(stem) = source_path.file_stem().and_then(|stem| stem.to_str()) else {
+        return Ok(None);
+    };
+    if validate_sql_identifier(stem).is_err() {
+        return Ok(None);
+    }
+    if stem.eq_ignore_ascii_case(OUTER_CORRELATION_ALIAS) {
+        return Err(unsupported_sql_error(
+            "local subquery inferred source qualifier 'outer' is reserved for correlated outer-row references; use an explicit non-reserved AS <alias>",
+        ));
+    }
+    Ok(Some(stem.to_string()))
 }
 
 fn normalize_local_subquery_column_ref(
@@ -34473,13 +34728,18 @@ fn parse_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomErr
     {
         return parse_sql_timestamp_literal(trimmed[9..].trim());
     }
+    parse_sql_literal(trimmed)
+}
+
+fn parse_top_level_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let trimmed = raw.trim();
     if is_sql_binary_hex_literal(trimmed) {
         return parse_sql_binary_hex_literal(trimmed).map(ScalarValue::Binary);
     }
     if let Some(value) = parse_sql_binary_text_literal(trimmed)? {
         return Ok(ScalarValue::Binary(value));
     }
-    parse_sql_literal(trimmed)
+    parse_projection_literal_value(trimmed)
 }
 
 fn parse_sql_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
@@ -34783,8 +35043,9 @@ fn find_keyword_outside_quotes(raw: &str, keyword: &str) -> Option<usize> {
             continue;
         }
         let remaining = &raw[index..];
-        if remaining.len() >= lower_keyword.len()
-            && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
+        if remaining
+            .get(..lower_keyword.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
             && keyword_boundary(raw, index, lower_keyword.len())
         {
             return Some(index);
@@ -35419,6 +35680,10 @@ fn scalar_value_is_complex(value: &ScalarValue) -> bool {
     }
 }
 
+fn logical_dtype_is_complex(dtype: &LogicalDType) -> bool {
+    matches!(dtype, LogicalDType::List | LogicalDType::Struct)
+}
+
 fn json_escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for ch in value.chars() {
@@ -35516,6 +35781,60 @@ mod tests {
 
     fn assert_field_eq(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
         assert_eq!(fields.get(key).map(String::as_str), Some(expected));
+    }
+
+    #[test]
+    fn output_layout_selected_strategy_preserves_mixed_vortex_and_compatibility_sinks() {
+        let sink_decisions = vec![
+            (
+                SqlLocalSourceOutputFormat::Vortex,
+                Some("single_local_vortex_artifact_runtime_applied".to_string()),
+            ),
+            (SqlLocalSourceOutputFormat::Csv, None),
+        ];
+
+        let selected = output_layout_selected_strategy_for_sink_decisions(
+            &sink_decisions,
+            "vortex:single_local_vortex_artifact,csv:advisory_only_no_runtime_write_knob_applied",
+        );
+
+        assert_eq!(
+            selected,
+            "vortex:single_local_vortex_artifact_runtime_applied,csv:advisory_only_no_runtime_write_knob_applied"
+        );
+    }
+
+    #[test]
+    fn layout_writer_provider_uses_batch_presence_for_zero_row_columnar_sources() {
+        let source_adapter =
+            LocalInputAdapterSelection::infer_from_path(Path::new("schema-only.parquet"))
+                .expect("infer parquet adapter");
+        let source = VortexIngestSourceData {
+            source_format: source_adapter.source_format,
+            source_adapter,
+            header: vec!["id".to_string()],
+            read_plan: LocalSourceReadPlan::full("test_zero_row_columnar_source"),
+            materialized_columns: vec!["id".to_string()],
+            reader_projection_columns: vec!["id".to_string()],
+            projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+            source_bytes: 128,
+            source_digest: "fnv64:test".to_string(),
+            row_count: 0,
+            source_split_row_ranges: vec![(0, 0)],
+            read_millis: 0,
+            compatibility_parse_millis: 0,
+            source_to_columnar_millis: 0,
+            record_batch_count: 1,
+            materialization_layout: "arrow_record_batch_columnar_source_state",
+            parse_normalization: "structured_reader_to_arrow_record_batches",
+            columnar_source_preserved: true,
+        };
+
+        assert_eq!(layout_writer_provider_kind(&source), "vortex_array_kernel");
+        assert_eq!(
+            layout_writer_provider_surface(&source),
+            "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
+        );
     }
 
     #[test]
@@ -35992,6 +36311,21 @@ mod tests {
                 .contains("SQL local-source literals are limited")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        for statement in [
+            "SELECT id,CASE WHEN id = 1 THEN X'00' ELSE X'ff' END AS payload FROM 'target/input.csv' LIMIT 5",
+            "SELECT id,CASE WHEN id = 1 THEN BINARY 'x' ELSE BLOB 'y' END AS payload FROM 'target/input.csv' LIMIT 5",
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("binary literals in conditional branches remain blocked");
+            assert!(
+                error
+                    .to_string()
+                    .contains("CASE projection branches must be literals or source columns"),
+                "unexpected error for {statement}: {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
     }
 
     #[test]
@@ -37063,6 +37397,38 @@ mod tests {
     }
 
     #[test]
+    fn predicate_projection_blocks_outer_correlation_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,id IN (SELECT id FROM 'target/allowed.csv' WHERE id = outer.id LIMIT 5) AS matched FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("predicate projection outer refs remain blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("predicate projections do not admit outer.<column> references"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn conditional_projection_blocks_outer_correlation_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN id IN (SELECT id FROM 'target/allowed.csv' WHERE id = outer.id LIMIT 5) THEN 'yes' ELSE 'no' END AS matched FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("CASE projection outer refs remain blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("CASE projection predicates do not admit outer.<column> references"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
     fn parses_generic_expression_compare_projection_as_predicate_projection() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,amount + fee >= 10 AS is_profitable FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -37551,7 +37917,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("numeric arithmetic projection division by zero is not admitted"),
+                .contains("numeric arithmetic projection division by zero is a runtime data error"),
             "{error}"
         );
     }
@@ -37894,7 +38260,7 @@ mod tests {
         let path = sql_local_source_test_path("csv");
         fs::write(
             &path,
-            "id,label,amount\n1,alpha,10\n2,beta,10\n3,gamma,20\n4,delta,20\n5,epsilon,5\n",
+            "id,label,amount\n1,alpha,10\n2,beta,10\n3,gamma,20\n4,delta,20\n5,epsilon,5\n6,al%pha,1\n",
         )
         .expect("write csv source");
 
@@ -37924,6 +38290,32 @@ mod tests {
         assert_field_eq(&fields, "top_n_limit", "3");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        let comma_request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE label LIKE 'al,%%' ESCAPE ',' LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let comma_report =
+            run_sql_local_source_smoke_single(&comma_request).expect("run comma ESCAPE smoke");
+        let comma_fields = field_map(comma_report.fields());
+
+        assert_eq!(
+            comma_report.result_jsonl,
+            "{\"id\":6,\"label\":\"al%pha\"}\n"
+        );
+        assert_field_eq(
+            &comma_fields,
+            "string_predicate_like_escape_character",
+            "\",\"",
+        );
+        assert_field_eq(&comma_fields, "fallback_attempted", "false");
+        assert_field_eq(&comma_fields, "external_engine_invoked", "false");
 
         fs::remove_file(&path).expect("remove csv source");
     }
@@ -38060,6 +38452,37 @@ mod tests {
     }
 
     #[test]
+    fn complex_projection_blocks_zero_row_flat_scalar_sinks_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,ARRAY[1,2] AS values FROM '{}' WHERE id < 0 LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Csv,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("zero-row complex schema cannot be rendered as flat CSV");
+
+        assert!(
+            error
+                .to_string()
+                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert!(!output_path.exists());
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn runs_scoped_decimal_cast_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
         let output_path = sql_local_source_test_path("csv");
@@ -38141,6 +38564,35 @@ mod tests {
 
         fs::remove_file(&path).expect("remove csv source");
         fs::remove_file(&output_path).expect("remove csv output");
+    }
+
+    #[test]
+    fn decimal_cast_predicate_preserves_unquoted_literal_precision_without_fallback() {
+        let path = sql_local_source_test_path("decimal-predicate-precision.csv");
+        fs::write(&path, "id,amount\n1,9007199254740993\n2,9007199254740992\n")
+            .expect("write decimal predicate source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id FROM '{}' WHERE CAST(amount AS decimal128(20,0)) = 9007199254740993.00 LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run exact decimal predicate smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(report.result_jsonl, "{\"id\":1}\n");
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "cast_target_dtype", "decimal128(20,0)");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove decimal predicate source");
     }
 
     #[cfg(feature = "universal-format-io")]
@@ -39781,6 +40233,120 @@ mod tests {
     }
 
     #[test]
+    fn nested_date_in_subquery_coerces_materialized_values_without_fallback() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let allowed_path = sql_local_source_test_path("allowed.csv");
+        let nested_path = sql_local_source_test_path("nested.csv");
+        fs::write(
+            &source_path,
+            "id,event_date\n1,2026-01-01\n2,2026-01-02\n3,2026-01-03\n4,2026-01-04\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_date,priority\n2026-01-01,10\n2026-01-02,30\n2026-01-03,20\n2026-01-05,40\n",
+        )
+        .expect("write allowed csv");
+        fs::write(
+            &nested_path,
+            "event_date,active,score\n2026-01-02,true,10\n2026-01-03,true,20\n2026-01-04,false,30\n",
+        )
+        .expect("write nested csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_date FROM '{}' WHERE event_date IN (SELECT allowed_date FROM '{}' WHERE allowed_date IN (SELECT event_date FROM '{}' WHERE active IS TRUE AND event_date >= DATE '2026-01-02' ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
+                source_path.display(),
+                allowed_path.display(),
+                nested_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run nested date IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"event_date\":\"2026-01-02\"}\n{\"id\":3,\"event_date\":\"2026-01-03\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "nested_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "nested_subquery_predicate_count", "1");
+        assert_field_eq(&fields, "nested_subquery_max_depth", "1");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+        fs::remove_file(&nested_path).expect("remove nested csv");
+    }
+
+    #[test]
+    fn nested_timestamp_in_subquery_coerces_materialized_values_without_fallback() {
+        let source_path = sql_local_source_test_path("source.csv");
+        let allowed_path = sql_local_source_test_path("allowed.csv");
+        let nested_path = sql_local_source_test_path("nested.csv");
+        fs::write(
+            &source_path,
+            "id,event_ts\n1,2026-01-01T00:00:00Z\n2,2026-01-01T00:00:10Z\n3,2026-01-01T00:00:20Z\n4,2026-01-01T00:00:30Z\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_ts,priority\n2026-01-01T00:00:00Z,10\n2026-01-01T00:00:10Z,30\n2026-01-01T00:00:20Z,20\n2026-01-01T00:00:40Z,40\n",
+        )
+        .expect("write allowed csv");
+        fs::write(
+            &nested_path,
+            "event_ts,active,score\n2026-01-01T00:00:10Z,true,10\n2026-01-01T00:00:20Z,true,20\n2026-01-01T00:00:30Z,false,30\n",
+        )
+        .expect("write nested csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,event_ts FROM '{}' WHERE event_ts IN (SELECT allowed_ts FROM '{}' WHERE allowed_ts IN (SELECT event_ts FROM '{}' WHERE active IS TRUE AND event_ts >= TIMESTAMP '2026-01-01T00:00:10Z' ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
+                source_path.display(),
+                allowed_path.display(),
+                nested_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run nested timestamp IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"event_ts\":\"2026-01-01T00:00:10Z\"}\n{\"id\":3,\"event_ts\":\"2026-01-01T00:00:20Z\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "in_subquery");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "nested_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "nested_subquery_predicate_count", "1");
+        assert_field_eq(&fields, "nested_subquery_max_depth", "1");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+        fs::remove_file(&nested_path).expect("remove nested csv");
+    }
+
+    #[test]
     fn runs_joined_projected_in_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("joined-subquery-source.csv");
         let allowed_path = sql_local_source_test_path("joined-subquery-allowed.csv");
@@ -40093,6 +40659,40 @@ mod tests {
         fs::remove_file(&source_path).expect("remove source csv");
         fs::remove_file(&candidates_path).expect("remove candidates csv");
         fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn projected_exists_preserves_pre_limit_filtered_row_count() {
+        let source_path = sql_local_source_test_path("projected-exists-prelimit-source.csv");
+        let candidates_path =
+            sql_local_source_test_path("projected-exists-prelimit-candidates.csv");
+        fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+        fs::write(&candidates_path, "id,active\n1,true\n2,true\n3,true\n")
+            .expect("write candidates csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY id ASC LIMIT 1) LIMIT 10",
+                source_path.display(),
+                candidates_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run projected EXISTS subquery");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "exists_subquery_input_row_count", "3");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "3");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "1");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
     }
 
     #[test]
@@ -40877,6 +41477,22 @@ mod tests {
     }
 
     #[test]
+    fn in_subquery_rejects_reserved_outer_file_stem_qualifier_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT outer.id FROM 'target/outer.csv' WHERE outer.active IS TRUE LIMIT 5) LIMIT 5",
+        )
+        .expect_err("reserved inferred outer qualifier remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("inferred source qualifier 'outer' is reserved"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
     fn runs_correlated_exists_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("correlated-exists-source.csv");
         let allowed_path = sql_local_source_test_path("correlated-exists-allowed.csv");
@@ -41403,6 +42019,10 @@ mod tests {
                 "SELECT id,TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MONTH) AS shifted FROM 'target/input.csv' LIMIT 5",
                 "ANSI INTERVAL literals in scoped temporal arithmetic admit DAY, HOUR, MINUTE, or SECOND units only",
             ),
+            (
+                "SELECT id,DATE_ADD_DAYS(event_date, intervaé) AS shifted FROM 'target/input.csv' LIMIT 5",
+                "date arithmetic day count must be a signed integer literal",
+            ),
         ] {
             let error =
                 parse_sql_local_source_statement(statement).expect_err("interval shape is blocked");
@@ -41713,6 +42333,114 @@ mod tests {
     }
 
     #[test]
+    fn union_blocks_missing_order_by_output_column_on_empty_results_without_fallback() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id\n").expect("write empty left csv");
+        fs::write(&right, "id\n").expect("write empty right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id FROM '{}' UNION SELECT id FROM '{}' ORDER BY missing LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke(&request)
+            .expect_err("missing UNION ORDER BY output column remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("UNION ORDER BY output column \"missing\" is not present in the row"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn union_blocks_empty_branch_without_dtype_evidence_without_fallback() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id\n1\n").expect("write left csv");
+        fs::write(&right, "id\nalpha\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id FROM '{}' WHERE id < 0 UNION SELECT id FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke(&request)
+            .expect_err("empty UNION branch without dtype evidence remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("has no row values and no schema dtype hint"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn union_distinct_blocks_complex_projection_outputs_without_fallback() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id\n1\n").expect("write left csv");
+        fs::write(&right, "id\n2\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,ARRAY[1] AS values FROM '{}' UNION SELECT id,ARRAY[1] AS values FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke(&request)
+            .expect_err("UNION DISTINCT complex equality remains blocked");
+
+        assert!(
+            error.to_string().contains(
+                "SQL UNION DISTINCT over ARRAY or STRUCT projection outputs is not admitted"
+            ),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
     fn runs_scoped_sql_union_distinct_csv_statement() {
         let left = sql_local_source_test_path("csv");
         let mut right = sql_local_source_test_path("csv");
@@ -41955,6 +42683,27 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "inner-equi-join-group-by-aggregate-filter-limit"
         );
+    }
+
+    #[test]
+    fn join_binder_blocks_correlated_subqueries_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.label FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.id = d.id WHERE f.id IN (SELECT id FROM 'target/allowed.csv' WHERE id = outer.id LIMIT 5) LIMIT 10",
+        )
+        .expect("join correlated subquery parses before bind policy");
+        let left_header = vec!["id".to_string(), "amount".to_string()];
+        let right_header = vec!["id".to_string(), "label".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &left_header, Some(&right_header))
+            .expect_err("join correlated subquery remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("JOIN predicates do not admit correlated subqueries"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

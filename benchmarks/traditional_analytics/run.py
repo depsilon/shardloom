@@ -2347,6 +2347,7 @@ def dataset_profile_supports_all_executable_scenarios(dataset_profile: str) -> b
 
 
 UNSUPPORTED_ROW_STATUSES = {"unsupported", "unsupported_format"}
+SUCCESS_ROW_STATUSES = {"success"}
 NON_EXECUTED_BLOCKED_ROW_STATUSES = {
     "blocked",
     "engine_startup_error",
@@ -2364,11 +2365,11 @@ def shardloom_blocked_non_execution_status(status: str) -> bool:
 def runtime_evidence_claim_gate_status(is_shardloom: bool, status: str) -> str:
     if not is_shardloom:
         return "external_baseline_only"
+    if status in SUCCESS_ROW_STATUSES:
+        return "claim_grade"
     if status in UNSUPPORTED_ROW_STATUSES:
         return "unsupported"
-    if shardloom_blocked_non_execution_status(status):
-        return "blocked"
-    return "claim_grade"
+    return "blocked"
 
 
 def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:

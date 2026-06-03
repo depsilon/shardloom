@@ -1652,7 +1652,7 @@ def public_front_door_benchmark_rows() -> list[dict[str, Any]]:
         )
         if front_door.front_door_id == "local_source_auto_prepare_vortex_front_door":
             timing_boundary = (
-                "ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect() "
+                "ctx.prepare_vortex(..., workspace=...).query(...).collect() "
                 "is the ShardLoom Prepare-Once First Query route identity: "
                 "preparation plus first prepared query/output are the comparable route; "
                 "this static row is not a measured timing row"
@@ -3447,7 +3447,6 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
     adjusted["prepared_state_claim_gate_status"] = "claim_grade"
 
     for field in (
-        "cold_lane_claim_gate_status",
         "reuse_level_claim_gate_status",
         "vortex_scout_ingress_claim_gate_status",
         "vortex_layout_write_advisor_claim_gate_status",

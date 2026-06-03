@@ -24,6 +24,8 @@ use crate::source_backed_encoded_execution::{
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use arrow_array::Array as _;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use sha2::Digest as _;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, EncodedValueBatch, ExecutionCertificateInput,
     ExecutionProviderKind, ExpectedOutcome, NativeIoAdapterFidelityReport,
@@ -10886,7 +10888,7 @@ fn prepared_batch_manifest_digest(manifest_payload: &serde_json::Value) -> Strin
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn stable_json_value_digest(value: &serde_json::Value) -> String {
     let encoded = serde_json::to_string(value).unwrap_or_else(|_| "invalid-json".to_string());
-    route_evidence_digest(&[&encoded])
+    sha256_digest(encoded.as_bytes())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11006,10 +11008,10 @@ fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<s
         return Ok(serde_json::json!({
             "path": normalized,
             "exists": true,
-            "kind": "local_file_fnv1a64_size_mtime",
+            "kind": "local_file_sha256_size_mtime",
             "size_bytes": metadata.len(),
             "mtime_ns": metadata_mtime_ns(&metadata),
-            "content_digest": file_digest(path, label)?,
+            "content_digest": file_sha256_digest(path, label)?,
         }));
     }
     if path.is_dir() {
@@ -11017,7 +11019,7 @@ fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<s
         return Ok(serde_json::json!({
             "path": normalized,
             "exists": true,
-            "kind": "local_directory_tree_fnv1a64_size_mtime",
+            "kind": "local_directory_tree_sha256_size_mtime",
             "size_bytes": directory.size_bytes,
             "mtime_ns": directory.mtime_ns,
             "content_digest": directory.content_digest,
@@ -11051,7 +11053,7 @@ fn directory_reuse_fingerprint(
     files.sort();
     let mut total_size = 0_u64;
     let mut max_mtime_ns = 0_u64;
-    let mut digest = Fnv1a64::new();
+    let mut digest = sha2::Sha256::new();
     for file_path in files {
         let metadata = std::fs::metadata(&file_path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -11061,9 +11063,13 @@ fn directory_reuse_fingerprint(
         })?;
         let relative_path = file_path.strip_prefix(path).map_or_else(
             |_| file_path.display().to_string(),
-            |relative| relative.display().to_string(),
+            |relative| {
+                relative
+                    .to_string_lossy()
+                    .replace(std::path::MAIN_SEPARATOR, "/")
+            },
         );
-        let file_digest = file_digest(&file_path, label)?;
+        let file_digest = file_sha256_digest(&file_path, label)?;
         total_size = total_size.checked_add(metadata.len()).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "{label} directory '{}' byte count overflow during prepared-state reuse fingerprinting; fallback execution was not attempted",
@@ -11083,11 +11089,7 @@ fn directory_reuse_fingerprint(
     Ok(DirectoryReuseFingerprint {
         size_bytes: total_size,
         mtime_ns: max_mtime_ns,
-        content_digest: format!(
-            "{}:{:016x}",
-            OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
-            digest.finish()
-        ),
+        content_digest: format!("sha256:{:x}", digest.finalize()),
     })
 }
 
@@ -16593,6 +16595,40 @@ fn file_digest(path: &std::path::Path, label: &str) -> Result<String> {
         OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
         digest.finish()
     ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn file_sha256_digest(path: &std::path::Path, label: &str) -> Result<String> {
+    use std::io::Read as _;
+
+    let mut file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for prepared-state reuse digest: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })?;
+    let mut digest = sha2::Sha256::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} '{}' for prepared-state reuse digest: {error}; fallback execution was not attempted",
+                path.display()
+            ))
+        })?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+    }
+    Ok(format!("sha256:{:x}", digest.finalize()))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn sha256_digest(bytes: &[u8]) -> String {
+    let mut digest = sha2::Sha256::new();
+    digest.update(bytes);
+    format!("sha256:{:x}", digest.finalize())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -26047,6 +26083,40 @@ mod tests {
         let first_fields = field_map(first.fields());
         let manifest_path = traditional_prepared_batch_reuse_manifest_path(&workspace);
         assert!(manifest_path.exists());
+        let manifest_payload: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&manifest_path).expect("read reuse manifest"),
+        )
+        .expect("parse reuse manifest");
+        assert!(
+            manifest_payload
+                .get("manifest_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert_eq!(
+            manifest_payload
+                .pointer("/fact_input/kind")
+                .and_then(serde_json::Value::as_str),
+            Some("local_file_sha256_size_mtime")
+        );
+        assert!(
+            manifest_payload
+                .pointer("/fact_input/content_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert_eq!(
+            manifest_payload
+                .pointer("/prepared_artifacts/fact/fingerprint/kind")
+                .and_then(serde_json::Value::as_str),
+            Some("local_file_sha256_size_mtime")
+        );
+        assert!(
+            manifest_payload
+                .pointer("/prepared_artifacts/fact/fingerprint/content_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
         assert!(first.prepare_report.is_some());
         assert_field_eq(
             &first_fields,

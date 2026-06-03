@@ -1206,6 +1206,7 @@ impl GeneratedUserRowsSmokeRequest {
                 "generated-source user rows smoke requires at least one row".to_string(),
             ));
         }
+        validate_user_rows_source_kind_shape(source_kind, &schema, &rows)?;
         Ok(Self {
             output_path,
             output_format,
@@ -4983,6 +4984,35 @@ fn parse_row(raw: &str, schema: &[GeneratedColumn]) -> Result<GeneratedRow, Shar
     Ok(GeneratedRow { values: ordered })
 }
 
+fn validate_user_rows_source_kind_shape(
+    source_kind: UserRowsGeneratedSourceKind,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<(), ShardLoomError> {
+    match source_kind {
+        UserRowsGeneratedSourceKind::DataFrameProjection => {
+            if rows.len() != 1 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "dataframe_source_free_projection admits exactly one source-free generated row"
+                        .to_string(),
+                ));
+            }
+        }
+        UserRowsGeneratedSourceKind::DataFrameGeneratedWithColumn => {
+            if rows.len() != 1 || schema.len() != 1 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "dataframe_generated_with_column admits exactly one source-free generated row with one literal column"
+                        .to_string(),
+                ));
+            }
+        }
+        UserRowsGeneratedSourceKind::UserRows
+        | UserRowsGeneratedSourceKind::LiteralTable
+        | UserRowsGeneratedSourceKind::Calendar => {}
+    }
+    Ok(())
+}
+
 fn validate_value(value: &str, value_type: GeneratedValueType) -> Result<(), ShardLoomError> {
     match value_type {
         GeneratedValueType::Int64 => {
@@ -5353,7 +5383,10 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{generated_range_rows, normalize_local_output_path, range_row_count};
+    use super::{
+        GeneratedOutputFormat, GeneratedUserRowsSmokeRequest, UserRowsGeneratedSourceKind,
+        generated_range_rows, normalize_local_output_path, range_row_count,
+    };
 
     #[test]
     fn range_row_count_does_not_step_past_final_boundary_row() {
@@ -5379,5 +5412,43 @@ mod tests {
     fn generated_source_file_uri_allows_empty_authority_or_localhost() {
         assert!(normalize_local_output_path("file:///tmp/out.jsonl").is_ok());
         assert!(normalize_local_output_path("file://localhost/tmp/out.jsonl").is_ok());
+    }
+
+    #[test]
+    fn dataframe_projection_source_kind_requires_one_generated_row() {
+        let error = GeneratedUserRowsSmokeRequest::parse(
+            "target/out.jsonl",
+            GeneratedOutputFormat::Jsonl,
+            vec![],
+            UserRowsGeneratedSourceKind::DataFrameProjection,
+            "value:int64",
+            "value=1;value=2",
+            false,
+        )
+        .expect_err("dataframe projection must remain one scoped generated row");
+        assert!(
+            error
+                .to_string()
+                .contains("dataframe_source_free_projection admits exactly one")
+        );
+    }
+
+    #[test]
+    fn dataframe_generated_with_column_source_kind_requires_one_column() {
+        let error = GeneratedUserRowsSmokeRequest::parse(
+            "target/out.jsonl",
+            GeneratedOutputFormat::Jsonl,
+            vec![],
+            UserRowsGeneratedSourceKind::DataFrameGeneratedWithColumn,
+            "value:int64,label:utf8",
+            "value=1,label=alpha",
+            false,
+        )
+        .expect_err("generated with column must remain one literal column");
+        assert!(
+            error
+                .to_string()
+                .contains("dataframe_generated_with_column admits exactly one")
+        );
     }
 }

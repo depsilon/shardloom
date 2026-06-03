@@ -379,6 +379,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             binary=binary,
         )
         self.assertIsInstance(source, sl.GeneratedRowsSource)
+        changed_source = sl.dataframe_source_free_projection(
+            {"value": 2, "label": "alpha"},
+            binary=binary,
+        )
+        self.assertNotEqual(
+            source._generated_vortex_stem(),
+            changed_source._generated_vortex_stem(),
+        )
 
     def test_dataframe_generated_with_column_writes_literal_generated_column(self) -> None:
         binary = self.fake_cli(
@@ -771,6 +779,37 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(ipc_source.schema_arg, "id:int64,label:utf8")
         self.assertEqual(ipc_source.rows_arg, "id=3,label=gamma;id=4,label=delta")
 
+    def test_from_arrow_ipc_falls_back_to_file_reader_for_file_payloads(self) -> None:
+        class FakeArrowTable:
+            def to_pylist(self) -> list[dict[str, object]]:
+                return [{"id": 5, "label": "file"}]
+
+        class FakeArrowReader:
+            def read_all(self) -> FakeArrowTable:
+                return FakeArrowTable()
+
+        class FakeArrowIpc:
+            @staticmethod
+            def open_stream(_source: object) -> FakeArrowReader:
+                raise ValueError("not an Arrow IPC stream")
+
+            @staticmethod
+            def open_file(_source: object) -> FakeArrowReader:
+                return FakeArrowReader()
+
+        class FakePyArrowModule:
+            BufferReader = bytes
+            ipc = FakeArrowIpc
+
+        with mock.patch.dict(sys.modules, {"pyarrow": FakePyArrowModule}):
+            ipc_source = sl.from_arrow_ipc(
+                b"fake-file-ipc",
+                client=ShardLoomClient(binary=["definitely-missing-shardloom"]),
+            )
+
+        self.assertEqual(ipc_source.schema_arg, "id:int64,label:utf8")
+        self.assertEqual(ipc_source.rows_arg, "id=5,label=file")
+
     def test_local_csv_query_builder_helpers_return_unsupported_on_non_success_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1126,6 +1165,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertEqual(preview_report.output_row_count, 2)
             self.assertFalse(preview_report.fallback_attempted)
             self.assertFalse(preview_report.external_engine_invoked)
+
+    def test_sql_statement_with_limit_caps_existing_top_level_limit(self) -> None:
+        from shardloom.query import _sql_statement_with_limit
+
+        self.assertEqual(
+            _sql_statement_with_limit("SELECT * FROM 'events.csv' LIMIT 10", 2),
+            "SELECT * FROM 'events.csv' LIMIT 2",
+        )
+        self.assertEqual(
+            _sql_statement_with_limit(
+                "SELECT * FROM (SELECT * FROM 'events.csv' LIMIT 10) AS sub",
+                2,
+            ),
+            "SELECT * FROM (SELECT * FROM 'events.csv' LIMIT 10) AS sub LIMIT 2",
+        )
 
     def test_local_parquet_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -1795,6 +1849,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.exists_source("target/allowed.csv", source_alias="outer")
         with self.assertRaisesRegex(ValueError, "HAVING requires group_by"):
             sl.exists_source("target/allowed.csv", having="count(*) >= 1")
+        with self.assertRaisesRegex(ValueError, "at most 32"):
+            sl.exists_source("target/allowed.csv", group_by="id", limit=33)
         self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
@@ -1840,6 +1896,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ),
             "TIMESTAMP_ADD_SECONDS(event_ts, INTERVAL '1' MINUTE) >= TIMESTAMP '2026-05-19T12:35:45Z'",
         )
+        self.assertEqual(str(sl.IntervalLiteral("1", "minutes")), "INTERVAL '1' MINUTE")
         self.assertEqual(
             str(
                 sl.col("event_ts")
@@ -2004,6 +2061,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.interval_days(True)
         with self.assertRaises(ValueError):
             sl.interval_seconds("1 second")
+        with self.assertRaisesRegex(ValueError, "DAY, HOUR, MINUTE, or SECOND"):
+            sl.IntervalLiteral(1, "WEEKS")
         with self.assertRaises(ValueError):
             sl.col("event_ts").timestamp_add_seconds(True)
         with self.assertRaises(ValueError):

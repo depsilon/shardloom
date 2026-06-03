@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import hashlib
 import html
 import importlib
 import math
@@ -120,6 +121,17 @@ class IntervalLiteral:
 
     value: int
     unit: str
+
+    def __post_init__(self) -> None:
+        interval_value = _normalize_interval_integer(self.value)
+        unit = _normalize_interval_unit(self.unit)
+        multiplier = _INTERVAL_SECOND_MULTIPLIERS[unit]
+        if builtins.abs(interval_value * multiplier) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
+            raise ValueError(
+                "interval literal admits absolute values within the scoped temporal arithmetic bound"
+            )
+        object.__setattr__(self, "value", interval_value)
+        object.__setattr__(self, "unit", unit)
 
     @property
     def sql(self) -> str:
@@ -1007,7 +1019,9 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
         return tuple(column for column, _value in self.rows[0])
 
     def _generated_vortex_stem(self) -> str:
-        return f"generated-{self.source_kind}"
+        payload = f"{self.source_kind}\0{self.schema_arg}\0{self.rows_arg}".encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()[:16]
+        return f"generated-{self.source_kind}-{digest}"
 
     def write(
         self,
@@ -6638,13 +6652,16 @@ def _normalize_decimal_cast_dtype(dtype: str) -> str | None:
 
 
 def _interval_literal(value: object, unit: str) -> IntervalLiteral:
-    interval_value = _normalize_interval_integer(value)
-    multiplier = _INTERVAL_SECOND_MULTIPLIERS[unit]
-    if builtins.abs(interval_value * multiplier) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
-        raise ValueError(
-            "interval literal admits absolute values within the scoped temporal arithmetic bound"
-        )
-    return IntervalLiteral(interval_value, unit)
+    return IntervalLiteral(_normalize_interval_integer(value), unit)
+
+
+def _normalize_interval_unit(unit: object) -> str:
+    text = _require_non_empty("interval literal unit", unit).upper()
+    if text in _INTERVAL_SECOND_MULTIPLIERS:
+        return text
+    if text.endswith("S") and text[:-1] in _INTERVAL_SECOND_MULTIPLIERS:
+        return text[:-1]
+    raise ValueError("interval literal unit must be DAY, HOUR, MINUTE, or SECOND")
 
 
 def _normalize_interval_integer(value: object) -> int:
@@ -7692,6 +7709,7 @@ def _exists_source_predicate(
     source_ref = _sql_local_subquery_source(
         source, "EXISTS subquery source", source_alias=source_alias
     )
+    max_limit = 32 if group_by is not None or having is not None else 10_000
     tail = _sql_local_subquery_tail(
         where=where,
         group_by=group_by,
@@ -7700,7 +7718,7 @@ def _exists_source_predicate(
         descending=descending,
         limit=limit,
         limit_name="EXISTS subquery limit",
-        max_limit=10_000,
+        max_limit=max_limit,
         positive_limit=False,
     )
     operator = "NOT EXISTS" if negated else "EXISTS"
@@ -7974,9 +7992,25 @@ def _sql_statement_with_limit(statement: str, count: int) -> str:
     normalized = statement.strip().rstrip(";").strip()
     if not normalized:
         raise ValueError("SQL statement must not be empty")
-    if _contains_sql_keyword_outside_quotes(normalized, "limit"):
-        return normalized
+    limit_index = _find_top_level_sql_keyword_outside_quotes(normalized, "limit")
+    if limit_index is not None:
+        return _cap_top_level_sql_limit(normalized, limit_index, count)
     return f"{normalized} LIMIT {count}"
+
+
+def _cap_top_level_sql_limit(statement: str, limit_index: int, count: int) -> str:
+    limit_end = limit_index + len("limit")
+    tail = statement[limit_end:].lstrip()
+    if not tail:
+        return statement
+    digit_count = 0
+    while digit_count < len(tail) and tail[digit_count].isdigit():
+        digit_count += 1
+    if digit_count == 0:
+        return statement
+    existing_limit = int(tail[:digit_count])
+    capped_limit = min(existing_limit, count)
+    return f"{statement[:limit_index].rstrip()} LIMIT {capped_limit}{tail[digit_count:]}"
 
 
 def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
@@ -8374,6 +8408,40 @@ def _find_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None
             after = statement[after_index] if after_index < len(statement) else ""
             if not _is_identifier_char(before) and not _is_identifier_char(after):
                 return index
+        index += 1
+    return None
+
+
+def _find_top_level_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
+    lower = statement.lower()
+    needle = keyword.lower()
+    in_quote = False
+    depth = 0
+    index = 0
+    while index <= len(statement) - len(needle):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote:
+            if char == "(":
+                depth += 1
+                index += 1
+                continue
+            if char == ")" and depth > 0:
+                depth -= 1
+                index += 1
+                continue
+            if depth == 0 and lower.startswith(needle, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(needle)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if not _is_identifier_char(before) and not _is_identifier_char(after):
+                    return index
         index += 1
     return None
 
@@ -8807,11 +8875,27 @@ def _read_arrow_ipc_table(source: object, pyarrow: object) -> object:
     ipc = pyarrow.ipc
     if isinstance(source, (str, os.PathLike)):
         with open(source, "rb") as handle:
-            return ipc.open_stream(handle).read_all()
+            return _read_arrow_ipc_from_seekable(handle, ipc)
     if isinstance(source, (bytes, bytearray, memoryview)):
         reader = pyarrow.BufferReader(bytes(source))
-        return ipc.open_stream(reader).read_all()
+        return _read_arrow_ipc_from_seekable(reader, ipc)
     return ipc.open_stream(source).read_all()
+
+
+def _read_arrow_ipc_from_seekable(source: object, ipc: object) -> object:
+    try:
+        return ipc.open_stream(source).read_all()
+    except Exception as stream_error:
+        seek = getattr(source, "seek", None)
+        if callable(seek):
+            seek(0)
+        open_file = getattr(ipc, "open_file", None)
+        if not callable(open_file):
+            raise stream_error
+        try:
+            return open_file(source).read_all()
+        except Exception:
+            raise stream_error
 
 
 def _is_mapping_sequence(value: object) -> bool:

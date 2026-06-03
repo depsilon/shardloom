@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PR 980+ review backlog, benchmark-publication hardening, and phase-plan cleanup
+  - Date: 2026-06-03
+  - Branch/PR: `codex/address-pr980-plus-comments` / pending PR.
+  - Source:
+    - User direction to resolve unresolved Codex PR comments from #980 onward without subagents.
+    - Existing benchmark artifact `target/shardloom-post-1059-expanded-full-local.json`; no
+      benchmark suite rerun in this batch.
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - Public benchmark/website route identity cleanup for `ctx.prepare_vortex(...)`.
+  - Scope:
+    - Hardened SQL local-source runtime review fixes across decimal exactness, interval and
+      non-ASCII parsing diagnostics, LIKE ESCAPE, binary literal scope, subquery coercion, grouped
+      projected subquery counts, UNION validation, complex sink boundaries, zero-row output schema
+      checks, division-by-zero diagnostics, and metadata-only command posture.
+    - Tightened Python/context/client public surfaces so local prepared paths use executable
+      `ctx.prepare_vortex(...)`, generated Vortex output evidence stays scoped, source-kind
+      constraints are explicit, absent sentinel values are filtered, and Arrow IPC fallback remains
+      deterministic.
+    - Switched prepared Vortex manifest fingerprints to SHA-256-backed digests in the Vortex
+      benchmark feature lane and kept the optional dependency feature-gated in `shardloom-vortex`.
+    - Updated benchmark publication/static validators and website readiness to publish current
+      public front-door rows without treating route-identity rows as timing evidence.
+    - Cleaned `docs/architecture/phased-execution-plan.md` so live Planned work has a compact
+      remaining-work snapshot and completed hot-path/history details stay in this ledger.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder python.tests.test_cli_client python.tests.test_user_route_capability_report python.tests.test_runtime_gap_family_burn_down python.tests.test_release_scripts` passed with 397 tests and 2 skipped.
+    - `PYTHONPATH=python/src python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree --output target/benchmark-publication-claim-gate-report.json` passed with `benchmark_run_performed=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_website_readiness.py` passed.
+    - `node website/validate_static_assets.js` passed.
+    - `cd website-src && node scripts/sync-content.mjs && astro build && node scripts/postbuild-static.mjs && astro check` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test -p shardloom-cli --bin shardloom sql_local_source_runtime::tests -- --nocapture` passed with 194 tests.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata` passed with
+      57 tests.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py` remains blocked by
+      pre-existing package-channel, public-release, architecture-tracker, final-rehearsal, and
+      required-release-evidence gates.
+  - Claim boundary:
+    - This closes the reviewed runtime/validator/site cleanup batch and may claim the listed
+      routes/tests now expose stricter no-fallback evidence and current public route identity. It
+      does not claim new performance superiority, production/package readiness, broad SQL/DataFrame
+      parity, object-store/lakehouse production readiness, or Spark replacement.
+  - Fallback boundary:
+    - The batch adds no Spark/DataFusion/DuckDB/Polars/Velox execution fallback, no Vortex
+      query-engine integration, no external-engine residual evaluation, and no benchmark rerun.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL decimal mixed-scale and exact division promotion
   - Date: 2026-06-02
   - Branch/PR: `codex/decimal-mixed-scale-division` / pending PR.
@@ -561,7 +610,7 @@ phase plan first.
   - Scope:
     - Promoted the local auto public front-door row from prepare-only identity to the route-comparable
       `ShardLoom Prepare-Once First Query` identity:
-      `ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()`.
+      `ctx.prepare_vortex(..., workspace=...).query(...).collect()`.
     - Kept the generated-source public row as generated-source Vortex output/preparation evidence,
       since that owning route writes a local Vortex prepared artifact rather than a prepared query.
     - Updated route capability validation, benchmark artifact completeness, benchmark publication

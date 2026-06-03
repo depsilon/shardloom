@@ -965,7 +965,7 @@ class UserRouteCapabilityReport:
                 route_display_name=local.route_display_name,
                 input_family=local.input_family,
                 public_user_surface=(
-                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "ctx.prepare_vortex('fact.csv', "
                     "workspace='target/shardloom-prepared').query("
                     "'selective filter').collect()"
                 ),
@@ -1949,7 +1949,7 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
             "ctx.sql(\"SELECT COUNT(*) FROM 'orders.vortex' WHERE value >= 3\").collect()"
         ),
         python_surface="read_vortex('orders.vortex').filter('gte:value:3').count()",
-        dataframe_surface="read_vortex('orders.vortex').where(col('value') >= 3).count()",
+        dataframe_surface="read_vortex('orders.vortex').filter('gte:value:3').count()",
         context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').count()",
         session_surface="session.read_vortex('orders.vortex').filter('gte:value:3').count()",
         cli_command="vortex-count-where",
@@ -1969,7 +1969,7 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
         "filter_predicate",
         sql_surface="ctx.sql(\"SELECT * FROM 'orders.vortex' WHERE value >= 3\").collect()",
         python_surface="read_vortex('orders.vortex').filter('gte:value:3').collect()",
-        dataframe_surface="read_vortex('orders.vortex').where(col('value') >= 3).collect()",
+        dataframe_surface="read_vortex('orders.vortex').filter('gte:value:3').collect()",
         context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').collect()",
         session_surface="session.read_vortex('orders.vortex').filter('gte:value:3').collect()",
         cli_command="vortex-filter",
@@ -1992,7 +1992,7 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
         ),
         python_surface="read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()",
         dataframe_surface=(
-            "read_vortex('orders.vortex').where(col('value') >= 3).limit(5).collect()"
+            "read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()"
         ),
         context_surface="ctx.read_vortex('orders.vortex').filter('gte:value:3').limit(5).collect()",
         session_surface=(
@@ -2084,7 +2084,7 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
         ),
         python_surface="read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()",
         dataframe_surface=(
-            "read_vortex('orders.vortex').where(col('value') >= 3).select('metric').collect()"
+            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()"
         ),
         context_surface=(
             "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').collect()"
@@ -2114,7 +2114,7 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
             "read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
         ),
         dataframe_surface=(
-            "read_vortex('orders.vortex').where(col('value') >= 3).select('metric').limit(5).collect()"
+            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
         ),
         context_surface=(
             "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').limit(5).collect()"
@@ -4551,7 +4551,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         front_doors=_ALL_USER_FRONT_DOORS,
         desired_outputs=("machine_readable_report", "evidence_certificate", "result_sink"),
         recommended_user_surface=(
-            "ctx.read_csv('fact.csv').prepare_vortex(workspace='target/shardloom-prepared') "
+            "ctx.prepare_vortex('fact.csv', 'target/fact.vortex') "
             "for single-source preparation, or ctx.prepare_vortex('fact.csv', dim='dim.csv', "
             "workspace='target/shardloom-prepared').prepare() for benchmark-range fact/dim routes"
         ),
@@ -4788,8 +4788,9 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "prepared-state reuse manifest, and fanout"
         ),
         evidence_route=(
-            "generated-source certificate, artifact-adjacent prepared-state reuse manifest, "
-            "OutputPlan, output Native I/O, replay evidence, and no-fallback evidence"
+            "generated-source certificate, artifact-adjacent prepared-state reuse manifest for "
+            "feature-gated local Vortex output, OutputPlan, output Native I/O, replay evidence, "
+            "and no-fallback evidence"
         ),
         materialization_decode_boundary="generated rows are materialized input rows; output decode only at declared sink",
         route_runtime_status="scoped_runtime_supported",
@@ -4798,7 +4799,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         owner="GAR-RUNTIME-IMPL-6D.generated_rows_local_output",
         required_evidence=(
             "generated_source_certificate",
-            "prepared_state_reuse_manifest",
+            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
             "output_native_io_certificate",
             "execution_certificate",
             "result_replay_verified",

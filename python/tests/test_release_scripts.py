@@ -449,15 +449,15 @@ class ReleaseScriptTests(unittest.TestCase):
                 "front_door_end_state": "result_sink",
                 "includes_query": True,
                 "public_user_surface": (
-                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "ctx.prepare_vortex('fact.csv', "
                     "workspace='target/shardloom-prepared').query('selective filter').collect()"
                 ),
                 "benchmark_public_surface": (
-                    "ctx.read_csv('fact.csv').prepare_vortex("
+                    "ctx.prepare_vortex('fact.csv', "
                     "workspace='target/shardloom-prepared').query('selective filter').collect()"
                 ),
                 "benchmark_timing_boundary": (
-                    "ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect() "
+                    "ctx.prepare_vortex(..., workspace=...).query(...).collect() "
                     "is the ShardLoom Prepare-Once First Query route identity: "
                     "preparation plus first prepared query/output are the comparable route; "
                     "this static row is not a measured timing row"
@@ -487,6 +487,11 @@ class ReleaseScriptTests(unittest.TestCase):
                     "local-output timing is route evidence, not comparative "
                     "query timing"
                 ),
+                "required_evidence": [
+                    "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
+                    "route_runtime_status",
+                    "no_fallback_evidence",
+                ],
                 "vortex_normalization_point": (
                     "GeneratedSourceState -> VortexPreparedState"
                 ),
@@ -625,6 +630,55 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["runtime_execution_validation_status"], "passed")
         self.assertNotIn(r"C:\Users", published["sink_artifact_ref"])
         self.assertIn("local-artifact-ref:sha256:", published["sink_artifact_ref"])
+
+    def test_benchmark_promoter_preserves_blocked_cold_lane_status(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_blocked_cold_lane_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "storage_format": "csv",
+            "scenario_name": "blocked cold lane",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "prepared_state_id": "prepared-state://blocked-cold-lane",
+            "prepared_state_digest": "sha256:prepared",
+            "source_state_id": "source-state://blocked-cold-lane",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.blocked-cold-lane",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["cold_lane_timing_split_status"],
+            "blocked_incomplete_timing_split",
+        )
+        self.assertEqual(
+            published["cold_lane_claim_gate_status"],
+            "blocked_incomplete_timing_split",
+        )
+        self.assertEqual(published["claim_gate_status"], "not_claim_grade")
+        self.assertFalse(published["claim_grade_requirements_met"])
+        self.assertTrue(
+            any(
+                "cold_lane_timing_split_status!=complete" in item
+                for item in published["claim_grade_missing_evidence"]
+            )
+        )
 
     def test_benchmark_promoter_normalizes_residual_runtime_evidence_statuses(self) -> None:
         module = self._load_script_module(
@@ -1263,6 +1317,22 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "computed_result_sink_replay_verified!=true",
             blocked["claim_grade_missing_evidence"][0],
+        )
+
+    def test_runtime_evidence_claim_gate_blocks_unknown_shardloom_status(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        self.assertEqual(
+            benchmark_run.runtime_evidence_claim_gate_status(True, "success"),
+            "claim_grade",
+        )
+        self.assertEqual(
+            benchmark_run.runtime_evidence_claim_gate_status(True, "unsupported"),
+            "unsupported",
+        )
+        self.assertEqual(
+            benchmark_run.runtime_evidence_claim_gate_status(True, "skipped_by_gate"),
+            "blocked",
         )
 
     def test_cold_lane_accepts_shared_batch_process_timing(self) -> None:
@@ -3161,7 +3231,7 @@ jobs:
                   <h2>Public front doors</h2>
                   <p>Route rows name the user-facing prepared paths.</p>
                   <article data-public-front-door-id="local_source_auto_prepare_vortex_front_door">
-                    <code>ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
+                    <code>ctx.prepare_vortex(&#39;fact.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()</code>
                     <p>SourceState</p>
                     <p>result_sink</p>
                     <p>not_timing_row_route_identity_only</p>

@@ -2447,7 +2447,8 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
         String::from_utf8_lossy(&blocked.stderr)
     );
     assert!(
-        blocked_output.contains("numeric arithmetic projection division by zero is not admitted")
+        blocked_output
+            .contains("numeric arithmetic projection division by zero is a runtime data error")
     );
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
@@ -2460,7 +2461,7 @@ fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallbac
     fs::write(&source_path, "id,amount\n1,12.34\n2,15.50\n3,21.25\n").expect("write source csv");
 
     let statement = format!(
-        "SELECT id,CAST(amount AS decimal128(10,2)) + CAST('1.250' AS decimal128(10,3)) AS adjusted,CAST(amount AS decimal128(10,2)) / 2 AS half,CAST(amount AS decimal128(10,2)) * CAST('1.5' AS decimal128(2,1)) AS scaled FROM '{}' WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.340' AS decimal128(10,3)) LIMIT 10",
+        "SELECT id,CAST(amount AS decimal128(10,2)) + CAST('1.25' AS decimal128(10,2)) AS adjusted,CAST(amount AS decimal128(10,2)) / 2 AS half,CAST(amount AS decimal128(10,2)) * CAST('1.50' AS decimal128(3,2)) AS scaled FROM '{}' WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.34' AS decimal128(10,2)) LIMIT 10",
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -2507,7 +2508,7 @@ fn sql_local_source_smoke_executes_decimal_arithmetic_projection_without_fallbac
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(
-        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"adjusted\\\":\\\"13.590\\\",\\\"half\\\":\\\"6.170000\\\",\\\"scaled\\\":\\\"18.510\\\"}\\n{\\\"id\\\":2,\\\"adjusted\\\":\\\"16.750\\\",\\\"half\\\":\\\"7.750000\\\",\\\"scaled\\\":\\\"23.250\\\"}\\n{\\\"id\\\":3,\\\"adjusted\\\":\\\"22.500\\\",\\\"half\\\":\\\"10.625000\\\",\\\"scaled\\\":\\\"31.875\\\"}\\n\""
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"adjusted\\\":\\\"13.59\\\",\\\"half\\\":\\\"6.170000\\\",\\\"scaled\\\":\\\"18.5100\\\"}\\n{\\\"id\\\":2,\\\"adjusted\\\":\\\"16.75\\\",\\\"half\\\":\\\"7.750000\\\",\\\"scaled\\\":\\\"23.2500\\\"}\\n{\\\"id\\\":3,\\\"adjusted\\\":\\\"22.50\\\",\\\"half\\\":\\\"10.625000\\\",\\\"scaled\\\":\\\"31.8750\\\"}\\n\""
     ));
 
     let blocked_statement = format!(
@@ -7571,7 +7572,7 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
         String::from_utf8_lossy(&divide_by_zero_output.stdout),
         String::from_utf8_lossy(&divide_by_zero_output.stderr)
     );
-    assert!(output.contains("numeric arithmetic division by zero is not admitted"));
+    assert!(output.contains("numeric arithmetic division by zero is a runtime data error"));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

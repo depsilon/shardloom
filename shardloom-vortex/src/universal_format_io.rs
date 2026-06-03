@@ -1116,7 +1116,11 @@ fn parquet_decimal128_column(
 ) -> Result<(Field, ArrayRef)> {
     let (precision, scale) =
         decimal128_column_precision_scale(column, values, context, declared_precision_scale)?;
-    let scale_i8 = i8::try_from(scale).expect("decimal scale fits i8");
+    let scale_i8 = i8::try_from(scale).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} column '{column}' cannot preserve decimal128({precision},{scale}): scale exceeds Arrow decimal128 range"
+        ))
+    })?;
     let mut builder = Decimal128Builder::with_capacity(values.len())
         .with_precision_and_scale(precision, scale_i8)
         .map_err(|error| {
