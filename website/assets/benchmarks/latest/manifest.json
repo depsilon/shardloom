@@ -7,27 +7,27 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 300,
-        "sha256": "1949f27a0995607a12ff3be65319bebc15e20c072ceec722baf8fa4347bc917f"
+        "sha256": "75e0be1f1bca9811a518af95f530f78b133cc8feb7d6650b88af12a0d72469bc"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 300,
-        "sha256": "46e80ebc4d2d589a3f7e485f65f17896e60e35f4f84582997054751f94edc86f"
+        "sha256": "c1b73aeeeca42b67e4f9d2daefda749916ff3111c85178b8d29eff7e92013b9b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 300,
-        "sha256": "129c5cc19b338b03511d590e6c134fadc80a5681f0b111d7e0887f074ca19778"
+        "sha256": "e40c7d50233101e50c685d8d50e399d69d6139043fe3e0c83b7b488bc255a849"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 300,
-        "sha256": "c602f2bb9226eb95a0da4e7dcf2d3abe293c538f98af185927e4c4c9d96edf73"
+        "sha256": "9d81b5aadcdddb0f654bd0c3ea8610076e7ad6e14b3c47f9c478b3e0e37cb6b2"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
         "row_count": 120,
-        "sha256": "fcfb9a52eb0f8cd3c77009549c41444a9462defac03343ed95ba7e03f402ccb0"
+        "sha256": "330ee50cc8f1faae95b9963e25bec9f6db8f0cff91adf93a2e74354939f9ce73"
       }
     ]
   },
@@ -68,7 +68,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "3ce6717f74acd033bf4cc7a7f7721ce51f5a349a",
+  "benchmark_git_sha": "07d1cbb04225ef7c6a99bb18b780ecd90613009a",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -97,7 +97,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-03T12:16:06.477684+00:00",
+  "generated_at_utc": "2026-06-03T17:12:06.183783+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2024.8.0",
     "datafusion": "available, version 50.1.0",
@@ -105,10 +105,10 @@
     "pandas": "available, version 2.3.3",
     "polars-eager": "available, version 1.36.1",
     "polars-lazy": "available, version 1.36.1 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-ec010589-dirty",
-    "shardloom-prepare-batch": "available, version workspace-local-release-ec010589-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-ec010589-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-ec010589-dirty"
+    "shardloom": "available, version workspace-local-release-07d1cbb0",
+    "shardloom-prepare-batch": "available, version workspace-local-release-07d1cbb0",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-07d1cbb0",
+    "shardloom-vortex": "available, version workspace-local-release-07d1cbb0"
   },
   "lane_versions": {
     "dask": "2024.8.0",
@@ -117,10 +117,10 @@
     "pandas": "2.3.3",
     "polars-eager": "1.36.1",
     "polars-lazy": "1.36.1 (lazy scan API)",
-    "shardloom": "workspace-local-release-ec010589-dirty",
-    "shardloom-prepare-batch": "workspace-local-release-ec010589-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-ec010589-dirty",
-    "shardloom-vortex": "workspace-local-release-ec010589-dirty"
+    "shardloom": "workspace-local-release-07d1cbb0",
+    "shardloom-prepare-batch": "workspace-local-release-07d1cbb0",
+    "shardloom-prepared-vortex": "workspace-local-release-07d1cbb0",
+    "shardloom-vortex": "workspace-local-release-07d1cbb0"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -760,5 +760,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "3ce6717f74acd033bf4cc7a7f7721ce51f5a349a"
+  "shardloom_git_sha": "07d1cbb04225ef7c6a99bb18b780ecd90613009a"
 }
