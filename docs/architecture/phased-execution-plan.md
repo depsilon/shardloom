@@ -425,6 +425,87 @@ Implementation checklist, in required order:
 
 Last-order runtime expansion checklist, not to be left as vague unsupported prose:
 
+- [ ] GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization:
+  Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
+  optimization for runtime-ready local routes.
+  Current state: the full-local benchmark artifacts on `2026-05-31` report 600 successful,
+  claim-grade, scoped-runtime-supported ShardLoom rows with zero ShardLoom unsupported rows and six
+  unsupported external DataFusion baseline rows. The route ledger is valid, but the current
+  post-merge publication gate blocks public claim refresh because the artifact was generated at
+  commit `6e2d2559` while current `main` is `a48f20d7`. The timing evidence shows prepared/native
+  query work is already small (`ShardLoom Native Vortex Query` about 6.12 ms geomean total route
+  and about 3.24 ms average scan/compute across the full published row set; simple operators are
+  often sub-millisecond while many-small-files, join+aggregate, and nested JSON scan dominate the
+  tail), while raw compatibility routes are dominated by preparation:
+  JSONL prepare-once first query is about 1.1 s, CSV about 313 ms, and non-text columnar formats are
+  still dominated by a roughly 94-100 ms Vortex write stage. Code review found full-file string
+  reads for CSV/JSONL, per-row JSON map parsing, row-struct materialization for columnar inputs
+  before rebuilding Arrow/Vortex arrays, repeated Vortex runtime/session construction, in-memory
+  writer buffering, result-sink replay overhead in hot routes, residual-native and
+  materialized-temporary operator modes, and several copy-budget/layout fields still marked
+  `not_measured` or writer-default/no-performance-claim. This branch has replaced JSONL
+  `BTreeMap` parsing with lookup-only maps and then promoted canonical benchmark-shaped JSONL rows
+  to a schema-specific no-map fast path with fallback to the generic flat JSONL parser, added a
+  no-quote CSV fast path, reused Vortex file I/O runtime/session context in the cold
+  write/result-sink path, and promoted cold columnar imports to
+  `arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary`. The final focused
+  ShardLoom-only rerun at
+  `target/benchmark-artifacts/codex-6d-final-20260603T000000Z/traditional_analytics_existing_data.json`
+  produced 48 successful rows and zero errors across `shardloom`, `shardloom-vortex`,
+  `shardloom-prepared-vortex`, and `shardloom-prepare-batch` for CSV/JSONL/Parquet/Arrow
+  IPC/Avro/ORC selective-filter and filter-projection-limit scenarios. Compared with
+  `target/benchmark-artifacts/codex-5j-full-local-external-fix-20260531T152911Z/traditional-full-local-broad.json`,
+  the 12 matching cold `shardloom` compatibility-import rows moved average
+  `total_runtime_millis` from 341.728 ms to 125.254 ms, source parsing from 205.411 ms to
+  23.386 ms, compatibility-to-Vortex import from 331.386 ms to 114.196 ms, Vortex array build from
+  21.710 ms to 0.043 ms, Vortex write from 94.601 ms to 80.033 ms, and CLI process wall time from
+  361.242 ms to 155.041 ms. Within that final rerun, JSONL cold rows averaged 83.499 ms total,
+  32.922 ms source parse/read, and 72.226 ms compatibility-to-Vortex import. A JSONL-only
+  intermediate rerun at
+  `target/benchmark-artifacts/codex-6d-jsonl-fastpath-20260603T000000Z/traditional_analytics_jsonl_fastpath.json`
+  produced two successful ShardLoom rows and zero errors and was superseded by the final full-format
+  rerun. A bounded `Vec` capacity hint around the Vortex writer buffer was
+  measured separately in
+  `target/benchmark-artifacts/codex-6d-write-buffer-capacity-20260603T000000Z/traditional_analytics_existing_data.json`
+  and rejected because it regressed structured cold `vortex_write_millis` by about 8% versus the
+  prior optimized artifact; future write-stage work should inspect Vortex writer encoding/layout
+  behavior or admitted writer configuration rather than local preallocation.
+  Runtime enablement: this item keeps the same user-visible route family:
+  raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
+  `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
+  report/result sink/evidence, with `fallback_attempted=false` and
+  `external_engine_invoked=false`.
+  Next slice outcome: reduce the measured Vortex write-stage and tail operator overhead
+  without changing semantics by inspecting admitted Vortex writer encoding/layout configuration,
+  tightening result-sink/evidence overhead, and continuing encoded operator hot-path promotion in
+  follow-up slices.
+  User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
+  routes, Python/context prepared/native route helpers, result-sink evidence, route capability
+  reports, and release-readiness benchmark validators.
+  Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`,
+  `shardloom-vortex/src/vortex_ingest.rs` if shared helper extraction is needed,
+  benchmark promoter/static validators when stage semantics change, Python/CLI docs when user
+  behavior changes, and benchmark/release evidence artifacts after the runtime path changes.
+  Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, route
+  ledger zero deltas, no-fallback/no-external-engine fields, benchmark artifact completeness,
+  copy-budget/layout fields updated when measurements improve, and a refreshed local benchmark
+  before any public performance claim.
+  Acceptance: route behavior and evidence remain identical or stricter, repeated Vortex I/O setup is
+  removed where safe, hot-stage timing fields still reproduce route totals, and the next benchmark
+  run can show whether write/read/evidence overhead changed without weakening claim gates.
+  Verification: focused Rust tests for traditional analytics Vortex I/O paths, `cargo fmt --all
+  -- --check`, relevant `cargo test` package/feature targets, benchmark artifact validators when
+  generated artifacts change, and `git diff --check`.
+  Non-goals: no Spark/DataFusion/Polars/DuckDB fallback, no public performance/superiority claim
+  from this slice alone, no hidden fast mode that skips claim-required evidence, no broad object-store
+  or production claim, and no dependency expansion unless separately justified.
+  Dependencies/blockers: refreshed post-merge benchmark artifacts, route-total/stage timing parity,
+  no-fallback certificate evidence, copy-budget/layout measurements, and follow-up admission work
+  for result-sink/evidence overhead, scan runtime/session reuse, and encoded operator hot paths.
+  Claim boundary: scoped local runtime optimization only; performance, production, broad
+  SQL/DataFrame parity, object-store/table, and Spark-replacement claims remain blocked until the
+  refreshed workload-scoped correctness, Native I/O, benchmark, release, and claim-gate evidence
+  exists.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
   Current state: local-source SQL supports bounded collect, selected projections/filters/aggregates,

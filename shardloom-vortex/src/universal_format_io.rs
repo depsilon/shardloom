@@ -683,7 +683,7 @@ pub fn encode_flat_parquet_rows(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch(columns, rows, "local Parquet output")?;
-    encode_parquet_record_batch(batch)
+    encode_parquet_record_batch(&batch)
 }
 
 /// Encode flat scalar rows into local Parquet bytes with optional logical dtype hints.
@@ -702,17 +702,17 @@ pub fn encode_flat_parquet_rows_with_dtypes(
         rows,
         "local Parquet output",
     )?;
-    encode_parquet_record_batch(batch)
+    encode_parquet_record_batch(&batch)
 }
 
-fn encode_parquet_record_batch(batch: RecordBatch) -> Result<Vec<u8>> {
+fn encode_parquet_record_batch(batch: &RecordBatch) -> Result<Vec<u8>> {
     let mut writer = parquet::arrow::ArrowWriter::try_new(Vec::new(), batch.schema(), None)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to create local Parquet output writer: {error}"
             ))
         })?;
-    writer.write(&batch).map_err(|error| {
+    writer.write(batch).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to write local Parquet output batch: {error}"
         ))
@@ -735,7 +735,7 @@ pub fn encode_flat_arrow_ipc_rows(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch(columns, rows, "local Arrow IPC output")?;
-    encode_arrow_ipc_record_batch(batch)
+    encode_arrow_ipc_record_batch(&batch)
 }
 
 /// Encode flat scalar rows into local Arrow IPC bytes with optional logical dtype hints.
@@ -754,17 +754,17 @@ pub fn encode_flat_arrow_ipc_rows_with_dtypes(
         rows,
         "local Arrow IPC output",
     )?;
-    encode_arrow_ipc_record_batch(batch)
+    encode_arrow_ipc_record_batch(&batch)
 }
 
-fn encode_arrow_ipc_record_batch(batch: RecordBatch) -> Result<Vec<u8>> {
+fn encode_arrow_ipc_record_batch(batch: &RecordBatch) -> Result<Vec<u8>> {
     let mut writer = arrow_ipc::writer::FileWriter::try_new(Vec::new(), batch.schema().as_ref())
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to create local Arrow IPC output writer: {error}"
             ))
         })?;
-    writer.write(&batch).map_err(|error| {
+    writer.write(batch).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to write local Arrow IPC output batch: {error}"
         ))

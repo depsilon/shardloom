@@ -116,6 +116,8 @@ const TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY: &str =
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY: &str =
     "result(scenario:utf8,result_json:utf8,rows_materialized:u64,workload_constitution_id:utf8)";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+type JsonlFieldMap = std::collections::HashMap<String, String>;
 
 /// Runtime evidence level requested by the scoped prepared/native batch runner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -442,6 +444,14 @@ impl TraditionalAnalyticsInputFormat {
                 "local_columnar_source_state_adapter"
             }
         }
+    }
+
+    #[must_use]
+    pub const fn is_columnar(self) -> bool {
+        matches!(
+            self,
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
+        )
     }
 
     #[must_use]
@@ -2536,15 +2546,45 @@ impl TraditionalVortexWriteTiming {
     const VORTEX_RECORD_BATCH_PROVIDER_SURFACE: &'static str = "ArrayRef::from_arrow(RecordBatch)";
     const VORTEX_RECORD_BATCH_STRATEGY: &'static str = "vortex_from_arrow_record_batch";
     const VORTEX_RECORD_BATCH_INPUT_LAYOUT: &'static str = "traditional_arrow_record_batch";
+    const VORTEX_DIRECT_COLUMNAR_STRATEGY: &'static str =
+        "vortex_from_arrow_record_batch_without_traditional_rows";
+    const VORTEX_DIRECT_COLUMNAR_INPUT_LAYOUT: &'static str =
+        "traditional_vortex_provider_record_batch";
 
     fn vortex_record_batch_provider(array_build_micros: u64, vortex_write_micros: u64) -> Self {
+        Self::vortex_record_batch_provider_with_layout(
+            array_build_micros,
+            vortex_write_micros,
+            Self::VORTEX_RECORD_BATCH_STRATEGY,
+            Self::VORTEX_RECORD_BATCH_INPUT_LAYOUT,
+        )
+    }
+
+    fn direct_columnar_record_batch_provider(
+        array_build_micros: u64,
+        vortex_write_micros: u64,
+    ) -> Self {
+        Self::vortex_record_batch_provider_with_layout(
+            array_build_micros,
+            vortex_write_micros,
+            Self::VORTEX_DIRECT_COLUMNAR_STRATEGY,
+            Self::VORTEX_DIRECT_COLUMNAR_INPUT_LAYOUT,
+        )
+    }
+
+    fn vortex_record_batch_provider_with_layout(
+        array_build_micros: u64,
+        vortex_write_micros: u64,
+        array_build_strategy: &'static str,
+        array_build_input_layout: &'static str,
+    ) -> Self {
         Self {
             array_build_micros,
             vortex_write_micros,
             array_build_provider_kind: Self::VORTEX_RECORD_BATCH_PROVIDER_KIND,
             array_build_provider_surface: Self::VORTEX_RECORD_BATCH_PROVIDER_SURFACE,
-            array_build_strategy: Self::VORTEX_RECORD_BATCH_STRATEGY,
-            array_build_input_layout: Self::VORTEX_RECORD_BATCH_INPUT_LAYOUT,
+            array_build_strategy,
+            array_build_input_layout,
             array_build_record_batch_count: 1,
             manual_scalar_copy_avoided: true,
         }
@@ -2652,6 +2692,7 @@ struct TraditionalSourceReadEvidence {
     columnar_micros: u64,
     record_batch_count: usize,
     columnar_preserved: bool,
+    direct_vortex_provider_batch: bool,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2663,6 +2704,7 @@ impl TraditionalSourceReadEvidence {
             columnar_micros: 0,
             record_batch_count: 0,
             columnar_preserved: false,
+            direct_vortex_provider_batch: false,
         }
     }
 
@@ -2677,6 +2719,22 @@ impl TraditionalSourceReadEvidence {
             columnar_micros,
             record_batch_count,
             columnar_preserved: true,
+            direct_vortex_provider_batch: false,
+        })
+    }
+
+    fn direct_vortex_provider_batch(
+        columnar_micros: u64,
+        parse_micros: u64,
+        record_batch_count: usize,
+    ) -> Result<Self> {
+        Ok(Self {
+            read_micros: checked_u64_sum(columnar_micros, parse_micros)?,
+            parse_micros,
+            columnar_micros,
+            record_batch_count,
+            columnar_preserved: true,
+            direct_vortex_provider_batch: true,
         })
     }
 
@@ -2694,11 +2752,15 @@ impl TraditionalSourceReadEvidence {
                     )
                 })?,
             columnar_preserved: self.columnar_preserved || other.columnar_preserved,
+            direct_vortex_provider_batch: self.direct_vortex_provider_batch
+                || other.direct_vortex_provider_batch,
         })
     }
 
     fn materialization_layout(&self) -> &'static str {
-        if self.columnar_preserved {
+        if self.direct_vortex_provider_batch {
+            "columnar_record_batches_normalized_to_vortex_provider_batch"
+        } else if self.columnar_preserved {
             "columnar_record_batches_preserved_until_traditional_row_boundary"
         } else {
             "scalar_rows_materialized_in_source_adapter"
@@ -2706,7 +2768,9 @@ impl TraditionalSourceReadEvidence {
     }
 
     fn parse_normalization(&self) -> &'static str {
-        if self.columnar_preserved {
+        if self.direct_vortex_provider_batch {
+            "arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary"
+        } else if self.columnar_preserved {
             "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider"
         } else {
             "compatibility_scalar_parse_to_traditional_rows_then_vortex_from_arrow_provider"
@@ -2718,6 +2782,14 @@ impl TraditionalSourceReadEvidence {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TraditionalSourceRead<T> {
     rows: Vec<T>,
+    evidence: TraditionalSourceReadEvidence,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug)]
+struct TraditionalVortexProviderBatchRead {
+    batch: arrow_array::RecordBatch,
+    row_count: usize,
     evidence: TraditionalSourceReadEvidence,
 }
 
@@ -13930,16 +14002,6 @@ fn run_traditional_analytics_benchmark_enabled(
     let resource_policy = request
         .resource_policy
         .resolve_for_sources(source_bytes_read);
-    let fact_source = read_traditional_fact_rows_with_evidence(
-        &request.fact_csv,
-        request.input_format,
-        resource_policy,
-    )?;
-    let dim_source = read_traditional_dim_rows_with_evidence(
-        &request.dim_csv,
-        request.input_format,
-        resource_policy,
-    )?;
     let cdc_delta_source = request.cdc_delta_csv.as_ref().map_or_else(
         || {
             Ok(TraditionalSourceRead {
@@ -13950,20 +14012,104 @@ fn run_traditional_analytics_benchmark_enabled(
         |path| read_traditional_cdc_delta_csv_with_evidence(path),
     )?;
     let TraditionalSourceRead {
-        rows: fact_rows,
-        evidence: fact_source_evidence,
-    } = fact_source;
-    let TraditionalSourceRead {
-        rows: dim_rows,
-        evidence: dim_source_evidence,
-    } = dim_source;
-    let TraditionalSourceRead {
         rows: cdc_delta_rows,
         evidence: cdc_delta_source_evidence,
     } = cdc_delta_source;
-    let source_read_evidence = fact_source_evidence
-        .add(dim_source_evidence)?
-        .add(cdc_delta_source_evidence)?;
+    let vortex_io = TraditionalVortexIoContext::new();
+    let fact_vortex_path = request.workspace_dir.join("fact.vortex");
+    let dim_vortex_path = request.workspace_dir.join("dim.vortex");
+    let cdc_delta_vortex_path = request
+        .cdc_delta_csv
+        .as_ref()
+        .map(|_| request.workspace_dir.join("cdc_delta.vortex"));
+    let (source_read_evidence, source_rows_materialized, mut vortex_write_timing) = if request
+        .input_format
+        .is_columnar()
+    {
+        let fact_source = read_traditional_fact_vortex_provider_batch_with_evidence(
+            &request.fact_csv,
+            request.input_format,
+            resource_policy,
+        )?;
+        let dim_source = read_traditional_dim_vortex_provider_batch_with_evidence(
+            &request.dim_csv,
+            request.input_format,
+            resource_policy,
+        )?;
+        let source_read_evidence = fact_source
+            .evidence
+            .add(dim_source.evidence)?
+            .add(cdc_delta_source_evidence)?;
+        let source_rows_materialized =
+            checked_usize_sum_to_u64(fact_source.row_count, dim_source.row_count)?
+                .checked_add(usize_to_u64(cdc_delta_rows.len())?)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "traditional analytics source row count overflow".to_string(),
+                    )
+                })?;
+        let fact_write_timing = write_vortex_provider_record_batch_with_io(
+            &vortex_io,
+            fact_source.batch,
+            "traditional fact table",
+            &fact_vortex_path,
+        )?;
+        let dim_write_timing = write_vortex_provider_record_batch_with_io(
+            &vortex_io,
+            dim_source.batch,
+            "traditional dimension table",
+            &dim_vortex_path,
+        )?;
+        (
+            source_read_evidence,
+            source_rows_materialized,
+            fact_write_timing.add(dim_write_timing)?,
+        )
+    } else {
+        let fact_source = read_traditional_fact_rows_with_evidence(
+            &request.fact_csv,
+            request.input_format,
+            resource_policy,
+        )?;
+        let dim_source = read_traditional_dim_rows_with_evidence(
+            &request.dim_csv,
+            request.input_format,
+            resource_policy,
+        )?;
+        let TraditionalSourceRead {
+            rows: fact_rows,
+            evidence: fact_source_evidence,
+        } = fact_source;
+        let TraditionalSourceRead {
+            rows: dim_rows,
+            evidence: dim_source_evidence,
+        } = dim_source;
+        let source_read_evidence = fact_source_evidence
+            .add(dim_source_evidence)?
+            .add(cdc_delta_source_evidence)?;
+        let source_rows_materialized = checked_usize_sum_to_u64(fact_rows.len(), dim_rows.len())?
+            .checked_add(usize_to_u64(cdc_delta_rows.len())?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "traditional analytics source row count overflow".to_string(),
+                )
+            })?;
+        let fact_write_timing =
+            write_fact_vortex_with_io(&vortex_io, &fact_rows, &fact_vortex_path)?;
+        let dim_write_timing = write_dim_vortex_with_io(&vortex_io, &dim_rows, &dim_vortex_path)?;
+        (
+            source_read_evidence,
+            source_rows_materialized,
+            fact_write_timing.add(dim_write_timing)?,
+        )
+    };
+    if let Some(path) = &cdc_delta_vortex_path {
+        vortex_write_timing = vortex_write_timing.add(write_cdc_delta_vortex_with_io(
+            &vortex_io,
+            &cdc_delta_rows,
+            path,
+        )?)?;
+    }
     let source_read_micros = source_read_evidence.read_micros;
     let source_parse_micros = source_read_evidence.parse_micros;
     let source_to_columnar_micros = source_read_evidence.columnar_micros;
@@ -13972,26 +14118,6 @@ fn run_traditional_analytics_benchmark_enabled(
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
     let source_state_columnar_preserved = source_read_evidence.columnar_preserved;
     let source_state_record_batch_count = source_read_evidence.record_batch_count;
-    let source_rows_materialized = checked_usize_sum_to_u64(fact_rows.len(), dim_rows.len())?
-        .checked_add(usize_to_u64(cdc_delta_rows.len())?)
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "traditional analytics source row count overflow".to_string(),
-            )
-        })?;
-    let fact_vortex_path = request.workspace_dir.join("fact.vortex");
-    let dim_vortex_path = request.workspace_dir.join("dim.vortex");
-    let cdc_delta_vortex_path = request
-        .cdc_delta_csv
-        .as_ref()
-        .map(|_| request.workspace_dir.join("cdc_delta.vortex"));
-    let fact_write_timing = write_fact_vortex(&fact_rows, &fact_vortex_path)?;
-    let dim_write_timing = write_dim_vortex(&dim_rows, &dim_vortex_path)?;
-    let mut vortex_write_timing = fact_write_timing.add(dim_write_timing)?;
-    if let Some(path) = &cdc_delta_vortex_path {
-        vortex_write_timing =
-            vortex_write_timing.add(write_cdc_delta_vortex(&cdc_delta_rows, path)?)?;
-    }
     let vortex_array_build_micros = vortex_write_timing.array_build_micros;
     let vortex_write_micros = vortex_write_timing.vortex_write_micros;
     let compatibility_to_vortex_import_micros = checked_u64_sum(
@@ -14059,6 +14185,7 @@ fn run_traditional_analytics_benchmark_enabled(
             &scenario_execution.result_json,
             scenario_execution.rows_materialized,
             &request.workspace_dir,
+            &vortex_io,
         )?)
     } else {
         None
@@ -14428,10 +14555,12 @@ fn write_and_verify_computed_result_sink(
     result_json: &str,
     rows_materialized: u64,
     workspace_dir: &std::path::Path,
+    vortex_io: &TraditionalVortexIoContext,
 ) -> Result<TraditionalComputedResultSinkVerification> {
     let result_vortex_path = workspace_dir.join("result.vortex");
     let write_start = std::time::Instant::now();
-    write_computed_result_vortex(
+    write_computed_result_vortex_with_io(
+        vortex_io,
         scenario,
         result_json,
         rows_materialized,
@@ -14440,7 +14569,7 @@ fn write_and_verify_computed_result_sink(
     let write_micros = duration_to_micros(write_start.elapsed());
     let bytes = file_len(&result_vortex_path, "computed result Vortex file")?;
     let digest = file_digest(&result_vortex_path, "computed result Vortex file")?;
-    let replay = read_computed_result_vortex(&result_vortex_path)?;
+    let replay = read_computed_result_vortex_with_io(vortex_io, &result_vortex_path)?;
     if replay.scenario != scenario.as_str() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "computed result Vortex replay scenario mismatch for {}; fallback execution was not attempted",
@@ -15658,11 +15787,13 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
                 result_workspace_dir.display()
             ))
         })?;
+        let vortex_io = TraditionalVortexIoContext::new();
         Some(write_and_verify_computed_result_sink(
             request.scenario,
             &scenario_execution.result_json,
             scenario_execution.rows_materialized,
             result_workspace_dir,
+            &vortex_io,
         )?)
     } else {
         None
@@ -16528,51 +16659,194 @@ impl VortexCdcDeltaTable {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn write_fact_vortex(
-    rows: &[TraditionalFactRow],
-    path: &std::path::Path,
-) -> Result<TraditionalVortexWriteTiming> {
-    let array_build_start = std::time::Instant::now();
-    let batch = fact_vortex_record_batch(rows)?;
-    let array = vortex_array_from_record_batch(batch, "traditional fact table")?;
-    let array_build_micros = duration_to_micros(array_build_start.elapsed());
-    let vortex_write_micros = write_vortex_array(path, &array)?;
-    Ok(TraditionalVortexWriteTiming::vortex_record_batch_provider(
-        array_build_micros,
-        vortex_write_micros,
-    ))
+struct TraditionalVortexIoContext {
+    runtime: vortex::io::runtime::single::SingleThreadRuntime,
+    session: vortex::session::VortexSession,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalVortexIoContext {
+    fn new() -> Self {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        Self { runtime, session }
+    }
+
+    fn write_array(&self, path: &std::path::Path, array: &vortex::array::ArrayRef) -> Result<u64> {
+        use vortex::file::WriteOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+
+        let write_start = std::time::Instant::now();
+        let mut bytes = Vec::new();
+        let summary = self
+            .runtime
+            .block_on(
+                self.session
+                    .write_options()
+                    .write(&mut bytes, array.to_array_stream()),
+            )
+            .map_err(vortex_error)?;
+        let expected_rows = usize_to_u64(array.len())?;
+        if summary.row_count() != expected_rows {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "Vortex writer row count mismatch: wrote {}, expected {}",
+                summary.row_count(),
+                expected_rows
+            )));
+        }
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        shardloom_core::write_workspace_safe_bytes(
+            workspace_root,
+            path,
+            true,
+            "traditional analytics Vortex artifact",
+            &bytes,
+        )?;
+        Ok(duration_to_micros(write_start.elapsed()))
+    }
+
+    fn read_struct(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<std::collections::BTreeMap<String, vortex::array::ArrayRef>> {
+        use std::fs;
+
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::StructArray;
+        use vortex::array::arrays::struct_::StructArrayExt as _;
+        use vortex::array::stream::ArrayStreamExt as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+
+        let bytes = fs::read(path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read Vortex file '{}': {error}",
+                path.display()
+            ))
+        })?;
+        let file = self
+            .session
+            .open_options()
+            .open_buffer(bytes)
+            .map_err(vortex_error)?;
+        let array = self
+            .runtime
+            .block_on(
+                file.scan()
+                    .map_err(vortex_error)?
+                    .into_array_stream()
+                    .map_err(vortex_error)?
+                    .read_all(),
+            )
+            .map_err(vortex_error)?;
+        let mut ctx = self.session.create_execution_ctx();
+        let struct_array = array
+            .execute::<StructArray>(&mut ctx)
+            .map_err(vortex_error)?;
+        let mut fields = std::collections::BTreeMap::new();
+        for name in struct_array.names().iter() {
+            let field = struct_array
+                .unmasked_field_by_name(name.as_ref())
+                .map_err(vortex_error)?
+                .clone();
+            fields.insert(name.as_ref().to_string(), field);
+        }
+        Ok(fields)
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_fact_vortex_with_io(
+    vortex_io: &TraditionalVortexIoContext,
+    rows: &[TraditionalFactRow],
+    path: &std::path::Path,
+) -> Result<TraditionalVortexWriteTiming> {
+    let batch = fact_vortex_record_batch(rows)?;
+    write_vortex_record_batch_with_io(
+        vortex_io,
+        batch,
+        "traditional fact table",
+        path,
+        TraditionalVortexWriteTiming::vortex_record_batch_provider,
+    )
+}
+
+#[cfg(all(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn write_dim_vortex(
     rows: &[TraditionalDimRow],
     path: &std::path::Path,
 ) -> Result<TraditionalVortexWriteTiming> {
-    let array_build_start = std::time::Instant::now();
-    let batch = dim_vortex_record_batch(rows)?;
-    let array = vortex_array_from_record_batch(batch, "traditional dimension table")?;
-    let array_build_micros = duration_to_micros(array_build_start.elapsed());
-    let vortex_write_micros = write_vortex_array(path, &array)?;
-    Ok(TraditionalVortexWriteTiming::vortex_record_batch_provider(
-        array_build_micros,
-        vortex_write_micros,
-    ))
+    let vortex_io = TraditionalVortexIoContext::new();
+    write_dim_vortex_with_io(&vortex_io, rows, path)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn write_cdc_delta_vortex(
+fn write_dim_vortex_with_io(
+    vortex_io: &TraditionalVortexIoContext,
+    rows: &[TraditionalDimRow],
+    path: &std::path::Path,
+) -> Result<TraditionalVortexWriteTiming> {
+    let batch = dim_vortex_record_batch(rows)?;
+    write_vortex_record_batch_with_io(
+        vortex_io,
+        batch,
+        "traditional dimension table",
+        path,
+        TraditionalVortexWriteTiming::vortex_record_batch_provider,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_cdc_delta_vortex_with_io(
+    vortex_io: &TraditionalVortexIoContext,
     rows: &[TraditionalCdcDeltaRow],
     path: &std::path::Path,
 ) -> Result<TraditionalVortexWriteTiming> {
-    let array_build_start = std::time::Instant::now();
     let batch = cdc_delta_vortex_record_batch(rows)?;
-    let array = vortex_array_from_record_batch(batch, "traditional CDC delta table")?;
+    write_vortex_record_batch_with_io(
+        vortex_io,
+        batch,
+        "traditional CDC delta table",
+        path,
+        TraditionalVortexWriteTiming::vortex_record_batch_provider,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_vortex_provider_record_batch_with_io(
+    vortex_io: &TraditionalVortexIoContext,
+    batch: arrow_array::RecordBatch,
+    label: &str,
+    path: &std::path::Path,
+) -> Result<TraditionalVortexWriteTiming> {
+    write_vortex_record_batch_with_io(
+        vortex_io,
+        batch,
+        label,
+        path,
+        TraditionalVortexWriteTiming::direct_columnar_record_batch_provider,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_vortex_record_batch_with_io(
+    vortex_io: &TraditionalVortexIoContext,
+    batch: arrow_array::RecordBatch,
+    label: &str,
+    path: &std::path::Path,
+    timing: fn(u64, u64) -> TraditionalVortexWriteTiming,
+) -> Result<TraditionalVortexWriteTiming> {
+    let array_build_start = std::time::Instant::now();
+    let array = vortex_array_from_record_batch(batch, label)?;
     let array_build_micros = duration_to_micros(array_build_start.elapsed());
-    let vortex_write_micros = write_vortex_array(path, &array)?;
-    Ok(TraditionalVortexWriteTiming::vortex_record_batch_provider(
-        array_build_micros,
-        vortex_write_micros,
-    ))
+    let vortex_write_micros = vortex_io.write_array(path, &array)?;
+    Ok(timing(array_build_micros, vortex_write_micros))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16590,127 +16864,272 @@ fn vortex_array_from_record_batch(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct TraditionalFactVortexColumns {
+    id: Vec<u64>,
+    group_key: Vec<u32>,
+    dim_key: Vec<u32>,
+    value: Vec<u32>,
+    metric: Vec<f64>,
+    flag: Vec<u8>,
+    category: Vec<String>,
+    event_date: Vec<String>,
+    nullable_metric_00: Vec<String>,
+    nested_payload: Vec<String>,
+    raw_event_time: Vec<String>,
+    dirty_numeric: Vec<String>,
+    dirty_flag: Vec<String>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalFactVortexColumns {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            id: Vec::with_capacity(capacity),
+            group_key: Vec::with_capacity(capacity),
+            dim_key: Vec::with_capacity(capacity),
+            value: Vec::with_capacity(capacity),
+            metric: Vec::with_capacity(capacity),
+            flag: Vec::with_capacity(capacity),
+            category: Vec::with_capacity(capacity),
+            event_date: Vec::with_capacity(capacity),
+            nullable_metric_00: Vec::with_capacity(capacity),
+            nested_payload: Vec::with_capacity(capacity),
+            raw_event_time: Vec::with_capacity(capacity),
+            dirty_numeric: Vec::with_capacity(capacity),
+            dirty_flag: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push_row(&mut self, row: &TraditionalFactRow) {
+        self.id.push(row.id);
+        self.group_key.push(row.group_key);
+        self.dim_key.push(row.dim_key);
+        self.value.push(row.value);
+        self.metric.push(row.metric);
+        self.flag.push(row.flag);
+        self.category.push(row.category.clone());
+        self.event_date
+            .push(row.event_date.clone().unwrap_or_default());
+        self.nullable_metric_00
+            .push(row.nullable_metric_00.clone().unwrap_or_default());
+        self.nested_payload
+            .push(row.nested_payload.clone().unwrap_or_default());
+        self.raw_event_time
+            .push(row.raw_event_time.clone().unwrap_or_default());
+        self.dirty_numeric
+            .push(row.dirty_numeric.clone().unwrap_or_default());
+        self.dirty_flag
+            .push(row.dirty_flag.clone().unwrap_or_default());
+    }
+
+    fn extend_arrow_batch(
+        &mut self,
+        batch: &arrow_array::RecordBatch,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        self.id.extend(arrow_u64_column(batch, path, "id")?);
+        self.group_key
+            .extend(arrow_u32_column(batch, path, "group_key")?);
+        self.dim_key
+            .extend(arrow_u32_column(batch, path, "dim_key")?);
+        self.value.extend(arrow_u32_column(batch, path, "value")?);
+        self.metric.extend(arrow_f64_column(batch, path, "metric")?);
+        self.flag.extend(arrow_u8_column(batch, path, "flag")?);
+        self.category
+            .extend(arrow_string_column(batch, path, "category")?);
+        self.event_date.extend(
+            arrow_optional_string_column(batch, path, "event_date")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        self.nullable_metric_00.extend(
+            arrow_optional_value_string_column(batch, path, "nullable_metric_00")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        self.nested_payload.extend(
+            arrow_optional_string_column(batch, path, "nested_payload")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        self.raw_event_time.extend(
+            arrow_optional_string_column(batch, path, "raw_event_time")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        self.dirty_numeric.extend(
+            arrow_optional_string_column(batch, path, "dirty_numeric")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        self.dirty_flag.extend(
+            arrow_optional_string_column(batch, path, "dirty_flag")?
+                .into_iter()
+                .map(Option::unwrap_or_default),
+        );
+        Ok(())
+    }
+
+    fn into_record_batch(self) -> Result<arrow_array::RecordBatch> {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            ArrayRef, Float64Array, RecordBatch, StringArray, UInt8Array, UInt32Array, UInt64Array,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::UInt64, false),
+            Field::new("group_key", DataType::UInt32, false),
+            Field::new("dim_key", DataType::UInt32, false),
+            Field::new("value", DataType::UInt32, false),
+            Field::new("metric", DataType::Float64, false),
+            Field::new("flag", DataType::UInt8, false),
+            Field::new("category", DataType::Utf8, false),
+            Field::new("event_date", DataType::Utf8, false),
+            Field::new("nullable_metric_00", DataType::Utf8, false),
+            Field::new("nested_payload", DataType::Utf8, false),
+            Field::new("raw_event_time", DataType::Utf8, false),
+            Field::new("dirty_numeric", DataType::Utf8, false),
+            Field::new("dirty_flag", DataType::Utf8, false),
+        ]);
+        RecordBatch::try_new(
+            Arc::new(schema),
+            vec![
+                Arc::new(UInt64Array::from(self.id)) as ArrayRef,
+                Arc::new(UInt32Array::from(self.group_key)) as ArrayRef,
+                Arc::new(UInt32Array::from(self.dim_key)) as ArrayRef,
+                Arc::new(UInt32Array::from(self.value)) as ArrayRef,
+                Arc::new(Float64Array::from(self.metric)) as ArrayRef,
+                Arc::new(UInt8Array::from(self.flag)) as ArrayRef,
+                Arc::new(StringArray::from(self.category)) as ArrayRef,
+                Arc::new(StringArray::from(self.event_date)) as ArrayRef,
+                Arc::new(StringArray::from(self.nullable_metric_00)) as ArrayRef,
+                Arc::new(StringArray::from(self.nested_payload)) as ArrayRef,
+                Arc::new(StringArray::from(self.raw_event_time)) as ArrayRef,
+                Arc::new(StringArray::from(self.dirty_numeric)) as ArrayRef,
+                Arc::new(StringArray::from(self.dirty_flag)) as ArrayRef,
+            ],
+        )
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build traditional fact Vortex provider batch: {error}; no fallback execution was attempted"
+            ))
+        })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn fact_vortex_record_batch(rows: &[TraditionalFactRow]) -> Result<arrow_array::RecordBatch> {
-    use std::sync::Arc;
+    let mut columns = TraditionalFactVortexColumns::with_capacity(rows.len());
+    for row in rows {
+        columns.push_row(row);
+    }
+    columns.into_record_batch()
+}
 
-    use arrow_array::{
-        ArrayRef, Float64Array, RecordBatch, StringArray, UInt8Array, UInt32Array, UInt64Array,
-    };
-    use arrow_schema::{DataType, Field, Schema};
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_vortex_record_batch_from_arrow_batches(
+    batches: &[arrow_array::RecordBatch],
+    path: &std::path::Path,
+) -> Result<arrow_array::RecordBatch> {
+    let total_rows = batches
+        .iter()
+        .map(arrow_array::RecordBatch::num_rows)
+        .sum::<usize>();
+    let mut columns = TraditionalFactVortexColumns::with_capacity(total_rows);
+    for batch in batches {
+        columns.extend_arrow_batch(batch, path)?;
+    }
+    columns.into_record_batch()
+}
 
-    let schema = Schema::new(vec![
-        Field::new("id", DataType::UInt64, false),
-        Field::new("group_key", DataType::UInt32, false),
-        Field::new("dim_key", DataType::UInt32, false),
-        Field::new("value", DataType::UInt32, false),
-        Field::new("metric", DataType::Float64, false),
-        Field::new("flag", DataType::UInt8, false),
-        Field::new("category", DataType::Utf8, false),
-        Field::new("event_date", DataType::Utf8, false),
-        Field::new("nullable_metric_00", DataType::Utf8, false),
-        Field::new("nested_payload", DataType::Utf8, false),
-        Field::new("raw_event_time", DataType::Utf8, false),
-        Field::new("dirty_numeric", DataType::Utf8, false),
-        Field::new("dirty_flag", DataType::Utf8, false),
-    ]);
-    RecordBatch::try_new(
-        Arc::new(schema),
-        vec![
-            Arc::new(UInt64Array::from(
-                rows.iter().map(|row| row.id).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(UInt32Array::from(
-                rows.iter().map(|row| row.group_key).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(UInt32Array::from(
-                rows.iter().map(|row| row.dim_key).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(UInt32Array::from(
-                rows.iter().map(|row| row.value).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(Float64Array::from(
-                rows.iter().map(|row| row.metric).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(UInt8Array::from(
-                rows.iter().map(|row| row.flag).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.category.clone())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.event_date.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.nullable_metric_00.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.nested_payload.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.raw_event_time.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.dirty_numeric.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.dirty_flag.clone().unwrap_or_default())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-        ],
-    )
-    .map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to build traditional fact Vortex provider batch: {error}; no fallback execution was attempted"
-        ))
-    })
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct TraditionalDimVortexColumns {
+    dim_key: Vec<u32>,
+    dim_label: Vec<String>,
+    weight: Vec<f64>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDimVortexColumns {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            dim_key: Vec::with_capacity(capacity),
+            dim_label: Vec::with_capacity(capacity),
+            weight: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn push_row(&mut self, row: &TraditionalDimRow) {
+        self.dim_key.push(row.dim_key);
+        self.dim_label.push(row.dim_label.clone());
+        self.weight.push(row.weight);
+    }
+
+    fn extend_arrow_batch(
+        &mut self,
+        batch: &arrow_array::RecordBatch,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        self.dim_key
+            .extend(arrow_u32_column(batch, path, "dim_key")?);
+        self.dim_label
+            .extend(arrow_string_column(batch, path, "dim_label")?);
+        self.weight.extend(arrow_f64_column(batch, path, "weight")?);
+        Ok(())
+    }
+
+    fn into_record_batch(self) -> Result<arrow_array::RecordBatch> {
+        use std::sync::Arc;
+
+        use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray, UInt32Array};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let schema = Schema::new(vec![
+            Field::new("dim_key", DataType::UInt32, false),
+            Field::new("dim_label", DataType::Utf8, false),
+            Field::new("weight", DataType::Float64, false),
+        ]);
+        RecordBatch::try_new(
+            Arc::new(schema),
+            vec![
+                Arc::new(UInt32Array::from(self.dim_key)) as ArrayRef,
+                Arc::new(StringArray::from(self.dim_label)) as ArrayRef,
+                Arc::new(Float64Array::from(self.weight)) as ArrayRef,
+            ],
+        )
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build traditional dimension Vortex provider batch: {error}; no fallback execution was attempted"
+            ))
+        })
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn dim_vortex_record_batch(rows: &[TraditionalDimRow]) -> Result<arrow_array::RecordBatch> {
-    use std::sync::Arc;
+    let mut columns = TraditionalDimVortexColumns::with_capacity(rows.len());
+    for row in rows {
+        columns.push_row(row);
+    }
+    columns.into_record_batch()
+}
 
-    use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray, UInt32Array};
-    use arrow_schema::{DataType, Field, Schema};
-
-    let schema = Schema::new(vec![
-        Field::new("dim_key", DataType::UInt32, false),
-        Field::new("dim_label", DataType::Utf8, false),
-        Field::new("weight", DataType::Float64, false),
-    ]);
-    RecordBatch::try_new(
-        Arc::new(schema),
-        vec![
-            Arc::new(UInt32Array::from(
-                rows.iter().map(|row| row.dim_key).collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(StringArray::from(
-                rows.iter()
-                    .map(|row| row.dim_label.clone())
-                    .collect::<Vec<_>>(),
-            )) as ArrayRef,
-            Arc::new(Float64Array::from(
-                rows.iter().map(|row| row.weight).collect::<Vec<_>>(),
-            )) as ArrayRef,
-        ],
-    )
-    .map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to build traditional dimension Vortex provider batch: {error}; no fallback execution was attempted"
-        ))
-    })
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_vortex_record_batch_from_arrow_batches(
+    batches: &[arrow_array::RecordBatch],
+    path: &std::path::Path,
+) -> Result<arrow_array::RecordBatch> {
+    let total_rows = batches
+        .iter()
+        .map(arrow_array::RecordBatch::num_rows)
+        .sum::<usize>();
+    let mut columns = TraditionalDimVortexColumns::with_capacity(total_rows);
+    for batch in batches {
+        columns.extend_arrow_batch(batch, path)?;
+    }
+    columns.into_record_batch()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16759,7 +17178,8 @@ fn cdc_delta_vortex_record_batch(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn write_computed_result_vortex(
+fn write_computed_result_vortex_with_io(
+    vortex_io: &TraditionalVortexIoContext,
     scenario: TraditionalAnalyticsScenario,
     result_json: &str,
     rows_materialized: u64,
@@ -16791,7 +17211,7 @@ fn write_computed_result_vortex(
     )
     .map_err(vortex_error)?;
     let array = array.into_array();
-    let _write_micros = write_vortex_array(path, &array)?;
+    let _write_micros = vortex_io.write_array(path, &array)?;
     Ok(())
 }
 
@@ -17230,43 +17650,10 @@ fn write_orc_output(
     write_compatibility_output_bytes(path, label, &bytes)
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[cfg(all(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn write_vortex_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -> Result<u64> {
-    use vortex::VortexSessionDefault as _;
-    use vortex::file::WriteOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
-
-    let write_start = std::time::Instant::now();
-    let runtime = SingleThreadRuntime::default();
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let mut bytes = Vec::new();
-    let summary = runtime
-        .block_on(
-            session
-                .write_options()
-                .write(&mut bytes, array.to_array_stream()),
-        )
-        .map_err(vortex_error)?;
-    let expected_rows = usize_to_u64(array.len())?;
-    if summary.row_count() != expected_rows {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "Vortex writer row count mismatch: wrote {}, expected {}",
-            summary.row_count(),
-            expected_rows
-        )));
-    }
-    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
-    shardloom_core::write_workspace_safe_bytes(
-        workspace_root,
-        path,
-        true,
-        "traditional analytics Vortex artifact",
-        &bytes,
-    )?;
-    Ok(duration_to_micros(write_start.elapsed()))
+    let vortex_io = TraditionalVortexIoContext::new();
+    vortex_io.write_array(path, array)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17313,14 +17700,31 @@ fn read_cdc_delta_vortex(path: &std::path::Path) -> Result<VortexCdcDeltaTable> 
     })
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[cfg(all(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn read_computed_result_vortex(path: &std::path::Path) -> Result<TraditionalComputedResultPayload> {
     let fields = read_vortex_struct(path)?;
+    computed_result_payload_from_fields(path, &fields)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_computed_result_vortex_with_io(
+    vortex_io: &TraditionalVortexIoContext,
+    path: &std::path::Path,
+) -> Result<TraditionalComputedResultPayload> {
+    let fields = vortex_io.read_struct(path)?;
+    computed_result_payload_from_fields(path, &fields)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn computed_result_payload_from_fields(
+    path: &std::path::Path,
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+) -> Result<TraditionalComputedResultPayload> {
     Ok(TraditionalComputedResultPayload {
-        scenario: single_utf8_field(&fields, "scenario", path)?,
-        result_json: single_utf8_field(&fields, "result_json", path)?,
-        rows_materialized: single_primitive_field::<u64>(&fields, "rows_materialized", path)?,
-        workload_constitution_id: single_utf8_field(&fields, "workload_constitution_id", path)?,
+        scenario: single_utf8_field(fields, "scenario", path)?,
+        result_json: single_utf8_field(fields, "result_json", path)?,
+        rows_materialized: single_primitive_field::<u64>(fields, "rows_materialized", path)?,
+        workload_constitution_id: single_utf8_field(fields, "workload_constitution_id", path)?,
     })
 }
 
@@ -17328,53 +17732,8 @@ fn read_computed_result_vortex(path: &std::path::Path) -> Result<TraditionalComp
 fn read_vortex_struct(
     path: &std::path::Path,
 ) -> Result<std::collections::BTreeMap<String, vortex::array::ArrayRef>> {
-    use std::fs;
-
-    use vortex::VortexSessionDefault as _;
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::StructArray;
-    use vortex::array::arrays::struct_::StructArrayExt as _;
-    use vortex::array::stream::ArrayStreamExt as _;
-    use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
-
-    let bytes = fs::read(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read Vortex file '{}': {error}",
-            path.display()
-        ))
-    })?;
-    let runtime = SingleThreadRuntime::default();
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let file = session
-        .open_options()
-        .open_buffer(bytes)
-        .map_err(vortex_error)?;
-    let array = runtime
-        .block_on(
-            file.scan()
-                .map_err(vortex_error)?
-                .into_array_stream()
-                .map_err(vortex_error)?
-                .read_all(),
-        )
-        .map_err(vortex_error)?;
-    let mut ctx = session.create_execution_ctx();
-    let struct_array = array
-        .execute::<StructArray>(&mut ctx)
-        .map_err(vortex_error)?;
-    let mut fields = std::collections::BTreeMap::new();
-    for name in struct_array.names().iter() {
-        let field = struct_array
-            .unmasked_field_by_name(name.as_ref())
-            .map_err(vortex_error)?
-            .clone();
-        fields.insert(name.as_ref().to_string(), field);
-    }
-    Ok(fields)
+    let vortex_io = TraditionalVortexIoContext::new();
+    vortex_io.read_struct(path)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17618,6 +17977,70 @@ fn read_traditional_dim_rows_with_evidence(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_fact_vortex_provider_batch_with_evidence(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalVortexProviderBatchRead> {
+    if !input_format.is_columnar() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "internal error: {} is not a direct columnar Vortex provider input",
+            input_format.as_str()
+        )));
+    }
+    let source_to_columnar_start = std::time::Instant::now();
+    let batches =
+        read_traditional_fact_arrow_batches(path, input_format, "fact input", resource_policy)?;
+    let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
+    let record_batch_count = batches.len();
+    let source_parse_start = std::time::Instant::now();
+    let batch = fact_vortex_record_batch_from_arrow_batches(&batches, path)?;
+    let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
+    let row_count = batch.num_rows();
+    Ok(TraditionalVortexProviderBatchRead {
+        batch,
+        row_count,
+        evidence: TraditionalSourceReadEvidence::direct_vortex_provider_batch(
+            source_to_columnar_micros,
+            source_parse_micros,
+            record_batch_count,
+        )?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_dim_vortex_provider_batch_with_evidence(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalVortexProviderBatchRead> {
+    if !input_format.is_columnar() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "internal error: {} is not a direct columnar Vortex provider input",
+            input_format.as_str()
+        )));
+    }
+    let source_to_columnar_start = std::time::Instant::now();
+    let batches =
+        read_traditional_dim_arrow_batches(path, input_format, "dimension input", resource_policy)?;
+    let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
+    let record_batch_count = batches.len();
+    let source_parse_start = std::time::Instant::now();
+    let batch = dim_vortex_record_batch_from_arrow_batches(&batches, path)?;
+    let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
+    let row_count = batch.num_rows();
+    Ok(TraditionalVortexProviderBatchRead {
+        batch,
+        row_count,
+        evidence: TraditionalSourceReadEvidence::direct_vortex_provider_batch(
+            source_to_columnar_micros,
+            source_parse_micros,
+            record_batch_count,
+        )?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFactRow>> {
     let content = std::fs::read_to_string(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -17828,57 +18251,17 @@ fn read_traditional_cdc_delta_csv_with_evidence(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_traditional_fact_jsonl(path: &std::path::Path) -> Result<Vec<TraditionalFactRow>> {
     let content = read_jsonl_to_string(path, "fact JSONL")?;
-    let mut rows = Vec::new();
+    let mut rows = Vec::with_capacity(content.len().saturating_div(96).max(1));
     for (line_index, line) in content.lines().enumerate() {
         if line.trim().is_empty() {
             continue;
         }
-        let fields = parse_jsonl_object(line, path, line_index + 1, "fact JSONL")?;
-        rows.push(TraditionalFactRow {
-            id: parse_jsonl_numeric_field(&fields, path, line_index + 1, "id")?,
-            group_key: parse_jsonl_numeric_field(&fields, path, line_index + 1, "group_key")?,
-            dim_key: parse_jsonl_numeric_field(&fields, path, line_index + 1, "dim_key")?,
-            value: parse_jsonl_numeric_field(&fields, path, line_index + 1, "value")?,
-            metric: parse_jsonl_numeric_field(&fields, path, line_index + 1, "metric")?,
-            flag: parse_jsonl_numeric_field(&fields, path, line_index + 1, "flag")?,
-            category: parse_jsonl_string_field(&fields, path, line_index + 1, "category")?,
-            event_date: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "event_date",
-            )?,
-            nullable_metric_00: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "nullable_metric_00",
-            )?,
-            nested_payload: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "nested_payload",
-            )?,
-            raw_event_time: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "raw_event_time",
-            )?,
-            dirty_numeric: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "dirty_numeric",
-            )?,
-            dirty_flag: parse_jsonl_optional_string_field(
-                &fields,
-                path,
-                line_index + 1,
-                "dirty_flag",
-            )?,
-        });
+        if let Some(row) = parse_benchmark_fact_jsonl_fast(line, path, line_index + 1)? {
+            rows.push(row);
+        } else {
+            let fields = parse_jsonl_object(line, path, line_index + 1, "fact JSONL")?;
+            rows.push(fact_row_from_jsonl_fields(&fields, path, line_index + 1)?);
+        }
     }
     if rows.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -17892,17 +18275,17 @@ fn read_traditional_fact_jsonl(path: &std::path::Path) -> Result<Vec<Traditional
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_traditional_dim_jsonl(path: &std::path::Path) -> Result<Vec<TraditionalDimRow>> {
     let content = read_jsonl_to_string(path, "dimension JSONL")?;
-    let mut rows = Vec::new();
+    let mut rows = Vec::with_capacity(content.len().saturating_div(48).max(1));
     for (line_index, line) in content.lines().enumerate() {
         if line.trim().is_empty() {
             continue;
         }
-        let fields = parse_jsonl_object(line, path, line_index + 1, "dimension JSONL")?;
-        rows.push(TraditionalDimRow {
-            dim_key: parse_jsonl_numeric_field(&fields, path, line_index + 1, "dim_key")?,
-            dim_label: parse_jsonl_string_field(&fields, path, line_index + 1, "dim_label")?,
-            weight: parse_jsonl_numeric_field(&fields, path, line_index + 1, "weight")?,
-        });
+        if let Some(row) = parse_benchmark_dim_jsonl_fast(line, path, line_index + 1)? {
+            rows.push(row);
+        } else {
+            let fields = parse_jsonl_object(line, path, line_index + 1, "dimension JSONL")?;
+            rows.push(dim_row_from_jsonl_fields(&fields, path, line_index + 1)?);
+        }
     }
     if rows.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -17914,8 +18297,289 @@ fn read_traditional_dim_jsonl(path: &std::path::Path) -> Result<Vec<TraditionalD
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_row_from_jsonl_fields(
+    fields: &JsonlFieldMap,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<TraditionalFactRow> {
+    Ok(TraditionalFactRow {
+        id: parse_jsonl_numeric_field(fields, path, line_number, "id")?,
+        group_key: parse_jsonl_numeric_field(fields, path, line_number, "group_key")?,
+        dim_key: parse_jsonl_numeric_field(fields, path, line_number, "dim_key")?,
+        value: parse_jsonl_numeric_field(fields, path, line_number, "value")?,
+        metric: parse_jsonl_numeric_field(fields, path, line_number, "metric")?,
+        flag: parse_jsonl_numeric_field(fields, path, line_number, "flag")?,
+        category: parse_jsonl_string_field(fields, path, line_number, "category")?,
+        event_date: parse_jsonl_optional_string_field(fields, path, line_number, "event_date")?,
+        nullable_metric_00: parse_jsonl_optional_string_field(
+            fields,
+            path,
+            line_number,
+            "nullable_metric_00",
+        )?,
+        nested_payload: parse_jsonl_optional_string_field(
+            fields,
+            path,
+            line_number,
+            "nested_payload",
+        )?,
+        raw_event_time: parse_jsonl_optional_string_field(
+            fields,
+            path,
+            line_number,
+            "raw_event_time",
+        )?,
+        dirty_numeric: parse_jsonl_optional_string_field(
+            fields,
+            path,
+            line_number,
+            "dirty_numeric",
+        )?,
+        dirty_flag: parse_jsonl_optional_string_field(fields, path, line_number, "dirty_flag")?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_row_from_jsonl_fields(
+    fields: &JsonlFieldMap,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<TraditionalDimRow> {
+    Ok(TraditionalDimRow {
+        dim_key: parse_jsonl_numeric_field(fields, path, line_number, "dim_key")?,
+        dim_label: parse_jsonl_string_field(fields, path, line_number, "dim_label")?,
+        weight: parse_jsonl_numeric_field(fields, path, line_number, "weight")?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_fast(
+    line: &str,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<Option<TraditionalFactRow>> {
+    let Some(mut cursor) = benchmark_jsonl_object_inner(line) else {
+        return Ok(None);
+    };
+    if !take_json_prefix(&mut cursor, "\"id\":") {
+        return Ok(None);
+    }
+    let Some(id) =
+        parse_fast_json_number_before(&mut cursor, ",\"group_key\":", path, line_number, "id")?
+    else {
+        return Ok(None);
+    };
+    let Some(group_key) = parse_fast_json_number_before(
+        &mut cursor,
+        ",\"dim_key\":",
+        path,
+        line_number,
+        "group_key",
+    )?
+    else {
+        return Ok(None);
+    };
+    let Some(dim_key) =
+        parse_fast_json_number_before(&mut cursor, ",\"value\":", path, line_number, "dim_key")?
+    else {
+        return Ok(None);
+    };
+    let Some(value) =
+        parse_fast_json_number_before(&mut cursor, ",\"metric\":", path, line_number, "value")?
+    else {
+        return Ok(None);
+    };
+    let Some(metric) =
+        parse_fast_json_number_before(&mut cursor, ",\"flag\":", path, line_number, "metric")?
+    else {
+        return Ok(None);
+    };
+    let Some(flag) =
+        parse_fast_json_number_before(&mut cursor, ",\"category\":", path, line_number, "flag")?
+    else {
+        return Ok(None);
+    };
+    if !fast_json_terminal_string_token(cursor) {
+        return Ok(None);
+    }
+    let category = parse_json_string_token(cursor, path, line_number, "category")?;
+    Ok(Some(TraditionalFactRow {
+        id,
+        group_key,
+        dim_key,
+        value,
+        metric,
+        flag,
+        category,
+        event_date: None,
+        nullable_metric_00: None,
+        nested_payload: None,
+        raw_event_time: None,
+        dirty_numeric: None,
+        dirty_flag: None,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_dim_jsonl_fast(
+    line: &str,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<Option<TraditionalDimRow>> {
+    let Some(mut cursor) = benchmark_jsonl_object_inner(line) else {
+        return Ok(None);
+    };
+    if !take_json_prefix(&mut cursor, "\"dim_key\":") {
+        return Ok(None);
+    }
+    let Some(dim_key) = parse_fast_json_number_before(
+        &mut cursor,
+        ",\"dim_label\":",
+        path,
+        line_number,
+        "dim_key",
+    )?
+    else {
+        return Ok(None);
+    };
+    let Some((dim_label_token, weight_cursor)) =
+        split_fast_json_string_then_number(cursor, ",\"weight\":")
+    else {
+        return Ok(None);
+    };
+    cursor = weight_cursor;
+    let dim_label = parse_json_string_token(dim_label_token, path, line_number, "dim_label")?;
+    if cursor.contains(',') {
+        return Ok(None);
+    }
+    let weight = parse_fast_json_number(cursor, path, line_number, "weight")?;
+    Ok(Some(TraditionalDimRow {
+        dim_key,
+        dim_label,
+        weight,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn benchmark_jsonl_object_inner(line: &str) -> Option<&str> {
+    let trimmed = line.trim();
+    trimmed
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fast_json_terminal_string_token(value: &str) -> bool {
+    let trimmed = value.trim();
+    if !trimmed.starts_with('"') {
+        return true;
+    }
+    let mut escaped = false;
+    for (index, ch) in trimmed.char_indices().skip(1) {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' => escaped = true,
+            '"' => return trimmed[index + ch.len_utf8()..].trim().is_empty(),
+            _ => {}
+        }
+    }
+    true
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn take_json_prefix(cursor: &mut &str, prefix: &str) -> bool {
+    if let Some(rest) = cursor.strip_prefix(prefix) {
+        *cursor = rest;
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_fast_json_number_before<T>(
+    cursor: &mut &str,
+    next_prefix: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<Option<T>>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    let Some((token, rest)) = cursor.split_once(next_prefix) else {
+        return Ok(None);
+    };
+    *cursor = rest;
+    parse_fast_json_number(token, path, line_number, field).map(Some)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_fast_json_number<T>(
+    token: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<T>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    let value = token.trim();
+    if value.is_empty() || value.starts_with('"') {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "JSONL numeric field '{field}' in '{}' line {line_number} was not a scalar number",
+            path.display()
+        )));
+    }
+    value.parse::<T>().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to parse JSONL field '{field}' in '{}' line {line_number}: {error}",
+            path.display()
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn split_fast_json_string_then_number<'a>(
+    cursor: &'a str,
+    next_prefix: &str,
+) -> Option<(&'a str, &'a str)> {
+    let mut escaped = false;
+    let mut in_string = false;
+    let bytes = cursor.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if escaped {
+            escaped = false;
+            index += 1;
+            continue;
+        }
+        match byte {
+            b'\\' if in_string => escaped = true,
+            b'"' => in_string = !in_string,
+            b',' if !in_string && cursor[index..].starts_with(next_prefix) => {
+                return Some((&cursor[..index], &cursor[index + next_prefix.len()..]));
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn split_csv_record(line: &str, path: &std::path::Path, line_number: usize) -> Result<Vec<String>> {
-    let mut fields = Vec::new();
+    if !line.as_bytes().contains(&b'"') {
+        return Ok(line.split(',').map(str::to_string).collect());
+    }
+
+    let mut fields = Vec::with_capacity(TRADITIONAL_FACT_COLUMN_COUNT);
     let mut field = String::new();
     let mut chars = line.chars().peekable();
     let mut in_quotes = false;
@@ -17988,7 +18652,7 @@ fn parse_jsonl_object(
     path: &std::path::Path,
     line_number: usize,
     label: &str,
-) -> Result<std::collections::BTreeMap<String, String>> {
+) -> Result<JsonlFieldMap> {
     let trimmed = line.trim();
     let Some(inner) = trimmed
         .strip_prefix('{')
@@ -17999,7 +18663,7 @@ fn parse_jsonl_object(
             path.display()
         )));
     };
-    let mut fields = std::collections::BTreeMap::new();
+    let mut fields = JsonlFieldMap::with_capacity(TRADITIONAL_FACT_COLUMN_COUNT);
     for field in split_json_fields(inner, path, line_number, label)? {
         let (key, value) = split_json_key_value(field, path, line_number, label)?;
         let key = parse_json_string_token(key.trim(), path, line_number, "field name")?;
@@ -18033,14 +18697,50 @@ fn split_json_key_value<'a>(
     line_number: usize,
     label: &str,
 ) -> Result<(&'a str, &'a str)> {
-    let parts = split_json_top_level(field, ':', path, line_number, label)?;
-    if parts.len() != 2 {
+    let mut delimiter_index = None;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in field.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' if in_string => escaped = true,
+            '"' => in_string = !in_string,
+            ':' if !in_string && delimiter_index.is_some() => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{label} '{}' line {line_number} has an invalid JSON field",
+                    path.display()
+                )));
+            }
+            ':' if !in_string => {
+                delimiter_index = Some(index);
+            }
+            _ => {}
+        }
+    }
+    if in_string || escaped {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} contains an unterminated JSON string",
+            path.display()
+        )));
+    }
+    let Some(index) = delimiter_index else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} has an invalid JSON field",
+            path.display()
+        )));
+    };
+    let key = field[..index].trim();
+    let value = field[index + 1..].trim();
+    if key.is_empty() || value.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "{label} '{}' line {line_number} has an invalid JSON field",
             path.display()
         )));
     }
-    Ok((parts[0], parts[1]))
+    Ok((key, value))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18051,7 +18751,7 @@ fn split_json_top_level<'a>(
     line_number: usize,
     label: &str,
 ) -> Result<Vec<&'a str>> {
-    let mut parts = Vec::new();
+    let mut parts = Vec::with_capacity(TRADITIONAL_FACT_COLUMN_COUNT);
     let mut start = 0;
     let mut in_string = false;
     let mut escaped = false;
@@ -18085,7 +18785,7 @@ fn split_json_top_level<'a>(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_jsonl_numeric_field<T>(
-    fields: &std::collections::BTreeMap<String, String>,
+    fields: &JsonlFieldMap,
     path: &std::path::Path,
     line_number: usize,
     field: &str,
@@ -18105,7 +18805,7 @@ where
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_jsonl_string_field(
-    fields: &std::collections::BTreeMap<String, String>,
+    fields: &JsonlFieldMap,
     path: &std::path::Path,
     line_number: usize,
     field: &str,
@@ -18120,7 +18820,7 @@ fn parse_jsonl_string_field(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_jsonl_optional_string_field(
-    fields: &std::collections::BTreeMap<String, String>,
+    fields: &JsonlFieldMap,
     path: &std::path::Path,
     line_number: usize,
     field: &str,
@@ -18140,7 +18840,7 @@ fn parse_jsonl_optional_string_field(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn jsonl_required_field<'a>(
-    fields: &'a std::collections::BTreeMap<String, String>,
+    fields: &'a JsonlFieldMap,
     path: &std::path::Path,
     line_number: usize,
     field: &str,
@@ -18170,6 +18870,9 @@ fn parse_json_string_token(
             path.display()
         )));
     };
+    if !inner.as_bytes().contains(&b'\\') {
+        return Ok(inner.to_string());
+    }
     let mut out = String::with_capacity(inner.len());
     let mut chars = inner.chars();
     while let Some(ch) = chars.next() {
@@ -18234,6 +18937,72 @@ fn read_traditional_arrow_batches(
             )))
         }
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_fact_arrow_batches(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    label: &str,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<Vec<arrow_array::RecordBatch>> {
+    if !path.is_dir() {
+        return read_traditional_arrow_batches(path, input_format, label, resource_policy);
+    }
+    let mut batches = Vec::new();
+    for part in fact_input_part_paths(path, input_format, label)? {
+        batches.extend(read_traditional_arrow_batches(
+            &part,
+            input_format,
+            label,
+            resource_policy,
+        )?);
+    }
+    if batches
+        .iter()
+        .map(arrow_array::RecordBatch::num_rows)
+        .sum::<usize>()
+        == 0
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} directory '{}' contains no rows; fallback execution was not attempted",
+            path.display()
+        )));
+    }
+    Ok(batches)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_dim_arrow_batches(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    label: &str,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<Vec<arrow_array::RecordBatch>> {
+    if !path.is_dir() {
+        return read_traditional_arrow_batches(path, input_format, label, resource_policy);
+    }
+    let mut batches = Vec::new();
+    for part in fact_input_part_paths(path, input_format, label)? {
+        batches.extend(read_traditional_arrow_batches(
+            &part,
+            input_format,
+            label,
+            resource_policy,
+        )?);
+    }
+    if batches
+        .iter()
+        .map(arrow_array::RecordBatch::num_rows)
+        .sum::<usize>()
+        == 0
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} directory '{}' contains no rows; fallback execution was not attempted",
+            path.display()
+        )));
+    }
+    Ok(batches)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -22638,6 +23407,77 @@ mod tests {
         )
         .unwrap();
         (fact_jsonl, dim_jsonl)
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn benchmark_jsonl_fast_path_parses_canonical_rows() {
+        let path = PathBuf::from("fact.jsonl");
+        let row = parse_benchmark_fact_jsonl_fast(
+            "{\"id\":7,\"group_key\":2,\"dim_key\":3,\"value\":42,\"metric\":1.25,\"flag\":1,\"category\":\"c7\"}",
+            &path,
+            1,
+        )
+        .unwrap()
+        .expect("canonical fact row should use fast path");
+        assert_eq!(row.id, 7);
+        assert_eq!(row.group_key, 2);
+        assert_eq!(row.dim_key, 3);
+        assert_eq!(row.value, 42);
+        assert!((row.metric - 1.25).abs() < f64::EPSILON);
+        assert_eq!(row.flag, 1);
+        assert_eq!(row.category, "c7");
+        assert_eq!(row.event_date, None);
+
+        let dim = parse_benchmark_dim_jsonl_fast(
+            "{\"dim_key\":3,\"dim_label\":\"d3\",\"weight\":9.5}",
+            &PathBuf::from("dim.jsonl"),
+            1,
+        )
+        .unwrap()
+        .expect("canonical dimension row should use fast path");
+        assert_eq!(dim.dim_key, 3);
+        assert_eq!(dim.dim_label, "d3");
+        assert!((dim.weight - 9.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn benchmark_jsonl_fast_path_declines_generic_flat_rows() {
+        let path = PathBuf::from("fact.jsonl");
+        let row_with_optional = "{\"id\":7,\"group_key\":2,\"dim_key\":3,\"value\":42,\"metric\":1.25,\"flag\":1,\"category\":\"c7\", \"event_date\":\"2024-03-01\"}";
+        assert!(
+            parse_benchmark_fact_jsonl_fast(row_with_optional, &path, 1)
+                .unwrap()
+                .is_none()
+        );
+        let fields = parse_jsonl_object(row_with_optional, &path, 1, "fact JSONL").unwrap();
+        let generic = fact_row_from_jsonl_fields(&fields, &path, 1).unwrap();
+        assert_eq!(generic.event_date.as_deref(), Some("2024-03-01"));
+
+        let whitespace_row = "{ \"dim_key\": 3, \"dim_label\": \"d3\", \"weight\": 9.5 }";
+        assert!(
+            parse_benchmark_dim_jsonl_fast(whitespace_row, &PathBuf::from("dim.jsonl"), 1)
+                .unwrap()
+                .is_none()
+        );
+        let dim_with_extra =
+            "{\"dim_key\":3,\"dim_label\":\"d3\",\"weight\":9.5,\"extra\":\"ignored\"}";
+        assert!(
+            parse_benchmark_dim_jsonl_fast(dim_with_extra, &PathBuf::from("dim.jsonl"), 1)
+                .unwrap()
+                .is_none()
+        );
+        let dim_fields = parse_jsonl_object(
+            dim_with_extra,
+            &PathBuf::from("dim.jsonl"),
+            1,
+            "dimension JSONL",
+        )
+        .unwrap();
+        let generic_dim =
+            dim_row_from_jsonl_fields(&dim_fields, &PathBuf::from("dim.jsonl"), 1).unwrap();
+        assert_eq!(generic_dim.dim_label, "d3");
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -30585,12 +31425,12 @@ mod tests {
                 assert_field_eq(
                     &replay_fields,
                     "source_state_materialization_layout",
-                    "columnar_record_batches_preserved_until_traditional_row_boundary",
+                    "columnar_record_batches_normalized_to_vortex_provider_batch",
                 );
                 assert_field_eq(
                     &replay_fields,
                     "source_state_parse_normalization",
-                    "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider",
+                    "arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary",
                 );
                 assert_field_eq(&replay_fields, "source_state_columnar_preserved", "true");
                 assert!(
@@ -30620,12 +31460,12 @@ mod tests {
                 assert_field_eq(
                     &replay_fields,
                     "vortex_array_build_strategy",
-                    "vortex_from_arrow_record_batch",
+                    "vortex_from_arrow_record_batch_without_traditional_rows",
                 );
                 assert_field_eq(
                     &replay_fields,
                     "vortex_array_build_input_layout",
-                    "traditional_arrow_record_batch",
+                    "traditional_vortex_provider_record_batch",
                 );
                 assert!(
                     replay_fields
