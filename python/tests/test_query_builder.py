@@ -1181,6 +1181,48 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "SELECT * FROM (SELECT * FROM 'events.csv' LIMIT 10) AS sub LIMIT 2",
         )
 
+    def test_sql_preview_caps_existing_top_level_limit(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n{\\"id\\":2}\\n"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        workflow = ShardLoomContext(ShardLoomClient(binary=binary)).sql(
+            "SELECT id FROM 'target/input.csv' LIMIT 100"
+        )
+
+        report = workflow.preview(limit=2)
+
+        self.assertEqual(report.output_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_parquet_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

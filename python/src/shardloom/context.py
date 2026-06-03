@@ -965,7 +965,7 @@ class UserRouteCapabilityReport:
                 route_display_name=local.route_display_name,
                 input_family=local.input_family,
                 public_user_surface=(
-                    "ctx.prepare_vortex('fact.csv', "
+                    "ctx.prepare_vortex('fact.csv', dim='dim.csv', "
                     "workspace='target/shardloom-prepared').query("
                     "'selective filter').collect()"
                 ),

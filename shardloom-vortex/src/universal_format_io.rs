@@ -959,7 +959,10 @@ fn flat_output_column_array(
             Ok(value)
         })
         .collect::<Result<Vec<_>>>()?;
-    let declared_decimal = column_dtype.and_then(decimal128_dtype_precision_scale);
+    let declared_decimal = column_dtype
+        .map(|dtype| decimal128_dtype_precision_scale(dtype, column, context))
+        .transpose()?
+        .flatten();
     let inferred_kind = values
         .iter()
         .filter(|value| !matches!(value, ScalarValue::Null))
@@ -1186,15 +1189,39 @@ fn decimal128_column_precision_scale(
     })
 }
 
-fn decimal128_dtype_precision_scale(dtype: &LogicalDType) -> Option<(u8, u8)> {
+fn decimal128_dtype_precision_scale(
+    dtype: &LogicalDType,
+    column: &str,
+    context: &str,
+) -> Result<Option<(u8, u8)>> {
     let LogicalDType::Extension(value) = dtype else {
-        return None;
+        return Ok(None);
     };
-    let args = value.strip_prefix("decimal128(")?.strip_suffix(')')?;
-    let (precision_raw, scale_raw) = args.split_once(',')?;
-    let precision = precision_raw.trim().parse::<u8>().ok()?;
-    let scale = scale_raw.trim().parse::<u8>().ok()?;
-    Some((precision, scale))
+    if !value.starts_with("decimal128") {
+        return Ok(None);
+    }
+    let invalid_decimal_hint = || {
+        ShardLoomError::InvalidOperation(format!(
+            "{context} column '{column}' has invalid decimal128 dtype hint {value:?}; decimal hints must use decimal128(precision,scale) with 1 <= precision <= 38 and scale <= precision"
+        ))
+    };
+    let args = value
+        .strip_prefix("decimal128(")
+        .and_then(|rest| rest.strip_suffix(')'))
+        .ok_or_else(invalid_decimal_hint)?;
+    let (precision_raw, scale_raw) = args.split_once(',').ok_or_else(invalid_decimal_hint)?;
+    let precision = precision_raw
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| invalid_decimal_hint())?;
+    let scale = scale_raw
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| invalid_decimal_hint())?;
+    if precision == 0 || precision > 38 || scale > precision {
+        return Err(invalid_decimal_hint());
+    }
+    Ok(Some((precision, scale)))
 }
 
 fn parquet_date32_column(
@@ -1341,4 +1368,28 @@ fn arrow_scalar_to_shardloom(
         path.display(),
         array.data_type()
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_decimal_dtype_hint_blocks_all_null_output() {
+        let columns = vec!["amount".to_string()];
+        let dtypes = vec![Some(LogicalDType::Extension(
+            "decimal128(10,12)".to_string(),
+        ))];
+        let rows = vec![vec![("amount".to_string(), ScalarValue::Null)]];
+
+        let error = flat_rows_to_record_batch_with_dtypes(&columns, &dtypes, &rows, "test output")
+            .expect_err("invalid decimal hint should fail before Arrow output");
+
+        assert!(
+            error.to_string().contains(
+                "test output column 'amount' has invalid decimal128 dtype hint \"decimal128(10,12)\""
+            ),
+            "{error}"
+        );
+    }
 }

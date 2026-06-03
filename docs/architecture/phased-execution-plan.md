@@ -185,13 +185,14 @@ not by numeric CG order.
 Current autonomous execution order:
 
 1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` from the
-   2026-06-03 refreshed benchmark evidence. The text-adapter RecordBatch import and writer-byte
-   digest batch has been benchmarked and published; the next optimization slice should target the
-   remaining cold certified-route source read/parse and Vortex write hot spots, or explicitly
-   classify them as not currently fixable before moving on.
-2. If the next refreshed local benchmark evidence no longer shows fixable ShardLoom-owned
-   preparation, Vortex-I/O, output/evidence, or residual-native tail overhead in the current route
-   family, advance to the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` breadth items in order.
+   2026-06-03 post-hotpath benchmark evidence. The sink-artifact sentinel fix, scenario-aware
+   optional text-column selection, shared prepared/native artifact optional-column preservation, and
+   benchmark/site refresh are complete. The next remaining benchmark-driven slice should target the
+   dominant cold certified-route stages now shown by the refreshed artifact: Vortex write/safe
+   artifact emission first, with source-read pressure as the secondary hotspot.
+2. If Vortex writer/safe-workspace emission remains the dominant fixable stage after the next
+   targeted slice, continue with provider-admission/layout-advisor or safe writer-helper work
+   instead of silently bypassing workspace safety.
 3. Return to the residual `GAR-RUNTIME-IMPL-4/6A` completion gate only after the active 6D breadth
    queue has reduced or explicitly blocked the runtime families it owns.
 
@@ -199,7 +200,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Use the refreshed post-PR1060 evidence to reduce or explicitly classify remaining cold-route source read/parse/Vortex-write overhead. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Promote the next Vortex writer/safe-artifact-emission optimization or provider-admission slice from the post-hotpath benchmark evidence; keep source-read pressure as the secondary follow-up. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -337,26 +338,24 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
   optimization for runtime-ready local routes.
   Current state: benchmark publication and prior optimization evidence are recorded in
-  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 full-local refresh from
-  `target/benchmark-artifacts/traditional-full-local-post-pr1060.json` has been promoted into the
-  website benchmark bundle. It reports 1,320 published rows, 600 ShardLoom rows with
-  `claim_gate_status=claim_grade`, `fallback_attempted=false`, and
-  `external_engine_invoked=false`, and engine-level route geomeans of 244.31 ms for the certified
-  cold route, 8.19 ms for native Vortex, 9.75 ms for prepared Vortex, and 33.67 ms across the
-  prepare-batch rows. The
-  prepared/native query timing fields are no longer the first visible bottleneck; the cold certified
-  route still shows source read, parse, and Vortex write as the dominant ShardLoom-owned stages
-  before any performance claim.
+  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 post-hotpath full-local
+  benchmark bundle shows ShardLoom-family lanes are fastest in every comparable route group, but
+  the certified cold route still has fixable ShardLoom-owned stage cost: `vortex_write_ms`
+  geomean 81.73 ms across 120 rows and the primary bottleneck in 83/120 rows, with
+  `source_read_ms` geomean 44.69 ms and the primary bottleneck in the remaining 37/120 rows.
+  Scenario-aware text normalization, shared prepared/native artifact preservation, and
+  sink-artifact sentinel preservation are complete and should stay in the ledger rather than the
+  live queue.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
-  Next slice outcome: reduce one verified cold-route source read/parse/Vortex-write hot spot or
-  attach source-grounded evidence that the remaining stage is currently governed by an upstream
-  Vortex writer/provider boundary and should move to a provider-admission/layout-advisor follow-up.
-  Candidate work belongs here only when it is ShardLoom-owned, no-fallback, covered by focused
-  tests, and measured by the benchmark harness after all code/docs edits in the batch are complete.
+  Next slice outcome: reduce the Vortex write/safe-artifact-emission stage without changing route
+  semantics, workspace safety, no-fallback evidence, route-total accounting, prepared artifact
+  replay, or compatibility-output behavior. If the write path cannot be improved safely in one
+  slice, add provider-admission/layout-advisor evidence that narrows the next implementation step.
+  Source-read pressure is the secondary follow-up after writer evidence is exhausted or blocked.
   User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
   routes, Python/context prepared/native route helpers, result-sink evidence, route capability
   reports, and release-readiness benchmark validators.
@@ -365,10 +364,11 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `docs/architecture/phased-execution-plan.md` when the active queue drifts, benchmark
   promoter/static validators when stage semantics change, Python/CLI docs when user behavior
   changes, and benchmark/release evidence artifacts after runtime changes.
-  Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, route
-  ledger zero deltas, no-fallback/no-external-engine fields, benchmark artifact completeness,
-  copy-budget/layout fields updated when measurements improve, and a refreshed local benchmark
-  after all code changes and before any public performance claim.
+  Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, workspace
+  safety, artifact digests, route ledger zero deltas, no-fallback/no-external-engine fields,
+  benchmark artifact completeness, copy-budget/layout fields updated when measurements improve, and
+  a refreshed local benchmark after all code/docs/site changes and before any public performance
+  claim.
   Acceptance: route behavior and evidence remain identical or stricter, fixable ShardLoom-owned hot
   loops avoid unnecessary reads, decodes, allocations, string clones, or materialization, hot-stage
   timing fields still reproduce route totals, and the refreshed benchmark run reports no

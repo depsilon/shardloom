@@ -3980,6 +3980,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             data_format,
             "--execution-mode",
             "compatibility_import_certified",
+            "--preserve-all-text-columns-for-reuse",
             "--format",
             "json",
         ]
@@ -9841,10 +9842,99 @@ def vortex_differential_preparation_metadata(
         or 0,
         "vortex_differential_preparation_delta_manifest_digest": first_meaningful_field(
             evidence.get("vortex_differential_preparation_delta_manifest_digest"),
+            metrics.get("vortex_differential_preparation_delta_manifest_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_refinement_schema_version": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_schema_version"),
+            metrics.get("vortex_differential_preparation_refinement_schema_version"),
+            VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
+        ),
+        "vortex_differential_preparation_refinement_mode": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_mode"),
+            metrics.get("vortex_differential_preparation_refinement_mode"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_refinement_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_status"),
+            metrics.get("vortex_differential_preparation_refinement_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_refinement_policy": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_policy"),
+            metrics.get("vortex_differential_preparation_refinement_policy"),
+            "automatic_append_only_refinement_requires_admitted_delta_overlay",
+        ),
+        "vortex_differential_preparation_automatic_detection_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_automatic_detection_status"),
+            metrics.get("vortex_differential_preparation_automatic_detection_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_automatic_detection_reason": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_automatic_detection_reason"),
+            metrics.get("vortex_differential_preparation_automatic_detection_reason"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_blocker_id": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_blocker_id"),
+            metrics.get("vortex_differential_preparation_blocker_id"),
+            "none",
+        ),
+        "vortex_differential_preparation_refinement_manifest_path": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_manifest_path"),
+            metrics.get("vortex_differential_preparation_refinement_manifest_path"),
+            "none",
+        ),
+        "vortex_differential_preparation_refinement_manifest_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refinement_manifest_digest"),
+            metrics.get("vortex_differential_preparation_refinement_manifest_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_refinement_manifest_written": (
+            parse_optional_bool(
+                first_meaningful_field(
+                    evidence.get(
+                        "vortex_differential_preparation_refinement_manifest_written"
+                    ),
+                    metrics.get(
+                        "vortex_differential_preparation_refinement_manifest_written"
+                    ),
+                )
+            )
+            is True
+        ),
+        "vortex_differential_preparation_refined_prepared_state_id": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refined_prepared_state_id"),
+            metrics.get("vortex_differential_preparation_refined_prepared_state_id"),
+            "none",
+        ),
+        "vortex_differential_preparation_refined_prepared_state_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_refined_prepared_state_digest"),
+            metrics.get("vortex_differential_preparation_refined_prepared_state_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_overlay_consumer_family": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_overlay_consumer_family"),
+            metrics.get("vortex_differential_preparation_overlay_consumer_family"),
+            "none",
+        ),
+        "vortex_differential_preparation_overlay_consumer_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_overlay_consumer_status"),
+            metrics.get("vortex_differential_preparation_overlay_consumer_status"),
+            "none",
+        ),
+        "vortex_differential_preparation_overlay_consumer_correctness_digest": first_meaningful_field(
+            evidence.get(
+                "vortex_differential_preparation_overlay_consumer_correctness_digest"
+            ),
+            metrics.get(
+                "vortex_differential_preparation_overlay_consumer_correctness_digest"
+            ),
             "none",
         ),
         "vortex_differential_preparation_overlay_manifest_digest": first_meaningful_field(
             evidence.get("vortex_differential_preparation_overlay_manifest_digest"),
+            metrics.get("vortex_differential_preparation_overlay_manifest_digest"),
             "none",
         ),
         "vortex_differential_preparation_changed_byte_range_refs": first_meaningful_field(

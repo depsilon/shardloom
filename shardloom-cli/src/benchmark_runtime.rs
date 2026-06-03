@@ -25,6 +25,8 @@ use crate::{
     vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
 };
 
+const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]";
+
 fn upsert_report_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     if let Some((_, existing)) = fields.iter_mut().find(|(field, _)| field == key) {
         *existing = value.to_string();
@@ -71,21 +73,15 @@ pub(crate) fn handle_traditional_analytics_run(
     format: OutputFormat,
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{TRADITIONAL_ANALYTICS_RUN_USAGE}");
         return ExitCode::from(2);
     };
     let Some(fact_csv) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{TRADITIONAL_ANALYTICS_RUN_USAGE}");
         return ExitCode::from(2);
     };
     let Some(dim_csv) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{TRADITIONAL_ANALYTICS_RUN_USAGE}");
         return ExitCode::from(2);
     };
     let mut workspace_dir: Option<PathBuf> = None;
@@ -95,6 +91,7 @@ pub(crate) fn handle_traditional_analytics_run(
         None;
     let mut verify_native_vortex_replay = false;
     let mut write_result_vortex = false;
+    let mut preserve_all_text_columns_for_reuse = false;
     let mut memory_gb: Option<u32> = None;
     let mut max_parallelism: Option<usize> = None;
     let mut requested_execution_mode = ShardLoomExecutionMode::CompatibilityImportCertified;
@@ -159,6 +156,9 @@ pub(crate) fn handle_traditional_analytics_run(
             }
             "--write-result-vortex" => {
                 write_result_vortex = true;
+            }
+            "--preserve-all-text-columns-for-reuse" => {
+                preserve_all_text_columns_for_reuse = true;
             }
             "--execution-mode" => {
                 let Some(value) = args.next() else {
@@ -299,6 +299,7 @@ pub(crate) fn handle_traditional_analytics_run(
     .with_compatibility_output_format(compatibility_output_format)
     .with_native_vortex_replay_verification(verify_native_vortex_replay)
     .with_result_vortex_write(write_result_vortex)
+    .with_all_text_columns_preserved_for_reuse(preserve_all_text_columns_for_reuse)
     .with_requested_execution_mode(requested_execution_mode)
     .with_resource_policy(
         shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(

@@ -1983,6 +1983,43 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
 
+    def test_sql_local_source_report_preserves_csv_escaped_like_escape_character(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {
+                        "key": "string_predicate_like_escape_character",
+                        "value": "\",\"",
+                    },
+                ],
+            }
+        )
+        report = SqlLocalSourceSmokeReport(envelope)
+
+        self.assertEqual(report.string_predicate_like_escape_character, (",",))
+
     def test_sql_local_source_report_hides_absent_sink_artifact_refs(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
@@ -2025,6 +2062,63 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(report.sink_artifact_digest)
         self.assertEqual(report.sink_artifact_digests, ())
         self.assertEqual(report.output_plan_required_columns, ("not_applicable_id",))
+
+    def test_sql_local_source_report_preserves_sentinel_like_sink_artifact_refs(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {
+                        "key": "sink_artifact_refs",
+                        "value": (
+                            "jsonl:not_applicable_output.jsonl,"
+                            "csv:target/not_applicable_output.csv,"
+                            "not_applicable_inline_result,not_requested"
+                        ),
+                    },
+                    {
+                        "key": "sink_artifact_digests",
+                        "value": (
+                            "jsonl:not_applicable_digest,"
+                            "csv:not_applicable_digest_csv,"
+                            "not_applicable_inline_result,none"
+                        ),
+                    },
+                ],
+            }
+        )
+        report = SqlLocalSourceSmokeReport(envelope)
+
+        self.assertEqual(
+            report.sink_artifact_refs,
+            (
+                "jsonl:not_applicable_output.jsonl",
+                "csv:target/not_applicable_output.csv",
+            ),
+        )
+        self.assertEqual(
+            report.sink_artifact_digests,
+            ("jsonl:not_applicable_digest", "csv:not_applicable_digest_csv"),
+        )
 
     def test_sql_local_source_report_window_evidence_accessors(self) -> None:
         envelope = OutputEnvelope.from_json(
@@ -2824,6 +2918,67 @@ class ShardLoomClientTests(unittest.TestCase):
                 {"cli": 3, "writes": 2},
             )
 
+    def test_lazy_frame_prepare_vortex_route_is_queryable_when_dim_is_supplied(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-prepare-batch-run",
+                    "selective filter",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "work",
+                    "--input-format",
+                    "csv",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-prepare-batch-run",
+                    "status": "success",
+                    "summary": "prepare/batch",
+                    "human_text": "prepare/batch",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_scan_complete_output_not_requested"},
+                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_not_requested"},
+                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
+                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
+                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
+                        {"key": "prepare_batch_fact_vortex_digest", "value": "sha256:f"},
+                        {"key": "prepare_batch_dim_vortex_digest", "value": "sha256:d"},
+                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
+                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
+                        {"key": "scenario_order", "value": "selective filter"},
+                        {"key": "source_state_reused", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv("fact.csv")
+
+        route = frame.prepare_vortex(dim="dim.csv", workspace="work")
+        query = route.query("selective filter")
+        result = query.collect()
+
+        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
+        self.assertIsInstance(query, PreparedVortexQuery)
+        self.assertIsInstance(result, PreparedVortexBatchResult)
+        self.assertEqual(query.execution_mode, "prepared_vortex")
+        self.assertEqual(result.scenario_order, ("selective filter",))
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
+
     def test_lazy_frame_prepare_vortex_rejects_ambiguous_or_non_raw_inputs(
         self,
     ) -> None:
@@ -2849,6 +3004,12 @@ class ShardLoomClientTests(unittest.TestCase):
         live_ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)), engine="live")
         with self.assertRaisesRegex(ValueError, "live/hybrid preparation remains gated"):
             live_ctx.read_csv("source.csv").prepare_vortex(workspace="target/prepared")
+
+        with self.assertRaisesRegex(ValueError, "query routes require dim"):
+            ctx.read_csv("source.csv").prepare_vortex(
+                workspace="target/prepared",
+                input_format="csv",
+            )
 
     def test_generated_source_prepare_vortex_uses_generated_vortex_sink_evidence(
         self,
