@@ -21183,8 +21183,9 @@ fn run_streaming_nested_json_field_scan_scenario(
                 }
                 saw_nested_payload = true;
                 let row_index = source_row_offset + index;
-                metric_sum += generated_nested_score(&payload, row_index)?;
-                if generated_nested_flag(&payload, row_index)? {
+                let nested_fields = generated_nested_payload_fields(&payload, row_index)?;
+                metric_sum += nested_fields.score;
+                if nested_fields.flag {
                     flagged += 1;
                 }
                 row_count += 1;
@@ -23027,8 +23028,9 @@ fn nested_json_field_scan_json(fact: &VortexFactTable) -> Result<String> {
             continue;
         }
         let payload = fact.nested_payload[index].as_str();
-        metric_sum += generated_nested_score(payload, index)?;
-        if generated_nested_flag(payload, index)? {
+        let nested_fields = generated_nested_payload_fields(payload, index)?;
+        metric_sum += nested_fields.score;
+        if nested_fields.flag {
             flagged += 1;
         }
         row_count += 1;
@@ -23040,16 +23042,56 @@ fn nested_json_field_scan_json(fact: &VortexFactTable) -> Result<String> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn generated_nested_score(payload: &str, row_index: usize) -> Result<f64> {
-    let Some(start) = payload
-        .find("\"score\":")
-        .map(|index| index + "\"score\":".len())
-    else {
-        return Err(ShardLoomError::InvalidOperation(format!(
+#[derive(Debug)]
+struct GeneratedNestedPayloadFields {
+    score: f64,
+    flag: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_payload_fields(
+    payload: &str,
+    row_index: usize,
+) -> Result<GeneratedNestedPayloadFields> {
+    const SCORE_MARKER: &[u8] = b"\"score\":";
+    const FLAG_MARKER: &[u8] = b"\"flag\":";
+
+    let mut score = None;
+    let mut flag = None;
+    let bytes = payload.as_bytes();
+    let mut cursor = 0_usize;
+    while cursor < bytes.len() && (score.is_none() || flag.is_none()) {
+        if score.is_none() && bytes[cursor..].starts_with(SCORE_MARKER) {
+            let start = cursor + SCORE_MARKER.len();
+            score = Some(parse_generated_nested_score(payload, start, row_index)?);
+            cursor = start;
+            continue;
+        }
+        if flag.is_none() && bytes[cursor..].starts_with(FLAG_MARKER) {
+            let start = cursor + FLAG_MARKER.len();
+            flag = Some(parse_generated_nested_flag(payload, start, row_index)?);
+            cursor = start;
+            continue;
+        }
+        cursor += 1;
+    }
+    let score = score.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
             "nested_payload row {} missing metrics.score",
             row_index + 1
-        )));
-    };
+        ))
+    })?;
+    let flag = flag.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} missing event.flag",
+            row_index + 1
+        ))
+    })?;
+    Ok(GeneratedNestedPayloadFields { score, flag })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_generated_nested_score(payload: &str, start: usize, row_index: usize) -> Result<f64> {
     let tail = &payload[start..];
     let end = tail
         .find(|ch: char| !matches!(ch, '-' | '+' | '.' | '0'..='9' | 'e' | 'E'))
@@ -23063,16 +23105,7 @@ fn generated_nested_score(payload: &str, row_index: usize) -> Result<f64> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn generated_nested_flag(payload: &str, row_index: usize) -> Result<bool> {
-    let Some(start) = payload
-        .find("\"flag\":")
-        .map(|index| index + "\"flag\":".len())
-    else {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "nested_payload row {} missing event.flag",
-            row_index + 1
-        )));
-    };
+fn parse_generated_nested_flag(payload: &str, start: usize, row_index: usize) -> Result<bool> {
     let tail = &payload[start..];
     if tail.starts_with("true") {
         Ok(true)
@@ -29831,6 +29864,46 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn generated_nested_payload_fields_extracts_score_and_flag_in_one_pass_shape() {
+        let fields = generated_nested_payload_fields(
+            r#"{"event":{"date":"2024-01-01","flag":true},"metrics":{"value":0,"score":7.25},"labels":["c0","g0"]}"#,
+            0,
+        )
+        .unwrap();
+
+        assert!((fields.score - 7.25).abs() < f64::EPSILON);
+        assert!(fields.flag);
+
+        let reversed = generated_nested_payload_fields(
+            r#"{"metrics":{"score":-3.5e1},"event":{"flag":false}}"#,
+            1,
+        )
+        .unwrap();
+
+        assert!((reversed.score + 35.0).abs() < f64::EPSILON);
+        assert!(!reversed.flag);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn generated_nested_payload_fields_preserves_deterministic_diagnostics() {
+        let missing_score =
+            generated_nested_payload_fields(r#"{"event":{"flag":true},"metrics":{}}"#, 4)
+                .unwrap_err()
+                .to_string();
+        assert!(missing_score.contains("nested_payload row 5 missing metrics.score"));
+
+        let invalid_flag = generated_nested_payload_fields(
+            r#"{"event":{"flag":maybe},"metrics":{"score":1.0}}"#,
+            2,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(invalid_flag.contains("nested_payload row 3 has invalid event.flag"));
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

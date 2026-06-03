@@ -484,6 +484,17 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Python environment lacked `pyarrow` and `polars`, so a fresh compatible Parquet/Arrow harness
   rerun with external Polars rows could not be regenerated locally; the comparison baseline remains
   the existing `codex-5j` JSON artifact.
+  A nested JSON scan hot-path slice then replaced duplicate generated-payload score/flag searches
+  with one byte-marker walk shared by streaming and materialized nested JSON scans. The accepted
+  focused rerun at `target/shardloom-nested-json-fastscan-smoke.json` produced 24 successful
+  ShardLoom rows and zero fallback/external-engine flags across `shardloom`,
+  `shardloom-vortex`, `shardloom-prepared-vortex`, and `shardloom-prepare-batch` for
+  CSV/JSONL/Parquet/Arrow IPC/Avro/ORC `nested JSON field scan`. Compared with the matching
+  `target/shardloom-post-1058-full-local.json` rows, average nested JSON
+  `scenario_compute_millis` moved from 33.208 ms to 8.805 ms for `shardloom-vortex`, 35.672 ms to
+  8.918 ms for `shardloom-prepared-vortex`, and 35.255 ms to 8.578 ms for
+  `shardloom-prepare-batch`; this remains scoped benchmark evidence, not a public performance or
+  superiority claim.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
