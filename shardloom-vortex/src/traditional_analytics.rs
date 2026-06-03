@@ -19697,7 +19697,8 @@ fn run_vortex_derived_scenario_from_files(
     cdc_delta_path: Option<&std::path::Path>,
 ) -> Result<TraditionalScenarioExecution> {
     match scenario {
-        TraditionalAnalyticsScenario::CsvFileIngest => {
+        TraditionalAnalyticsScenario::CsvFileIngest
+        | TraditionalAnalyticsScenario::ManySmallFilesScan => {
             run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "metric")
         }
         TraditionalAnalyticsScenario::SelectiveFilter => {
@@ -29489,6 +29490,86 @@ mod tests {
                 );
             }
         }
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_many_small_files_scan_streams_metric_projection() {
+        let root = traditional_analytics_test_root("many-small-files-scan");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::ManySmallFilesScan,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "{\"row_count\":3,\"metric_sum\":10.0}"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["metric".to_string()]
+        );
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::ManySmallFilesScan,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["metric".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
+
+        let native_fields = field_map(native_report.fields());
+        assert_eq!(
+            native_fields
+                .get("source_backed_scan_projected_columns")
+                .map(String::as_str),
+            Some("metric")
+        );
+        assert_eq!(
+            native_fields
+                .get("operator_execution_class")
+                .map(String::as_str),
+            Some("residual_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
