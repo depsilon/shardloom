@@ -469,7 +469,21 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   `target/benchmark-artifacts/codex-6d-write-buffer-capacity-20260603T000000Z/traditional_analytics_existing_data.json`
   and rejected because it regressed structured cold `vortex_write_millis` by about 8% versus the
   prior optimized artifact; future write-stage work should inspect Vortex writer encoding/layout
-  behavior or admitted writer configuration rather than local preallocation.
+  behavior or admitted writer configuration rather than local preallocation. A follow-up
+  many-small-files hot-path slice promoted `many-small-files scan` from the full-table
+  materialization fallback to the existing projected Vortex streaming scan over `metric`. The
+  accepted harness-level rerun at
+  `target/benchmark-artifacts/codex-many-small-streaming-20260603T000000Z/traditional_many_small_csv_jsonl.json`
+  produced six successful ShardLoom CSV/JSONL rows and zero errors for `many_small_files`; query
+  timings ranged from 0.5767 ms to 0.73 ms with `operator_execution_class=residual_native`,
+  `data_materialized=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+  Direct patched release CLI measurements against the existing Parquet/Arrow IPC prepared Vortex
+  artifacts from the `codex-5j` benchmark moved the old materialized Parquet/Arrow IPC
+  many-small-files hot route from about 21.859-22.948 ms to median scenario-compute timings of
+  0.638-0.747 ms for native/prepared runs and 0.655-0.719 ms for batch prepared runs. The local
+  Python environment lacked `pyarrow` and `polars`, so a fresh compatible Parquet/Arrow harness
+  rerun with external Polars rows could not be regenerated locally; the comparison baseline remains
+  the existing `codex-5j` JSON artifact.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
