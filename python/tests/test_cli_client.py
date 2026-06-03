@@ -317,8 +317,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["command_registry_user_surface_graduation_posture_vocabulary", "high_level_context,client_only,diagnostic_only,feature_gated,not_user_facing"],
                     ["registered_commands", "help,command-metadata,status,vortex-ingest-smoke"],
                     ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
-                    ["registered_command_support_states", "help=executable,command-metadata=executable,status=executable,vortex-ingest-smoke=executable"],
-                    ["registered_command_user_surface_graduation_postures", "help=client_only,command-metadata=client_only,status=client_only,vortex-ingest-smoke=high_level_context"],
+                    ["registered_command_support_states", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-ingest-smoke=executable"],
+                    ["registered_command_user_surface_graduation_postures", "help=diagnostic_only,command-metadata=diagnostic_only,status=diagnostic_only,vortex-ingest-smoke=high_level_context"],
                     ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
                     ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-ingest-smoke=not_required_for_metadata"],
                     ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-ingest-smoke=local_source_or_vortex_artifact_args"],
@@ -388,6 +388,11 @@ class ShardLoomClientTests(unittest.TestCase):
             "prepared_source_backed_execution",
         )
         self.assertEqual(report.family_for("command-metadata"), "status_capabilities")
+        self.assertEqual(report.support_state_for("help"), "diagnostic_only")
+        self.assertEqual(
+            report.user_surface_graduation_posture_for("command-metadata"),
+            "diagnostic_only",
+        )
         self.assertEqual(report.support_state_for("vortex-ingest-smoke"), "executable")
         self.assertEqual(
             report.user_surface_graduation_posture_for("vortex-ingest-smoke"),
@@ -2006,6 +2011,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "sink_artifact_refs", "value": "not_applicable,not_requested,none"},
                     {"key": "sink_artifact_digest", "value": "not_requested"},
                     {"key": "sink_artifact_digests", "value": "not_applicable,not_requested"},
+                    {
+                        "key": "output_plan_required_columns",
+                        "value": "not_applicable_inline_result,not_applicable_id",
+                    },
                 ],
             }
         )
@@ -2015,6 +2024,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(report.sink_artifact_refs, ())
         self.assertIsNone(report.sink_artifact_digest)
         self.assertEqual(report.sink_artifact_digests, ())
+        self.assertEqual(report.output_plan_required_columns, ("not_applicable_id",))
 
     def test_sql_local_source_report_window_evidence_accessors(self) -> None:
         envelope = OutputEnvelope.from_json(
@@ -2845,23 +2855,18 @@ class ShardLoomClientTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             workspace = Path(tempdir) / "prepared"
-            target = workspace / "generated-user-rows.vortex"
             binary = self.fake_cli(
                 textwrap.dedent(
                     f"""
                     import json, sys
                     args = sys.argv[1:]
-                    assert args == [
-                        "generated-source-user-rows-smoke",
-                        {str(target)!r},
-                        "id:int64,label:utf8",
-                        "id=1,label=alpha",
-                        "--source-kind",
-                        "user_rows",
-                        "--output-format",
-                        "vortex",
-                        "--format",
-                        "json",
+                    assert args[0] == "generated-source-user-rows-smoke", sys.argv
+                    assert args[1].startswith({str(workspace)!r}), sys.argv
+                    assert args[1].endswith(".vortex"), sys.argv
+                    assert args[2:] == [
+                        "id:int64,label:utf8", "id=1,label=alpha",
+                        "--source-kind", "user_rows", "--output-format", "vortex",
+                        "--format", "json"
                     ], sys.argv
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
@@ -2876,7 +2881,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "generated_source_row_count", "value": "1"}},
                             {{"key": "generated_source_certificate_status", "value": "present"}},
                             {{"key": "output_native_io_certificate_status", "value": "certified_local_vortex_sink"}},
-                            {{"key": "output_path", "value": {str(target)!r}}},
+                            {{"key": "output_path", "value": args[1]}},
                             {{"key": "output_format", "value": "vortex"}},
                             {{"key": "vortex_output_runtime_execution", "value": "true"}},
                             {{"key": "vortex_output_reopen_verified", "value": "true"}},
@@ -2906,7 +2911,8 @@ class ShardLoomClientTests(unittest.TestCase):
             )
 
             self.assertIsInstance(report, GeneratedSourceWriteReport)
-            self.assertEqual(report.output_path, str(target))
+            self.assertTrue(report.output_path.startswith(str(workspace)))
+            self.assertTrue(report.output_path.endswith(".vortex"))
             self.assertEqual(report.output_format, "vortex")
             self.assertTrue(report.vortex_output_runtime_execution)
             self.assertTrue(report.vortex_output_reopen_verified)
@@ -8888,12 +8894,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepared_state_digest", "value": "fnv1a64:abc"},
                         {"key": "source_state_id", "value": "source-state://abc"},
                         {"key": "source_state_digest", "value": "fnv1a64:source"},
-                        {"key": "source_state_columnar_preserved", "value": "true"},
+                        {"key": "source_state_columnar_preserved", "value": "false"},
                         {"key": "source_state_record_batch_count", "value": "2"},
                         {"key": "vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
                         {"key": "vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
-                        {"key": "vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
+                        {"key": "vortex_array_build_strategy", "value": "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows"},
+                        {"key": "vortex_array_build_input_layout", "value": "traditional_text_adapter_record_batch"},
                         {"key": "vortex_array_build_record_batch_count", "value": "2"},
                         {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "vortex_preparation_spine_status", "value": "admitted_local_preparation_spine"},
@@ -8924,7 +8930,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(artifacts.artifact_digest, "fact=sha256:f,dim=sha256:d")
         self.assertEqual(artifacts.prepared_state_id, "prepared-state://abc")
         self.assertEqual(artifacts.source_state_digest, "fnv1a64:source")
-        self.assertTrue(artifacts.source_state_columnar_preserved)
+        self.assertFalse(artifacts.source_state_columnar_preserved)
         self.assertEqual(artifacts.source_state_record_batch_count, 2)
         self.assertEqual(artifacts.vortex_array_build_provider_kind, "vortex_array_kernel")
         self.assertEqual(
@@ -8933,11 +8939,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             artifacts.vortex_array_build_strategy,
-            "vortex_from_arrow_record_batch",
+            "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows",
         )
         self.assertEqual(
             artifacts.vortex_array_build_input_layout,
-            "traditional_arrow_record_batch",
+            "traditional_text_adapter_record_batch",
         )
         self.assertEqual(artifacts.vortex_array_build_record_batch_count, 2)
         self.assertTrue(artifacts.vortex_array_build_manual_scalar_copy_avoided)
@@ -9126,13 +9132,13 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepare_batch_cdc_delta_vortex_digest", "value": "sha256:c"},
                         {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "prepare_batch_source_state_columnar_preserved", "value": "true"},
+                        {"key": "prepare_batch_source_state_columnar_preserved", "value": "false"},
                         {"key": "prepare_batch_source_state_record_batch_count", "value": "2"},
                         {"key": "prepare_batch_vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
                         {"key": "prepare_batch_vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "prepare_batch_vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
-                        {"key": "prepare_batch_vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
-                        {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "2"},
+                        {"key": "prepare_batch_vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch_mixed_traditional_text_and_direct_columnar"},
+                        {"key": "prepare_batch_vortex_array_build_input_layout", "value": "mixed_traditional_arrow_record_batch_text_adapter_and_vortex_provider_record_batch"},
+                        {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "3"},
                         {"key": "prepare_batch_vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "scenario_order", "value": "selective-filter,filter---projection---limit"},
                         {"key": "source_state_digest", "value": "fnv1a64:batch"},

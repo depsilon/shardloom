@@ -231,11 +231,20 @@ def classify_command(command: str, groups: list[tuple[set[str], str]]) -> str:
         return "rest_api_planning"
     if command.startswith("cg9-"):
         return "workflow_planning"
+    if command.startswith("object-store-") or command.startswith("cg10-"):
+        return "object_store_planning"
     return "other"
 
 
 def command_support_state(command: str, family: str) -> str:
-    if family == "diagnostics":
+    if family == "diagnostics" or command in {
+        "help",
+        "command-metadata",
+        "evidence-schema",
+        "status",
+        "runs-today",
+        "capabilities",
+    }:
         return "diagnostic_only"
     if (
         command in EXECUTABLE_METADATA_COMMANDS

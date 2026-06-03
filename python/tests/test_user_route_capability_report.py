@@ -205,7 +205,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "not_applicable_generated_source_no_source_splits",
         )
         self.assertIn(
-            "prepared_state_reuse_manifest",
+            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
             generated["required_evidence"],
         )
 
@@ -253,6 +253,12 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             primitive_rows["vortex_filter_project_limit_collect"][
                 "supports_source_order_limit"
             ]
+        )
+        for row in primitive_rows.values():
+            self.assertNotIn("col('value')", row["dataframe_surface"])
+        self.assertIn(
+            "filter('gte:value:3')",
+            primitive_rows["vortex_filter_project_limit_collect"]["dataframe_surface"],
         )
 
         scenarios = {
@@ -311,8 +317,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         local_auto = public_front_doors["local_source_auto_prepare_vortex_front_door"]
         self.assertEqual(local_auto["owning_route_id"], "local_file_prepare_once_first_query")
         self.assertEqual(local_auto["route_lane_id"], "prepare_once_first_query")
-        self.assertIn("ctx.read_csv", local_auto["public_user_surface"])
-        self.assertIn(".prepare_vortex", local_auto["public_user_surface"])
+        self.assertIn("ctx.prepare_vortex", local_auto["public_user_surface"])
         self.assertIn(".query", local_auto["public_user_surface"])
         self.assertIn(".collect", local_auto["public_user_surface"])
         self.assertIn("SourceState", local_auto["vortex_normalization_point"])
@@ -346,7 +351,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "artifact_adjacent_manifest_local_vortex_artifacts",
         )
         self.assertIn(
-            "prepared_state_reuse_manifest",
+            "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output",
             generated_front_door["required_evidence"],
         )
 
@@ -431,7 +436,8 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
                 row["required_evidence"] = [
                     item
                     for item in row["required_evidence"]
-                    if item != "prepared_state_reuse_manifest"
+                    if item
+                    != "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
                 ]
                 break
         for row in rows:
@@ -463,7 +469,11 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             any("artifact-adjacent reuse manifest path" in blocker for blocker in blockers)
         )
         self.assertTrue(
-            any("prepared_state_reuse_manifest evidence" in blocker for blocker in blockers)
+            any(
+                "feature-gated local Vortex output prepared-state reuse manifest evidence"
+                in blocker
+                for blocker in blockers
+            )
         )
 
     def test_validator_rejects_incomplete_local_file_benchmark_routes(self) -> None:
@@ -531,7 +541,10 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         blockers = module.validate_public_front_door_routes(public_rows, route_rows)
 
         self.assertTrue(
-            any("public_user_surface must include ctx.read_csv" in blocker for blocker in blockers)
+            any(
+                "public_user_surface must include ctx.prepare_vortex" in blocker
+                for blocker in blockers
+            )
         )
         self.assertTrue(any("must set includes_query=true" in blocker for blocker in blockers))
         self.assertTrue(any("front_door_end_state must be result_sink" in blocker for blocker in blockers))

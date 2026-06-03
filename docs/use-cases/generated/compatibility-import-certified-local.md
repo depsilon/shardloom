@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `compatibility_import_certified`
 - **Engine mode:** `batch`
-- **Claim boundary:** Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
+- **Claim boundary:** Certified cold-route evidence; CSV/JSONL cold imports should report text-adapter RecordBatch import without persistent traditional row buffers and writer-byte Vortex digest attribution after the current batch lands. This is not pure query speed, not a performance or superiority claim, and not a production SQL/DataFrame/object-store/lakehouse/Foundry claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Compatibility import certified local workload has a scoped local path. Treat it 
 
 ## Claim Boundary
 
-Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.
+Certified cold-route evidence; CSV/JSONL cold imports should report text-adapter RecordBatch import without persistent traditional row buffers and writer-byte Vortex digest attribution after the current batch lands. This is not pure query speed, not a performance or superiority claim, and not a production SQL/DataFrame/object-store/lakehouse/Foundry claim.
 
 ## How To Try It
 
@@ -39,8 +39,14 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `vortex_ingest_status`
 - `source_read_millis`
 - `compatibility_parse_millis`
+- `source_state_materialization_layout`
+- `source_state_record_batch_count`
+- `source_state_columnar_preserved`
 - `compatibility_to_vortex_import_millis`
+- `vortex_array_build_strategy`
+- `vortex_array_build_input_layout`
 - `vortex_write_millis`
+- `vortex_digest_millis`
 - `vortex_reopen_millis`
 - `vortex_scan_millis`
 - `operator_compute_millis`
@@ -54,7 +60,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence.
+Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence, including source-state materialization layout, RecordBatch count, Vortex array-build strategy/input layout, and digest timing attribution.
 
 ## Common Mistakes
 

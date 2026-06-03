@@ -193,6 +193,9 @@ GENERATED_PREPARED_STATE_INVALIDATION_REASON = (
 GENERATED_SOURCE_SPLIT_MANIFEST_ID = (
     "not_applicable_generated_source_no_source_splits"
 )
+GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE = (
+    "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
+)
 
 REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
     "vortex_count_all",
@@ -984,11 +987,11 @@ def validate_rows(report: Any, rows: list[dict[str, Any]]) -> list[str]:
         required_evidence = generated_route.get("required_evidence")
         if (
             not isinstance(required_evidence, list)
-            or "prepared_state_reuse_manifest" not in required_evidence
+            or GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE not in required_evidence
         ):
             blockers.append(
                 "generated_rows_local_output: generated-source route must require "
-                "prepared_state_reuse_manifest evidence"
+                "feature-gated local Vortex output prepared-state reuse manifest evidence"
             )
         desired_outputs = generated_route.get("desired_outputs")
         if (
@@ -1155,6 +1158,12 @@ def validate_public_front_door_routes(
         required_evidence = row.get("required_evidence")
         if not isinstance(required_evidence, list) or not required_evidence:
             blockers.append(f"{front_door_id}: missing required_evidence")
+        elif front_door_id == "generated_source_prepare_vortex_front_door":
+            if GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE not in required_evidence:
+                blockers.append(
+                    f"{front_door_id}: required_evidence must include "
+                    f"{GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE}"
+                )
         elif "prepared_state_reuse_manifest" not in required_evidence:
             blockers.append(
                 f"{front_door_id}: required_evidence must include prepared_state_reuse_manifest"
@@ -1178,7 +1187,7 @@ def validate_public_front_door_routes(
                 blockers.append(
                     f"{front_door_id}: query_timing_starts_after_preparation must be true"
                 )
-            for token in ("ctx.read_csv", ".prepare_vortex", "workspace=", ".query", ".collect"):
+            for token in ("ctx.prepare_vortex", "workspace=", ".query", ".collect"):
                 if token not in surface:
                     blockers.append(f"{front_door_id}: public_user_surface must include {token}")
             if "SourceState" not in str(row.get("vortex_normalization_point", "")):
@@ -1224,6 +1233,29 @@ def validate_public_front_door_routes(
                 blockers.append(f"{front_door_id}: must expose artifact-adjacent manifest policy")
 
     return blockers
+
+
+def front_door_row_exposes_prepared_state_reuse_contract(row: dict[str, Any]) -> bool:
+    evidence = row.get("required_evidence", [])
+    if not isinstance(evidence, list):
+        return False
+    front_door_id = row.get("front_door_id")
+    if front_door_id == "generated_source_prepare_vortex_front_door":
+        expected_scope = GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE
+        expected_path = GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH
+        expected_policy = GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY
+        expected_evidence = GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE
+    else:
+        expected_scope = PREPARED_STATE_REUSE_MANIFEST_SCOPE
+        expected_path = PREPARED_STATE_REUSE_MANIFEST_PATH
+        expected_policy = PREPARED_STATE_REUSE_MANIFEST_POLICY
+        expected_evidence = "prepared_state_reuse_manifest"
+    return (
+        row.get("prepared_state_reuse_scope") == expected_scope
+        and row.get("prepared_state_reuse_manifest_path") == expected_path
+        and row.get("prepared_state_reuse_policy") == expected_policy
+        and expected_evidence in evidence
+    )
 
 
 def build_report(repo_root: Path) -> dict[str, Any]:
@@ -1425,16 +1457,14 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 == GENERATED_PREPARED_STATE_INVALIDATION_REASON
                 and generated_reuse_row.get("source_split_manifest_id")
                 == GENERATED_SOURCE_SPLIT_MANIFEST_ID
-                and "prepared_state_reuse_manifest"
+                and GENERATED_VORTEX_OUTPUT_REUSE_EVIDENCE
                 in generated_reuse_row.get("required_evidence", [])
                 and "feature_gated_local_vortex_output"
                 in generated_reuse_row.get("desired_outputs", [])
             ),
             "public_front_door_routes_expose_auto_and_generated_prepared_surfaces": (
                 local_auto_front_door is not None
-                and "ctx.read_csv"
-                in str(local_auto_front_door.get("public_user_surface"))
-                and ".prepare_vortex"
+                and "ctx.prepare_vortex"
                 in str(local_auto_front_door.get("public_user_surface"))
                 and ".query"
                 in str(local_auto_front_door.get("public_user_surface"))
@@ -1457,23 +1487,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 in str(generated_front_door.get("vortex_normalization_point"))
             ),
             "public_front_door_routes_expose_prepared_state_reuse_contracts": all(
-                row.get("prepared_state_reuse_scope")
-                in {
-                    PREPARED_STATE_REUSE_MANIFEST_SCOPE,
-                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_SCOPE,
-                }
-                and row.get("prepared_state_reuse_manifest_path")
-                in {
-                    PREPARED_STATE_REUSE_MANIFEST_PATH,
-                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_PATH,
-                }
-                and row.get("prepared_state_reuse_policy")
-                in {
-                    PREPARED_STATE_REUSE_MANIFEST_POLICY,
-                    GENERATED_PREPARED_STATE_REUSE_MANIFEST_POLICY,
-                }
-                and "prepared_state_reuse_manifest"
-                in row.get("required_evidence", [])
+                front_door_row_exposes_prepared_state_reuse_contract(row)
                 for row in public_front_door_rows
             ),
             "public_front_door_routes_preserve_no_fallback": all(

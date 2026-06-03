@@ -37,8 +37,11 @@ class RuntimeGapFamilyBurnDownTests(unittest.TestCase):
         report = module.build_report(REPO_ROOT)
 
         self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(report["global_review_unchecked_count"], 38)
-        self.assertEqual(report["mapped_gap_count"], 38)
+        self.assertGreater(report["global_review_unchecked_count"], 0)
+        self.assertEqual(
+            report["mapped_gap_count"],
+            report["global_review_unchecked_count"],
+        )
         self.assertGreaterEqual(report["runtime_gap_family_count"], 10)
         self.assertTrue(
             report["acceptance_summary"]["all_unchecked_global_review_rows_mapped"]

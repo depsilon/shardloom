@@ -184,16 +184,32 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` until the
-   refreshed local benchmark evidence no longer shows obvious ShardLoom-owned preparation,
-   Vortex-I/O, output/evidence, or residual-native tail overhead that can be fixed safely in the
-   current runtime family.
-2. Work the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` breadth items in order: broad SQL grammar,
-   Python/DataFrame API breadth, object-store/lakehouse runtime, generated-output platform runtime,
-   data-quality/quarantine/profile runtime, effectful operations, live/hybrid runtime,
-   distributed/spill/OOM runtime, and front-door performance benchmark publication.
-3. After the 6D breadth queue has reduced the blockers it owns, return to the residual
-   `GAR-RUNTIME-IMPL-4/6A` completion gate and internal backstop queue.
+1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` from the
+   2026-06-03 refreshed benchmark evidence. The text-adapter RecordBatch import and writer-byte
+   digest batch has been benchmarked and published; the next optimization slice should target the
+   remaining cold certified-route source read/parse and Vortex write hot spots, or explicitly
+   classify them as not currently fixable before moving on.
+2. If the next refreshed local benchmark evidence no longer shows fixable ShardLoom-owned
+   preparation, Vortex-I/O, output/evidence, or residual-native tail overhead in the current route
+   family, advance to the remaining `GAR-RUNTIME-IMPL-6D:last_order.*` breadth items in order.
+3. Return to the residual `GAR-RUNTIME-IMPL-4/6A` completion gate only after the active 6D breadth
+   queue has reduced or explicitly blocked the runtime families it owns.
+
+Remaining work snapshot:
+
+| Order | Work item | Remaining outcome |
+| --- | --- | --- |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Use the refreshed post-PR1060 evidence to reduce or explicitly classify remaining cold-route source read/parse/Vortex-write overhead. |
+| 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 5 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 6 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 7 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 8 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 9 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 10 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
 `docs/architecture/phased-execution-completed-ledger.md`; they are not active Planned work.
@@ -279,14 +295,13 @@ Current state:
   local file workflows, generated-output workflows, bounded decoded interop, local Vortex primitive
   report paths, prepared Vortex artifacts, native `.vortex` inputs, and benchmark-range route
   capability reports.
-- Route/reuse/output/evidence foundations from the earlier 6D child slices are complete and are
-  recorded in `docs/architecture/phased-execution-completed-ledger.md`. Do not re-list those
-  completed route slices in this live queue.
 - Remaining work in this section is the last-order breadth below: benchmark-driven hot-path
   optimization, broad SQL grammar, Python/DataFrame API breadth, object-store/lakehouse runtime,
   generated-output platform runtime, data-quality/quarantine/profile runtime, effectful operations,
   live/hybrid runtime, distributed/spill/OOM runtime, and claim-grade front-door benchmark
   publication.
+- Completed route/reuse/output/evidence foundations are recorded only in
+  `docs/architecture/phased-execution-completed-ledger.md`.
 - Native `.vortex` inputs start at the Vortex-native boundary. CSV/JSONL/Parquet/Arrow/Avro/ORC,
   generated rows, and materialized Python/Arrow inputs remain adapters into explicit
   Vortex-normalized ShardLoom routes before they can be called runtime-ready or claim-grade.
@@ -322,23 +337,26 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
   optimization for runtime-ready local routes.
   Current state: benchmark publication and prior optimization evidence are recorded in
-  `docs/architecture/phased-execution-completed-ledger.md`. The live remaining work is to keep
-  using refreshed local benchmark evidence to remove fixable ShardLoom-owned overhead before any
-  performance claim: preparation and Vortex write/read stages on cold routes, result-sink/evidence
-  overhead in route totals, and residual-native tail operators in prepared/native routes.
-  Completed hot-path slices already covered JSONL/CSV parsing, cold columnar RecordBatch import,
-  repeated Vortex I/O setup in the cold write/result-sink path, many-small-files projected
-  streaming, and generated nested JSON payload extraction; do not re-list their detailed benchmark
-  rows here.
+  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 full-local refresh from
+  `target/benchmark-artifacts/traditional-full-local-post-pr1060.json` has been promoted into the
+  website benchmark bundle. It reports 1,320 published rows, 600 ShardLoom rows with
+  `claim_gate_status=claim_grade`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`, and engine-level route geomeans of 244.31 ms for the certified
+  cold route, 8.19 ms for native Vortex, 9.75 ms for prepared Vortex, and 33.67 ms across the
+  prepare-batch rows. The
+  prepared/native query timing fields are no longer the first visible bottleneck; the cold certified
+  route still shows source read, parse, and Vortex write as the dominant ShardLoom-owned stages
+  before any performance claim.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
-  Next slice outcome: run one coherent benchmark-driven optimization batch that reduces the
-  currently measured prepared/native tail without changing semantics. Candidate work belongs here
-  only when it is ShardLoom-owned, no-fallback, covered by focused tests, and measured by the
-  benchmark harness after all code/docs edits in the batch are complete.
+  Next slice outcome: reduce one verified cold-route source read/parse/Vortex-write hot spot or
+  attach source-grounded evidence that the remaining stage is currently governed by an upstream
+  Vortex writer/provider boundary and should move to a provider-admission/layout-advisor follow-up.
+  Candidate work belongs here only when it is ShardLoom-owned, no-fallback, covered by focused
+  tests, and measured by the benchmark harness after all code/docs edits in the batch are complete.
   User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
   routes, Python/context prepared/native route helpers, result-sink evidence, route capability
   reports, and release-readiness benchmark validators.
@@ -666,30 +684,10 @@ validators, docs/website parity, and a completed-ledger entry.
   - Source: active user objective, `docs/architecture/global-architecture-review.md`,
     `docs/architecture/compute-engine-flow-reference.md`, and
     `target/compute-engine-completion-gate.json`.
-  - Current state: `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh
-    gate` is complete for the current `full_local` benchmark publication. The first residual
-    blocker burn-down promoted benchmark sub-evidence for optimizer posture, SourceState,
-    VortexPreparedState, reuse level, copy-budget, preparation-spine, capillary, layout, and local
-    split-operator status fields to runtime-ready local evidence where the rows already had
-    top-level `success`, `claim_grade`, runtime-validation `passed`, and no fallback/external engine
-    invocation. Follow-up freshness passes closed stale `GAR-PERF-2C`, `GAR-SCALE-1`,
-    `GAR-COMPAT-1`, `GAR-NOVEL-1`, and scoped `GAR-GEN-1` generated-output rows against
-    already-landed scan-pushdown, scale-readiness, compatibility-scoreboard, evidence-native
-    report-lane, and DataFrame literal projection/generated-with-column generated-output evidence.
-    The Python/runtime user-surface freshness pass added explicit context/client helpers for the
-    already-admitted local object-store, table metadata/append, and SQLite fixture smokes, closing
-    the stale ergonomic API row while keeping broad runtime/package claims in their owning rows.
-    The extension/UDF context-surface pass closed the duplicate plugin/UDF sandbox row by exposing
-    the existing non-executing extension inspection and built-in deterministic scalar UDF fixture
-    helpers through the high-level context while leaving arbitrary plugin/UDF/effect execution in
-    the owning modular-extensibility gates. The repo-wide readiness/user-surface audit baseline
-    found no benchmark blockers, 38 global architecture review blockers, one active phase-plan
-    blocker, 194 registered CLI commands, 40 executable commands, 12 feature-gated commands,
-    8 diagnostic-only commands, 134 report-only commands, 99 public `ShardLoomClient` methods,
-    73 public `ShardLoomContext` methods, two stale completed-ledger PR references, and one
-    concrete CLI discovery ergonomics bug around standard `--help` aliases. Full compute-engine
-    completion remains blocked by 38 unchecked global architecture review items plus the phase-plan
-    follow-through queue below.
+  - Current state: completed benchmark/profile, sub-evidence, user-surface, and UDF/extension
+    freshness passes are recorded in the completed ledger. The live backstop state is still blocked:
+    the release architecture tracker currently reports 38 unchecked global architecture review
+    items and 10 unchecked phase-plan runtime items before whole-engine completion can be claimed.
   - Next slice outcome: close or split the 38 global architecture review items into runtime-ready
     evidence slices, and graduate the user-surface matrix so every report-only/feature-gated
     surface has a deliberate high-level, low-level, diagnostic, or blocked posture.

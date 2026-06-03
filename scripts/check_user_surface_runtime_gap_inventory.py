@@ -661,6 +661,14 @@ def benchmark_support_summary(payload: dict[str, Any]) -> tuple[dict[str, Any], 
         and str(row.get("status", "")).lower().startswith("unsupported")
     ]
     blockers: list[str] = []
+    expected_row_count = payload.get("published_benchmark_row_count")
+    if isinstance(expected_row_count, int) and len(rows) != expected_row_count:
+        blockers.append(
+            "benchmark artifact loaded row count does not match published_benchmark_row_count: "
+            f"{len(rows)} != {expected_row_count}"
+        )
+    if not shardloom_rows:
+        blockers.append("benchmark artifact loaded no ShardLoom rows")
     if shardloom_unsupported:
         blockers.append(
             "benchmark artifact has ShardLoom unsupported rows: "

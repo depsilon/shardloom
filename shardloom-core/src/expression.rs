@@ -2085,11 +2085,18 @@ fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalR
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Decimal128OperandSource {
+    Decimal,
+    Integer,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct Decimal128Operand {
     value: i128,
     precision: u8,
     scale: u8,
+    source: Decimal128OperandSource,
 }
 
 fn eval_decimal128_binary(
@@ -2149,16 +2156,19 @@ fn decimal128_operand_from_scalar(value: &ScalarValue) -> EvalResult<Option<Deci
             value: *value,
             precision: *precision,
             scale: *scale,
+            source: Decimal128OperandSource::Decimal,
         })),
         ScalarValue::Int64(value) => Ok(Some(Decimal128Operand {
             value: i128::from(*value),
             precision: decimal128_digit_count(i128::from(*value)),
             scale: 0,
+            source: Decimal128OperandSource::Integer,
         })),
         ScalarValue::UInt64(value) => Ok(Some(Decimal128Operand {
             value: i128::from(*value),
             precision: decimal128_digit_count(i128::from(*value)),
             scale: 0,
+            source: Decimal128OperandSource::Integer,
         })),
         ScalarValue::Float64(_) => Err(EvalFailure::unsupported(
             "decimal128_arithmetic",
@@ -2173,6 +2183,7 @@ fn eval_decimal128_add_sub(
     op: BinaryOp,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
+    validate_decimal128_arithmetic_scale_boundary(left, right)?;
     let common_scale = decimal128_common_scale(left, right);
     let left = decimal128_rescale(left, common_scale)?;
     let right = decimal128_rescale(right, common_scale)?;
@@ -2204,6 +2215,7 @@ fn eval_decimal128_multiply(
     left: Decimal128Operand,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
+    validate_decimal128_arithmetic_scale_boundary(left, right)?;
     let precision = left.precision.checked_add(right.precision).ok_or_else(|| {
         EvalFailure::invalid(
             "decimal128_arithmetic",
@@ -2232,6 +2244,7 @@ fn eval_decimal128_divide(
     left: Decimal128Operand,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
+    validate_decimal128_arithmetic_scale_boundary(left, right)?;
     let scale = decimal128_divide_output_scale(left, right)?;
     let value = decimal128_exact_scaled_divide(left, right, scale)?;
     decimal128_checked_operand(value, 38, scale)
@@ -2239,6 +2252,22 @@ fn eval_decimal128_divide(
 
 fn decimal128_common_scale(left: Decimal128Operand, right: Decimal128Operand) -> u8 {
     left.scale.max(right.scale)
+}
+
+fn validate_decimal128_arithmetic_scale_boundary(
+    left: Decimal128Operand,
+    right: Decimal128Operand,
+) -> EvalResult<()> {
+    if left.source == Decimal128OperandSource::Decimal
+        && right.source == Decimal128OperandSource::Decimal
+        && left.scale != right.scale
+    {
+        return Err(EvalFailure::unsupported(
+            "decimal128_arithmetic",
+            "mixed-scale decimal128 arithmetic is not admitted by this scoped slice; use matching decimal scales or integer operands",
+        ));
+    }
+    Ok(())
 }
 
 fn decimal128_rescale(
@@ -2277,6 +2306,7 @@ fn decimal128_rescale(
         value,
         precision,
         scale: target_scale,
+        source: operand.source,
     })
 }
 
@@ -2301,6 +2331,7 @@ fn decimal128_checked_operand(
         value,
         precision,
         scale,
+        source: Decimal128OperandSource::Decimal,
     })
 }
 
@@ -2530,11 +2561,15 @@ fn decimal128_null_output_dtype(
     let output = match op {
         BinaryOp::Add | BinaryOp::Subtract => eval_decimal128_add_sub(left, op, right)?,
         BinaryOp::Multiply => eval_decimal128_multiply(left, right)?,
-        BinaryOp::Divide => Decimal128Operand {
-            value: 0,
-            precision: 38,
-            scale: decimal128_divide_output_scale(left, right)?,
-        },
+        BinaryOp::Divide => {
+            validate_decimal128_arithmetic_scale_boundary(left, right)?;
+            Decimal128Operand {
+                value: 0,
+                precision: 38,
+                scale: decimal128_divide_output_scale(left, right)?,
+                source: Decimal128OperandSource::Decimal,
+            }
+        }
         BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
     };
     Ok(Some(decimal128_dtype(output.precision, output.scale)))
@@ -2547,12 +2582,14 @@ fn decimal128_operand_from_eval_value(value: &EvalValue) -> EvalResult<Option<De
                 value: 0,
                 precision,
                 scale,
+                source: Decimal128OperandSource::Decimal,
             }));
         }
         return Ok(Some(Decimal128Operand {
             value: 0,
             precision: 1,
             scale: 0,
+            source: Decimal128OperandSource::Integer,
         }));
     }
     decimal128_operand_from_scalar(&value.value)
@@ -2659,10 +2696,48 @@ fn decimal128_compare_ordering(
             "decimal128 comparison admits decimal128 and integer operands only in this scoped slice",
         )
     })?;
+    Ok(decimal128_compare_scaled_values(left, right))
+}
+
+fn decimal128_compare_scaled_values(
+    left: Decimal128Operand,
+    right: Decimal128Operand,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+
+    let left_negative = left.value.is_negative();
+    let right_negative = right.value.is_negative();
+    match (left_negative, right_negative) {
+        (true, false) => return Less,
+        (false, true) => return Greater,
+        _ => {}
+    }
     let common_scale = decimal128_common_scale(left, right);
-    let left = decimal128_rescale(left, common_scale)?;
-    let right = decimal128_rescale(right, common_scale)?;
-    Ok(left.value.cmp(&right.value))
+    let left_digits = decimal128_scaled_abs_digits(left, common_scale);
+    let right_digits = decimal128_scaled_abs_digits(right, common_scale);
+    let magnitude_ordering = left_digits
+        .len()
+        .cmp(&right_digits.len())
+        .then_with(|| left_digits.cmp(&right_digits));
+    if left_negative && right_negative {
+        magnitude_ordering.reverse()
+    } else if magnitude_ordering == Equal {
+        Equal
+    } else {
+        magnitude_ordering
+    }
+}
+
+fn decimal128_scaled_abs_digits(operand: Decimal128Operand, target_scale: u8) -> String {
+    let delta = target_scale.saturating_sub(operand.scale);
+    let mut digits = operand.value.unsigned_abs().to_string();
+    digits.extend(std::iter::repeat_n('0', usize::from(delta)));
+    let trimmed = digits.trim_start_matches('0');
+    if trimmed.is_empty() {
+        "0".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn decimal128_operand_from_comparison_scalar(
@@ -4724,8 +4799,8 @@ mod tests {
     }
 
     #[test]
-    fn expression_semantics_evaluates_mixed_scale_decimal128_arithmetic_without_fallback() {
-        let expression = Expression::new(
+    fn expression_semantics_blocks_mixed_scale_decimal128_arithmetic_without_fallback() {
+        let add = Expression::new(
             expr_id("decimal-mixed-scale"),
             ExpressionKind::Binary {
                 left: Box::new(Expression::literal(
@@ -4747,18 +4822,112 @@ mod tests {
                 )),
             },
         );
-        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+        let add_report = evaluate_expression(&add, &ExpressionInputRow::new());
 
-        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
-        assert_eq!(
-            report.value,
-            Some(ScalarValue::Decimal128 {
-                value: 13_574,
-                precision: 12,
-                scale: 3,
-            })
+        assert_eq!(add_report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(
+            format!("{:?}", add_report.diagnostics).contains("mixed-scale decimal128 arithmetic")
         );
-        assert_eq!(report.output_dtype, Some(decimal128_dtype(12, 3)));
+        assert!(!add_report.fallback_attempted);
+        assert!(!add_report.external_engine_invoked);
+
+        let scale_zero_decimal_add = Expression::new(
+            expr_id("decimal-scale-zero-mixed-scale"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::literal(
+                    expr_id("left-zero"),
+                    ScalarValue::Decimal128 {
+                        value: 12,
+                        precision: 10,
+                        scale: 0,
+                    },
+                )),
+                op: BinaryOp::Add,
+                right: Box::new(Expression::literal(
+                    expr_id("right-scale"),
+                    ScalarValue::Decimal128 {
+                        value: 125,
+                        precision: 10,
+                        scale: 2,
+                    },
+                )),
+            },
+        );
+        let scale_zero_report =
+            evaluate_expression(&scale_zero_decimal_add, &ExpressionInputRow::new());
+
+        assert_eq!(
+            scale_zero_report.status,
+            ExpressionEvaluationStatus::Unsupported
+        );
+        assert!(
+            format!("{:?}", scale_zero_report.diagnostics)
+                .contains("mixed-scale decimal128 arithmetic")
+        );
+        assert!(!scale_zero_report.fallback_attempted);
+        assert!(!scale_zero_report.external_engine_invoked);
+
+        let multiply = Expression::new(
+            expr_id("decimal-mixed-scale-multiply"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::literal(
+                    expr_id("mul-left"),
+                    ScalarValue::Decimal128 {
+                        value: 1234,
+                        precision: 10,
+                        scale: 2,
+                    },
+                )),
+                op: BinaryOp::Multiply,
+                right: Box::new(Expression::literal(
+                    expr_id("mul-right"),
+                    ScalarValue::Decimal128 {
+                        value: 1234,
+                        precision: 10,
+                        scale: 3,
+                    },
+                )),
+            },
+        );
+        let multiply_report = evaluate_expression(&multiply, &ExpressionInputRow::new());
+
+        assert_eq!(
+            multiply_report.status,
+            ExpressionEvaluationStatus::Unsupported
+        );
+        assert!(
+            format!("{:?}", multiply_report.diagnostics)
+                .contains("mixed-scale decimal128 arithmetic")
+        );
+        assert!(!multiply_report.fallback_attempted);
+        assert!(!multiply_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_mixed_scale_typed_null_decimal128_division_without_fallback() {
+        let typed_null_divide = Expression::new(
+            expr_id("decimal-mixed-scale-null-divide"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::cast(
+                    expr_id("div-left-null"),
+                    Expression::literal(expr_id("div-null"), ScalarValue::Null),
+                    decimal128_dtype(10, 2),
+                )),
+                op: BinaryOp::Divide,
+                right: Box::new(Expression::literal(
+                    expr_id("div-right"),
+                    ScalarValue::Decimal128 {
+                        value: 1,
+                        precision: 10,
+                        scale: 3,
+                    },
+                )),
+            },
+        );
+        let report = evaluate_expression(&typed_null_divide, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(format!("{:?}", report.diagnostics).contains("mixed-scale decimal128 arithmetic"));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }
@@ -4793,6 +4962,38 @@ mod tests {
         assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+
+        let max_precision = Expression::new(
+            expr_id("decimal-mixed-scale-compare-max-precision"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(
+                    expr_id("max-left"),
+                    ScalarValue::Decimal128 {
+                        value: 1,
+                        precision: 38,
+                        scale: 0,
+                    },
+                )),
+                op: ComparisonOp::Eq,
+                right: Box::new(Expression::literal(
+                    expr_id("max-right"),
+                    ScalarValue::Decimal128 {
+                        value: 10,
+                        precision: 38,
+                        scale: 1,
+                    },
+                )),
+            },
+        );
+        let max_precision_report = evaluate_expression(&max_precision, &ExpressionInputRow::new());
+
+        assert_eq!(
+            max_precision_report.status,
+            ExpressionEvaluationStatus::Evaluated
+        );
+        assert_eq!(max_precision_report.value, Some(ScalarValue::Boolean(true)));
+        assert!(!max_precision_report.fallback_attempted);
+        assert!(!max_precision_report.external_engine_invoked);
     }
 
     #[test]

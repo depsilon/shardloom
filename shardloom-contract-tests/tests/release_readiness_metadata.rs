@@ -2263,7 +2263,8 @@ fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4S"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5Q"));
-    assert!(plan.contains("GAR-RUNTIME-IMPL-5J benchmark publishing"));
+    assert!(plan.contains("Remaining work snapshot"));
+    assert!(plan.contains("completed benchmark/profile, sub-evidence, user-surface"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q"));

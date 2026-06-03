@@ -1807,14 +1807,15 @@ plan before coding.
   evidence-safe reuse levels, per-level status/hit/digest/blocker fields, evidence-level linkage,
   output-format separation, invalidation reasons, `claim_grade_requirements_met=false`,
   no-fallback fields, and claim boundaries in benchmark artifacts. Scoped local SQL/Python and
-  generated-output fanout now adds local runtime sink evidence outside the benchmark matrix. The
-  remaining flow must add broader sink evidence and the cold-lane follow-through from
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md` while preserving distinct
-  direct-transient, compatibility-import-certified, prepared-vortex, and native-vortex lanes
-  without adding persistent cache, object-store/lakehouse, performance, or fallback claims. The
-  phase plan now splits that cold work into attribution, Vortex-native preparation, differential
-  preparation, capillary I/O, scout ingress/triage, layout/write advice, and copy-budget/buffer
-  evidence slices.
+  generated-output fanout now add local runtime sink evidence outside the benchmark matrix. The
+  remaining flow is broader VortexPreparedState/session reuse, persistent OutputPlan/cache
+  promotion, broad metadata fidelity, object-store/table and real Foundry sink proof, and
+  claim-grade output/replay evidence while preserving distinct direct-transient,
+  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
+  persistent cache, object-store/lakehouse, performance, or fallback claims ahead of their owning
+  evidence. Cold-lane attribution, Vortex-native preparation, differential preparation, capillary
+  I/O, scout ingress/triage, layout/write advice, and copy-budget/buffer evidence are closed as
+  scoped evidence slices rather than remaining blockers on this canonical row.
 - [x] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
   OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but

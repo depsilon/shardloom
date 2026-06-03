@@ -392,7 +392,15 @@ def validate_public_front_door_rows(
         if row.get("claim_gate_status") != "not_claim_grade":
             examples.append(f"{prefix}:claim_gate_status")
         evidence = row.get("required_evidence")
-        if not isinstance(evidence, list) or "prepared_state_reuse_manifest" not in evidence:
+        if not isinstance(evidence, list):
+            examples.append(f"{prefix}:required_evidence")
+        elif front_door_id == "generated_source_prepare_vortex_front_door":
+            if (
+                "prepared_state_reuse_manifest_for_feature_gated_local_vortex_output"
+                not in evidence
+            ):
+                examples.append(f"{prefix}:required_evidence")
+        elif "prepared_state_reuse_manifest" not in evidence:
             examples.append(f"{prefix}:required_evidence")
 
         surface = str(row.get("public_user_surface") or "")
@@ -402,7 +410,7 @@ def validate_public_front_door_rows(
                 examples.append(f"{prefix}:owning_route_id")
             if row.get("route_lane_id") != "prepare_once_first_query":
                 examples.append(f"{prefix}:route_lane_id")
-            for token in ("ctx.read_csv", ".prepare_vortex", "workspace="):
+            for token in ("ctx.prepare_vortex", "workspace=", ".query", ".collect"):
                 if token not in surface:
                     examples.append(f"{prefix}:surface_{token}")
             if "SourceState" not in normalization or "VortexPreparedState" not in normalization:

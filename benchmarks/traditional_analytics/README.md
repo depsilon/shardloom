@@ -949,6 +949,17 @@ operator work are still fused in the current streaming loop, the row keeps
 `operator_compute_millis` present and explains the limitation through
 `operator_compute_timing_scope`.
 
+CSV and JSONL certified cold rows should now expose a text-adapter RecordBatch
+path rather than a persistent traditional row-buffer import path. In that case
+`source_state_materialization_layout` reports
+`text_adapter_record_batch_without_persistent_traditional_rows`,
+`vortex_array_build_strategy` reports
+`vortex_from_text_adapter_record_batch_without_persistent_traditional_rows`,
+and `vortex_array_build_input_layout` reports
+`traditional_text_adapter_record_batch`. `vortex_digest_millis` may be zero
+when the Vortex artifact digest is derived from writer bytes instead of a
+separate reread of the just-written artifact.
+
 Promoted website rows also carry the route fast-path attribution schema
 `shardloom.route_fast_path_attribution.v1`. The fields
 `runtime_execution_ms`, `output_delivery_ms`, `evidence_capture_ms`,

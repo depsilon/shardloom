@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `mixed_by_row`
 - **Engine mode:** `batch`
-- **Claim boundary:** Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.
+- **Claim boundary:** Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Benchmark evidence, not leaderboard has a scoped local path. Treat it as technic
 
 ## Claim Boundary
 
-Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.
+Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
 
 ## How To Try It
 
@@ -38,7 +38,13 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `execution_mode`
 - `source_read_millis`
 - `compatibility_parse_millis`
+- `source_state_materialization_layout`
+- `source_state_record_batch_count`
 - `vortex_prepare_millis`
+- `vortex_array_build_strategy`
+- `vortex_array_build_input_layout`
+- `vortex_write_millis`
+- `vortex_digest_millis`
 - `vortex_scan_millis`
 - `operator_compute_millis`
 - `result_sink_write_millis`
@@ -48,7 +54,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines.
+Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines, with import layout/digest attribution visible for cold certified rows.
 
 ## Common Mistakes
 

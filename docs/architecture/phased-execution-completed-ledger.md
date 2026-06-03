@@ -16,6 +16,110 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D post-PR1060 benchmark refresh and website publication
+  - Date: 2026-06-03
+  - Branch/PR: `codex/address-pr980-plus-comments` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - User direction to rerun benchmark evidence only after the code/docs/site optimization batch.
+    - The post-PR1060 text-adapter RecordBatch import and writer-byte Vortex digest changes.
+  - Scope:
+    - Ran the full-local `--claim-readiness-rerun` benchmark artifact from current code using the
+      required ShardLoom lanes and local external baselines across CSV, JSONL, Parquet, Arrow IPC,
+      Avro, and ORC.
+    - Promoted `target/benchmark-artifacts/traditional-full-local-post-pr1060.json` into the
+      committed website benchmark bundle and rebuilt the Astro static benchmark page.
+    - Updated the active phase plan so the completed text-adapter/digest batch is no longer listed
+      as pending; remaining 6D optimization work is now the refreshed cold-route source read/parse
+      and Vortex-write hot spot.
+  - Evidence:
+    - `target/bench-venv/bin/python scripts/check_benchmark_environment.py --profile full_local --json-output target/benchmark-environment-full-local-post-pr1060.json` passed with all required lanes available.
+    - `target/bench-venv/bin/python benchmarks/traditional_analytics/run.py --rows 100000 --iterations 3 --claim-readiness-rerun --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local-post-pr1060.json --markdown-output target/benchmark-artifacts/traditional-full-local-post-pr1060.md --data-dir target/benchmark-artifacts/traditional-full-local-post-pr1060-data --regenerate` passed.
+    - Raw artifact inspection found 1,200 successful rows, 480 successful ShardLoom-family raw
+      rows, zero failed rows, and no ShardLoom `fallback_attempted` or `external_engine_invoked`
+      flags.
+    - `target/bench-venv/bin/python scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local-post-pr1060.json` passed.
+    - Promoted artifact validators passed with 1,320 published rows, 600 ShardLoom rows, 720
+      external-baseline-only rows, 600 ShardLoom `claim_grade` rows, valid route timing ledgers,
+      and no fallback or external-engine invocation.
+    - Published engine-level route geomeans from `total_route_ms`: ShardLoom certified cold route
+      244.31 ms, ShardLoom native Vortex 8.19 ms, ShardLoom prepared Vortex 9.75 ms, 33.67 ms
+      across the ShardLoom prepare-batch rows, pandas 215.32 ms, Polars eager 47.27 ms, Polars lazy
+      33.01 ms, DuckDB 85.06 ms, DataFusion 37.86 ms, and Dask 387.66 ms. The website route card
+      also reports the amortized ShardLoom prepare-once batch route separately at 13.20 ms.
+    - Raw ShardLoom cold-route stage geomeans: `source_read_millis` 75.92 ms,
+      `source_parse_millis` 50.87 ms, `source_to_columnar_millis` 16.15 ms,
+      `vortex_array_build_millis` 0.047 ms, `vortex_write_millis` 139.14 ms,
+      `vortex_scan_millis` 3.18 ms, `result_sink_write_millis` 2.43 ms, and
+      `evidence_render_millis` 0.105 ms.
+    - `cd website-src && node scripts/sync-content.mjs && astro build && node scripts/postbuild-static.mjs` passed using the bundled Node runtime.
+    - `target/bench-venv/bin/python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `target/bench-venv/bin/python scripts/check_pre_5j_dependency_freshness.py --require-live-github` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_constitution.py` passed.
+    - `target/bench-venv/bin/python scripts/check_website_readiness.py` passed.
+    - `node website/validate_static_assets.js` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_publish_doctor.py --allow-stale-git --allow-dirty-worktree --output target/benchmark-publish-doctor-post-pr1060.json` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This refresh may claim the current full-local benchmark artifact and website page reflect the
+      post-PR1060 code path and route timing attribution. It does not authorize performance
+      superiority, production readiness, package publication, Spark replacement, broad
+      SQL/DataFrame parity, object-store/table runtime claims, or external-fallback claims.
+  - Fallback boundary:
+    - The benchmark and publication flow uses external engines as baselines only. It adds no
+      Spark/DataFusion/DuckDB/Polars/Velox execution fallback, no Vortex query-engine integration,
+      and no external-engine residual evaluation for ShardLoom rows.
+
+- [x] Session label: PR 980+ review backlog, benchmark-publication hardening, and phase-plan cleanup
+  - Date: 2026-06-03
+  - Branch/PR: `codex/address-pr980-plus-comments` / pending PR.
+  - Source:
+    - User direction to resolve unresolved Codex PR comments from #980 onward without subagents.
+    - Existing benchmark artifact `target/shardloom-post-1059-expanded-full-local.json`; no
+      benchmark suite rerun in this batch.
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - Public benchmark/website route identity cleanup for `ctx.prepare_vortex(...)`.
+  - Scope:
+    - Hardened SQL local-source runtime review fixes across decimal exactness, interval and
+      non-ASCII parsing diagnostics, LIKE ESCAPE, binary literal scope, subquery coercion, grouped
+      projected subquery counts, UNION validation, complex sink boundaries, zero-row output schema
+      checks, division-by-zero diagnostics, and metadata-only command posture.
+    - Tightened Python/context/client public surfaces so local prepared paths use executable
+      `ctx.prepare_vortex(...)`, generated Vortex output evidence stays scoped, source-kind
+      constraints are explicit, absent sentinel values are filtered, and Arrow IPC fallback remains
+      deterministic.
+    - Switched prepared Vortex manifest fingerprints to SHA-256-backed digests in the Vortex
+      benchmark feature lane and kept the optional dependency feature-gated in `shardloom-vortex`.
+    - Updated benchmark publication/static validators and website readiness to publish current
+      public front-door rows without treating route-identity rows as timing evidence.
+    - Cleaned `docs/architecture/phased-execution-plan.md` so live Planned work has a compact
+      remaining-work snapshot and completed hot-path/history details stay in this ledger.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder python.tests.test_cli_client python.tests.test_user_route_capability_report python.tests.test_runtime_gap_family_burn_down python.tests.test_release_scripts` passed with 397 tests and 2 skipped.
+    - `PYTHONPATH=python/src python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree --output target/benchmark-publication-claim-gate-report.json` passed with `benchmark_run_performed=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_website_readiness.py` passed.
+    - `node website/validate_static_assets.js` passed.
+    - `cd website-src && node scripts/sync-content.mjs && astro build && node scripts/postbuild-static.mjs && astro check` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test -p shardloom-cli --bin shardloom sql_local_source_runtime::tests -- --nocapture` passed with 194 tests.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata` passed with
+      57 tests.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py` remains blocked by
+      pre-existing package-channel, public-release, architecture-tracker, final-rehearsal, and
+      required-release-evidence gates.
+  - Claim boundary:
+    - This closes the reviewed runtime/validator/site cleanup batch and may claim the listed
+      routes/tests now expose stricter no-fallback evidence and current public route identity. It
+      does not claim new performance superiority, production/package readiness, broad SQL/DataFrame
+      parity, object-store/lakehouse production readiness, or Spark replacement.
+  - Fallback boundary:
+    - The batch adds no Spark/DataFusion/DuckDB/Polars/Velox execution fallback, no Vortex
+      query-engine integration, no external-engine residual evaluation, and no benchmark rerun.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL decimal mixed-scale and exact division promotion
   - Date: 2026-06-02
   - Branch/PR: `codex/decimal-mixed-scale-division` / pending PR.
@@ -561,7 +665,7 @@ phase plan first.
   - Scope:
     - Promoted the local auto public front-door row from prepare-only identity to the route-comparable
       `ShardLoom Prepare-Once First Query` identity:
-      `ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()`.
+      `ctx.prepare_vortex(..., workspace=...).query(...).collect()`.
     - Kept the generated-source public row as generated-source Vortex output/preparation evidence,
       since that owning route writes a local Vortex prepared artifact rather than a prepared query.
     - Updated route capability validation, benchmark artifact completeness, benchmark publication

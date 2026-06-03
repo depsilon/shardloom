@@ -1314,19 +1314,20 @@ fn is_reference_field_key(key: &str) -> bool {
 
 fn field_value_is_reference(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
-    !normalized.is_empty()
-        && !matches!(
+    if normalized.is_empty()
+        || matches!(
             normalized.as_str(),
-            "false"
-                | "true"
-                | "0"
-                | "none"
-                | "null"
-                | "not_performed"
-                | "not_available"
-                | "not_applicable"
-                | "not_requested"
+            "false" | "true" | "0" | "none" | "null"
         )
+    {
+        return false;
+    }
+    !matches!(
+        normalized.as_str(),
+        "not_performed" | "not_available" | "not_applicable" | "not_requested"
+    ) && !normalized.starts_with("not_applicable_")
+        && !normalized.starts_with("not_available_")
+        && !normalized.starts_with("not_requested_")
 }
 
 fn typed_ref_status(value: &str) -> &'static str {
@@ -1631,11 +1632,12 @@ mod tests {
             vec![
                 (
                     "sink_artifact_refs".to_string(),
-                    "not_applicable,not_requested,none,null".to_string(),
+                    "not_applicable,not_requested,none,null,not_applicable_inline_result"
+                        .to_string(),
                 ),
                 (
                     "materialization_boundary_report_ref".to_string(),
-                    "not_applicable".to_string(),
+                    "not_applicable_inline_result".to_string(),
                 ),
             ],
         );

@@ -29,7 +29,7 @@ A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide exp
 
 ## Execution Routes
 
-- [compatibility_import_certified](/field-guide/compatibility-import-certified/) - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+- [compatibility_import_certified](/field-guide/compatibility-import-certified/) - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.
 - [direct_compatibility_transient](/field-guide/direct-compatibility-transient/) - A scoped one-shot local route without persistent Vortex preparation.
 - [Generated source route](/field-guide/generated-source-route/) - No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
 
@@ -63,7 +63,7 @@ A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide exp
 ## Benchmarks
 
 - [Benchmark evidence](/field-guide/benchmark-evidence/) - Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.
-- [Certified cold route](/field-guide/certified-cold-route/) - Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+- [Certified cold route](/field-guide/certified-cold-route/) - Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.
 - [Prepared warm route](/field-guide/prepared-warm-route/) - Timing scope for query/runtime after VortexPreparedState already exists.
 - [external_baseline_only](/field-guide/external-baseline-only/) - Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.
 

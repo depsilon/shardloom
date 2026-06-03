@@ -1021,31 +1021,37 @@ fn workflow_profiles() -> &'static [&'static str] {
 }
 
 fn command_support_state(command: &str) -> &'static str {
-    if classify_command(command).as_str() == "diagnostics" {
+    if classify_command(command).as_str() == "diagnostics"
+        || matches!(
+            command,
+            "help"
+                | "command-metadata"
+                | "evidence-schema"
+                | "status"
+                | "runs-today"
+                | "capabilities"
+        )
+    {
         "diagnostic_only"
     } else if matches!(
         command,
-        "help" | "command-metadata" | "evidence-schema" | "status" | "runs-today" | "capabilities"
+        "doctor"
+            | "explain"
+            | "estimate"
+            | "spill-payload-roundtrip"
+            | "cleanup-synthetic-payload"
+            | "vortex-encoded-read-spike"
+            | "vortex-count"
+            | "vortex-count-where"
+            | "vortex-project"
+            | "vortex-filter"
+            | "vortex-filter-project"
+            | "vortex-local-exec"
+            | "vortex-bounded-local-exec"
+            | "vortex-run"
+            | "vortex-query-trace"
     ) || command.ends_with("-smoke")
         || command.ends_with("-run")
-        || matches!(
-            command,
-            "doctor"
-                | "explain"
-                | "estimate"
-                | "spill-payload-roundtrip"
-                | "cleanup-synthetic-payload"
-                | "vortex-encoded-read-spike"
-                | "vortex-count"
-                | "vortex-count-where"
-                | "vortex-project"
-                | "vortex-filter"
-                | "vortex-filter-project"
-                | "vortex-local-exec"
-                | "vortex-bounded-local-exec"
-                | "vortex-run"
-                | "vortex-query-trace"
-        )
     {
         "executable"
     } else if command.contains("write") || command.contains("execute") {
@@ -1396,6 +1402,29 @@ mod tests {
         assert!(help.contains("support_state: executable"));
         assert!(help.contains("owning_phase_item: GAR-RUNTIME-IMPL-4"));
         assert!(help.contains("fallback_boundary: metadata rendering is side-effect-free"));
+    }
+
+    #[test]
+    fn metadata_commands_are_diagnostic_only() {
+        for command in [
+            "help",
+            "command-metadata",
+            "evidence-schema",
+            "status",
+            "runs-today",
+            "capabilities",
+        ] {
+            assert_eq!(
+                command_support_state(command),
+                "diagnostic_only",
+                "{command}"
+            );
+            assert_eq!(
+                command_user_surface_graduation_posture(command),
+                "diagnostic_only",
+                "{command}"
+            );
+        }
     }
 
     #[test]

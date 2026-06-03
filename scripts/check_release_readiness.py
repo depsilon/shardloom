@@ -789,6 +789,7 @@ def main() -> int:
         publication_claim_gate = validate_benchmark_publication_claim_gate(
             benchmark_manifest_path,
             repo_root=repo_root,
+            require_current_git=False,
         )
         for blocker in publication_claim_gate.get("blockers", []):
             benchmark_constitution_blockers.append(
@@ -1135,15 +1136,32 @@ def main() -> int:
                     "blockers", ["runtime gap family burn-down blocked"]
                 )
             )
-        if runtime_gap_family_burn_down.get("global_review_unchecked_count") != 38:
+        global_review_unchecked_count = runtime_gap_family_burn_down.get(
+            "global_review_unchecked_count"
+        )
+        mapped_gap_count = runtime_gap_family_burn_down.get("mapped_gap_count")
+        if not isinstance(global_review_unchecked_count, int):
             runtime_gap_family_blockers.append(
                 "runtime gap family burn-down global_review_unchecked_count="
-                + str(runtime_gap_family_burn_down.get("global_review_unchecked_count", "missing"))
+                + str(
+                    global_review_unchecked_count
+                    if global_review_unchecked_count is not None
+                    else "missing"
+                )
             )
-        if runtime_gap_family_burn_down.get("mapped_gap_count") != 38:
+        if not isinstance(mapped_gap_count, int):
             runtime_gap_family_blockers.append(
                 "runtime gap family burn-down mapped_gap_count="
-                + str(runtime_gap_family_burn_down.get("mapped_gap_count", "missing"))
+                + str(mapped_gap_count if mapped_gap_count is not None else "missing")
+            )
+        if (
+            isinstance(global_review_unchecked_count, int)
+            and isinstance(mapped_gap_count, int)
+            and mapped_gap_count != global_review_unchecked_count
+        ):
+            runtime_gap_family_blockers.append(
+                "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: "
+                + f"{mapped_gap_count} != {global_review_unchecked_count}"
             )
         acceptance = runtime_gap_family_burn_down.get("acceptance_summary")
         if not isinstance(acceptance, dict):

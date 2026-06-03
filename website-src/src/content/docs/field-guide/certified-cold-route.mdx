@@ -1,17 +1,17 @@
 ---
 title: "Certified cold route"
-description: "Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence."
+description: "Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence."
 sidebar: {"label":"Certified cold route"}
 ---
 
 
 <span class="status-chip status-smoke-supported">smoke_supported</span>
 
-Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.
 
 ## Plain-English Meaning
 
-Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.
 
 ## Why It Matters
 
@@ -30,6 +30,9 @@ Status: `smoke_supported`
 
 - `timing_scope=cold_certified_end_to_end`
 - `preparation_included=true`
+- `source_state_materialization_layout`
+- `vortex_array_build_strategy`
+- `vortex_digest_millis`
 - `total_runtime_millis`
 
 ## What It Does Not Claim

@@ -138,7 +138,7 @@ REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
 REQUIRED_PUBLIC_FRONT_DOOR_HTML_TOKENS = {
     "Public front doors",
     "Route rows name the user-facing prepared paths.",
-    "ctx.read_csv(&#39;fact.csv&#39;).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
+    "ctx.prepare_vortex(&#39;fact.csv&#39;, workspace=&#39;target/shardloom-prepared&#39;).query(&#39;selective filter&#39;).collect()",
     "ctx.from_rows([{&#39;id&#39;: 1, &#39;label&#39;: &#39;alpha&#39;}]).prepare_vortex(workspace=&#39;target/shardloom-prepared&#39;)",
     "not_timing_row_route_identity_only",
     "SourceState",
@@ -564,7 +564,8 @@ def check_public_front_door_benchmark_payload(
             blockers.append(f"{front_door_id}: public front-door fallback drift")
         if row.get("external_engine_invoked") is not False:
             blockers.append(f"{front_door_id}: public front-door external-engine drift")
-        if ".prepare_vortex" not in surface or "workspace=" not in surface:
+        has_prepare_call = ".prepare_vortex" in surface or "ctx.prepare_vortex" in surface
+        if not has_prepare_call or "workspace=" not in surface:
             blockers.append(f"{front_door_id}: public front-door surface missing workspace prepare")
 
 

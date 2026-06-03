@@ -179,7 +179,7 @@ jobs:
       - name: User route capability report
         run: python scripts/check_user_route_capability_report.py
       - name: Pre-5J dependency freshness gate
-        run: python scripts/check_pre_5j_dependency_freshness.py
+        run: python scripts/check_pre_5j_dependency_freshness.py --require-live-github
       - name: Benchmark publication claim gate
         continue-on-error: true
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git

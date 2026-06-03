@@ -310,8 +310,9 @@ cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke <lo
 ```
 
 From Python, the same local preparation shape is exposed as
-`ctx.read_csv(...).prepare_vortex(workspace=...)`,
-`ctx.from_rows(...).prepare_vortex(workspace=...)`, `ctx.prepare_vortex(...)`, and
+`ctx.prepare_vortex(<local-source>, <target.vortex>)`,
+`ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace=...).prepare()`,
+`ctx.from_rows(...).prepare_vortex(workspace=...)`, and
 `ShardLoomClient.vortex_ingest_smoke(...)`. Compatibility-file preparation calls
 `vortex-ingest-smoke`; generated-source preparation calls the generated-source Vortex writer and
 surfaces prepared-state creation/reuse-boundary fields on `GeneratedSourceWriteReport`. The command
@@ -1296,8 +1297,10 @@ them. `compatibility_to_vortex_import_millis` is scoped as
 `source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write`: structured
 Parquet/Arrow IPC/Avro/ORC adapters report `source_to_columnar_millis`,
 `source_state_materialization_layout`, `source_state_parse_normalization`,
-`source_state_columnar_preserved`, and `source_state_record_batch_count` before the current
-traditional row normalization and Vortex array-build boundary. Current certified import rows also
+`source_state_columnar_preserved`, and `source_state_record_batch_count`. CSV/JSONL cold certified
+imports may report `text_adapter_record_batch_without_persistent_traditional_rows` when the text
+adapter parses directly into Vortex-provider `RecordBatch` input instead of retaining a persistent
+traditional row buffer. Current certified import rows also
 report `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
 `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
 `vortex_array_build_record_batch_count`, and
@@ -2029,7 +2032,9 @@ The feature-gated `vortex_ingest` prepare-once runtime now preserves flat scalar
 Parquet/Arrow IPC/Avro/ORC SourceState as Arrow `RecordBatch` batches until Vortex artifact
 preparation when both `vortex-write` and `universal-format-io` are enabled. That path reports
 columnar-preservation, record-batch count, source-to-columnar timing, and Vortex array-build timing;
-CSV/JSON/JSONL remain scalar-row compatibility paths.
+CSV/JSONL certified cold imports can also enter Vortex artifact preparation through text-adapter
+RecordBatches without a persistent traditional row buffer. JSON and unsupported/non-flat text
+shapes remain explicitly scoped by their adapter diagnostics and claim boundaries.
 
 The current `GAR-IOREUSE-1I` slice adds the VortexPreparationSpine evidence contract on that same
 path. `vortex-ingest-smoke`, Python `LazyFrame.prepare_vortex(...)`,
@@ -2387,7 +2392,7 @@ generated-source Vortex-output route now projects its artifact-adjacent manifest
 user route capability reports. The user route capability report now also publishes
 `public_front_door_route_rows` for `local_source_auto_prepare_vortex_front_door` and
 `generated_source_prepare_vortex_front_door`. These rows make
-`ctx.read_csv(...).prepare_vortex(workspace=...).query(...).collect()` and
+`ctx.prepare_vortex(..., workspace=...).query(...).collect()` and
 `ctx.from_rows(...).prepare_vortex(workspace=...)` machine-readable public route examples with
 start/end state, preparation/query inclusion, reuse-manifest, no-fallback, and claim-boundary
 fields. Benchmark publication now mirrors those rows as `public_front_door_benchmark_rows` and the

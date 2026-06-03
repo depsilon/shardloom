@@ -640,17 +640,17 @@ def decimal_arithmetic_projection_case() -> SqlFixtureCase:
         source_text="id,amount\n1,12.34\n2,15.50\n3,21.25\n",
         statement_template=(
             "SELECT id,CAST(amount AS decimal128(10,2)) + "
-            "CAST('1.250' AS decimal128(10,3)) AS adjusted,"
+            "CAST('1.25' AS decimal128(10,2)) AS adjusted,"
             "CAST(amount AS decimal128(10,2)) / 2 AS half,"
-            "CAST(amount AS decimal128(10,2)) * CAST('1.5' AS decimal128(2,1)) AS scaled "
+            "CAST(amount AS decimal128(10,2)) * CAST('1.50' AS decimal128(3,2)) AS scaled "
             "FROM '{source}' "
-            "WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.340' AS decimal128(10,3)) "
+            "WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.34' AS decimal128(10,2)) "
             "LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"adjusted":"13.590","half":"6.170000","scaled":"18.510"}\n'
-            '{"id":2,"adjusted":"16.750","half":"7.750000","scaled":"23.250"}\n'
-            '{"id":3,"adjusted":"22.500","half":"10.625000","scaled":"31.875"}\n'
+            '{"id":1,"adjusted":"13.59","half":"6.170000","scaled":"18.5100"}\n'
+            '{"id":2,"adjusted":"16.75","half":"7.750000","scaled":"23.2500"}\n'
+            '{"id":3,"adjusted":"22.50","half":"10.625000","scaled":"31.8750"}\n'
         ),
         expected_fields={
             "sql_statement_kind": "local_source_computed_projection_filter_limit",
@@ -2692,7 +2692,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             source_text="id,amount\n1,8\n",
             statement_template="SELECT id,amount / 0 AS broken FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="numeric arithmetic projection division by zero is not admitted",
+            diagnostic_fragment="numeric arithmetic projection division by zero is a runtime data error",
             support_state="runtime_error_diagnostic",
             oracle_boundary="deterministic_runtime_error_diagnostic",
             stage_kind="runtime_error_diagnostic",

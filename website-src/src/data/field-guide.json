@@ -68,12 +68,16 @@
     "title": "compatibility_import_certified",
     "category": "Execution Routes",
     "status": "smoke_supported",
-    "summary": "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.",
+    "summary": "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.",
     "route": "Certified import/stage route",
     "evidence_fields": [
       "timing_scope=cold_certified_end_to_end",
       "source_read_millis",
+      "source_state_materialization_layout",
+      "source_state_record_batch_count",
+      "vortex_array_build_strategy",
       "vortex_write_millis",
+      "vortex_digest_millis",
       "claim_gate_status"
     ],
     "related_use_cases": [
@@ -480,11 +484,14 @@
     "title": "Certified cold route",
     "category": "Benchmarks",
     "status": "smoke_supported",
-    "summary": "Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.",
+    "summary": "Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.",
     "route": "compatibility_import_certified",
     "evidence_fields": [
       "timing_scope=cold_certified_end_to_end",
       "preparation_included=true",
+      "source_state_materialization_layout",
+      "vortex_array_build_strategy",
+      "vortex_digest_millis",
       "total_runtime_millis"
     ],
     "related_use_cases": [
