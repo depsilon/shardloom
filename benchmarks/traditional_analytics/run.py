@@ -341,6 +341,9 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "evidence_render_timing_status",
     "total_runtime_millis",
 )
+EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.exclusive_stage_timing.v1"
+)
 SOURCE_READ_SCOUT_MICROS_FIELDS = (
     "source_read_header_scout_micros",
     "source_read_byte_acquisition_micros",
@@ -794,6 +797,13 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
     "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
     "prepare_batch_prepared_state_partial_repair_claim_boundary",
 )
+PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_dependency.v1"
+)
+PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
+)
+PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy"
 VORTEX_SCOUT_INGRESS_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_scout_ingress.v1"
 )
@@ -5692,6 +5702,148 @@ def first_meaningful_field(*values: Any) -> Any:
         if value is not None and value != "" and value != "none":
             return value
     return None
+
+
+SOURCE_TO_VORTEX_ARRAY_GUARD_BENCHMARK_FIELD_ALIASES = {
+    "compatibility_to_vortex_import_micros": "compatibility_to_vortex_import_millis",
+    "exclusive_source_to_vortex_array_micros": "exclusive_source_to_vortex_array_millis",
+    "inclusive_compatibility_to_vortex_import_micros": (
+        "inclusive_compatibility_to_vortex_import_millis"
+    ),
+}
+
+
+def source_to_vortex_array_guard_benchmark_field(value: Any, default: str) -> str:
+    field = str(first_meaningful_field(value, default))
+    return SOURCE_TO_VORTEX_ARRAY_GUARD_BENCHMARK_FIELD_ALIASES.get(field, field)
+
+
+def stage_timing_contract_default(field: str, row_status: str) -> Any:
+    if field in SOURCE_READ_SCOUT_MICROS_FIELDS or field in VORTEX_SCAN_SPLIT_MICROS_FIELDS:
+        return None
+    if field in VORTEX_SCAN_COUNTER_FIELDS:
+        return 0
+    if field == "exclusive_stage_timing_schema_version":
+        return EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
+    if field == "exclusive_stage_included_stage_ids":
+        return "none"
+    if field in {
+        "compatibility_to_vortex_import_timing_scope",
+        "inclusive_compatibility_to_vortex_import_timing_scope",
+        "exclusive_stage_timing_status",
+        "exclusive_stage_timing_scope",
+        "source_read_scout_status",
+        "source_read_scout_reuse_status",
+        "operator_compute_timing_scope",
+        "evidence_render_timing_status",
+        "exclusive_stage_timing_claim_boundary",
+    }:
+        return row_status or "not_executed"
+    return None
+
+
+def prepare_batch_dependency_repair_fields(
+    engine: str,
+    *,
+    status: str,
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if engine != "shardloom-prepare-batch":
+        return {}
+    evidence = evidence or {}
+    default_status = "missing_success_evidence" if status == "success" else "not_executed"
+    return {
+        "prepare_batch_prepared_state_dependency_schema_version": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_schema_version"),
+            PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION,
+        ),
+        "prepare_batch_prepared_state_dependency_status": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_status"),
+            default_status,
+        ),
+        "prepare_batch_prepared_state_dependency_checked_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_checked_roles"),
+            PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES,
+        ),
+        "prepare_batch_prepared_state_dependency_changed_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_changed_roles"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_manifest_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_manifest_digest"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_source_packet_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_source_packet_digest"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_artifact_manifest_hash": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_artifact_manifest_hash"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_recheck_policy": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_recheck_policy"),
+            "validate_manifest_digest_route_request_source_fingerprints_artifact_fingerprints_no_fallback_before_reuse",
+        ),
+        "prepare_batch_prepared_state_dependency_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get("prepare_batch_prepared_state_dependency_fallback_attempted")
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_dependency_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_dependency_external_engine_invoked"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_partial_repair_schema_version": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_schema_version"),
+            PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION,
+        ),
+        "prepare_batch_prepared_state_partial_repair_status": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_status"),
+            default_status,
+        ),
+        "prepare_batch_prepared_state_partial_repair_blocker_id": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_blocker_id"),
+            "missing_success_evidence" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_changed_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_changed_roles"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_repairable_segment_count": (
+            parse_optional_int(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_repairable_segment_count"
+                )
+            )
+            or 0
+        ),
+        "prepare_batch_prepared_state_partial_repair_regeneration_performed": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_partial_repair_claim_boundary": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_claim_boundary"),
+            "HOTPATH-9 evidence only; partial prepared-state repair is not admitted for this prepare/batch workspace manifest path, so changed dependencies force full reprepare and stale prepared segments cannot be reused silently",
+        ),
+    }
 
 
 def unwrap_engine_value(value: Any) -> tuple[Any, dict[str, str]]:
@@ -12613,6 +12765,23 @@ def apply_cold_lane_claim_gate(result: dict[str, Any], cold_lane: dict[str, Any]
     result["claim_grade_missing_evidence"] = missing
 
 
+def ensure_result_contract_defaults(result: dict[str, Any]) -> None:
+    metrics = result.get("metrics")
+    if not isinstance(metrics, dict):
+        return
+    row_status = str(result.get("status") or "not_executed")
+    for field in STAGE_TIMING_CONTRACT_FIELDS:
+        metrics.setdefault(field, stage_timing_contract_default(field, row_status))
+    evidence = result.get("shardloom_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    for field, value in prepare_batch_dependency_repair_fields(
+        str(result.get("engine") or ""),
+        status=row_status,
+        evidence=evidence,
+    ).items():
+        metrics.setdefault(field, value)
+
+
 def shardloom_claim_grade_missing_evidence(result: dict[str, Any]) -> list[str]:
     evidence = result.get("shardloom_evidence", {})
     missing: list[str] = []
@@ -13400,6 +13569,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                     "ShardLoom prepare/batch row omitted prepared-state dependency/repair fields: "
                     + ", ".join(missing_repair_fields)
                 )
+            if result.get("status") == "success" and (
+                metrics.get("prepare_batch_prepared_state_dependency_status")
+                == "missing_success_evidence"
+                or metrics.get("prepare_batch_prepared_state_partial_repair_status")
+                == "missing_success_evidence"
+            ):
+                raise RuntimeError(
+                    "ShardLoom prepare/batch success row omitted prepared-state repair evidence"
+                )
             if (
                 metrics.get(
                     "prepare_batch_prepared_state_dependency_fallback_attempted"
@@ -14150,6 +14328,7 @@ def annotate_result(
             and result["claim_grade_requirements_met"]
         )
         metrics["timing_row_claim_grade"] = result["timing_row_claim_grade"]
+    ensure_result_contract_defaults(result)
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
@@ -17323,13 +17502,17 @@ def source_to_vortex_array_guard_metadata(
         "source_to_vortex_array_guard_manual_scalar_copy_avoided": (
             manual_scalar_copy_avoided is True
         ),
-        "source_to_vortex_array_guard_exclusive_stage_field": first_meaningful_field(
-            evidence.get("source_to_vortex_array_guard_exclusive_stage_field"),
-            "exclusive_source_to_vortex_array_millis",
+        "source_to_vortex_array_guard_exclusive_stage_field": (
+            source_to_vortex_array_guard_benchmark_field(
+                evidence.get("source_to_vortex_array_guard_exclusive_stage_field"),
+                "exclusive_source_to_vortex_array_millis",
+            )
         ),
-        "source_to_vortex_array_guard_inclusive_parent_field": first_meaningful_field(
-            evidence.get("source_to_vortex_array_guard_inclusive_parent_field"),
-            "compatibility_to_vortex_import_millis",
+        "source_to_vortex_array_guard_inclusive_parent_field": (
+            source_to_vortex_array_guard_benchmark_field(
+                evidence.get("source_to_vortex_array_guard_inclusive_parent_field"),
+                "compatibility_to_vortex_import_millis",
+            )
         ),
         "source_to_vortex_array_guard_inclusive_timing_scope": first_meaningful_field(
             evidence.get("source_to_vortex_array_guard_inclusive_timing_scope"),

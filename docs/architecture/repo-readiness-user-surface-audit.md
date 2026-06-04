@@ -19,7 +19,7 @@ and agents to build with ShardLoom without guessing.
 - Benchmark completion evidence: 480 ShardLoom rows, zero top-level blockers, zero residual
   substatus blockers, zero external invocation blockers, and zero external-baseline
   classification blockers for the current published `full_local` artifact.
-- CLI command registry: 194 registered commands.
+- CLI command registry: 195 registered commands.
 - CLI support-state inventory:
   - `executable`: 40
   - `feature_gated`: 12
