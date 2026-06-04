@@ -332,6 +332,20 @@ and `prepared_state_claim_boundary`. This prepared-state contract records scoped
 artifact identity, digest, source-state linkage, preparation timing separation, and reuse posture
 only; it is not output support, encoded-native coverage, object-store/lakehouse support, or a
 performance claim.
+The `shardloom-prepare-batch` route also emits HOTPATH-9 workspace-manifest dependency and
+partial-repair guard fields:
+`prepare_batch_prepared_state_dependency_schema_version`,
+`prepare_batch_prepared_state_dependency_status`,
+`prepare_batch_prepared_state_dependency_checked_roles`,
+`prepare_batch_prepared_state_dependency_changed_roles`,
+`prepare_batch_prepared_state_partial_repair_schema_version`,
+`prepare_batch_prepared_state_partial_repair_status`,
+`prepare_batch_prepared_state_partial_repair_blocker_id`,
+`prepare_batch_prepared_state_partial_repair_regeneration_performed=false`, and
+`prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed=false`. A manifest hit can
+reuse only after source, policy, packet, artifact, manifest-digest, and no-fallback dependencies
+match. Changed dependencies force full reprepare until dependency-specific partial segment repair is
+separately admitted.
 Static promotion now preserves those reuse diagnostics in public benchmark rows. Reuse rows must
 carry an explicit scope and digest-backed evidence: workspace-manifest reuse uses
 `workspace_manifest_local_vortex_artifacts` plus the workspace manifest path/policy, while

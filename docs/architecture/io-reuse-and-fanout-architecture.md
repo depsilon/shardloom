@@ -176,6 +176,16 @@ Prepared state reuse does not weaken no-fallback policy and does not authorize o
 object-store Vortex artifact runtime, encoded-native operator coverage, or performance claims unless
 those runtimes are separately admitted.
 
+HOTPATH-9 extends the scoped prepare/batch workspace manifest contract with dependency and
+partial-repair guard evidence. `traditional-analytics-prepare-batch-run` now reports
+`prepare_batch_prepared_state_dependency_*` fields for the manifest digest, source-admission packet,
+checked roles, changed role, artifact-manifest hash, and no-fallback/no-external-engine dependency
+status. It also reports `prepare_batch_prepared_state_partial_repair_*` fields that keep
+regeneration unperformed and stale segment reuse disallowed unless a future dependency-specific
+repair path is admitted with replay/certificate proof. Today, a manifest hit reuses all prepared
+artifacts only after every dependency matches; any changed source, policy, packet, manifest, or
+prepared-artifact dependency forces full reprepare.
+
 ### Cold Ingestion/Preparation Carry-Forward
 
 The cold ingestion/preparation lane is the planned extension point for the benchmark-outlier

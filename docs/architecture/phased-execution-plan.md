@@ -191,11 +191,10 @@ Current autonomous execution order:
    certified route 137.71 ms, prepare-once first query 58.00 ms, prepare-once batch 8.37 ms, warm
    prepared query 5.57 ms, and native Vortex query 5.58 ms. The current runtime batch wires
    source-read scout timing plus Vortex scan timing/counter evidence in code, but the public
-   artifact remains unchanged until the next approved benchmark rerun. Remaining work is prepared
-   repair evidence, route stratification, source-to-array guards, a document/website/status
-   freshness pass, and the post-batch route-share/Amdahl rerun. Do not rerun the expensive
-   benchmark suite until those code/docs/site changes are complete or the user explicitly approves a
-   rerun.
+   artifact remains unchanged until the next approved benchmark rerun. Remaining work is route
+   stratification, source-to-array guards, a document/website/status freshness pass, and the
+   post-batch route-share/Amdahl rerun. Do not rerun the expensive benchmark suite until those
+   code/docs/site changes are complete or the user explicitly approves a rerun.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -206,7 +205,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `HOTPATH-9`, `HOTPATH-1`, `HOTPATH-5` | Complete the remaining benchmark-driven implementation slices before any rerun. |
+| 1 | `HOTPATH-1`, `HOTPATH-5` | Complete the remaining benchmark-driven implementation slices before any rerun. |
 | 2 | `POST-HOTPATH-DOCS-FRESHNESS` | Refresh docs, status, website/source text, and plan/ledger freshness after HOTPATH code closes. |
 | 3 | `HOTPATH-14 total-route Amdahl gate` | Rerun/promote the full benchmark suite and update the benchmark page only after the freshness pass. |
 | 4 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
@@ -289,34 +288,8 @@ These are child execution slices under the existing
 phase IDs.
 Completed HOTPATH slices are recorded in
 `docs/architecture/phased-execution-completed-ledger.md`, including HOTPATH-3, HOTPATH-7,
-HOTPATH-10, and HOTPATH-11. Do not rerun the benchmark suite until HOTPATH-9, HOTPATH-1, and
+HOTPATH-10, HOTPATH-11, and HOTPATH-9. Do not rerun the benchmark suite until HOTPATH-1 and
 HOTPATH-5 are either complete or explicitly blocked, and the post-hotpath freshness gate has passed.
-
-- [ ] HOTPATH-9 prepared-state regeneration repair:
-  Source: prepared lookup/create route-share evidence, prepared-state reuse reports, and
-  `docs/architecture/io-reuse-and-fanout-architecture.md`.
-  Current state: prepared-state lookup/create evidence exists, but partial repair/regeneration is
-  not admitted; stale segment reuse must remain impossible.
-  Runtime enablement: source-state/prepared-state manifest -> dependency/invalidation evidence ->
-  prepared artifact reuse or deterministic repair blocker -> replay/certificate proof.
-  Next slice outcome: add prepared manifest dependency evidence and deterministic partial-repair
-  blockers before any segment repair execution.
-  User-visible surface: prepared Vortex route reports, prepare-batch reports, Python/context
-  prepared helpers, benchmark attribution after rerun, and diagnostics.
-  Implementation scope: prepared-state manifests, source-state delta detection, invalidation
-  diagnostics, prepared replay tests, and report fields.
-  Evidence required: manifest dependency tests, stale-source invalidation tests, replay correctness,
-  deterministic unsupported blocker fields, and no-fallback/no-external-engine evidence.
-  Acceptance: partial repair is either explicitly ready with proof or explicitly blocked; no stale
-  segment can be reused silently.
-  Verification: prepared repair/invalidation tests, prepared replay correctness tests, focused
-  report-field assertions, and the standard Rust gates.
-  Non-goals: no distributed cache, no object-store repair, no automatic unsafe segment reuse, and no
-  performance claim before HOTPATH-14.
-  Claim boundary: prepared-state safety/evidence only; route speed remains unchanged until rerun.
-  Fallback boundary: repair decisions stay ShardLoom/Vortex-native and do not delegate to external
-  engines.
-  Ledger rule: when complete, move the completed block to the ledger and leave HOTPATH-1 next.
 
 - [ ] HOTPATH-1 route-lane and row-shape stratification:
   Source: route-total interpretation across cold, first-query, batch, warm, and native lanes plus
