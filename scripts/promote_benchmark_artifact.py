@@ -1099,11 +1099,12 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ("exclusive_operator_compute_millis", "operator_compute_millis"),
         primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
     )
-    prepared_query = None
-    if vortex_scan is not None or operator_compute is not None:
-        prepared_query = (vortex_scan or 0.0) + (operator_compute or 0.0)
-    elif query_runtime is not None:
-        prepared_query = query_runtime
+    has_query_stage_split = vortex_scan is not None or operator_compute is not None
+    prepared_query = (
+        (vortex_scan or 0.0) + (operator_compute or 0.0)
+        if has_query_stage_split
+        else None
+    )
 
     output_delivery = output_delivery_millis(fields)
     evidence_render = evidence_render_route_millis(fields)
@@ -1171,6 +1172,25 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         and query_runtime is not None
     ):
         total_route = query_runtime + result_sink_write + evidence_render
+    requires_query_stage_split = is_shardloom and (
+        query_runtime is not None
+        or route_lane_id
+        in {
+            "full_certified_cold_ingest",
+            "prepare_once_first_query",
+            "prepare_once_batch",
+            "warm_prepared_query",
+            "native_vortex_query",
+        }
+    )
+    if not is_shardloom:
+        exclusive_stage_timing_status = "external_baseline_only"
+    elif not exclusive_stage_values:
+        exclusive_stage_timing_status = "blocked_missing_stage_timing"
+    elif requires_query_stage_split and not has_query_stage_split:
+        exclusive_stage_timing_status = "blocked_missing_query_split"
+    else:
+        exclusive_stage_timing_status = "complete"
 
     return {
         "source_admission_ms": source_admission_millis(fields),
@@ -1189,15 +1209,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("exclusive_stage_timing_schema_version",)
         )
         or EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION,
-        "exclusive_stage_timing_status": (
-            "complete"
-            if exclusive_stage_values
-            else (
-                "blocked_missing_stage_timing"
-                if is_shardloom
-                else "external_baseline_only"
-            )
-        ),
+        "exclusive_stage_timing_status": exclusive_stage_timing_status,
         "exclusive_stage_timing_scope": first_meaningful_field(
             fields, ("exclusive_stage_timing_scope",)
         )

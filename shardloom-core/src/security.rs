@@ -1510,6 +1510,24 @@ pub fn write_workspace_safe_bytes_with_producer<T>(
     operation_label: impl Into<String>,
     producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
 ) -> Result<(T, WorkspaceSafeLocalWriteReport)> {
+    write_workspace_safe_bytes_with_validated_producer(
+        workspace_root,
+        requested_output_path,
+        allow_overwrite,
+        operation_label,
+        producer,
+        |_| Ok(()),
+    )
+}
+
+pub fn write_workspace_safe_bytes_with_validated_producer<T>(
+    workspace_root: impl AsRef<Path>,
+    requested_output_path: impl AsRef<Path>,
+    allow_overwrite: bool,
+    operation_label: impl Into<String>,
+    producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
+    validate_before_commit: impl FnOnce(&T) -> Result<()>,
+) -> Result<(T, WorkspaceSafeLocalWriteReport)> {
     let operation_label = operation_label.into();
     let plan =
         plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
@@ -1531,6 +1549,11 @@ pub fn write_workspace_safe_bytes_with_producer<T>(
             return Err(error);
         }
     };
+    if let Err(error) = validate_before_commit(&producer_output) {
+        drop(staging_writer);
+        let _ = fs::remove_file(&staging_path);
+        return Err(error);
+    }
     let bytes_written = staging_writer.bytes_written();
     let output_digest = staging_writer.output_digest();
     if let Err(error) = staging_writer.flush() {
@@ -3263,6 +3286,45 @@ mod tests {
             0
         };
         assert_eq!(remaining_entries, 0);
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_producer_validation_error_preserves_existing_target() {
+        let workspace = workspace_write_fixture_root("producer_validation_error");
+        let output_path = workspace.join("results/out.bin");
+        std::fs::create_dir_all(output_path.parent().unwrap()).unwrap();
+        std::fs::write(&output_path, b"original").unwrap();
+
+        let error = write_workspace_safe_bytes_with_validated_producer(
+            &workspace,
+            "results/out.bin",
+            true,
+            "test validated local producer output",
+            |writer| {
+                writer.write_all(b"replacement").unwrap();
+                Ok(7_u8)
+            },
+            |_| {
+                Err(ShardLoomError::InvalidOperation(
+                    "producer validation failed intentionally; no fallback execution was attempted"
+                        .to_string(),
+                ))
+            },
+        )
+        .expect_err("validation failure is returned");
+
+        assert!(
+            error
+                .message()
+                .contains("producer validation failed intentionally")
+        );
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"original");
+        let remaining_entries = std::fs::read_dir(output_path.parent().unwrap())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect::<Vec<_>>();
+        assert_eq!(remaining_entries, vec![output_path.clone()]);
         std::fs::remove_dir_all(workspace).unwrap();
     }
 
