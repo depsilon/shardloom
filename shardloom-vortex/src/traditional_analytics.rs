@@ -16721,14 +16721,16 @@ fn file_digest(path: &std::path::Path, label: &str) -> Result<String> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn bytes_digest(bytes: &[u8]) -> String {
-    let mut digest = Fnv1a64::new();
-    digest.update(bytes);
-    format!(
-        "{}:{:016x}",
-        OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
-        digest.finish()
-    )
+fn traditional_digest_from_workspace_write(
+    report: &shardloom_core::WorkspaceSafeLocalWriteReport,
+) -> Result<String> {
+    let digest = report.output_digest.strip_prefix("fnv64:").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "traditional analytics workspace-safe Vortex artifact digest '{}' used an unsupported algorithm label; no fallback execution was attempted",
+            report.output_digest
+        ))
+    })?;
+    Ok(format!("{OUTPUT_ARTIFACT_DIGEST_ALGORITHM}:{digest}"))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16954,18 +16956,23 @@ impl TraditionalVortexIoContext {
         array: &vortex::array::ArrayRef,
     ) -> Result<TraditionalVortexWriteOutcome> {
         use vortex::file::WriteOptionsSessionExt as _;
-        use vortex::io::runtime::BlockingRuntime as _;
 
         let write_start = std::time::Instant::now();
-        let mut bytes = Vec::new();
-        let summary = self
-            .runtime
-            .block_on(
-                self.session
-                    .write_options()
-                    .write(&mut bytes, array.to_array_stream()),
-            )
-            .map_err(vortex_error)?;
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        let (summary, workspace_write_report) =
+            shardloom_core::write_workspace_safe_bytes_with_producer(
+                workspace_root,
+                path,
+                true,
+                "traditional analytics Vortex artifact",
+                |writer| {
+                    self.session
+                        .write_options()
+                        .blocking(&self.runtime)
+                        .write(writer, array.to_array_iterator())
+                        .map_err(vortex_error)
+                },
+            )?;
         let expected_rows = usize_to_u64(array.len())?;
         if summary.row_count() != expected_rows {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -16974,15 +16981,7 @@ impl TraditionalVortexIoContext {
                 expected_rows
             )));
         }
-        let artifact_digest = bytes_digest(&bytes);
-        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
-        shardloom_core::write_workspace_safe_bytes(
-            workspace_root,
-            path,
-            true,
-            "traditional analytics Vortex artifact",
-            &bytes,
-        )?;
+        let artifact_digest = traditional_digest_from_workspace_write(&workspace_write_report)?;
         Ok(TraditionalVortexWriteOutcome {
             write_micros: duration_to_micros(write_start.elapsed()),
             artifact_digest,
@@ -33322,6 +33321,15 @@ mod tests {
         );
         assert!(report.fact_vortex_digest.starts_with("fnv1a64:"));
         assert!(report.dim_vortex_digest.starts_with("fnv1a64:"));
+        assert_eq!(
+            file_digest(&report.fact_vortex_path, "fact Vortex file").unwrap(),
+            report.fact_vortex_digest
+        );
+        assert_eq!(
+            file_digest(&report.dim_vortex_path, "dimension Vortex file").unwrap(),
+            report.dim_vortex_digest
+        );
+        assert_eq!(report.vortex_digest_micros, 0);
         assert!(report.combined_output_digest.starts_with("fnv1a64:"));
         assert!(
             report

@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D streaming workspace-safe Vortex writer helper
+  - Date: 2026-06-03
+  - Branch/PR: `codex/vortex-safe-writer-optimization` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - The 2026-06-03 post-hotpath benchmark evidence showing `vortex_write_ms` as the dominant
+      cold certified-route stage before the safe-writer follow-up.
+    - Vortex-first provider check: upstream Vortex 0.73 exposes the native
+      `VortexSession::write_options().blocking(...).write(...)` writer over `std::io::Write`.
+  - Scope:
+    - Added `WorkspaceSafeLocalStagingWriter` and
+      `write_workspace_safe_bytes_with_producer` in `shardloom-core` so native providers can stream
+      bytes into ShardLoom's same-directory staging file while the core writer records byte count,
+      digest, atomic commit, cleanup/rollback, workspace path safety, and no-fallback evidence.
+    - Reworked the existing byte-write helper to use the producer path, preserving the public
+      report contract for existing callers.
+    - Routed traditional analytics local Vortex artifact writes through the streaming
+      workspace-safe producer writer while preserving `fnv1a64` artifact digest labels, route timing
+      scope, Vortex writer row-count checks, native replay, and compatibility-output behavior.
+    - Routed the shared `vortex_ingest` local Vortex preparation spine through the same producer
+      writer and kept `artifact_digest`, byte count, workspace-safe report, and
+      `fallback_attempted=false` / `external_engine_invoked=false` evidence aligned.
+  - Evidence:
+    - `cargo check -p shardloom-core -p shardloom-vortex --features shardloom-vortex/vortex-traditional-analytics-benchmark,shardloom-vortex/vortex-write,shardloom-vortex/universal-format-io` passed.
+    - `cargo test -p shardloom-core workspace_safe_local_producer` passed.
+    - `cargo test -p shardloom-vortex local_flat_scalar_rows_write_and_reopen_vortex_artifact --features vortex-write,universal-format-io` passed.
+    - `cargo test -p shardloom-vortex native_replay_verification_certifies_local_vortex_analytics_workflow --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_environment.py --profile full_local --json-output target/benchmark-environment-full-local-safe-writer.json` passed.
+    - `target/bench-venv/bin/python benchmarks/traditional_analytics/run.py --rows 100000 --iterations 3 --claim-readiness-rerun --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local-safe-writer.json --markdown-output target/benchmark-artifacts/traditional-full-local-safe-writer.md --data-dir target/benchmark-artifacts/traditional-full-local-safe-writer-data --regenerate` passed.
+    - `target/bench-venv/bin/python scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local-safe-writer.json` passed.
+    - Refreshed safe-writer published route geomeans from the promoted artifact: cold certified
+      ShardLoom route 137.71 ms, prepare-once first query 58.00 ms, prepare-once batch 8.37 ms,
+      warm prepared query 5.57 ms, native Vortex query 5.58 ms, pandas end-to-end 191.21 ms, Polars
+      eager end-to-end 38.78 ms, Polars lazy end-to-end 28.63 ms, DuckDB end-to-end 68.57 ms,
+      DataFusion end-to-end 32.42 ms across 114 successful rows, and Dask end-to-end 270.90 ms.
+    - Refreshed cold certified-route stage geomeans: `compatibility_to_vortex_import_millis`
+      127.94 ms as an inclusive bundle, `vortex_write_millis` 76.79 ms,
+      `source_read_millis` 43.80 ms, `source_parse_millis` 29.48 ms,
+      `vortex_reopen_verify_millis` 1.94 ms, `vortex_scan_millis` 2.32 ms,
+      `result_sink_write_millis` 1.90 ms, and `evidence_render_millis` 0.08 ms.
+    - The focused tests prove staged producer digest/byte evidence, staging cleanup on producer
+      failure, local Vortex write/reopen row-count parity, workspace-safe report parity, and
+      traditional `fnv1a64` file-digest parity after streamed writes.
+  - Claim boundary:
+    - This is a scoped local writer implementation optimization, safety-evidence improvement, and
+      refreshed local benchmark/site publication. The safe-writer artifact may be cited for the
+      exact local query-runtime and stage timings above. It does not prove broad Vortex writer
+      support, object-store/table sink support, production readiness, Spark replacement, or general
+      performance superiority. The refreshed cold route still needs exclusive stage accounting plus
+      remaining writer/safe-artifact and source-read/parse work before broader performance language
+      moves.
+  - Fallback boundary:
+    - The change keeps upstream Vortex as a native writer provider and ShardLoom as the
+      workspace-safe commit/evidence owner. It adds no Spark/DataFusion/DuckDB/Polars/Velox
+      execution fallback, no Vortex query-engine integration, and no external-engine residual
+      evaluation for ShardLoom rows.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D PR980+ backlog and post-hotpath benchmark optimization
   - Date: 2026-06-03
   - Branch/PR: `codex/cold-route-artifact-backlog-optimization` / pending PR.
