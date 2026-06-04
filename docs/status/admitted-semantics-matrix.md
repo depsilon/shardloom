@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=69
-executable_fixture_count=62
+matrix_row_count=70
+executable_fixture_count=63
 diagnostic_case_count=7
 unsupported_diagnostic_count=5
 runtime_error_diagnostic_count=1
@@ -72,6 +72,7 @@ Covered fixture rows:
 - `complex_array_literal_projection`
 - `complex_struct_source_projection`
 - `binary_cast_projection_predicate`
+- `binary_cast_ordering_predicate`
 - `decimal_cast_projection_predicate`
 - `decimal_arithmetic_projection`
 - `binary_helper_projection`
@@ -134,7 +135,7 @@ than an unsupported feature label, and scalar-left multi-column IN-subqueries no
 deterministic invalid-shape diagnostic because row-value left operands are required. Non-UTC
 timestamp/timezone database semantics, locale/collation,
 variant/union dtype families, list/struct accessors, complex equality, broad
-binary source dtype decoding, binary ordering, and remaining non-admitted broad ANSI subquery
+binary source dtype decoding, SQL source-column binary ordering without explicit cast, and remaining non-admitted broad ANSI subquery
 shapes now have deterministic unsupported diagnostics with no
 fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
 executable through the JSONL result boundary only; nested source decoding, complex equality,
@@ -155,9 +156,10 @@ hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'` text byte literal pro
 executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to `binary`/`blob`/`varbinary`
 projects admitted scalar values as UTF-8 bytes, and scoped binary cast equality/inequality
 predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 byte literals, or
-`NULL`. Scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
+`NULL`. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons against
+explicit binary literals. Scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
 with strict UTF-8 text decoding, binary output evidence, null propagation, and deterministic
-invalid-input blockers, while broad binary source dtype decoding, binary ordering, and nested binary
+invalid-input blockers, while broad binary source dtype decoding, SQL source-column binary ordering without explicit cast, and nested binary
 helper expressions remain outside the claim boundary. Scoped `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
 fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`

@@ -369,8 +369,8 @@ fn binary_scalar_rows() -> Vec<SemanticFixtureRow> {
         "binary_equality",
         "binary equality",
         "scalar_expressions",
-        "bytewise_equality_fixture_certified_ordering_blocked",
-        "Binary equality is bytewise; binary ordering comparisons remain deterministic blockers",
+        "bytewise_equality_ordering_fixture_certified",
+        "Binary equality and ordering comparisons are bytewise over explicit binary scalar values",
         binary_equality_fixture(),
     )]
 }
@@ -978,8 +978,9 @@ fn binary_equality_fixture() -> bool {
         && not_equal.value == Some(ScalarValue::Boolean(true))
         && !not_equal.fallback_attempted
         && !not_equal.external_engine_invoked
-        && ordered.status == ExpressionEvaluationStatus::Unsupported
-        && ordered.has_errors()
+        && ordered.status == ExpressionEvaluationStatus::Evaluated
+        && ordered.value == Some(ScalarValue::Boolean(true))
+        && !ordered.has_errors()
         && !ordered.fallback_attempted
         && !ordered.external_engine_invoked
 }

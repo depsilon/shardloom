@@ -631,11 +631,13 @@ plan before coding.
   report accessors, and keep unsupported DISTINCT aggregate shapes or non-output source columns
   deterministic blockers with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D/5G expression/operator closeout admits core bytewise binary equality/
-  inequality, keeps binary ordering deterministic-blocked, promotes UTC timestamp/Date32/binary
-  semantic conformance rows to executed fixtures, and expands the admitted semantics matrix to
-  release-gate composed string functions, temporal arithmetic/difference, CASE projections,
-  IN-list NULL semantics, scalar IN subqueries, grouped COUNT(DISTINCT), hidden aggregate HAVING,
-  mixed window, and multi-key join fixtures without fallback or external runtime engines.
+  inequality, promotes UTC timestamp/Date32/binary semantic conformance rows to executed
+  fixtures, and expands the admitted semantics matrix to release-gate composed string functions,
+  temporal arithmetic/difference, CASE projections, IN-list NULL semantics, scalar IN subqueries,
+  grouped COUNT(DISTINCT), hidden aggregate HAVING, mixed window, and multi-key join fixtures
+  without fallback or external runtime engines. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
+  binary cast bytewise ordering while broad source-binary decoding and non-cast/source binary
+  ordering remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
   timezone database conversion, interval arithmetic outside scoped temporal helpers, and

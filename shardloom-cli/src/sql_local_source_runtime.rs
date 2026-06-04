@@ -32218,11 +32218,6 @@ fn parse_binary_cast_predicate_literal(
         }
     };
     let op = parse_comparison_op(op_raw)?;
-    if !matches!(op, ComparisonOp::Eq | ComparisonOp::NotEq) {
-        return Err(unsupported_sql_error(
-            "binary CAST predicates admit equality and inequality only",
-        ));
-    }
     Ok((op, value))
 }
 
@@ -39212,6 +39207,46 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_binary_cast_ordering_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n2,beta\n3,alp\n4,\n5,gamma\n")
+            .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(label AS binary) AS label_bytes FROM '{}' WHERE CAST(label AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run binary cast ordering smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label_bytes\":\"binary[hex=62657461]\"}\n{\"id\":5,\"label_bytes\":\"binary[hex=67616d6d61]\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "cast_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_source_column", "label");
+        assert_field_eq(&fields, "cast_target_dtype", "binary");
+        assert_field_eq(&fields, "cast_mode", "strict");
+        assert_field_eq(&fields, "cast_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_projection_source_column", "label");
+        assert_field_eq(&fields, "cast_projection_output_column", "label_bytes");
+        assert_field_eq(&fields, "cast_projection_target_dtype", "binary");
+        assert_field_eq(&fields, "cast_projection_mode", "strict");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
     fn runs_scoped_binary_helper_projection_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
         fs::write(
@@ -39489,18 +39524,26 @@ mod tests {
     }
 
     #[test]
-    fn binary_cast_predicate_blocks_ordering_without_fallback() {
-        let error = parse_sql_local_source_statement(
+    fn parses_scoped_binary_cast_ordering_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,label FROM 'target/input.csv' WHERE CAST(label AS binary) > BINARY 'alpha' LIMIT 5",
         )
-        .expect_err("binary cast ordering remains blocked");
+        .expect("binary cast ordering predicate parses");
 
-        assert!(
-            error
-                .to_string()
-                .contains("binary CAST predicates admit equality and inequality only")
-        );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Binary,
+                mode: CastMode::Strict,
+                op: ComparisonOp::Gt,
+                value: ScalarValue::Binary(ref value)
+            } if column == "label" && value == b"alpha"
+        ));
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_source_columns(), "label");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "binary");
+        assert_eq!(parsed.predicate.cast_modes(), "strict");
     }
 
     #[test]

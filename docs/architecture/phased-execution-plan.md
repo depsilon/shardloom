@@ -306,7 +306,8 @@ completed details to the ledger.
   runtime promotion or deterministic diagnostics: non-UTC/timezone semantics, locale/collation,
   arbitrary interval arithmetic outside scoped temporal helpers, complex equality/accessors/casts,
   nested source decoding and flat sinks beyond scoped result-boundary projections,
-  variant/union-dtype shapes, broad binary source dtype decoding/ordering, local Vortex typed
+  variant/union-dtype shapes, broad binary source dtype decoding and SQL source-column binary
+  ordering without explicit cast, local Vortex typed
   decimal output, Avro/ORC typed decimal sinks, broad ANSI decimal coercion/exponent notation,
   scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
   subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
@@ -314,8 +315,8 @@ completed details to the ledger.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the correlated subquery predicate/CASE projection slice; likely candidates are
-  timezone/locale blocker refinement, broad binary source dtype refinement, complex access/equality
+  blockers after the scoped binary cast ordering slice; likely candidates are timezone/locale
+  blocker refinement, broad binary source dtype decoding refinement, complex access/equality
   follow-through after a dedicated semantics contract, local Vortex typed decimal output once Vortex
   writer/reopen evidence is available, or another front-door parity gap only after the runtime route
   is already admitted.

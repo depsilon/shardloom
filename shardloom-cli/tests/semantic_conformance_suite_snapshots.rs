@@ -133,7 +133,7 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     )));
     assert!(output.contains(&field(
         "semantic_row_binary_equality_current_support",
-        "bytewise_equality_fixture_certified_ordering_blocked"
+        "bytewise_equality_ordering_fixture_certified"
     )));
     assert!(output.contains(&field("semantic_row_binary_equality_passed", "true")));
     assert!(output.contains(&field(
