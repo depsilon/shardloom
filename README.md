@@ -344,9 +344,10 @@ flat compatibility sinks, complex equality, accessors, casts, or nested source d
 runtime-ready.
 Scoped binary cast predicates now admit bytewise lexicographic ordering against explicit binary
 literals, and feature-gated Arrow IPC binary source columns admit direct projection, bytewise binary
-literal predicates, and source-column ordering. Binary sinks, broader binary execution beyond the
-scoped source/cast/helper families, and non-binary source columns compared to binary literals remain
-outside the claim boundary.
+literal predicates, and source-column ordering. Feature-gated Parquet/Arrow IPC flat scalar sinks
+preserve admitted binary byte payloads from the SQL result batch. Binary sinks outside that scoped
+compatibility-output path, broader binary execution beyond the scoped source/cast/helper families,
+and non-binary source columns compared to binary literals remain outside the claim boundary.
 
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can

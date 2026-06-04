@@ -16,9 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary Parquet/Arrow IPC sink preservation slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-sink-boundary` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+  - Scope:
+    - Added shared Arrow `DataType::Binary` output construction for flat scalar compatibility rows,
+      preserving byte payloads, zero-length byte arrays, and SQL NULLs without text rendering.
+    - Admitted feature-gated Parquet and Arrow IPC flat scalar binary sink preservation through the
+      existing SQL local-source output and fanout path.
+    - Propagated explicit `LogicalDType::Binary` hints for scoped cast/helper binary projections so
+      typed binary result columns remain binary at structured sink conversion time.
+    - Propagated scoped Arrow binary-family source-schema dtype hints for raw source-column
+      projections so all-null Arrow IPC binary columns remain binary in Parquet/Arrow IPC sinks.
+    - Added focused writer and SQL smoke coverage that reopens Parquet and Arrow IPC sink artifacts
+      as `ScalarValue::Binary` and verifies no fallback or external engine invocation.
+    - Updated README, active phase plan, admitted-semantics status docs, compute-flow references,
+      use-case source data, and website data surfaces to remove stale global binary-sink blockers
+      while keeping broader Avro/ORC/Vortex and nested/broad binary execution outside the claim
+      boundary.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features universal-format-io preserves_binary_rows_in_parquet_and_arrow_ipc_sinks -- --nocapture` passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io binary_dtype_hint_builds_binary_array_for_all_null_sink_column -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-binary-sink-boundary.json` passed with `matrix_row_count=82`, `executable_fixture_count=68`, `diagnostic_case_count=14`, `unsupported_diagnostic_count=12`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_use_case_index.py` passed.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed again from `website-src` after the static build to restore deployable `website/assets` data from source of truth.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change admits scoped binary sink
+      preservation semantics and report evidence, and does not make a performance claim.
+  - Claim boundary:
+    - This slice admits feature-gated Parquet/Arrow IPC flat scalar binary byte preservation for
+      admitted SQL result batches, including all-null Arrow IPC binary source columns with
+      source-schema dtype evidence. It does not admit Avro/ORC/Vortex binary sink fidelity, broad
+      source-schema dtype preservation beyond scoped binary compatibility hints, broader binary
+      execution, nested binary helper expressions, broad SQL/DataFrame parity, production support,
+      benchmark speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom's local compatibility adapter and Arrow structured
+      writers as compatibility-output translation, not fallback execution. Rows keep
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary source predicate/order slice
   - Date: 2026-06-04
-  - Branch/PR: `codex/6d-binary-source-predicate-order` / pending PR.
+  - Branch/PR: `codex/6d-binary-source-predicate-order` / PR #1085 merged.
   - Source:
     - `docs/architecture/phased-execution-plan.md`.
     - `docs/status/admitted-semantics-matrix.md`.

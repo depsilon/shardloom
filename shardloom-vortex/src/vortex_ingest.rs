@@ -7006,6 +7006,7 @@ mod tests {
         .expect("record batch");
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -7115,6 +7116,7 @@ mod tests {
         .expect("record batch");
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -7158,6 +7160,7 @@ mod tests {
         let columns = vec!["id".to_string(), "label".to_string(), "metric".to_string()];
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -7210,6 +7213,7 @@ mod tests {
         .expect("record batch");
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
+            column_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],

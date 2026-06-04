@@ -21,8 +21,8 @@ use arrow_array::{
     LargeStringArray, RecordBatch, RecordBatchReader, StringArray, StringViewArray,
     TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
-        BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder, Int64Builder,
-        StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
+        BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder,
+        Int64Builder, StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
     },
 };
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
@@ -34,6 +34,9 @@ use std::sync::Arc;
 pub struct FlatLocalSourceTable {
     /// Column order from the source schema.
     pub header: Vec<String>,
+    /// Source-schema dtype hints aligned with `header` for scoped compatibility
+    /// output preservation.
+    pub column_dtypes: Vec<Option<LogicalDType>>,
     /// Column order requested from the underlying local reader.
     pub reader_projection_columns: Vec<String>,
     /// Source rows converted to `ShardLoom` scalar values. Projection-capable
@@ -47,6 +50,9 @@ pub struct FlatLocalSourceTable {
 pub struct FlatLocalColumnarSource {
     /// Column order from the source schema.
     pub header: Vec<String>,
+    /// Source-schema dtype hints aligned with `header` for scoped compatibility
+    /// output preservation.
+    pub column_dtypes: Vec<Option<LogicalDType>>,
     /// Column order materialized for the caller.
     pub materialized_columns: Vec<String>,
     /// Column order requested from the underlying local reader.
@@ -138,7 +144,9 @@ pub fn read_flat_parquet_columnar_source_with_projection(
                 path.display()
             ))
         })?;
-    let header = source_schema_header(path, "Parquet", builder.schema().as_ref())?;
+    let schema = builder.schema();
+    let header = source_schema_header(path, "Parquet", schema.as_ref())?;
+    let column_dtypes = source_schema_column_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let projection = parquet::arrow::ProjectionMask::roots(
@@ -162,6 +170,7 @@ pub fn read_flat_parquet_columnar_source_with_projection(
         "Parquet",
         max_rows,
         header,
+        column_dtypes,
         &projected_header,
     )
 }
@@ -239,7 +248,9 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
             path.display()
         ))
     })?;
-    let header = source_schema_header(path, "Arrow IPC", full_reader.schema().as_ref())?;
+    let schema = full_reader.schema();
+    let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
+    let column_dtypes = source_schema_column_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     drop(full_reader);
@@ -259,6 +270,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
         "Arrow IPC",
         max_rows,
         header,
+        column_dtypes,
         &projected_header,
     )
 }
@@ -338,7 +350,9 @@ pub fn read_flat_avro_columnar_source_with_projection(
                 path.display()
             ))
         })?;
-    let header = source_schema_header(path, "Avro", full_reader.schema().as_ref())?;
+    let schema = full_reader.schema();
+    let header = source_schema_header(path, "Avro", schema.as_ref())?;
+    let column_dtypes = source_schema_column_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let (reader_projection_indices, reader_projection_columns) = if projection_indices.is_empty() {
@@ -365,9 +379,12 @@ pub fn read_flat_avro_columnar_source_with_projection(
         path,
         "Avro",
         max_rows,
-        header,
-        &projected_header,
-        reader_projection_columns,
+        FlatColumnarReadSchema {
+            header,
+            column_dtypes,
+            materialized_columns: projected_header,
+            reader_projection_columns,
+        },
     )
 }
 
@@ -443,7 +460,9 @@ pub fn read_flat_orc_columnar_source_with_projection(
             path.display()
         ))
     })?;
-    let header = source_schema_header(path, "ORC", builder.schema().as_ref())?;
+    let schema = builder.schema();
+    let header = source_schema_header(path, "ORC", schema.as_ref())?;
+    let column_dtypes = source_schema_column_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let projection = orc_rust::projection::ProjectionMask::named_roots(
@@ -461,6 +480,7 @@ pub fn read_flat_orc_columnar_source_with_projection(
         "ORC",
         max_rows,
         header,
+        column_dtypes,
         &projected_header,
     )
 }
@@ -476,6 +496,7 @@ where
 {
     let schema = reader.schema();
     let header = source_schema_header(path, source_label, schema.as_ref())?;
+    let column_dtypes = source_schema_column_dtypes(schema.as_ref());
     let projected_header = header.clone();
     read_flat_record_batch_reader_columnar_with_header(
         reader,
@@ -483,6 +504,7 @@ where
         source_label,
         max_rows,
         header,
+        column_dtypes,
         &projected_header,
     )
 }
@@ -493,20 +515,24 @@ fn read_flat_record_batch_reader_columnar_with_header<R>(
     source_label: &str,
     max_rows: usize,
     header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
     projected_header: &[String],
 ) -> Result<FlatLocalColumnarSource>
 where
     R: RecordBatchReader,
 {
-    let reader_projection_columns = projected_header.to_owned();
+    let schema = FlatColumnarReadSchema {
+        header,
+        column_dtypes,
+        materialized_columns: projected_header.to_owned(),
+        reader_projection_columns: projected_header.to_owned(),
+    };
     read_flat_record_batch_reader_columnar_with_reader_projection(
         reader,
         path,
         source_label,
         max_rows,
-        header,
-        projected_header,
-        reader_projection_columns,
+        schema,
     )
 }
 
@@ -515,13 +541,19 @@ fn read_flat_record_batch_reader_columnar_with_reader_projection<R>(
     path: &Path,
     source_label: &str,
     max_rows: usize,
-    header: Vec<String>,
-    projected_header: &[String],
-    reader_projection_columns: Vec<String>,
+    schema: FlatColumnarReadSchema,
 ) -> Result<FlatLocalColumnarSource>
 where
     R: RecordBatchReader,
 {
+    if schema.column_dtypes.len() != schema.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local {source_label} source '{}' produced {} source dtype hints for {} schema columns",
+            path.display(),
+            schema.column_dtypes.len(),
+            schema.header.len()
+        )));
+    }
     let mut batches = Vec::new();
     let mut row_count = 0usize;
     for batch in reader {
@@ -531,7 +563,7 @@ where
                 path.display()
             ))
         })?;
-        if batch.num_columns() != reader_projection_columns.len() {
+        if batch.num_columns() != schema.reader_projection_columns.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local {source_label} source '{}' changed projected column count between schema and batch",
                 path.display(),
@@ -553,9 +585,10 @@ where
     }
 
     Ok(FlatLocalColumnarSource {
-        header,
-        materialized_columns: projected_header.to_owned(),
-        reader_projection_columns,
+        header: schema.header,
+        column_dtypes: schema.column_dtypes,
+        materialized_columns: schema.materialized_columns,
+        reader_projection_columns: schema.reader_projection_columns,
         batches,
         row_count,
     })
@@ -606,6 +639,7 @@ pub fn materialize_flat_columnar_source_to_scalar_table(
 
     Ok(FlatLocalSourceTable {
         header: source.header.clone(),
+        column_dtypes: source.column_dtypes.clone(),
         reader_projection_columns: source.reader_projection_columns.clone(),
         rows,
     })
@@ -652,6 +686,31 @@ fn source_schema_header(path: &Path, source_label: &str, schema: &Schema) -> Res
         }
     }
     Ok(header)
+}
+
+fn source_schema_column_dtypes(schema: &Schema) -> Vec<Option<LogicalDType>> {
+    schema
+        .fields()
+        .iter()
+        .map(|field| source_schema_dtype_hint(field.data_type()))
+        .collect()
+}
+
+fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
+    match data_type {
+        DataType::Binary
+        | DataType::LargeBinary
+        | DataType::FixedSizeBinary(_)
+        | DataType::BinaryView => Some(LogicalDType::Binary),
+        _ => None,
+    }
+}
+
+struct FlatColumnarReadSchema {
+    header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
+    materialized_columns: Vec<String>,
+    reader_projection_columns: Vec<String>,
 }
 
 fn projection_indices_for_header(header: &[String], required_columns: &[String]) -> Vec<usize> {
@@ -964,6 +1023,7 @@ fn flat_output_column_array(
         .map(|dtype| decimal128_dtype_precision_scale(dtype, column, context))
         .transpose()?
         .flatten();
+    let declared_binary = column_dtype.is_some_and(|dtype| matches!(dtype, LogicalDType::Binary));
     let inferred_kind = values
         .iter()
         .filter(|value| !matches!(value, ScalarValue::Null))
@@ -975,15 +1035,21 @@ fn flat_output_column_array(
                 "{context} column '{column}' mixes scalar families {existing} and {candidate}; scoped compatibility output requires one non-null scalar family per column"
             ))),
         })?;
-    let kind = match (declared_decimal, inferred_kind) {
-        (Some(_), Some("decimal128") | None) => "decimal128",
-        (Some((precision, scale)), Some(other)) => {
+    let kind = match (declared_decimal, declared_binary, inferred_kind) {
+        (Some(_), _, Some("decimal128") | None) => "decimal128",
+        (Some((precision, scale)), _, Some(other)) => {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "{context} column '{column}' is declared decimal128({precision},{scale}) but contains non-null {other} values; scoped typed decimal sinks require Decimal128 values or NULLs"
             )));
         }
-        (None, Some(kind)) => kind,
-        (None, None) => "utf8",
+        (None, true, Some("binary") | None) => "binary",
+        (None, true, Some(other)) => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} column '{column}' is declared binary but contains non-null {other} values; scoped binary sinks require Binary values or NULLs"
+            )));
+        }
+        (None, false, Some(kind)) => kind,
+        (None, false, None) => "utf8",
     };
     let nullable = values
         .iter()
@@ -994,6 +1060,7 @@ fn flat_output_column_array(
         "uint64" => Ok(parquet_uint64_column(column, &values, nullable, context)?),
         "float64" => Ok(parquet_float64_column(column, &values, nullable, context)?),
         "utf8" => Ok(parquet_utf8_column(column, &values, nullable, context)?),
+        "binary" => Ok(parquet_binary_column(column, &values, nullable, context)?),
         "decimal128" => Ok(parquet_decimal128_column(
             column,
             &values,
@@ -1107,6 +1174,33 @@ fn parquet_utf8_column(
     }
     Ok((
         Field::new(column, DataType::Utf8, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_binary_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+    context: &str,
+) -> Result<(Field, ArrayRef)> {
+    let total_bytes = values
+        .iter()
+        .filter_map(|value| match value {
+            ScalarValue::Binary(value) => Some(value.len()),
+            _ => None,
+        })
+        .sum();
+    let mut builder = BinaryBuilder::with_capacity(values.len(), total_bytes);
+    for value in values {
+        match value {
+            ScalarValue::Binary(value) => builder.append_value(value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(context, column, "binary", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Binary, nullable),
         Arc::new(builder.finish()),
     ))
 }
@@ -1387,6 +1481,10 @@ fn arrow_scalar_to_shardloom(
 mod tests {
     use super::*;
 
+    type FlatSinkRow = Vec<(String, ScalarValue)>;
+    type FlatSinkRows = Vec<FlatSinkRow>;
+    type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
+
     fn binary_source_with_column(column: &str, array: ArrayRef) -> FlatLocalColumnarSource {
         let schema = Arc::new(Schema::new(vec![Field::new(
             column,
@@ -1396,6 +1494,7 @@ mod tests {
         let batch = RecordBatch::try_new(schema, vec![array]).expect("record batch");
         FlatLocalColumnarSource {
             header: vec![column.to_string()],
+            column_dtypes: vec![Some(LogicalDType::Binary)],
             materialized_columns: vec![column.to_string()],
             reader_projection_columns: vec![column.to_string()],
             row_count: batch.num_rows(),
@@ -1459,6 +1558,106 @@ mod tests {
                 Some(&b"raw"[..]),
             ])),
         );
+    }
+
+    fn binary_sink_rows() -> (Vec<String>, FlatSinkRows) {
+        (
+            vec!["id".to_string(), "payload".to_string()],
+            vec![
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(1)),
+                    (
+                        "payload".to_string(),
+                        ScalarValue::Binary(vec![0x00, 0xff, 0x10]),
+                    ),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(2)),
+                    ("payload".to_string(), ScalarValue::Null),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(3)),
+                    ("payload".to_string(), ScalarValue::Binary(Vec::new())),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(4)),
+                    ("payload".to_string(), ScalarValue::Binary(b"raw".to_vec())),
+                ],
+            ],
+        )
+    }
+
+    fn unique_binary_sink_path(extension: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "shardloom-vortex-binary-sink-{}-{nanos}.{extension}",
+            std::process::id()
+        ))
+    }
+
+    fn assert_binary_sink_round_trip(
+        extension: &str,
+        encode: BinarySinkEncoder,
+        read: fn(&std::path::Path, usize) -> Result<FlatLocalSourceTable>,
+    ) {
+        let (columns, rows) = binary_sink_rows();
+        let path = unique_binary_sink_path(extension);
+        let bytes = encode(&columns, &rows).expect("encode binary sink rows");
+        std::fs::write(&path, bytes).expect("write binary sink artifact");
+
+        let table = read(&path, 10).expect("read binary sink artifact");
+        assert_eq!(table.header, columns);
+        assert_eq!(table.rows.len(), 4);
+        assert_eq!(
+            table.rows[0].get("payload"),
+            Some(&ScalarValue::Binary(vec![0x00, 0xff, 0x10]))
+        );
+        assert_eq!(table.rows[1].get("payload"), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get("payload"),
+            Some(&ScalarValue::Binary(Vec::new()))
+        );
+        assert_eq!(
+            table.rows[3].get("payload"),
+            Some(&ScalarValue::Binary(b"raw".to_vec()))
+        );
+
+        std::fs::remove_file(path).expect("remove binary sink artifact");
+    }
+
+    #[test]
+    fn preserves_binary_rows_in_parquet_and_arrow_ipc_sinks() {
+        assert_binary_sink_round_trip(
+            "parquet",
+            encode_flat_parquet_rows,
+            read_flat_parquet_source,
+        );
+        assert_binary_sink_round_trip(
+            "arrow",
+            encode_flat_arrow_ipc_rows,
+            read_flat_arrow_ipc_source,
+        );
+    }
+
+    #[test]
+    fn binary_dtype_hint_builds_binary_array_for_all_null_sink_column() {
+        let columns = vec!["payload".to_string()];
+        let dtypes = vec![Some(LogicalDType::Binary)];
+        let rows = vec![vec![("payload".to_string(), ScalarValue::Null)]];
+
+        let batch = flat_rows_to_record_batch_with_dtypes(
+            &columns,
+            &dtypes,
+            &rows,
+            "binary dtype hint output",
+        )
+        .expect("binary dtype hint builds record batch");
+
+        assert_eq!(batch.schema().field(0).data_type(), &DataType::Binary);
+        assert!(batch.column(0).is_null(0));
     }
 
     #[test]
