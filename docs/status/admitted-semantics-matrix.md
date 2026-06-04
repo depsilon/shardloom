@@ -121,8 +121,8 @@ Covered fixture rows:
 - `select_distinct_join`
 - `runtime_error_numeric_division_by_zero`
 - `timestamp_offset_literal_normalization`
-- `unsupported_binary_literal_predicate_without_cast`
-- `unsupported_binary_source_ordering_without_cast`
+- `unsupported_nonbinary_source_binary_literal_predicate`
+- `unsupported_nonbinary_source_binary_ordering_predicate`
 - `unsupported_timezone_database_policy`
 - `unsupported_timezone_database_function_policy`
 - `unsupported_timestamptz_policy`
@@ -150,9 +150,9 @@ runtime. Named timezone database conversion syntax, timezone conversion function
 `TIMESTAMPTZ`/timestamp-with-local-time-zone type spellings, `COLLATE`, and `ILIKE`
 locale/case-folding comparisons now have deterministic unsupported diagnostics. List/array
 access-or-cast, struct access-or-cast, complex subquery membership materialization, variant, and
-union dtype families, direct binary literal predicates over source columns, source-column binary
-ordering without explicit cast, and remaining non-admitted broad ANSI subquery shapes now have
-deterministic unsupported diagnostics with no fallback. Scoped
+union dtype families, binary literal predicates against non-binary source columns,
+non-binary source ordering predicates against binary literals, and remaining non-admitted broad
+ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback. Scoped
 `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
 executable through the JSONL result boundary only. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
 over those already-materialized ARRAY/STRUCT projection values are executable through structural
@@ -176,18 +176,19 @@ executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to `binary`/`blob`
 projects admitted scalar values as UTF-8 bytes, and scoped binary cast equality/inequality
 predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 byte literals, or
 `NULL`. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons against
-explicit binary literals, while direct source-column binary literal predicates and source-column
-binary ordering without explicit cast fail with deterministic unsupported diagnostics. Scoped
+explicit binary literals. Scoped direct binary source predicates and source-column ordering over
+feature-gated Arrow IPC binary byte-array source columns admit bytewise lexicographic comparisons
+against explicit binary literals with SQL NULLs filtering out of WHERE results. Non-binary source
+columns compared to binary literals fail with deterministic unsupported diagnostics. Scoped
 `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
 with strict UTF-8 text decoding, binary output evidence, null propagation, and deterministic
 invalid-input blockers. The feature-gated local columnar materialization boundary also admits Arrow
 binary byte-array source columns as `ScalarValue::Binary` for direct projection, with null
 propagation and JSONL/CSV `binary[hex=...]` result evidence; the executable CLI proof covers Arrow
 IPC, and the shared materializer covers Arrow `Binary`, `LargeBinary`, `FixedSizeBinary`, and
-`BinaryView` arrays surfaced by admitted local structured readers. Binary predicates over source
-columns, source-column binary ordering without explicit cast, binary sink preservation, broader
-binary execution beyond scoped projection plus explicit casts/helpers, and nested binary helper
-expressions remain outside the claim boundary. Scoped
+`BinaryView` arrays surfaced by admitted local structured readers. Binary sink preservation, broader
+binary execution beyond scoped source projection/predicate/order plus explicit casts/helpers, and
+nested binary helper expressions remain outside the claim boundary. Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
 fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`

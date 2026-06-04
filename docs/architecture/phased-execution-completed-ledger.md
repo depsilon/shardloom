@@ -16,9 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary source predicate/order slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-source-predicate-order` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/vortex/vortex-arrow-interop.md`.
+  - Scope:
+    - Admitted direct binary literal predicates over real feature-gated Arrow IPC binary source
+      columns for `X'<hex>'`, `BINARY '<utf8>'`, and `BLOB '<utf8>'` predicate literals.
+    - Added a binary sort-value family so scoped binary source columns can participate in bytewise
+      lexicographic `ORDER BY ... LIMIT ...` after normal SQL `WHERE` null filtering.
+    - Added binary-source predicate/order evidence fields to the SQL local-source report and the
+      SQL local-source use-case surface, including operator, source column, literal hex value,
+      ordering execution, and null-semantics evidence.
+    - Renamed the former binary literal/order diagnostic matrix rows to make the remaining blocker
+      precise: non-binary source columns compared to binary literals fail with deterministic
+      operand-family diagnostics, while scoped binary source columns are admitted separately.
+    - Updated README, active phase plan, admitted-semantics status docs, compute-flow references,
+      global architecture review wording, generated use-case docs, website data, and static website
+      pages.
+  - Evidence:
+    - `cargo test -p shardloom-cli binary_literals_are_admitted_in_direct_predicates -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io direct_transient_arrow_ipc_filters_and_orders_binary_source_dtype_without_fallback -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-binary-source-predicate-order.json` passed with `matrix_row_count=82`, `executable_fixture_count=68`, `diagnostic_case_count=14`, `unsupported_diagnostic_count=12`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - Targeted tracked static data validation passed after restoring the existing untracked
+      duplicate static files; `website/assets/data/*` matched `website-public/assets/data/*`, stayed
+      under the Cloudflare static asset size cap, and the website compute-flow data matched the
+      canonical compute-flow doc.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change admits scoped binary source
+      predicate/order semantics and report evidence, and does not make a performance claim.
+  - Claim boundary:
+    - This slice admits direct binary predicates and bytewise ordering only for feature-gated local
+      columnar binary source columns already materialized into ShardLoom scalar rows. It does not
+      admit binary sink preservation, broader binary execution, nested binary helper expressions,
+      broad SQL/DataFrame parity, production support, benchmark speedup, public performance
+      superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside the ShardLoom local compatibility adapter and ShardLoom scalar
+      runtime, with `fallback_attempted=false` and `external_engine_invoked=false`; unsupported
+      non-binary/binary comparisons remain deterministic blockers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped columnar binary source projection slice
   - Date: 2026-06-04
-  - Branch/PR: `codex/6d-binary-source-dtype` / pending PR.
+  - Branch/PR: `codex/6d-binary-source-dtype` / PR #1084 merged.
   - Source:
     - `docs/architecture/phased-execution-plan.md`.
     - `docs/status/admitted-semantics-matrix.md`.

@@ -1767,6 +1767,7 @@ enum SortValue {
     Int(i64),
     Float(f64),
     Utf8(String),
+    Binary(Vec<u8>),
     Complex(String),
 }
 
@@ -1774,6 +1775,7 @@ enum SortValue {
 enum SortValueFamily {
     Numeric,
     Utf8,
+    Binary,
     Complex,
 }
 
@@ -1791,6 +1793,7 @@ impl SortValue {
             }
             ScalarValue::Float64(value) if value.is_finite() => Ok(Self::Float(*value)),
             ScalarValue::Utf8(value) => Ok(Self::Utf8(value.clone())),
+            ScalarValue::Binary(value) => Ok(Self::Binary(value.clone())),
             ScalarValue::List(_) | ScalarValue::Struct(_) => {
                 Ok(Self::Complex(scalar_order_key(value)))
             }
@@ -1798,7 +1801,7 @@ impl SortValue {
                 "ORDER BY NULL ordering is not admitted in this scoped top-N smoke",
             )),
             _ => Err(unsupported_sql_error(
-                "ORDER BY top-N smoke admits numeric, UTF-8, or scoped ARRAY/STRUCT result-boundary sort columns only",
+                "ORDER BY top-N smoke admits numeric, UTF-8, binary, or scoped ARRAY/STRUCT result-boundary sort columns only",
             )),
         }
     }
@@ -1807,6 +1810,7 @@ impl SortValue {
         match self {
             Self::Int(_) | Self::Float(_) => SortValueFamily::Numeric,
             Self::Utf8(_) => SortValueFamily::Utf8,
+            Self::Binary(_) => SortValueFamily::Binary,
             Self::Complex(_) => SortValueFamily::Complex,
         }
     }
@@ -1823,6 +1827,7 @@ impl Ord for SortValue {
             (Self::Utf8(left), Self::Utf8(right)) | (Self::Complex(left), Self::Complex(right)) => {
                 left.cmp(right)
             }
+            (Self::Binary(left), Self::Binary(right)) => left.cmp(right),
             _ => self.family_rank().cmp(&other.family_rank()),
         }
     }
@@ -1839,7 +1844,7 @@ impl SortValue {
         match self {
             Self::Int(value) => i64_to_f64(*value),
             Self::Float(value) => *value,
-            Self::Utf8(_) | Self::Complex(_) => f64::NAN,
+            Self::Utf8(_) | Self::Binary(_) | Self::Complex(_) => f64::NAN,
         }
     }
 
@@ -1847,7 +1852,8 @@ impl SortValue {
         match self.family() {
             SortValueFamily::Numeric => 0,
             SortValueFamily::Utf8 => 1,
-            SortValueFamily::Complex => 2,
+            SortValueFamily::Binary => 2,
+            SortValueFamily::Complex => 3,
         }
     }
 }
@@ -11273,7 +11279,7 @@ fn validate_sort_value_families(
                 .is_some_and(|value| value.family() != expected_family)
         }) {
             return Err(unsupported_sql_error(
-                "ORDER BY mixed numeric and UTF-8 values within one sort key are not admitted in this scoped top-N smoke",
+                "ORDER BY mixed numeric, UTF-8, binary, and scoped ARRAY/STRUCT values within one sort key are not admitted in this scoped top-N smoke",
             ));
         }
     }
@@ -18242,6 +18248,92 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_binary_source_predicate(&self) -> bool {
+        let mut predicates = Vec::new();
+        self.push_binary_source_predicates(&mut predicates);
+        !predicates.is_empty()
+    }
+
+    fn uses_binary_source_ordering_predicate(&self) -> bool {
+        let mut predicates = Vec::new();
+        self.push_binary_source_predicates(&mut predicates);
+        predicates.iter().any(|(_column, op, _bytes)| {
+            matches!(
+                op,
+                ComparisonOp::Lt | ComparisonOp::LtEq | ComparisonOp::Gt | ComparisonOp::GtEq
+            )
+        })
+    }
+
+    fn binary_source_predicate_operator(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_source_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|(_column, op, _bytes)| comparison_op_label(*op))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_source_predicate_source_columns(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_source_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|(column, _op, _bytes)| *column)
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_source_predicate_literal_hex_values(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_source_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|(_column, _op, bytes)| bytes_to_hex(bytes))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_source_predicate_null_semantics(&self) -> &'static str {
+        if self.uses_binary_source_predicate() {
+            "sql_where_true_only_null_filters_out"
+        } else {
+            "not_applicable"
+        }
+    }
+
+    fn push_binary_source_predicates<'a>(
+        &'a self,
+        predicates: &mut Vec<(&'a str, ComparisonOp, &'a [u8])>,
+    ) {
+        match self {
+            Self::Compare {
+                column,
+                op,
+                value: ScalarValue::Binary(bytes),
+            } => predicates.push((column, *op, bytes.as_slice())),
+            Self::Logical { left, right, .. } => {
+                left.push_binary_source_predicates(predicates);
+                right.push_binary_source_predicates(predicates);
+            }
+            Self::Not { inner } => inner.push_binary_source_predicates(predicates),
+            _ => {}
+        }
+    }
+
     fn uses_null_predicate(&self) -> bool {
         match self {
             Self::IsNull { .. } | Self::IsNotNull { .. } => true,
@@ -24920,6 +25012,43 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.family().to_string(),
             ),
             (
+                "binary_source_predicate_runtime_execution".to_string(),
+                self.parsed
+                    .predicate
+                    .uses_binary_source_predicate()
+                    .to_string(),
+            ),
+            (
+                "binary_source_predicate_operator".to_string(),
+                self.parsed.predicate.binary_source_predicate_operator(),
+            ),
+            (
+                "binary_source_predicate_source_column".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_source_predicate_source_columns(),
+            ),
+            (
+                "binary_source_predicate_literal_hex_value".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_source_predicate_literal_hex_values(),
+            ),
+            (
+                "binary_source_ordering_predicate_runtime_execution".to_string(),
+                self.parsed
+                    .predicate
+                    .uses_binary_source_ordering_predicate()
+                    .to_string(),
+            ),
+            (
+                "binary_source_predicate_null_semantics".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_source_predicate_null_semantics()
+                    .to_string(),
+            ),
+            (
                 "filter_runtime_execution".to_string(),
                 self.parsed.has_filter().to_string(),
             ),
@@ -28283,9 +28412,6 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
 
 const TIMEZONE_DATABASE_POLICY_MESSAGE: &str = "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only";
 const LOCALE_COLLATION_POLICY_MESSAGE: &str = "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice";
-const BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE: &str = "binary literal predicates over source columns require explicit CAST(<column> AS binary); broad binary source dtype decoding is not admitted";
-const BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE: &str =
-    "SQL source-column binary ordering without explicit CAST(<column> AS binary) is not admitted";
 
 fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
     if contains_timezone_database_policy_construct(statement)? {
@@ -31873,7 +31999,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             if binary_keyword.eq_ignore_ascii_case("binary")
                 || binary_keyword.eq_ignore_ascii_case("blob") =>
         {
-            parse_binary_literal_predicate_without_cast(column, op_raw, binary_keyword, literal_raw)
+            parse_binary_keyword_literal_predicate(column, op_raw, binary_keyword, literal_raw)
         }
         [
             column,
@@ -31933,19 +32059,22 @@ fn parse_literal_or_pattern_predicate(
         });
     }
     let op = parse_comparison_op(op_raw)?;
-    if parse_direct_binary_predicate_literal(literal_raw)? {
-        return Err(binary_literal_predicate_without_cast_error(op));
-    }
-    let value = match parse_sql_literal(literal_raw) {
-        Ok(value) => value,
-        Err(_) if validate_sql_column_ref(literal_raw).is_ok() => {
-            return Ok(ParsedPredicate::ColumnCompare {
-                left_column: column.to_string(),
-                op,
-                right_column: literal_raw.to_string(),
-            });
+    let value = if let Some(value) = parse_direct_binary_predicate_literal(literal_raw)? {
+        value
+    } else {
+        match parse_sql_literal(literal_raw) {
+            Ok(value) => value,
+            Err(_) if validate_sql_column_ref(literal_raw).is_ok() => {
+                return Ok(ParsedPredicate::ColumnCompare {
+                    left_column: column.to_string(),
+                    op,
+                    right_column: literal_raw.to_string(),
+                });
+            }
+            Err(error) => {
+                return Err(error);
+            }
         }
-        Err(error) => return Err(error),
     };
     Ok(ParsedPredicate::Compare {
         column: column.to_string(),
@@ -31954,7 +32083,7 @@ fn parse_literal_or_pattern_predicate(
     })
 }
 
-fn parse_binary_literal_predicate_without_cast(
+fn parse_binary_keyword_literal_predicate(
     column: &str,
     op_raw: &str,
     binary_keyword: &str,
@@ -31962,32 +32091,26 @@ fn parse_binary_literal_predicate_without_cast(
 ) -> Result<ParsedPredicate, ShardLoomError> {
     validate_sql_column_ref(column)?;
     let op = parse_comparison_op(op_raw)?;
-    if parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?.is_some() {
-        return Err(binary_literal_predicate_without_cast_error(op));
-    }
-    Err(unsupported_sql_error(
-        "binary predicates require X'<hex>', BINARY/BLOB '<utf8>', or explicit CAST(<column> AS binary) syntax",
-    ))
+    let bytes = parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "binary predicates require X'<hex>', BINARY/BLOB '<utf8>', or explicit CAST(<column> AS binary) syntax",
+        )
+    })?;
+    Ok(ParsedPredicate::Compare {
+        column: column.to_string(),
+        op,
+        value: ScalarValue::Binary(bytes),
+    })
 }
 
-fn parse_direct_binary_predicate_literal(raw: &str) -> Result<bool, ShardLoomError> {
+fn parse_direct_binary_predicate_literal(raw: &str) -> Result<Option<ScalarValue>, ShardLoomError> {
     let trimmed = raw.trim();
     if is_sql_binary_hex_literal(trimmed) {
-        parse_sql_binary_hex_literal(trimmed)?;
-        return Ok(true);
+        return parse_sql_binary_hex_literal(trimmed)
+            .map(ScalarValue::Binary)
+            .map(Some);
     }
-    Ok(false)
-}
-
-fn binary_literal_predicate_without_cast_error(op: ComparisonOp) -> ShardLoomError {
-    if matches!(
-        op,
-        ComparisonOp::Lt | ComparisonOp::LtEq | ComparisonOp::Gt | ComparisonOp::GtEq
-    ) {
-        unsupported_sql_error(BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE)
-    } else {
-        unsupported_sql_error(BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE)
-    }
+    Ok(None)
 }
 
 fn parse_like_predicate(
@@ -36696,6 +36819,105 @@ mod tests {
         fs::remove_file(&path).expect("remove arrow ipc source");
     }
 
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn direct_transient_arrow_ipc_filters_and_orders_binary_source_dtype_without_fallback() {
+        let path = sql_local_source_test_path("arrow");
+        let id = std::sync::Arc::new(arrow_array::Int64Array::from(vec![1, 2, 3, 4, 5]));
+        let payload = std::sync::Arc::new(arrow_array::BinaryArray::from(vec![
+            Some(&[0x02][..]),
+            None,
+            Some(&[0x01][..]),
+            Some(&[0x00, 0xff][..]),
+            Some(&[0x02, 0x00][..]),
+        ]));
+        let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+            arrow_schema::Field::new("id", arrow_schema::DataType::Int64, false),
+            arrow_schema::Field::new("payload", arrow_schema::DataType::Binary, true),
+        ]));
+        let batch =
+            arrow_array::RecordBatch::try_new(schema.clone(), vec![id, payload]).expect("batch");
+        let file = fs::File::create(&path).expect("create arrow ipc source");
+        let mut writer =
+            arrow_ipc::writer::FileWriter::try_new(file, schema.as_ref()).expect("ipc writer");
+        writer.write(&batch).expect("write ipc batch");
+        writer.finish().expect("finish ipc writer");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,payload FROM '{}' WHERE payload >= X'01' ORDER BY payload ASC LIMIT 4",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run binary source predicate smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            concat!(
+                "{\"id\":3,\"payload\":\"binary[hex=01]\"}\n",
+                "{\"id\":1,\"payload\":\"binary[hex=02]\"}\n",
+                "{\"id\":5,\"payload\":\"binary[hex=0200]\"}\n"
+            )
+        );
+        assert_field_eq(&fields, "source_format", "arrow_ipc");
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "structured_reader_to_arrow_record_batches_then_scalar_rows",
+        );
+        assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+        assert_field_eq(&fields, "source_state_record_batch_count", "1");
+        assert_field_eq(&fields, "predicate_operator_family", "comparison");
+        assert_field_eq(&fields, "binary_source_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "binary_source_predicate_operator", "gte");
+        assert_field_eq(&fields, "binary_source_predicate_source_column", "payload");
+        assert_field_eq(&fields, "binary_source_predicate_literal_hex_value", "01");
+        assert_field_eq(
+            &fields,
+            "binary_source_ordering_predicate_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_source_predicate_null_semantics",
+            "sql_where_true_only_null_filters_out",
+        );
+        assert_field_eq(&fields, "order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "top_n_runtime_execution", "true");
+        assert_field_eq(&fields, "sort_operator_family", "single_key_scalar_topn");
+        assert_field_eq(&fields, "sort_keys", "payload");
+        assert_field_eq(&fields, "sort_direction", "asc");
+        assert_field_eq(&fields, "selected_row_count", "3");
+        assert_field_eq(&fields, "format_specific_compute_path", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_eq!(report.output_rows.len(), 3);
+        assert!(
+            report.output_rows[0]
+                .contains(&("payload".to_string(), ScalarValue::Binary(vec![0x01])))
+        );
+        assert!(
+            report.output_rows[1]
+                .contains(&("payload".to_string(), ScalarValue::Binary(vec![0x02])))
+        );
+        assert!(
+            report.output_rows[2]
+                .contains(&("payload".to_string(), ScalarValue::Binary(vec![0x02, 0x00])))
+        );
+        fs::remove_file(&path).expect("remove arrow ipc source");
+    }
+
     #[test]
     fn parses_scoped_sql_local_source_statement() {
         let parsed = parse_sql_local_source_statement(
@@ -36863,29 +37085,42 @@ mod tests {
     }
 
     #[test]
-    fn binary_hex_literals_are_not_admitted_outside_literal_projections_without_fallback() {
-        for (statement, expected) in [
+    fn binary_literals_are_admitted_in_direct_predicates() {
+        for (statement, expected_op, expected_value) in [
             (
-                "SELECT id FROM 'target/input.csv' WHERE label = X'616c706861' LIMIT 5",
-                BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE,
+                "SELECT id FROM 'target/input.csv' WHERE payload = X'616c706861' LIMIT 5",
+                ComparisonOp::Eq,
+                b"alpha".to_vec(),
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE label > BINARY 'alpha' LIMIT 5",
-                BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE,
+                "SELECT id FROM 'target/input.csv' WHERE payload > BINARY 'alpha' LIMIT 5",
+                ComparisonOp::Gt,
+                b"alpha".to_vec(),
             ),
             (
-                "SELECT id FROM 'target/input.csv' WHERE label = BLOB 'alpha' LIMIT 5",
-                BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE,
+                "SELECT id FROM 'target/input.csv' WHERE payload <= BLOB 'raw' LIMIT 5",
+                ComparisonOp::LtEq,
+                b"raw".to_vec(),
             ),
         ] {
-            let error = parse_sql_local_source_statement(statement)
-                .expect_err("binary literal predicates remain outside this scoped slice");
+            let parsed = parse_sql_local_source_statement(statement)
+                .expect("direct binary predicate statement parses");
 
             assert!(
-                error.to_string().contains(expected),
-                "expected {expected:?}, got {error}"
+                matches!(
+                    parsed.predicate,
+                    ParsedPredicate::Compare {
+                        ref column,
+                        op,
+                        value: ScalarValue::Binary(ref value),
+                    } if column == "payload"
+                        && op == expected_op
+                        && value.as_slice() == expected_value.as_slice()
+                ),
+                "unexpected predicate for {statement}: {:?}",
+                parsed.predicate
             );
-            assert!(error.to_string().contains("external_engine_invoked=false"));
+            assert!(parsed.predicate.uses_binary_source_predicate());
         }
 
         let error = parse_sql_local_source_statement(
