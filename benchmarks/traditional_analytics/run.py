@@ -338,6 +338,24 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "evidence_render_timing_status",
     "total_runtime_millis",
 )
+SOURCE_READ_SCOUT_MICROS_FIELDS = (
+    "source_read_header_scout_micros",
+    "source_read_byte_acquisition_micros",
+    "source_read_full_body_micros",
+)
+VORTEX_SCAN_SPLIT_MICROS_FIELDS = (
+    "vortex_footer_open_micros",
+    "vortex_metadata_verify_micros",
+    "vortex_scan_open_micros",
+    "vortex_scenario_scan_micros",
+)
+VORTEX_SCAN_COUNTER_FIELDS = (
+    "vortex_scan_bytes_touched",
+    "vortex_scan_segments_touched",
+    "vortex_scan_segments_skipped",
+    "vortex_scan_columns_touched",
+    "vortex_scan_decoded_values",
+)
 COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.cold_lane_attribution.v1"
 )
@@ -17149,6 +17167,82 @@ def micros_to_millis_field(value: Any) -> float | None:
     return None if micros is None else round(micros / 1000.0, 4)
 
 
+def source_read_scout_stage_metrics(
+    evidence: dict[str, Any] | None = None,
+    *,
+    micros_to_millis: Callable[[str], float | None] | None = None,
+    default_status: str = "not_reported",
+) -> dict[str, Any]:
+    evidence = evidence or {}
+
+    def millis(field: str) -> float | None:
+        if micros_to_millis is not None:
+            return micros_to_millis(field)
+        return micros_to_millis_field(evidence.get(field))
+
+    return {
+        "source_read_header_scout_millis": millis("source_read_header_scout_micros"),
+        "source_read_header_scout_micros": parse_optional_int(
+            evidence.get("source_read_header_scout_micros")
+        ),
+        "source_read_byte_acquisition_millis": millis(
+            "source_read_byte_acquisition_micros"
+        ),
+        "source_read_byte_acquisition_micros": parse_optional_int(
+            evidence.get("source_read_byte_acquisition_micros")
+        ),
+        "source_read_full_body_millis": millis("source_read_full_body_micros"),
+        "source_read_full_body_micros": parse_optional_int(
+            evidence.get("source_read_full_body_micros")
+        ),
+        "source_read_scout_status": evidence.get(
+            "source_read_scout_status", default_status
+        ),
+        "source_read_scout_reuse_status": evidence.get(
+            "source_read_scout_reuse_status", default_status
+        ),
+    }
+
+
+def vortex_scan_attribution_stage_metrics(
+    evidence: dict[str, Any] | None = None,
+    *,
+    micros_to_millis: Callable[[str], float | None] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+
+    def millis(field: str) -> float | None:
+        if micros_to_millis is not None:
+            return micros_to_millis(field)
+        return micros_to_millis_field(evidence.get(field))
+
+    metrics = {
+        "vortex_footer_open_millis": millis("vortex_footer_open_micros"),
+        "vortex_footer_open_micros": parse_optional_int(
+            evidence.get("vortex_footer_open_micros")
+        ),
+        "vortex_metadata_verify_millis": millis("vortex_metadata_verify_micros"),
+        "vortex_metadata_verify_micros": parse_optional_int(
+            evidence.get("vortex_metadata_verify_micros")
+        ),
+        "vortex_scan_open_millis": millis("vortex_scan_open_micros"),
+        "vortex_scan_open_micros": parse_optional_int(
+            evidence.get("vortex_scan_open_micros")
+        ),
+        "vortex_scenario_scan_millis": millis("vortex_scenario_scan_micros"),
+        "vortex_scenario_scan_micros": parse_optional_int(
+            evidence.get("vortex_scenario_scan_micros")
+        ),
+    }
+    metrics.update(
+        {
+            field: parse_optional_int(evidence.get(field))
+            for field in VORTEX_SCAN_COUNTER_FIELDS
+        }
+    )
+    return metrics
+
+
 def failed_result(
     engine: str,
     scenario: str,
@@ -17321,6 +17415,8 @@ def failed_result(
         "scan_api_status": "not_executed",
         "persistent_runner_status": "not_executed",
     }
+    metrics.update(source_read_scout_stage_metrics(default_status="not_executed"))
+    metrics.update(vortex_scan_attribution_stage_metrics())
     metrics.update(
         source_state_contract_metadata(
             engine,
@@ -18195,6 +18291,18 @@ def successful_result_from_iterations(
             "persistent_runner_status", PERSISTENT_RUNNER_STATUS
         ),
     }
+    metrics.update(
+        source_read_scout_stage_metrics(
+            evidence,
+            micros_to_millis=mean_evidence_micros,
+        )
+    )
+    metrics.update(
+        vortex_scan_attribution_stage_metrics(
+            evidence,
+            micros_to_millis=mean_evidence_micros,
+        )
+    )
     metrics.update(prepared_native_vortex_lifecycle_metrics(evidence))
     metrics.update(
         source_state_contract_metadata(

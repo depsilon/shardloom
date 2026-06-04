@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D runtime source-read scout and Vortex scan counter wiring
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-runtime-splits-counters` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - User direction to continue the phased plan first, keep this as a cohesive benchmark-driven
+      optimization PR batch, avoid subagents, avoid vision tooling, and defer the expensive
+      benchmark suite until code/docs/site updates are complete.
+    - The previous route-share/source-scout/reopen-scan publication slice, which exposed fail-closed
+      blocker fields over the existing safe-writer artifact without rerunning the suite.
+  - Scope:
+    - Added runtime source-read scout timing to traditional analytics text source reads so CSV,
+      JSONL, and local text-part readers report header/scout, byte acquisition, full-body decode,
+      parse, and columnar conversion as de-overlapped source evidence instead of collapsing the
+      source-read slice to zero.
+    - Carried the source-read scout evidence through direct transient, compatibility-import, and
+      mixed direct/text provider evidence merges while keeping source reuse status explicit.
+    - Split Vortex scan timing into footer-open, metadata-verify, scan-open, and scenario-scan
+      timing fields on compatibility-import and prepared/native Vortex reports.
+    - Added scan IO/protection counters for bytes touched, segments touched/skipped, columns
+      touched, and decoded values, including checked aggregation across multi-source join/CDC
+      scenarios and source-backed scan evidence mirror fields.
+    - Updated the traditional analytics benchmark row builder so source-read scout fields and
+      Vortex scan split/counter fields are promoted from ShardLoom evidence into metrics for the
+      strict stage-timing contract instead of being dropped by CLI-backed smoke rows.
+    - Cleaned the phased plan so HOTPATH-3, HOTPATH-7, and HOTPATH-10 no longer appear as remaining
+      child work; remaining HOTPATH child slices are first-class unchecked sections ahead of the
+      6-series queue, and a post-hotpath documentation freshness plus benchmark rerun gate now sits
+      between HOTPATH implementation and the broader 6-series runtime breadth queue.
+  - Vortex-first provider check:
+    - Classification: `use_vortex_native_provider` for Vortex scan timing/counter evidence and
+      `wrap_vortex_concept` for ShardLoom certificate/report fields around the admitted upstream
+      Vortex file scan path.
+    - The slice uses the existing upstream Vortex file open/scan provider inside ShardLoom's
+      native boundary and adds ShardLoom-owned evidence around it. It does not add a Vortex
+      query-engine integration and does not execute unsupported residual work through another
+      engine.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io` passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state -- --nocapture` passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io small_change_over_large_base_imports_cdc_delta_fixture -- --nocapture` passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io source_read_evidence_preserves_mixed_direct_and_text_provider_state -- --nocapture` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts` passed with 68 tests and 2 skipped.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 examples/local-vortex-benchmark/run.py --repo-root /Users/dylan/Documents/shardloom-local-repo --run-root target/release-dry-run-proof/local-vortex-benchmark --rows 8 --iterations 1` passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda` passed with `proof_status=passed`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH ./node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Benchmark and website status:
+    - No expensive benchmark rerun was performed in this slice. Existing public route totals remain
+      the latest safe-writer artifact values until the planned post-batch rerun/promote step.
+    - The benchmark page source already renders the source-scout and scan-attribution fields added
+      by the previous publication slice; this runtime slice supplies those fields from code for the
+      next promoted artifact.
+  - Claim boundary:
+    - This slice may claim that runtime benchmark reports now emit source-read scout timing and
+      Vortex scan timing/counter evidence for the covered local routes. It does not claim a new
+      benchmark result, route-speed improvement, production readiness, broad SQL/DataFrame parity,
+      Spark replacement, or general performance superiority.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The slice adds no Spark/DataFusion/DuckDB/
+      Polars/Velox execution fallback, no Vortex query-engine integration, and no external-engine
+      residual evaluation for ShardLoom rows. Reported ShardLoom evidence remains
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D route-share Amdahl, source-read scout, and Vortex reopen/scan attribution publication
   - Date: 2026-06-04
   - Branch/PR: `codex/hotpath-scan-attribution-route-share` / pending PR.

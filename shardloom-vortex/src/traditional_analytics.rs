@@ -2709,6 +2709,11 @@ pub struct TraditionalAnalyticsReport {
     pub source_read_micros: u64,
     pub source_parse_micros: u64,
     pub source_to_columnar_micros: u64,
+    pub source_read_header_scout_micros: u64,
+    pub source_read_byte_acquisition_micros: u64,
+    pub source_read_full_body_micros: u64,
+    pub source_read_scout_status: String,
+    pub source_read_scout_reuse_status: String,
     pub source_state_materialization_layout: String,
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
@@ -2729,6 +2734,15 @@ pub struct TraditionalAnalyticsReport {
     pub vortex_reopen_verify_micros: u64,
     pub vortex_reopen_scan_micros: u64,
     pub vortex_scan_micros: u64,
+    pub vortex_footer_open_micros: u64,
+    pub vortex_metadata_verify_micros: u64,
+    pub vortex_scan_open_micros: u64,
+    pub vortex_scenario_scan_micros: u64,
+    pub vortex_scan_bytes_touched: u64,
+    pub vortex_scan_segments_touched: u64,
+    pub vortex_scan_segments_skipped: u64,
+    pub vortex_scan_columns_touched: u64,
+    pub vortex_scan_decoded_values: u64,
     pub operator_compute_micros: u64,
     pub total_runtime_micros: u64,
     pub timing_scope: String,
@@ -3119,6 +3133,10 @@ struct TraditionalSourceReadEvidence {
     read_micros: u64,
     parse_micros: u64,
     columnar_micros: u64,
+    header_scout_micros: u64,
+    byte_acquisition_micros: u64,
+    full_body_micros: u64,
+    source_read_scout_recorded: bool,
     record_batch_count: usize,
     scalar_rows_materialized: bool,
     columnar_preserved: bool,
@@ -3134,6 +3152,10 @@ impl TraditionalSourceReadEvidence {
             read_micros: source_read_micros,
             parse_micros: source_read_micros,
             columnar_micros: 0,
+            header_scout_micros: 0,
+            byte_acquisition_micros: 0,
+            full_body_micros: 0,
+            source_read_scout_recorded: false,
             record_batch_count: 0,
             scalar_rows_materialized: true,
             columnar_preserved: false,
@@ -3152,6 +3174,10 @@ impl TraditionalSourceReadEvidence {
             read_micros: checked_u64_sum(columnar_micros, parse_micros)?,
             parse_micros,
             columnar_micros,
+            header_scout_micros: 0,
+            byte_acquisition_micros: 0,
+            full_body_micros: 0,
+            source_read_scout_recorded: false,
             record_batch_count,
             scalar_rows_materialized: false,
             columnar_preserved: true,
@@ -3170,6 +3196,10 @@ impl TraditionalSourceReadEvidence {
             read_micros: checked_u64_sum(columnar_micros, parse_micros)?,
             parse_micros,
             columnar_micros,
+            header_scout_micros: 0,
+            byte_acquisition_micros: 0,
+            full_body_micros: 0,
+            source_read_scout_recorded: false,
             record_batch_count,
             scalar_rows_materialized: false,
             columnar_preserved: true,
@@ -3180,15 +3210,24 @@ impl TraditionalSourceReadEvidence {
     }
 
     fn text_vortex_provider_batch(
+        read_scout: TraditionalSourceReadScoutTiming,
         parse_micros: u64,
         columnar_micros: u64,
         record_batch_count: usize,
         projection_aware_text_decode: bool,
     ) -> Result<Self> {
+        let source_read_micros = read_scout.total_micros()?;
         Ok(Self {
-            read_micros: checked_u64_sum(parse_micros, columnar_micros)?,
+            read_micros: checked_u64_sum(
+                checked_u64_sum(source_read_micros, parse_micros)?,
+                columnar_micros,
+            )?,
             parse_micros,
             columnar_micros,
+            header_scout_micros: read_scout.header_scout_micros,
+            byte_acquisition_micros: read_scout.byte_acquisition_micros,
+            full_body_micros: read_scout.full_body_micros,
+            source_read_scout_recorded: read_scout.recorded,
             record_batch_count,
             scalar_rows_materialized: false,
             columnar_preserved: false,
@@ -3203,6 +3242,17 @@ impl TraditionalSourceReadEvidence {
             read_micros: checked_u64_sum(self.read_micros, other.read_micros)?,
             parse_micros: checked_u64_sum(self.parse_micros, other.parse_micros)?,
             columnar_micros: checked_u64_sum(self.columnar_micros, other.columnar_micros)?,
+            header_scout_micros: checked_u64_sum(
+                self.header_scout_micros,
+                other.header_scout_micros,
+            )?,
+            byte_acquisition_micros: checked_u64_sum(
+                self.byte_acquisition_micros,
+                other.byte_acquisition_micros,
+            )?,
+            full_body_micros: checked_u64_sum(self.full_body_micros, other.full_body_micros)?,
+            source_read_scout_recorded: self.source_read_scout_recorded
+                || other.source_read_scout_recorded,
             record_batch_count: self
                 .record_batch_count
                 .checked_add(other.record_batch_count)
@@ -3221,6 +3271,22 @@ impl TraditionalSourceReadEvidence {
             projection_aware_text_decode: self.projection_aware_text_decode
                 || other.projection_aware_text_decode,
         })
+    }
+
+    fn source_read_scout_status(&self) -> &'static str {
+        if self.source_read_scout_recorded {
+            "source_read_scout_split_recorded"
+        } else {
+            "not_applicable_non_text_source_read"
+        }
+    }
+
+    fn source_read_scout_reuse_status(&self) -> &'static str {
+        if self.source_read_scout_recorded {
+            "not_reused_fresh_source_read"
+        } else {
+            "not_applicable_columnar_or_materialized_source"
+        }
     }
 
     fn materialization_layout(&self) -> &'static str {
@@ -3287,6 +3353,70 @@ impl TraditionalSourceReadEvidence {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalSourceReadScoutTiming {
+    header_scout_micros: u64,
+    byte_acquisition_micros: u64,
+    full_body_micros: u64,
+    recorded: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalSourceReadScoutTiming {
+    fn add(self, other: Self) -> Result<Self> {
+        Ok(Self {
+            header_scout_micros: checked_u64_sum(
+                self.header_scout_micros,
+                other.header_scout_micros,
+            )?,
+            byte_acquisition_micros: checked_u64_sum(
+                self.byte_acquisition_micros,
+                other.byte_acquisition_micros,
+            )?,
+            full_body_micros: checked_u64_sum(self.full_body_micros, other.full_body_micros)?,
+            recorded: self.recorded || other.recorded,
+        })
+    }
+
+    fn total_micros(self) -> Result<u64> {
+        checked_u64_sum(
+            checked_u64_sum(self.header_scout_micros, self.byte_acquisition_micros)?,
+            self.full_body_micros,
+        )
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalTextSourceRead {
+    content: String,
+    scout_timing: TraditionalSourceReadScoutTiming,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalTextParseEvidence {
+    rows: usize,
+    parse_micros: u64,
+    scout_timing: TraditionalSourceReadScoutTiming,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalTextParseEvidence {
+    fn add(self, other: Self) -> Result<Self> {
+        Ok(Self {
+            rows: self.rows.checked_add(other.rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "traditional analytics text row count overflow".to_string(),
+                )
+            })?,
+            parse_micros: checked_u64_sum(self.parse_micros, other.parse_micros)?,
+            scout_timing: self.scout_timing.add(other.scout_timing)?,
+        })
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TraditionalSourceRead<T> {
     rows: Vec<T>,
@@ -3322,6 +3452,11 @@ pub struct TraditionalDirectTransientReport {
     pub source_read_micros: u64,
     pub source_parse_micros: u64,
     pub source_to_columnar_micros: u64,
+    pub source_read_header_scout_micros: u64,
+    pub source_read_byte_acquisition_micros: u64,
+    pub source_read_full_body_micros: u64,
+    pub source_read_scout_status: String,
+    pub source_read_scout_reuse_status: String,
     pub source_state_materialization_layout: String,
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
@@ -3561,6 +3696,26 @@ impl TraditionalDirectTransientReport {
             (
                 "source_to_columnar_micros".to_string(),
                 self.source_to_columnar_micros.to_string(),
+            ),
+            (
+                "source_read_header_scout_micros".to_string(),
+                self.source_read_header_scout_micros.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_micros".to_string(),
+                self.source_read_byte_acquisition_micros.to_string(),
+            ),
+            (
+                "source_read_full_body_micros".to_string(),
+                self.source_read_full_body_micros.to_string(),
+            ),
+            (
+                "source_read_scout_status".to_string(),
+                self.source_read_scout_status.clone(),
+            ),
+            (
+                "source_read_scout_reuse_status".to_string(),
+                self.source_read_scout_reuse_status.clone(),
             ),
             (
                 "source_state_materialization_layout".to_string(),
@@ -4583,6 +4738,26 @@ impl TraditionalAnalyticsReport {
                 self.source_to_columnar_micros.to_string(),
             ),
             (
+                "source_read_header_scout_micros".to_string(),
+                self.source_read_header_scout_micros.to_string(),
+            ),
+            (
+                "source_read_byte_acquisition_micros".to_string(),
+                self.source_read_byte_acquisition_micros.to_string(),
+            ),
+            (
+                "source_read_full_body_micros".to_string(),
+                self.source_read_full_body_micros.to_string(),
+            ),
+            (
+                "source_read_scout_status".to_string(),
+                self.source_read_scout_status.clone(),
+            ),
+            (
+                "source_read_scout_reuse_status".to_string(),
+                self.source_read_scout_reuse_status.clone(),
+            ),
+            (
                 "source_state_materialization_layout".to_string(),
                 self.source_state_materialization_layout.clone(),
             ),
@@ -4767,6 +4942,42 @@ impl TraditionalAnalyticsReport {
             (
                 "vortex_scan_micros".to_string(),
                 self.vortex_scan_micros.to_string(),
+            ),
+            (
+                "vortex_footer_open_micros".to_string(),
+                self.vortex_footer_open_micros.to_string(),
+            ),
+            (
+                "vortex_metadata_verify_micros".to_string(),
+                self.vortex_metadata_verify_micros.to_string(),
+            ),
+            (
+                "vortex_scan_open_micros".to_string(),
+                self.vortex_scan_open_micros.to_string(),
+            ),
+            (
+                "vortex_scenario_scan_micros".to_string(),
+                self.vortex_scenario_scan_micros.to_string(),
+            ),
+            (
+                "vortex_scan_bytes_touched".to_string(),
+                self.vortex_scan_bytes_touched.to_string(),
+            ),
+            (
+                "vortex_scan_segments_touched".to_string(),
+                self.vortex_scan_segments_touched.to_string(),
+            ),
+            (
+                "vortex_scan_segments_skipped".to_string(),
+                self.vortex_scan_segments_skipped.to_string(),
+            ),
+            (
+                "vortex_scan_columns_touched".to_string(),
+                self.vortex_scan_columns_touched.to_string(),
+            ),
+            (
+                "vortex_scan_decoded_values".to_string(),
+                self.vortex_scan_decoded_values.to_string(),
             ),
             (
                 "operator_compute_micros".to_string(),
@@ -5335,6 +5546,15 @@ pub struct TraditionalAnalyticsVortexReport {
     pub materialization_boundary_rows: u64,
     pub scenario_compute_micros: u64,
     pub vortex_scan_micros: u64,
+    pub vortex_footer_open_micros: u64,
+    pub vortex_metadata_verify_micros: u64,
+    pub vortex_scan_open_micros: u64,
+    pub vortex_scenario_scan_micros: u64,
+    pub vortex_scan_bytes_touched: u64,
+    pub vortex_scan_segments_touched: u64,
+    pub vortex_scan_segments_skipped: u64,
+    pub vortex_scan_columns_touched: u64,
+    pub vortex_scan_decoded_values: u64,
     pub computed_result_sink_requested: bool,
     pub computed_result_sink_written: bool,
     pub computed_result_sink_replay_verified: bool,
@@ -8071,6 +8291,42 @@ impl TraditionalAnalyticsVortexReport {
                 self.vortex_scan_micros.to_string(),
             ),
             (
+                "vortex_footer_open_micros".to_string(),
+                self.vortex_footer_open_micros.to_string(),
+            ),
+            (
+                "vortex_metadata_verify_micros".to_string(),
+                self.vortex_metadata_verify_micros.to_string(),
+            ),
+            (
+                "vortex_scan_open_micros".to_string(),
+                self.vortex_scan_open_micros.to_string(),
+            ),
+            (
+                "vortex_scenario_scan_micros".to_string(),
+                self.vortex_scenario_scan_micros.to_string(),
+            ),
+            (
+                "vortex_scan_bytes_touched".to_string(),
+                self.vortex_scan_bytes_touched.to_string(),
+            ),
+            (
+                "vortex_scan_segments_touched".to_string(),
+                self.vortex_scan_segments_touched.to_string(),
+            ),
+            (
+                "vortex_scan_segments_skipped".to_string(),
+                self.vortex_scan_segments_skipped.to_string(),
+            ),
+            (
+                "vortex_scan_columns_touched".to_string(),
+                self.vortex_scan_columns_touched.to_string(),
+            ),
+            (
+                "vortex_scan_decoded_values".to_string(),
+                self.vortex_scan_decoded_values.to_string(),
+            ),
+            (
                 "result_sink_write_micros".to_string(),
                 self.computed_result_sink_write_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
@@ -8514,6 +8770,26 @@ fn source_backed_scan_evidence_fields(
         (
             "source_backed_scan_arrays_read_count".to_string(),
             report.streaming_arrays_read_count.to_string(),
+        ),
+        (
+            "source_backed_scan_bytes_touched".to_string(),
+            report.vortex_scan_bytes_touched.to_string(),
+        ),
+        (
+            "source_backed_scan_segments_touched".to_string(),
+            report.vortex_scan_segments_touched.to_string(),
+        ),
+        (
+            "source_backed_scan_segments_skipped".to_string(),
+            report.vortex_scan_segments_skipped.to_string(),
+        ),
+        (
+            "source_backed_scan_columns_touched".to_string(),
+            report.vortex_scan_columns_touched.to_string(),
+        ),
+        (
+            "source_backed_scan_decoded_values".to_string(),
+            report.vortex_scan_decoded_values.to_string(),
         ),
         (
             "source_backed_scan_max_chunk_rows".to_string(),
@@ -12499,6 +12775,15 @@ struct TraditionalScenarioExecutionEvidence {
     reader_chunk_columns_observed: Vec<String>,
     reader_chunk_dtype_summary: Vec<String>,
     reader_chunk_encoding_summary: Vec<String>,
+    vortex_footer_open_micros: u64,
+    vortex_metadata_verify_micros: u64,
+    vortex_scan_open_micros: u64,
+    vortex_scenario_scan_micros: u64,
+    vortex_scan_bytes_touched: u64,
+    vortex_scan_segments_touched: u64,
+    vortex_scan_segments_skipped: u64,
+    vortex_scan_columns_touched: u64,
+    vortex_scan_decoded_values: u64,
     encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
     compressed_kernel_registry_pair_execution_evidence:
         Vec<TraditionalCompressedKernelPairExecutionEvidence>,
@@ -12522,6 +12807,15 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_columns_observed: Vec::new(),
             reader_chunk_dtype_summary: Vec::new(),
             reader_chunk_encoding_summary: Vec::new(),
+            vortex_footer_open_micros: 0,
+            vortex_metadata_verify_micros: 0,
+            vortex_scan_open_micros: 0,
+            vortex_scenario_scan_micros: 0,
+            vortex_scan_bytes_touched: 0,
+            vortex_scan_segments_touched: 0,
+            vortex_scan_segments_skipped: 0,
+            vortex_scan_columns_touched: 0,
+            vortex_scan_decoded_values: 0,
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
@@ -12542,6 +12836,15 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_columns_observed,
             reader_chunk_dtype_summary,
             reader_chunk_encoding_summary,
+            vortex_footer_open_micros,
+            vortex_metadata_verify_micros,
+            vortex_scan_open_micros,
+            vortex_scenario_scan_micros,
+            vortex_scan_bytes_touched,
+            vortex_scan_segments_touched,
+            vortex_scan_segments_skipped,
+            vortex_scan_columns_touched,
+            vortex_scan_decoded_values,
             ..
         } = stats;
         Self {
@@ -12556,6 +12859,15 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_columns_observed,
             reader_chunk_dtype_summary,
             reader_chunk_encoding_summary,
+            vortex_footer_open_micros,
+            vortex_metadata_verify_micros,
+            vortex_scan_open_micros,
+            vortex_scenario_scan_micros,
+            vortex_scan_bytes_touched,
+            vortex_scan_segments_touched,
+            vortex_scan_segments_skipped,
+            vortex_scan_columns_touched,
+            vortex_scan_decoded_values,
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
@@ -14925,6 +15237,15 @@ struct TraditionalStreamingScanStats {
     reader_chunk_columns_observed: Vec<String>,
     reader_chunk_dtype_summary: Vec<String>,
     reader_chunk_encoding_summary: Vec<String>,
+    vortex_footer_open_micros: u64,
+    vortex_metadata_verify_micros: u64,
+    vortex_scan_open_micros: u64,
+    vortex_scenario_scan_micros: u64,
+    vortex_scan_bytes_touched: u64,
+    vortex_scan_segments_touched: u64,
+    vortex_scan_segments_skipped: u64,
+    vortex_scan_columns_touched: u64,
+    vortex_scan_decoded_values: u64,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -15001,6 +15322,13 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
     let source_read_micros = source_read_evidence.read_micros;
     let source_parse_micros = source_read_evidence.parse_micros;
     let source_to_columnar_micros = source_read_evidence.columnar_micros;
+    let source_read_header_scout_micros = source_read_evidence.header_scout_micros;
+    let source_read_byte_acquisition_micros = source_read_evidence.byte_acquisition_micros;
+    let source_read_full_body_micros = source_read_evidence.full_body_micros;
+    let source_read_scout_status = source_read_evidence.source_read_scout_status().to_string();
+    let source_read_scout_reuse_status = source_read_evidence
+        .source_read_scout_reuse_status()
+        .to_string();
     let source_state_materialization_layout =
         source_read_evidence.materialization_layout().to_string();
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
@@ -15079,6 +15407,11 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         source_read_micros,
         source_parse_micros,
         source_to_columnar_micros,
+        source_read_header_scout_micros,
+        source_read_byte_acquisition_micros,
+        source_read_full_body_micros,
+        source_read_scout_status,
+        source_read_scout_reuse_status,
         source_state_materialization_layout,
         source_state_parse_normalization,
         source_state_columnar_preserved,
@@ -15399,6 +15732,13 @@ fn run_traditional_analytics_benchmark_enabled(
     let source_read_micros = source_read_evidence.read_micros;
     let source_parse_micros = source_read_evidence.parse_micros;
     let source_to_columnar_micros = source_read_evidence.columnar_micros;
+    let source_read_header_scout_micros = source_read_evidence.header_scout_micros;
+    let source_read_byte_acquisition_micros = source_read_evidence.byte_acquisition_micros;
+    let source_read_full_body_micros = source_read_evidence.full_body_micros;
+    let source_read_scout_status = source_read_evidence.source_read_scout_status().to_string();
+    let source_read_scout_reuse_status = source_read_evidence
+        .source_read_scout_reuse_status()
+        .to_string();
     let source_state_materialization_layout =
         source_read_evidence.materialization_layout().to_string();
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
@@ -15628,6 +15968,11 @@ fn run_traditional_analytics_benchmark_enabled(
         source_read_micros,
         source_parse_micros,
         source_to_columnar_micros,
+        source_read_header_scout_micros,
+        source_read_byte_acquisition_micros,
+        source_read_full_body_micros,
+        source_read_scout_status,
+        source_read_scout_reuse_status,
         source_state_materialization_layout,
         source_state_parse_normalization,
         source_state_columnar_preserved,
@@ -15653,6 +15998,15 @@ fn run_traditional_analytics_benchmark_enabled(
         vortex_reopen_verify_micros,
         vortex_reopen_scan_micros,
         vortex_scan_micros,
+        vortex_footer_open_micros: scenario_execution.evidence.vortex_footer_open_micros,
+        vortex_metadata_verify_micros: scenario_execution.evidence.vortex_metadata_verify_micros,
+        vortex_scan_open_micros: scenario_execution.evidence.vortex_scan_open_micros,
+        vortex_scenario_scan_micros: scenario_execution.evidence.vortex_scenario_scan_micros,
+        vortex_scan_bytes_touched: scenario_execution.evidence.vortex_scan_bytes_touched,
+        vortex_scan_segments_touched: scenario_execution.evidence.vortex_scan_segments_touched,
+        vortex_scan_segments_skipped: scenario_execution.evidence.vortex_scan_segments_skipped,
+        vortex_scan_columns_touched: scenario_execution.evidence.vortex_scan_columns_touched,
+        vortex_scan_decoded_values: scenario_execution.evidence.vortex_scan_decoded_values,
         operator_compute_micros,
         total_runtime_micros: duration_to_micros(total_runtime_start.elapsed()),
         timing_scope: "cold_certified_end_to_end".to_string(),
@@ -17196,6 +17550,15 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         materialization_boundary_rows,
         scenario_compute_micros,
         vortex_scan_micros: scenario_compute_micros,
+        vortex_footer_open_micros: scenario_execution.evidence.vortex_footer_open_micros,
+        vortex_metadata_verify_micros: scenario_execution.evidence.vortex_metadata_verify_micros,
+        vortex_scan_open_micros: scenario_execution.evidence.vortex_scan_open_micros,
+        vortex_scenario_scan_micros: scenario_execution.evidence.vortex_scenario_scan_micros,
+        vortex_scan_bytes_touched: scenario_execution.evidence.vortex_scan_bytes_touched,
+        vortex_scan_segments_touched: scenario_execution.evidence.vortex_scan_segments_touched,
+        vortex_scan_segments_skipped: scenario_execution.evidence.vortex_scan_segments_skipped,
+        vortex_scan_columns_touched: scenario_execution.evidence.vortex_scan_columns_touched,
+        vortex_scan_decoded_values: scenario_execution.evidence.vortex_scan_decoded_values,
         computed_result_sink_requested: request.write_result_vortex,
         computed_result_sink_written: computed_result_sink.is_some(),
         computed_result_sink_replay_verified: computed_result_sink.is_some(),
@@ -18008,6 +18371,58 @@ fn set_prepared_state_reuse_fields(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn duration_to_micros(duration: std::time::Duration) -> u64 {
     u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_text_source_with_scout(
+    path: &std::path::Path,
+    label: &str,
+) -> Result<TraditionalTextSourceRead> {
+    use std::io::Read as _;
+
+    let header_scout_start = std::time::Instant::now();
+    let metadata = std::fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to scout {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let mut file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let header_scout_micros = duration_to_micros(header_scout_start.elapsed());
+
+    let byte_acquisition_start = std::time::Instant::now();
+    let mut bytes = Vec::with_capacity(usize::try_from(metadata.len()).unwrap_or_default());
+    file.read_to_end(&mut bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let byte_acquisition_micros = duration_to_micros(byte_acquisition_start.elapsed());
+
+    let full_body_start = std::time::Instant::now();
+    let content = String::from_utf8(bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' was not valid UTF-8: {error}",
+            path.display()
+        ))
+    })?;
+    let full_body_micros = duration_to_micros(full_body_start.elapsed());
+
+    Ok(TraditionalTextSourceRead {
+        content,
+        scout_timing: TraditionalSourceReadScoutTiming {
+            header_scout_micros,
+            byte_acquisition_micros,
+            full_body_micros,
+            recorded: true,
+        },
+    })
 }
 
 struct Fnv1a64 {
@@ -19643,21 +20058,19 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
             input_format.as_str()
         )));
     }
-    let source_parse_start = std::time::Instant::now();
     let mut columns = TraditionalFactVortexColumns::with_capacity(text_source_row_capacity_hint(
         source_bytes_hint,
         192,
     ));
-    let parsed_rows =
+    let parse_evidence =
         extend_traditional_fact_text_columns(path, input_format, &mut columns, column_selection)?;
-    if parsed_rows == 0 {
+    if parse_evidence.rows == 0 {
         return Err(ShardLoomError::InvalidOperation(format!(
             "fact {} '{}' contains no rows; fallback execution was not attempted",
             input_format.as_str(),
             path.display()
         )));
     }
-    let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
     let source_to_columnar_start = std::time::Instant::now();
     let batch = columns.into_record_batch()?;
     let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
@@ -19666,7 +20079,8 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
         batch,
         row_count,
         evidence: TraditionalSourceReadEvidence::text_vortex_provider_batch(
-            source_parse_micros,
+            parse_evidence.scout_timing,
+            parse_evidence.parse_micros,
             source_to_columnar_micros,
             1,
             column_selection != TraditionalFactTextColumnSelection::full(),
@@ -19689,20 +20103,18 @@ fn read_traditional_dim_text_vortex_provider_batch_with_evidence(
             input_format.as_str()
         )));
     }
-    let source_parse_start = std::time::Instant::now();
     let mut columns = TraditionalDimVortexColumns::with_capacity(text_source_row_capacity_hint(
         source_bytes_hint,
         64,
     ));
-    let parsed_rows = extend_traditional_dim_text_columns(path, input_format, &mut columns)?;
-    if parsed_rows == 0 {
+    let parse_evidence = extend_traditional_dim_text_columns(path, input_format, &mut columns)?;
+    if parse_evidence.rows == 0 {
         return Err(ShardLoomError::InvalidOperation(format!(
             "dimension {} '{}' contains no rows; fallback execution was not attempted",
             input_format.as_str(),
             path.display()
         )));
     }
-    let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
     let source_to_columnar_start = std::time::Instant::now();
     let batch = columns.into_record_batch()?;
     let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
@@ -19711,7 +20123,8 @@ fn read_traditional_dim_text_vortex_provider_batch_with_evidence(
         batch,
         row_count,
         evidence: TraditionalSourceReadEvidence::text_vortex_provider_batch(
-            source_parse_micros,
+            parse_evidence.scout_timing,
+            parse_evidence.parse_micros,
             source_to_columnar_micros,
             1,
             false,
@@ -19725,31 +20138,41 @@ fn extend_traditional_fact_text_columns(
     input_format: TraditionalAnalyticsInputFormat,
     columns: &mut TraditionalFactVortexColumns,
     column_selection: TraditionalFactTextColumnSelection,
-) -> Result<usize> {
+) -> Result<TraditionalTextParseEvidence> {
     if path.is_dir() {
-        let mut rows = 0_usize;
+        let mut evidence = TraditionalTextParseEvidence::default();
         for part in fact_input_part_paths(path, input_format, "fact input")? {
             let before = columns.len();
-            let part_rows = extend_traditional_fact_text_columns(
+            let part_evidence = extend_traditional_fact_text_columns(
                 &part,
                 input_format,
                 columns,
                 column_selection,
             )?;
-            if part_rows == 0 && input_format != TraditionalAnalyticsInputFormat::JsonLines {
+            if part_evidence.rows == 0 && input_format != TraditionalAnalyticsInputFormat::JsonLines
+            {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "fact {} part '{}' contains no rows; fallback execution was not attempted",
                     input_format.as_str(),
                     part.display()
                 )));
             }
-            rows = rows.checked_add(columns.len() - before).ok_or_else(|| {
+            let rows_added = columns.len().checked_sub(before).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "traditional analytics text fact row count overflow".to_string(),
                 )
             })?;
+            if rows_added != part_evidence.rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "fact {} part '{}' reported {} rows but appended {rows_added}; fallback execution was not attempted",
+                    input_format.as_str(),
+                    part.display(),
+                    part_evidence.rows
+                )));
+            }
+            evidence = evidence.add(part_evidence)?;
         }
-        return Ok(rows);
+        return Ok(evidence);
     }
     match input_format {
         TraditionalAnalyticsInputFormat::Csv => {
@@ -19770,26 +20193,36 @@ fn extend_traditional_dim_text_columns(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     columns: &mut TraditionalDimVortexColumns,
-) -> Result<usize> {
+) -> Result<TraditionalTextParseEvidence> {
     if path.is_dir() {
-        let mut rows = 0_usize;
+        let mut evidence = TraditionalTextParseEvidence::default();
         for part in fact_input_part_paths(path, input_format, "dimension input")? {
             let before = columns.len();
-            let part_rows = extend_traditional_dim_text_columns(&part, input_format, columns)?;
-            if part_rows == 0 && input_format != TraditionalAnalyticsInputFormat::JsonLines {
+            let part_evidence = extend_traditional_dim_text_columns(&part, input_format, columns)?;
+            if part_evidence.rows == 0 && input_format != TraditionalAnalyticsInputFormat::JsonLines
+            {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "dimension {} part '{}' contains no rows; fallback execution was not attempted",
                     input_format.as_str(),
                     part.display()
                 )));
             }
-            rows = rows.checked_add(columns.len() - before).ok_or_else(|| {
+            let rows_added = columns.len().checked_sub(before).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "traditional analytics text dimension row count overflow".to_string(),
                 )
             })?;
+            if rows_added != part_evidence.rows {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "dimension {} part '{}' reported {} rows but appended {rows_added}; fallback execution was not attempted",
+                    input_format.as_str(),
+                    part.display(),
+                    part_evidence.rows
+                )));
+            }
+            evidence = evidence.add(part_evidence)?;
         }
-        return Ok(rows);
+        return Ok(evidence);
     }
     match input_format {
         TraditionalAnalyticsInputFormat::Csv => extend_traditional_dim_csv_columns(path, columns),
@@ -19809,13 +20242,30 @@ fn extend_traditional_fact_csv_columns(
     path: &std::path::Path,
     columns: &mut TraditionalFactVortexColumns,
     column_selection: TraditionalFactTextColumnSelection,
+) -> Result<TraditionalTextParseEvidence> {
+    let source = read_text_source_with_scout(path, "fact CSV")?;
+    let parse_start = std::time::Instant::now();
+    let rows = extend_traditional_fact_csv_columns_from_content(
+        path,
+        &source.content,
+        columns,
+        column_selection,
+    )?;
+    Ok(TraditionalTextParseEvidence {
+        rows,
+        parse_micros: duration_to_micros(parse_start.elapsed()),
+        scout_timing: source.scout_timing,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn extend_traditional_fact_csv_columns_from_content(
+    path: &std::path::Path,
+    content: &str,
+    columns: &mut TraditionalFactVortexColumns,
+    column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<usize> {
-    let content = std::fs::read_to_string(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read fact CSV '{}': {error}",
-            path.display()
-        ))
-    })?;
     let mut lines = content.lines();
     let header = lines.next().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("fact CSV '{}' is empty", path.display()))
@@ -19983,13 +20433,23 @@ fn extend_traditional_fact_csv_columns(
 fn extend_traditional_dim_csv_columns(
     path: &std::path::Path,
     columns: &mut TraditionalDimVortexColumns,
+) -> Result<TraditionalTextParseEvidence> {
+    let source = read_text_source_with_scout(path, "dimension CSV")?;
+    let parse_start = std::time::Instant::now();
+    let rows = extend_traditional_dim_csv_columns_from_content(path, &source.content, columns)?;
+    Ok(TraditionalTextParseEvidence {
+        rows,
+        parse_micros: duration_to_micros(parse_start.elapsed()),
+        scout_timing: source.scout_timing,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn extend_traditional_dim_csv_columns_from_content(
+    path: &std::path::Path,
+    content: &str,
+    columns: &mut TraditionalDimVortexColumns,
 ) -> Result<usize> {
-    let content = std::fs::read_to_string(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read dimension CSV '{}': {error}",
-            path.display()
-        ))
-    })?;
     let mut lines = content.lines();
     let header = lines.next().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("dimension CSV '{}' is empty", path.display()))
@@ -20034,8 +20494,29 @@ fn extend_traditional_fact_jsonl_columns(
     path: &std::path::Path,
     columns: &mut TraditionalFactVortexColumns,
     column_selection: TraditionalFactTextColumnSelection,
+) -> Result<TraditionalTextParseEvidence> {
+    let source = read_text_source_with_scout(path, "fact JSONL")?;
+    let parse_start = std::time::Instant::now();
+    let rows = extend_traditional_fact_jsonl_columns_from_content(
+        path,
+        &source.content,
+        columns,
+        column_selection,
+    )?;
+    Ok(TraditionalTextParseEvidence {
+        rows,
+        parse_micros: duration_to_micros(parse_start.elapsed()),
+        scout_timing: source.scout_timing,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn extend_traditional_fact_jsonl_columns_from_content(
+    path: &std::path::Path,
+    content: &str,
+    columns: &mut TraditionalFactVortexColumns,
+    column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<usize> {
-    let content = read_jsonl_to_string(path, "fact JSONL")?;
     let mut rows = 0_usize;
     for (line_index, line) in content.lines().enumerate() {
         if line.trim().is_empty() {
@@ -20071,8 +20552,23 @@ fn extend_traditional_fact_jsonl_columns(
 fn extend_traditional_dim_jsonl_columns(
     path: &std::path::Path,
     columns: &mut TraditionalDimVortexColumns,
+) -> Result<TraditionalTextParseEvidence> {
+    let source = read_text_source_with_scout(path, "dimension JSONL")?;
+    let parse_start = std::time::Instant::now();
+    let rows = extend_traditional_dim_jsonl_columns_from_content(path, &source.content, columns)?;
+    Ok(TraditionalTextParseEvidence {
+        rows,
+        parse_micros: duration_to_micros(parse_start.elapsed()),
+        scout_timing: source.scout_timing,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn extend_traditional_dim_jsonl_columns_from_content(
+    path: &std::path::Path,
+    content: &str,
+    columns: &mut TraditionalDimVortexColumns,
 ) -> Result<usize> {
-    let content = read_jsonl_to_string(path, "dimension JSONL")?;
     let mut rows = 0_usize;
     for (line_index, line) in content.lines().enumerate() {
         if line.trim().is_empty() {
@@ -22935,6 +23431,42 @@ fn run_streaming_hash_join_scenario_with_dim_state(
         ),
         filter_pushdown_applied: false,
         projection_pushdown_applied: true,
+        vortex_footer_open_micros: checked_u64_sum(
+            dim_stats.vortex_footer_open_micros,
+            fact_stats.vortex_footer_open_micros,
+        )?,
+        vortex_metadata_verify_micros: checked_u64_sum(
+            dim_stats.vortex_metadata_verify_micros,
+            fact_stats.vortex_metadata_verify_micros,
+        )?,
+        vortex_scan_open_micros: checked_u64_sum(
+            dim_stats.vortex_scan_open_micros,
+            fact_stats.vortex_scan_open_micros,
+        )?,
+        vortex_scenario_scan_micros: checked_u64_sum(
+            dim_stats.vortex_scenario_scan_micros,
+            fact_stats.vortex_scenario_scan_micros,
+        )?,
+        vortex_scan_bytes_touched: checked_u64_sum(
+            dim_stats.vortex_scan_bytes_touched,
+            fact_stats.vortex_scan_bytes_touched,
+        )?,
+        vortex_scan_segments_touched: checked_u64_sum(
+            dim_stats.vortex_scan_segments_touched,
+            fact_stats.vortex_scan_segments_touched,
+        )?,
+        vortex_scan_segments_skipped: checked_u64_sum(
+            dim_stats.vortex_scan_segments_skipped,
+            fact_stats.vortex_scan_segments_skipped,
+        )?,
+        vortex_scan_columns_touched: checked_u64_sum(
+            dim_stats.vortex_scan_columns_touched,
+            fact_stats.vortex_scan_columns_touched,
+        )?,
+        vortex_scan_decoded_values: checked_u64_sum(
+            dim_stats.vortex_scan_decoded_values,
+            fact_stats.vortex_scan_decoded_values,
+        )?,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -23044,6 +23576,42 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
         ),
         filter_pushdown_applied: true,
         projection_pushdown_applied: true,
+        vortex_footer_open_micros: checked_u64_sum(
+            dim_stats.vortex_footer_open_micros,
+            fact_stats.vortex_footer_open_micros,
+        )?,
+        vortex_metadata_verify_micros: checked_u64_sum(
+            dim_stats.vortex_metadata_verify_micros,
+            fact_stats.vortex_metadata_verify_micros,
+        )?,
+        vortex_scan_open_micros: checked_u64_sum(
+            dim_stats.vortex_scan_open_micros,
+            fact_stats.vortex_scan_open_micros,
+        )?,
+        vortex_scenario_scan_micros: checked_u64_sum(
+            dim_stats.vortex_scenario_scan_micros,
+            fact_stats.vortex_scenario_scan_micros,
+        )?,
+        vortex_scan_bytes_touched: checked_u64_sum(
+            dim_stats.vortex_scan_bytes_touched,
+            fact_stats.vortex_scan_bytes_touched,
+        )?,
+        vortex_scan_segments_touched: checked_u64_sum(
+            dim_stats.vortex_scan_segments_touched,
+            fact_stats.vortex_scan_segments_touched,
+        )?,
+        vortex_scan_segments_skipped: checked_u64_sum(
+            dim_stats.vortex_scan_segments_skipped,
+            fact_stats.vortex_scan_segments_skipped,
+        )?,
+        vortex_scan_columns_touched: checked_u64_sum(
+            dim_stats.vortex_scan_columns_touched,
+            fact_stats.vortex_scan_columns_touched,
+        )?,
+        vortex_scan_decoded_values: checked_u64_sum(
+            dim_stats.vortex_scan_decoded_values,
+            fact_stats.vortex_scan_decoded_values,
+        )?,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -23996,6 +24564,42 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
         ),
         filter_pushdown_applied: false,
         projection_pushdown_applied: true,
+        vortex_footer_open_micros: checked_u64_sum(
+            fact_stats.vortex_footer_open_micros,
+            cdc_stats.vortex_footer_open_micros,
+        )?,
+        vortex_metadata_verify_micros: checked_u64_sum(
+            fact_stats.vortex_metadata_verify_micros,
+            cdc_stats.vortex_metadata_verify_micros,
+        )?,
+        vortex_scan_open_micros: checked_u64_sum(
+            fact_stats.vortex_scan_open_micros,
+            cdc_stats.vortex_scan_open_micros,
+        )?,
+        vortex_scenario_scan_micros: checked_u64_sum(
+            fact_stats.vortex_scenario_scan_micros,
+            cdc_stats.vortex_scenario_scan_micros,
+        )?,
+        vortex_scan_bytes_touched: checked_u64_sum(
+            fact_stats.vortex_scan_bytes_touched,
+            cdc_stats.vortex_scan_bytes_touched,
+        )?,
+        vortex_scan_segments_touched: checked_u64_sum(
+            fact_stats.vortex_scan_segments_touched,
+            cdc_stats.vortex_scan_segments_touched,
+        )?,
+        vortex_scan_segments_skipped: checked_u64_sum(
+            fact_stats.vortex_scan_segments_skipped,
+            cdc_stats.vortex_scan_segments_skipped,
+        )?,
+        vortex_scan_columns_touched: checked_u64_sum(
+            fact_stats.vortex_scan_columns_touched,
+            cdc_stats.vortex_scan_columns_touched,
+        )?,
+        vortex_scan_decoded_values: checked_u64_sum(
+            fact_stats.vortex_scan_decoded_values,
+            cdc_stats.vortex_scan_decoded_values,
+        )?,
     };
     let mut result_ids = rows.keys().copied().collect::<Vec<_>>();
     result_ids.sort_unstable();
@@ -25249,14 +25853,20 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
+    let vortex_scan_bytes_touched = file_len(path, "Vortex scan input")?;
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
+    let footer_open_start = std::time::Instant::now();
     let file = runtime
         .block_on(session.open_options().open_path(path))
         .map_err(vortex_error)?;
+    let vortex_footer_open_micros = duration_to_micros(footer_open_start.elapsed());
+    let metadata_verify_start = std::time::Instant::now();
     let source_row_count = file.row_count();
+    let vortex_metadata_verify_micros = duration_to_micros(metadata_verify_start.elapsed());
     let filter_pushdown_applied = filter.is_some();
     let projection_pushdown_applied = !projected_columns.is_empty();
+    let scan_open_start = std::time::Instant::now();
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = filter {
         scan = scan.with_filter(filter);
@@ -25264,14 +25874,19 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     if projection_pushdown_applied {
         scan = scan.with_projection(select(projected_columns.to_vec(), root()));
     }
+    let scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
+    let vortex_scan_open_micros = duration_to_micros(scan_open_start.elapsed());
     let source_uri = DatasetUri::new(path.display().to_string())?;
     let mut result_row_count = 0_u64;
     let mut arrays_read_count = 0_usize;
     let mut max_chunk_rows = 0_usize;
+    let mut vortex_scan_columns_touched = 0_u64;
+    let mut vortex_scan_decoded_values = 0_u64;
     let mut reader_chunk_columns_observed = std::collections::BTreeSet::new();
     let mut reader_chunk_dtype_summary = std::collections::BTreeSet::new();
     let mut reader_chunk_encoding_summary = std::collections::BTreeSet::new();
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+    let scenario_scan_start = std::time::Instant::now();
+    for chunk in scan_iter {
         let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
         let split_ref = format!("vortex-local-scan-chunk-{arrays_read_count}");
@@ -25286,11 +25901,25 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
             reader_chunk_dtype_summary.insert(format!("{column}:{:?}", array.dtype()));
             reader_chunk_encoding_summary.insert(format!("{column}:{}", array.encoding_id()));
         }
+        let chunk_column_count = usize_to_u64(fields.len())?;
+        vortex_scan_columns_touched = vortex_scan_columns_touched.max(chunk_column_count);
+        vortex_scan_decoded_values = checked_u64_sum(
+            vortex_scan_decoded_values,
+            usize_to_u64(chunk_rows)?
+                .checked_mul(chunk_column_count)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "traditional analytics Vortex scan decoded-value counter overflow"
+                            .to_string(),
+                    )
+                })?,
+        )?;
         process(&fields, chunk_rows, &encoded_kernel_inputs)?;
         result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
         arrays_read_count += 1;
         max_chunk_rows = max_chunk_rows.max(chunk_rows);
     }
+    let vortex_scenario_scan_micros = duration_to_micros(scenario_scan_start.elapsed());
     Ok(TraditionalStreamingScanStats {
         source_row_count,
         result_row_count,
@@ -25305,6 +25934,15 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
         reader_chunk_columns_observed: reader_chunk_columns_observed.into_iter().collect(),
         reader_chunk_dtype_summary: reader_chunk_dtype_summary.into_iter().collect(),
         reader_chunk_encoding_summary: reader_chunk_encoding_summary.into_iter().collect(),
+        vortex_footer_open_micros,
+        vortex_metadata_verify_micros,
+        vortex_scan_open_micros,
+        vortex_scenario_scan_micros,
+        vortex_scan_bytes_touched,
+        vortex_scan_segments_touched: usize_to_u64(arrays_read_count)?,
+        vortex_scan_segments_skipped: 0,
+        vortex_scan_columns_touched,
+        vortex_scan_decoded_values,
     })
 }
 
@@ -26306,8 +26944,19 @@ mod tests {
     fn source_read_evidence_preserves_mixed_direct_and_text_provider_state() {
         let columnar = TraditionalSourceReadEvidence::direct_vortex_provider_batch(7, 11, 1)
             .expect("columnar evidence");
-        let text = TraditionalSourceReadEvidence::text_vortex_provider_batch(13, 17, 1, true)
-            .expect("text evidence");
+        let text = TraditionalSourceReadEvidence::text_vortex_provider_batch(
+            TraditionalSourceReadScoutTiming {
+                header_scout_micros: 2,
+                byte_acquisition_micros: 3,
+                full_body_micros: 5,
+                recorded: true,
+            },
+            13,
+            17,
+            1,
+            true,
+        )
+        .expect("text evidence");
 
         let mixed = columnar.add(text).expect("mixed evidence");
 
@@ -26329,6 +26978,13 @@ mod tests {
         );
         assert!(!mixed.scalar_rows_materialized);
         assert_eq!(mixed.record_batch_count, 2);
+        assert_eq!(mixed.header_scout_micros, 2);
+        assert_eq!(mixed.byte_acquisition_micros, 3);
+        assert_eq!(mixed.full_body_micros, 5);
+        assert_eq!(
+            mixed.source_read_scout_status(),
+            "source_read_scout_split_recorded"
+        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -27428,11 +28084,23 @@ mod tests {
             "source_read_micros",
             "source_parse_micros",
             "source_to_columnar_micros",
+            "source_read_header_scout_micros",
+            "source_read_byte_acquisition_micros",
+            "source_read_full_body_micros",
             "vortex_array_build_micros",
             "vortex_write_micros",
             "vortex_digest_micros",
             "vortex_reopen_verify_micros",
             "vortex_scan_micros",
+            "vortex_footer_open_micros",
+            "vortex_metadata_verify_micros",
+            "vortex_scan_open_micros",
+            "vortex_scenario_scan_micros",
+            "vortex_scan_bytes_touched",
+            "vortex_scan_segments_touched",
+            "vortex_scan_segments_skipped",
+            "vortex_scan_columns_touched",
+            "vortex_scan_decoded_values",
             "operator_compute_micros",
             "total_runtime_micros",
             "exclusive_source_admission_micros",
@@ -27455,7 +28123,41 @@ mod tests {
                 "{field} must be emitted as a numeric timing field"
             );
         }
-        assert_field_eq(&fields, "exclusive_source_read_micros", "0");
+        assert_field_eq(
+            &fields,
+            "source_read_scout_status",
+            "source_read_scout_split_recorded",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_scout_reuse_status",
+            "not_reused_fresh_source_read",
+        );
+        let scout_source_read_micros = field_u64(&fields, "source_read_header_scout_micros")
+            + field_u64(&fields, "source_read_byte_acquisition_micros")
+            + field_u64(&fields, "source_read_full_body_micros");
+        assert_eq!(
+            field_u64(&fields, "exclusive_source_read_micros"),
+            scout_source_read_micros
+        );
+        assert_eq!(
+            field_u64(&fields, "source_read_micros"),
+            scout_source_read_micros
+                + field_u64(&fields, "source_parse_micros")
+                + field_u64(&fields, "source_to_columnar_micros")
+        );
+        for field in [
+            "vortex_scan_bytes_touched",
+            "vortex_scan_segments_touched",
+            "vortex_scan_columns_touched",
+            "vortex_scan_decoded_values",
+        ] {
+            assert!(
+                field_u64(&fields, field) > 0,
+                "{field} must record nonzero Vortex scan work"
+            );
+        }
+        assert_eq!(field_u64(&fields, "vortex_scan_segments_skipped"), 0);
         assert!(
             fields
                 .get("exclusive_stage_residual_micros")
@@ -27932,6 +28634,53 @@ mod tests {
                 "base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts"
             )
         );
+        for (scan_field, evidence_field) in [
+            (
+                "vortex_scan_bytes_touched",
+                "source_backed_scan_bytes_touched",
+            ),
+            (
+                "vortex_scan_segments_touched",
+                "source_backed_scan_segments_touched",
+            ),
+            (
+                "vortex_scan_segments_skipped",
+                "source_backed_scan_segments_skipped",
+            ),
+            (
+                "vortex_scan_columns_touched",
+                "source_backed_scan_columns_touched",
+            ),
+            (
+                "vortex_scan_decoded_values",
+                "source_backed_scan_decoded_values",
+            ),
+        ] {
+            assert_eq!(
+                field_u64(&native_fields, scan_field),
+                field_u64(&native_fields, evidence_field),
+                "{evidence_field} must mirror {scan_field}"
+            );
+        }
+        for field in [
+            "source_backed_scan_bytes_touched",
+            "source_backed_scan_segments_touched",
+            "source_backed_scan_columns_touched",
+            "source_backed_scan_decoded_values",
+        ] {
+            assert!(
+                field_u64(&native_fields, field) > 0,
+                "{field} must record nonzero source-backed scan work"
+            );
+        }
+        assert_eq!(
+            field_u64(&native_fields, "source_backed_scan_columns_touched"),
+            7
+        );
+        assert_eq!(
+            field_u64(&native_fields, "source_backed_scan_segments_skipped"),
+            0
+        );
         assert_eq!(
             native_fields
                 .get("source_backed_scan_materialization_boundary_rows")
@@ -28060,6 +28809,15 @@ mod tests {
                 .is_some_and(|value| value.contains(expected)),
             "{name} should contain {expected}"
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn field_u64(fields: &std::collections::HashMap<String, String>, name: &str) -> u64 {
+        fields
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} must be emitted"))
+            .parse::<u64>()
+            .unwrap_or_else(|error| panic!("{name} must be a u64 field: {error}"))
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

@@ -1573,6 +1573,98 @@ class ReleaseScriptTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.build_run_context(invalid_args)
 
+    def test_benchmark_row_promotes_source_scout_and_scan_contract_fields(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            def fixture(name: str) -> Path:
+                path = root / name
+                path.write_text("id\n1\n", encoding="utf-8")
+                return path
+
+            paths = benchmark_run.DatasetPaths(
+                root=root,
+                fact_csv=fixture("fact.csv"),
+                dim_csv=fixture("dim.csv"),
+                fact_jsonl=fixture("fact.jsonl"),
+                dim_jsonl=fixture("dim.jsonl"),
+                fact_parquet=fixture("fact.parquet"),
+                dim_parquet=fixture("dim.parquet"),
+                fact_arrow_ipc=fixture("fact.arrow"),
+                dim_arrow_ipc=fixture("dim.arrow"),
+                fact_avro=fixture("fact.avro"),
+                dim_avro=fixture("dim.avro"),
+                fact_orc=fixture("fact.orc"),
+                dim_orc=fixture("dim.orc"),
+                rows=8,
+                dim_rows=2,
+            )
+            runner = benchmark_run.EngineRunner("shardloom", "test", {})
+            first_evidence = {
+                "source_read_header_scout_micros": "1000",
+                "source_read_byte_acquisition_micros": "2000",
+                "source_read_full_body_micros": "3000",
+                "source_read_scout_status": "measured",
+                "source_read_scout_reuse_status": "reuse_miss",
+                "vortex_footer_open_micros": "400",
+                "vortex_metadata_verify_micros": "500",
+                "vortex_scan_open_micros": "600",
+                "vortex_scenario_scan_micros": "700",
+                "vortex_scan_bytes_touched": "2048",
+                "vortex_scan_segments_touched": "2",
+                "vortex_scan_segments_skipped": "0",
+                "vortex_scan_columns_touched": "3",
+                "vortex_scan_decoded_values": "16",
+            }
+            second_evidence = {
+                "source_read_header_scout_micros": "3000",
+                "source_read_byte_acquisition_micros": "4000",
+                "source_read_full_body_micros": "5000",
+                "source_read_scout_status": "measured",
+                "source_read_scout_reuse_status": "reuse_hit",
+                "vortex_footer_open_micros": "800",
+                "vortex_metadata_verify_micros": "1000",
+                "vortex_scan_open_micros": "1200",
+                "vortex_scenario_scan_micros": "1400",
+                "vortex_scan_bytes_touched": "4096",
+                "vortex_scan_segments_touched": "4",
+                "vortex_scan_segments_skipped": "1",
+                "vortex_scan_columns_touched": "5",
+                "vortex_scan_decoded_values": "32",
+            }
+
+            result = benchmark_run.successful_result_from_iterations(
+                runner,
+                paths,
+                "selective filter",
+                "csv",
+                2,
+                [{"row_count": 1, "metric_sum": 2.0}, {"row_count": 1, "metric_sum": 2.0}],
+                [first_evidence, second_evidence],
+                [10.0, 12.0],
+                [],
+            )
+
+        metrics = result["metrics"]
+        missing_stage_fields = [
+            field
+            for field in benchmark_run.STAGE_TIMING_CONTRACT_FIELDS
+            if field not in metrics
+        ]
+        self.assertEqual(missing_stage_fields, [])
+        self.assertEqual(metrics["source_read_header_scout_millis"], 2.0)
+        self.assertEqual(metrics["source_read_byte_acquisition_millis"], 3.0)
+        self.assertEqual(metrics["source_read_full_body_millis"], 4.0)
+        self.assertEqual(metrics["source_read_header_scout_micros"], 3000)
+        self.assertEqual(metrics["source_read_scout_reuse_status"], "reuse_hit")
+        self.assertEqual(metrics["vortex_footer_open_millis"], 0.6)
+        self.assertEqual(metrics["vortex_scenario_scan_millis"], 1.05)
+        self.assertEqual(metrics["vortex_scan_bytes_touched"], 4096)
+        self.assertEqual(metrics["vortex_scan_segments_skipped"], 1)
+        self.assertEqual(metrics["vortex_scan_decoded_values"], 32)
+
     def test_benchmark_harness_regenerate_uses_output_scoped_data_dir(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
 
@@ -2303,7 +2395,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("GAR-RUNTIME-IMPL", packet["next_implementation_slice"])
+        self.assertIn("HOTPATH-11", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
