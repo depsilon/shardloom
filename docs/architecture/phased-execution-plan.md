@@ -305,10 +305,11 @@ completed details to the ledger.
   blockers are the non-admitted broad grammar families that still need ShardLoom-owned runtime
   promotion or additional deterministic diagnostics beyond the now-covered timezone database
   syntax/function/type spellings, locale/case-folding operators, direct binary literal predicates
-  over source columns, source-column binary ordering without explicit cast, and scoped complex
-  result-boundary ordering: arbitrary interval arithmetic
-  outside scoped temporal helpers, complex accessors/casts, complex subquery membership
-  materialization and joins over complex keys,
+  over source columns, source-column binary ordering without explicit cast, scoped complex
+  result-boundary ordering, first-class list/array plus struct access/cast unsupported
+  diagnostics, and complex subquery membership materialization unsupported diagnostics: arbitrary
+  interval arithmetic
+  outside scoped temporal helpers, joins over complex keys,
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, broad binary source dtype decoding and binary execution beyond
@@ -320,9 +321,9 @@ completed details to the ledger.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the scoped complex ORDER BY slice; likely candidates are broad binary source
-  dtype decoding after a dedicated source-dtype contract, complex access/cast follow-through after a dedicated
-  semantics contract, local Vortex typed decimal output once Vortex
+  blockers after the complex dtype diagnostics slice; likely candidates are broad binary source
+  dtype decoding after a dedicated source-dtype contract, complex join follow-through after a
+  dedicated semantics contract, local Vortex typed decimal output once Vortex
   writer/reopen evidence is available, or another front-door parity gap only after the runtime route
   is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,

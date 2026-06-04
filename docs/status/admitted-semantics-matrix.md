@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=79
+matrix_row_count=82
 executable_fixture_count=68
-diagnostic_case_count=11
-unsupported_diagnostic_count=9
+diagnostic_case_count=14
+unsupported_diagnostic_count=12
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -128,6 +128,9 @@ Covered fixture rows:
 - `unsupported_timestamptz_policy`
 - `unsupported_locale_collation`
 - `unsupported_locale_case_insensitive_predicate`
+- `unsupported_list_array_access_cast`
+- `unsupported_struct_access_cast`
+- `unsupported_complex_subquery_membership`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `invalid_shape_scalar_multi_column_in_subquery`
@@ -145,16 +148,16 @@ deterministic invalid-shape diagnostic because row-value left operands are requi
 timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source
 runtime. Named timezone database conversion syntax, timezone conversion functions,
 `TIMESTAMPTZ`/timestamp-with-local-time-zone type spellings, `COLLATE`, and `ILIKE`
-locale/case-folding comparisons now have deterministic unsupported diagnostics. Variant/union
-dtype families, list/struct accessors, direct binary literal predicates over
+locale/case-folding comparisons now have deterministic unsupported diagnostics. List/array
+access-or-cast, struct access-or-cast, complex subquery membership materialization, variant, and union dtype families, direct binary literal predicates over
 source columns, source-column binary ordering without explicit cast, and remaining non-admitted
 broad ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback. Scoped
 `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
 executable through the JSONL result boundary only. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
 over those already-materialized ARRAY/STRUCT projection values are executable through structural
 result-row equality, and scoped `ORDER BY` over those complex projection values is executable
-through canonical structural result-boundary sort keys. Nested source decoding, list/struct
-accessors or casts, broad ANSI nested ordering, complex subquery membership materialization, joins
+through canonical structural result-boundary sort keys. Nested source decoding, broad ANSI nested
+ordering, complex subquery membership materialization, joins
 over complex keys, and flat/structured sink persistence remain outside the claim boundary.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source

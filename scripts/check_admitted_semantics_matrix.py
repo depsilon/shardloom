@@ -3056,6 +3056,37 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="SQL source-column binary ordering without explicit CAST(<column> AS binary) is not admitted",
         ),
         UnsupportedCase(
+            case_id="unsupported_list_array_access_cast",
+            source_name="list-array-unsupported.csv",
+            source_text="id,payload\n1,alpha\n",
+            statement_template=(
+                "SELECT id,LIST_EXTRACT(payload, 1) AS item FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="list and array accessors, function constructors, casts, and equality semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_struct_access_cast",
+            source_name="struct-unsupported.csv",
+            source_text="id,label,amount\n1,alpha,8\n",
+            statement_template=(
+                "SELECT id,ROW(label, amount) AS payload FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="row constructors plus struct casts, equality, and access semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_complex_subquery_membership",
+            source_name="complex-subquery-membership-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT ARRAY[1] AS value_list FROM '{source}') LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization",
+        ),
+        UnsupportedCase(
             case_id="unsupported_variant_access",
             source_name="variant-unsupported.csv",
             source_text="id,payload\n1,alpha\n",
