@@ -125,6 +125,14 @@ REQUIRED_BENCHMARK_EVIDENCE_RENDER_STRINGS = {
     "Evidence-Render Proof Regeneration",
     "shardloom.traditional_analytics.evidence_render_proof.v1",
 }
+REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS = {
+    "Route-share attribution",
+    "Optimization targets follow route share.",
+    "Route-Share Amdahl Attribution",
+    "Source-Read Scout Attribution",
+    "Vortex Reopen And Scan Attribution",
+    "shardloom.traditional_analytics.route_share_amdahl.v1",
+}
 REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS = {
     "Operator mode inventory",
     "Runtime support is not encoded-native support.",
@@ -478,6 +486,9 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
     for required in sorted(REQUIRED_BENCHMARK_EVIDENCE_RENDER_STRINGS):
         if required not in html:
             blockers.append(f"benchmark page missing evidence-render proof string: {required}")
+    for required in sorted(REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS):
+        if required not in html:
+            blockers.append(f"benchmark page missing route-share attribution string: {required}")
     for required in sorted(REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS):
         if required not in html:
             blockers.append(f"benchmark page missing operator-mode inventory string: {required}")
@@ -495,14 +506,17 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
             blockers.append(f"benchmark page missing public front-door token: {token}")
     route_dashboard_index = html.find("data-route-card-dashboard")
     stage_index = html.find("Stage attribution")
+    route_share_index = html.find("Route-share attribution")
     fast_path_index = html.find("Runtime fast path")
     evidence_render_index = html.find("Evidence-render proof")
     operator_mode_index = html.find("Operator mode inventory")
     raw_index = html.find("Raw timing tables")
     if route_dashboard_index == -1 or stage_index == -1 or route_dashboard_index > stage_index:
         blockers.append("benchmark page must lead with route cards before stage attribution")
-    if stage_index == -1 or fast_path_index == -1 or stage_index > fast_path_index:
-        blockers.append("benchmark page must show fast-path attribution after stage attribution")
+    if stage_index == -1 or route_share_index == -1 or stage_index > route_share_index:
+        blockers.append("benchmark page must show route-share attribution after stage attribution")
+    if route_share_index == -1 or fast_path_index == -1 or route_share_index > fast_path_index:
+        blockers.append("benchmark page must show fast-path attribution after route-share attribution")
     if (
         fast_path_index == -1
         or evidence_render_index == -1

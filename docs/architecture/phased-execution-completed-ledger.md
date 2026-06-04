@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D route-share Amdahl, source-read scout, and Vortex reopen/scan attribution publication
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-scan-attribution-route-share` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - User direction to keep benchmark evaluation code/text-only, update the website benchmark
+      page, clean the phased execution plan, avoid tiny PRs, and defer the expensive benchmark
+      rerun until the current code/docs/site batch is complete.
+    - The existing safe-writer benchmark artifact and exclusive route timing ledger; this slice
+      redecorated/promoted the existing artifact and did not rerun the benchmark suite.
+  - Scope:
+    - Added schema-versioned source-read scout publication fields for header/scout read, byte
+      acquisition, full-body read, residual, reuse status, and claim boundary. Rows with a source
+      read stage but no runtime split now publish `blocked_missing_source_read_scout_split`.
+    - Added schema-versioned Vortex reopen/scan attribution fields for footer open, metadata
+      verify, scan open, scenario scan, scan counters, and claim boundary. Rows with scan timing but
+      no scan counters now publish `blocked_missing_scan_counters`.
+    - Added a route-share/Amdahl dashboard table that ranks only stages included in each route lane
+      so diagnostic source-admission fields cannot dominate warm/native/prepared query routes or
+      produce misleading route-share percentages.
+    - Fixed benchmark artifact row loading so a complete inline `published_benchmark_rows` payload
+      is preferred over stale or incomplete row chunks, preventing missing chunks from silently
+      dropping published lanes such as Polars baselines.
+    - Updated benchmark harness pass-through fields, release-script tests, benchmark promoter
+      summary tables, website benchmark component, readiness validator, benchmark JSON/static
+      artifacts, and phase-plan cleanup. Completed implementation details were moved out of
+      Planned and into this ledger.
+  - Vortex-first provider check:
+    - Classification: `wrap_vortex_concept`.
+    - This slice wraps existing ShardLoom/Vortex route evidence with publication, validator, and
+      certificate-attribution fields. It does not add a new Vortex scan/source/sink provider, does
+      not execute unsupported residual work, and does not introduce a Vortex query-engine
+      integration.
+  - Evidence:
+    - `python3 scripts/promote_benchmark_artifact.py --input target/full-benchmark-results-for-redecoration.json --profile full_local` passed against the restored full latest artifact.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_prefers_chunks_for_summary_only_inline_rows python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_rejects_summary_only_inline_without_chunks python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_emits_source_scout_and_scan_attribution python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_emits_cold_bottleneck_fields python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_blocks_sparse_exclusive_query_split python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_derives_evidence_render_proof_fields python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_derives_prepare_once_first_query_route python.tests.test_release_scripts.ReleaseScriptTests.test_website_readiness_validates_benchmark_route_cards` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts` passed with 67 tests and 2 skipped.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH ./node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree` passed.
+    - `python3 scripts/check_benchmark_constitution.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `python3 scripts/check_website_readiness.py` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Current artifact interpretation:
+    - This is an attribution/publication refresh over the existing safe-writer artifact. It does not
+      change route timing values. The route-share table now identifies the next optimization target
+      from route-included stages only, while source-read scout and Vortex reopen/scan tables make
+      missing runtime split/counter evidence explicit.
+    - Current generated route-share dominant stages are prepared lookup/create for prepare-once
+      first query and prepare-once batch, Vortex write for the cold certified route, and evidence
+      render for warm prepared and native Vortex query lanes. These are diagnostic next-target
+      hints, not new benchmark results.
+  - Claim boundary:
+    - This slice may claim that benchmark publication, website rendering, and validators now expose
+      route-share, source-read scout, and Vortex reopen/scan attribution with fail-closed blockers.
+      It does not claim a new benchmark result, performance improvement, production readiness, broad
+      SQL/DataFrame parity, object-store/table support, Spark replacement, or general performance
+      superiority.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The slice adds no Spark/DataFusion/DuckDB/
+      Polars/Velox execution fallback, no Vortex query-engine integration, and no external-engine
+      residual evaluation for ShardLoom rows. ShardLoom row evidence remains
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D exclusive stage-ledger attribution and benchmark plan cleanup
   - Date: 2026-06-03
   - Branch/PR: `codex/stage-ledger-exclusive-attribution` / pending PR.

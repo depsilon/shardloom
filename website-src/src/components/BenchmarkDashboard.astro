@@ -15,6 +15,15 @@ const preparedAmortizationHeaders = Array.isArray(preparedAmortizationTable.head
 const stageAttributionTable = dashboard.stage_attribution ?? {};
 const stageAttributionRows = Array.isArray(stageAttributionTable.rows) ? stageAttributionTable.rows : [];
 const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? stageAttributionTable.headers : [];
+const routeShareTable = dashboard.route_share_amdahl ?? {};
+const routeShareRows = Array.isArray(routeShareTable.rows) ? routeShareTable.rows : [];
+const routeShareHeaders = Array.isArray(routeShareTable.headers) ? routeShareTable.headers : [];
+const sourceReadScoutTable = dashboard.source_read_scout ?? {};
+const sourceReadScoutRows = Array.isArray(sourceReadScoutTable.rows) ? sourceReadScoutTable.rows : [];
+const sourceReadScoutHeaders = Array.isArray(sourceReadScoutTable.headers) ? sourceReadScoutTable.headers : [];
+const vortexReopenScanTable = dashboard.vortex_reopen_scan_attribution ?? {};
+const vortexReopenScanRows = Array.isArray(vortexReopenScanTable.rows) ? vortexReopenScanTable.rows : [];
+const vortexReopenScanHeaders = Array.isArray(vortexReopenScanTable.headers) ? vortexReopenScanTable.headers : [];
 const fastPathTable = dashboard.fast_path_attribution ?? {};
 const fastPathRows = Array.isArray(fastPathTable.rows) ? fastPathTable.rows : [];
 const fastPathHeaders = Array.isArray(fastPathTable.headers) ? fastPathTable.headers : [];
@@ -523,6 +532,54 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid" data-route-share-amdahl>
+  <div>
+    <p class="eyebrow">Route-share attribution</p>
+    <h2>Optimization targets follow route share.</h2>
+    <p class="narrow">
+      Route totals remain the comparison surface. The Amdahl table identifies the largest measured stage per ShardLoom route, while source-read scout and Vortex reopen/scan tables show which split evidence is complete or still blocked before stronger optimization claims.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <p class="table-note">Artifact table: <strong>{routeShareTable.heading ?? "Route-Share Amdahl Attribution"}</strong>.</p>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr>{(routeShareHeaders.length ? routeShareHeaders : ["Route", "Rows", "Route geomean", "Dominant stage", "Dominant stage geomean", "Dominant route share", "Next optimization target", "Exclusive timing status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {routeShareRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{sourceReadScoutTable.heading ?? "Source-Read Scout Attribution"}</strong></p>
+      <table>
+        <thead><tr>{(sourceReadScoutHeaders.length ? sourceReadScoutHeaders : ["Route", "Timing split", "Scout reuse", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {sourceReadScoutRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{vortexReopenScanTable.heading ?? "Vortex Reopen And Scan Attribution"}</strong></p>
+      <table>
+        <thead><tr>{(vortexReopenScanHeaders.length ? vortexReopenScanHeaders : ["Route", "Reopen/verify split", "Scan counters", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {vortexReopenScanRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      Schema: {routeShareTable.schema_version ?? "not reported"}. Source scout status: <strong>{sourceReadScoutTable.status ?? "not reported"}</strong>. Vortex reopen/scan status: <strong>{vortexReopenScanTable.status ?? "not reported"}</strong>. Current public route timing values stay unchanged until the benchmark suite is rerun.
+    </p>
   </div>
 </section>
 
