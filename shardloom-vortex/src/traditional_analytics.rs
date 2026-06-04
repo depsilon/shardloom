@@ -10703,6 +10703,7 @@ fn traditional_prepared_batch_reuse_request_payload(
             "artifact_layout": "fact.vortex,dim.vortex,optional_cdc_delta.vortex",
             "artifact_output_policy": "caller_owned_workspace_local_vortex_artifacts",
             "cdc_delta_present": cdc_delta_input.is_some(),
+            "preserve_all_text_columns_for_reuse": true,
             "memory_gb": resource_policy.requested_memory_gb,
             "max_parallelism": resource_policy.requested_max_parallelism,
             "vortex_normalization_point": "SourceState -> vortex_ingest -> VortexPreparedState",
@@ -18387,6 +18388,7 @@ fn text_source_row_capacity_hint(source_bytes_hint: u64, bytes_per_row: u64) -> 
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TraditionalFactTextColumnSelection {
     event_date: bool,
@@ -18626,6 +18628,7 @@ fn extend_traditional_dim_text_columns(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn extend_traditional_fact_csv_columns(
     path: &std::path::Path,
     columns: &mut TraditionalFactVortexColumns,
@@ -18916,6 +18919,7 @@ fn extend_traditional_dim_jsonl_columns(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFactRow>> {
     let content = std::fs::read_to_string(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -19867,6 +19871,7 @@ fn selected_csv_field_value<'a>(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::type_complexity)]
 fn split_dim_csv_record<'a>(
     line: &'a str,
     path: &std::path::Path,
@@ -27710,6 +27715,125 @@ mod tests {
             &third_fields,
             "prepared_state_reuse_scope",
             PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_batch_run_rejects_legacy_reuse_manifest_without_full_text_policy() {
+        let root = traditional_analytics_test_root("prepared-batch-legacy-policy");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("prepare-workspace");
+        let scenarios = vec![TraditionalAnalyticsScenario::PartitionPruning];
+
+        let first = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios.clone(),
+                fact_csv.clone(),
+                dim_csv.clone(),
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        assert!(first.prepare_report.is_some());
+
+        let manifest_path = traditional_prepared_batch_reuse_manifest_path(&workspace);
+        let mut manifest_payload: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&manifest_path).expect("read reuse manifest"),
+        )
+        .expect("parse reuse manifest");
+        assert_eq!(
+            manifest_payload
+                .pointer("/prepare_policy/preserve_all_text_columns_for_reuse")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
+        let mut legacy_request = traditional_prepared_batch_reuse_request_payload(
+            &fact_csv,
+            &dim_csv,
+            None,
+            &workspace,
+            TraditionalAnalyticsInputFormat::Csv,
+            TraditionalAnalyticsResourcePolicy::default(),
+        )
+        .unwrap();
+        if let Some(object) = legacy_request.as_object_mut() {
+            object.remove("route_request_digest");
+        }
+        if let Some(policy) = legacy_request
+            .get_mut("prepare_policy")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            policy.remove("preserve_all_text_columns_for_reuse");
+        }
+        let legacy_route_request_digest = stable_json_value_digest(&legacy_request);
+
+        if let Some(policy) = manifest_payload
+            .get_mut("prepare_policy")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            policy.remove("preserve_all_text_columns_for_reuse");
+        }
+        if let Some(object) = manifest_payload.as_object_mut() {
+            object.remove("manifest_digest");
+        }
+        json_object_insert(
+            &mut manifest_payload,
+            "route_request_digest",
+            serde_json::Value::String(legacy_route_request_digest),
+        );
+        let legacy_manifest_digest = prepared_batch_manifest_digest(&manifest_payload);
+        json_object_insert(
+            &mut manifest_payload,
+            "manifest_digest",
+            serde_json::Value::String(legacy_manifest_digest),
+        );
+        write_json_manifest_atomically(&manifest_path, &manifest_payload).unwrap();
+
+        let second = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios,
+                fact_csv,
+                dim_csv,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let second_fields = field_map(second.fields());
+        assert!(second.prepare_report.is_some());
+        assert_field_eq(
+            &second_fields,
+            "workspace_prepared_state_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "workspace_prepared_state_reuse_reason",
+            "prepare_policy_changed",
+        );
+        assert_field_eq(
+            &second_fields,
+            "workspace_prepared_state_reuse_manifest_written",
+            "true",
+        );
+
+        let refreshed_manifest_payload: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(traditional_prepared_batch_reuse_manifest_path(&workspace))
+                .expect("read refreshed reuse manifest"),
+        )
+        .expect("parse refreshed reuse manifest");
+        assert_eq!(
+            refreshed_manifest_payload
+                .pointer("/prepare_policy/preserve_all_text_columns_for_reuse")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
         );
 
         let _ = std::fs::remove_dir_all(root);
