@@ -846,7 +846,22 @@ pub fn encode_flat_avro_rows(
     columns: &[String],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
-    let batch = flat_rows_to_record_batch(columns, rows, "local Avro output")?;
+    let column_dtypes = vec![None; columns.len()];
+    encode_flat_avro_rows_with_dtypes(columns, &column_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local Avro bytes with optional logical dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_avro_rows_with_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch =
+        flat_rows_to_record_batch_with_dtypes(columns, column_dtypes, rows, "local Avro output")?;
     let mut writer =
         arrow_avro::writer::AvroWriter::new(Vec::new(), batch.schema().as_ref().clone()).map_err(
             |error| {
@@ -878,7 +893,22 @@ pub fn encode_flat_orc_rows(
     columns: &[String],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
-    let batch = flat_rows_to_record_batch(columns, rows, "local ORC output")?;
+    let column_dtypes = vec![None; columns.len()];
+    encode_flat_orc_rows_with_dtypes(columns, &column_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local ORC bytes with optional logical dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_orc_rows_with_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch =
+        flat_rows_to_record_batch_with_dtypes(columns, column_dtypes, rows, "local ORC output")?;
     let buffer = SharedBufferWriter::default();
     let retained_buffer = buffer.clone();
     let mut writer = orc_rust::ArrowWriterBuilder::new(buffer, batch.schema())
@@ -1629,7 +1659,7 @@ mod tests {
     }
 
     #[test]
-    fn preserves_binary_rows_in_parquet_and_arrow_ipc_sinks() {
+    fn preserves_binary_rows_in_feature_gated_structured_sinks() {
         assert_binary_sink_round_trip(
             "parquet",
             encode_flat_parquet_rows,
@@ -1640,6 +1670,8 @@ mod tests {
             encode_flat_arrow_ipc_rows,
             read_flat_arrow_ipc_source,
         );
+        assert_binary_sink_round_trip("avro", encode_flat_avro_rows, read_flat_avro_source);
+        assert_binary_sink_round_trip("orc", encode_flat_orc_rows, read_flat_orc_source);
     }
 
     #[test]

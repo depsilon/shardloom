@@ -5500,10 +5500,12 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
+fn sql_local_source_smoke_preserves_binary_structured_sinks() {
     let source_path = unique_path("sql-local-source-binary-sink-source", "arrow");
     let parquet_output_path = unique_path("sql-local-source-binary-sink", "parquet");
     let arrow_output_path = unique_path("sql-local-source-binary-sink", "arrow");
+    let avro_output_path = unique_path("sql-local-source-binary-sink", "avro");
+    let orc_output_path = unique_path("sql-local-source-binary-sink", "orc");
     write_binary_arrow_ipc_smoke_source(&source_path);
 
     let statement = format!(
@@ -5512,6 +5514,8 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
     );
     let parquet_target = format!("parquet={}", parquet_output_path.display());
     let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let avro_target = format!("avro={}", avro_output_path.display());
+    let orc_target = format!("orc={}", orc_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
             "sql-local-source-smoke",
@@ -5520,6 +5524,10 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
             &parquet_target,
             "--fanout-output",
             &arrow_target,
+            "--fanout-output",
+            &avro_target,
+            "--fanout-output",
+            &orc_target,
             "--format",
             "json",
         ])
@@ -5536,7 +5544,9 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
         shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
     let arrow =
         shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
-    for table in [&parquet, &arrow] {
+    let avro = shardloom_vortex::read_flat_avro_source(&avro_output_path, 10).expect("read avro");
+    let orc = shardloom_vortex::read_flat_orc_source(&orc_output_path, 10).expect("read orc");
+    for table in [&parquet, &arrow, &avro, &orc] {
         assert_eq!(table.header, vec!["id", "payload"]);
         assert_eq!(table.rows.len(), 3);
         assert_eq!(
@@ -5556,7 +5566,10 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(&field("source_format", "arrow_ipc")));
     assert!(stdout.contains(&field("output_route", "local_fanout")));
-    assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains(&field(
+        "fanout_output_formats",
+        "parquet,arrow_ipc,avro,orc"
+    )));
     assert!(stdout.contains(&field("predicate_operator_family", "comparison")));
     assert!(stdout.contains(&field("binary_source_predicate_runtime_execution", "true")));
     assert!(stdout.contains(&field(
@@ -5565,7 +5578,7 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
     )));
     assert!(stdout.contains(&field(
         "output_plan_conversion_blocker",
-        "parquet:none,arrow_ipc:none"
+        "parquet:none,arrow_ipc:none,avro:none,orc:none"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -5573,21 +5586,28 @@ fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
     fs::remove_file(source_path).expect("remove source arrow");
     fs::remove_file(parquet_output_path).expect("remove parquet output");
     fs::remove_file(arrow_output_path).expect("remove arrow output");
+    fs::remove_file(avro_output_path).expect("remove avro output");
+    fs::remove_file(orc_output_path).expect("remove orc output");
 }
 
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
     use arrow_schema::DataType;
+    use std::io::BufReader;
 
     let source_path = unique_path("sql-local-source-all-null-binary-source", "arrow");
     let parquet_output_path = unique_path("sql-local-source-all-null-binary-sink", "parquet");
     let arrow_output_path = unique_path("sql-local-source-all-null-binary-sink", "arrow");
+    let avro_output_path = unique_path("sql-local-source-all-null-binary-sink", "avro");
+    let orc_output_path = unique_path("sql-local-source-all-null-binary-sink", "orc");
     write_all_null_binary_arrow_ipc_smoke_source(&source_path);
 
     let statement = format!("SELECT payload FROM '{}' LIMIT 3", source_path.display());
     let parquet_target = format!("parquet={}", parquet_output_path.display());
     let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let avro_target = format!("avro={}", avro_output_path.display());
+    let orc_target = format!("orc={}", orc_output_path.display());
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
             "sql-local-source-smoke",
@@ -5596,6 +5616,10 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
             &parquet_target,
             "--fanout-output",
             &arrow_target,
+            "--fanout-output",
+            &avro_target,
+            "--fanout-output",
+            &orc_target,
             "--format",
             "json",
         ])
@@ -5623,12 +5647,23 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
         arrow_reader.schema().field(0).data_type(),
         &DataType::Binary
     );
+    let avro_file = File::open(&avro_output_path).expect("open avro output");
+    let avro_reader = arrow_avro::reader::ReaderBuilder::new()
+        .build(BufReader::new(avro_file))
+        .expect("avro reader");
+    assert_eq!(avro_reader.schema().field(0).data_type(), &DataType::Binary);
+
+    let orc_file = File::open(&orc_output_path).expect("open orc output");
+    let orc_builder = orc_rust::ArrowReaderBuilder::try_new(orc_file).expect("orc reader builder");
+    assert_eq!(orc_builder.schema().field(0).data_type(), &DataType::Binary);
 
     let parquet =
         shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
     let arrow =
         shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
-    for table in [&parquet, &arrow] {
+    let avro = shardloom_vortex::read_flat_avro_source(&avro_output_path, 10).expect("read avro");
+    let orc = shardloom_vortex::read_flat_orc_source(&orc_output_path, 10).expect("read orc");
+    for table in [&parquet, &arrow, &avro, &orc] {
         assert_eq!(table.header, vec!["payload"]);
         assert_eq!(table.rows.len(), 3);
         for row in &table.rows {
@@ -5639,10 +5674,13 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(&field("source_format", "arrow_ipc")));
     assert!(stdout.contains(&field("output_route", "local_fanout")));
-    assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains(&field(
+        "fanout_output_formats",
+        "parquet,arrow_ipc,avro,orc"
+    )));
     assert!(stdout.contains(&field(
         "output_plan_conversion_blocker",
-        "parquet:none,arrow_ipc:none"
+        "parquet:none,arrow_ipc:none,avro:none,orc:none"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -5650,6 +5688,8 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
     fs::remove_file(source_path).expect("remove all-null binary source arrow");
     fs::remove_file(parquet_output_path).expect("remove all-null parquet output");
     fs::remove_file(arrow_output_path).expect("remove all-null arrow output");
+    fs::remove_file(avro_output_path).expect("remove all-null avro output");
+    fs::remove_file(orc_output_path).expect("remove all-null orc output");
 }
 
 #[cfg(not(feature = "universal-format-io"))]

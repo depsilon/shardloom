@@ -529,7 +529,8 @@ pub use traditional_analytics::{
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
     FlatLocalColumnarSource, FlatLocalSourceTable, encode_flat_arrow_ipc_rows,
-    encode_flat_arrow_ipc_rows_with_dtypes, encode_flat_avro_rows, encode_flat_orc_rows,
+    encode_flat_arrow_ipc_rows_with_dtypes, encode_flat_avro_rows,
+    encode_flat_avro_rows_with_dtypes, encode_flat_orc_rows, encode_flat_orc_rows_with_dtypes,
     encode_flat_parquet_rows, encode_flat_parquet_rows_with_dtypes,
     materialize_flat_columnar_source_to_scalar_table, read_flat_arrow_ipc_columnar_source,
     read_flat_arrow_ipc_columnar_source_with_projection, read_flat_arrow_ipc_source,
