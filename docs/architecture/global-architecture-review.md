@@ -598,7 +598,7 @@ plan before coding.
   expression trees for source-column evidence, preserves null-propagating UTF-8 semantics, and
   keeps source-free or unsupported string expression shapes deterministic blockers with no
   fallback/external engine invocation.
-- [x] GAR-RUNTIME-IMPL-4D scoped UTC timestamp second arithmetic adds native
+- [x] GAR-RUNTIME-IMPL-4D scoped UTC-or-fixed-offset timestamp second arithmetic adds native
   `TIMESTAMP_ADD_SECONDS` / `TIMESTAMP_SUB_SECONDS` predicate/projection execution for admitted
   local-source SQL/Python paths, emits `timestamp_arithmetic_*` and
   `timestamp_arithmetic_projection_*` evidence, preserves null-propagating timestamp-micros
@@ -609,7 +609,7 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-4D scoped temporal-difference expressions add native
   `DATE_DIFF_DAYS` and `TIMESTAMP_DIFF_SECONDS` predicate/projection execution through the generic
   expression evidence path for admitted local-source SQL/Python paths, preserve null-propagating
-  Date32/UTC timestamp delta semantics, coerce admitted ISO/UTC timestamp source strings, and keep
+  Date32 and UTC-or-fixed-offset timestamp delta semantics, coerce admitted ISO UTC-or-fixed-offset timestamp source strings, and keep
   arity/type/arbitrary interval or timezone shapes deterministic blockers with no fallback/external
   engine invocation.
 - [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source join aggregates admit scalar and grouped
@@ -631,7 +631,7 @@ plan before coding.
   report accessors, and keep unsupported DISTINCT aggregate shapes or non-output source columns
   deterministic blockers with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D/5G expression/operator closeout admits core bytewise binary equality/
-  inequality, promotes UTC timestamp/Date32/binary semantic conformance rows to executed
+  inequality, promotes UTC-or-fixed-offset timestamp/Date32/binary semantic conformance rows to executed
   fixtures, and expands the admitted semantics matrix to release-gate composed string functions,
   temporal arithmetic/difference, CASE projections, IN-list NULL semantics, scalar IN subqueries,
   grouped COUNT(DISTINCT), hidden aggregate HAVING, mixed window, and multi-key join fixtures
@@ -639,8 +639,8 @@ plan before coding.
   binary cast bytewise ordering while broad source-binary decoding and non-cast/source binary
   ordering remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
-  admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
-  timezone database conversion, interval arithmetic outside scoped temporal helpers, and
+  admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,
+  timezone database blockers, interval arithmetic outside scoped temporal helpers, and
   locale-aware collation. Scoped ANSI interval literals inside temporal helper functions and scoped
   UTF-8 regex predicates were later promoted through ShardLoom-owned evaluation; later
   GAR-RUNTIME-IMPL-6D evidence also promotes scoped `decimal128(p,s)` / `decimal(p,s)` /

@@ -71,7 +71,7 @@
     "join_multi_key_expression_condition",
     "select_distinct_join",
     "runtime_error_numeric_division_by_zero",
-    "unsupported_non_utc_timestamp_literal",
+    "timestamp_offset_literal_normalization",
     "unsupported_timezone_database_policy",
     "unsupported_locale_collation",
     "unsupported_variant_access",
@@ -201,8 +201,8 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped Date32 and UTC timestamp extract projection semantics only",
-      "coercion_policy": "explicit cast to date32/timestamp_micros plus scoped ISO UTC timestamp parsing",
+      "claim_boundary": "scoped Date32 and UTC-or-fixed-offset timestamp extract projection semantics only",
+      "coercion_policy": "explicit cast to date32/timestamp_micros plus scoped ISO UTC Z or fixed-offset timestamp parsing",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
@@ -321,14 +321,14 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped UTC date/timestamp arithmetic and difference projections only",
-      "coercion_policy": "explicit casts plus scoped ISO Date32 and UTC timestamp_micros parsing only",
+      "claim_boundary": "scoped UTC-or-fixed-offset date/timestamp arithmetic and difference projections only",
+      "coercion_policy": "explicit casts plus scoped ISO Date32 and UTC Z or fixed-offset timestamp_micros parsing only",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "temporal_arithmetic_difference_utc",
       "input_dtype": "date32,timestamp_micros,utf8",
-      "invalid_input_behavior": "invalid dates, non-UTC timestamps, and out-of-range intervals block deterministically",
+      "invalid_input_behavior": "invalid dates, invalid timestamp syntax/offsets, named timezone database forms, and out-of-range intervals block deterministically",
       "null_policy": "temporal arithmetic and differences propagate NULL temporal operands",
       "operator_family": "date_arithmetic,timestamp_arithmetic,temporal_difference",
       "oracle_boundary": "decoded_reference_only",
@@ -1341,24 +1341,24 @@
       "unsupported_diagnostic_message": "numeric arithmetic projection division by zero is a runtime data error"
     },
     {
-      "claim_boundary": "blocked non-UTC/offset timestamp literal only",
-      "coercion_policy": "UTC timestamp_micros literals only",
-      "decoded_reference_kind": "unsupported_diagnostic_reference",
+      "claim_boundary": "scoped fixed numeric timestamp offset literal/source normalization only",
+      "coercion_policy": "TIMESTAMP literals and timestamp_micros casts admit UTC Z plus fixed numeric +HH:MM/-HH:MM offsets normalized to UTC microseconds",
+      "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
-      "id": "unsupported_non_utc_timestamp_literal",
+      "id": "timestamp_offset_literal_normalization",
       "input_dtype": "utf8",
-      "invalid_input_behavior": "deterministic unsupported diagnostic before fallback",
-      "null_policy": "not_applicable_blocked_before_execution",
-      "operator_family": "timestamp_timezone",
-      "oracle_boundary": "deterministic_unsupported_diagnostic",
-      "output_dtype": "unsupported",
-      "property_seed": "not_applicable_unsupported",
+      "invalid_input_behavior": "invalid timestamp syntax, non-ASCII timestamp syntax, out-of-range offsets, and named timezone database forms block deterministically",
+      "null_policy": "sql_null_filters_out_in_where_and_projects_null_after_cast",
+      "operator_family": "timestamp_timezone,timestamp_offset,cast",
+      "oracle_boundary": "decoded_reference_only",
+      "output_dtype": "timestamp_micros",
+      "property_seed": "not_applicable",
       "runtime_validation": "required",
       "source_format": "csv",
-      "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "TIMESTAMP literals must use TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'"
+      "support_state": "executable",
+      "unsupported_diagnostic_code": "not_applicable",
+      "unsupported_diagnostic_message": "not_applicable"
     },
     {
       "claim_boundary": "blocked timezone database conversion only",
@@ -1378,7 +1378,7 @@
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "timezone database and non-UTC timestamp semantics are not admitted"
+      "unsupported_diagnostic_message": "timezone database semantics are not admitted"
     },
     {
       "claim_boundary": "blocked locale/collation comparison only",

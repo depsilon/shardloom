@@ -584,9 +584,9 @@ zero-copy Arrow runtime, or Arrow IPC output surface. `read_avro(...)` and
 or ORC adapter blockers. These are decoded local file smoke adapters, not Avro
 schema-evolution support, ORC stripe/statistics runtime support, or Avro/ORC
 output surfaces. Filters admit scoped comparison,
-cast, date-literal, scoped UTC `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals,
+cast, date-literal, scoped UTC-or-fixed-offset `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)'` literals,
 Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
-`DATE_DAY(...)`, UTC timestamp extract predicates with
+`DATE_DAY(...)`, UTC-or-fixed-offset timestamp extract predicates with
 `TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
 `TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
@@ -688,11 +688,11 @@ columns and finite numeric literals, scoped
 `sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
 `sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")` /
 `.cast("decimal128(10,2)")` / `.try_cast("numeric(10,2)")` / `.cast("binary")`
-projections, and scoped Date32/UTC timestamp extract projections such as
+projections, and scoped Date32/UTC-or-fixed-offset timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
 projections such as `sl.col("event_date").cast("date32").date_add_days(7)` or
-`.date_sub_days(1)`, scoped UTC timestamp second arithmetic projections such as
+`.date_sub_days(1)`, scoped UTC-or-fixed-offset timestamp second arithmetic projections such as
 `sl.col("event_ts").cast("timestamp_micros").timestamp_add_seconds(60)` or
 `.timestamp_sub_seconds(45)`, scoped temporal-difference projections such as
 `sl.col("end_date").cast("date32").date_diff_days(sl.col("start_date"))` or
@@ -719,7 +719,7 @@ numeric expression-tree and temporal-difference predicates emit `generic_express
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
-projections emit `date_arithmetic_projection_*` evidence; UTC timestamp arithmetic predicates and
+projections emit `date_arithmetic_projection_*` evidence; UTC-or-fixed-offset timestamp arithmetic predicates and
 projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
 conditional projections emit

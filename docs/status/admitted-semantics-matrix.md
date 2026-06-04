@@ -32,9 +32,9 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=70
-executable_fixture_count=63
-diagnostic_case_count=7
-unsupported_diagnostic_count=5
+executable_fixture_count=64
+diagnostic_case_count=6
+unsupported_diagnostic_count=4
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -116,7 +116,7 @@ Covered fixture rows:
 - `join_multi_key_expression_condition`
 - `select_distinct_join`
 - `runtime_error_numeric_division_by_zero`
-- `unsupported_non_utc_timestamp_literal`
+- `timestamp_offset_literal_normalization`
 - `unsupported_timezone_database_policy`
 - `unsupported_locale_collation`
 - `unsupported_variant_access`
@@ -132,8 +132,9 @@ subqueries, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level local sub
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
 property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
-deterministic invalid-shape diagnostic because row-value left operands are required. Non-UTC
-timestamp/timezone database semantics, locale/collation,
+deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
+timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source
+runtime. Named timezone database semantics, locale/collation,
 variant/union dtype families, list/struct accessors, complex equality, broad
 binary source dtype decoding, SQL source-column binary ordering without explicit cast, and remaining non-admitted broad ANSI subquery
 shapes now have deterministic unsupported diagnostics with no

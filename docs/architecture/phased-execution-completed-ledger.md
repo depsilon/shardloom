@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D fixed numeric timestamp offset literal/source normalization slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-timestamp-offset-literals` / PR #1077.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/expression-kernel-registry.md`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Admitted fixed numeric ISO timestamp offsets `+HH:MM` / `-HH:MM` for core
+      `timestamp_micros` parsing, SQL `TIMESTAMP` literals, and local-source
+      `timestamp_micros` casts.
+    - Normalized fixed offsets to UTC microseconds before formatting/output while preserving the
+      existing UTC `Z` output boundary.
+    - Kept named timezone database, DST, and locale conversion as deterministic unsupported policy.
+    - Promoted `timestamp_offset_literal_normalization` in the admitted semantics matrix; counts
+      now report 70 rows, 64 executable fixtures, 6 diagnostic cases, and 4 unsupported
+      diagnostics.
+    - Refreshed docs, README/Python README wording, use-case source/generator outputs, and generated
+      website compute-flow/use-case pages.
+  - Evidence:
+    - `cargo test -p shardloom-core timestamp_parser_normalizes_fixed_numeric_offsets_without_time_zone_database -- --nocapture` passed.
+    - `cargo test -p shardloom-cli timestamp_literal -- --nocapture` passed.
+    - `cargo test -p shardloom-cli runs_scoped_timestamp_offset_literal_csv_statement_without_fallback -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test semantic_conformance_suite_snapshots semantic_conformance_suite_rows_cover_required_dimensions_and_blockers -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py` passed and wrote
+      `target/admitted-semantics-matrix-report.json` with `matrix_row_count=70`,
+      `executable_fixture_count=64`, no fallback, no external engine invocation, and no
+      production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-timestamp-offset.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-timestamp-offset.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `python3 scripts/check_release_readiness.py` wrote
+      `target/hard-release-readiness-gate.json` with `status=blocked` and 48 pre-existing
+      release/package/evidence blockers; the admitted-semantics validator itself passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is correctness/admission/docs
+      work and does not make a performance claim.
+  - Claim boundary:
+    - This slice is fixture-smoke correctness evidence for fixed numeric timestamp offset
+      literal/source normalization only. It does not claim named timezone database, DST/locale,
+      broad ANSI timezone, production SQL, benchmark speedup, public performance superiority, or
+      release readiness.
+  - Fallback boundary:
+    - ShardLoom executes the admitted route through its native parser/local-source runtime with
+      `fallback_attempted=false` and `external_engine_invoked=false`; external engines remain
+      unavailable as fallback execution providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast ordering slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-binary-cast-ordering` / PR #1076.

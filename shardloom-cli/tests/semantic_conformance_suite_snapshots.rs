@@ -103,7 +103,7 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     )));
     assert!(output.contains(&field(
         "semantic_row_timestamp_timezone_current_support",
-        "utc_timestamp_micros_fixture_certified_non_utc_blocked"
+        "utc_timestamp_micros_fixture_certified_fixed_offset_normalized"
     )));
     assert!(output.contains(&field(
         "semantic_row_decimal_precision_scale_current_support",

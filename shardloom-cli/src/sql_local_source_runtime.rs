@@ -12294,14 +12294,14 @@ fn coerce_source_column_to_timestamp_micros(
             ScalarValue::Utf8(raw) => {
                 let parsed = parse_iso_timestamp_micros(raw).map_err(|_| {
                     unsupported_sql_error(&format!(
-                        "TIMESTAMP runtime column {column:?} requires UTC ISO YYYY-MM-DDTHH:MM:SS(.ffffff)Z strings or nulls"
+                        "TIMESTAMP runtime column {column:?} requires ISO YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM) strings or nulls"
                     ))
                 })?;
                 *value = ScalarValue::TimestampMicros(parsed);
             }
             other => {
                 return Err(unsupported_sql_error(&format!(
-                    "TIMESTAMP runtime column {column:?} requires UTC ISO timestamp strings or nulls, got {}",
+                    "TIMESTAMP runtime column {column:?} requires ISO timestamp strings with Z or fixed offsets, got {}",
                     other.dtype().as_str()
                 )));
             }
@@ -28149,7 +28149,7 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
         || contains_keyword_outside_quotes(statement, "with time zone")
     {
         return Err(unsupported_sql_error(
-            "timezone database and non-UTC timestamp semantics are not admitted; timestamp literals must stay in scoped UTC timestamp_micros form",
+            "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only",
         ));
     }
     if contains_keyword_outside_quotes(statement, "collate") {
@@ -31979,7 +31979,7 @@ fn parse_between_bound_literal(tokens: &[String]) -> Result<ScalarValue, ShardLo
         }
         [literal_raw] => parse_sql_literal(literal_raw),
         _ => Err(unsupported_sql_error(
-            "BETWEEN bounds admit scalar, DATE 'YYYY-MM-DD', or TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z' literals only",
+            "BETWEEN bounds admit scalar, DATE 'YYYY-MM-DD', or TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)' literals only",
         )),
     }
 }
@@ -32345,7 +32345,7 @@ fn parse_timestamp_arithmetic_predicate(
     };
     if !timestamp_keyword.eq_ignore_ascii_case("timestamp") {
         return Err(unsupported_sql_error(
-            "timestamp arithmetic predicates compare against TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z' literals only",
+            "timestamp arithmetic predicates compare against TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)' literals only",
         ));
     }
     Ok(Some(ParsedPredicate::TimestampArithmeticCompare {
@@ -33133,7 +33133,7 @@ fn parse_sql_timestamp_literal(raw: &str) -> Result<ScalarValue, ShardLoomError>
         .map(ScalarValue::TimestampMicros)
         .map_err(|_| {
             unsupported_sql_error(
-                "TIMESTAMP literals must use TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'",
+                "TIMESTAMP literals must use TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)'",
             )
         })
 }
@@ -42389,7 +42389,7 @@ mod tests {
         for (statement, expected) in [
             (
                 "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' AS local_ts FROM 'target/input.csv' LIMIT 5",
-                "timezone database and non-UTC timestamp semantics are not admitted",
+                "timezone database semantics are not admitted",
             ),
             (
                 "SELECT id,label COLLATE nocase AS folded FROM 'target/input.csv' LIMIT 5",
@@ -42949,16 +42949,61 @@ mod tests {
     }
 
     #[test]
-    fn timestamp_literal_blocks_non_utc_offsets_without_fallback() {
-        let error = parse_sql_local_source_statement(
-            "SELECT id,TIMESTAMP '2026-05-19T12:34:56+00:00' AS offset_ts FROM 'target/input.csv' LIMIT 5",
+    fn runs_scoped_timestamp_offset_literal_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,event_ts\n1,2026-05-19T17:34:55Z\n2,2026-05-19T12:34:56-05:00\n3,2026-05-19T17:35:00Z\n4,\n",
         )
-        .expect_err("offset timestamp literal remains blocked");
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(event_ts AS timestamp_micros) AS event_ts_utc FROM '{}' WHERE CAST(event_ts AS timestamp_micros) >= TIMESTAMP '2026-05-19T12:34:56-05:00' ORDER BY id ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run timestamp offset smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"event_ts_utc\":\"2026-05-19T17:34:56Z\"}\n{\"id\":3,\"event_ts_utc\":\"2026-05-19T17:35:00Z\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "cast_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_source_column", "event_ts");
+        assert_field_eq(&fields, "cast_target_dtype", "timestamp_micros");
+        assert_field_eq(&fields, "cast_mode", "strict");
+        assert_field_eq(&fields, "cast_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_projection_source_column", "event_ts");
+        assert_field_eq(&fields, "cast_projection_output_column", "event_ts_utc");
+        assert_field_eq(&fields, "cast_projection_target_dtype", "timestamp_micros");
+        assert_field_eq(&fields, "cast_projection_mode", "strict");
+        assert_field_eq(&fields, "sort_keys", "id");
+        assert_field_eq(&fields, "sort_direction", "asc");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(path).expect("remove csv source");
+    }
+
+    #[test]
+    fn timestamp_literal_blocks_named_timezones_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' AS local_ts FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("named timezone semantics remain blocked");
 
         assert!(
             error
                 .to_string()
-                .contains("TIMESTAMP literals must use TIMESTAMP")
+                .contains("timezone database semantics are not admitted")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
     }
