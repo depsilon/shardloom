@@ -636,9 +636,10 @@ plan before coding.
   temporal arithmetic/difference, CASE projections, IN-list NULL semantics, scalar IN subqueries,
   grouped COUNT(DISTINCT), hidden aggregate HAVING, mixed window, and multi-key join fixtures
   without fallback or external runtime engines. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
-  binary cast bytewise ordering and scoped feature-gated columnar binary source
-  projection/predicate/order evidence, while binary sinks, broader binary execution, and non-binary
-  source columns compared to binary literals remain deterministic blockers.
+  binary cast bytewise ordering, scoped feature-gated columnar binary source
+  projection/predicate/order evidence, and scoped Parquet/Arrow IPC flat scalar binary sink
+  preservation, while broader binary sinks, broader binary execution, and non-binary source columns
+  compared to binary literals remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,
   timezone database blockers, interval arithmetic outside scoped temporal helpers, and

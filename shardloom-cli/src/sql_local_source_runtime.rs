@@ -2759,6 +2759,7 @@ impl LocalSourceProjectionPushdownStatus {
 #[derive(Debug, Clone, PartialEq)]
 struct LocalSourceReadContent {
     header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
     rows: Vec<ExpressionInputRow>,
     reader_projection_columns: Option<Vec<String>>,
     source_to_columnar_millis: u128,
@@ -2774,8 +2775,10 @@ impl LocalSourceReadContent {
         header: Vec<String>,
         rows: Vec<ExpressionInputRow>,
     ) -> Self {
+        let column_dtypes = vec![None; header.len()];
         Self {
             header,
+            column_dtypes,
             rows,
             reader_projection_columns: None,
             source_to_columnar_millis: 0,
@@ -2789,6 +2792,7 @@ impl LocalSourceReadContent {
     #[cfg(feature = "universal-format-io")]
     fn columnar_then_scalar(
         header: Vec<String>,
+        column_dtypes: Vec<Option<LogicalDType>>,
         rows: Vec<ExpressionInputRow>,
         reader_projection_columns: Vec<String>,
         source_to_columnar_millis: u128,
@@ -2796,6 +2800,7 @@ impl LocalSourceReadContent {
     ) -> Self {
         Self {
             header,
+            column_dtypes,
             rows,
             reader_projection_columns: Some(reader_projection_columns),
             source_to_columnar_millis,
@@ -2812,6 +2817,7 @@ struct CsvSourceData {
     source_adapter: LocalInputAdapterSelection,
     source_format: LocalSourceFormat,
     header: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
     rows: Vec<ExpressionInputRow>,
     read_plan: LocalSourceReadPlan,
     materialized_columns: Vec<String>,
@@ -5177,11 +5183,25 @@ fn output_column_dtypes(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
 ) -> Vec<Option<LogicalDType>> {
-    parsed.output_column_dtypes(&source.header)
+    parsed.output_column_dtypes(&source.header, &source.column_dtypes)
 }
 
 fn scoped_compatibility_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
-    logical_dtype_is_decimal128(dtype).then(|| dtype.clone())
+    (matches!(dtype, LogicalDType::Binary) || logical_dtype_is_decimal128(dtype))
+        .then(|| dtype.clone())
+}
+
+fn source_column_output_dtype_hint(
+    header: &[String],
+    source_dtypes: &[Option<LogicalDType>],
+    column: &str,
+) -> Option<LogicalDType> {
+    header
+        .iter()
+        .position(|candidate| candidate == column)
+        .and_then(|index| source_dtypes.get(index))
+        .and_then(Option::as_ref)
+        .and_then(scoped_compatibility_output_dtype_hint)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8130,7 +8150,9 @@ fn validate_sql_union_column_dtypes(
     );
     let mut dtypes: Vec<Option<LogicalDType>> = vec![None; width];
     for (branch_index, report) in branch_reports.iter().enumerate() {
-        let branch_dtypes = report.parsed.output_column_dtypes(&report.source.header);
+        let branch_dtypes = report
+            .parsed
+            .output_column_dtypes(&report.source.header, &report.source.column_dtypes);
         if branch_dtypes.len() != width {
             return Err(unsupported_sql_error(&format!(
                 "SQL UNION branch {} declared {} dtype hints but first branch width is {}; use matching projections before UNION",
@@ -16228,13 +16250,17 @@ impl ParsedSqlLocalSource {
         }
     }
 
-    fn output_column_dtypes(&self, header: &[String]) -> Vec<Option<LogicalDType>> {
+    fn output_column_dtypes(
+        &self,
+        header: &[String],
+        source_dtypes: &[Option<LogicalDType>],
+    ) -> Vec<Option<LogicalDType>> {
         if self.is_grouped_aggregate() {
             std::iter::repeat_n(None, self.output_columns(header).len()).collect()
         } else if self.is_aggregate() {
             std::iter::repeat_n(None, self.aggregates.len()).collect()
         } else {
-            self.projection_output_dtypes(header)
+            self.projection_output_dtypes(header, source_dtypes)
         }
     }
 
@@ -16283,12 +16309,28 @@ impl ParsedSqlLocalSource {
         output_columns
     }
 
-    fn projection_output_dtypes(&self, header: &[String]) -> Vec<Option<LogicalDType>> {
+    fn projection_output_dtypes(
+        &self,
+        header: &[String],
+        source_dtypes: &[Option<LogicalDType>],
+    ) -> Vec<Option<LogicalDType>> {
         let mut output_dtypes = Vec::new();
         for output in &self.projection_order {
             match output {
                 ParsedProjectionOutput::Raw(column) if column == "*" => {
-                    output_dtypes.extend(std::iter::repeat_n(None, header.len()));
+                    output_dtypes.extend(header.iter().enumerate().map(|(index, _column)| {
+                        source_dtypes
+                            .get(index)
+                            .and_then(Option::as_ref)
+                            .and_then(scoped_compatibility_output_dtype_hint)
+                    }));
+                }
+                ParsedProjectionOutput::Raw(column) => {
+                    output_dtypes.push(source_column_output_dtype_hint(
+                        header,
+                        source_dtypes,
+                        column,
+                    ));
                 }
                 ParsedProjectionOutput::Cast(alias) => output_dtypes.push(
                     self.cast_projections
@@ -16314,8 +16356,7 @@ impl ParsedSqlLocalSource {
                         .find(|projection| projection.alias == *alias)
                         .map(|projection| projection.kind.output_dtype()),
                 ),
-                ParsedProjectionOutput::Raw(_)
-                | ParsedProjectionOutput::Literal(_)
+                ParsedProjectionOutput::Literal(_)
                 | ParsedProjectionOutput::NullCoalesce(_)
                 | ParsedProjectionOutput::NullIf(_)
                 | ParsedProjectionOutput::Conditional(_)
@@ -16328,10 +16369,12 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::Window(_)
                 | ParsedProjectionOutput::StringTransform(_)
                 | ParsedProjectionOutput::StringFunction(_)
-                | ParsedProjectionOutput::BinaryHelper(_)
                 | ParsedProjectionOutput::NumericArithmetic(_)
                 | ParsedProjectionOutput::NumericAbs(_)
                 | ParsedProjectionOutput::NumericRounding(_) => output_dtypes.push(None),
+                ParsedProjectionOutput::BinaryHelper(_) => {
+                    output_dtypes.push(Some(LogicalDType::Binary));
+                }
             }
         }
         output_dtypes
@@ -27314,6 +27357,7 @@ fn read_local_source_with_plan(
     };
     let LocalSourceReadContent {
         header,
+        column_dtypes,
         mut rows,
         reader_projection_columns,
         source_to_columnar_millis,
@@ -27331,6 +27375,7 @@ fn read_local_source_with_plan(
         source_adapter,
         source_format,
         header,
+        column_dtypes,
         rows,
         read_plan: read_plan.clone(),
         materialized_columns,
@@ -27406,6 +27451,7 @@ where
     )?;
     Ok(LocalSourceReadContent::columnar_then_scalar(
         table.header,
+        table.column_dtypes,
         table.rows,
         table.reader_projection_columns,
         source_to_columnar_millis,
@@ -39760,11 +39806,14 @@ mod tests {
         )
         .expect("decimal generic expression statement parses");
         assert_eq!(
-            parsed.output_column_dtypes(&[
-                "id".to_string(),
-                "amount".to_string(),
-                "raw_amount".to_string()
-            ]),
+            parsed.output_column_dtypes(
+                &[
+                    "id".to_string(),
+                    "amount".to_string(),
+                    "raw_amount".to_string()
+                ],
+                &[None, None, None]
+            ),
             vec![None, Some(decimal128_dtype(11, 2))]
         );
 

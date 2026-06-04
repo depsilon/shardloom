@@ -1727,6 +1727,62 @@ fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
 }
 
 #[cfg(feature = "universal-format-io")]
+fn write_binary_arrow_ipc_smoke_source(path: &std::path::Path) {
+    use arrow_array::{BinaryArray, Int64Array, RecordBatch};
+    use arrow_ipc::writer::FileWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("payload", DataType::Binary, true),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+            Arc::new(BinaryArray::from(vec![
+                Some(&[0x00, 0xff, 0x10][..]),
+                None,
+                Some(&[0x01, 0x02][..]),
+                Some(&b"raw"[..]),
+            ])),
+        ],
+    )
+    .expect("binary record batch");
+    let file = File::create(path).expect("create binary arrow ipc source");
+    let mut writer = FileWriter::try_new(file, &schema).expect("arrow ipc writer");
+    writer.write(&batch).expect("write binary arrow ipc batch");
+    writer.finish().expect("finish binary arrow ipc writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_all_null_binary_arrow_ipc_smoke_source(path: &std::path::Path) {
+    use arrow_array::{BinaryArray, RecordBatch};
+    use arrow_ipc::writer::FileWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "payload",
+        DataType::Binary,
+        true,
+    )]));
+    let values: Vec<Option<&[u8]>> = vec![None, None, None];
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(BinaryArray::from(values))],
+    )
+    .expect("all-null binary record batch");
+    let file = File::create(path).expect("create all-null binary arrow ipc source");
+    let mut writer = FileWriter::try_new(file, &schema).expect("arrow ipc writer");
+    writer
+        .write(&batch)
+        .expect("write all-null binary arrow ipc batch");
+    writer
+        .finish()
+        .expect("finish all-null binary arrow ipc writer");
+}
+
+#[cfg(feature = "universal-format-io")]
 fn write_avro_smoke_source(path: &std::path::Path) {
     use arrow_array::{BooleanArray, Int64Array, RecordBatch, StringArray};
     use arrow_avro::writer::AvroWriter;
@@ -5440,6 +5496,160 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(parquet_output_path).expect("remove parquet fanout");
     fs::remove_file(arrow_output_path).expect("remove arrow fanout");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_preserves_binary_parquet_and_arrow_ipc_sinks() {
+    let source_path = unique_path("sql-local-source-binary-sink-source", "arrow");
+    let parquet_output_path = unique_path("sql-local-source-binary-sink", "parquet");
+    let arrow_output_path = unique_path("sql-local-source-binary-sink", "arrow");
+    write_binary_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT id,payload FROM '{}' WHERE payload >= X'00' ORDER BY payload ASC LIMIT 3",
+        source_path.display()
+    );
+    let parquet_target = format!("parquet={}", parquet_output_path.display());
+    let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &parquet_target,
+            "--fanout-output",
+            &arrow_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parquet =
+        shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
+    let arrow =
+        shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
+    for table in [&parquet, &arrow] {
+        assert_eq!(table.header, vec!["id", "payload"]);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(
+            table.rows[0].get("payload"),
+            Some(&shardloom_core::ScalarValue::Binary(vec![0x00, 0xff, 0x10]))
+        );
+        assert_eq!(
+            table.rows[1].get("payload"),
+            Some(&shardloom_core::ScalarValue::Binary(vec![0x01, 0x02]))
+        );
+        assert_eq!(
+            table.rows[2].get("payload"),
+            Some(&shardloom_core::ScalarValue::Binary(b"raw".to_vec()))
+        );
+    }
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("source_format", "arrow_ipc")));
+    assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains(&field("predicate_operator_family", "comparison")));
+    assert!(stdout.contains(&field("binary_source_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "binary_source_ordering_predicate_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "parquet:none,arrow_ipc:none"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source arrow");
+    fs::remove_file(parquet_output_path).expect("remove parquet output");
+    fs::remove_file(arrow_output_path).expect("remove arrow output");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
+    use arrow_schema::DataType;
+
+    let source_path = unique_path("sql-local-source-all-null-binary-source", "arrow");
+    let parquet_output_path = unique_path("sql-local-source-all-null-binary-sink", "parquet");
+    let arrow_output_path = unique_path("sql-local-source-all-null-binary-sink", "arrow");
+    write_all_null_binary_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!("SELECT payload FROM '{}' LIMIT 3", source_path.display());
+    let parquet_target = format!("parquet={}", parquet_output_path.display());
+    let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &parquet_target,
+            "--fanout-output",
+            &arrow_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let parquet_file = File::open(&parquet_output_path).expect("open parquet output");
+    let parquet_builder =
+        parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(parquet_file)
+            .expect("parquet reader builder");
+    let parquet_schema = parquet_builder.schema();
+    assert_eq!(parquet_schema.field(0).data_type(), &DataType::Binary);
+
+    let arrow_file = File::open(&arrow_output_path).expect("open arrow output");
+    let arrow_reader =
+        arrow_ipc::reader::FileReader::try_new(arrow_file, None).expect("arrow ipc reader");
+    assert_eq!(
+        arrow_reader.schema().field(0).data_type(),
+        &DataType::Binary
+    );
+
+    let parquet =
+        shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
+    let arrow =
+        shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
+    for table in [&parquet, &arrow] {
+        assert_eq!(table.header, vec!["payload"]);
+        assert_eq!(table.rows.len(), 3);
+        for row in &table.rows {
+            assert_eq!(row.get("payload"), Some(&shardloom_core::ScalarValue::Null));
+        }
+    }
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("source_format", "arrow_ipc")));
+    assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "parquet:none,arrow_ipc:none"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove all-null binary source arrow");
+    fs::remove_file(parquet_output_path).expect("remove all-null parquet output");
+    fs::remove_file(arrow_output_path).expect("remove all-null arrow output");
 }
 
 #[cfg(not(feature = "universal-format-io"))]

@@ -186,9 +186,13 @@ invalid-input blockers. The feature-gated local columnar materialization boundar
 binary byte-array source columns as `ScalarValue::Binary` for direct projection, with null
 propagation and JSONL/CSV `binary[hex=...]` result evidence; the executable CLI proof covers Arrow
 IPC, and the shared materializer covers Arrow `Binary`, `LargeBinary`, `FixedSizeBinary`, and
-`BinaryView` arrays surfaced by admitted local structured readers. Binary sink preservation, broader
-binary execution beyond scoped source projection/predicate/order plus explicit casts/helpers, and
-nested binary helper expressions remain outside the claim boundary. Scoped
+`BinaryView` arrays surfaced by admitted local structured readers. Feature-gated Parquet/Arrow IPC
+flat scalar compatibility sinks preserve admitted binary byte payloads from SQL result batches,
+including all-null Arrow IPC binary source columns with source-schema dtype evidence, with focused
+SQL fanout and writer round-trip evidence. Binary sink preservation outside those scoped Parquet/Arrow
+IPC outputs, broader binary execution beyond scoped source projection/predicate/order plus explicit
+casts/helpers, and nested binary helper expressions remain outside the claim boundary.
+Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
 fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`
