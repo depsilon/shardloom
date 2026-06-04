@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex DISTINCT/UNION DISTINCT equality slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-complex-distinct-equality` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/diagnostics-capabilities.md`.
+  - Scope:
+    - Promoted scoped `SELECT DISTINCT` over already-materialized `ARRAY[...]` literal and
+      `STRUCT(<source column>, ...)` projection values through ShardLoom-owned structural
+      result-row equality.
+    - Promoted scoped `UNION DISTINCT` over matching branch `ARRAY[...]` / `STRUCT(...)`
+      projection values while preserving branch dtype checks, output `ORDER BY` over scalar keys,
+      and no-fallback evidence.
+    - Removed the old broad blockers that rejected all DISTINCT/UNION DISTINCT complex projection
+      rows, while keeping complex ordering by complex values, list/struct accessors, casts,
+      subquery membership materialization, joins over complex keys, nested source decoding, and
+      non-JSONL flat/structured sinks outside the claim boundary.
+    - Added admitted-semantics matrix rows `complex_distinct_projection_equality` and
+      `sql_union_complex_distinct_equality`, raising the current matrix to 77 rows and 66
+      executable fixtures with diagnostic counts unchanged.
+    - Refreshed release-readiness expected counts, admitted-semantics docs, current architecture
+      summaries, phase-plan next-slice wording, compute-flow references, and generated website
+      compute-flow pages.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `cargo test -p shardloom-cli scalar_distinct_key_is_length_delimited_for_complex_values -- --nocapture` passed.
+    - `cargo test -p shardloom-cli complex_projection -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-complex-distinct-equality.json` passed with `matrix_row_count=77`, `executable_fixture_count=66`, `diagnostic_case_count=11`, `unsupported_diagnostic_count=9`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-complex-distinct-equality.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-complex-distinct-equality.json` passed.
+    - `python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-complex-distinct-equality.json --output target/hard-release-readiness-complex-distinct-equality.json` wrote `status=blocked` with 48 standing release/package/evidence blockers and no admitted-semantics count blockers.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is scoped runtime semantics,
+      release-matrix, and website/status documentation work and does not make a performance claim.
+  - Claim boundary:
+    - This slice admits only scoped structural equality for `SELECT DISTINCT` and `UNION DISTINCT`
+      result-boundary rows whose complex values are already produced by admitted `ARRAY[...]` and
+      `STRUCT(<source column>, ...)` projections. It does not claim broad complex comparison,
+      complex ordering, list/struct accessors, complex casts, subquery membership materialization,
+      joins over complex keys, nested source decoding, flat/structured sink persistence, production
+      SQL, benchmark speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source SQL runtime with `fallback_attempted=false`
+      and `external_engine_invoked=false`; external engines remain unavailable as fallback
+      execution providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D binary source predicate/order deterministic diagnostic slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-binary-source-diagnostics` / PR #1080.

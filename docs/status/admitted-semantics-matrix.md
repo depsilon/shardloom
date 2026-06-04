@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=75
-executable_fixture_count=64
+matrix_row_count=77
+executable_fixture_count=66
 diagnostic_case_count=11
 unsupported_diagnostic_count=9
 runtime_error_diagnostic_count=1
@@ -71,6 +71,8 @@ Covered fixture rows:
 - `binary_text_literal_projection`
 - `complex_array_literal_projection`
 - `complex_struct_source_projection`
+- `complex_distinct_projection_equality`
+- `sql_union_complex_distinct_equality`
 - `binary_cast_projection_predicate`
 - `binary_cast_ordering_predicate`
 - `decimal_cast_projection_predicate`
@@ -142,13 +144,15 @@ timestamp offsets are now normalized into UTC timestamp_micros through the scope
 runtime. Named timezone database conversion syntax, timezone conversion functions,
 `TIMESTAMPTZ`/timestamp-with-local-time-zone type spellings, `COLLATE`, and `ILIKE`
 locale/case-folding comparisons now have deterministic unsupported diagnostics. Variant/union
-dtype families, list/struct accessors, complex equality, direct binary literal predicates over
+dtype families, list/struct accessors, complex ordering, direct binary literal predicates over
 source columns, source-column binary ordering without explicit cast, and remaining non-admitted
 broad ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback. Scoped
 `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
-executable through the JSONL result boundary only; nested source decoding, complex equality,
-subquery membership materialization, and flat/structured sink persistence remain outside the claim
-boundary.
+executable through the JSONL result boundary only. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
+over those already-materialized ARRAY/STRUCT projection values are executable through structural
+result-row equality. Nested source decoding, complex ordering, list/struct accessors or casts,
+complex subquery membership materialization, joins over complex keys, and flat/structured sink
+persistence remain outside the claim boundary.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact

@@ -567,7 +567,7 @@ def complex_array_literal_projection_case() -> SqlFixtureCase:
             "complex_projection_output_dtype": "list",
             "complex_projection_source_column": "not_applicable",
             "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_equality_semantics": "not_admitted_distinct_join_membership_or_subquery_equality",
+            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
             "projected_columns": "id,values",
             "claim_gate_status": "fixture_smoke_only",
         },
@@ -593,8 +593,77 @@ def complex_struct_source_projection_case() -> SqlFixtureCase:
             "complex_projection_output_dtype": "struct",
             "complex_projection_source_column": "label,amount",
             "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_equality_semantics": "not_admitted_distinct_join_membership_or_subquery_equality",
+            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
             "projected_columns": "id,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def complex_distinct_projection_equality_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="complex_distinct_projection_equality",
+        source_name="complex-distinct.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,alpha,8\n3,beta,\n",
+        statement_template=(
+            "SELECT DISTINCT label,STRUCT(label, amount) AS payload,ARRAY[1,2,NULL] AS values "
+            "FROM '{source}' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"label":"alpha","payload":{"label":"alpha","amount":8},"values":[1,2,null]}\n'
+            '{"label":"beta","payload":{"label":"beta","amount":null},"values":[1,2,null]}\n'
+        ),
+        expected_fields={
+            "distinct_projection_runtime_execution": "true",
+            "distinct_projection_output_columns": "label,payload,values",
+            "distinct_projection_input_row_count": "3",
+            "distinct_projection_output_row_count": "2",
+            "complex_projection_runtime_execution": "true",
+            "complex_projection_columns": "payload,values",
+            "complex_projection_count": "2",
+            "complex_projection_kind": "struct_source_columns,array_literal",
+            "complex_projection_output_dtype": "struct,list",
+            "complex_projection_source_column": "label,amount",
+            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
+            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
+            "projected_columns": "label,payload,values",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def sql_union_complex_distinct_equality_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_union_complex_distinct_equality",
+        source_name="complex-union-left.csv",
+        source_text="id,label\n1,alpha\n2,beta\n",
+        auxiliary_sources=(
+            (
+                "right",
+                "complex-union-right.csv",
+                "id,label\n1,alpha\n3,gamma\n",
+            ),
+        ),
+        statement_template=(
+            "SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{source}' "
+            "UNION SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{right}' "
+            "ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"values":[1],"payload":{"label":"alpha"}}\n'
+            '{"id":2,"values":[1],"payload":{"label":"beta"}}\n'
+            '{"id":3,"values":[1],"payload":{"label":"gamma"}}\n'
+        ),
+        expected_fields={
+            "sql_union_runtime_execution": "true",
+            "sql_union_mode": "distinct",
+            "sql_union_branch_count": "2",
+            "sql_union_input_row_count": "4",
+            "sql_union_distinct_input_row_count": "3",
+            "sql_union_output_row_count": "3",
+            "sql_union_order_by_runtime_execution": "true",
+            "sort_keys": "id",
+            "sort_direction": "asc",
             "claim_gate_status": "fixture_smoke_only",
         },
     )
@@ -2775,6 +2844,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         binary_text_literal_projection_case(),
         complex_array_literal_projection_case(),
         complex_struct_source_projection_case(),
+        complex_distinct_projection_equality_case(),
+        sql_union_complex_distinct_equality_case(),
         binary_cast_projection_predicate_case(),
         binary_cast_ordering_predicate_case(),
         decimal_cast_projection_predicate_case(),
