@@ -953,30 +953,131 @@ class ReleaseScriptTests(unittest.TestCase):
             "promote_benchmark_sparse_exclusive_split_for_test",
         )
 
-        row = {
+        cases = [
+            ({}, None, None),
+            (
+                {"vortex_scan_millis": 0.25},
+                "vortex_scan_ms",
+                0.25,
+            ),
+            (
+                {"operator_compute_millis": 0.75},
+                "operator_compute_ms",
+                0.75,
+            ),
+        ]
+
+        for sparse_metrics, one_sided_field, one_sided_value in cases:
+            with self.subTest(sparse_metrics=sparse_metrics):
+                row = {
+                    "engine": "shardloom-vortex",
+                    "route_lane_id": "warm_prepared_query",
+                    "status": "success",
+                    "metrics": {
+                        "total_runtime_millis": 10.0,
+                        "query_runtime_millis": 9.0,
+                        "result_sink_write_millis": 1.0,
+                        **sparse_metrics,
+                    },
+                }
+
+                stage_fields = module.route_stage_fields_for_row(row)
+
+                self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
+                self.assertEqual(
+                    stage_fields["exclusive_stage_timing_status"],
+                    "blocked_missing_query_split",
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_stage_ids"],
+                    "sink_output,evidence_render",
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_stage_sum_ms"],
+                    1.0,
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_residual_ms"],
+                    9.0,
+                )
+                if one_sided_field is not None:
+                    self.assertEqual(stage_fields[one_sided_field], one_sided_value)
+
+    def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_evidence_render_proof_for_test",
+        )
+
+        shardloom_row = {
             "engine": "shardloom-vortex",
-            "route_lane_id": "warm_prepared_query",
+            "storage_format": "csv",
+            "scenario_name": "evidence render proof",
             "status": "success",
-            "metrics": {
-                "total_runtime_millis": 10.0,
-                "query_runtime_millis": 9.0,
-                "result_sink_write_millis": 1.0,
-            },
+            "claim_gate_status": "claim_grade",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            **self._shardloom_benchmark_route_fields("shardloom-vortex"),
+        }
+        external_row = {
+            "engine": "pandas",
+            "storage_format": "csv",
+            "scenario_name": "external baseline proof",
+            "status": "success",
+            "claim_gate_status": "external_baseline_only",
+            "external_baseline_only": True,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            **self._external_benchmark_route_fields("pandas"),
         }
 
-        stage_fields = module.route_stage_fields_for_row(row)
+        shardloom_published, external_published = (
+            module.published_rows_with_current_route_timing_ledger(
+                [shardloom_row, external_row]
+            )
+        )
 
-        self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
         self.assertEqual(
-            stage_fields["exclusive_stage_timing_status"],
-            "blocked_missing_query_split",
+            shardloom_published["evidence_render_proof_schema_version"],
+            "shardloom.traditional_analytics.evidence_render_proof.v1",
         )
         self.assertEqual(
-            stage_fields["route_timing_exclusive_stage_ids"],
-            "sink_output,evidence_render",
+            shardloom_published["evidence_render_proof_status"],
+            "compact_machine_evidence_derived",
         )
-        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 1.0)
-        self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 9.0)
+        self.assertTrue(
+            str(shardloom_published["evidence_render_proof_digest"]).startswith(
+                "sha256:"
+            )
+        )
+        self.assertEqual(
+            shardloom_published["evidence_render_hot_path_policy"],
+            "compact_facts_only_human_render_deferred",
+        )
+        self.assertEqual(
+            shardloom_published["evidence_render_route_timing_boundary"],
+            "route_total_includes_evidence_render_timing",
+        )
+        self.assertFalse(shardloom_published["evidence_render_fallback_attempted"])
+        self.assertFalse(
+            shardloom_published["evidence_render_external_engine_invoked"]
+        )
+        self.assertEqual(
+            external_published["evidence_render_proof_status"],
+            "external_baseline_only",
+        )
+        self.assertEqual(
+            external_published["evidence_render_proof_digest"],
+            "external_baseline_only",
+        )
+
+        proof_table = module.evidence_render_proof_table([shardloom_published])
+        self.assertEqual(
+            proof_table["schema_version"],
+            "shardloom.traditional_analytics.evidence_render_proof.v1",
+        )
+        self.assertEqual(proof_table["rows"][0][0], "compact_machine_evidence_derived")
+        self.assertEqual(proof_table["rows"][0][1], 1)
 
     def test_benchmark_promoter_derives_prepare_once_first_query_route(self) -> None:
         module = self._load_script_module(
@@ -1066,6 +1167,19 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_timing_total_delta_ms"],
             0.0,
+        )
+        self.assertEqual(
+            by_lane["prepare_once_first_query"]["evidence_render_proof_status"],
+            "compact_machine_evidence_derived",
+        )
+        self.assertTrue(
+            str(
+                by_lane["prepare_once_first_query"]["evidence_render_proof_digest"]
+            ).startswith("sha256:")
+        )
+        self.assertNotEqual(
+            by_lane["prepare_once_first_query"]["evidence_render_proof_digest"],
+            by_lane["prepare_once_batch"]["evidence_render_proof_digest"],
         )
 
         amortization = module.prepared_route_amortization_table(rows)
@@ -3478,6 +3592,16 @@ jobs:
                     <tr><td>linked_certified_runtime_execution</td></tr>
                   </table>
                   <p>shardloom.route_fast_path_attribution.v1</p>
+                </section>
+                <section>
+                  <h2>Evidence-render proof</h2>
+                  <p>Human benchmark evidence is regenerated from compact facts.</p>
+                  <table>
+                    <caption>Evidence-Render Proof Regeneration</caption>
+                    <tr><th>Status</th><th>Rows</th></tr>
+                    <tr><td>compact_machine_evidence_derived</td><td>1</td></tr>
+                  </table>
+                  <p>shardloom.traditional_analytics.evidence_render_proof.v1</p>
                 </section>
                 <section>
                   <h2>Operator mode inventory</h2>

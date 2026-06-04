@@ -67,6 +67,14 @@ const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.runtime_evidence_level.v1";
+const SOURCE_ADMISSION_PACKET_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_admission_packet.v1";
+const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
+const RESULT_SINK_CAPILLARY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.result_sink_capillary.v1";
+const EVIDENCE_RENDER_PROOF_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.evidence_render_proof.v1";
 const PREPARED_STATE_REUSE_SCOPE_CREATED_NOT_REUSED: &str = "prepared_state_created_not_reused";
 const PREPARED_STATE_REUSE_SCOPE_EXPLICIT_INPUT: &str = "explicit_prepared_state_input";
 const PREPARED_STATE_REUSE_SCOPE_IN_PROCESS: &str = "in_process_prepared_batch_vortex_artifacts";
@@ -1547,6 +1555,7 @@ impl TraditionalDateNullMetricState {
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalVortexBatchSourceState {
     source_snapshot: TraditionalVortexSourceSnapshot,
+    dim_rows: u64,
     dimension_label_state: Option<TraditionalDimensionLabelState>,
     dimension_label_state_consumer_count: usize,
     category_metric_state: Option<TraditionalCategoryMetricState>,
@@ -1632,6 +1641,31 @@ fn date_null_metric_state_reuse_status_for_consumer_count(consumer_count: usize)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scenario_uses_cached_dim_row_count_in_batch(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::CsvFileIngest
+            | TraditionalAnalyticsScenario::ManySmallFilesScan
+            | TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+            | TraditionalAnalyticsScenario::PartitionPruning
+            | TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
+            | TraditionalAnalyticsScenario::CleanCastFilterWrite
+            | TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv
+            | TraditionalAnalyticsScenario::NestedJsonFieldScan
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::WideProjection
+            | TraditionalAnalyticsScenario::FilterProjectionLimit
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalVortexBatchSourceState {
     fn from_paths(
         fact_vortex: &std::path::Path,
@@ -1650,6 +1684,10 @@ impl TraditionalVortexBatchSourceState {
         } else {
             Some(TraditionalDimensionLabelState::from_path(dim_vortex)?)
         };
+        let dim_rows = dimension_label_state.as_ref().map_or_else(
+            || vortex_file_row_count(dim_vortex),
+            |state| Ok(state.stats.source_row_count),
+        )?;
         let category_metric_state_consumer_count = scenarios
             .iter()
             .filter(|scenario| category_metric_state_reuse_candidate(**scenario))
@@ -1715,6 +1753,7 @@ impl TraditionalVortexBatchSourceState {
         };
         Ok(Self {
             source_snapshot,
+            dim_rows,
             dimension_label_state,
             dimension_label_state_consumer_count,
             category_metric_state,
@@ -1779,6 +1818,13 @@ impl TraditionalVortexBatchSourceState {
             + self.selective_filter_state_recompute_avoided_count()
             + self.dirty_input_state_recompute_avoided_count()
             + self.date_null_metric_state_recompute_avoided_count()
+    }
+
+    fn dim_row_count_cache_consumer_count(scenarios: &[TraditionalAnalyticsScenario]) -> usize {
+        scenarios
+            .iter()
+            .filter(|scenario| scenario_uses_cached_dim_row_count_in_batch(**scenario))
+            .count()
     }
 
     fn dimension_label_state_reuse_status(&self) -> &'static str {
@@ -1885,6 +1931,7 @@ impl TraditionalVortexBatchSourceState {
                 .as_bytes(),
         );
         digest.update(self.source_snapshot.dim_vortex_bytes.to_string().as_bytes());
+        digest.update(self.dim_rows.to_string().as_bytes());
         digest.update(
             self.source_snapshot
                 .cdc_delta_vortex_bytes
@@ -2383,6 +2430,232 @@ pub struct TraditionalVortexLayoutAdvisorReport {
     pub external_engine_invoked: bool,
 }
 
+/// Schema-stable evidence for the tiny result-sink route used by benchmark
+/// rows that request native Vortex result output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalResultSinkCapillaryEvidence {
+    pub schema_version: String,
+    pub status: String,
+    pub route: String,
+    pub provider_classification: String,
+    pub provider_surface: String,
+    pub result_json_bytes: u64,
+    pub result_json_digest: Option<String>,
+    pub replay_result_json_digest: Option<String>,
+    pub native_vortex_output_selected: bool,
+    pub scalar_json_output_selected: bool,
+    pub compatibility_fanout_selected: bool,
+    pub materialization_strategy: String,
+    pub replay_strategy: String,
+    pub metadata_loss_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl TraditionalResultSinkCapillaryEvidence {
+    fn not_requested(compatibility_fanout_selected: bool) -> Self {
+        Self {
+            schema_version: RESULT_SINK_CAPILLARY_SCHEMA_VERSION.to_string(),
+            status: "not_requested".to_string(),
+            route: "none".to_string(),
+            provider_classification: "not_applicable_no_result_sink".to_string(),
+            provider_surface: "none".to_string(),
+            result_json_bytes: 0,
+            result_json_digest: None,
+            replay_result_json_digest: None,
+            native_vortex_output_selected: false,
+            scalar_json_output_selected: false,
+            compatibility_fanout_selected,
+            materialization_strategy: "not_requested".to_string(),
+            replay_strategy: "not_requested".to_string(),
+            metadata_loss_status: if compatibility_fanout_selected {
+                "result_sink_not_requested_compatibility_fanout_separate_export_boundary"
+            } else {
+                "not_applicable_no_result_sink"
+            }
+            .to_string(),
+            claim_boundary: result_sink_capillary_claim_boundary().to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn from_verified_sink(
+        sink: &TraditionalComputedResultSinkVerification,
+        compatibility_fanout_selected: bool,
+    ) -> Self {
+        Self {
+            schema_version: RESULT_SINK_CAPILLARY_SCHEMA_VERSION.to_string(),
+            status: "native_vortex_result_sink_written_replay_verified".to_string(),
+            route: sink.capillary_plan.route.clone(),
+            provider_classification: "use_vortex_native_provider".to_string(),
+            provider_surface:
+                "upstream_vortex_writer_via_shardloom_traditional_vortex_io_context".to_string(),
+            result_json_bytes: sink.capillary_plan.result_json_bytes,
+            result_json_digest: Some(sink.capillary_plan.result_json_digest.clone()),
+            replay_result_json_digest: Some(sink.replay_result_json_digest.clone()),
+            native_vortex_output_selected: sink.capillary_plan.native_vortex_output_selected,
+            scalar_json_output_selected: sink.capillary_plan.scalar_json_output_selected,
+            compatibility_fanout_selected,
+            materialization_strategy: sink.capillary_plan.materialization_strategy.clone(),
+            replay_strategy: sink.capillary_plan.replay_strategy.clone(),
+            metadata_loss_status: if compatibility_fanout_selected {
+                "none_for_native_vortex_result_sink; compatibility_fanout_is_separate_export_boundary"
+            } else {
+                "none_for_native_vortex_result_sink"
+            }
+            .to_string(),
+            claim_boundary: result_sink_capillary_claim_boundary().to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "result_sink_capillary_schema_version".to_string(),
+                self.schema_version.clone(),
+            ),
+            (
+                "result_sink_capillary_status".to_string(),
+                self.status.clone(),
+            ),
+            (
+                "result_sink_capillary_route".to_string(),
+                self.route.clone(),
+            ),
+            (
+                "result_sink_capillary_provider_classification".to_string(),
+                self.provider_classification.clone(),
+            ),
+            (
+                "result_sink_capillary_provider_surface".to_string(),
+                self.provider_surface.clone(),
+            ),
+            (
+                "result_sink_capillary_result_json_bytes".to_string(),
+                self.result_json_bytes.to_string(),
+            ),
+            (
+                "result_sink_capillary_result_json_digest".to_string(),
+                self.result_json_digest
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "result_sink_capillary_replay_result_json_digest".to_string(),
+                self.replay_result_json_digest
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            ),
+            (
+                "result_sink_capillary_native_vortex_output_selected".to_string(),
+                self.native_vortex_output_selected.to_string(),
+            ),
+            (
+                "result_sink_capillary_scalar_json_output_selected".to_string(),
+                self.scalar_json_output_selected.to_string(),
+            ),
+            (
+                "result_sink_capillary_compatibility_fanout_selected".to_string(),
+                self.compatibility_fanout_selected.to_string(),
+            ),
+            (
+                "result_sink_capillary_materialization_strategy".to_string(),
+                self.materialization_strategy.clone(),
+            ),
+            (
+                "result_sink_capillary_replay_strategy".to_string(),
+                self.replay_strategy.clone(),
+            ),
+            (
+                "result_sink_capillary_metadata_loss_status".to_string(),
+                self.metadata_loss_status.clone(),
+            ),
+            (
+                "result_sink_capillary_claim_boundary".to_string(),
+                self.claim_boundary.clone(),
+            ),
+            (
+                "result_sink_capillary_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "result_sink_capillary_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+}
+
+fn result_sink_capillary_claim_boundary() -> &'static str {
+    "result sink capillary evidence is local benchmark sink attribution only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is authorized"
+}
+
+fn evidence_render_proof_fields(
+    scenario: TraditionalAnalyticsScenario,
+    route_kind: &str,
+    runtime_certificate_status: &str,
+    native_io_certificate_status: &str,
+    result_sink_certificate_status: &str,
+) -> Vec<(String, String)> {
+    let proof_digest = route_evidence_digest(&[
+        EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+        scenario.as_str(),
+        route_kind,
+        runtime_certificate_status,
+        native_io_certificate_status,
+        result_sink_certificate_status,
+    ]);
+    vec![
+        (
+            "evidence_render_proof_schema_version".to_string(),
+            EVIDENCE_RENDER_PROOF_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "evidence_render_proof_status".to_string(),
+            "compact_machine_evidence_available".to_string(),
+        ),
+        ("evidence_render_proof_digest".to_string(), proof_digest),
+        (
+            "evidence_render_compact_fact_keys".to_string(),
+            "scenario,route_kind,runtime_execution_certificate_status,native_io_certificate_status,result_sink_certificate_status,claim_gate_status".to_string(),
+        ),
+        (
+            "evidence_render_regeneration_surface".to_string(),
+            "rust_fields_to_promoter_fast_path_table_and_website_human_tables".to_string(),
+        ),
+        (
+            "evidence_render_human_expansion_timing_scope".to_string(),
+            "outside_rust_timed_route_promoter_or_website_render".to_string(),
+        ),
+        (
+            "evidence_render_hot_path_policy".to_string(),
+            "compact_facts_only_human_render_deferred".to_string(),
+        ),
+        (
+            "evidence_render_route_timing_boundary".to_string(),
+            "evidence_render_micros_not_measured_in_rust_cli_report".to_string(),
+        ),
+        (
+            "evidence_render_claim_boundary".to_string(),
+            "compact evidence-render proof is local benchmark attribution only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is authorized".to_string(),
+        ),
+        (
+            "evidence_render_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "evidence_render_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
 /// Report emitted by the local compatibility-to-Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -2440,6 +2713,8 @@ pub struct TraditionalAnalyticsReport {
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
     pub source_state_record_batch_count: usize,
+    pub source_state_projection_aware_text_decode: bool,
+    pub source_state_row_assembly_strategy: String,
     pub compatibility_to_vortex_import_micros: u64,
     pub compatibility_to_vortex_import_timing_scope: String,
     pub vortex_array_build_micros: u64,
@@ -2465,6 +2740,7 @@ pub struct TraditionalAnalyticsReport {
     pub computed_result_sink_replay_result_json: Option<String>,
     pub computed_result_sink_native_io_certificate_id: Option<String>,
     pub computed_result_sink_native_io_certificate_status: Option<String>,
+    pub result_sink_capillary_evidence: TraditionalResultSinkCapillaryEvidence,
     pub runtime_task_graph_created: bool,
     pub runtime_task_graph_executed: bool,
     pub runtime_scheduler_mode: String,
@@ -2558,6 +2834,8 @@ struct TraditionalVortexWriteTiming {
     array_build_micros: u64,
     vortex_write_micros: u64,
     artifact_digest: Option<String>,
+    artifact_bytes: Option<u64>,
+    artifact_rows: Option<u64>,
     array_build_provider_kind: &'static str,
     array_build_provider_surface: &'static str,
     array_build_strategy: &'static str,
@@ -2627,6 +2905,8 @@ impl TraditionalVortexWriteTiming {
             array_build_micros,
             vortex_write_micros,
             artifact_digest: None,
+            artifact_bytes: None,
+            artifact_rows: None,
             array_build_provider_kind: Self::VORTEX_RECORD_BATCH_PROVIDER_KIND,
             array_build_provider_surface: Self::VORTEX_RECORD_BATCH_PROVIDER_SURFACE,
             array_build_strategy,
@@ -2644,6 +2924,16 @@ impl TraditionalVortexWriteTiming {
                 other.vortex_write_micros,
             )?,
             artifact_digest: None,
+            artifact_bytes: merge_optional_vortex_write_u64(
+                self.artifact_bytes,
+                other.artifact_bytes,
+                "traditional analytics Vortex artifact byte count",
+            )?,
+            artifact_rows: merge_optional_vortex_write_u64(
+                self.artifact_rows,
+                other.artifact_rows,
+                "traditional analytics Vortex artifact row count",
+            )?,
             array_build_provider_kind: merge_static_evidence_field(
                 self.array_build_provider_kind,
                 other.array_build_provider_kind,
@@ -2687,6 +2977,30 @@ fn vortex_write_artifact_digest(
             "traditional analytics {label} writer did not return an artifact digest; no fallback execution was attempted"
         ))
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn vortex_write_artifact_bytes(timing: &TraditionalVortexWriteTiming, label: &str) -> Result<u64> {
+    timing.artifact_bytes.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "traditional analytics {label} writer did not return artifact bytes; no fallback execution was attempted"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn merge_optional_vortex_write_u64(
+    left: Option<u64>,
+    right: Option<u64>,
+    label: &str,
+) -> Result<Option<u64>> {
+    match (left, right) {
+        (Some(left), Some(right)) => Ok(Some(checked_u64_sum(left, right)?)),
+        (None, None) => Ok(None),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "{label} metadata source mismatch while merging Vortex write timing; no fallback execution was attempted"
+        ))),
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2810,6 +3124,7 @@ struct TraditionalSourceReadEvidence {
     columnar_preserved: bool,
     direct_vortex_provider_batch: bool,
     text_vortex_provider_batch: bool,
+    projection_aware_text_decode: bool,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2824,6 +3139,7 @@ impl TraditionalSourceReadEvidence {
             columnar_preserved: false,
             direct_vortex_provider_batch: false,
             text_vortex_provider_batch: false,
+            projection_aware_text_decode: false,
         }
     }
 
@@ -2841,6 +3157,7 @@ impl TraditionalSourceReadEvidence {
             columnar_preserved: true,
             direct_vortex_provider_batch: false,
             text_vortex_provider_batch: false,
+            projection_aware_text_decode: false,
         })
     }
 
@@ -2858,6 +3175,7 @@ impl TraditionalSourceReadEvidence {
             columnar_preserved: true,
             direct_vortex_provider_batch: true,
             text_vortex_provider_batch: false,
+            projection_aware_text_decode: false,
         })
     }
 
@@ -2865,6 +3183,7 @@ impl TraditionalSourceReadEvidence {
         parse_micros: u64,
         columnar_micros: u64,
         record_batch_count: usize,
+        projection_aware_text_decode: bool,
     ) -> Result<Self> {
         Ok(Self {
             read_micros: checked_u64_sum(parse_micros, columnar_micros)?,
@@ -2875,6 +3194,7 @@ impl TraditionalSourceReadEvidence {
             columnar_preserved: false,
             direct_vortex_provider_batch: false,
             text_vortex_provider_batch: true,
+            projection_aware_text_decode,
         })
     }
 
@@ -2898,6 +3218,8 @@ impl TraditionalSourceReadEvidence {
                 || other.direct_vortex_provider_batch,
             text_vortex_provider_batch: self.text_vortex_provider_batch
                 || other.text_vortex_provider_batch,
+            projection_aware_text_decode: self.projection_aware_text_decode
+                || other.projection_aware_text_decode,
         })
     }
 
@@ -2944,6 +3266,24 @@ impl TraditionalSourceReadEvidence {
             "compatibility_scalar_parse_to_traditional_rows_then_vortex_from_arrow_provider"
         }
     }
+
+    fn row_assembly_strategy(&self) -> &'static str {
+        if self.direct_vortex_provider_batch && self.text_vortex_provider_batch {
+            if self.scalar_rows_materialized {
+                "mixed_provider_record_batches_plus_traditional_row_buffer_delta"
+            } else {
+                "mixed_provider_record_batches_without_persistent_traditional_rows"
+            }
+        } else if self.text_vortex_provider_batch && !self.scalar_rows_materialized {
+            "direct_text_columnar_push_without_persistent_traditional_rows"
+        } else if self.direct_vortex_provider_batch && !self.scalar_rows_materialized {
+            "direct_columnar_provider_batch_without_traditional_rows"
+        } else if self.columnar_preserved && !self.scalar_rows_materialized {
+            "columnar_batches_preserved_until_required_traditional_boundary"
+        } else {
+            "traditional_row_buffer_materialized"
+        }
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -2986,6 +3326,8 @@ pub struct TraditionalDirectTransientReport {
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
     pub source_state_record_batch_count: usize,
+    pub source_state_projection_aware_text_decode: bool,
+    pub source_state_row_assembly_strategy: String,
     pub scenario_compute_micros: u64,
     pub runtime_execution_certificate: ExecutionCertificate,
     pub diagnostics: Vec<Diagnostic>,
@@ -3235,6 +3577,23 @@ impl TraditionalDirectTransientReport {
             (
                 "source_state_record_batch_count".to_string(),
                 self.source_state_record_batch_count.to_string(),
+            ),
+            (
+                "source_state_projection_aware_text_decode".to_string(),
+                self.source_state_projection_aware_text_decode.to_string(),
+            ),
+            (
+                "source_state_text_decode_policy".to_string(),
+                if self.source_state_projection_aware_text_decode {
+                    "projected_text_columns_skip_unselected_optional_fields"
+                } else {
+                    "full_text_columns_or_non_text_input"
+                }
+                .to_string(),
+            ),
+            (
+                "source_state_row_assembly_strategy".to_string(),
+                self.source_state_row_assembly_strategy.clone(),
             ),
             (
                 "compatibility_to_vortex_import_micros".to_string(),
@@ -3588,6 +3947,14 @@ impl TraditionalDirectTransientReport {
             ("fallback_attempted".to_string(), "false".to_string()),
             ("external_engine_invoked".to_string(), "false".to_string()),
         ]);
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "direct_compatibility_transient",
+            self.runtime_execution_certificate.status.as_str(),
+            "not_vortex_native",
+            "not_requested",
+        ));
+        fields.extend(TraditionalResultSinkCapillaryEvidence::not_requested(false).fields());
         fields
     }
 }
@@ -4232,6 +4599,23 @@ impl TraditionalAnalyticsReport {
                 self.source_state_record_batch_count.to_string(),
             ),
             (
+                "source_state_projection_aware_text_decode".to_string(),
+                self.source_state_projection_aware_text_decode.to_string(),
+            ),
+            (
+                "source_state_text_decode_policy".to_string(),
+                if self.source_state_projection_aware_text_decode {
+                    "projected_text_columns_skip_unselected_optional_fields"
+                } else {
+                    "full_text_columns_or_non_text_input"
+                }
+                .to_string(),
+            ),
+            (
+                "source_state_row_assembly_strategy".to_string(),
+                self.source_state_row_assembly_strategy.clone(),
+            ),
+            (
                 "compatibility_to_vortex_import_micros".to_string(),
                 self.compatibility_to_vortex_import_micros.to_string(),
             ),
@@ -4351,6 +4735,22 @@ impl TraditionalAnalyticsReport {
             (
                 "vortex_write_micros".to_string(),
                 self.vortex_write_micros.to_string(),
+            ),
+            (
+                "vortex_write_artifact_metadata_source".to_string(),
+                "workspace_safe_writer_outcome".to_string(),
+            ),
+            (
+                "vortex_write_digest_source".to_string(),
+                "workspace_safe_writer_stream_digest".to_string(),
+            ),
+            (
+                "vortex_write_byte_count_source".to_string(),
+                "workspace_safe_writer_bytes_written".to_string(),
+            ),
+            (
+                "vortex_write_row_count_source".to_string(),
+                "vortex_writer_summary_row_count".to_string(),
             ),
             (
                 "vortex_digest_micros".to_string(),
@@ -4859,6 +5259,19 @@ impl TraditionalAnalyticsReport {
                 self.spill_io_performed.to_string(),
             ),
         ]);
+        let native_io_certificate_status = self.native_io_certificate.status().to_string();
+        let result_sink_certificate_status = self
+            .computed_result_sink_native_io_certificate_status
+            .clone()
+            .unwrap_or_else(|| "not_requested".to_string());
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "compatibility_import_cold_route",
+            self.runtime_execution_certificate.status.as_str(),
+            &native_io_certificate_status,
+            &result_sink_certificate_status,
+        ));
+        fields.extend(self.result_sink_capillary_evidence.fields());
         fields.extend(streaming_execution_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
@@ -4935,6 +5348,7 @@ pub struct TraditionalAnalyticsVortexReport {
     pub computed_result_sink_replay_result_json: Option<String>,
     pub computed_result_sink_native_io_certificate_id: Option<String>,
     pub computed_result_sink_native_io_certificate_status: Option<String>,
+    pub result_sink_capillary_evidence: TraditionalResultSinkCapillaryEvidence,
     pub result_sink_claim_gate_status: String,
     pub result_sink_claim_gate_reason: String,
     pub commit_state: String,
@@ -5013,6 +5427,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub source_state_prepare_micros: u64,
     pub source_state_digest: String,
     pub source_state_family_digests: String,
+    pub source_state_dim_rows: u64,
+    pub source_state_dim_row_count_cache_hit_count: usize,
     pub dimension_label_state_consumer_count: usize,
     pub dimension_label_state_recompute_avoided_count: usize,
     pub category_metric_state_consumer_count: usize,
@@ -5053,9 +5469,23 @@ struct TraditionalPreparedBatchReuseReport {
     reason: String,
     invalidation_reason: String,
     manifest_digest: String,
+    source_admission_packet_digest: String,
+    source_admission_packet_artifact_manifest_hash: String,
     manifest_actual_path: PathBuf,
     manifest_written: bool,
     prepare_fields: Vec<(String, String)>,
+    lifecycle_timing: TraditionalPreparedBatchLifecycleTiming,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_field_names)]
+struct TraditionalPreparedBatchLifecycleTiming {
+    manifest_lookup_micros: u64,
+    cache_hit_micros: u64,
+    cache_miss_create_micros: u64,
+    artifact_write_micros: u64,
+    artifact_register_micros: u64,
+    replay_verification_micros: u64,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5063,6 +5493,8 @@ impl TraditionalPreparedBatchReuseReport {
     fn first_preparation(
         manifest_path: PathBuf,
         manifest_digest: String,
+        source_admission_packet_digest: String,
+        source_admission_packet_artifact_manifest_hash: String,
         prior_reason: String,
     ) -> Self {
         Self {
@@ -5070,9 +5502,12 @@ impl TraditionalPreparedBatchReuseReport {
             reason: prior_reason.clone(),
             invalidation_reason: prior_reason,
             manifest_digest,
+            source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash,
             manifest_actual_path: manifest_path,
             manifest_written: true,
             prepare_fields: Vec::new(),
+            lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
 
@@ -5082,15 +5517,20 @@ impl TraditionalPreparedBatchReuseReport {
             reason,
             invalidation_reason: PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION.to_string(),
             manifest_digest: "none".to_string(),
+            source_admission_packet_digest: "none".to_string(),
+            source_admission_packet_artifact_manifest_hash: "none".to_string(),
             manifest_actual_path: manifest_path,
             manifest_written: false,
             prepare_fields: Vec::new(),
+            lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
 
     fn hit(
         manifest_path: PathBuf,
         manifest_digest: String,
+        source_admission_packet_digest: String,
+        source_admission_packet_artifact_manifest_hash: String,
         prepare_fields: Vec<(String, String)>,
     ) -> Self {
         Self {
@@ -5098,10 +5538,21 @@ impl TraditionalPreparedBatchReuseReport {
             reason: "manifest_fingerprints_match".to_string(),
             invalidation_reason: "none".to_string(),
             manifest_digest,
+            source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash,
             manifest_actual_path: manifest_path,
             manifest_written: false,
             prepare_fields,
+            lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
+    }
+
+    fn with_lifecycle_timing(
+        mut self,
+        lifecycle_timing: TraditionalPreparedBatchLifecycleTiming,
+    ) -> Self {
+        self.lifecycle_timing = lifecycle_timing;
+        self
     }
 }
 
@@ -5402,6 +5853,23 @@ impl TraditionalAnalyticsPreparedBatchReport {
         let prepare_batch_lifecycle_output_status = self.prepare_batch_lifecycle_output_status();
         let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
         let workspace_reuse_hit = self.workspace_reuse_hit();
+        let source_admission_packet_status = if workspace_reuse_hit {
+            "packet_reuse"
+        } else if self.prepared_state_reuse.reason == "no_reuse_manifest" {
+            "fresh_probe_created"
+        } else {
+            "packet_mismatch_refreshed"
+        };
+        let source_admission_packet_row_estimate_status = if workspace_reuse_hit {
+            "reused_from_manifest_prepare_fields"
+        } else {
+            "observed_after_prepare_materialized_source"
+        };
+        let prepared_state_lookup_status = if workspace_reuse_hit {
+            "workspace_manifest_hit"
+        } else {
+            "cache_miss_created_and_registered"
+        };
         let prepare_batch_runtime_status = if workspace_reuse_hit {
             "workspace_prepared_state_reused_then_prepared_batch_supported"
         } else {
@@ -5496,6 +5964,26 @@ impl TraditionalAnalyticsPreparedBatchReport {
             .iter()
             .filter(|report| report.data_materialized)
             .count();
+        let prepared_state_attractor_route_family =
+            "compatibility_prepare_to_prepared_native_vortex";
+        let prepared_state_schema_hash = traditional_source_admission_schema_hash();
+        let prepared_state_layout_strategy = prepare_field("vortex_array_build_strategy");
+        let prepared_state_input_layout = prepare_field("vortex_array_build_input_layout");
+        let prepared_state_native_io_certificate_status =
+            prepare_field("native_io_certificate_status");
+        let prepared_state_attractor_key = route_evidence_digest(&[
+            "prepared_state_attractor_key",
+            self.prepared_state_reuse
+                .source_admission_packet_digest
+                .as_str(),
+            prepared_state_schema_hash.as_str(),
+            prepare_batch_prepared_state_digest.as_str(),
+            prepared_state_layout_strategy.as_str(),
+            prepared_state_input_layout.as_str(),
+            prepared_state_native_io_certificate_status.as_str(),
+            prepared_state_attractor_route_family,
+        ]);
+        let lifecycle_timing = &self.prepared_state_reuse.lifecycle_timing;
         fields.extend([
             (
                 "prepare_batch_schema_version".to_string(),
@@ -5812,6 +6300,58 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "true".to_string(),
             ),
             (
+                "prepare_batch_prepared_state_lookup_timing_schema_version".to_string(),
+                PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_lookup_status".to_string(),
+                prepared_state_lookup_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_manifest_lookup_micros".to_string(),
+                lifecycle_timing.manifest_lookup_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_cache_hit_micros".to_string(),
+                lifecycle_timing.cache_hit_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_cache_miss_create_micros".to_string(),
+                lifecycle_timing.cache_miss_create_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_artifact_write_micros".to_string(),
+                lifecycle_timing.artifact_write_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_artifact_register_micros".to_string(),
+                lifecycle_timing.artifact_register_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_replay_verification_micros".to_string(),
+                lifecycle_timing.replay_verification_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_attractor_key".to_string(),
+                prepared_state_attractor_key,
+            ),
+            (
+                "prepare_batch_prepared_state_attractor_key_components".to_string(),
+                "source_admission_packet_digest,schema_hash,prepared_state_digest,layout_policy,native_io_certificate_status,route_family".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_lookup_claim_boundary".to_string(),
+                "prepared-state lookup timing evidence only; cache hits still require manifest fingerprint checks, artifact fingerprint checks, Native I/O certificates, correctness validation, and no-fallback evidence".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_lookup_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_lookup_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
                 "prepare_batch_prepared_state_created".to_string(),
                 (!workspace_reuse_hit).to_string(),
             ),
@@ -5840,6 +6380,78 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepare_batch_source_state_digest.clone(),
             ),
             (
+                "prepare_batch_source_admission_packet_schema_version".to_string(),
+                SOURCE_ADMISSION_PACKET_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_status".to_string(),
+                source_admission_packet_status.to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_digest".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_digest
+                    .clone(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_route_family".to_string(),
+                "compatibility_prepare_to_prepared_native_vortex".to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_format".to_string(),
+                prepare_field("input_format"),
+            ),
+            (
+                "prepare_batch_source_admission_packet_schema_hash".to_string(),
+                traditional_source_admission_schema_hash(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_reuse_hit".to_string(),
+                workspace_reuse_hit.to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_reuse_reason".to_string(),
+                self.prepared_state_reuse.reason.clone(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_invalidation_reason".to_string(),
+                self.prepared_state_reuse.invalidation_reason.clone(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_row_estimate_status".to_string(),
+                source_admission_packet_row_estimate_status.to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_fact_row_estimate".to_string(),
+                prepare_field("fact_rows"),
+            ),
+            (
+                "prepare_batch_source_admission_packet_dim_row_estimate".to_string(),
+                prepare_field("dim_rows"),
+            ),
+            (
+                "prepare_batch_source_admission_packet_cdc_delta_row_estimate".to_string(),
+                prepare_field("cdc_delta_rows"),
+            ),
+            (
+                "prepare_batch_source_admission_packet_artifact_manifest_hash".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_artifact_manifest_hash
+                    .clone(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_claim_boundary".to_string(),
+                "local prepared-state admission evidence only; packet reuse never bypasses manifest fingerprint checks, Native I/O certificates, correctness validation, or no-fallback evidence".to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_packet_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
                 "prepare_batch_prepared_artifact_reuse_count".to_string(),
                 prepare_batch_prepared_artifact_reuse_count,
             ),
@@ -5858,6 +6470,14 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_source_state_record_batch_count".to_string(),
                 prepare_field("source_state_record_batch_count"),
+            ),
+            (
+                "prepare_batch_source_state_projection_aware_text_decode".to_string(),
+                prepare_field("source_state_projection_aware_text_decode"),
+            ),
+            (
+                "prepare_batch_source_state_row_assembly_strategy".to_string(),
+                prepare_field("source_state_row_assembly_strategy"),
             ),
             (
                 "prepare_batch_vortex_array_build_provider_kind".to_string(),
@@ -6169,6 +6789,22 @@ impl TraditionalAnalyticsVortexBatchReport {
         } else {
             &prepared_state_reuse_digest
         };
+        let source_admission_packet_reuse_hit = self.source_state_reused();
+        let source_admission_packet_reuse_status = if source_admission_packet_reuse_hit {
+            "per_batch_source_admission_packet_reused"
+        } else {
+            "source_admission_packet_created_single_consumer"
+        };
+        let source_admission_packet_digest = route_evidence_digest(&[
+            SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
+            "prepared_native_vortex_batch",
+            &selected_modes_csv,
+            &scenario_order_csv,
+            &self.source_state_digest,
+            &self.source_state_family_digests,
+            &self.source_state_dim_rows.to_string(),
+            prepared_state_reuse_manifest_digest,
+        ]);
         let mut fields = vec![
             (
                 "schema_version".to_string(),
@@ -6350,6 +6986,94 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_metadata_snapshot_claim_boundary".to_string(),
                 "runtime plumbing evidence only; not a performance, encoded-native, production, SQL/DataFrame, object-store, lakehouse, or Spark-displacement claim".to_string(),
+            ),
+            (
+                "source_admission_packet_schema_version".to_string(),
+                SOURCE_ADMISSION_PACKET_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "source_admission_packet_status".to_string(),
+                "prepared_native_batch_packet_emitted".to_string(),
+            ),
+            (
+                "source_admission_packet_route_family".to_string(),
+                "prepared_native_vortex_batch".to_string(),
+            ),
+            (
+                "source_admission_packet_format".to_string(),
+                "vortex".to_string(),
+            ),
+            (
+                "source_admission_packet_digest".to_string(),
+                source_admission_packet_digest,
+            ),
+            (
+                "source_admission_packet_reuse_status".to_string(),
+                source_admission_packet_reuse_status.to_string(),
+            ),
+            (
+                "source_admission_packet_reuse_hit".to_string(),
+                source_admission_packet_reuse_hit.to_string(),
+            ),
+            (
+                "source_admission_packet_reuse_reason".to_string(),
+                self.source_state_reuse_status().to_string(),
+            ),
+            (
+                "source_admission_packet_source_path_status".to_string(),
+                "caller_supplied_vortex_artifacts_snapshot".to_string(),
+            ),
+            (
+                "source_admission_packet_schema_hash".to_string(),
+                traditional_source_admission_schema_hash(),
+            ),
+            (
+                "source_admission_packet_row_estimate_status".to_string(),
+                "cached_dimension_row_count_available_fact_rows_reported_per_scenario".to_string(),
+            ),
+            (
+                "source_admission_packet_dim_row_estimate".to_string(),
+                self.source_state_dim_rows.to_string(),
+            ),
+            (
+                "source_admission_packet_fact_row_estimate".to_string(),
+                "per_scenario_fact_rows".to_string(),
+            ),
+            (
+                "source_admission_packet_artifact_manifest_hash".to_string(),
+                prepared_state_reuse_manifest_digest.to_string(),
+            ),
+            (
+                "source_admission_packet_claim_boundary".to_string(),
+                "prepared/native source admission evidence only; packet reuse does not bypass source-state creation, Vortex artifact fingerprinting, Native I/O certificates, or correctness validation".to_string(),
+            ),
+            (
+                "source_admission_packet_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_admission_packet_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_state_dim_rows".to_string(),
+                self.source_state_dim_rows.to_string(),
+            ),
+            (
+                "source_state_dim_row_count_cache_status".to_string(),
+                "per_batch_cached_vortex_file_row_count".to_string(),
+            ),
+            (
+                "source_state_dim_row_count_cache_hit_count".to_string(),
+                self.source_state_dim_row_count_cache_hit_count.to_string(),
+            ),
+            (
+                "source_state_dim_row_count_cache_scope".to_string(),
+                "prepared_native_batch_scenarios_reuse_session_dim_rows_metadata".to_string(),
+            ),
+            (
+                "source_state_dim_row_count_cache_claim_boundary".to_string(),
+                "metadata read amortization evidence only; not a standalone performance claim".to_string(),
             ),
             (
                 "source_metadata_snapshot_fallback_attempted".to_string(),
@@ -7475,6 +8199,22 @@ impl TraditionalAnalyticsVortexReport {
                 self.spill_io_performed.to_string(),
             ),
         ]);
+        let native_io_certificate_status = self.native_io_certificate.status().to_string();
+        let result_sink_certificate_status = self
+            .computed_result_sink_native_io_certificate_status
+            .clone()
+            .unwrap_or_else(|| "not_requested".to_string());
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "prepared_or_native_vortex_query",
+            &self
+                .local_scale_evidence
+                .split_runtime_evidence
+                .execution_certificate_status,
+            &native_io_certificate_status,
+            &result_sink_certificate_status,
+        ));
+        fields.extend(self.result_sink_capillary_evidence.fields());
         fields
     }
 }
@@ -10797,16 +11537,30 @@ fn traditional_prepared_batch_reuse_request_payload(
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
 ) -> Result<serde_json::Value> {
+    let fact_input_fingerprint = local_reuse_path_fingerprint(fact_input, "fact input")?;
+    let dim_input_fingerprint = local_reuse_path_fingerprint(dim_input, "dimension input")?;
+    let cdc_delta_input_fingerprint = match cdc_delta_input {
+        Some(path) => local_reuse_path_fingerprint(path, "CDC delta input")?,
+        None => serde_json::Value::Null,
+    };
+    let (source_admission_packet, source_admission_packet_digest) =
+        traditional_source_admission_request_packet(
+            &fact_input_fingerprint,
+            &dim_input_fingerprint,
+            &cdc_delta_input_fingerprint,
+            workspace_dir,
+            input_format,
+            resource_policy,
+        );
     let mut payload = serde_json::json!({
         "schema_version": PREPARED_STATE_REUSE_POLICY_WORKSPACE,
         "route_id": "local_file_prepare_once_first_query",
         "batch_route_id": "local_file_prepare_once_batch",
-        "fact_input": local_reuse_path_fingerprint(fact_input, "fact input")?,
-        "dim_input": local_reuse_path_fingerprint(dim_input, "dimension input")?,
-        "cdc_delta_input": match cdc_delta_input {
-            Some(path) => local_reuse_path_fingerprint(path, "CDC delta input")?,
-            None => serde_json::Value::Null,
-        },
+        "fact_input": fact_input_fingerprint,
+        "dim_input": dim_input_fingerprint,
+        "cdc_delta_input": cdc_delta_input_fingerprint,
+        "source_admission_packet": source_admission_packet,
+        "source_admission_packet_digest": source_admission_packet_digest,
         "prepare_policy": {
             "input_format": input_format.as_str(),
             "artifact_root": normalize_manifest_path(workspace_dir),
@@ -10828,6 +11582,61 @@ fn traditional_prepared_batch_reuse_request_payload(
         serde_json::Value::String(route_request_digest),
     );
     Ok(payload)
+}
+
+fn traditional_source_admission_schema_hash() -> String {
+    route_evidence_digest(&[
+        "source_admission_schema",
+        TRADITIONAL_FACT_SCHEMA_SUMMARY,
+        TRADITIONAL_DIM_SCHEMA_SUMMARY,
+        TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY,
+    ])
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_source_admission_request_packet(
+    fact_input_fingerprint: &serde_json::Value,
+    dim_input_fingerprint: &serde_json::Value,
+    cdc_delta_input_fingerprint: &serde_json::Value,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> (serde_json::Value, String) {
+    let mut packet = serde_json::json!({
+        "schema_version": SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
+        "packet_kind": "local_source_admission_prediction",
+        "route_family": "compatibility_prepare_to_prepared_native_vortex",
+        "route_id": "local_file_prepare_once_first_query",
+        "batch_route_id": "local_file_prepare_once_batch",
+        "input_format": input_format.as_str(),
+        "source_schema_hash": traditional_source_admission_schema_hash(),
+        "source_path_fingerprint_kind": "local_path_sha256_size_mtime",
+        "fact_input": fact_input_fingerprint.clone(),
+        "dim_input": dim_input_fingerprint.clone(),
+        "cdc_delta_input": cdc_delta_input_fingerprint.clone(),
+        "row_estimate": {
+            "status": "deferred_until_prepare_materializes_source",
+            "fact_rows": serde_json::Value::Null,
+            "dim_rows": serde_json::Value::Null,
+            "cdc_delta_rows": serde_json::Value::Null,
+        },
+        "artifact_manifest_hash": "pending_until_prepared_artifact_manifest",
+        "artifact_root": normalize_manifest_path(workspace_dir),
+        "resource_policy": {
+            "memory_gb": resource_policy.requested_memory_gb,
+            "max_parallelism": resource_policy.requested_max_parallelism,
+        },
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "claim_boundary": "admission prediction packet only; packet reuse never bypasses prepared artifact fingerprint checks, Native I/O certificates, correctness replay, or no-fallback evidence",
+    });
+    let packet_digest = stable_json_value_digest(&packet);
+    json_object_insert(
+        &mut packet,
+        "packet_digest",
+        serde_json::Value::String(packet_digest.clone()),
+    );
+    (packet, packet_digest)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -10859,6 +11668,9 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
         prepare_report.input_format,
         resource_policy,
     )?;
+    let source_admission_packet_digest =
+        json_string_field(&request_payload, "source_admission_packet_digest")
+            .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string());
     let fact_artifact = prepared_batch_artifact_manifest(
         &prepare_report.fact_vortex_path,
         "fact",
@@ -10882,6 +11694,9 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
         "cdc_delta".to_string(),
         cdc_delta_artifact.unwrap_or(serde_json::Value::Null),
     );
+    let prepared_artifacts = serde_json::Value::Object(prepared_artifacts);
+    let source_admission_packet_artifact_manifest_hash =
+        stable_json_value_digest(&prepared_artifacts);
     let mut manifest_payload = request_payload;
     json_object_insert(
         &mut manifest_payload,
@@ -10906,7 +11721,32 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
     json_object_insert(
         &mut manifest_payload,
         "prepared_artifacts",
-        serde_json::Value::Object(prepared_artifacts),
+        prepared_artifacts,
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_row_estimate_status",
+        serde_json::Value::String("observed_after_prepare_materialized_source".to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_fact_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "fact_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_dim_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "dim_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_cdc_delta_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "cdc_delta_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_artifact_manifest_hash",
+        serde_json::Value::String(source_admission_packet_artifact_manifest_hash.clone()),
     );
     json_object_insert(
         &mut manifest_payload,
@@ -10957,6 +11797,8 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
     Ok(TraditionalPreparedBatchReuseReport::first_preparation(
         manifest_path,
         manifest_digest,
+        source_admission_packet_digest,
+        source_admission_packet_artifact_manifest_hash,
         prior_reuse_reason.to_string(),
     ))
 }
@@ -10981,6 +11823,30 @@ fn prepared_batch_reuse_prepare_fields(
                 })
                 .collect()
         })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn source_admission_packet_digest_from_manifest(manifest_payload: &serde_json::Value) -> String {
+    json_string_field(manifest_payload, "source_admission_packet_digest")
+        .or_else(|| {
+            manifest_payload
+                .get("source_admission_packet")
+                .and_then(|packet| packet.get("packet_digest"))
+                .and_then(serde_json::Value::as_str)
+                .map(ToString::to_string)
+        })
+        .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn source_admission_packet_artifact_manifest_hash_from_manifest(
+    manifest_payload: &serde_json::Value,
+) -> String {
+    json_string_field(
+        manifest_payload,
+        "source_admission_packet_artifact_manifest_hash",
+    )
+    .unwrap_or_else(|| "missing_source_admission_packet_artifact_manifest_hash".to_string())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11082,6 +11948,11 @@ fn prepared_batch_request_invalidation_reason(
     }
     if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy") {
         return "prepare_policy_changed".to_string();
+    }
+    if manifest_payload.get("source_admission_packet_digest")
+        != request_payload.get("source_admission_packet_digest")
+    {
+        return "source_admission_packet_changed".to_string();
     }
     "route_request_digest_mismatch".to_string()
 }
@@ -11759,6 +12630,60 @@ struct TraditionalComputedResultPayload {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalComputedResultCapillaryPlan {
+    route: String,
+    result_json_bytes: u64,
+    result_json_digest: String,
+    native_vortex_output_selected: bool,
+    scalar_json_output_selected: bool,
+    materialization_strategy: String,
+    replay_strategy: String,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalComputedResultCapillaryPlan {
+    fn build(
+        scenario: TraditionalAnalyticsScenario,
+        result_json: &str,
+        rows_materialized: u64,
+    ) -> Result<Self> {
+        let result_json_bytes = usize_to_u64(result_json.len())?;
+        let result_json_digest =
+            Self::result_json_digest(scenario, result_json, result_json_bytes, rows_materialized);
+        Ok(Self {
+            route: "scalar_result_json_to_native_vortex_result_capillary".to_string(),
+            result_json_bytes,
+            result_json_digest,
+            native_vortex_output_selected: true,
+            scalar_json_output_selected: true,
+            materialization_strategy:
+                "single_scalar_result_json_reused_for_native_vortex_result_row".to_string(),
+            replay_strategy: "single_native_vortex_result_row_replay_exact_json_and_digest_check"
+                .to_string(),
+        })
+    }
+
+    fn result_json_digest(
+        scenario: TraditionalAnalyticsScenario,
+        result_json: &str,
+        result_json_bytes: u64,
+        rows_materialized: u64,
+    ) -> String {
+        let result_json_bytes_text = result_json_bytes.to_string();
+        let rows_materialized_text = rows_materialized.to_string();
+        route_evidence_digest(&[
+            RESULT_SINK_CAPILLARY_SCHEMA_VERSION,
+            scenario.as_str(),
+            &result_json_bytes_text,
+            &rows_materialized_text,
+            LOCAL_VORTEX_ANALYTICS_CONSTITUTION_ID,
+            result_json,
+        ])
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalComputedResultSinkVerification {
     path: PathBuf,
     bytes: u64,
@@ -11767,6 +12692,8 @@ struct TraditionalComputedResultSinkVerification {
     rows_written: u64,
     rows_materialized: u64,
     replay_result_json: String,
+    replay_result_json_digest: String,
+    capillary_plan: TraditionalComputedResultCapillaryPlan,
     native_io_certificate: NativeIoCertificate,
 }
 
@@ -14079,6 +15006,10 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
     let source_state_columnar_preserved = source_read_evidence.columnar_preserved;
     let source_state_record_batch_count = source_read_evidence.record_batch_count;
+    let source_state_projection_aware_text_decode =
+        source_read_evidence.projection_aware_text_decode;
+    let source_state_row_assembly_strategy =
+        source_read_evidence.row_assembly_strategy().to_string();
     let scenario_compute_start = std::time::Instant::now();
     let (result_json, selected_rows_materialized) = match request.scenario {
         TraditionalAnalyticsScenario::SelectiveFilter => {
@@ -14152,6 +15083,8 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         source_state_parse_normalization,
         source_state_columnar_preserved,
         source_state_record_batch_count,
+        source_state_projection_aware_text_decode,
+        source_state_row_assembly_strategy,
         scenario_compute_micros,
         runtime_execution_certificate,
         diagnostics: Vec::new(),
@@ -14334,6 +15267,8 @@ fn run_traditional_analytics_benchmark_enabled(
         mut vortex_write_timing,
         fact_vortex_digest,
         dim_vortex_digest,
+        fact_vortex_bytes,
+        dim_vortex_bytes,
     ) = if request.input_format.is_columnar() {
         let fact_source = read_traditional_fact_vortex_provider_batch_with_evidence(
             &request.fact_csv,
@@ -14373,12 +15308,18 @@ fn run_traditional_analytics_benchmark_enabled(
             vortex_write_artifact_digest(&fact_write_timing, "fact Vortex file")?;
         let dim_vortex_digest =
             vortex_write_artifact_digest(&dim_write_timing, "dimension Vortex file")?;
+        let fact_vortex_bytes =
+            vortex_write_artifact_bytes(&fact_write_timing, "fact Vortex file")?;
+        let dim_vortex_bytes =
+            vortex_write_artifact_bytes(&dim_write_timing, "dimension Vortex file")?;
         (
             source_read_evidence,
             source_rows_materialized,
             fact_write_timing.add(&dim_write_timing)?,
             fact_vortex_digest,
             dim_vortex_digest,
+            fact_vortex_bytes,
+            dim_vortex_bytes,
         )
     } else {
         let fact_text_column_selection = if request.compatibility_output_format.is_some()
@@ -14428,15 +15369,22 @@ fn run_traditional_analytics_benchmark_enabled(
             vortex_write_artifact_digest(&fact_write_timing, "fact Vortex file")?;
         let dim_vortex_digest =
             vortex_write_artifact_digest(&dim_write_timing, "dimension Vortex file")?;
+        let fact_vortex_bytes =
+            vortex_write_artifact_bytes(&fact_write_timing, "fact Vortex file")?;
+        let dim_vortex_bytes =
+            vortex_write_artifact_bytes(&dim_write_timing, "dimension Vortex file")?;
         (
             source_read_evidence,
             source_rows_materialized,
             fact_write_timing.add(&dim_write_timing)?,
             fact_vortex_digest,
             dim_vortex_digest,
+            fact_vortex_bytes,
+            dim_vortex_bytes,
         )
     };
     let mut cdc_delta_vortex_digest = None;
+    let mut cdc_delta_vortex_bytes = 0;
     if let Some(path) = &cdc_delta_vortex_path {
         let cdc_delta_write_timing =
             write_cdc_delta_vortex_with_io(&vortex_io, &cdc_delta_rows, path)?;
@@ -14444,6 +15392,8 @@ fn run_traditional_analytics_benchmark_enabled(
             &cdc_delta_write_timing,
             "CDC delta Vortex file",
         )?);
+        cdc_delta_vortex_bytes =
+            vortex_write_artifact_bytes(&cdc_delta_write_timing, "CDC delta Vortex file")?;
         vortex_write_timing = vortex_write_timing.add(&cdc_delta_write_timing)?;
     }
     let source_read_micros = source_read_evidence.read_micros;
@@ -14454,6 +15404,10 @@ fn run_traditional_analytics_benchmark_enabled(
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
     let source_state_columnar_preserved = source_read_evidence.columnar_preserved;
     let source_state_record_batch_count = source_read_evidence.record_batch_count;
+    let source_state_projection_aware_text_decode =
+        source_read_evidence.projection_aware_text_decode;
+    let source_state_row_assembly_strategy =
+        source_read_evidence.row_assembly_strategy().to_string();
     let vortex_array_build_micros = vortex_write_timing.array_build_micros;
     let vortex_write_micros = vortex_write_timing.vortex_write_micros;
     let compatibility_to_vortex_import_micros = checked_u64_sum(
@@ -14492,11 +15446,6 @@ fn run_traditional_analytics_benchmark_enabled(
     let vortex_scan_micros = scenario_compute_micros;
     let operator_compute_micros = 0;
     let vortex_reopen_scan_micros = checked_u64_sum(vortex_scan_micros, operator_compute_micros)?;
-    let fact_vortex_bytes = file_len(&fact_vortex_path, "fact Vortex file")?;
-    let dim_vortex_bytes = file_len(&dim_vortex_path, "dimension Vortex file")?;
-    let cdc_delta_vortex_bytes = cdc_delta_vortex_path
-        .as_ref()
-        .map_or(Ok(0), |path| file_len(path, "CDC delta Vortex file"))?;
     let fact_compatibility_output_bytes = compatibility_output
         .as_ref()
         .map_or(Ok(0), |(_, fact_output, _)| {
@@ -14595,6 +15544,15 @@ fn run_traditional_analytics_benchmark_enabled(
         &runtime_evidence,
         computed_result_sink.is_some(),
     );
+    let result_sink_capillary_evidence = computed_result_sink.as_ref().map_or_else(
+        || TraditionalResultSinkCapillaryEvidence::not_requested(compatibility_output.is_some()),
+        |sink| {
+            TraditionalResultSinkCapillaryEvidence::from_verified_sink(
+                sink,
+                compatibility_output.is_some(),
+            )
+        },
+    );
 
     Ok(TraditionalAnalyticsReport {
         scenario: request.scenario,
@@ -14674,6 +15632,8 @@ fn run_traditional_analytics_benchmark_enabled(
         source_state_parse_normalization,
         source_state_columnar_preserved,
         source_state_record_batch_count,
+        source_state_projection_aware_text_decode,
+        source_state_row_assembly_strategy,
         compatibility_to_vortex_import_micros,
         compatibility_to_vortex_import_timing_scope:
             "source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write"
@@ -14716,6 +15676,7 @@ fn run_traditional_analytics_benchmark_enabled(
         computed_result_sink_native_io_certificate_status: computed_result_sink
             .as_ref()
             .map(|sink| sink.native_io_certificate.status().to_string()),
+        result_sink_capillary_evidence,
         runtime_task_graph_created: true,
         runtime_task_graph_executed: true,
         runtime_scheduler_mode: runtime_evidence.scheduler_mode,
@@ -14886,6 +15847,8 @@ fn write_and_verify_computed_result_sink(
     workspace_dir: &std::path::Path,
     vortex_io: &TraditionalVortexIoContext,
 ) -> Result<TraditionalComputedResultSinkVerification> {
+    let capillary_plan =
+        TraditionalComputedResultCapillaryPlan::build(scenario, result_json, rows_materialized)?;
     let result_vortex_path = workspace_dir.join("result.vortex");
     let write_start = std::time::Instant::now();
     let write_outcome = write_computed_result_vortex_with_io(
@@ -14896,8 +15859,8 @@ fn write_and_verify_computed_result_sink(
         &result_vortex_path,
     )?;
     let write_micros = duration_to_micros(write_start.elapsed());
-    let bytes = file_len(&result_vortex_path, "computed result Vortex file")?;
     let digest = write_outcome.artifact_digest;
+    let bytes = write_outcome.artifact_bytes;
     let replay = read_computed_result_vortex_with_io(vortex_io, &result_vortex_path)?;
     if replay.scenario != scenario.as_str() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -14914,6 +15877,19 @@ fn write_and_verify_computed_result_sink(
     if replay.rows_materialized != rows_materialized {
         return Err(ShardLoomError::InvalidOperation(format!(
             "computed result Vortex replay row-count mismatch for {}; fallback execution was not attempted",
+            scenario.as_str()
+        )));
+    }
+    let replay_result_json_bytes = usize_to_u64(replay.result_json.len())?;
+    let replay_result_json_digest = TraditionalComputedResultCapillaryPlan::result_json_digest(
+        scenario,
+        &replay.result_json,
+        replay_result_json_bytes,
+        replay.rows_materialized,
+    );
+    if replay_result_json_digest != capillary_plan.result_json_digest {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "computed result Vortex replay capillary digest mismatch for {}; fallback execution was not attempted",
             scenario.as_str()
         )));
     }
@@ -14935,9 +15911,11 @@ fn write_and_verify_computed_result_sink(
         bytes,
         digest,
         write_micros,
-        rows_written: 1,
+        rows_written: write_outcome.rows_written,
         rows_materialized,
         replay_result_json: replay.result_json,
+        replay_result_json_digest,
+        capillary_plan,
         native_io_certificate,
     })
 }
@@ -15668,6 +16646,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     } else {
         TraditionalAnalyticsScenario::CsvFileIngest
     };
+    let manifest_lookup_start = std::time::Instant::now();
     let reuse_decision = evaluate_traditional_prepared_batch_workspace_reuse(
         &fact_input,
         &dim_input,
@@ -15676,26 +16655,44 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         input_format,
         resource_policy,
     )?;
+    let manifest_lookup_micros = duration_to_micros(manifest_lookup_start.elapsed());
     if reuse_decision.hit {
+        let cache_hit_start = std::time::Instant::now();
         let manifest_payload = reuse_decision.manifest_payload.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "prepared-state reuse hit is missing manifest payload; fallback execution was not attempted"
                     .to_string(),
             )
         })?;
-        let batch_request = TraditionalAnalyticsVortexBatchRequest::new(
-            scenarios,
-            prepared_batch_reuse_artifact_path(manifest_payload, "fact")?,
-            prepared_batch_reuse_artifact_path(manifest_payload, "dim")?,
+        let fact_vortex = prepared_batch_reuse_artifact_path(manifest_payload, "fact")?;
+        let dim_vortex = prepared_batch_reuse_artifact_path(manifest_payload, "dim")?;
+        let cdc_delta_vortex =
+            prepared_batch_reuse_optional_artifact_path(manifest_payload, "cdc_delta");
+        let source_admission_packet_digest =
+            source_admission_packet_digest_from_manifest(manifest_payload);
+        let source_admission_packet_artifact_manifest_hash =
+            source_admission_packet_artifact_manifest_hash_from_manifest(manifest_payload);
+        let prepare_fields = prepared_batch_reuse_prepare_fields(manifest_payload);
+        let cache_hit_micros = duration_to_micros(cache_hit_start.elapsed());
+        let prepared_state_reuse = TraditionalPreparedBatchReuseReport::hit(
+            reuse_decision.manifest_path,
+            reuse_decision.manifest_digest,
+            source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash,
+            prepare_fields,
         )
-        .with_cdc_delta_vortex(prepared_batch_reuse_optional_artifact_path(
-            manifest_payload,
-            "cdc_delta",
-        ))
-        .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
-        .with_resource_policy(resource_policy)
-        .with_result_workspace_dir(result_workspace_dir)
-        .with_result_vortex_write(write_result_vortex);
+        .with_lifecycle_timing(TraditionalPreparedBatchLifecycleTiming {
+            manifest_lookup_micros,
+            cache_hit_micros,
+            ..TraditionalPreparedBatchLifecycleTiming::default()
+        });
+        let batch_request =
+            TraditionalAnalyticsVortexBatchRequest::new(scenarios, fact_vortex, dim_vortex)
+                .with_cdc_delta_vortex(cdc_delta_vortex)
+                .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+                .with_resource_policy(resource_policy)
+                .with_result_workspace_dir(result_workspace_dir)
+                .with_result_vortex_write(write_result_vortex);
         let batch_request = if let Some(evidence_level) = requested_evidence_level {
             batch_request.with_evidence_level(evidence_level)
         } else {
@@ -15706,14 +16703,11 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             preparation_scenario,
             prepare_report: None,
             batch_report,
-            prepared_state_reuse: TraditionalPreparedBatchReuseReport::hit(
-                reuse_decision.manifest_path,
-                reuse_decision.manifest_digest,
-                prepared_batch_reuse_prepare_fields(manifest_payload),
-            ),
+            prepared_state_reuse,
         });
     }
 
+    let cache_miss_create_start = std::time::Instant::now();
     let prepare_report = run_traditional_analytics_benchmark_enabled(
         TraditionalAnalyticsRequest::new(
             preparation_scenario,
@@ -15727,7 +16721,15 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         .with_all_text_columns_preserved_for_reuse(true)
         .with_resource_policy(resource_policy),
     )?;
-    let prepared_state_reuse = write_traditional_prepared_batch_workspace_reuse_manifest(
+    let cache_miss_create_elapsed_micros = duration_to_micros(cache_miss_create_start.elapsed());
+    let replay_verification_micros = prepare_report
+        .vortex_reopen_verify_micros
+        .saturating_add(prepare_report.vortex_reopen_scan_micros);
+    let cache_miss_create_micros = cache_miss_create_elapsed_micros
+        .saturating_sub(prepare_report.vortex_write_micros)
+        .saturating_sub(replay_verification_micros);
+    let artifact_register_start = std::time::Instant::now();
+    let mut prepared_state_reuse = write_traditional_prepared_batch_workspace_reuse_manifest(
         &prepare_report,
         &fact_input,
         &dim_input,
@@ -15736,6 +16738,16 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         resource_policy,
         &reuse_decision.reason,
     )?;
+    let artifact_register_micros = duration_to_micros(artifact_register_start.elapsed());
+    prepared_state_reuse =
+        prepared_state_reuse.with_lifecycle_timing(TraditionalPreparedBatchLifecycleTiming {
+            manifest_lookup_micros,
+            cache_miss_create_micros,
+            artifact_write_micros: prepare_report.vortex_write_micros,
+            artifact_register_micros,
+            replay_verification_micros,
+            ..TraditionalPreparedBatchLifecycleTiming::default()
+        });
 
     let batch_request = TraditionalAnalyticsVortexBatchRequest::new(
         scenarios,
@@ -15838,6 +16850,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .source_state
         .source_state_digest(requested_execution_mode);
     let source_state_family_digests = session.source_state.source_state_family_digests();
+    let source_state_dim_rows = session.source_state.dim_rows;
+    let source_state_dim_row_count_cache_hit_count =
+        TraditionalVortexBatchSourceState::dim_row_count_cache_consumer_count(&scenarios);
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -15916,6 +16931,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         source_state_prepare_micros,
         source_state_digest,
         source_state_family_digests,
+        source_state_dim_rows,
+        source_state_dim_row_count_cache_hit_count,
         dimension_label_state_consumer_count,
         dimension_label_state_recompute_avoided_count,
         category_metric_state_consumer_count,
@@ -16138,6 +17155,10 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
     } else {
         "prepared_native_claim_grade_requires_result_sink_replay_when_result_sink_required"
     };
+    let result_sink_capillary_evidence = computed_result_sink.as_ref().map_or_else(
+        || TraditionalResultSinkCapillaryEvidence::not_requested(false),
+        |sink| TraditionalResultSinkCapillaryEvidence::from_verified_sink(sink, false),
+    );
     let local_scale_evidence = TraditionalPreparedVortexLocalScaleEvidence::build(
         request.scenario,
         resource_policy,
@@ -16202,6 +17223,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         computed_result_sink_native_io_certificate_status: computed_result_sink
             .as_ref()
             .map(|sink| sink.native_io_certificate.status().to_string()),
+        result_sink_capillary_evidence,
         result_sink_claim_gate_status: result_sink_claim_gate_status.to_string(),
         result_sink_claim_gate_reason: result_sink_claim_gate_reason.to_string(),
         commit_state: if computed_result_sink.is_some() {
@@ -17045,6 +18067,8 @@ struct TraditionalVortexIoContext {
 struct TraditionalVortexWriteOutcome {
     write_micros: u64,
     artifact_digest: String,
+    artifact_bytes: u64,
+    rows_written: u64,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17071,7 +18095,7 @@ impl TraditionalVortexIoContext {
         let write_start = std::time::Instant::now();
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let expected_rows = usize_to_u64(array.len())?;
-        let (_summary, workspace_write_report) =
+        let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
                 path,
@@ -17099,6 +18123,8 @@ impl TraditionalVortexIoContext {
         Ok(TraditionalVortexWriteOutcome {
             write_micros: duration_to_micros(write_start.elapsed()),
             artifact_digest,
+            artifact_bytes: workspace_write_report.bytes_written,
+            rows_written: summary.row_count(),
         })
     }
 
@@ -17239,6 +18265,8 @@ fn write_vortex_record_batch_with_io(
     let write_outcome = vortex_io.write_array(path, &array)?;
     let mut write_timing = timing(array_build_micros, write_outcome.write_micros);
     write_timing.artifact_digest = Some(write_outcome.artifact_digest);
+    write_timing.artifact_bytes = Some(write_outcome.artifact_bytes);
+    write_timing.artifact_rows = Some(write_outcome.rows_written);
     Ok(write_timing)
 }
 
@@ -18564,6 +19592,39 @@ impl TraditionalFactTextColumnSelection {
             _ => Self::core_only(),
         }
     }
+
+    const fn needs_after_category(self) -> bool {
+        self.event_date
+            || self.nullable_metric_00
+            || self.nested_payload
+            || self.raw_event_time
+            || self.dirty_numeric
+            || self.dirty_flag
+    }
+
+    const fn needs_after_nullable_metric_00(self) -> bool {
+        self.event_date
+            || self.nested_payload
+            || self.raw_event_time
+            || self.dirty_numeric
+            || self.dirty_flag
+    }
+
+    const fn needs_after_event_date(self) -> bool {
+        self.nested_payload || self.raw_event_time || self.dirty_numeric || self.dirty_flag
+    }
+
+    const fn needs_after_raw_event_time(self) -> bool {
+        self.nested_payload || self.dirty_numeric || self.dirty_flag
+    }
+
+    const fn needs_after_dirty_numeric(self) -> bool {
+        self.nested_payload || self.dirty_flag
+    }
+
+    const fn needs_after_dirty_flag(self) -> bool {
+        self.nested_payload
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18608,6 +19669,7 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
             source_parse_micros,
             source_to_columnar_micros,
             1,
+            column_selection != TraditionalFactTextColumnSelection::full(),
         )?,
     })
 }
@@ -18652,6 +19714,7 @@ fn read_traditional_dim_text_vortex_provider_batch_with_evidence(
             source_parse_micros,
             source_to_columnar_micros,
             1,
+            false,
         )?,
     })
 }
@@ -19539,6 +20602,17 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
     else {
         return Ok(None);
     };
+    if !column_selection.needs_after_category() {
+        return Ok(Some(fast_fact_jsonl_tail(
+            category_token,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )));
+    }
     cursor = cursor_after_category;
     let Some((nullable_metric_00_token, cursor_after_nullable_metric_00)) =
         split_fast_json_value_then(cursor, ",\"nullable_metric_01\":")
@@ -19555,6 +20629,17 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
     } else {
         None
     };
+    if !column_selection.needs_after_nullable_metric_00() {
+        return Ok(Some(fast_fact_jsonl_tail(
+            category_token,
+            None,
+            nullable_metric_00,
+            None,
+            None,
+            None,
+            None,
+        )));
+    }
     let Some((_skipped_nullable_metrics, cursor_after_event_date_prefix)) =
         split_fast_json_value_then(cursor_after_nullable_metric_00, ",\"event_date\":")
     else {
@@ -19571,6 +20656,17 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
     } else {
         None
     };
+    if !column_selection.needs_after_event_date() {
+        return Ok(Some(fast_fact_jsonl_tail(
+            category_token,
+            event_date,
+            nullable_metric_00,
+            None,
+            None,
+            None,
+            None,
+        )));
+    }
     parse_benchmark_fact_jsonl_tail_after_event_date(
         category_token,
         cursor_after_event_date,
@@ -19612,47 +20708,94 @@ fn parse_benchmark_fact_jsonl_tail_after_event_date<'a>(
     } else {
         None
     };
+    let tail = fast_fact_jsonl_tail(
+        category_token,
+        event_date,
+        nullable_metric_00,
+        None,
+        raw_event_time,
+        None,
+        None,
+    );
+    if !column_selection.needs_after_raw_event_time() {
+        return Ok(Some(tail));
+    }
+    parse_benchmark_fact_jsonl_tail_after_raw_event_time(
+        cursor_after_raw_event_time,
+        tail,
+        path,
+        line_number,
+        column_selection,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_tail_after_raw_event_time<'a>(
+    cursor_after_raw_event_time: &'a str,
+    mut tail: FastFactJsonlTail<'a>,
+    path: &std::path::Path,
+    line_number: usize,
+    column_selection: TraditionalFactTextColumnSelection,
+) -> Result<Option<FastFactJsonlTail<'a>>> {
     let Some((dirty_numeric_token, cursor_after_dirty_numeric)) =
         split_fast_json_value_then(cursor_after_raw_event_time, ",\"dirty_flag\":")
     else {
         return Ok(None);
     };
-    let dirty_numeric = if column_selection.dirty_numeric {
-        parse_fast_json_optional_string_token(
+    if column_selection.dirty_numeric {
+        tail.dirty_numeric = parse_fast_json_optional_string_token(
             dirty_numeric_token,
             path,
             line_number,
             "dirty_numeric",
-        )?
-    } else {
-        None
-    };
+        )?;
+    }
+    if !column_selection.needs_after_dirty_numeric() {
+        return Ok(Some(tail));
+    }
     let Some((dirty_flag_token, cursor_after_dirty_flag)) =
         split_fast_json_value_then(cursor_after_dirty_numeric, ",\"nested_payload\":")
     else {
         return Ok(None);
     };
-    let dirty_flag = if column_selection.dirty_flag {
-        parse_fast_json_optional_string_token(dirty_flag_token, path, line_number, "dirty_flag")?
-    } else {
-        None
-    };
+    if column_selection.dirty_flag {
+        tail.dirty_flag = parse_fast_json_optional_string_token(
+            dirty_flag_token,
+            path,
+            line_number,
+            "dirty_flag",
+        )?;
+    }
+    if !column_selection.needs_after_dirty_flag() {
+        return Ok(Some(tail));
+    }
     let Some((nested_payload_token, _cursor_after_nested_payload)) =
         split_fast_json_value_then(cursor_after_dirty_flag, ",\"nested_group\":")
     else {
         return Ok(None);
     };
-    let nested_payload = if column_selection.nested_payload {
-        parse_fast_json_optional_string_token(
+    if column_selection.nested_payload {
+        tail.nested_payload = parse_fast_json_optional_string_token(
             nested_payload_token,
             path,
             line_number,
             "nested_payload",
-        )?
-    } else {
-        None
-    };
-    Ok(Some(FastFactJsonlTail {
+        )?;
+    }
+    Ok(Some(tail))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fast_fact_jsonl_tail(
+    category_token: &str,
+    event_date: Option<String>,
+    nullable_metric_00: Option<String>,
+    nested_payload: Option<String>,
+    raw_event_time: Option<String>,
+    dirty_numeric: Option<String>,
+    dirty_flag: Option<String>,
+) -> FastFactJsonlTail<'_> {
+    FastFactJsonlTail {
         category_token,
         event_date,
         nullable_metric_00,
@@ -19660,7 +20803,7 @@ fn parse_benchmark_fact_jsonl_tail_after_event_date<'a>(
         raw_event_time,
         dirty_numeric,
         dirty_flag,
-    }))
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -21343,39 +22486,135 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
         return Ok(execution);
     }
     if let Some(execution) =
-        run_category_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
+        run_category_metric_batch_source_state_scenario(scenario, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) = run_group_category_batch_source_state_scenario(scenario, source_state)?
+    {
+        return Ok(execution);
+    }
+    if let Some(execution) = run_ranked_metric_batch_source_state_scenario(scenario, source_state)?
     {
         return Ok(execution);
     }
     if let Some(execution) =
-        run_group_category_batch_source_state_scenario(scenario, dim_path, source_state)?
+        run_selective_filter_batch_source_state_scenario(scenario, fact_path, source_state)?
     {
+        return Ok(execution);
+    }
+    if let Some(execution) = run_dirty_input_batch_source_state_scenario(scenario, source_state)? {
         return Ok(execution);
     }
     if let Some(execution) =
-        run_ranked_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
+        run_date_null_metric_batch_source_state_scenario(scenario, source_state)?
     {
         return Ok(execution);
     }
-    if let Some(execution) = run_selective_filter_batch_source_state_scenario(
+    if let Some(execution) = run_vortex_derived_scenario_from_files_with_cached_dim_rows(
         scenario,
         fact_path,
-        dim_path,
-        source_state,
+        source_state.dim_rows,
+        cdc_delta_path,
     )? {
         return Ok(execution);
     }
-    if let Some(execution) =
-        run_dirty_input_batch_source_state_scenario(scenario, dim_path, source_state)?
-    {
-        return Ok(execution);
-    }
-    if let Some(execution) =
-        run_date_null_metric_batch_source_state_scenario(scenario, dim_path, source_state)?
-    {
-        return Ok(execution);
-    }
     run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_vortex_derived_scenario_from_files_with_cached_dim_rows(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+    cdc_delta_path: Option<&std::path::Path>,
+) -> Result<Option<TraditionalScenarioExecution>> {
+    let execution = match scenario {
+        TraditionalAnalyticsScenario::CsvFileIngest
+        | TraditionalAnalyticsScenario::ManySmallFilesScan => {
+            run_streaming_fact_metric_sum_scenario_with_dim_rows(
+                fact_path, dim_rows, None, "metric",
+            )?
+        }
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            run_streaming_selective_filter_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::SortAndTopK => {
+            run_streaming_sort_top_k_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::TopNPerGroup => {
+            run_streaming_ranked_per_group_scenario_with_dim_rows(
+                fact_path,
+                dim_rows,
+                3,
+                "top-N per group",
+            )?
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => {
+            run_streaming_ranked_per_group_scenario_with_dim_rows(
+                fact_path,
+                dim_rows,
+                1,
+                "row number window",
+            )?
+        }
+        TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            run_streaming_string_group_distinct_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::PartitionPruning => {
+            run_streaming_partition_pruning_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::GroupByAggregation => {
+            run_streaming_group_by_aggregation_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::DistinctCount => {
+            run_streaming_distinct_count_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::NullHeavyAggregate => {
+            run_streaming_null_heavy_aggregate_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => {
+            run_streaming_clean_cast_filter_write_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+            run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::NestedJsonFieldScan => {
+            run_streaming_nested_json_field_scan_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase => {
+            let cdc_delta_path = cdc_delta_path.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "small change over large base requires imported CDC delta Vortex source"
+                        .to_string(),
+                )
+            })?;
+            run_streaming_small_change_over_large_base_scenario_with_dim_rows(
+                fact_path,
+                dim_rows,
+                cdc_delta_path,
+            )?
+        }
+        TraditionalAnalyticsScenario::MultiKeyGroupBy => {
+            run_streaming_multi_key_group_by_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::WideProjection => {
+            run_streaming_fact_metric_sum_scenario_with_dim_rows(
+                fact_path,
+                dim_rows,
+                None,
+                "group_key",
+            )?
+        }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            run_streaming_filter_projection_limit_scenario_with_dim_rows(fact_path, dim_rows)?
+        }
+        TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate => {
+            return Ok(None);
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(execution))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -21402,7 +22641,6 @@ fn run_dimension_label_batch_source_state_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_category_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(category_state) = source_state.category_metric_state.as_ref() else {
@@ -21411,13 +22649,13 @@ fn run_category_metric_batch_source_state_scenario(
     let execution = match scenario {
         TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
             run_streaming_string_group_distinct_scenario_with_category_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 category_state,
             )?
         }
         TraditionalAnalyticsScenario::DistinctCount => {
             run_streaming_distinct_count_scenario_with_category_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 category_state,
             )?
         }
@@ -21429,7 +22667,6 @@ fn run_category_metric_batch_source_state_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_group_category_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(group_state) = source_state.group_category_metric_state.as_ref() else {
@@ -21438,13 +22675,13 @@ fn run_group_category_batch_source_state_scenario(
     let execution = match scenario {
         TraditionalAnalyticsScenario::GroupByAggregation => {
             run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 group_state,
             )?
         }
         TraditionalAnalyticsScenario::MultiKeyGroupBy => {
             run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 group_state,
             )?
         }
@@ -21456,7 +22693,6 @@ fn run_group_category_batch_source_state_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_ranked_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(ranked_state) = source_state.ranked_metric_state.as_ref() else {
@@ -21464,18 +22700,21 @@ fn run_ranked_metric_batch_source_state_scenario(
     };
     let execution = match scenario {
         TraditionalAnalyticsScenario::SortAndTopK => {
-            run_streaming_sort_top_k_scenario_with_ranked_metric_state(dim_path, ranked_state)?
+            run_streaming_sort_top_k_scenario_with_ranked_metric_state(
+                source_state.dim_rows,
+                ranked_state,
+            )?
         }
         TraditionalAnalyticsScenario::TopNPerGroup => {
             run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 ranked_state,
                 3,
             )?
         }
         TraditionalAnalyticsScenario::RowNumberWindow => {
             run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
-                dim_path,
+                source_state.dim_rows,
                 ranked_state,
                 1,
             )?
@@ -21489,7 +22728,6 @@ fn run_ranked_metric_batch_source_state_scenario(
 fn run_selective_filter_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
     fact_path: &std::path::Path,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(selective_state) = source_state.selective_filter_state.as_ref() else {
@@ -21499,15 +22737,15 @@ fn run_selective_filter_batch_source_state_scenario(
         TraditionalAnalyticsScenario::SelectiveFilter => {
             run_streaming_selective_filter_scenario_with_selective_filter_state(
                 fact_path,
-                dim_path,
+                source_state.dim_rows,
                 selective_state,
             )?
         }
         TraditionalAnalyticsScenario::FilterProjectionLimit => {
             run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
-                dim_path,
+                source_state.dim_rows,
                 selective_state,
-            )?
+            )
         }
         _ => return Ok(None),
     };
@@ -21517,7 +22755,6 @@ fn run_selective_filter_batch_source_state_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_dirty_input_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(dirty_state) = source_state.dirty_input_state.as_ref() else {
@@ -21526,13 +22763,13 @@ fn run_dirty_input_batch_source_state_scenario(
     let execution = match scenario {
         TraditionalAnalyticsScenario::CleanCastFilterWrite => {
             run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
-                dim_path,
+                source_state.dim_rows,
                 dirty_state,
             )?
         }
         TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
             run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
-                dim_path,
+                source_state.dim_rows,
                 dirty_state,
             )?
         }
@@ -21544,13 +22781,12 @@ fn run_dirty_input_batch_source_state_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_date_null_metric_batch_source_state_scenario(
     scenario: TraditionalAnalyticsScenario,
-    dim_path: &std::path::Path,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<Option<TraditionalScenarioExecution>> {
     let Some(date_null_state) = source_state.date_null_metric_state.as_ref() else {
         return Ok(None);
     };
-    let dim_rows = vortex_file_row_count(dim_path)?;
+    let dim_rows = source_state.dim_rows;
     let stats = date_null_state.stats.clone();
     let execution = match scenario {
         TraditionalAnalyticsScenario::PartitionPruning => {
@@ -21842,6 +23078,14 @@ fn run_streaming_sort_top_k_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_sort_top_k_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_sort_top_k_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut top_rows = std::collections::BinaryHeap::<GlobalTopKCandidate>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -21892,10 +23136,9 @@ fn run_streaming_sort_top_k_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     ranked_state: &TraditionalRankedMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
     let result_json = top_rows_json(&ranked_state.global_top_rows);
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -21918,6 +23161,21 @@ fn run_streaming_ranked_per_group_scenario(
     scenario_label: &str,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_ranked_per_group_scenario_with_dim_rows(
+        fact_path,
+        dim_rows,
+        max_rank,
+        scenario_label,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_ranked_per_group_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+    max_rank: usize,
+    scenario_label: &str,
+) -> Result<TraditionalScenarioExecution> {
     let mut top_by_group = std::collections::BTreeMap::<u32, Vec<(u64, f64)>>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -21974,11 +23232,10 @@ fn run_streaming_ranked_per_group_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     ranked_state: &TraditionalRankedMetricState,
     max_rank: usize,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = ranked_state.stats.clone();
     let top_by_group = ranked_state.top_rows_by_group.clone();
     let mut ranked = Vec::new();
@@ -22007,6 +23264,14 @@ fn run_streaming_string_group_distinct_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_string_group_distinct_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_string_group_distinct_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -22043,10 +23308,9 @@ fn run_streaming_string_group_distinct_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_string_group_distinct_scenario_with_category_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = category_state.stats.clone();
     let result_json = string_group_distinct_json(category_state.groups.clone());
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -22067,6 +23331,14 @@ fn run_streaming_partition_pruning_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_partition_pruning_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_partition_pruning_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut accum = TraditionalGroupAccum::default();
     let mut has_non_empty_event_date = false;
     let stats = scan_fact_vortex_projected(
@@ -22119,6 +23391,14 @@ fn run_streaming_multi_key_group_by_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_multi_key_group_by_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut groups = std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -22162,10 +23442,9 @@ fn run_streaming_multi_key_group_by_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = group_state.stats.clone();
     let result_json = group_category_rows_json(group_state.group_category_groups.clone());
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -22186,6 +23465,14 @@ fn run_streaming_group_by_aggregation_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_group_by_aggregation_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
     let mut dictionary_group_by_pair = TraditionalDictionaryGroupByPairAccumulator::new();
     let stats = scan_fact_vortex_projected_with_encoded_inputs(
@@ -22228,10 +23515,9 @@ fn run_streaming_group_by_aggregation_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = group_state.stats.clone();
     let result_json = numeric_group_rows_json(group_state.group_key_groups.clone(), "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -22252,6 +23538,14 @@ fn run_streaming_distinct_count_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_distinct_count_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_distinct_count_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut distinct = std::collections::HashSet::<String>::new();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -22286,10 +23580,9 @@ fn run_streaming_distinct_count_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_distinct_count_scenario_with_category_metric_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let stats = category_state.stats.clone();
     let result_json = format!(
         "{{\"distinct_category_count\":{}}}",
@@ -22312,6 +23605,14 @@ fn run_streaming_null_heavy_aggregate_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_null_heavy_aggregate_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_null_heavy_aggregate_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut accum = TraditionalGroupAccum::default();
     let stats = scan_fact_vortex_projected(
         fact_path,
@@ -22357,6 +23658,14 @@ fn run_streaming_clean_cast_filter_write_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_clean_cast_filter_write_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_clean_cast_filter_write_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut saw_raw_event_time = false;
     let mut saw_dirty_numeric = false;
     let mut saw_dirty_flag = false;
@@ -22424,6 +23733,14 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut saw_raw_event_time = false;
     let mut saw_dirty_numeric = false;
     let mut accum = TraditionalGroupAccum::default();
@@ -22474,11 +23791,10 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     dirty_state: &TraditionalDirtyInputState,
 ) -> Result<TraditionalScenarioExecution> {
     dirty_state.ensure_clean_cast_supported()?;
-    let dim_rows = vortex_file_row_count(dim_path)?;
     Ok(TraditionalScenarioExecution {
         result_json: scalar_result_json(
             dirty_state.clean_cast_accum.row_count,
@@ -22495,11 +23811,10 @@ fn run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     dirty_state: &TraditionalDirtyInputState,
 ) -> Result<TraditionalScenarioExecution> {
     dirty_state.ensure_malformed_timestamp_supported()?;
-    let dim_rows = vortex_file_row_count(dim_path)?;
     Ok(TraditionalScenarioExecution {
         result_json: scalar_result_json(
             dirty_state.malformed_timestamp_accum.row_count,
@@ -22520,6 +23835,14 @@ fn run_streaming_nested_json_field_scan_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_nested_json_field_scan_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_nested_json_field_scan_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut saw_nested_payload = false;
     let mut source_row_offset = 0_usize;
     let mut row_count = 0_u64;
@@ -22584,6 +23907,19 @@ fn run_streaming_small_change_over_large_base_scenario(
     cdc_delta_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_small_change_over_large_base_scenario_with_dim_rows(
+        fact_path,
+        dim_rows,
+        cdc_delta_path,
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+    cdc_delta_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
     let mut rows = std::collections::HashMap::<u64, f64>::new();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
@@ -22753,6 +24089,14 @@ fn run_streaming_selective_filter_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_selective_filter_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_selective_filter_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
     let (stats, metric_sum) = if encoded_predicate_provider.selection_vector_intersection_certified
         && !encoded_predicate_provider
@@ -22808,10 +24152,9 @@ fn run_streaming_selective_filter_scenario(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_selective_filter_scenario_with_selective_filter_state(
     fact_path: &std::path::Path,
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     selective_state: &TraditionalSelectiveFilterState,
 ) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
     let mut encoded_predicate_provider = scan_selective_filter_column_batches(fact_path)?;
     encoded_predicate_provider.selected_metric_aggregation_status =
         "batch_source_state_metric_aggregation_used".to_string();
@@ -23633,6 +24976,16 @@ fn run_streaming_fact_metric_sum_scenario(
     sum_column: &'static str,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_fact_metric_sum_scenario_with_dim_rows(fact_path, dim_rows, filter, sum_column)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_fact_metric_sum_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+    filter: Option<vortex::array::expr::Expression>,
+    sum_column: &'static str,
+) -> Result<TraditionalScenarioExecution> {
     let mut metric_sum = 0.0;
     let stats =
         scan_fact_vortex_projected(fact_path, &[sum_column], filter, |fields, _chunk_rows| {
@@ -23666,6 +25019,14 @@ fn run_streaming_filter_projection_limit_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
+    run_streaming_filter_projection_limit_scenario_with_dim_rows(fact_path, dim_rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_filter_projection_limit_scenario_with_dim_rows(
+    fact_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
     let mut filtered_projection_limit_rows =
         std::collections::BinaryHeap::<TraditionalFilteredProjectionLimitCandidate>::new();
     let mut filtered_projection_sequence = 0_u64;
@@ -23747,13 +25108,12 @@ fn filter_projection_limit_rows_from_heap(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
-    dim_path: &std::path::Path,
+    dim_rows: u64,
     selective_state: &TraditionalSelectiveFilterState,
-) -> Result<TraditionalScenarioExecution> {
-    let dim_rows = vortex_file_row_count(dim_path)?;
+) -> TraditionalScenarioExecution {
     let result_json =
         filter_projection_limit_result_json(&selective_state.filtered_projection_rows);
-    Ok(TraditionalScenarioExecution {
+    TraditionalScenarioExecution {
         result_json,
         fact_rows: selective_state.stats.source_row_count,
         dim_rows,
@@ -23761,7 +25121,7 @@ fn run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
         rows_scanned: selective_state.stats.source_row_count,
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming(selective_state.stats.clone()),
-    })
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -24946,7 +26306,7 @@ mod tests {
     fn source_read_evidence_preserves_mixed_direct_and_text_provider_state() {
         let columnar = TraditionalSourceReadEvidence::direct_vortex_provider_batch(7, 11, 1)
             .expect("columnar evidence");
-        let text = TraditionalSourceReadEvidence::text_vortex_provider_batch(13, 17, 1)
+        let text = TraditionalSourceReadEvidence::text_vortex_provider_batch(13, 17, 1, true)
             .expect("text evidence");
 
         let mixed = columnar.add(text).expect("mixed evidence");
@@ -24962,6 +26322,11 @@ mod tests {
         assert!(mixed.columnar_preserved);
         assert!(mixed.direct_vortex_provider_batch);
         assert!(mixed.text_vortex_provider_batch);
+        assert!(mixed.projection_aware_text_decode);
+        assert_eq!(
+            mixed.row_assembly_strategy(),
+            "mixed_provider_record_batches_without_persistent_traditional_rows"
+        );
         assert!(!mixed.scalar_rows_materialized);
         assert_eq!(mixed.record_batch_count, 2);
     }
@@ -25450,6 +26815,25 @@ mod tests {
         assert_eq!(core_only.dirty_numeric, None);
         assert_eq!(core_only.dirty_flag, None);
 
+        let projected_with_bad_unused_optional = "{\"id\":9,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c9\",\"nullable_metric_00\":\"\\u0031\",\"nullable_metric_01\":null}";
+        let projected = parse_benchmark_fact_jsonl_fast_with_selection(
+            projected_with_bad_unused_optional,
+            &path,
+            2,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .unwrap()
+        .expect("projected fast path should not decode unselected optional tails");
+        assert_eq!(projected.id, 9);
+        assert_eq!(projected.category, "c9");
+        assert_eq!(projected.nullable_metric_00, None);
+        assert!(
+            parse_benchmark_fact_jsonl_fast(projected_with_bad_unused_optional, &path, 2).is_err(),
+            "full preservation should still reject malformed selected optional text"
+        );
+
         let partition = parse_benchmark_fact_jsonl_fast_with_selection(
             row,
             &path,
@@ -25889,6 +27273,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -25979,6 +27364,21 @@ mod tests {
         assert_field_eq(&fields, "source_state_record_batch_count", "2");
         assert_field_eq(
             &fields,
+            "source_state_projection_aware_text_decode",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_text_decode_policy",
+            "full_text_columns_or_non_text_input",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_row_assembly_strategy",
+            "direct_text_columnar_push_without_persistent_traditional_rows",
+        );
+        assert_field_eq(
+            &fields,
             "vortex_array_build_provider_kind",
             "vortex_array_kernel",
         );
@@ -26002,6 +27402,26 @@ mod tests {
             &fields,
             "vortex_array_build_manual_scalar_copy_avoided",
             "true",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_artifact_metadata_source",
+            "workspace_safe_writer_outcome",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_digest_source",
+            "workspace_safe_writer_stream_digest",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_byte_count_source",
+            "workspace_safe_writer_bytes_written",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_row_count_source",
+            "vortex_writer_summary_row_count",
         );
         for field in [
             "source_stat_micros",
@@ -26326,6 +27746,21 @@ mod tests {
             "text_parse_to_vortex_provider_record_batch_no_persistent_row_buffer",
         );
         assert_field_eq(&import_fields, "source_state_record_batch_count", "2");
+        assert_field_eq(
+            &import_fields,
+            "source_state_projection_aware_text_decode",
+            "true",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_state_text_decode_policy",
+            "projected_text_columns_skip_unselected_optional_fields",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_state_row_assembly_strategy",
+            "direct_text_columnar_push_without_persistent_traditional_rows",
+        );
         assert_field_eq(
             &import_fields,
             "vortex_array_build_strategy",
@@ -26996,6 +28431,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -27173,6 +28609,18 @@ mod tests {
         assert_field_eq(&fields, "session_source_state_cache_hit_count", "1");
         assert_field_eq(&fields, "session_source_state_cache_miss_count", "3");
         assert_field_eq(&fields, "session_source_state_reuse_count", "1");
+        assert_field_eq(&fields, "source_state_dim_rows", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_dim_row_count_cache_status",
+            "per_batch_cached_vortex_file_row_count",
+        );
+        assert_field_eq(&fields, "source_state_dim_row_count_cache_hit_count", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_dim_row_count_cache_scope",
+            "prepared_native_batch_scenarios_reuse_session_dim_rows_metadata",
+        );
         assert_field_eq(
             &fields,
             "session_schema_cache_status",
@@ -27744,6 +29192,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn prepared_batch_run_reuses_workspace_manifest_on_second_run() {
         use std::io::Write as _;
 
@@ -27773,6 +29222,47 @@ mod tests {
         assert!(
             manifest_payload
                 .get("manifest_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        let manifest_source_admission_packet_digest = manifest_payload
+            .get("source_admission_packet_digest")
+            .and_then(serde_json::Value::as_str)
+            .expect("source admission packet digest");
+        assert!(manifest_source_admission_packet_digest.starts_with("sha256:"));
+        assert_eq!(
+            manifest_payload
+                .pointer("/source_admission_packet/schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some(SOURCE_ADMISSION_PACKET_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            manifest_payload
+                .pointer("/source_admission_packet/row_estimate/status")
+                .and_then(serde_json::Value::as_str),
+            Some("deferred_until_prepare_materializes_source")
+        );
+        assert_eq!(
+            manifest_payload
+                .get("source_admission_packet_row_estimate_status")
+                .and_then(serde_json::Value::as_str),
+            Some("observed_after_prepare_materialized_source")
+        );
+        assert_eq!(
+            manifest_payload
+                .get("source_admission_packet_fact_row_estimate")
+                .and_then(serde_json::Value::as_str),
+            Some("3")
+        );
+        assert_eq!(
+            manifest_payload
+                .get("source_admission_packet_dim_row_estimate")
+                .and_then(serde_json::Value::as_str),
+            Some("2")
+        );
+        assert!(
+            manifest_payload
+                .get("source_admission_packet_artifact_manifest_hash")
                 .and_then(serde_json::Value::as_str)
                 .is_some_and(|value| value.starts_with("sha256:"))
         );
@@ -27811,6 +29301,101 @@ mod tests {
             "workspace_prepared_state_reuse_reason",
             "no_reuse_manifest",
         );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_schema_version",
+            SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_status",
+            "fresh_probe_created",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_digest",
+            manifest_source_admission_packet_digest,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_row_estimate_status",
+            "observed_after_prepare_materialized_source",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_fact_row_estimate",
+            "3",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_dim_row_estimate",
+            "2",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_packet_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_lookup_timing_schema_version",
+            PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_lookup_status",
+            "cache_miss_created_and_registered",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_cache_hit_micros",
+            "0",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_lookup_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_lookup_external_engine_invoked",
+            "false",
+        );
+        assert!(
+            first_fields
+                .get("prepare_batch_prepared_state_manifest_lookup_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            first_fields
+                .get("prepare_batch_prepared_state_cache_miss_create_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            first_fields
+                .get("prepare_batch_prepared_state_artifact_write_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            first_fields
+                .get("prepare_batch_prepared_state_artifact_register_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            first_fields
+                .get("prepare_batch_prepared_state_replay_verification_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        let first_prepared_state_attractor_key = first_fields
+            .get("prepare_batch_prepared_state_attractor_key")
+            .expect("first prepared-state attractor key")
+            .clone();
+        assert!(first_prepared_state_attractor_key.starts_with("fnv1a64:"));
         assert_field_eq(
             &first_fields,
             "prepared_state_reuse_scope",
@@ -27883,6 +29468,89 @@ mod tests {
             "manifest_fingerprints_match",
         );
         assert_field_eq(&second_fields, "prepared_state_invalidation_reason", "none");
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_packet_status",
+            "packet_reuse",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_packet_digest",
+            manifest_source_admission_packet_digest,
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_packet_row_estimate_status",
+            "reused_from_manifest_prepare_fields",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_packet_reuse_hit",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_packet_reuse_reason",
+            "manifest_fingerprints_match",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_lookup_timing_schema_version",
+            PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_lookup_status",
+            "workspace_manifest_hit",
+        );
+        assert_eq!(
+            second_fields
+                .get("prepare_batch_prepared_state_attractor_key")
+                .map(String::as_str),
+            Some(first_prepared_state_attractor_key.as_str())
+        );
+        assert!(
+            second_fields
+                .get("prepare_batch_prepared_state_manifest_lookup_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            second_fields
+                .get("prepare_batch_prepared_state_cache_hit_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_cache_miss_create_micros",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_artifact_write_micros",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_artifact_register_micros",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_replay_verification_micros",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_lookup_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_lookup_external_engine_invoked",
+            "false",
+        );
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
 
@@ -27909,6 +29577,26 @@ mod tests {
             &third_fields,
             "workspace_prepared_state_reuse_reason",
             "fact_input_fingerprint_changed",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_source_admission_packet_status",
+            "packet_mismatch_refreshed",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_source_admission_packet_reuse_hit",
+            "false",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_source_admission_packet_invalidation_reason",
+            "fact_input_fingerprint_changed",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_lookup_status",
+            "cache_miss_created_and_registered",
         );
         assert_field_eq(
             &third_fields,
@@ -29005,6 +30693,76 @@ mod tests {
             "source_state_selective_filter_recompute_avoided_count",
             "1",
         );
+        assert_field_eq(&fields, "source_state_dim_rows", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_dim_row_count_cache_status",
+            "per_batch_cached_vortex_file_row_count",
+        );
+        assert_field_eq(&fields, "source_state_dim_row_count_cache_hit_count", "2");
+        assert_field_eq(
+            &fields,
+            "source_state_dim_row_count_cache_scope",
+            "prepared_native_batch_scenarios_reuse_session_dim_rows_metadata",
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_schema_version",
+            SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_status",
+            "prepared_native_batch_packet_emitted",
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_route_family",
+            "prepared_native_vortex_batch",
+        );
+        assert_field_eq(&fields, "source_admission_packet_format", "vortex");
+        assert!(
+            fields
+                .get("source_admission_packet_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_reuse_status",
+            "per_batch_source_admission_packet_reused",
+        );
+        assert_field_eq(&fields, "source_admission_packet_reuse_hit", "true");
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_reuse_reason",
+            "per_batch_selective_filter_state_reused",
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_source_path_status",
+            "caller_supplied_vortex_artifacts_snapshot",
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_row_estimate_status",
+            "cached_dimension_row_count_available_fact_rows_reported_per_scenario",
+        );
+        assert_field_eq(&fields, "source_admission_packet_dim_row_estimate", "2");
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_artifact_manifest_hash",
+            fields.get("prepared_state_reuse_manifest_digest").unwrap(),
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_packet_external_engine_invoked",
+            "false",
+        );
         assert_field_eq(
             &fields,
             "source_state_coverage_schema_version",
@@ -29842,6 +31600,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -30018,6 +31777,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -30272,12 +32032,83 @@ mod tests {
                 .map(String::as_str),
             Some("certified")
         );
+        assert_eq!(
+            fields
+                .get("evidence_render_proof_schema_version")
+                .map(String::as_str),
+            Some(EVIDENCE_RENDER_PROOF_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_proof_status")
+                .map(String::as_str),
+            Some("compact_machine_evidence_available")
+        );
+        assert!(
+            fields
+                .get("evidence_render_proof_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_hot_path_policy")
+                .map(String::as_str),
+            Some("compact_facts_only_human_render_deferred")
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_state_projection_aware_text_decode")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_state_row_assembly_strategy")
+                .map(String::as_str),
+            Some("traditional_row_buffer_materialized")
+        );
         assert_eq!(fields.get("write_io").map(String::as_str), Some("false"));
         assert_eq!(
             fields
                 .get("native_io_certificate_status")
                 .map(String::as_str),
             Some("not_vortex_native")
+        );
+        assert_eq!(
+            fields
+                .get("result_sink_capillary_schema_version")
+                .map(String::as_str),
+            Some(RESULT_SINK_CAPILLARY_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            fields
+                .get("result_sink_capillary_status")
+                .map(String::as_str),
+            Some("not_requested")
+        );
+        assert_eq!(
+            fields
+                .get("result_sink_capillary_result_json_digest")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            fields
+                .get("result_sink_capillary_native_vortex_output_selected")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("result_sink_capillary_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
         );
         assert_eq!(
             fields.get("fallback_attempted").map(String::as_str),
@@ -31018,6 +32849,28 @@ mod tests {
                 .as_deref()
                 .unwrap()
         );
+        let prepared_capillary = &prepared_sink_report.result_sink_capillary_evidence;
+        assert_eq!(
+            prepared_capillary.schema_version,
+            RESULT_SINK_CAPILLARY_SCHEMA_VERSION
+        );
+        assert_eq!(
+            prepared_capillary.status,
+            "native_vortex_result_sink_written_replay_verified"
+        );
+        assert_eq!(
+            prepared_capillary.result_json_bytes,
+            u64::try_from(prepared_sink_report.result_json.len()).unwrap()
+        );
+        assert_eq!(
+            prepared_capillary.result_json_digest,
+            prepared_capillary.replay_result_json_digest
+        );
+        assert!(prepared_capillary.native_vortex_output_selected);
+        assert!(prepared_capillary.scalar_json_output_selected);
+        assert!(!prepared_capillary.compatibility_fanout_selected);
+        assert!(!prepared_capillary.fallback_attempted);
+        assert!(!prepared_capillary.external_engine_invoked);
         let prepared_sink_fields = prepared_sink_report.fields();
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "computed_result_sink_replay_verified" && value == "true"
@@ -31032,6 +32885,34 @@ mod tests {
         );
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "result_sink_claim_gate_status" && value == "result_sink_replay_certified"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_schema_version"
+                && value == RESULT_SINK_CAPILLARY_SCHEMA_VERSION
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_status"
+                && value == "native_vortex_result_sink_written_replay_verified"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_replay_result_json_digest"
+                && value.starts_with("fnv1a64:")
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_external_engine_invoked" && value == "false"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_schema_version"
+                && value == EVIDENCE_RENDER_PROOF_SCHEMA_VERSION
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_status" && value == "compact_machine_evidence_available"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_digest" && value.starts_with("fnv1a64:")
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_fallback_attempted" && value == "false"
         }));
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "prepared_native_vortex_lifecycle_status"
@@ -33652,6 +35533,14 @@ mod tests {
             file_digest(&report.dim_vortex_path, "dimension Vortex file").unwrap(),
             report.dim_vortex_digest
         );
+        assert_eq!(
+            std::fs::metadata(&report.fact_vortex_path).unwrap().len(),
+            report.fact_vortex_bytes
+        );
+        assert_eq!(
+            std::fs::metadata(&report.dim_vortex_path).unwrap().len(),
+            report.dim_vortex_bytes
+        );
         assert_eq!(report.vortex_digest_micros, 0);
         assert!(report.combined_output_digest.starts_with("fnv1a64:"));
         assert!(
@@ -33753,6 +35642,50 @@ mod tests {
                 .as_deref(),
             Some("certified")
         );
+        let capillary = &report.result_sink_capillary_evidence;
+        assert_eq!(
+            capillary.schema_version,
+            RESULT_SINK_CAPILLARY_SCHEMA_VERSION
+        );
+        assert_eq!(
+            capillary.status,
+            "native_vortex_result_sink_written_replay_verified"
+        );
+        assert_eq!(
+            capillary.route,
+            "scalar_result_json_to_native_vortex_result_capillary"
+        );
+        assert_eq!(
+            capillary.provider_classification,
+            "use_vortex_native_provider"
+        );
+        assert_eq!(
+            capillary.result_json_bytes,
+            u64::try_from(report.result_json.len()).unwrap()
+        );
+        assert_eq!(
+            capillary.result_json_digest,
+            capillary.replay_result_json_digest
+        );
+        assert!(
+            capillary
+                .result_json_digest
+                .as_deref()
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert!(capillary.native_vortex_output_selected);
+        assert!(capillary.scalar_json_output_selected);
+        assert!(!capillary.compatibility_fanout_selected);
+        assert_eq!(
+            capillary.materialization_strategy,
+            "single_scalar_result_json_reused_for_native_vortex_result_row"
+        );
+        assert_eq!(
+            capillary.metadata_loss_status,
+            "none_for_native_vortex_result_sink"
+        );
+        assert!(!capillary.fallback_attempted);
+        assert!(!capillary.external_engine_invoked);
         assert_eq!(
             report.commit_state,
             "local_vortex_files_and_result_sink_written_uncommitted"
@@ -33870,6 +35803,36 @@ mod tests {
         assert!(fields.iter().any(|(key, value)| {
             key == "computed_result_sink_native_io_certificate_status" && value == "certified"
         }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_schema_version"
+                && value == RESULT_SINK_CAPILLARY_SCHEMA_VERSION
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_status"
+                && value == "native_vortex_result_sink_written_replay_verified"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_native_vortex_output_selected" && value == "true"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_compatibility_fanout_selected" && value == "false"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "result_sink_capillary_fallback_attempted" && value == "false"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_schema_version"
+                && value == EVIDENCE_RENDER_PROOF_SCHEMA_VERSION
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_status" && value == "compact_machine_evidence_available"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_digest" && value.starts_with("fnv1a64:")
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_external_engine_invoked" && value == "false"
+        }));
         assert!(
             fields
                 .iter()
@@ -33942,6 +35905,41 @@ mod tests {
             );
             assert!(import_report.compatibility_output_written);
             assert!(import_report.native_to_compatibility_output_performed);
+            assert_eq!(
+                import_report.result_sink_capillary_evidence.status,
+                "not_requested"
+            );
+            assert!(
+                import_report
+                    .result_sink_capillary_evidence
+                    .compatibility_fanout_selected
+            );
+            let import_fields = field_map(import_report.fields());
+            assert_field_eq(
+                &import_fields,
+                "result_sink_capillary_status",
+                "not_requested",
+            );
+            assert_field_eq(
+                &import_fields,
+                "result_sink_capillary_compatibility_fanout_selected",
+                "true",
+            );
+            assert_field_eq(
+                &import_fields,
+                "evidence_render_proof_schema_version",
+                EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+            );
+            assert_field_eq(
+                &import_fields,
+                "evidence_render_proof_status",
+                "compact_machine_evidence_available",
+            );
+            assert!(
+                import_fields
+                    .get("evidence_render_proof_digest")
+                    .is_some_and(|value| value.starts_with("fnv1a64:"))
+            );
             assert!(!import_report.fallback_execution_allowed);
             assert!(import_report.runtime_execution_certificate.fallback_free());
             assert!(
