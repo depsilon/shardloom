@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=70
+matrix_row_count=73
 executable_fixture_count=64
-diagnostic_case_count=6
-unsupported_diagnostic_count=4
+diagnostic_case_count=9
+unsupported_diagnostic_count=7
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -118,7 +118,10 @@ Covered fixture rows:
 - `runtime_error_numeric_division_by_zero`
 - `timestamp_offset_literal_normalization`
 - `unsupported_timezone_database_policy`
+- `unsupported_timezone_database_function_policy`
+- `unsupported_timestamptz_policy`
 - `unsupported_locale_collation`
+- `unsupported_locale_case_insensitive_predicate`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `invalid_shape_scalar_multi_column_in_subquery`
@@ -134,8 +137,10 @@ property lane. Numeric division by zero now has a deterministic runtime-error di
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
 deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
 timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source
-runtime. Named timezone database semantics, locale/collation,
-variant/union dtype families, list/struct accessors, complex equality, broad
+runtime. Named timezone database conversion syntax, timezone conversion functions,
+`TIMESTAMPTZ`/timestamp-with-local-time-zone type spellings, `COLLATE`, and `ILIKE`
+locale/case-folding comparisons now have deterministic unsupported diagnostics. Variant/union
+dtype families, list/struct accessors, complex equality, broad
 binary source dtype decoding, SQL source-column binary ordering without explicit cast, and remaining non-admitted broad ANSI subquery
 shapes now have deterministic unsupported diagnostics with no
 fallback. Scoped `ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
