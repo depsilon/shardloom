@@ -590,6 +590,38 @@ def binary_cast_projection_predicate_case() -> SqlFixtureCase:
     )
 
 
+def binary_cast_ordering_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_cast_ordering_predicate",
+        source_name="binary-cast-ordering.csv",
+        source_text="id,label\n1,alpha\n2,beta\n3,alp\n4,\n5,gamma\n",
+        statement_template=(
+            "SELECT id,CAST(label AS binary) AS label_bytes FROM '{source}' "
+            "WHERE CAST(label AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":2,"label_bytes":"binary[hex=62657461]"}\n'
+            '{"id":5,"label_bytes":"binary[hex=67616d6d61]"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "cast",
+            "cast_runtime_execution": "true",
+            "cast_source_column": "label",
+            "cast_target_dtype": "binary",
+            "cast_mode": "strict",
+            "cast_projection_runtime_execution": "true",
+            "cast_projection_source_column": "label",
+            "cast_projection_output_column": "label_bytes",
+            "cast_projection_target_dtype": "binary",
+            "cast_projection_mode": "strict",
+            "projected_columns": "id,label_bytes",
+            "fallback_attempted": "false",
+            "external_engine_invoked": "false",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def decimal_cast_projection_predicate_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="decimal_cast_projection_predicate",
@@ -2702,6 +2734,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         complex_array_literal_projection_case(),
         complex_struct_source_projection_case(),
         binary_cast_projection_predicate_case(),
+        binary_cast_ordering_predicate_case(),
         decimal_cast_projection_predicate_case(),
         decimal_arithmetic_projection_case(),
         binary_helper_projection_case(),

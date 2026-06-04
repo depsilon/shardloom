@@ -2626,8 +2626,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=69",
-        "executable_fixture_count=62",
+        "matrix_row_count=70",
+        "executable_fixture_count=63",
         "diagnostic_case_count=7",
         "unsupported_diagnostic_count=5",
         "runtime_error_diagnostic_count=1",
@@ -2656,6 +2656,7 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "`binary_hex_literal_projection`",
         "`binary_text_literal_projection`",
         "`binary_cast_projection_predicate`",
+        "`binary_cast_ordering_predicate`",
         "`decimal_arithmetic_projection`",
         "`binary_helper_projection`",
         "property_execution_performed=true",

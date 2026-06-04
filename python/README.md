@@ -743,9 +743,10 @@ branch, admitted predicate leaves, non-NULL literal branches, and matching branc
 Binary helper projections admit direct source columns only, with strict even-length hexadecimal or
 standard padded base64 decoding, null propagation, and deterministic invalid-input blockers.
 Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scoped binary cast
-equality/inequality predicates are admitted through the SQL local-source runtime; broad binary
-source dtype decoding, binary ordering, and nested binary helper expressions still block before
-fallback. Scoped decimal casts are admitted for fixed-scale projection and predicate fixtures with
+equality/inequality and bytewise lexicographic ordering predicates are admitted through the SQL
+local-source runtime; broad binary source dtype decoding, SQL source-column binary ordering without
+explicit cast, and nested binary helper expressions still block before fallback. Scoped decimal casts
+are admitted for fixed-scale projection and predicate fixtures with
 exact JSONL string and CSV text output; scoped `decimal128` add/subtract/multiply projections over
 same-scale and mixed-scale decimal operands plus integer operands are admitted through the generic
 expression route, and exact division emits a bounded `decimal128(38,max(input_scales,6))` result
@@ -1271,7 +1272,7 @@ expression-backed `with_column` beyond the admitted numeric/string/null/temporal
 scoped JSONL/result-boundary complex projection families,
 generalized grouped aggregation or HAVING expressions beyond emitted aggregate output columns,
 ordering/collation parity, nested JSON source decoding, complex equality/accessors/casts,
-broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
+broader binary source decoding, broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
 The Python query builder admits scoped local-source joins through the same scoped SQL local-source

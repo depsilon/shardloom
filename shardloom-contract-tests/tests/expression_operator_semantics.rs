@@ -276,7 +276,7 @@ fn expression_semantics_binary_equality_is_bytewise_and_null_propagating() {
 }
 
 #[test]
-fn expression_semantics_binary_ordering_is_not_admitted_without_fallback() {
+fn expression_semantics_binary_ordering_is_bytewise_without_fallback() {
     let ordered = Expression::new(
         expr_id("binary-gt"),
         ExpressionKind::Compare {
@@ -293,17 +293,11 @@ fn expression_semantics_binary_ordering_is_not_admitted_without_fallback() {
     );
     let report = evaluate_expression(&ordered, &ExpressionInputRow::new());
 
-    assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+    assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
     assert_eq!(report.operator_family, "comparison");
-    assert!(report.has_errors());
-    assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
-    assert!(
-        report
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.reason.as_deref()
-                == Some("binary comparison admits equality and inequality only"))
-    );
+    assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+    assert!(!report.has_errors());
     assert!(!report.fallback_attempted);
     assert!(!report.external_engine_invoked);
 }

@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast ordering slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-cast-ordering` / PR #1076.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/expression-kernel-registry.md`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Admitted bytewise lexicographic ordering for explicit SQL binary cast predicates over local
+      source rows.
+    - Removed the SQL parser guard that restricted scoped binary cast predicates to equality and
+      inequality, while keeping malformed literals, broad source-binary decoding, and SQL
+      source-column binary ordering without explicit cast outside the claim boundary.
+    - Updated the ShardLoom expression evaluator and semantic conformance fixture so explicit
+      binary scalar comparisons evaluate bytewise with null-aware, no-fallback evidence.
+    - Added SQL parser/runtime coverage for `CAST(<utf8-column> AS binary) > BINARY '<literal>'`,
+      plus core and contract expression tests for bytewise binary ordering.
+    - Promoted the executable semantics row `binary_cast_ordering_predicate`, refreshed
+      release-readiness matrix counts, README/Python README wording, compute-engine flow docs,
+      global architecture review wording, and generated website compute-engine pages.
+  - Evidence:
+    - `cargo test -p shardloom-cli binary_cast -- --nocapture` passed.
+    - `cargo test -p shardloom-core expression_semantics_evaluates_binary_ordering_without_fallback -- --nocapture` passed.
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics binary_ordering -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test semantic_conformance_suite_snapshots -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-binary-ordering.json` passed with `matrix_row_count=70`, `executable_fixture_count=63`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-binary-ordering.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-binary-ordering.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This slice is fixture-smoke correctness evidence for scoped explicit SQL binary cast ordering
+      predicates and explicit binary scalar expression comparisons only. It does not claim broad
+      binary source dtype decoding, SQL source-column binary ordering without explicit cast,
+      locale/collation parity, broad SQL/DataFrame parity, production semantic parity, benchmark
+      speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - ShardLoom executes the admitted route directly through its local-source runtime and native
+      expression evaluator with `fallback_attempted=false` and `external_engine_invoked=false`;
+      external engines remain unavailable as fallback execution providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D correlated subquery predicate/CASE projection slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-correlated-subquery-projections` / PR #1075.

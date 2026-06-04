@@ -342,6 +342,9 @@ Scoped complex projection rows are result-boundary evidence only: they prove Sha
 bounded `ARRAY[...]` and `STRUCT(...)` values to JSONL/user-facing rows without fallback, not that
 flat compatibility sinks, complex equality, accessors, casts, or nested source decoding are broadly
 runtime-ready.
+Scoped binary cast predicates now admit bytewise lexicographic ordering against explicit binary
+literals; broad source-binary decoding and SQL source-column binary ordering without explicit cast
+remain outside the claim boundary.
 
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can

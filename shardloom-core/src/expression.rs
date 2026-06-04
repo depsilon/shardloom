@@ -2628,11 +2628,9 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
         (ScalarValue::Utf8(left), ScalarValue::Utf8(right)) => {
             compare_ordering(left.cmp(right), op, "")?
         }
-        (ScalarValue::Binary(left), ScalarValue::Binary(right)) => compare_ordering(
-            left.cmp(right),
-            op,
-            "binary comparison admits equality and inequality only",
-        )?,
+        (ScalarValue::Binary(left), ScalarValue::Binary(right)) => {
+            compare_ordering(left.cmp(right), op, "")?
+        }
         (left, right) if scalar_pair_has_decimal128(left, right) => {
             compare_ordering(decimal128_compare_ordering(left, right)?, op, "")?
         }
@@ -4502,7 +4500,7 @@ mod tests {
     }
 
     #[test]
-    fn expression_semantics_blocks_binary_ordering_without_fallback() {
+    fn expression_semantics_evaluates_binary_ordering_without_fallback() {
         let expression = Expression::new(
             expr_id("binary-lt"),
             ExpressionKind::Compare {
@@ -4519,16 +4517,11 @@ mod tests {
         );
         let report = evaluate_expression(&expression, &ExpressionInputRow::new());
 
-        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.operator_family, "comparison");
-        assert!(report.has_errors());
-        assert!(
-            report
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.reason.as_deref()
-                    == Some("binary comparison admits equality and inequality only"))
-        );
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }
