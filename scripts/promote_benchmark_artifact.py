@@ -1099,7 +1099,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ("exclusive_operator_compute_millis", "operator_compute_millis"),
         primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
     )
-    has_query_stage_split = vortex_scan is not None or operator_compute is not None
+    has_query_stage_split = vortex_scan is not None and operator_compute is not None
     prepared_query = (
         (vortex_scan or 0.0) + (operator_compute or 0.0)
         if has_query_stage_split

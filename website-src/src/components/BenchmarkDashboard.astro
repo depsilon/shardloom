@@ -56,6 +56,14 @@ const exclusiveColdStageRows = shardloomRows
   ]);
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
+const preparedLookupRows = batchRows.filter((row: any) =>
+  row.prepare_batch_prepared_state_lookup_timing_schema_version
+  || row.prepare_batch_prepared_state_lookup_status
+);
+const resultSinkCapillaryRows = publishedRows.filter((row: any) =>
+  row.result_sink_capillary_schema_version
+  || row.result_sink_capillary_status
+);
 const manifestAny = manifest as any;
 const supportCounts = (runsTodayMatrix as any).support_state_counts ?? {};
 const supportRowCount = (runsTodayMatrix as any).row_count ?? 0;
@@ -493,7 +501,7 @@ const routeCards = [
   <div>
     <p class="eyebrow">Stage attribution</p>
     <h2>ShardLoom stage pieces explain route cost.</h2>
-    <p class="narrow">Preparation, query, output, evidence, and diagnostic context are separated from route-level comparisons so a warm prepared slice cannot be read as a cold end-to-end route. The refreshed safe-writer artifact keeps exclusive stage timing visible for source read/parse, the inclusive import audit bundle, and workspace-safe Vortex write timing; the active optimization sequence now starts with writer/safe-artifact emission, then source parse/read.</p>
+    <p class="narrow">Preparation, query, output, evidence, and diagnostic context are separated from route-level comparisons so a warm prepared slice cannot be read as a cold end-to-end route. The refreshed safe-writer artifact keeps exclusive stage timing visible for source read/parse, the inclusive import audit bundle, and workspace-safe Vortex write timing; the active child execution queue now records writer metadata coalescing, projection-aware text decode, source-admission packets, row-assembly strategy evidence, JSONL fast-path tail skipping, prepared-state lookup timing evidence, and result-sink capillary evidence before evidence rendering.</p>
   </div>
   <div class="artifact-panel">
     <div class="table-wrap compact-table">
@@ -531,6 +539,43 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">Schema: {fastPathTable.schema_version ?? "not reported"}. Boundary: {fastPathTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Result-sink capillary</p>
+    <h2>Native result output is separated from compatibility fanout.</h2>
+    <p class="narrow">
+      Requested result sinks now carry scalar JSON byte/digest evidence, native Vortex output selection, compatibility fanout selection, replay digest parity, and explicit no-fallback fields. The current public artifact predates those fields, so route timing values stay unchanged until the benchmark suite is rerun.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Scenario</th><th>Status</th><th>Capillary route</th><th>JSON bytes</th><th>Native Vortex</th><th>Compat fanout</th><th>Digest</th><th>No fallback</th></tr>
+        </thead>
+        <tbody>
+          {resultSinkCapillaryRows.length > 0 ? resultSinkCapillaryRows.map((row: any) => (
+            <tr>
+              <td>{textValue(row.route_display_name, textValue(row.engine))}</td>
+              <td>{textValue(row.scenario_name)}</td>
+              <td>{textValue(row.result_sink_capillary_status)}</td>
+              <td>{textValue(row.result_sink_capillary_route)}</td>
+              <td>{textValue(row.result_sink_capillary_result_json_bytes)}</td>
+              <td>{textValue(row.result_sink_capillary_native_vortex_output_selected)}</td>
+              <td>{textValue(row.result_sink_capillary_compatibility_fanout_selected)}</td>
+              <td>{textValue(row.result_sink_capillary_result_json_digest)}</td>
+              <td>{String(row.result_sink_capillary_fallback_attempted === false || row.result_sink_capillary_fallback_attempted === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="9">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Capillary rows in current artifact: {resultSinkCapillaryRows.length}. Rust emits the new `result_sink_capillary_*` fields; public route timing values stay unchanged until the benchmark suite is rerun.</p>
   </div>
 </section>
 
@@ -577,7 +622,7 @@ const routeCards = [
     <p class="eyebrow">Prepare-once reuse</p>
     <h2>Amortization is shown as route math.</h2>
     <p class="narrow">
-      The prepared route keeps first-query cost visible, then shows how the same preparation cost amortizes across repeated prepared executions.
+      The prepared route keeps first-query cost visible, then shows how the same preparation cost amortizes across repeated prepared executions. Refreshed artifacts can also expose prepared-state manifest lookup, cache hit, miss-create, artifact write, register, replay verification, and attractor-key evidence.
     </p>
   </div>
   <div class="artifact-panel">
@@ -592,6 +637,32 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">Schema: {preparedAmortizationTable.schema_version ?? "not reported"}. Boundary: {preparedAmortizationTable.claim_boundary ?? "not reported"}.</p>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>Prepared-state lookup evidence</strong></p>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Attractor key</th><th>Manifest lookup</th><th>Cache hit</th><th>Miss create</th><th>Write</th><th>Register</th><th>Replay verify</th><th>No fallback</th></tr>
+        </thead>
+        <tbody>
+          {preparedLookupRows.length > 0 ? preparedLookupRows.map((row: any) => (
+            <tr>
+              <td>{textValue(row.prepare_batch_prepared_state_lookup_status)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_attractor_key)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_manifest_lookup_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_cache_hit_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_cache_miss_create_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_artifact_write_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_artifact_register_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_replay_verification_micros)}</td>
+              <td>{String(row.prepare_batch_prepared_state_lookup_fallback_attempted === false || row.prepare_batch_prepared_state_lookup_fallback_attempted === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="9">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Lookup rows in current artifact: {preparedLookupRows.length}. New fields are emitted by the Rust benchmark route; public timing values stay unchanged until the benchmark suite is rerun.</p>
   </div>
 </section>
 
@@ -605,6 +676,8 @@ const routeCards = [
     <div class="metric"><strong>{metrics.externalUnsupported}</strong><span>external unsupported rows</span></div>
     <div class="metric"><strong>{metrics.claimGrade}</strong><span>evidence claim-grade rows</span></div>
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
+    <div class="metric"><strong>{preparedLookupRows.length}</strong><span>prepared lookup rows</span></div>
+    <div class="metric"><strong>{resultSinkCapillaryRows.length}</strong><span>sink capillary rows</span></div>
     <div class="metric"><strong>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</strong><span>constitution gate</span></div>
   </div>
 </section>
@@ -770,12 +843,12 @@ const routeCards = [
 
 <section>
   <h2>Prepared/native source-state coverage</h2>
-  <p class="narrow">Source-state coverage comes from prepared/native batch evidence, not the raw comparative timing rows. The matrix stays visible here so reuse evidence is not reduced to a single misleading count.</p>
+  <p class="narrow">Source-state coverage comes from prepared/native batch evidence, not the raw comparative timing rows. The matrix stays visible here so reuse evidence is not reduced to a single misleading count; row-count cache and source-admission packet evidence appear only when a refreshed artifact reports them.</p>
   <details class="drawer">
     <summary>Open prepared/native source-state coverage</summary>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Requested mode</th><th>Scenarios</th><th>All classified</th><th>Reused</th><th>Not needed</th><th>Blocked</th><th>Unsupported</th><th>Prepare ms</th><th>Claim gate</th><th>Matrix</th></tr></thead>
+        <thead><tr><th>Requested mode</th><th>Scenarios</th><th>All classified</th><th>Reused</th><th>Not needed</th><th>Blocked</th><th>Unsupported</th><th>Dim rows</th><th>Row-count cache</th><th>Cache hits</th><th>Admission</th><th>Packet reuse</th><th>Prepare ms</th><th>Claim gate</th><th>Matrix</th></tr></thead>
         <tbody>
           {sourceStateRows.map((row: any) => (
             <tr>
@@ -786,6 +859,11 @@ const routeCards = [
               <td>{row.source_state_coverage_not_needed_scenario_count}</td>
               <td>{row.source_state_coverage_blocked_scenario_count}</td>
               <td>{row.source_state_coverage_unsupported_scenario_count}</td>
+              <td>{textValue(row.source_state_dim_rows)}</td>
+              <td>{textValue(row.source_state_dim_row_count_cache_status)}</td>
+              <td>{textValue(row.source_state_dim_row_count_cache_hit_count)}</td>
+              <td>{textValue(row.source_admission_packet_status)}</td>
+              <td>{textValue(row.source_admission_packet_reuse_status)}</td>
               <td>{row.source_state_prepare_millis}</td>
               <td>{row.claim_gate_status}</td>
               <td>{row.source_state_coverage_matrix}</td>

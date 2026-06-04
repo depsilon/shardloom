@@ -953,30 +953,55 @@ class ReleaseScriptTests(unittest.TestCase):
             "promote_benchmark_sparse_exclusive_split_for_test",
         )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "route_lane_id": "warm_prepared_query",
-            "status": "success",
-            "metrics": {
-                "total_runtime_millis": 10.0,
-                "query_runtime_millis": 9.0,
-                "result_sink_write_millis": 1.0,
-            },
-        }
+        cases = [
+            ({}, None, None),
+            (
+                {"vortex_scan_millis": 0.25},
+                "vortex_scan_ms",
+                0.25,
+            ),
+            (
+                {"operator_compute_millis": 0.75},
+                "operator_compute_ms",
+                0.75,
+            ),
+        ]
 
-        stage_fields = module.route_stage_fields_for_row(row)
+        for sparse_metrics, one_sided_field, one_sided_value in cases:
+            with self.subTest(sparse_metrics=sparse_metrics):
+                row = {
+                    "engine": "shardloom-vortex",
+                    "route_lane_id": "warm_prepared_query",
+                    "status": "success",
+                    "metrics": {
+                        "total_runtime_millis": 10.0,
+                        "query_runtime_millis": 9.0,
+                        "result_sink_write_millis": 1.0,
+                        **sparse_metrics,
+                    },
+                }
 
-        self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
-        self.assertEqual(
-            stage_fields["exclusive_stage_timing_status"],
-            "blocked_missing_query_split",
-        )
-        self.assertEqual(
-            stage_fields["route_timing_exclusive_stage_ids"],
-            "sink_output,evidence_render",
-        )
-        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 1.0)
-        self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 9.0)
+                stage_fields = module.route_stage_fields_for_row(row)
+
+                self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
+                self.assertEqual(
+                    stage_fields["exclusive_stage_timing_status"],
+                    "blocked_missing_query_split",
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_stage_ids"],
+                    "sink_output,evidence_render",
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_stage_sum_ms"],
+                    1.0,
+                )
+                self.assertEqual(
+                    stage_fields["route_timing_exclusive_residual_ms"],
+                    9.0,
+                )
+                if one_sided_field is not None:
+                    self.assertEqual(stage_fields[one_sided_field], one_sided_value)
 
     def test_benchmark_promoter_derives_prepare_once_first_query_route(self) -> None:
         module = self._load_script_module(
