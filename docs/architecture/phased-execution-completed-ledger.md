@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped columnar binary source projection slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-source-dtype` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/vortex/vortex-arrow-interop.md`.
+    - `docs/skills/translation-layer.md`.
+  - Scope:
+    - Admitted Arrow `Binary`, `LargeBinary`, `FixedSizeBinary`, and `BinaryView` arrays at the
+      feature-gated local columnar materialization boundary by converting non-null values into
+      `ScalarValue::Binary` and preserving nulls.
+    - Added a shared materializer unit test covering all admitted Arrow binary byte-array variants
+      and a CLI Arrow IPC SQL smoke that writes a real binary source file, projects `id,payload`,
+      verifies JSONL `binary[hex=...]` output, and asserts source-state/no-fallback evidence.
+    - Kept binary predicates over source columns, source-column binary ordering without explicit
+      cast, binary sink preservation, nested binary helpers, and broader binary execution outside
+      the claim boundary.
+    - Updated the active phase plan, admitted-semantics narrative/JSON row text, compute-flow
+      reference, SQL local-source use-case source, generated docs/use-case output, website data, and
+      static website pages.
+    - Added a narrow feature-gated clippy allowance on the universal-format output-plan validator
+      branch whose `Result` signature is shared with the default fail-closed branch.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features universal-format-io materializes_columnar_binary_source_dtypes_as_scalar_binary -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io direct_transient_arrow_ipc_projects_binary_source_dtype_without_fallback -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `git diff --check` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change admits a scoped
+      feature-gated source dtype projection path and does not make a performance claim.
+  - Claim boundary:
+    - This slice admits direct projection of feature-gated local columnar binary byte-array source
+      columns into ShardLoom scalar-row results. It does not admit binary predicates over source
+      columns, source-column binary ordering without explicit cast, binary sink preservation, nested
+      binary helpers, broad SQL/DataFrame parity, production support, benchmark speedup, public
+      performance superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside the ShardLoom local compatibility adapter and ShardLoom scalar
+      runtime, with `fallback_attempted=false` and `external_engine_invoked=false`; unsupported
+      binary source operations remain deterministic blockers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D complex dtype unsupported diagnostics slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-complex-dtype-diagnostics` / pending PR.

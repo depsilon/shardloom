@@ -16,9 +16,10 @@ use std::{
 };
 
 use arrow_array::{
-    Array, ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int8Array, Int16Array,
-    Int32Array, Int64Array, LargeStringArray, RecordBatch, RecordBatchReader, StringArray,
-    StringViewArray, TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, FixedSizeBinaryArray,
+    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
+    LargeStringArray, RecordBatch, RecordBatchReader, StringArray, StringViewArray,
+    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
         BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder, Int64Builder,
         StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
@@ -1357,6 +1358,18 @@ fn arrow_scalar_to_shardloom(
     if let Some(values) = array.as_any().downcast_ref::<StringViewArray>() {
         return Ok(ScalarValue::Utf8(values.value(row_index).to_string()));
     }
+    if let Some(values) = array.as_any().downcast_ref::<BinaryArray>() {
+        return Ok(ScalarValue::Binary(values.value(row_index).to_vec()));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<LargeBinaryArray>() {
+        return Ok(ScalarValue::Binary(values.value(row_index).to_vec()));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<FixedSizeBinaryArray>() {
+        return Ok(ScalarValue::Binary(values.value(row_index).to_vec()));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<BinaryViewArray>() {
+        return Ok(ScalarValue::Binary(values.value(row_index).to_vec()));
+    }
     if let Some(values) = array.as_any().downcast_ref::<Date32Array>() {
         return Ok(ScalarValue::Date32(values.value(row_index)));
     }
@@ -1364,7 +1377,7 @@ fn arrow_scalar_to_shardloom(
         return Ok(ScalarValue::TimestampMicros(values.value(row_index)));
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, date32, and timestamp_micros only",
+        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, binary byte arrays, date32, and timestamp_micros only",
         path.display(),
         array.data_type()
     )))
@@ -1373,6 +1386,80 @@ fn arrow_scalar_to_shardloom(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn binary_source_with_column(column: &str, array: ArrayRef) -> FlatLocalColumnarSource {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            column,
+            array.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![array]).expect("record batch");
+        FlatLocalColumnarSource {
+            header: vec![column.to_string()],
+            materialized_columns: vec![column.to_string()],
+            reader_projection_columns: vec![column.to_string()],
+            row_count: batch.num_rows(),
+            batches: vec![batch],
+        }
+    }
+
+    fn assert_binary_materialization(column: &str, array: ArrayRef) {
+        let table = materialize_flat_columnar_source_to_scalar_table(
+            &binary_source_with_column(column, array),
+            Path::new("target/binary.arrow"),
+            "Arrow IPC",
+        )
+        .expect("materialize binary column");
+
+        assert_eq!(table.header, vec![column.to_string()]);
+        assert_eq!(table.reader_projection_columns, vec![column.to_string()]);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(
+            table.rows[0].get(column),
+            Some(&ScalarValue::Binary(vec![0x00, 0xff, 0x10]))
+        );
+        assert_eq!(table.rows[1].get(column), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get(column),
+            Some(&ScalarValue::Binary(b"raw".to_vec()))
+        );
+    }
+
+    #[test]
+    fn materializes_columnar_binary_source_dtypes_as_scalar_binary() {
+        assert_binary_materialization(
+            "payload",
+            Arc::new(BinaryArray::from(vec![
+                Some(&[0x00, 0xff, 0x10][..]),
+                None,
+                Some(&b"raw"[..]),
+            ])),
+        );
+        assert_binary_materialization(
+            "large_payload",
+            Arc::new(LargeBinaryArray::from(vec![
+                Some(&[0x00, 0xff, 0x10][..]),
+                None,
+                Some(&b"raw"[..]),
+            ])),
+        );
+        assert_binary_materialization(
+            "fixed_payload",
+            Arc::new(FixedSizeBinaryArray::from(vec![
+                Some(&[0x00, 0xff, 0x10][..]),
+                None,
+                Some(&b"raw"[..]),
+            ])),
+        );
+        assert_binary_materialization(
+            "view_payload",
+            Arc::new(BinaryViewArray::from(vec![
+                Some(&[0x00, 0xff, 0x10][..]),
+                None,
+                Some(&b"raw"[..]),
+            ])),
+        );
+    }
 
     #[test]
     fn invalid_decimal_dtype_hint_blocks_all_null_output() {

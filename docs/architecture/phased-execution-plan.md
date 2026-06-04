@@ -305,15 +305,16 @@ completed details to the ledger.
   blockers are the non-admitted broad grammar families that still need ShardLoom-owned runtime
   promotion or additional deterministic diagnostics beyond the now-covered timezone database
   syntax/function/type spellings, locale/case-folding operators, direct binary literal predicates
-  over source columns, source-column binary ordering without explicit cast, scoped complex
+  over source columns, source-column binary ordering without explicit cast, scoped columnar binary
+  source projection through the feature-gated local materialization boundary, scoped complex
   result-boundary ordering, first-class list/array plus struct access/cast unsupported
   diagnostics, and complex subquery membership materialization unsupported diagnostics: arbitrary
   interval arithmetic
   outside scoped temporal helpers, joins over complex keys,
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
-  variant/union-dtype shapes, broad binary source dtype decoding and binary execution beyond
-  explicit casts/helpers, local Vortex typed
+  variant/union-dtype shapes, binary source predicates/order/sinks and broader binary execution
+  beyond scoped columnar projection plus explicit casts/helpers, local Vortex typed
   decimal output, Avro/ORC typed decimal sinks, broad ANSI decimal coercion/exponent notation,
   scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
   subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
@@ -321,11 +322,11 @@ completed details to the ledger.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the complex dtype diagnostics slice; likely candidates are broad binary source
-  dtype decoding after a dedicated source-dtype contract, complex join follow-through after a
-  dedicated semantics contract, local Vortex typed decimal output once Vortex
-  writer/reopen evidence is available, or another front-door parity gap only after the runtime route
-  is already admitted.
+  blockers after the scoped columnar binary source projection slice; likely candidates are binary
+  source predicate/order/sink follow-through after a dedicated source-dtype contract, complex join
+  follow-through after a dedicated semantics contract, local Vortex typed decimal output once
+  Vortex writer/reopen evidence is available, or another front-door parity gap only after the
+  runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
