@@ -1266,6 +1266,12 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     else:
         exclusive_stage_timing_status = "complete"
 
+    exclusive_stage_timing_schema_version = first_meaningful_field(
+        fields, ("exclusive_stage_timing_schema_version",)
+    )
+    if exclusive_stage_timing_schema_version != EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION:
+        exclusive_stage_timing_schema_version = EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
+
     return {
         "source_admission_ms": source_admission_millis(fields),
         "source_read_ms": source_read,
@@ -1279,10 +1285,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "result_sink_write_ms": result_sink_write,
         "evidence_render_ms": evidence_render,
         "total_route_ms": total_route,
-        "exclusive_stage_timing_schema_version": first_meaningful_field(
-            fields, ("exclusive_stage_timing_schema_version",)
-        )
-        or EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION,
+        "exclusive_stage_timing_schema_version": exclusive_stage_timing_schema_version,
         "exclusive_stage_timing_status": exclusive_stage_timing_status,
         "exclusive_stage_timing_scope": first_meaningful_field(
             fields, ("exclusive_stage_timing_scope",)

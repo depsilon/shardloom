@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: HOTPATH-14 total-route Amdahl benchmark rerun and publication
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-14-benchmark-rerun` / PR #1074.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - HOTPATH code/docs/site closeouts through HOTPATH-1/HOTPATH-5.
+    - `docs/benchmarks/static-benchmark-publishing-runbook.md`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - Website benchmark bundle and generated static benchmark page.
+  - Scope:
+    - Reran the full `full_local` HOTPATH-14 benchmark profile after the hotpath implementation and
+      freshness gates completed.
+    - Fixed benchmark row-shaping blockers found during the rerun: source-to-Vortex-array guard
+      raw `_micros` evidence fields now normalize to public `_millis` benchmark fields, prepare/batch
+      rows propagate prepared-state dependency/partial-repair evidence, non-executed rows retain
+      required stage-timing fields, and promoted unsupported external-baseline rows publish the
+      canonical exclusive-stage schema version.
+    - Promoted the completed artifact into `website-public`, `website-src`, and `website` benchmark
+      bundles, then rebuilt the benchmark page.
+    - Moved HOTPATH-14 out of Planned so the first active work item is now
+      `6D:last_order.broad_sql_grammar`.
+  - Benchmark artifact:
+    - Local JSON: `target/benchmark-artifacts/traditional-full-local-hotpath-14.json`.
+    - Local Markdown: `target/benchmark-artifacts/traditional-full-local-hotpath-14.md`.
+    - Promoted manifest: `website/assets/benchmarks/latest/manifest.json`.
+    - Generated at: `2026-06-04T14:01:05.627722+00:00`.
+    - Published rows: 1320.
+    - Runtime envelope validation: passed for 600 ShardLoom rows.
+    - Full-local external unsupported rows: 6 DataFusion nested-JSON rows, reported as external
+      baseline limitations rather than ShardLoom runtime gaps.
+  - Promoted engine timing overview:
+    - `shardloom`: 120/120 success, 177.25 ms route geomean, 167.19 ms CSV/Parquet route geomean,
+      0 local fastest routes, 100.0% local route timing context.
+    - `shardloom-vortex`: 120/120 success, 7.47 ms route geomean, 7.16 ms CSV/Parquet route
+      geomean, 80 local fastest routes, 4.2% local route timing context.
+    - `shardloom-prepared-vortex`: 120/120 success, 7.87 ms route geomean, 8.43 ms CSV/Parquet
+      route geomean, 40 local fastest routes, 4.4% local route timing context.
+    - `shardloom-prepare-batch`: 120/120 success, 11.43 ms route geomean, 11.16 ms CSV/Parquet
+      route geomean, 0 local fastest routes, 6.4% local route timing context.
+    - External baselines remain comparison rows only: pandas 241.21 ms, polars-eager 51.16 ms,
+      polars-lazy 35.75 ms, duckdb 89.27 ms, datafusion 44.93 ms, and dask 369.34 ms route
+      geomean.
+  - Evidence:
+    - `target/bench-venv/bin/python scripts/check_benchmark_environment.py --profile full_local --json-output target/benchmark-artifacts/traditional-full-local-hotpath-14-environment.json` passed.
+    - `target/bench-venv/bin/python scripts/check_pre_5j_dependency_freshness.py --require-live-github` passed.
+    - `target/bench-venv/bin/python -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness` passed.
+    - `target/bench-venv/bin/python benchmarks/traditional_analytics/run.py --rows 100000 --iterations 3 --claim-readiness-rerun --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local-hotpath-14.json --markdown-output target/benchmark-artifacts/traditional-full-local-hotpath-14.md --data-dir target/benchmark-artifacts/traditional-full-local-hotpath-14-data --regenerate` passed.
+    - `target/bench-venv/bin/python scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local-hotpath-14.json` passed after the promoter schema normalization fix.
+    - `target/bench-venv/bin/python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree` passed.
+    - `target/bench-venv/bin/python scripts/check_benchmark_constitution.py` passed with `status=passed`, `blockers=0`, `row_count=1320`, and `claim_bearing_row_count=0`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `target/bench-venv/bin/python scripts/check_website_readiness.py --output target/benchmark-artifacts/traditional-full-local-hotpath-14-website-readiness.json` passed.
+    - `find docs/use-cases/generated website-src website -depth -name '* 2*' -print` returned no files.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - The promoted artifact has `performance_claim_allowed=false` and `claim_bearing_row_count=0`.
+      This slice supports benchmark freshness, route-timing evidence, and optimization targeting
+      only; it does not authorize public superiority, best-default, Spark-displacement, production
+      readiness, or broad SQL/DataFrame parity claims.
+  - Fallback boundary:
+    - ShardLoom rows remain `fallback_attempted=false` and `external_engine_invoked=false`.
+      External engines remain local comparison baselines only and are not fallback execution paths.
+
 - [x] Session label: POST-HOTPATH-DOCS-FRESHNESS documentation/status/website freshness gate
   - Date: 2026-06-04
   - Branch/PR: `codex/post-hotpath-freshness-gate` / PR #1073.

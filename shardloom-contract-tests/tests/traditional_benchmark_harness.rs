@@ -335,6 +335,13 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def route_shape_metadata("));
     assert!(script.contains("def route_family_for_result("));
     assert!(script.contains("def route_start_state_for_result("));
+    assert!(script.contains("SOURCE_TO_VORTEX_ARRAY_GUARD_BENCHMARK_FIELD_ALIASES"));
+    assert!(script.contains(
+        "\"exclusive_source_to_vortex_array_micros\": \"exclusive_source_to_vortex_array_millis\""
+    ));
+    assert!(script.contains(
+        "\"compatibility_to_vortex_import_micros\": \"compatibility_to_vortex_import_millis\""
+    ));
     assert!(script.contains("def source_to_vortex_array_guard_metadata("));
     assert!(script.contains("def operator_blocker_metadata("));
     assert!(script.contains("def execution_mode_attribution_contract("));
