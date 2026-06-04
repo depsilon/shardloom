@@ -217,6 +217,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "traditional-analytics-prepare-batch-run",
     "vortex-count",
     "vortex-count-benchmark",
+    "operator-microkernel-benchmark",
     "vortex-count-where",
     "vortex-project",
     "vortex-filter-project",

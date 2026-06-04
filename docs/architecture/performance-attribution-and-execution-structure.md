@@ -366,6 +366,14 @@ compressed_kernel_registry_decoded
 compressed_kernel_registry_materialized
 compressed_kernel_registry_selection_vector_emitted
 compressed_kernel_registry_input_rows
+compressed_kernel_registry_selected_rows
+compressed_kernel_registry_operator_kernel_micros
+compressed_kernel_registry_decoded_reference_micros
+compressed_kernel_registry_input_shape_classes
+compressed_kernel_registry_kernel_specialization_profiles
+compressed_kernel_registry_focused_microbenchmark_refs
+compressed_kernel_registry_focused_microbenchmark_statuses
+compressed_kernel_registry_promotion_statuses
 compressed_kernel_registry_decoded_reference_compared
 compressed_kernel_registry_correctness_digest_status
 compressed_kernel_registry_correctness_digests
@@ -379,7 +387,12 @@ compressed_kernel_registry_claim_gate_status=not_claim_grade
 The current implemented surface executes observed selective-filter bitpacked, sequence, and
 constant filter inputs as reader-generated selection-vector inputs when Vortex emits those
 encodings. It also executes dictionary group-by evidence from a real prepared Vortex
-`vortex.dict` reader chunk. Sorted/min-max, FSST/string, sparse, TurboQuant/vector, and broader
+`vortex.dict` reader chunk. `HOTPATH-11` adds operator-local timing, decoded-reference timing,
+shape classification, and focused microbenchmark refs for these promoted local pairs; those fields
+are attribution evidence only and do not replace route totals. The same slice also adds local
+encoded predicate fast paths for bitpacked unsigned comparisons/nullity and dictionary
+nullity/all-match cases so admitted pairs avoid avoidable generic value dispatch before emitting
+selection vectors. Sorted/min-max, FSST/string, sparse, TurboQuant/vector, and broader
 operator pairs remain deterministic blockers or future candidates, and no row authorizes an
 encoded-native claim.
 

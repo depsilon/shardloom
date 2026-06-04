@@ -275,9 +275,11 @@ encoded-native operator execution or public performance proof.
 benchmark rows now expose aggregate `compressed_kernel_registry_*` fields for
 encoding IDs, logical dtypes, physical encodings, operator families, admitted/executed flags,
 canonicalization, decode, materialization, selection-vector behavior, input rows,
-decoded-reference correctness digests, validity semantics, unsupported reasons, encoded-native
-claim status, no-fallback status, and a claim gate. Unsupported encoding/operator pairs are visible
-deterministic blockers or not-available rows.
+selected rows, operator-kernel timing, decoded-reference timing, shape classes, specialization
+profiles, focused microbenchmark refs, promotion statuses, decoded-reference correctness digests,
+validity semantics, unsupported reasons, encoded-native claim status, no-fallback status, and a
+claim gate. Unsupported encoding/operator pairs are visible deterministic blockers or not-available
+rows.
 
 `GAR-PERF-2E` adds the scoped fused operator pipeline contract. Prepared/native rows now expose
 `fused_pipeline_used`, `fused_operator_family`, `fused_pipeline_family_statuses`,
@@ -334,8 +336,10 @@ release evidence, and optimized profile rows must not be rendered as performance
 separate from traditional compatibility-file rows, prepared/native end-to-end rows, and external
 baseline rows. The row families are Vortex scan-only, filter predicate-only, projection-only,
 group-by kernel, hash-join kernel, top-k, result-sink write, and evidence-render. Implemented
-families emit smoke-supported subsystem evidence; missing isolated primitives emit deterministic
-blocked rows rather than disappearing from the report. Each row exposes
+families emit smoke-supported subsystem evidence; HOTPATH-11 adds an
+`operator-microkernel-benchmark` row for dictionary group-by plus bitpacked, sequence, and constant
+predicate-pair timings. Missing isolated primitives emit deterministic blocked rows rather than
+disappearing from the report. Each row exposes
 `benchmark_category=native_microbenchmark`, primitive family, subsystem, optimization question,
 support status, row counts, decode/materialization status, `fallback_attempted=false`,
 `external_engine_invoked=false`, `claim_gate_status`, and an unsupported reason where applicable.

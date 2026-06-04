@@ -109,6 +109,14 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"compressed_kernel_registry_materialized\""));
     assert!(script.contains("\"compressed_kernel_registry_selection_vector_emitted\""));
     assert!(script.contains("\"compressed_kernel_registry_input_rows\""));
+    assert!(script.contains("\"compressed_kernel_registry_selected_rows\""));
+    assert!(script.contains("\"compressed_kernel_registry_operator_kernel_micros\""));
+    assert!(script.contains("\"compressed_kernel_registry_decoded_reference_micros\""));
+    assert!(script.contains("\"compressed_kernel_registry_input_shape_classes\""));
+    assert!(script.contains("\"compressed_kernel_registry_kernel_specialization_profiles\""));
+    assert!(script.contains("\"compressed_kernel_registry_focused_microbenchmark_refs\""));
+    assert!(script.contains("\"compressed_kernel_registry_focused_microbenchmark_statuses\""));
+    assert!(script.contains("\"compressed_kernel_registry_promotion_statuses\""));
     assert!(script.contains("\"compressed_kernel_registry_decoded_reference_compared\""));
     assert!(script.contains("\"compressed_kernel_registry_correctness_digest_status\""));
     assert!(script.contains("\"compressed_kernel_registry_correctness_digests\""));
@@ -474,6 +482,14 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"compressed_kernel_registry_pair_statuses\"",
         "\"compressed_kernel_registry_kernel_admitted\"",
         "\"compressed_kernel_registry_input_rows\"",
+        "\"compressed_kernel_registry_selected_rows\"",
+        "\"compressed_kernel_registry_operator_kernel_micros\"",
+        "\"compressed_kernel_registry_decoded_reference_micros\"",
+        "\"compressed_kernel_registry_input_shape_classes\"",
+        "\"compressed_kernel_registry_kernel_specialization_profiles\"",
+        "\"compressed_kernel_registry_focused_microbenchmark_refs\"",
+        "\"compressed_kernel_registry_focused_microbenchmark_statuses\"",
+        "\"compressed_kernel_registry_promotion_statuses\"",
         "\"compressed_kernel_registry_decoded_reference_compared\"",
         "\"compressed_kernel_registry_correctness_digest_status\"",
         "\"compressed_kernel_registry_correctness_digests\"",
@@ -1057,6 +1073,7 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("def run_shardloom_native_microbenchmarks("));
     assert!(script.contains("def run_shardloom_count_microbenchmark("));
     assert!(script.contains("def run_shardloom_vortex_run_microbenchmark("));
+    assert!(script.contains("def run_shardloom_operator_microkernel_benchmark("));
     assert!(script.contains("NATIVE_MICROBENCHMARK_SCHEMA_VERSION"));
     assert!(script.contains("\"shardloom.traditional_analytics.native_microbenchmark.v1\""));
     assert!(script.contains("\"native_microbenchmark_schema_version\""));
@@ -1113,6 +1130,11 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("local primitive validity count"));
     assert!(script.contains("count-where:is_not_null:value"));
     assert!(script.contains("local primitive comparison count"));
+    assert!(script.contains("operator-microkernel-benchmark"));
+    assert!(script.contains("local operator microkernel registry"));
+    assert!(script.contains("\"operator_microkernel_pair_ids\""));
+    assert!(script.contains("\"operator_microkernel_input_shape_classes\""));
+    assert!(script.contains("\"operator_microkernel_operator_kernel_micros\""));
     assert!(script.contains("count-where:gte:value:10000"));
     assert!(script.contains("local primitive filter projection"));
     assert!(script.contains("filter-project:gte:value:10000|value"));

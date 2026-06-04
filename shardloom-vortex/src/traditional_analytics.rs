@@ -12,7 +12,8 @@ use crate::vortex_ingest::{
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::encoded_predicate_evaluation::{
-    VortexEncodedPredicateEvaluationStatus, evaluate_vortex_encoded_value_predicate_batch,
+    VortexEncodedPredicateEvaluationStatus, VortexEncodedValuePredicateBatch,
+    evaluate_vortex_encoded_value_predicate_batch,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::local_primitives::reader_generated_encoded_kernel_inputs_from_vortex_chunk;
@@ -27,11 +28,12 @@ use arrow_array::Array as _;
 use sha2::Digest as _;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
-    ColumnRef, ComparisonOp, DatasetUri, EncodedValueBatch, ExecutionCertificateInput,
-    ExecutionProviderKind, ExpectedOutcome, NativeIoAdapterFidelityReport,
-    NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
-    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
-    NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, SelectionVector,
+    ColumnRef, ComparisonOp, DatasetUri, EncodedSegment, EncodedValueBatch,
+    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome, LayoutKind, LogicalDType,
+    NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, Nullability, PredicateExpr,
+    RepresentationState, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     ShardLoomExecutionModeSelectionRequest, StatValue, UniversalInputSource,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -57,6 +59,9 @@ const ENCODED_PREDICATE_PROVIDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.encoded_predicate_provider.v4";
 const COMPRESSED_KERNEL_REGISTRY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.compressed_kernel_registry.v1";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_OPERATOR_MICROKERNEL_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.operator_microkernel_benchmark.v1";
 const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
 const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
@@ -5515,6 +5520,13 @@ pub struct TraditionalCompressedKernelPairExecutionEvidence {
     pub status: String,
     pub input_rows: u64,
     pub selected_rows: Option<u64>,
+    pub operator_kernel_micros: u64,
+    pub decoded_reference_micros: u64,
+    pub input_shape_class: String,
+    pub kernel_specialization_profile: String,
+    pub focused_microbenchmark_ref: String,
+    pub focused_microbenchmark_status: String,
+    pub promotion_status: String,
     pub decoded_reference_compared: bool,
     pub correctness_digest: String,
 }
@@ -9985,6 +9997,14 @@ struct TraditionalCompressedKernelRegistryRow {
     materialized: bool,
     selection_vector_emitted: bool,
     input_rows: u64,
+    selected_rows: String,
+    operator_kernel_micros: u64,
+    decoded_reference_micros: u64,
+    input_shape_class: String,
+    kernel_specialization_profile: String,
+    focused_microbenchmark_ref: &'static str,
+    focused_microbenchmark_status: String,
+    promotion_status: String,
     decoded_reference_compared: bool,
     correctness_digest_status: &'static str,
     correctness_digest: String,
@@ -10039,6 +10059,70 @@ fn pair_correctness_digest(
     evidence.map_or_else(
         || "not_available".to_string(),
         |evidence| evidence.correctness_digest.clone(),
+    )
+}
+
+fn pair_selected_rows(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> String {
+    evidence.map_or_else(
+        || "none".to_string(),
+        |evidence| {
+            evidence
+                .selected_rows
+                .map_or_else(|| "not_applicable".to_string(), |count| count.to_string())
+        },
+    )
+}
+
+fn pair_operator_kernel_micros(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> u64 {
+    evidence.map_or(0, |evidence| evidence.operator_kernel_micros)
+}
+
+fn pair_decoded_reference_micros(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> u64 {
+    evidence.map_or(0, |evidence| evidence.decoded_reference_micros)
+}
+
+fn pair_input_shape_class(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> String {
+    evidence.map_or_else(
+        || "not_executed".to_string(),
+        |evidence| evidence.input_shape_class.clone(),
+    )
+}
+
+fn pair_kernel_specialization_profile(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+    blocked_profile: &'static str,
+) -> String {
+    evidence.map_or_else(
+        || blocked_profile.to_string(),
+        |evidence| evidence.kernel_specialization_profile.clone(),
+    )
+}
+
+fn pair_focused_microbenchmark_status(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+    blocked_status: &'static str,
+) -> String {
+    evidence.map_or_else(
+        || blocked_status.to_string(),
+        |evidence| evidence.focused_microbenchmark_status.clone(),
+    )
+}
+
+fn pair_promotion_status(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+    blocked_status: &'static str,
+) -> String {
+    evidence.map_or_else(
+        || blocked_status.to_string(),
+        |evidence| evidence.promotion_status.clone(),
     )
 }
 
@@ -10206,6 +10290,23 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: bitpacked_selection,
             input_rows: bitpacked_execution.map_or(0, |evidence| evidence.input_rows),
+            selected_rows: pair_selected_rows(bitpacked_execution),
+            operator_kernel_micros: pair_operator_kernel_micros(bitpacked_execution),
+            decoded_reference_micros: pair_decoded_reference_micros(bitpacked_execution),
+            input_shape_class: pair_input_shape_class(bitpacked_execution),
+            kernel_specialization_profile: pair_kernel_specialization_profile(
+                bitpacked_execution,
+                "layout_aware_bitpacked_unsigned_selection",
+            ),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.bitpacked_boolean_integer_filter",
+            focused_microbenchmark_status: pair_focused_microbenchmark_status(
+                bitpacked_execution,
+                "focused_microbenchmark_command_available_pair_not_executed",
+            ),
+            promotion_status: pair_promotion_status(
+                bitpacked_execution,
+                "not_promoted_pair_not_executed",
+            ),
             decoded_reference_compared: bitpacked_execution
                 .is_some_and(|evidence| evidence.decoded_reference_compared),
             correctness_digest_status: pair_correctness_digest_status(bitpacked_execution),
@@ -10227,6 +10328,23 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: sequence_selection,
             input_rows: sequence_execution.map_or(0, |evidence| evidence.input_rows),
+            selected_rows: pair_selected_rows(sequence_execution),
+            operator_kernel_micros: pair_operator_kernel_micros(sequence_execution),
+            decoded_reference_micros: pair_decoded_reference_micros(sequence_execution),
+            input_shape_class: pair_input_shape_class(sequence_execution),
+            kernel_specialization_profile: pair_kernel_specialization_profile(
+                sequence_execution,
+                "layout_aware_arithmetic_sequence_selection",
+            ),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.sequence_equality_range_predicate",
+            focused_microbenchmark_status: pair_focused_microbenchmark_status(
+                sequence_execution,
+                "focused_microbenchmark_command_available_pair_not_executed",
+            ),
+            promotion_status: pair_promotion_status(
+                sequence_execution,
+                "not_promoted_pair_not_executed",
+            ),
             decoded_reference_compared: sequence_execution
                 .is_some_and(|evidence| evidence.decoded_reference_compared),
             correctness_digest_status: pair_correctness_digest_status(sequence_execution),
@@ -10248,6 +10366,23 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: false,
             input_rows: dictionary_execution.map_or(0, |evidence| evidence.input_rows),
+            selected_rows: pair_selected_rows(dictionary_execution),
+            operator_kernel_micros: pair_operator_kernel_micros(dictionary_execution),
+            decoded_reference_micros: pair_decoded_reference_micros(dictionary_execution),
+            input_shape_class: pair_input_shape_class(dictionary_execution),
+            kernel_specialization_profile: pair_kernel_specialization_profile(
+                dictionary_execution,
+                "layout_aware_dictionary_code_group_count",
+            ),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.dictionary_equality_group_by",
+            focused_microbenchmark_status: pair_focused_microbenchmark_status(
+                dictionary_execution,
+                "focused_microbenchmark_command_available_pair_not_executed",
+            ),
+            promotion_status: pair_promotion_status(
+                dictionary_execution,
+                "not_promoted_pair_not_executed",
+            ),
             decoded_reference_compared: dictionary_execution
                 .is_some_and(|evidence| evidence.decoded_reference_compared),
             correctness_digest_status: pair_correctness_digest_status(dictionary_execution),
@@ -10269,6 +10404,23 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: constant_selection,
             input_rows: constant_execution.map_or(0, |evidence| evidence.input_rows),
+            selected_rows: pair_selected_rows(constant_execution),
+            operator_kernel_micros: pair_operator_kernel_micros(constant_execution),
+            decoded_reference_micros: pair_decoded_reference_micros(constant_execution),
+            input_shape_class: pair_input_shape_class(constant_execution),
+            kernel_specialization_profile: pair_kernel_specialization_profile(
+                constant_execution,
+                "layout_aware_constant_selection",
+            ),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.constant_array_count_filter",
+            focused_microbenchmark_status: pair_focused_microbenchmark_status(
+                constant_execution,
+                "focused_microbenchmark_command_available_pair_not_executed",
+            ),
+            promotion_status: pair_promotion_status(
+                constant_execution,
+                "not_promoted_pair_not_executed",
+            ),
             decoded_reference_compared: constant_execution
                 .is_some_and(|evidence| evidence.decoded_reference_compared),
             correctness_digest_status: pair_correctness_digest_status(constant_execution),
@@ -10290,6 +10442,14 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: false,
             input_rows: 0,
+            selected_rows: "none".to_string(),
+            operator_kernel_micros: 0,
+            decoded_reference_micros: 0,
+            input_shape_class: "blocked_sorted_stats_fixture_missing".to_string(),
+            kernel_specialization_profile: "metadata_min_max_range_pruning".to_string(),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.sorted_min_max_range_pruning",
+            focused_microbenchmark_status: "blocked_no_focused_microbenchmark_fixture".to_string(),
+            promotion_status: "blocked_sorted_min_max_contract_pending".to_string(),
             decoded_reference_compared: false,
             correctness_digest_status: "not_emitted_pair_not_executed",
             correctness_digest: "not_available".to_string(),
@@ -10310,6 +10470,15 @@ fn compressed_encoded_kernel_registry_rows(
             materialized: false,
             selection_vector_emitted: false,
             input_rows: 0,
+            selected_rows: "none".to_string(),
+            operator_kernel_micros: 0,
+            decoded_reference_micros: 0,
+            input_shape_class: "not_available_string_fixture_missing".to_string(),
+            kernel_specialization_profile: "blocked_fsst_or_dictionary_string_selection"
+                .to_string(),
+            focused_microbenchmark_ref: "operator-microkernel-benchmark.fsst_dictionary_string_equality",
+            focused_microbenchmark_status: "blocked_no_focused_microbenchmark_fixture".to_string(),
+            promotion_status: "blocked_string_encoding_fixture_not_available".to_string(),
             decoded_reference_compared: false,
             correctness_digest_status: "not_emitted_pair_not_executed",
             correctness_digest: "not_available".to_string(),
@@ -10422,6 +10591,38 @@ fn compressed_encoded_kernel_registry_fields(
         (
             "compressed_kernel_registry_input_rows".to_string(),
             registry_value_rows(&rows, |row| row.input_rows.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_selected_rows".to_string(),
+            registry_value_rows(&rows, |row| row.selected_rows.clone()),
+        ),
+        (
+            "compressed_kernel_registry_operator_kernel_micros".to_string(),
+            registry_value_rows(&rows, |row| row.operator_kernel_micros.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_decoded_reference_micros".to_string(),
+            registry_value_rows(&rows, |row| row.decoded_reference_micros.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_input_shape_classes".to_string(),
+            registry_value_rows(&rows, |row| row.input_shape_class.clone()),
+        ),
+        (
+            "compressed_kernel_registry_kernel_specialization_profiles".to_string(),
+            registry_value_rows(&rows, |row| row.kernel_specialization_profile.clone()),
+        ),
+        (
+            "compressed_kernel_registry_focused_microbenchmark_refs".to_string(),
+            registry_static_rows(&rows, |row| row.focused_microbenchmark_ref),
+        ),
+        (
+            "compressed_kernel_registry_focused_microbenchmark_statuses".to_string(),
+            registry_value_rows(&rows, |row| row.focused_microbenchmark_status.clone()),
+        ),
+        (
+            "compressed_kernel_registry_promotion_statuses".to_string(),
+            registry_value_rows(&rows, |row| row.promotion_status.clone()),
         ),
         (
             "compressed_kernel_registry_decoded_reference_compared".to_string(),
@@ -25145,11 +25346,13 @@ fn selection_kernel_pair_execution_evidence(
     predicate: &PredicateExpr,
     input: &VortexReaderGeneratedEncodedKernelInput,
 ) -> Result<TraditionalCompressedKernelPairExecutionEvidence> {
+    let operator_kernel_start = std::time::Instant::now();
     let report = evaluate_vortex_encoded_value_predicate_batch(
         predicate,
         &input.batch.segment,
         &input.batch.values,
     );
+    let operator_kernel_micros = duration_to_micros(operator_kernel_start.elapsed());
     if report.status != VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
         || report.has_errors()
     {
@@ -25162,8 +25365,10 @@ fn selection_kernel_pair_execution_evidence(
             "compressed kernel pair {pair_id} input row count was unavailable; fallback execution was not attempted"
         ))
     })?;
+    let decoded_reference_start = std::time::Instant::now();
     let decoded_reference_selected_rows =
         decoded_reference_selected_count(predicate, &input.batch.values)?;
+    let decoded_reference_micros = duration_to_micros(decoded_reference_start.elapsed());
     if report.selected_rows_metadata_count != Some(decoded_reference_selected_rows) {
         return Err(ShardLoomError::InvalidOperation(format!(
             "compressed kernel pair {pair_id} selected {} rows but decoded reference selected {decoded_reference_selected_rows}; fallback execution was not attempted",
@@ -25180,16 +25385,146 @@ fn selection_kernel_pair_execution_evidence(
         input.batch.values.label().to_string(),
         input_rows.to_string(),
         decoded_reference_selected_rows.to_string(),
+        operator_kernel_micros.to_string(),
+        decoded_reference_micros.to_string(),
         predicate.summary(),
     ]);
+    let input_shape_class =
+        encoded_value_input_shape_class(&input.batch.values, Some(decoded_reference_selected_rows));
     Ok(TraditionalCompressedKernelPairExecutionEvidence {
         pair_id: pair_id.to_string(),
         status: status.to_string(),
         input_rows,
         selected_rows: Some(decoded_reference_selected_rows),
+        operator_kernel_micros,
+        decoded_reference_micros,
+        input_shape_class,
+        kernel_specialization_profile: kernel_specialization_profile(pair_id).to_string(),
+        focused_microbenchmark_ref: focused_microbenchmark_ref(pair_id).to_string(),
+        focused_microbenchmark_status: "focused_microbenchmark_command_available".to_string(),
+        promotion_status: pair_promotion_status_from_evidence(
+            operator_kernel_micros,
+            decoded_reference_micros,
+        )
+        .to_string(),
         decoded_reference_compared: true,
         correctness_digest,
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn encoded_value_input_shape_class(
+    values: &EncodedValueBatch,
+    selected_rows: Option<u64>,
+) -> String {
+    let row_count = values.row_count().unwrap_or(0);
+    if row_count == 0 {
+        return "empty".to_string();
+    }
+    match values {
+        EncodedValueBatch::Constant { value, .. } => {
+            if value.is_none() {
+                "all_null_constant".to_string()
+            } else {
+                selected_density_shape(row_count, selected_rows)
+            }
+        }
+        EncodedValueBatch::Dictionary { dictionary, codes } => {
+            let null_count = codes.iter().filter(|code| code.is_none()).count();
+            let cardinality = dictionary.len();
+            let cardinality_class = if cardinality <= 16 {
+                "low_cardinality"
+            } else {
+                "high_cardinality"
+            };
+            if null_count == codes.len() {
+                format!("{cardinality_class}_all_null_dictionary")
+            } else if null_count > 0 {
+                format!("{cardinality_class}_mixed_null_dictionary")
+            } else {
+                format!("{cardinality_class}_no_null_dictionary")
+            }
+        }
+        EncodedValueBatch::RunLength { runs } => {
+            if runs.iter().all(|run| run.value.is_none() || run.len == 0) {
+                "run_length_all_null".to_string()
+            } else {
+                selected_density_shape(row_count, selected_rows)
+            }
+        }
+        EncodedValueBatch::BitPackedUnsigned { .. } => {
+            format!(
+                "bitpacked_{}",
+                selected_density_shape(row_count, selected_rows)
+            )
+        }
+        EncodedValueBatch::ArithmeticSequence { .. } => {
+            format!(
+                "sequence_{}",
+                selected_density_shape(row_count, selected_rows)
+            )
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selected_density_shape(row_count: u64, selected_rows: Option<u64>) -> String {
+    let Some(selected_rows) = selected_rows else {
+        return "selection_unknown".to_string();
+    };
+    if selected_rows == 0 {
+        "sparse_none_selected".to_string()
+    } else if selected_rows == row_count {
+        "dense_all_selected".to_string()
+    } else if selected_rows.saturating_mul(10) <= row_count {
+        "sparse_selected".to_string()
+    } else if selected_rows.saturating_mul(10) >= row_count.saturating_mul(8) {
+        "dense_selected".to_string()
+    } else {
+        "mixed_density_selected".to_string()
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn kernel_specialization_profile(pair_id: &str) -> &'static str {
+    match pair_id {
+        "bitpacked_boolean_integer_filter" => "layout_aware_bitpacked_unsigned_selection",
+        "sequence_equality_range_predicate" => "layout_aware_arithmetic_sequence_selection",
+        "constant_array_count_filter" => "layout_aware_constant_selection",
+        "dictionary_equality_group_by" => "layout_aware_dictionary_code_group_count",
+        _ => "unsupported_kernel_specialization",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn focused_microbenchmark_ref(pair_id: &str) -> &'static str {
+    match pair_id {
+        "bitpacked_boolean_integer_filter" => {
+            "operator-microkernel-benchmark.bitpacked_boolean_integer_filter"
+        }
+        "sequence_equality_range_predicate" => {
+            "operator-microkernel-benchmark.sequence_equality_range_predicate"
+        }
+        "constant_array_count_filter" => {
+            "operator-microkernel-benchmark.constant_array_count_filter"
+        }
+        "dictionary_equality_group_by" => {
+            "operator-microkernel-benchmark.dictionary_equality_group_by"
+        }
+        _ => "operator-microkernel-benchmark.unsupported",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn pair_promotion_status_from_evidence(
+    operator_kernel_micros: u64,
+    decoded_reference_micros: u64,
+) -> &'static str {
+    if operator_kernel_micros == 0 && decoded_reference_micros == 0 {
+        "operator_local_promoted_correctness_only_timing_below_clock_resolution"
+    } else {
+        "operator_local_promoted_correctness_and_focused_microbenchmark_not_claim_grade"
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -25425,6 +25760,24 @@ fn combine_compressed_kernel_pair_evidence(
                     (Some(left), Some(right)) => left.checked_add(right),
                     _ => None,
                 };
+                existing.operator_kernel_micros = existing
+                    .operator_kernel_micros
+                    .saturating_add(row.operator_kernel_micros);
+                existing.decoded_reference_micros = existing
+                    .decoded_reference_micros
+                    .saturating_add(row.decoded_reference_micros);
+                existing.input_shape_class =
+                    combine_evidence_labels(&existing.input_shape_class, &row.input_shape_class);
+                existing.kernel_specialization_profile = combine_evidence_labels(
+                    &existing.kernel_specialization_profile,
+                    &row.kernel_specialization_profile,
+                );
+                existing.focused_microbenchmark_status = combine_evidence_labels(
+                    &existing.focused_microbenchmark_status,
+                    &row.focused_microbenchmark_status,
+                );
+                existing.promotion_status =
+                    combine_evidence_labels(&existing.promotion_status, &row.promotion_status);
                 existing.decoded_reference_compared &= row.decoded_reference_compared;
                 existing.correctness_digest = compressed_kernel_pair_digest(&[
                     existing.pair_id.clone(),
@@ -25433,6 +25786,8 @@ fn combine_compressed_kernel_pair_evidence(
                     existing
                         .selected_rows
                         .map_or_else(|| "none".to_string(), |count| count.to_string()),
+                    existing.operator_kernel_micros.to_string(),
+                    existing.decoded_reference_micros.to_string(),
                     existing.correctness_digest.clone(),
                     row.correctness_digest.clone(),
                 ]);
@@ -25443,11 +25798,31 @@ fn combine_compressed_kernel_pair_evidence(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn combine_evidence_labels(left: &str, right: &str) -> String {
+    if left == right {
+        return left.to_string();
+    }
+    let labels = left
+        .split(',')
+        .chain(right.split(','))
+        .filter(|label| !label.is_empty())
+        .collect::<std::collections::BTreeSet<_>>();
+    if labels.is_empty() {
+        "none".to_string()
+    } else {
+        labels.iter().copied().collect::<Vec<_>>().join(",")
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default)]
 struct TraditionalDictionaryGroupByPairAccumulator {
     input_rows: u64,
+    operator_kernel_micros: u64,
+    decoded_reference_micros: u64,
     encoded_counts: std::collections::BTreeMap<String, u64>,
     decoded_counts: std::collections::BTreeMap<String, u64>,
+    input_shape_classes: std::collections::BTreeSet<String>,
     observed_dictionary_input: bool,
 }
 
@@ -25456,8 +25831,11 @@ impl TraditionalDictionaryGroupByPairAccumulator {
     fn new() -> Self {
         Self {
             input_rows: 0,
+            operator_kernel_micros: 0,
+            decoded_reference_micros: 0,
             encoded_counts: std::collections::BTreeMap::new(),
             decoded_counts: std::collections::BTreeMap::new(),
+            input_shape_classes: std::collections::BTreeSet::new(),
             observed_dictionary_input: false,
         }
     }
@@ -25484,6 +25862,9 @@ impl TraditionalDictionaryGroupByPairAccumulator {
             self.observed_dictionary_input = true;
             self.input_rows =
                 checked_u64_sum(self.input_rows, usize_to_u64(decoded_group_keys.len())?)?;
+            self.input_shape_classes
+                .insert(encoded_value_input_shape_class(&input.batch.values, None));
+            let operator_kernel_start = std::time::Instant::now();
             for code in codes {
                 let value = match code {
                     Some(code) => {
@@ -25505,12 +25886,21 @@ impl TraditionalDictionaryGroupByPairAccumulator {
                     stat_value_evidence_key(value.as_ref()),
                 );
             }
+            self.operator_kernel_micros = checked_u64_sum(
+                self.operator_kernel_micros,
+                duration_to_micros(operator_kernel_start.elapsed()),
+            )?;
+            let decoded_reference_start = std::time::Instant::now();
             for group_key in decoded_group_keys {
                 increment_count(
                     &mut self.decoded_counts,
                     stat_value_evidence_key(Some(&StatValue::UInt64(u64::from(*group_key)))),
                 );
             }
+            self.decoded_reference_micros = checked_u64_sum(
+                self.decoded_reference_micros,
+                duration_to_micros(decoded_reference_start.elapsed()),
+            )?;
         }
         Ok(())
     }
@@ -25530,13 +25920,38 @@ impl TraditionalDictionaryGroupByPairAccumulator {
             "dictionary_equality_group_by".to_string(),
             "executed_dictionary_equality_group_by_input".to_string(),
             self.input_rows.to_string(),
+            self.operator_kernel_micros.to_string(),
+            self.decoded_reference_micros.to_string(),
             count_summary,
         ]);
+        let input_shape_class = if self.input_shape_classes.is_empty() {
+            "not_executed".to_string()
+        } else {
+            self.input_shape_classes
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join(",")
+        };
         Ok(vec![TraditionalCompressedKernelPairExecutionEvidence {
             pair_id: "dictionary_equality_group_by".to_string(),
             status: "executed_dictionary_equality_group_by_input".to_string(),
             input_rows: self.input_rows,
             selected_rows: None,
+            operator_kernel_micros: self.operator_kernel_micros,
+            decoded_reference_micros: self.decoded_reference_micros,
+            input_shape_class,
+            kernel_specialization_profile: kernel_specialization_profile(
+                "dictionary_equality_group_by",
+            )
+            .to_string(),
+            focused_microbenchmark_ref: focused_microbenchmark_ref("dictionary_equality_group_by")
+                .to_string(),
+            focused_microbenchmark_status: "focused_microbenchmark_command_available".to_string(),
+            promotion_status: pair_promotion_status_from_evidence(
+                self.operator_kernel_micros,
+                self.decoded_reference_micros,
+            )
+            .to_string(),
             decoded_reference_compared: true,
             correctness_digest,
         }])
@@ -25570,6 +25985,429 @@ fn stat_value_evidence_key(value: Option<&StatValue>) -> String {
         Some(StatValue::Utf8(value)) => format!("utf8:{value}"),
         None => "null".to_string(),
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalOperatorMicroKernelBenchmarkReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub iterations_requested: usize,
+    pub iterations_completed: usize,
+    pub pair_execution_evidence: Vec<TraditionalCompressedKernelPairExecutionEvidence>,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalOperatorMicroKernelBenchmarkReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.iterations_completed != self.iterations_requested
+            || self.iterations_completed == 0
+            || self.pair_execution_evidence.is_empty()
+            || self.fallback_attempted
+            || self.external_engine_invoked
+            || self
+                .pair_execution_evidence
+                .iter()
+                .any(|row| !row.decoded_reference_compared)
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let total_operator_kernel_micros = checked_u64_values_sum(
+            self.pair_execution_evidence
+                .iter()
+                .map(|row| row.operator_kernel_micros),
+            "operator microkernel total operator micros",
+        )
+        .unwrap_or(u64::MAX);
+        let total_decoded_reference_micros = checked_u64_values_sum(
+            self.pair_execution_evidence
+                .iter()
+                .map(|row| row.decoded_reference_micros),
+            "operator microkernel total decoded reference micros",
+        )
+        .unwrap_or(u64::MAX);
+        let average_operator_kernel_micros = if self.iterations_completed == 0 {
+            0
+        } else {
+            total_operator_kernel_micros
+                / u64::try_from(self.iterations_completed).unwrap_or(u64::MAX)
+        };
+        vec![
+            (
+                "operator_microkernel_schema_version".to_string(),
+                self.schema_version.to_string(),
+            ),
+            (
+                "operator_microkernel_report_id".to_string(),
+                self.report_id.clone(),
+            ),
+            (
+                "operator_microkernel_iterations_requested".to_string(),
+                self.iterations_requested.to_string(),
+            ),
+            (
+                "operator_microkernel_iterations_completed".to_string(),
+                self.iterations_completed.to_string(),
+            ),
+            (
+                "operator_microkernel_pair_count".to_string(),
+                self.pair_execution_evidence.len().to_string(),
+            ),
+            (
+                "operator_microkernel_pair_ids".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.pair_id.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_pair_statuses".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.status.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_input_rows".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.input_rows.to_string()
+                }),
+            ),
+            (
+                "operator_microkernel_selected_rows".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.selected_rows
+                        .map_or_else(|| "not_applicable".to_string(), |count| count.to_string())
+                }),
+            ),
+            (
+                "operator_microkernel_operator_kernel_micros".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.operator_kernel_micros.to_string()
+                }),
+            ),
+            (
+                "operator_microkernel_decoded_reference_micros".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.decoded_reference_micros.to_string()
+                }),
+            ),
+            (
+                "operator_microkernel_total_operator_kernel_micros".to_string(),
+                total_operator_kernel_micros.to_string(),
+            ),
+            (
+                "operator_microkernel_total_decoded_reference_micros".to_string(),
+                total_decoded_reference_micros.to_string(),
+            ),
+            (
+                "operator_microkernel_avg_operator_kernel_micros".to_string(),
+                average_operator_kernel_micros.to_string(),
+            ),
+            (
+                "operator_microkernel_input_shape_classes".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.input_shape_class.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_kernel_specialization_profiles".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.kernel_specialization_profile.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_focused_microbenchmark_refs".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.focused_microbenchmark_ref.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_focused_microbenchmark_statuses".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.focused_microbenchmark_status.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_promotion_statuses".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.promotion_status.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_decoded_reference_compared".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.decoded_reference_compared.to_string()
+                }),
+            ),
+            (
+                "operator_microkernel_correctness_digests".to_string(),
+                operator_microkernel_value_rows(&self.pair_execution_evidence, |row| {
+                    row.correctness_digest.clone()
+                }),
+            ),
+            (
+                "operator_microkernel_claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            (
+                "operator_microkernel_claim_boundary".to_string(),
+                "focused operator-local microbenchmark evidence only; not an end-to-end route timing, public performance, superiority, SQL/DataFrame, object-store/lakehouse, production, or Spark-displacement claim".to_string(),
+            ),
+            (
+                "operator_microkernel_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "operator_microkernel_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "ShardLoom focused operator microkernel benchmark\npairs: {}\niterations: {}/{}\nfallback execution: disabled\nexternal engines: not invoked\nclaim gate: not_claim_grade",
+            self.pair_execution_evidence
+                .iter()
+                .map(|row| row.pair_id.as_str())
+                .collect::<Vec<_>>()
+                .join(","),
+            self.iterations_completed,
+            self.iterations_requested,
+        )
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn operator_microkernel_value_rows(
+    rows: &[TraditionalCompressedKernelPairExecutionEvidence],
+    value: impl Fn(&TraditionalCompressedKernelPairExecutionEvidence) -> String,
+) -> String {
+    rows.iter().map(value).collect::<Vec<_>>().join("|")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+pub fn run_traditional_operator_microkernel_benchmark(
+    iterations: usize,
+) -> Result<TraditionalOperatorMicroKernelBenchmarkReport> {
+    if iterations == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "operator-microkernel-benchmark requires at least one iteration; fallback execution was not attempted"
+                .to_string(),
+        ));
+    }
+    let mut rows = Vec::new();
+    for iteration in 0..iterations {
+        rows.extend(operator_microkernel_fixture_evidence(iteration)?);
+    }
+    Ok(TraditionalOperatorMicroKernelBenchmarkReport {
+        schema_version: TRADITIONAL_OPERATOR_MICROKERNEL_SCHEMA_VERSION,
+        report_id: "hotpath-11.operator_microkernel_benchmark.local_encoded_fixtures".to_string(),
+        iterations_requested: iterations,
+        iterations_completed: iterations,
+        pair_execution_evidence: combine_compressed_kernel_pair_evidence(rows),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn operator_microkernel_fixture_evidence(
+    iteration: usize,
+) -> Result<Vec<TraditionalCompressedKernelPairExecutionEvidence>> {
+    let bitpacked_predicate = PredicateExpr::Compare {
+        column: ColumnRef::new("flag")?,
+        op: ComparisonOp::Eq,
+        value: StatValue::UInt64(1),
+    };
+    let sequence_predicate = PredicateExpr::Compare {
+        column: ColumnRef::new("value")?,
+        op: ComparisonOp::GtEq,
+        value: StatValue::UInt64(2_040),
+    };
+    let constant_predicate = PredicateExpr::IsNull {
+        column: ColumnRef::new("flag")?,
+    };
+    let mut rows = vec![
+        selection_kernel_pair_execution_evidence(
+            "bitpacked_boolean_integer_filter",
+            "executed_selection_vector_filter_input",
+            &bitpacked_predicate,
+            &operator_microkernel_input(
+                "flag",
+                &format!("bitpacked-dense-{iteration}"),
+                LogicalDType::UInt64,
+                Nullability::NonNullable,
+                EncodedValueBatch::BitPackedUnsigned {
+                    bit_width: 1,
+                    values: (0..2_048)
+                        .map(|index| if index % 16 == 0 { 0 } else { 1 })
+                        .collect(),
+                },
+            )?,
+        )?,
+        selection_kernel_pair_execution_evidence(
+            "bitpacked_boolean_integer_filter",
+            "executed_selection_vector_filter_input",
+            &bitpacked_predicate,
+            &operator_microkernel_input(
+                "flag",
+                &format!("bitpacked-empty-{iteration}"),
+                LogicalDType::UInt64,
+                Nullability::NonNullable,
+                EncodedValueBatch::BitPackedUnsigned {
+                    bit_width: 1,
+                    values: Vec::new(),
+                },
+            )?,
+        )?,
+        selection_kernel_pair_execution_evidence(
+            "sequence_equality_range_predicate",
+            "executed_selection_vector_range_input",
+            &sequence_predicate,
+            &operator_microkernel_input(
+                "value",
+                &format!("sequence-sparse-{iteration}"),
+                LogicalDType::UInt64,
+                Nullability::NonNullable,
+                EncodedValueBatch::ArithmeticSequence {
+                    base: StatValue::UInt64(0),
+                    multiplier: StatValue::UInt64(1),
+                    row_count: 2_048,
+                },
+            )?,
+        )?,
+        selection_kernel_pair_execution_evidence(
+            "constant_array_count_filter",
+            "executed_constant_array_count_filter_input",
+            &constant_predicate,
+            &operator_microkernel_input(
+                "flag",
+                &format!("constant-null-{iteration}"),
+                LogicalDType::UInt64,
+                Nullability::Nullable,
+                EncodedValueBatch::Constant {
+                    value: None,
+                    row_count: 512,
+                },
+            )?,
+        )?,
+    ];
+
+    let mut dictionary = TraditionalDictionaryGroupByPairAccumulator::new();
+    let low_codes = (0..1_024)
+        .map(|index| {
+            u32::try_from(index % 8)
+                .map(Some)
+                .map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "operator microkernel dictionary code conversion failed: {error}; fallback execution was not attempted"
+                    ))
+                })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let low_decoded = low_codes
+        .iter()
+        .map(|code| {
+            code.as_ref().copied().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "operator microkernel low-cardinality dictionary fixture unexpectedly contained a null code; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    dictionary.observe(
+        &[operator_microkernel_input(
+            "group_key",
+            &format!("dictionary-low-{iteration}"),
+            LogicalDType::UInt64,
+            Nullability::NonNullable,
+            EncodedValueBatch::Dictionary {
+                dictionary: (0..8).map(|value| Some(StatValue::UInt64(value))).collect(),
+                codes: low_codes,
+            },
+        )?],
+        &low_decoded,
+    )?;
+    let high_codes = (0..2_048)
+        .map(|index| {
+            u32::try_from(index % 128)
+                .map(Some)
+                .map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "operator microkernel dictionary code conversion failed: {error}; fallback execution was not attempted"
+                    ))
+                })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let high_decoded = high_codes
+        .iter()
+        .map(|code| {
+            code.as_ref().copied().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "operator microkernel high-cardinality dictionary fixture unexpectedly contained a null code; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    dictionary.observe(
+        &[operator_microkernel_input(
+            "group_key",
+            &format!("dictionary-high-{iteration}"),
+            LogicalDType::UInt64,
+            Nullability::NonNullable,
+            EncodedValueBatch::Dictionary {
+                dictionary: (0..128)
+                    .map(|value| Some(StatValue::UInt64(value)))
+                    .collect(),
+                codes: high_codes,
+            },
+        )?],
+        &high_decoded,
+    )?;
+    rows.extend(dictionary.finish()?);
+    Ok(rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn operator_microkernel_input(
+    column: &str,
+    segment_id: &str,
+    dtype: LogicalDType,
+    nullability: Nullability,
+    values: EncodedValueBatch,
+) -> Result<VortexReaderGeneratedEncodedKernelInput> {
+    let row_count = values.row_count().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "operator microkernel fixture {segment_id} values have unknown row count; fallback execution was not attempted"
+        ))
+    })?;
+    let mut stats = SegmentStats::with_row_count(row_count);
+    if matches!(&values, EncodedValueBatch::Constant { value: None, .. }) {
+        stats.null_count = Some(row_count);
+    }
+    let segment = EncodedSegment::new(
+        SegmentId::new(segment_id)?,
+        ColumnRef::new(column)?,
+        dtype,
+        nullability,
+        SegmentLayout::new(
+            values.encoding_kind(),
+            LayoutKind::VortexNative("operator_microkernel_fixture".to_string()),
+        ),
+        stats,
+    );
+    VortexReaderGeneratedEncodedKernelInput::new(
+        DatasetUri::new("operator-microkernel-fixture.vortex")?,
+        format!("operator-microkernel-split-{segment_id}"),
+        VortexEncodedValuePredicateBatch::new(segment, values),
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -33881,6 +34719,45 @@ mod tests {
             "compressed_kernel_registry_input_rows",
             "512|512|0|0|0|0",
         );
+        let selected_row_fields = fields
+            .get("compressed_kernel_registry_selected_rows")
+            .expect("compressed kernel registry selected rows should be emitted")
+            .split('|')
+            .collect::<Vec<_>>();
+        assert_eq!(selected_row_fields.len(), 6);
+        assert!(selected_row_fields[0].parse::<u64>().is_ok());
+        assert!(selected_row_fields[1].parse::<u64>().is_ok());
+        assert_eq!(&selected_row_fields[2..], ["none", "none", "none", "none"]);
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_input_shape_classes",
+            "bitpacked_",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_input_shape_classes",
+            "sequence_",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_kernel_specialization_profiles",
+            "layout_aware_bitpacked_unsigned_selection",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_focused_microbenchmark_refs",
+            "operator-microkernel-benchmark.bitpacked_boolean_integer_filter",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_focused_microbenchmark_statuses",
+            "focused_microbenchmark_command_available",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_promotion_statuses",
+            "operator_local_promoted_",
+        );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_decoded_reference_compared",
@@ -34137,6 +35014,16 @@ mod tests {
             "compressed_kernel_registry_input_rows",
             "0|512|0|512|0|0",
         );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_input_shape_classes",
+            "sequence_sparse_none_selected",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_focused_microbenchmark_refs",
+            "operator-microkernel-benchmark.constant_array_count_filter",
+        );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_decoded_reference_compared",
@@ -34220,6 +35107,26 @@ mod tests {
             "compressed_kernel_registry_input_rows",
             "0|0|8192|0|0|0",
         );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_input_shape_classes",
+            "low_cardinality_no_null_dictionary",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_kernel_specialization_profiles",
+            "layout_aware_dictionary_code_group_count",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_focused_microbenchmark_refs",
+            "operator-microkernel-benchmark.dictionary_equality_group_by",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_promotion_statuses",
+            "operator_local_promoted_",
+        );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_decoded_reference_compared",
@@ -34257,6 +35164,82 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn operator_microkernel_benchmark_covers_promoted_pair_shapes() {
+        let report = run_traditional_operator_microkernel_benchmark(2).unwrap();
+        assert!(!report.has_errors());
+        let fields = field_map(report.fields());
+
+        assert_field_eq(
+            &fields,
+            "operator_microkernel_schema_version",
+            "shardloom.traditional_analytics.operator_microkernel_benchmark.v1",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_pair_ids",
+            "bitpacked_boolean_integer_filter",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_pair_ids",
+            "sequence_equality_range_predicate",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_pair_ids",
+            "constant_array_count_filter",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_pair_ids",
+            "dictionary_equality_group_by",
+        );
+        assert_field_contains(&fields, "operator_microkernel_input_shape_classes", "empty");
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_input_shape_classes",
+            "all_null_constant",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_input_shape_classes",
+            "sparse_selected",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_input_shape_classes",
+            "dense_selected",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_input_shape_classes",
+            "low_cardinality_no_null_dictionary",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_input_shape_classes",
+            "high_cardinality_no_null_dictionary",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_focused_microbenchmark_refs",
+            "operator-microkernel-benchmark.dictionary_equality_group_by",
+        );
+        assert_field_contains(
+            &fields,
+            "operator_microkernel_promotion_statuses",
+            "operator_local_promoted_",
+        );
+        assert_field_eq(&fields, "operator_microkernel_fallback_attempted", "false");
+        assert_field_eq(
+            &fields,
+            "operator_microkernel_external_engine_invoked",
+            "false",
+        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

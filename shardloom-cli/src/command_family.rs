@@ -245,6 +245,7 @@ fn is_benchmark_command(command: &str) -> bool {
             | "traditional-analytics-vortex-run"
             | "traditional-analytics-vortex-batch-run"
             | "traditional-analytics-prepare-batch-run"
+            | "operator-microkernel-benchmark"
             | "vortex-count-benchmark"
     )
 }

@@ -187,10 +187,14 @@ The first-class native microbenchmark contract labels every row with
 rows scanned/selected/materialized, no-fallback/no-external-engine fields, and
 a native microbenchmark claim boundary. Implemented smoke rows currently cover
 encoded count, Vortex count/projection/filter-style primitives, local commit
-manifest evidence, and benchmark evidence-rendering cost. Scan-only, group-by
-kernel, hash-join kernel, top-k, and result-sink write rows remain visible as
+manifest evidence, HOTPATH-11 operator microkernel timings for dictionary group-by plus
+bitpacked/sequence/constant predicate pairs, and benchmark evidence-rendering cost. Scan-only,
+hash-join kernel, top-k, and result-sink write rows remain visible as
 deterministic blocked rows until isolated primitives exist. These rows are
 subsystem evidence only, not end-to-end speed claims or public rankings.
+The operator microkernel row carries `operator_microkernel_*` pair IDs, shape classes,
+operator-kernel timings, decoded-reference timings, correctness digests, focused benchmark refs, and
+promotion statuses.
 
 The ShardLoom work-avoidance table is based on final row evidence, not only
 plan analysis. The JSON artifact includes `work_avoidance_evidence_schema`
@@ -525,6 +529,14 @@ Sorted/min-max and FSST/string rows remain deterministic blockers or not availab
 `compressed_kernel_registry_canonicalization_required`, `compressed_kernel_registry_decoded`,
 `compressed_kernel_registry_materialized`, and
 `compressed_kernel_registry_input_rows`,
+`compressed_kernel_registry_selected_rows`,
+`compressed_kernel_registry_operator_kernel_micros`,
+`compressed_kernel_registry_decoded_reference_micros`,
+`compressed_kernel_registry_input_shape_classes`,
+`compressed_kernel_registry_kernel_specialization_profiles`,
+`compressed_kernel_registry_focused_microbenchmark_refs`,
+`compressed_kernel_registry_focused_microbenchmark_statuses`,
+`compressed_kernel_registry_promotion_statuses`,
 `compressed_kernel_registry_decoded_reference_compared`,
 `compressed_kernel_registry_correctness_digest_status`,
 `compressed_kernel_registry_correctness_digests`, and
