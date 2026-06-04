@@ -6550,15 +6550,22 @@ fn write_vortex_array(
 
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
-    let mut bytes = Vec::new();
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
     let write_start = Instant::now();
-    let summary = runtime
-        .block_on(
-            session
-                .write_options()
-                .write(&mut bytes, array.to_array_stream()),
-        )
-        .map_err(vortex_error)?;
+    let (summary, workspace_write_report) =
+        shardloom_core::write_workspace_safe_bytes_with_producer(
+            workspace_root,
+            path,
+            allow_overwrite,
+            "local vortex_ingest artifact",
+            |writer| {
+                session
+                    .write_options()
+                    .blocking(&runtime)
+                    .write(writer, array.to_array_iterator())
+                    .map_err(vortex_error)
+            },
+        )?;
     let expected_rows = usize_to_u64(array.len())?;
     if summary.row_count() != expected_rows {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -6567,18 +6574,9 @@ fn write_vortex_array(
             expected_rows
         )));
     }
-    let digest_start = Instant::now();
-    let artifact_digest = fnv64_digest_bytes(&bytes);
-    let digest_micros = digest_start.elapsed().as_micros();
-    let bytes_written = usize_to_u64(bytes.len())?;
-    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
-    let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
-        workspace_root,
-        path,
-        allow_overwrite,
-        "local vortex_ingest artifact",
-        &bytes,
-    )?;
+    let artifact_digest = workspace_write_report.output_digest.clone();
+    let digest_micros = 0;
+    let bytes_written = workspace_write_report.bytes_written;
     Ok(LocalVortexWriteResult {
         writer_row_count: summary.row_count(),
         bytes_written,
@@ -6635,16 +6633,6 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 fn fnv64_digest_text(value: &str) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     for byte in value.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("fnv64:{hash:016x}")
-}
-
-#[cfg(feature = "vortex-write")]
-fn fnv64_digest_bytes(value: &[u8]) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in value {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
@@ -6741,6 +6729,22 @@ mod tests {
             "reopen_row_count_verified"
         );
         assert!(report.artifact_digest.starts_with("fnv64:"));
+        assert_eq!(report.digest_micros, 0);
+        assert_eq!(
+            report.workspace_write_report.bytes_written,
+            report.bytes_written
+        );
+        assert_eq!(
+            report.workspace_write_report.output_digest,
+            report.artifact_digest
+        );
+        assert_eq!(report.workspace_write_report.commit_status, "committed");
+        assert_eq!(
+            report.workspace_write_report.commit_mode,
+            "atomic_rename_same_directory"
+        );
+        assert!(!report.workspace_write_report.staging_path.exists());
+        assert!(report.workspace_write_report.no_fallback_invariant_holds());
         assert_eq!(report.timing_scope, "vortex_ingest_prepare_once");
         assert_eq!(report.certification_level, "ingest_certified");
         assert_eq!(

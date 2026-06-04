@@ -185,14 +185,22 @@ not by numeric CG order.
 Current autonomous execution order:
 
 1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` from the
-   2026-06-03 post-hotpath benchmark evidence. The sink-artifact sentinel fix, scenario-aware
-   optional text-column selection, shared prepared/native artifact optional-column preservation, and
-   benchmark/site refresh are complete. The next remaining benchmark-driven slice should target the
-   dominant cold certified-route stages now shown by the refreshed artifact: Vortex write/safe
-   artifact emission first, with source-read pressure as the secondary hotspot.
-2. If Vortex writer/safe-workspace emission remains the dominant fixable stage after the next
-   targeted slice, continue with provider-admission/layout-advisor or safe writer-helper work
-   instead of silently bypassing workspace safety.
+   2026-06-03 safe-writer code/text benchmark evidence. The sink-artifact sentinel fix,
+   scenario-aware optional text-column selection, shared prepared/native artifact optional-column
+   preservation, post-hotpath benchmark/site refresh, streaming workspace-safe Vortex writer helper,
+   and safe-writer benchmark/site refresh are complete. The refreshed safe-writer artifact reports
+   published ShardLoom route geomeans of 137.71 ms for the cold certified route, 58.00 ms for
+   prepare-once first query, 8.37 ms for prepare-once batch, 5.57 ms for warm prepared query, and
+   5.58 ms for native Vortex query. The next live benchmark-driven slice is stage-ledger
+   de-overlap: `compatibility_to_vortex_import_millis` remains an inclusive 127.94 ms bundle while
+   `vortex_write_millis` is 76.79 ms, `source_read_millis` is 43.80 ms, and
+   `source_parse_millis` is 29.48 ms. After exclusive accounting is defensible, optimize the
+   dominant ShardLoom-owned stage in this order of current evidence priority: remaining Vortex
+   writer/safe artifact emission, cold source read and parse, prepared-state admission/lookup,
+   result sink/evidence render, then scan/operator attribution and pushdown.
+2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
+   aids only, so future stage-level claims require exclusive timing fields, an inclusive
+   compatibility view, and an auditable residual before superiority wording moves.
 3. Return to the residual `GAR-RUNTIME-IMPL-4/6A` completion gate only after the active 6D breadth
    queue has reduced or explicitly blocked the runtime families it owns.
 
@@ -200,7 +208,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Promote the next Vortex writer/safe-artifact-emission optimization or provider-admission slice from the post-hotpath benchmark evidence; keep source-read pressure as the secondary follow-up. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Follow the refreshed benchmark-driven sequence: stage ledger de-overlap, remaining writer/safe-artifact work, source read/parse, prepared admission/lookup, sink/evidence hot path, and scan/operator attribution. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -337,45 +345,87 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization:
   Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
   optimization for runtime-ready local routes.
+  Source: 2026-06-03 local code/text benchmark research against the current promoted artifact and
+  current branch sources; `docs/architecture/phased-execution-plan.md`,
+  `docs/architecture/phased-execution-completed-ledger.md`,
+  `website-src/src/data/benchmark-evidence.json`, `scripts/promote_benchmark_artifact.py`,
+  `shardloom-vortex/src/traditional_analytics.rs`, and
+  `shardloom-cli/src/sql_local_source_runtime.rs`.
   Current state: benchmark publication and prior optimization evidence are recorded in
-  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 post-hotpath full-local
-  benchmark bundle shows ShardLoom-family lanes are fastest in every comparable route group, but
-  the certified cold route still has fixable ShardLoom-owned stage cost: `vortex_write_ms`
-  geomean 81.73 ms across 120 rows and the primary bottleneck in 83/120 rows, with
-  `source_read_ms` geomean 44.69 ms and the primary bottleneck in the remaining 37/120 rows.
-  Scenario-aware text normalization, shared prepared/native artifact preservation, and
-  sink-artifact sentinel preservation are complete and should stay in the ledger rather than the
-  live queue.
+  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 safe-writer full-local
+  benchmark bundle reports published ShardLoom route geomeans of 137.71 ms for the cold certified
+  route, 58.00 ms for prepare-once first query, 8.37 ms for prepare-once batch, 5.57 ms for warm
+  prepared query, and 5.58 ms for native Vortex query. External baseline end-to-end geomeans in the
+  same artifact are pandas 191.21 ms, Polars eager 38.78 ms, Polars lazy 28.63 ms, DuckDB 68.57 ms,
+  DataFusion 32.42 ms across 114 successful rows, and Dask 270.90 ms. The certified cold route
+  still has fixable ShardLoom-owned stage cost: `compatibility_to_vortex_import_millis` geomean
+  127.94 ms as an inclusive bundle, `vortex_write_millis` geomean 76.79 ms,
+  `source_read_millis` geomean 43.80 ms, and `source_parse_millis` geomean 29.48 ms.
+  Scenario-aware text normalization, shared prepared/native artifact preservation, sink-artifact
+  sentinel preservation, and the streaming workspace-safe Vortex writer helper are complete and
+  should stay in the ledger rather than the live queue. The writer-helper benchmark/site refresh is
+  also complete; the next work must first make stage attribution exclusive enough to audit, then
+  continue with remaining writer/safe-artifact and source-read/parse pressure.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
-  Next slice outcome: reduce the Vortex write/safe-artifact-emission stage without changing route
-  semantics, workspace safety, no-fallback evidence, route-total accounting, prepared artifact
-  replay, or compatibility-output behavior. If the write path cannot be improved safely in one
-  slice, add provider-admission/layout-advisor evidence that narrows the next implementation step.
-  Source-read pressure is the secondary follow-up after writer evidence is exhausted or blocked.
+  Next slice outcome: add exclusive stage accounting for the cold route and stage grid, then reduce
+  the next dominant ShardLoom-owned stage without changing route semantics, workspace safety,
+  no-fallback evidence, route-total accounting, prepared artifact replay, or compatibility-output
+  behavior. Source-read pressure becomes the next implementation target once writer/safe-artifact
+  emission is no longer the dominant fixable stage.
+  Benchmark-driven execution sequence:
+  1. Stage ledger de-overlap: add exclusive stage accounting before deeper optimization when the
+     artifact still mixes route-level convenience fields with timed stages. Preserve current human
+     labels, but add machine fields for exclusive stage sums, inclusive compatibility views, and a
+     residual small enough to audit.
+  2. Vortex writer and safe artifact emission: reduce `vortex_write_ms` first when it remains
+     dominant by coalescing write, digest, and metadata capture; avoiding readback where certificate
+     policy permits; reusing layout/write advisor choices; and reducing per-artifact open/close
+     overhead without bypassing workspace-safe staging.
+  3. Cold source read and parse: reduce `source_read_ms` and
+     `source_parse_or_columnar_decode_ms` by adding streaming/projected CSV/JSONL paths where
+     scenario-local certification does not require full optional-column artifact preservation, while
+     retaining full-artifact paths for shared prepared/native artifacts.
+  4. Prepared-state admission and lookup: separate `manifest_lookup`, `cache_hit`,
+     `cache_miss_create`, `artifact_write`, and `artifact_register`; reuse source-state/admission
+     packets across prepared/native lanes without hiding first-query preparation cost.
+  5. Result sink and evidence render: move result-batch/output-capillary/fanout/layout-advisor work
+     into the benchmark route path and keep render-heavy website formatting outside hot query
+     timing or separately labeled, while preserving certificate material.
+  6. Scan/operator attribution and encoded pushdown: keep warm/native scan paths protected because
+     they are already sub-ms; split cold `footer_open`, `metadata_verify`, `scan_open`,
+     `scenario_scan`, and operator fields before adding provider-admitted Vortex scan
+     projection/filter/limit tests.
+  7. Benchmark publication refresh: after each completed slice, run the full benchmark promotion
+     path, website/static validators, and claim gates before updating public benchmark language.
   User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
   routes, Python/context prepared/native route helpers, result-sink evidence, route capability
   reports, and release-readiness benchmark validators.
   Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`,
   `shardloom-vortex/src/vortex_ingest.rs` if shared helper extraction is needed,
-  `docs/architecture/phased-execution-plan.md` when the active queue drifts, benchmark
-  promoter/static validators when stage semantics change, Python/CLI docs when user behavior
-  changes, and benchmark/release evidence artifacts after runtime changes.
+  `shardloom-cli/src/sql_local_source_runtime.rs` for source-read/parse timing and cold local-source
+  reader work, `scripts/promote_benchmark_artifact.py` and benchmark/static validators when stage
+  semantics change, `docs/architecture/phased-execution-plan.md` when the active queue drifts,
+  Python/CLI docs when user behavior changes, website benchmark components/data, and
+  benchmark/release evidence artifacts after runtime changes.
   Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, workspace
   safety, artifact digests, route ledger zero deltas, no-fallback/no-external-engine fields,
-  benchmark artifact completeness, copy-budget/layout fields updated when measurements improve, and
-  a refreshed local benchmark after all code/docs/site changes and before any public performance
-  claim.
+  exclusive stage-sum/residual parity when attribution semantics change, benchmark artifact
+  completeness, copy-budget/layout fields updated when measurements improve, and a refreshed local
+  benchmark after all code/docs/site changes and before any public performance claim.
   Acceptance: route behavior and evidence remain identical or stricter, fixable ShardLoom-owned hot
   loops avoid unnecessary reads, decodes, allocations, string clones, or materialization, hot-stage
-  timing fields still reproduce route totals, and the refreshed benchmark run reports no
-  ShardLoom fallback/external-engine flags.
+  timing fields still reproduce route totals, exclusive and inclusive stage views are defensible,
+  and the refreshed benchmark run reports no ShardLoom fallback/external-engine flags.
   Verification: focused Rust tests for traditional analytics Vortex I/O paths, `cargo fmt --all
-  -- --check`, relevant `cargo test` package/feature targets, benchmark artifact validators when
-  generated artifacts change, and `git diff --check`.
+  -- --check`, relevant `cargo test` package/feature targets, benchmark artifact validators
+  (`scripts/check_benchmark_artifact_completeness.py`,
+  `scripts/check_benchmark_publication_claim_gate.py`,
+  `scripts/check_benchmark_constitution.py`), website readiness/static checks when benchmark pages
+  change, and `git diff --check`.
   Non-goals: no Spark/DataFusion/Polars/DuckDB fallback, no public performance/superiority claim
   from this slice alone, no hidden fast mode that skips claim-required evidence, no broad object-store
   or production claim, and no dependency expansion unless separately justified.

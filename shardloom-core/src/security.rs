@@ -1177,6 +1177,55 @@ impl WorkspaceSafeLocalWritePlan {
     }
 }
 
+/// Same-directory staging writer for workspace-safe local outputs.
+///
+/// Callers use this through [`write_workspace_safe_bytes_with_producer`] when an
+/// output provider can stream bytes directly into the staged artifact. The
+/// writer updates the final output digest and byte count as bytes are accepted,
+/// while the surrounding helper preserves `ShardLoom`'s workspace path checks,
+/// symlink-race checks, same-directory staging, atomic commit, rollback, and
+/// no-fallback evidence.
+#[derive(Debug)]
+pub struct WorkspaceSafeLocalStagingWriter {
+    file: fs::File,
+    bytes_written: u64,
+    digest: Fnv64Digest,
+}
+
+impl WorkspaceSafeLocalStagingWriter {
+    #[must_use]
+    pub const fn bytes_written(&self) -> u64 {
+        self.bytes_written
+    }
+
+    #[must_use]
+    pub fn output_digest(&self) -> String {
+        self.digest.output_digest()
+    }
+}
+
+impl std::io::Write for WorkspaceSafeLocalStagingWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let written = self.file.write(buf)?;
+        self.digest.update(&buf[..written]);
+        self.bytes_written = self
+            .bytes_written
+            .checked_add(u64::try_from(written).map_err(|error| {
+                std::io::Error::other(format!(
+                    "workspace-safe local output byte count overflow: {error}"
+                ))
+            })?)
+            .ok_or_else(|| {
+                std::io::Error::other("workspace-safe local output byte count overflow")
+            })?;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceSafeLocalWriteReport {
     pub schema_version: &'static str,
@@ -1438,6 +1487,29 @@ pub fn write_workspace_safe_bytes(
     operation_label: impl Into<String>,
     content: &[u8],
 ) -> Result<WorkspaceSafeLocalWriteReport> {
+    let ((), report) = write_workspace_safe_bytes_with_producer(
+        workspace_root,
+        requested_output_path,
+        allow_overwrite,
+        operation_label,
+        |writer| {
+            writer.write_all(content).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to write workspace-safe local output bytes: {error}; staging cleanup attempted; no fallback execution was attempted"
+                ))
+            })
+        },
+    )?;
+    Ok(report)
+}
+
+pub fn write_workspace_safe_bytes_with_producer<T>(
+    workspace_root: impl AsRef<Path>,
+    requested_output_path: impl AsRef<Path>,
+    allow_overwrite: bool,
+    operation_label: impl Into<String>,
+    producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
+) -> Result<(T, WorkspaceSafeLocalWriteReport)> {
     let operation_label = operation_label.into();
     let plan =
         plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
@@ -1450,30 +1522,52 @@ pub fn write_workspace_safe_bytes(
     })?;
     reject_workspace_safe_symlink_race(&plan)?;
 
-    let staging_path = create_workspace_safe_staging_file(&plan, content)?;
+    let (staging_path, mut staging_writer) = create_workspace_safe_staging_writer(&plan)?;
+    let producer_output = match producer(&mut staging_writer) {
+        Ok(output) => output,
+        Err(error) => {
+            drop(staging_writer);
+            let _ = fs::remove_file(&staging_path);
+            return Err(error);
+        }
+    };
+    let bytes_written = staging_writer.bytes_written();
+    let output_digest = staging_writer.output_digest();
+    if let Err(error) = staging_writer.flush() {
+        drop(staging_writer);
+        let _ = fs::remove_file(&staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "failed to flush workspace-safe local output staging file '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+            staging_path.display()
+        )));
+    }
+    drop(staging_writer);
     let (commit_mode, cleanup_status, rollback_status, overwrite_performed) =
         commit_workspace_safe_staging_file(&plan, &staging_path)?;
 
-    Ok(WorkspaceSafeLocalWriteReport {
-        schema_version: "shardloom.workspace_safe_local_write_report.v1",
-        report_id: "workspace_safe_local_write.local_output".to_string(),
-        operation_label,
-        path_safety_report: plan.path_safety_report,
-        target_path: plan.target_path,
-        staging_path,
-        target_existed_before: plan.target_existed_before,
-        overwrite_allowed: plan.overwrite_allowed,
-        overwrite_performed,
-        hardlink_count: plan.hardlink_count,
-        commit_mode,
-        commit_status: "committed".to_string(),
-        cleanup_status,
-        rollback_status,
-        bytes_written: u64::try_from(content.len()).unwrap_or(u64::MAX),
-        output_digest: fnv64_digest_bytes(content),
-        fallback_attempted: false,
-        external_engine_invoked: false,
-    })
+    Ok((
+        producer_output,
+        WorkspaceSafeLocalWriteReport {
+            schema_version: "shardloom.workspace_safe_local_write_report.v1",
+            report_id: "workspace_safe_local_write.local_output".to_string(),
+            operation_label,
+            path_safety_report: plan.path_safety_report,
+            target_path: plan.target_path,
+            staging_path,
+            target_existed_before: plan.target_existed_before,
+            overwrite_allowed: plan.overwrite_allowed,
+            overwrite_performed,
+            hardlink_count: plan.hardlink_count,
+            commit_mode,
+            commit_status: "committed".to_string(),
+            cleanup_status,
+            rollback_status,
+            bytes_written,
+            output_digest,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    ))
 }
 
 fn reject_workspace_safe_symlink_race(plan: &WorkspaceSafeLocalWritePlan) -> Result<()> {
@@ -1490,12 +1584,11 @@ fn reject_workspace_safe_symlink_race(plan: &WorkspaceSafeLocalWritePlan) -> Res
     Ok(())
 }
 
-fn create_workspace_safe_staging_file(
+fn create_workspace_safe_staging_writer(
     plan: &WorkspaceSafeLocalWritePlan,
-    content: &[u8],
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, WorkspaceSafeLocalStagingWriter)> {
     let staging_path = unique_sidecar_path(&plan.parent_path, &plan.target_path, "tmp");
-    let mut staging_file = fs::OpenOptions::new()
+    let staging_file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&staging_path)
@@ -1505,22 +1598,14 @@ fn create_workspace_safe_staging_file(
                 staging_path.display()
             ))
         })?;
-    if let Err(error) = staging_file.write_all(content) {
-        let _ = fs::remove_file(&staging_path);
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "failed to write workspace-safe local output staging file '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
-            staging_path.display()
-        )));
-    }
-    if let Err(error) = staging_file.flush() {
-        let _ = fs::remove_file(&staging_path);
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "failed to flush workspace-safe local output staging file '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
-            staging_path.display()
-        )));
-    }
-    drop(staging_file);
-    Ok(staging_path)
+    Ok((
+        staging_path,
+        WorkspaceSafeLocalStagingWriter {
+            file: staging_file,
+            bytes_written: 0,
+            digest: Fnv64Digest::new(),
+        },
+    ))
 }
 
 fn commit_workspace_safe_staging_file(
@@ -1737,13 +1822,38 @@ fn unique_sidecar_path(parent: &Path, target_path: &Path, kind: &str) -> PathBuf
     ))
 }
 
-fn fnv64_digest_bytes(value: &[u8]) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in value {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Fnv64Digest {
+    state: u64,
+}
+
+impl Fnv64Digest {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+
+    const fn new() -> Self {
+        Self {
+            state: Self::OFFSET,
+        }
     }
-    format!("fnv64:{hash:016x}")
+
+    fn update(&mut self, value: &[u8]) {
+        for byte in value {
+            self.state ^= u64::from(*byte);
+            self.state = self.state.wrapping_mul(Self::PRIME);
+        }
+    }
+
+    fn output_digest(self) -> String {
+        format!("fnv64:{:016x}", self.state)
+    }
+}
+
+#[cfg(test)]
+fn fnv64_digest_bytes(value: &[u8]) -> String {
+    let mut digest = Fnv64Digest::new();
+    digest.update(value);
+    digest.output_digest()
 }
 
 #[cfg(unix)]
@@ -3093,6 +3203,66 @@ mod tests {
         assert!(!report.staging_path.exists());
         assert!(report.path_safety_report.accepted());
         assert!(report.no_fallback_invariant_holds());
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_producer_write_streams_digest_and_staging_evidence() {
+        let workspace = workspace_write_fixture_root("producer_commit");
+        let (chunks, report) = write_workspace_safe_bytes_with_producer(
+            &workspace,
+            "results/out.bin",
+            false,
+            "test local producer output",
+            |writer| {
+                writer.write_all(b"alpha").unwrap();
+                writer.write_all(b"-").unwrap();
+                writer.write_all(b"beta").unwrap();
+                Ok(3_u8)
+            },
+        )
+        .expect("workspace-safe producer write succeeds");
+
+        let output_path = workspace.join("results/out.bin");
+        assert_eq!(chunks, 3);
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"alpha-beta");
+        assert_eq!(report.bytes_written, 10);
+        assert_eq!(report.output_digest, fnv64_digest_bytes(b"alpha-beta"));
+        assert_eq!(report.commit_status, "committed");
+        assert_eq!(report.commit_mode, "atomic_rename_same_directory");
+        assert!(!report.staging_path.exists());
+        assert!(report.path_safety_report.accepted());
+        assert!(report.no_fallback_invariant_holds());
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_producer_write_cleans_staging_on_error() {
+        let workspace = workspace_write_fixture_root("producer_error");
+        let error = write_workspace_safe_bytes_with_producer(
+            &workspace,
+            "results/out.bin",
+            false,
+            "test local producer output",
+            |writer| {
+                writer.write_all(b"partial").unwrap();
+                Err::<(), _>(ShardLoomError::InvalidOperation(
+                    "producer failed intentionally; no fallback execution was attempted"
+                        .to_string(),
+                ))
+            },
+        )
+        .expect_err("producer failure is returned");
+
+        assert!(error.message().contains("producer failed intentionally"));
+        assert!(!workspace.join("results/out.bin").exists());
+        let results_dir = workspace.join("results");
+        let remaining_entries = if results_dir.exists() {
+            std::fs::read_dir(&results_dir).unwrap().count()
+        } else {
+            0
+        };
+        assert_eq!(remaining_entries, 0);
         std::fs::remove_dir_all(workspace).unwrap();
     }
 
