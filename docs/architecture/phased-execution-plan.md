@@ -191,10 +191,9 @@ Current autonomous execution order:
    certified route 137.71 ms, prepare-once first query 58.00 ms, prepare-once batch 8.37 ms, warm
    prepared query 5.57 ms, and native Vortex query 5.58 ms. The current runtime batch wires
    source-read scout timing, Vortex scan timing/counter evidence, route-shape stratification, and
-   source-to-Vortex-array guard fields in code, but the public artifact remains unchanged until the
-   next approved benchmark rerun. Remaining work before the rerun is the document/website/status
-   freshness pass. Do not rerun the expensive benchmark suite until that freshness gate is complete
-   or the user explicitly approves a rerun.
+   source-to-Vortex-array guard fields in code/docs/site source, but the public artifact remains
+   unchanged until the next approved benchmark rerun. The post-hotpath freshness gate is complete;
+   the next benchmark-driven item is the deliberate HOTPATH-14 rerun/publication step.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -205,17 +204,16 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `POST-HOTPATH-DOCS-FRESHNESS` | Refresh docs, status, website/source text, and plan/ledger freshness after HOTPATH code closes. |
-| 2 | `HOTPATH-14 total-route Amdahl gate` | Rerun/promote the full benchmark suite and update the benchmark page only after the freshness pass. |
-| 3 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 4 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 5 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 6 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 7 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 8 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 9 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 10 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 11 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `HOTPATH-14 total-route Amdahl gate` | Rerun/promote the full benchmark suite and update the benchmark page only as the explicit next benchmark action. |
+| 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 5 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 6 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 7 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 8 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 9 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 10 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -288,47 +286,8 @@ phase IDs.
 Completed HOTPATH slices are recorded in
 `docs/architecture/phased-execution-completed-ledger.md`, including HOTPATH-3, HOTPATH-7,
 HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, and HOTPATH-5. Do not rerun the benchmark suite until
-the post-hotpath freshness gate has passed.
-
-#### Post-Hotpath Documentation Freshness And Benchmark Rerun Gate
-
-This gate sits between the HOTPATH implementation slices and the broader 6-series runtime breadth
-queue. It prevents stale docs/status/website text from surviving after the hotpath code closes, and
-it keeps the expensive benchmark rerun as an explicit approval-grade action rather than an
-accidental validation step.
-
-- [ ] POST-HOTPATH-DOCS-FRESHNESS documentation, status, website, and plan freshness:
-  Source: completed HOTPATH ledger entries, `docs/architecture/compute-engine-flow-reference.md`,
-  `docs/architecture/performance-attribution-and-execution-structure.md`,
-  `docs/architecture/benchmark-competitive-claim-evidence.md`, website benchmark source, status
-  matrices, and user direction to keep the phased plan clear.
-  Current state: runtime source-read scout and Vortex scan counter fields are wired in code, while
-  the public benchmark artifact still reflects the latest safe-writer rerun. Remaining HOTPATH code
-  changes may further alter report fields, docs language, and validators.
-  Runtime enablement: completed HOTPATH code/docs evidence -> fresh docs/status/website source ->
-  synchronized static site and validators -> benchmark rerun readiness.
-  Next slice outcome: update source docs, status rows, website/source benchmark copy, plan/ledger
-  freshness, and validator expectations so the benchmark rerun consumes current semantics.
-  User-visible surface: phased execution plan, completed ledger, benchmark page source, website
-  static pages, README/status docs if touched, benchmark interpretation docs, and release/check
-  validators.
-  Implementation scope: architecture docs, status JSON/markdown where affected, website source and
-  generated static pages, benchmark validators, and release/readiness scripts when their expected
-  fields move.
-  Evidence required: no stale completed HOTPATH items left in Planned, website sync/build/postbuild
-  validation, benchmark artifact validators against the current non-rerun artifact where applicable,
-  and no-fallback/no-external-engine claim wording.
-  Acceptance: docs and website clearly distinguish current runtime code semantics from the latest
-  published benchmark artifact; no stale blocker or completed item remains in the live queue.
-  Verification: `node scripts/sync-content.mjs` from `website-src`, Astro build, postbuild static
-  generation, `node website/validate_static_assets.js`, relevant benchmark publication validators,
-  and `git diff --check`.
-  Non-goals: no benchmark rerun in this freshness item, no new performance claim, no package/release
-  publication, and no runtime expansion outside HOTPATH completion.
-  Claim boundary: freshness/readiness only; route timing statements remain tied to the existing
-  safe-writer artifact until HOTPATH-14 reruns/promotes a new artifact.
-  Fallback boundary: docs/status/website copy must preserve external engines as baselines only.
-  Ledger rule: when complete, move the completed block to the ledger and leave HOTPATH-14 next.
+HOTPATH-14 runs as the explicit next benchmark action. The post-hotpath freshness gate is recorded
+in `docs/architecture/phased-execution-completed-ledger.md`.
 
 - [ ] HOTPATH-14 total-route Amdahl benchmark rerun and publication:
   Source: route-share/Amdahl publication table, benchmark harness, release validators, and website
@@ -363,7 +322,7 @@ accidental validation step.
 
 #### 6-Series Runtime Breadth Queue
 
-The 6-series queue follows the benchmark HOTPATH queue and the post-hotpath freshness/rerun gate. It
+The 6-series queue follows the benchmark HOTPATH queue and HOTPATH-14 rerun/publication gate. It
 owns broad user-surface runtime breadth: SQL grammar, Python/DataFrame API breadth,
 object-store/lakehouse runtime, generated-output platform routes, data-quality/profile/quarantine
 runtime, effectful operations, live/hybrid runtime, distributed/spill/OOM runtime, and front-door
