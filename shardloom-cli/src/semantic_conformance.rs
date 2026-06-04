@@ -283,8 +283,8 @@ fn utc_timestamp_scalar_rows() -> Vec<SemanticFixtureRow> {
         "timestamp_timezone",
         "timestamp unit and timezone handling",
         "scalar_expressions",
-        "utc_timestamp_micros_fixture_certified_non_utc_blocked",
-        "UTC timestamp_micros parses and formats while non-UTC and offset timestamp forms are deterministic blockers",
+        "utc_timestamp_micros_fixture_certified_fixed_offset_normalized",
+        "UTC timestamp_micros parses and formats while fixed numeric offsets normalize to UTC and named timezone forms remain deterministic blockers",
         timestamp_timezone_fixture(),
     )]
 }
@@ -296,10 +296,10 @@ fn timezone_interval_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
             "timezone database policy",
             "scalar_expressions",
             "unsupported_diagnostic_certified",
-            "named timezone database semantics fail deterministically; UTC timestamp_micros remains the admitted timestamp profile",
+            "named timezone database semantics fail deterministically; fixed numeric offsets are normalized before UTC timestamp_micros storage",
             SemanticBlockerEvidence {
                 blocker_id: "gar-runtime-impl-4d-f1.timezone_database_unsupported",
-                required_future_evidence: "timezone_database_policy,non_utc_offset_fixture,claim_boundary",
+                required_future_evidence: "timezone_database_policy,named_zone_fixture,claim_boundary",
             },
             timezone_database_policy_fixture(),
         ),
@@ -754,7 +754,11 @@ fn timestamp_timezone_fixture() -> bool {
     };
     format_iso_timestamp_micros(parsed) == "2026-05-19T12:34:56.123456Z"
         && parse_iso_timestamp_micros("2026-05-19T12:34:56Z").is_ok()
-        && parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00").is_err()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00").is_ok()
+        && format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("2026-05-19T12:34:56-05:00")
+                .expect("fixed negative offset parses"),
+        ) == "2026-05-19T17:34:56Z"
         && parse_iso_timestamp_micros("2026-05-19T12:34:56").is_err()
         && parse_iso_timestamp_micros("2026-05-19 12:34:56Z").is_err()
 }
@@ -762,7 +766,7 @@ fn timestamp_timezone_fixture() -> bool {
 fn timezone_database_policy_fixture() -> bool {
     parse_iso_timestamp_micros("2026-05-19T12:34:56Z[America/Chicago]").is_err()
         && parse_iso_timestamp_micros("2026-05-19T12:34:56 America/Chicago").is_err()
-        && parse_iso_timestamp_micros("2026-05-19T12:34:56-05:00").is_err()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56+24:00").is_err()
 }
 
 fn interval_arithmetic_policy_fixture() -> bool {

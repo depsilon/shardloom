@@ -3065,7 +3065,7 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             ScalarValue::TimestampMicros(parse_iso_timestamp_micros(value).map_err(|_| {
                 EvalFailure::invalid(
                     "cast",
-                    "utf8 value cannot be parsed as UTC ISO timestamp_micros",
+                    "utf8 value cannot be parsed as ISO timestamp_micros with Z or fixed offset",
                 )
             })?)
         }
@@ -3221,30 +3221,94 @@ pub fn date32_day(days: i32) -> u32 {
     civil_from_days(days).2
 }
 
-/// Parses a scoped UTC ISO timestamp into microseconds since the Unix epoch.
+/// Parses a scoped ISO timestamp into microseconds since the Unix epoch.
 ///
-/// This runtime slice admits only `YYYY-MM-DDTHH:MM:SSZ` plus optional fractional seconds
-/// up to six digits. Offset time zones and named time zones remain deterministic blockers.
+/// This runtime slice admits `YYYY-MM-DDTHH:MM:SSZ` plus optional fractional seconds up to six
+/// digits, and fixed numeric offsets of the form `+HH:MM` or `-HH:MM`. Named time zones remain
+/// deterministic blockers.
 ///
 /// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] when the input is not an admitted UTC timestamp.
+/// Returns [`ShardLoomError::InvalidOperation`] when the input is not an admitted timestamp.
 pub fn parse_iso_timestamp_micros(value: &str) -> Result<i64> {
     let text = value.trim();
-    let Some(timestamp) = text.strip_suffix('Z') else {
-        return Err(ShardLoomError::InvalidOperation(
-            "UTC timestamp_micros literals must end with Z".to_string(),
-        ));
-    };
+    let (timestamp, offset_seconds) = split_iso_timestamp_offset(text)?;
     let Some((date, time)) = timestamp.split_once('T') else {
         return Err(ShardLoomError::InvalidOperation(
-            "UTC timestamp_micros literals must use YYYY-MM-DDTHH:MM:SSZ".to_string(),
+            "timestamp_micros literals must use YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)"
+                .to_string(),
         ));
     };
     let (year, month, day) = parse_iso_ymd(date)?;
     let (hour, minute, second, micros) = parse_iso_time_micros(time)?;
     let days = i64::from(days_from_civil(year, month, day));
     let seconds_of_day = i64::from(hour) * 3_600 + i64::from(minute) * 60 + i64::from(second);
-    Ok(days * MICROS_PER_DAY + seconds_of_day * MICROS_PER_SECOND + i64::from(micros))
+    let local_micros =
+        days * MICROS_PER_DAY + seconds_of_day * MICROS_PER_SECOND + i64::from(micros);
+    local_micros
+        .checked_sub(offset_seconds * MICROS_PER_SECOND)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "timestamp_micros offset normalization overflow".into(),
+            )
+        })
+}
+
+fn split_iso_timestamp_offset(text: &str) -> Result<(&str, i64)> {
+    if !text.is_ascii() {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros literals must use ASCII ISO timestamp syntax".to_string(),
+        ));
+    }
+    if let Some(timestamp) = text.strip_suffix('Z') {
+        return Ok((timestamp, 0));
+    }
+    if text.len() < 7 {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros literals must end with Z or a fixed +HH:MM/-HH:MM offset".to_string(),
+        ));
+    }
+    let sign_index = text.len() - 6;
+    let Some(sign) = text.as_bytes().get(sign_index).copied() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros literals must end with Z or a fixed +HH:MM/-HH:MM offset".to_string(),
+        ));
+    };
+    if sign != b'+' && sign != b'-' {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros literals must end with Z or a fixed +HH:MM/-HH:MM offset".to_string(),
+        ));
+    }
+    let offset = &text[sign_index + 1..];
+    let mut parts = offset.split(':');
+    let (Some(hour), Some(minute), None) = (parts.next(), parts.next(), parts.next()) else {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros fixed offsets must use +HH:MM or -HH:MM".to_string(),
+        ));
+    };
+    if hour.len() != 2 || minute.len() != 2 {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros fixed offsets must use zero-padded +HH:MM or -HH:MM".to_string(),
+        ));
+    }
+    let hour = parse_two_digit_time_component(hour, "offset hour")?;
+    let minute = parse_two_digit_time_component(minute, "offset minute")?;
+    if hour > 23 {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros fixed offset hour must be in 00..=23".to_string(),
+        ));
+    }
+    if minute > 59 {
+        return Err(ShardLoomError::InvalidOperation(
+            "timestamp_micros fixed offset minute must be in 00..=59".to_string(),
+        ));
+    }
+    let offset_seconds = i64::from(hour) * 3_600 + i64::from(minute) * 60;
+    let signed_offset_seconds = if sign == b'-' {
+        -offset_seconds
+    } else {
+        offset_seconds
+    };
+    Ok((&text[..sign_index], signed_offset_seconds))
 }
 
 /// Formats a timestamp-micros value as a scoped UTC ISO timestamp.
@@ -5674,6 +5738,35 @@ mod tests {
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn timestamp_parser_normalizes_fixed_numeric_offsets_without_time_zone_database() {
+        let utc = parse_iso_timestamp_micros("2026-05-19T10:04:56Z").expect("timestamp parses");
+        assert_eq!(
+            parse_iso_timestamp_micros("2026-05-19T12:34:56+02:30")
+                .expect("positive fixed offset parses"),
+            utc
+        );
+        assert_eq!(
+            format_iso_timestamp_micros(
+                parse_iso_timestamp_micros("2026-05-19T12:34:56-05:00")
+                    .expect("negative fixed offset parses")
+            ),
+            "2026-05-19T17:34:56Z"
+        );
+        assert_eq!(
+            format_iso_timestamp_micros(
+                parse_iso_timestamp_micros("2026-05-19T00:15:00+01:00")
+                    .expect("fixed offset can cross UTC date boundary")
+            ),
+            "2026-05-18T23:15:00Z"
+        );
+        assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56").is_err());
+        assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56 America/Chicago").is_err());
+        assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56Z[America/Chicago]").is_err());
+        assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56+24:00").is_err());
+        assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56+2:00").is_err());
     }
 
     #[test]

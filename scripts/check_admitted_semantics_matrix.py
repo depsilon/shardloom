@@ -420,6 +420,47 @@ def interval_literal_temporal_arithmetic_case() -> SqlFixtureCase:
     )
 
 
+def timestamp_offset_literal_normalization_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="timestamp_offset_literal_normalization",
+        source_name="timestamp-offset-normalization.csv",
+        source_text=(
+            "id,event_ts\n"
+            "1,2026-05-19T17:34:55Z\n"
+            "2,2026-05-19T12:34:56-05:00\n"
+            "3,2026-05-19T17:35:00Z\n"
+            "4,\n"
+        ),
+        statement_template=(
+            "SELECT id,CAST(event_ts AS timestamp_micros) AS event_ts_utc "
+            "FROM '{source}' WHERE CAST(event_ts AS timestamp_micros) "
+            ">= TIMESTAMP '2026-05-19T12:34:56-05:00' ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":2,"event_ts_utc":"2026-05-19T17:34:56Z"}\n'
+            '{"id":3,"event_ts_utc":"2026-05-19T17:35:00Z"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "cast",
+            "cast_runtime_execution": "true",
+            "cast_source_column": "event_ts",
+            "cast_target_dtype": "timestamp_micros",
+            "cast_mode": "strict",
+            "cast_projection_runtime_execution": "true",
+            "cast_projection_source_column": "event_ts",
+            "cast_projection_output_column": "event_ts_utc",
+            "cast_projection_target_dtype": "timestamp_micros",
+            "cast_projection_mode": "strict",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "projected_columns": "id,event_ts_utc",
+            "fallback_attempted": "false",
+            "external_engine_invoked": "false",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def conditional_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="conditional_projection_case_when",
@@ -2728,6 +2769,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         string_function_composition_case(),
         temporal_arithmetic_difference_case(),
         interval_literal_temporal_arithmetic_case(),
+        timestamp_offset_literal_normalization_case(),
         conditional_projection_case(),
         binary_hex_literal_projection_case(),
         binary_text_literal_projection_case(),
@@ -2794,17 +2836,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             stage_kind="runtime_error_diagnostic",
         ),
         UnsupportedCase(
-            case_id="unsupported_non_utc_timestamp_literal",
-            source_name="timestamp-offset-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id,TIMESTAMP '2026-05-19T12:34:56+00:00' AS unsupported "
-                "FROM '{source}' LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="TIMESTAMP literals must use TIMESTAMP",
-        ),
-        UnsupportedCase(
             case_id="unsupported_timezone_database_policy",
             source_name="timezone-db-unsupported.csv",
             source_text="id,label\n1,alpha\n",
@@ -2813,7 +2844,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "'America/Chicago' AS unsupported FROM '{source}' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="timezone database and non-UTC timestamp semantics are not admitted",
+            diagnostic_fragment="timezone database semantics are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_locale_collation",

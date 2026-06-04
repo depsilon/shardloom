@@ -303,7 +303,7 @@ completed details to the ledger.
   Current state: admitted scoped SQL syntax families and their evidence rows live in
   `docs/status/admitted-semantics-matrix.json` and the completed ledger. The live remaining
   blockers are the non-admitted broad grammar families that still need either ShardLoom-owned
-  runtime promotion or deterministic diagnostics: non-UTC/timezone semantics, locale/collation,
+  runtime promotion or deterministic diagnostics: named timezone database semantics, locale/collation,
   arbitrary interval arithmetic outside scoped temporal helpers, complex equality/accessors/casts,
   nested source decoding and flat sinks beyond scoped result-boundary projections,
   variant/union-dtype shapes, broad binary source dtype decoding and SQL source-column binary
@@ -315,7 +315,7 @@ completed details to the ledger.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the scoped binary cast ordering slice; likely candidates are timezone/locale
+  blockers after the scoped fixed numeric timestamp offset slice; likely candidates are timezone/locale
   blocker refinement, broad binary source dtype decoding refinement, complex access/equality
   follow-through after a dedicated semantics contract, local Vortex typed decimal output once Vortex
   writer/reopen evidence is available, or another front-door parity gap only after the runtime route

@@ -144,7 +144,13 @@ fn expression_semantics_advanced_scalar_blockers_are_deterministic() {
         );
     }
 
-    assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00").is_err());
+    assert_eq!(
+        format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00")
+                .expect("fixed offset timestamp parses")
+        ),
+        "2026-05-19T12:34:56Z"
+    );
     assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56Z[America/Chicago]").is_err());
 }
 
@@ -643,8 +649,22 @@ fn expression_semantics_parses_formats_extracts_and_casts_timestamp_micros_witho
         ),
         "1969-12-31T23:59:59.999999Z"
     );
-    assert!(parse_iso_timestamp_micros("2026-05-19T12:30:45+00:00").is_err());
+    assert_eq!(
+        format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("2026-05-19T12:30:45+00:00")
+                .expect("zero fixed offset timestamp")
+        ),
+        "2026-05-19T12:30:45Z"
+    );
+    assert_eq!(
+        format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("2026-05-19T12:30:45-05:00")
+                .expect("negative fixed offset timestamp")
+        ),
+        "2026-05-19T17:30:45Z"
+    );
     assert!(parse_iso_timestamp_micros("2026-05-19T12:30:45.1234567Z").is_err());
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:30:45Z[America/Chicago]").is_err());
     assert!(parse_iso_timestamp_micros("2026-05-19T12:30:60Z").is_err());
 
     assert_eq!(timestamp_micros_year(value), 2026);
