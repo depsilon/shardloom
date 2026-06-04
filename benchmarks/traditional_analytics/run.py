@@ -156,8 +156,11 @@ NATIVE_MICROBENCHMARK_REQUIRED_FAMILIES: dict[str, dict[str, str]] = {
         "optimization_question": (
             "What is the local group-by kernel cost isolated from source preparation and output?"
         ),
-        "support_status": "blocked",
-        "reason": "no isolated native group-by kernel microbenchmark primitive exists yet",
+        "support_status": "smoke_supported",
+        "reason": (
+            "covered by the operator-microkernel-benchmark dictionary group-by row, with "
+            "companion bitpacked, sequence, and constant predicate pair timings"
+        ),
     },
     "hash_join_kernel": {
         "name": "hash join kernel",
@@ -492,6 +495,14 @@ COMPRESSED_KERNEL_REGISTRY_FIELDS = (
     "compressed_kernel_registry_materialized",
     "compressed_kernel_registry_selection_vector_emitted",
     "compressed_kernel_registry_input_rows",
+    "compressed_kernel_registry_selected_rows",
+    "compressed_kernel_registry_operator_kernel_micros",
+    "compressed_kernel_registry_decoded_reference_micros",
+    "compressed_kernel_registry_input_shape_classes",
+    "compressed_kernel_registry_kernel_specialization_profiles",
+    "compressed_kernel_registry_focused_microbenchmark_refs",
+    "compressed_kernel_registry_focused_microbenchmark_statuses",
+    "compressed_kernel_registry_promotion_statuses",
     "compressed_kernel_registry_decoded_reference_compared",
     "compressed_kernel_registry_correctness_digest_status",
     "compressed_kernel_registry_correctness_digests",
@@ -17366,6 +17377,14 @@ def failed_result(
         "compressed_kernel_registry_materialized": "none",
         "compressed_kernel_registry_selection_vector_emitted": "none",
         "compressed_kernel_registry_input_rows": "none",
+        "compressed_kernel_registry_selected_rows": "none",
+        "compressed_kernel_registry_operator_kernel_micros": "none",
+        "compressed_kernel_registry_decoded_reference_micros": "none",
+        "compressed_kernel_registry_input_shape_classes": "none",
+        "compressed_kernel_registry_kernel_specialization_profiles": "none",
+        "compressed_kernel_registry_focused_microbenchmark_refs": "none",
+        "compressed_kernel_registry_focused_microbenchmark_statuses": "not_executed",
+        "compressed_kernel_registry_promotion_statuses": "not_executed",
         "compressed_kernel_registry_decoded_reference_compared": "none",
         "compressed_kernel_registry_correctness_digest_status": "not_executed",
         "compressed_kernel_registry_correctness_digests": "not_available",
@@ -18153,6 +18172,30 @@ def successful_result_from_iterations(
         "compressed_kernel_registry_input_rows": evidence.get(
             "compressed_kernel_registry_input_rows", "none"
         ),
+        "compressed_kernel_registry_selected_rows": evidence.get(
+            "compressed_kernel_registry_selected_rows", "none"
+        ),
+        "compressed_kernel_registry_operator_kernel_micros": evidence.get(
+            "compressed_kernel_registry_operator_kernel_micros", "none"
+        ),
+        "compressed_kernel_registry_decoded_reference_micros": evidence.get(
+            "compressed_kernel_registry_decoded_reference_micros", "none"
+        ),
+        "compressed_kernel_registry_input_shape_classes": evidence.get(
+            "compressed_kernel_registry_input_shape_classes", "none"
+        ),
+        "compressed_kernel_registry_kernel_specialization_profiles": evidence.get(
+            "compressed_kernel_registry_kernel_specialization_profiles", "none"
+        ),
+        "compressed_kernel_registry_focused_microbenchmark_refs": evidence.get(
+            "compressed_kernel_registry_focused_microbenchmark_refs", "none"
+        ),
+        "compressed_kernel_registry_focused_microbenchmark_statuses": evidence.get(
+            "compressed_kernel_registry_focused_microbenchmark_statuses", "not_reported"
+        ),
+        "compressed_kernel_registry_promotion_statuses": evidence.get(
+            "compressed_kernel_registry_promotion_statuses", "not_reported"
+        ),
         "compressed_kernel_registry_decoded_reference_compared": evidence.get(
             "compressed_kernel_registry_decoded_reference_compared", "none"
         ),
@@ -18925,6 +18968,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             "filter-project:gte:value:10000|value",
             "filter_projection",
         ),
+        run_shardloom_operator_microkernel_benchmark(root, env, binary, iterations),
         run_shardloom_commit_microbenchmark(root, env, binary, iterations),
     ]
     rows = append_required_native_microbenchmark_blockers(rows)
@@ -19031,6 +19075,129 @@ def run_shardloom_count_microbenchmark(
         "performance_claim_allowed": fields.get("performance_claim_allowed"),
         "command": command,
     }, "encoded_count_all")
+
+
+def run_shardloom_operator_microkernel_benchmark(
+    root: Path,
+    env: dict[str, str],
+    binary: Path,
+    iterations: int,
+) -> dict[str, Any]:
+    command = [
+        str(binary),
+        "operator-microkernel-benchmark",
+        "--iterations",
+        str(iterations),
+        "--format",
+        "json",
+    ]
+    started = time.perf_counter()
+    completed = subprocess_run(command, root, env)
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    if completed["returncode"] != 0:
+        return native_microbenchmark_error(
+            "local operator microkernel registry",
+            "execution_error",
+            completed["stderr"] or completed["stdout"] or "unknown failure",
+            command,
+            elapsed_ms,
+            primitive_family="group_by_kernel",
+            primitive="operator_microkernel_registry",
+        )
+    try:
+        payload = json.loads(completed["stdout"].splitlines()[0])
+    except (json.JSONDecodeError, IndexError) as exc:
+        return native_microbenchmark_error(
+            "local operator microkernel registry",
+            "invalid_output",
+            f"{type(exc).__name__}: {exc}",
+            command,
+            elapsed_ms,
+            primitive_family="group_by_kernel",
+            primitive="operator_microkernel_registry",
+        )
+    if payload.get("status") != "success":
+        return native_microbenchmark_error(
+            "local operator microkernel registry",
+            str(payload.get("status", "unsupported")),
+            payload.get("human_text") or "ShardLoom operator microkernel benchmark did not succeed",
+            command,
+            elapsed_ms,
+            primitive_family="group_by_kernel",
+            primitive="operator_microkernel_registry",
+        )
+    fields = parse_output_fields(payload)
+    avg_operator_micros = parse_optional_int(
+        fields.get("operator_microkernel_avg_operator_kernel_micros")
+    )
+    return add_native_microbenchmark_contract({
+        "name": "local operator microkernel registry",
+        "status": payload.get("status", "unknown"),
+        "dataset": "synthetic encoded operator fixtures",
+        "primitive": "operator_microkernel_registry",
+        "rows": fields.get("operator_microkernel_input_rows"),
+        "iterations": fields.get("operator_microkernel_iterations_completed"),
+        "query_runtime_millis": round(avg_operator_micros / 1000.0, 4)
+        if avg_operator_micros is not None
+        else None,
+        "query_runtime_micros": str(avg_operator_micros)
+        if avg_operator_micros is not None
+        else None,
+        "timing_scope": "in-command focused encoded operator kernel timing",
+        "comparison_status": "not_applicable",
+        "claim_gate_status": fields.get("operator_microkernel_claim_gate_status"),
+        "operator_microkernel_schema_version": fields.get("operator_microkernel_schema_version"),
+        "operator_microkernel_report_id": fields.get("operator_microkernel_report_id"),
+        "operator_microkernel_pair_ids": fields.get("operator_microkernel_pair_ids"),
+        "operator_microkernel_pair_statuses": fields.get("operator_microkernel_pair_statuses"),
+        "operator_microkernel_input_rows": fields.get("operator_microkernel_input_rows"),
+        "operator_microkernel_selected_rows": fields.get("operator_microkernel_selected_rows"),
+        "operator_microkernel_operator_kernel_micros": fields.get(
+            "operator_microkernel_operator_kernel_micros"
+        ),
+        "operator_microkernel_decoded_reference_micros": fields.get(
+            "operator_microkernel_decoded_reference_micros"
+        ),
+        "operator_microkernel_total_operator_kernel_micros": fields.get(
+            "operator_microkernel_total_operator_kernel_micros"
+        ),
+        "operator_microkernel_total_decoded_reference_micros": fields.get(
+            "operator_microkernel_total_decoded_reference_micros"
+        ),
+        "operator_microkernel_input_shape_classes": fields.get(
+            "operator_microkernel_input_shape_classes"
+        ),
+        "operator_microkernel_kernel_specialization_profiles": fields.get(
+            "operator_microkernel_kernel_specialization_profiles"
+        ),
+        "operator_microkernel_focused_microbenchmark_refs": fields.get(
+            "operator_microkernel_focused_microbenchmark_refs"
+        ),
+        "operator_microkernel_focused_microbenchmark_statuses": fields.get(
+            "operator_microkernel_focused_microbenchmark_statuses"
+        ),
+        "operator_microkernel_promotion_statuses": fields.get(
+            "operator_microkernel_promotion_statuses"
+        ),
+        "operator_microkernel_decoded_reference_compared": fields.get(
+            "operator_microkernel_decoded_reference_compared"
+        ),
+        "operator_microkernel_correctness_digests": fields.get(
+            "operator_microkernel_correctness_digests"
+        ),
+        "operator_microkernel_claim_boundary": fields.get(
+            "operator_microkernel_claim_boundary"
+        ),
+        "data_read": "false",
+        "data_decoded": "false",
+        "data_materialized": "false",
+        "row_read": "false",
+        "arrow_converted": "false",
+        "materialization_boundary_reported": "false",
+        "fallback_attempted": fields.get("operator_microkernel_fallback_attempted"),
+        "performance_claim_allowed": "false",
+        "command": command,
+    }, "group_by_kernel")
 
 
 def run_shardloom_vortex_run_microbenchmark(

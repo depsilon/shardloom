@@ -16,6 +16,85 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-11 operator micro-kernel discovery
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-11-operator-microkernels` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - `docs/architecture/compressed-encoded-kernel-registry.md`.
+    - `docs/architecture/fused-operator-pipeline.md`.
+    - User direction to keep benchmark evaluation code/text-only, focus ShardLoom compute-engine
+      optimization, avoid subagents, keep PRs cohesive, preserve the HOTPATH -> freshness/rerun ->
+      6-series -> release ordering, update the website/benchmark page, and avoid the expensive
+      benchmark-suite rerun until all code/docs/site changes are complete.
+  - Scope:
+    - Added HOTPATH-11 operator-local evidence to compressed encoded kernel registry rows:
+      selected-row counts, operator-kernel microseconds, decoded-reference microseconds, input
+      shape classes, specialization profiles, focused microbenchmark refs/statuses, and promotion
+      status fields.
+    - Added focused operator timing around admitted bitpacked, sequence, constant, and dictionary
+      pair evidence while preserving decoded-reference comparisons and no-fallback diagnostics.
+    - Optimized ShardLoom-owned encoded predicate selection construction for bitpacked unsigned
+      values and dictionary codes by adding nullity/all-none/all-match shortcuts, direct `u64`
+      comparison dispatch for bitpacked predicates, dictionary code-bound validation reuse, and
+      sparse index allocation hints.
+    - Added `operator-microkernel-benchmark` CLI support and a
+      `run_traditional_operator_microkernel_benchmark` report over synthetic encoded fixtures that
+      cover empty, all-null, sparse, dense, low-cardinality dictionary, and high-cardinality
+      dictionary shapes.
+    - Wired the Python benchmark harness to emit a native microbenchmark row for the focused
+      operator microkernel command, promoting the group-by kernel family from deterministic blocker
+      to smoke-supported subsystem evidence while keeping scan-only, hash-join, top-k, and
+      result-sink rows blocked.
+    - Updated benchmark docs, compressed-kernel docs, compute-flow/performance-attribution docs,
+      local taxonomy docs, benchmark catalog text, CLI command registry status, and benchmark
+      harness contract tests for the new fields.
+    - Cleaned the phased plan structure so HOTPATH-11 moved out of Planned, HOTPATH-9 is the next
+      unchecked hotpath item, the document freshness plus benchmark rerun gate remains between the
+      HOTPATH queue and the 6-series queue, and the 6-series items use consistent execution
+      criteria, fallback boundaries, and ledger rules.
+  - Vortex-first provider check:
+    - Classification: `wrap_vortex_concept` for ShardLoom-owned evidence around reader-generated
+      Vortex encoded value batches and `use_vortex_native_provider` for the existing admitted
+      Vortex reader/generated encoded input boundary.
+    - This slice does not add a Vortex query-engine integration, does not decode-to-Arrow as a
+      runtime fallback, and does not execute unsupported work through Spark, DataFusion, DuckDB,
+      Polars, Velox, or another external engine.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io` passed.
+    - `cargo check -p shardloom-cli --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io` passed.
+    - `cargo test -p shardloom-core encoded_value_ --lib` passed.
+    - `cargo test -p shardloom-vortex operator_microkernel_benchmark_covers_promoted_pair_shapes --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo test -p shardloom-vortex selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo test -p shardloom-vortex selective_filter_selection_vector_metric_aggregation_handles_empty_selection --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo test -p shardloom-vortex dictionary_group_by_pair_executes_from_prepared_vortex_reader_chunk --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness` passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile benchmarks/traditional_analytics/run.py` passed.
+    - `cargo run -p shardloom-cli --features vortex-traditional-analytics-benchmark -- operator-microkernel-benchmark --iterations 1 --format json` passed and emitted operator/decoded timing, shape classes, correctness digests, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `website-src/scripts/sync-content.mjs`, `astro build`, `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js` passed using the bundled Node runtime.
+    - `git diff --check` passed.
+    - Stale HOTPATH-11/benchmark wording scan passed with no matches.
+  - Benchmark and website status:
+    - No expensive full benchmark-suite rerun was performed in this slice.
+    - The new CLI microbenchmark smoke is focused subsystem evidence only and is not a full route
+      benchmark.
+    - Existing public route totals remain tied to the latest promoted safe-writer artifact until
+      HOTPATH-14 reruns/promotes a new artifact after the remaining HOTPATH and freshness gates.
+  - Claim boundary:
+    - This slice may claim that ShardLoom now emits focused operator-local timing, decoded-reference
+      timing, input-shape, specialization, microbenchmark-ref, and promotion-status evidence for
+      the admitted local bitpacked, sequence, constant, and dictionary pair surfaces. It does not
+      claim a new route timing, end-to-end speedup, production readiness, broad SQL/DataFrame
+      parity, Spark replacement, or general performance superiority.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The slice adds no Spark/DataFusion/DuckDB/
+      Polars/Velox execution fallback, no Vortex query-engine integration, and no external-engine
+      residual evaluation for ShardLoom rows. Reported ShardLoom evidence remains
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D runtime source-read scout and Vortex scan counter wiring
   - Date: 2026-06-04
   - Branch/PR: `codex/hotpath-runtime-splits-counters` / pending PR.

@@ -1163,6 +1163,122 @@ pub(crate) fn handle_vortex_count_benchmark(
     }
 }
 
+pub(crate) fn handle_operator_microkernel_benchmark(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let iterations = match parse_operator_microkernel_benchmark_args(args) {
+        Ok(iterations) => iterations,
+        Err(code) => return code,
+    };
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    {
+        let report =
+            match shardloom_vortex::traditional_analytics::run_traditional_operator_microkernel_benchmark(
+                iterations,
+            ) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "operator-microkernel-benchmark",
+                        format,
+                        "operator microkernel benchmark failed",
+                        &error,
+                    );
+                }
+            };
+        let has_errors = report.has_errors();
+        emit(
+            "operator-microkernel-benchmark",
+            format,
+            if has_errors {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            },
+            "ShardLoom focused operator microkernel benchmark".to_string(),
+            report.to_human_text(),
+            Vec::new(),
+            report.fields(),
+        );
+        if has_errors {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        }
+    }
+    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    {
+        let diagnostic = Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "operator-microkernel-benchmark",
+            "operator microkernel benchmark requires the vortex-traditional-analytics-benchmark feature",
+            Some(
+                "Build shardloom-cli with --features vortex-traditional-analytics-benchmark before running this focused benchmark."
+                    .to_string(),
+            ),
+        );
+        emit(
+            "operator-microkernel-benchmark",
+            format,
+            CommandStatus::Unsupported,
+            "ShardLoom focused operator microkernel benchmark".to_string(),
+            "operator microkernel benchmark unavailable; feature disabled\nfallback execution: disabled"
+                .to_string(),
+            vec![diagnostic],
+            vec![
+                (
+                    "operator_microkernel_schema_version".to_string(),
+                    "not_executed".to_string(),
+                ),
+                (
+                    "operator_microkernel_iterations_requested".to_string(),
+                    iterations.to_string(),
+                ),
+                (
+                    "operator_microkernel_iterations_completed".to_string(),
+                    "0".to_string(),
+                ),
+                (
+                    "operator_microkernel_claim_gate_status".to_string(),
+                    "not_claim_grade".to_string(),
+                ),
+                (
+                    "operator_microkernel_fallback_attempted".to_string(),
+                    "false".to_string(),
+                ),
+                (
+                    "operator_microkernel_external_engine_invoked".to_string(),
+                    "false".to_string(),
+                ),
+            ],
+        );
+        ExitCode::from(1)
+    }
+}
+
+fn parse_operator_microkernel_benchmark_args(
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<usize, ExitCode> {
+    let mut iterations = 3_usize;
+    while let Some(option) = args.next() {
+        if option != "--iterations" {
+            eprintln!("usage: shardloom operator-microkernel-benchmark [--iterations <n>]");
+            return Err(ExitCode::from(2));
+        }
+        let Some(iterations_text) = args.next() else {
+            eprintln!("usage: shardloom operator-microkernel-benchmark [--iterations <n>]");
+            return Err(ExitCode::from(2));
+        };
+        iterations = iterations_text.parse().map_err(|_| ExitCode::from(2))?;
+        if iterations == 0 {
+            eprintln!("shardloom operator-microkernel-benchmark requires at least one iteration");
+            return Err(ExitCode::from(2));
+        }
+    }
+    Ok(iterations)
+}
+
 fn parse_vortex_count_benchmark_args(
     mut args: std::vec::IntoIter<String>,
 ) -> std::result::Result<(DatasetUri, u64, usize, usize), ExitCode> {

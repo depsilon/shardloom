@@ -585,6 +585,14 @@ compressed_kernel_registry_decoded
 compressed_kernel_registry_materialized
 compressed_kernel_registry_selection_vector_emitted
 compressed_kernel_registry_input_rows
+compressed_kernel_registry_selected_rows
+compressed_kernel_registry_operator_kernel_micros
+compressed_kernel_registry_decoded_reference_micros
+compressed_kernel_registry_input_shape_classes
+compressed_kernel_registry_kernel_specialization_profiles
+compressed_kernel_registry_focused_microbenchmark_refs
+compressed_kernel_registry_focused_microbenchmark_statuses
+compressed_kernel_registry_promotion_statuses
 compressed_kernel_registry_decoded_reference_compared
 compressed_kernel_registry_correctness_digest_status
 compressed_kernel_registry_correctness_digests
@@ -768,7 +776,8 @@ The suite covers or explicitly blocks:
 - Vortex scan only: deterministic blocker until an isolated scan-only primitive exists.
 - filter predicate only: smoke-supported through current `vortex-run count-where` rows.
 - projection only: smoke-supported through current `vortex-run project` rows.
-- group-by kernel: deterministic blocker until an isolated native kernel primitive exists.
+- group-by kernel: smoke-supported through `operator-microkernel-benchmark`, which reports
+  dictionary group-by timing plus bitpacked, sequence, and constant predicate-pair timing fields.
 - hash join kernel: deterministic blocker until an isolated native kernel primitive exists.
 - top-k: deterministic blocker until an isolated native top-k primitive exists.
 - result-sink write: deterministic blocker until an isolated result-sink write primitive exists.
@@ -779,6 +788,9 @@ primitive family, subsystem, optimization question, support status, rows
 scanned/selected/materialized where available, decoded/materialized status,
 timing scope, `fallback_attempted=false`, `external_engine_invoked=false`,
 `claim_gate_status`, and a deterministic unsupported reason when unavailable.
+The operator microkernel row also exposes `operator_microkernel_*` pair IDs, shape classes,
+operator-kernel timings, decoded-reference timings, correctness digests, focused benchmark refs, and
+promotion statuses. These are subsystem evidence only, not route totals.
 
 These rows identify which subsystem needs optimization. They are not end-to-end performance claims,
 not public rankings, not Spark-replacement evidence, and not production SQL/DataFrame,

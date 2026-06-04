@@ -1073,30 +1073,7 @@ fn encoded_value_selection_vector(
             }
         }
         EncodedValueBatch::Dictionary { dictionary, codes } => {
-            let dictionary_matches = dictionary
-                .iter()
-                .map(|value| predicate_matches_encoded_value(predicate, value.as_ref()))
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            let mut indices = Vec::new();
-            for (row_index, code) in codes.iter().enumerate() {
-                let selected = match code {
-                    Some(code) => {
-                        let code = usize::try_from(*code)
-                            .map_err(|_| format!("dictionary code {code} does not fit usize"))?;
-                        *dictionary_matches.get(code).ok_or_else(|| {
-                            format!("dictionary code {code} is outside dictionary values")
-                        })?
-                    }
-                    None => predicate_matches_encoded_value(predicate, None)?,
-                };
-                if selected {
-                    indices.push(
-                        u64::try_from(row_index)
-                            .map_err(|_| "dictionary row index does not fit u64".to_string())?,
-                    );
-                }
-            }
-            Ok(selection_vector_from_indices(indices, row_count))
+            dictionary_selection_vector(predicate, dictionary, codes, row_count)
         }
         EncodedValueBatch::RunLength { runs } => {
             let mut indices = Vec::new();
@@ -1119,20 +1096,174 @@ fn encoded_value_selection_vector(
             Ok(selection_vector_from_indices(indices, row_count))
         }
         EncodedValueBatch::BitPackedUnsigned { values, .. } => {
-            let mut indices = Vec::new();
-            for (row_index, value) in values.iter().enumerate() {
-                if predicate_matches_encoded_value(predicate, Some(&StatValue::UInt64(*value)))? {
-                    indices.push(
-                        u64::try_from(row_index)
-                            .map_err(|_| "bit-packed row index does not fit u64".to_string())?,
-                    );
-                }
-            }
-            Ok(selection_vector_from_indices(indices, row_count))
+            bitpacked_unsigned_selection_vector(predicate, values, row_count)
         }
         EncodedValueBatch::ArithmeticSequence {
             base, multiplier, ..
         } => encoded_sequence_selection_vector(predicate, base, multiplier, row_count),
+    }
+}
+
+fn dictionary_selection_vector(
+    predicate: &PredicateExpr,
+    dictionary: &[Option<StatValue>],
+    codes: &[Option<u32>],
+    row_count: u64,
+) -> std::result::Result<SelectionVector, String> {
+    let code_stats = dictionary_code_stats(codes, dictionary.len())?;
+    match predicate {
+        PredicateExpr::AlwaysTrue => return Ok(SelectionVector::all(row_count)),
+        PredicateExpr::AlwaysFalse => return Ok(SelectionVector::none()),
+        PredicateExpr::IsNull { .. } => {
+            return Ok(selection_vector_from_indices(
+                code_nullity_indices(codes, true)?,
+                row_count,
+            ));
+        }
+        PredicateExpr::IsNotNull { .. } => {
+            if code_stats.null_count == 0 {
+                return Ok(SelectionVector::all(row_count));
+            }
+            return Ok(selection_vector_from_indices(
+                code_nullity_indices(codes, false)?,
+                row_count,
+            ));
+        }
+        PredicateExpr::Compare { .. } => {}
+    }
+    let dictionary_matches = dictionary
+        .iter()
+        .map(|value| predicate_matches_encoded_value(predicate, value.as_ref()))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if code_stats.null_count == 0 && dictionary_matches.iter().all(|selected| *selected) {
+        return Ok(SelectionVector::all(row_count));
+    }
+    if dictionary_matches.iter().all(|selected| !*selected) {
+        return Ok(SelectionVector::none());
+    }
+    let mut indices = Vec::new();
+    for (row_index, code) in codes.iter().enumerate() {
+        let selected = match code {
+            Some(code) => {
+                let code = usize::try_from(*code)
+                    .map_err(|_| format!("dictionary code {code} does not fit usize"))?;
+                *dictionary_matches
+                    .get(code)
+                    .ok_or_else(|| format!("dictionary code {code} is outside dictionary values"))?
+            }
+            None => predicate_matches_encoded_value(predicate, None)?,
+        };
+        if selected {
+            indices.push(
+                u64::try_from(row_index)
+                    .map_err(|_| "dictionary row index does not fit u64".to_string())?,
+            );
+        }
+    }
+    Ok(selection_vector_from_indices(indices, row_count))
+}
+
+fn bitpacked_unsigned_selection_vector(
+    predicate: &PredicateExpr,
+    values: &[u64],
+    row_count: u64,
+) -> std::result::Result<SelectionVector, String> {
+    match predicate {
+        PredicateExpr::AlwaysTrue | PredicateExpr::IsNotNull { .. } => {
+            return Ok(SelectionVector::all(row_count));
+        }
+        PredicateExpr::AlwaysFalse | PredicateExpr::IsNull { .. } => {
+            return Ok(SelectionVector::none());
+        }
+        PredicateExpr::Compare { .. } => {}
+    }
+    let mut indices = Vec::with_capacity(values.len().min(4_096));
+    if let Some((op, rhs)) = u64_comparison_predicate(predicate) {
+        for (row_index, value) in values.iter().enumerate() {
+            if compare_u64(*value, op, rhs) {
+                indices.push(
+                    u64::try_from(row_index)
+                        .map_err(|_| "bit-packed row index does not fit u64".to_string())?,
+                );
+            }
+        }
+    } else {
+        for (row_index, value) in values.iter().enumerate() {
+            if predicate_matches_encoded_value(predicate, Some(&StatValue::UInt64(*value)))? {
+                indices.push(
+                    u64::try_from(row_index)
+                        .map_err(|_| "bit-packed row index does not fit u64".to_string())?,
+                );
+            }
+        }
+    }
+    Ok(selection_vector_from_indices(indices, row_count))
+}
+
+struct DictionaryCodeStats {
+    null_count: usize,
+}
+
+fn dictionary_code_stats(
+    codes: &[Option<u32>],
+    dictionary_len: usize,
+) -> std::result::Result<DictionaryCodeStats, String> {
+    let mut null_count = 0_usize;
+    for code in codes {
+        match code {
+            Some(code) => {
+                let code = usize::try_from(*code)
+                    .map_err(|_| format!("dictionary code {code} does not fit usize"))?;
+                if code >= dictionary_len {
+                    return Err(format!(
+                        "dictionary code {code} is outside dictionary values"
+                    ));
+                }
+            }
+            None => {
+                null_count = null_count.saturating_add(1);
+            }
+        }
+    }
+    Ok(DictionaryCodeStats { null_count })
+}
+
+fn code_nullity_indices(
+    codes: &[Option<u32>],
+    select_null: bool,
+) -> std::result::Result<Vec<u64>, String> {
+    let mut indices = Vec::new();
+    for (row_index, code) in codes.iter().enumerate() {
+        if code.is_none() == select_null {
+            indices.push(
+                u64::try_from(row_index)
+                    .map_err(|_| "dictionary row index does not fit u64".to_string())?,
+            );
+        }
+    }
+    Ok(indices)
+}
+
+fn u64_comparison_predicate(predicate: &PredicateExpr) -> Option<(ComparisonOp, u64)> {
+    let PredicateExpr::Compare {
+        op,
+        value: StatValue::UInt64(rhs),
+        ..
+    } = predicate
+    else {
+        return None;
+    };
+    Some((*op, *rhs))
+}
+
+fn compare_u64(left: u64, op: ComparisonOp, right: u64) -> bool {
+    match op {
+        ComparisonOp::Eq => left == right,
+        ComparisonOp::NotEq => left != right,
+        ComparisonOp::Lt => left < right,
+        ComparisonOp::LtEq => left <= right,
+        ComparisonOp::Gt => left > right,
+        ComparisonOp::GtEq => left >= right,
     }
 }
 
@@ -1808,6 +1939,35 @@ mod tests {
     }
 
     #[test]
+    fn encoded_value_dictionary_nullity_fast_paths_select_all_or_none() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(4));
+        let values = EncodedValueBatch::Dictionary {
+            dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5))],
+            codes: vec![Some(0), Some(1), Some(0), Some(1)],
+        };
+        let is_not_null = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+            &values,
+        );
+        assert_eq!(is_not_null.selection_vector, Some(SelectionVector::all(4)));
+        assert_eq!(is_not_null.selected_count, Some(4));
+
+        let is_null = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::IsNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+            &values,
+        );
+        assert_eq!(is_null.selection_vector, Some(SelectionVector::none()));
+        assert_eq!(is_null.selected_count, Some(0));
+        assert!(is_null.is_side_effect_free());
+    }
+
+    #[test]
     fn encoded_value_run_length_predicate_emits_sparse_selection_vector() {
         let segment = segment_with_stats("x", SegmentStats::with_row_count(6));
         let values = EncodedValueBatch::RunLength {
@@ -1868,6 +2028,35 @@ mod tests {
         assert_eq!(report.selected_count, Some(3));
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_bit_packed_nullity_fast_paths_select_all_or_none() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(5));
+        let values = EncodedValueBatch::BitPackedUnsigned {
+            bit_width: 1,
+            values: vec![0, 1, 0, 1, 1],
+        };
+        let is_not_null = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+            &values,
+        );
+        assert_eq!(is_not_null.selection_vector, Some(SelectionVector::all(5)));
+        assert_eq!(is_not_null.selected_count, Some(5));
+
+        let is_null = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::IsNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+            &values,
+        );
+        assert_eq!(is_null.selection_vector, Some(SelectionVector::none()));
+        assert_eq!(is_null.selected_count, Some(0));
+        assert!(is_null.is_side_effect_free());
     }
 
     #[test]

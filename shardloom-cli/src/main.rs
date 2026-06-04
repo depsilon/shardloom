@@ -1266,6 +1266,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-count-benchmark") => {
             benchmark_runtime::handle_vortex_count_benchmark(args, format)
         }
+        Some("operator-microkernel-benchmark") => {
+            benchmark_runtime::handle_operator_microkernel_benchmark(args, format)
+        }
         Some("vortex-count-where") => {
             vortex_primitive_execution::handle_vortex_count_where(args, format)
         }

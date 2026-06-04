@@ -25,6 +25,13 @@ column is stored as `vortex.dict`. ShardLoom lowers the reader-generated diction
 compares encoded group counts with the decoded reference group counts, and records the dictionary
 group-by pair as executed without adding a standalone side lane.
 
+`HOTPATH-11` tightens the local encoded predicate kernels behind these rows. Bitpacked unsigned
+filters now avoid generic `StatValue` dispatch for direct `u64` comparisons and short-circuit
+all/none nullity predicates. Dictionary predicates validate code bounds once, short-circuit
+all/none nullity and all-match cases, and then emit sparse selections only when a sparse result is
+actually required. These are ShardLoom-owned encoded-kernel optimizations over admitted encoded
+value batches, not fallback execution.
+
 The registry is intentionally narrow. Encoded-native operator coverage is not broad. Sorted
 min/max pruning, FSST/dictionary string equality, sparse traversal, TurboQuant/vector kernels, and
 generalized operator/function coverage remain deterministic blockers or future candidates until
@@ -110,6 +117,14 @@ compressed_kernel_registry_decoded
 compressed_kernel_registry_materialized
 compressed_kernel_registry_selection_vector_emitted
 compressed_kernel_registry_input_rows
+compressed_kernel_registry_selected_rows
+compressed_kernel_registry_operator_kernel_micros
+compressed_kernel_registry_decoded_reference_micros
+compressed_kernel_registry_input_shape_classes
+compressed_kernel_registry_kernel_specialization_profiles
+compressed_kernel_registry_focused_microbenchmark_refs
+compressed_kernel_registry_focused_microbenchmark_statuses
+compressed_kernel_registry_promotion_statuses
 compressed_kernel_registry_decoded_reference_compared
 compressed_kernel_registry_correctness_digest_status
 compressed_kernel_registry_correctness_digests
@@ -140,6 +155,14 @@ decoded
 materialized
 selection_vector_emitted
 input_rows
+selected_rows
+operator_kernel_micros
+decoded_reference_micros
+input_shape_class
+kernel_specialization_profile
+focused_microbenchmark_ref
+focused_microbenchmark_status
+promotion_status
 decoded_reference_compared
 correctness_digest_status
 correctness_digest
@@ -173,6 +196,8 @@ permit an encoded-native operator claim until the full path proves:
 - no decode or materialization beyond the declared boundary.
 - correctness against a decoded reference.
 - per-pair input row counts and correctness digests.
+- per-pair operator-kernel timing, decoded-reference timing, shape classification, specialization
+  profile, and focused microbenchmark refs.
 - benchmark/evidence rows.
 - execution and Native I/O certificate refs where applicable.
 - `fallback_attempted=false`.
