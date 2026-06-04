@@ -2889,6 +2889,26 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
         ),
         UnsupportedCase(
+            case_id="unsupported_binary_literal_predicate_without_cast",
+            source_name="binary-literal-predicate-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE label = X'616c706861' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="binary literal predicates over source columns require explicit CAST(<column> AS binary)",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_binary_source_ordering_without_cast",
+            source_name="binary-source-ordering-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE label > BINARY 'alpha' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="SQL source-column binary ordering without explicit CAST(<column> AS binary) is not admitted",
+        ),
+        UnsupportedCase(
             case_id="unsupported_variant_access",
             source_name="variant-unsupported.csv",
             source_text="id,payload\n1,alpha\n",

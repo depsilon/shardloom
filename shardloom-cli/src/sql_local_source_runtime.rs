@@ -28146,6 +28146,9 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
 
 const TIMEZONE_DATABASE_POLICY_MESSAGE: &str = "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only";
 const LOCALE_COLLATION_POLICY_MESSAGE: &str = "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice";
+const BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE: &str = "binary literal predicates over source columns require explicit CAST(<column> AS binary); broad binary source dtype decoding is not admitted";
+const BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE: &str =
+    "SQL source-column binary ordering without explicit CAST(<column> AS binary) is not admitted";
 
 fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
     if contains_timezone_database_policy_construct(statement)? {
@@ -31729,6 +31732,12 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         [column, op_raw, literal_raw] => {
             parse_literal_or_pattern_predicate(column, op_raw, literal_raw)
         }
+        [column, op_raw, binary_keyword, literal_raw]
+            if binary_keyword.eq_ignore_ascii_case("binary")
+                || binary_keyword.eq_ignore_ascii_case("blob") =>
+        {
+            parse_binary_literal_predicate_without_cast(column, op_raw, binary_keyword, literal_raw)
+        }
         [
             column,
             like_keyword,
@@ -31787,6 +31796,9 @@ fn parse_literal_or_pattern_predicate(
         });
     }
     let op = parse_comparison_op(op_raw)?;
+    if parse_direct_binary_predicate_literal(literal_raw)? {
+        return Err(binary_literal_predicate_without_cast_error(op));
+    }
     let value = match parse_sql_literal(literal_raw) {
         Ok(value) => value,
         Err(_) if validate_sql_column_ref(literal_raw).is_ok() => {
@@ -31803,6 +31815,42 @@ fn parse_literal_or_pattern_predicate(
         op,
         value,
     })
+}
+
+fn parse_binary_literal_predicate_without_cast(
+    column: &str,
+    op_raw: &str,
+    binary_keyword: &str,
+    literal_raw: &str,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    validate_sql_column_ref(column)?;
+    let op = parse_comparison_op(op_raw)?;
+    if parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?.is_some() {
+        return Err(binary_literal_predicate_without_cast_error(op));
+    }
+    Err(unsupported_sql_error(
+        "binary predicates require X'<hex>', BINARY/BLOB '<utf8>', or explicit CAST(<column> AS binary) syntax",
+    ))
+}
+
+fn parse_direct_binary_predicate_literal(raw: &str) -> Result<bool, ShardLoomError> {
+    let trimmed = raw.trim();
+    if is_sql_binary_hex_literal(trimmed) {
+        parse_sql_binary_hex_literal(trimmed)?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn binary_literal_predicate_without_cast_error(op: ComparisonOp) -> ShardLoomError {
+    if matches!(
+        op,
+        ComparisonOp::Lt | ComparisonOp::LtEq | ComparisonOp::Gt | ComparisonOp::GtEq
+    ) {
+        unsupported_sql_error(BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE)
+    } else {
+        unsupported_sql_error(BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE)
+    }
 }
 
 fn parse_like_predicate(
@@ -36528,15 +36576,38 @@ mod tests {
 
     #[test]
     fn binary_hex_literals_are_not_admitted_outside_literal_projections_without_fallback() {
-        let error = parse_sql_local_source_statement(
-            "SELECT id FROM 'target/input.csv' WHERE label = X'616c706861' LIMIT 5",
-        )
-        .expect_err("binary hex literal predicates remain outside this scoped slice");
+        for (statement, expected) in [
+            (
+                "SELECT id FROM 'target/input.csv' WHERE label = X'616c706861' LIMIT 5",
+                BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE,
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE label > BINARY 'alpha' LIMIT 5",
+                BINARY_SOURCE_ORDERING_WITHOUT_CAST_MESSAGE,
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE label = BLOB 'alpha' LIMIT 5",
+                BINARY_LITERAL_PREDICATE_WITHOUT_CAST_MESSAGE,
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("binary literal predicates remain outside this scoped slice");
 
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE label = X'0' LIMIT 5",
+        )
+        .expect_err("malformed binary hex predicate literal remains blocked");
         assert!(
             error
                 .to_string()
-                .contains("SQL local-source literals are limited")
+                .contains("binary hex literals require an even number")
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
 
