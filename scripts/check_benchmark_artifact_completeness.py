@@ -58,6 +58,9 @@ ROUTE_RUNTIME_STATUSES = {
     "external_baseline_only",
 }
 ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
+EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.exclusive_stage_timing.v1"
+)
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
 OPERATOR_EXECUTION_MODES = {
@@ -125,6 +128,20 @@ ROUTE_DIAGNOSTIC_REQUIRED_FIELDS = {
     "nearest_runnable_route",
     "required_feature_gate",
     "runtime_blocker_code",
+}
+EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS = {
+    "exclusive_stage_timing_schema_version",
+    "exclusive_stage_timing_status",
+    "exclusive_stage_timing_scope",
+    "exclusive_stage_included_stage_ids",
+    "route_timing_exclusive_stage_ids",
+    "route_timing_exclusive_stage_sum_ms",
+    "route_timing_exclusive_residual_ms",
+    "route_timing_exclusive_total_delta_ms",
+    "route_timing_exclusive_residual_status",
+    "inclusive_compatibility_to_vortex_import_ms",
+    "inclusive_compatibility_to_vortex_import_timing_scope",
+    "exclusive_stage_timing_claim_boundary",
 }
 PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
 PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
@@ -204,6 +221,7 @@ REQUIRED_ROUTE_FIELDS = {
     "route_timing_excluded_stage_ids",
     "route_timing_included_stage_total_ms",
     "route_timing_total_delta_ms",
+    *EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS,
     "preparation_timing_included_in_total",
     "query_timing_included_in_total",
     "output_timing_included_in_total",
@@ -322,6 +340,12 @@ def validate_profile_scope(
         for item in metadata.get("format_order", [])
         if isinstance(item, str)
     }
+    if not format_order:
+        format_order = {
+            str(row.get("storage_format"))
+            for row in result_rows(payload)
+            if isinstance(row.get("storage_format"), str) and row.get("storage_format")
+        }
     scenario_order: set[str] = set()
     for item in metadata.get("scenario_order", []):
         if not isinstance(item, str):
@@ -329,6 +353,14 @@ def validate_profile_scope(
         scenario_order.add(item)
         if ": " in item:
             scenario_order.add(item.split(": ", 1)[1])
+    if not scenario_order:
+        for row in result_rows(payload):
+            scenario = row.get("scenario_name")
+            if not isinstance(scenario, str) or not scenario:
+                continue
+            scenario_order.add(scenario)
+            if ": " in scenario:
+                scenario_order.add(scenario.split(": ", 1)[1])
     missing_formats = sorted(set(profile_def.required_formats) - format_order)
     missing_scenarios = sorted(set(profile_def.required_scenarios) - scenario_order)
     if missing_formats:
@@ -470,6 +502,51 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(
                 f"benchmark row {index} route timing ledger does not reproduce total_route_ms"
             )
+        missing_exclusive_fields = sorted(EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS - set(row))
+        if missing_exclusive_fields:
+            blockers.append(
+                f"benchmark row {index} is missing exclusive stage timing fields: "
+                f"{missing_exclusive_fields}"
+            )
+        else:
+            if (
+                row.get("exclusive_stage_timing_schema_version")
+                != EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
+            ):
+                blockers.append(
+                    f"benchmark row {index} has invalid exclusive stage timing schema"
+                )
+            exclusive_sum = _numeric_value(row.get("route_timing_exclusive_stage_sum_ms"))
+            exclusive_delta = _numeric_value(
+                row.get("route_timing_exclusive_total_delta_ms")
+            )
+            exclusive_residual = _numeric_value(
+                row.get("route_timing_exclusive_residual_ms")
+            )
+            if engine.startswith("shardloom"):
+                if row.get("exclusive_stage_timing_status") != "complete":
+                    blockers.append(
+                        f"ShardLoom row {index} exclusive stage timing is not complete"
+                    )
+                if (
+                    exclusive_sum is None
+                    or exclusive_delta is None
+                    or exclusive_residual is None
+                ):
+                    blockers.append(
+                        f"ShardLoom row {index} exclusive stage timing has non-numeric totals"
+                    )
+                if row.get("route_timing_exclusive_residual_status") not in {
+                    "auditable_residual",
+                    "zero_residual",
+                }:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid exclusive residual status"
+                    )
+            elif row.get("exclusive_stage_timing_status") != "external_baseline_only":
+                blockers.append(
+                    f"external row {index} must not report complete ShardLoom exclusive timing"
+                )
         for timing_field in (
             "runtime_execution_ms",
             "output_delivery_ms",

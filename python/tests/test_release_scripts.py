@@ -194,6 +194,42 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_excluded_stage_ids": "none",
             "route_timing_included_stage_total_ms": 1.0,
             "route_timing_total_delta_ms": 0.0,
+            "exclusive_stage_timing_schema_version": (
+                "shardloom.traditional_analytics.exclusive_stage_timing.v1"
+            ),
+            "exclusive_stage_timing_status": "complete",
+            "exclusive_stage_timing_scope": "fixture_deoverlapped_route_stage_fields",
+            "exclusive_stage_included_stage_ids": (
+                "source_admission,source_read,source_parse_or_decode,"
+                "vortex_array_build,vortex_write,prepared_query,sink_output,"
+                "evidence_render"
+            ),
+            "route_timing_exclusive_stage_ids": (
+                "source_admission,source_read,source_parse_or_decode,"
+                "vortex_array_build,vortex_write,prepared_query,sink_output,"
+                "evidence_render"
+            ),
+            "route_timing_exclusive_stage_sum_ms": 0.9,
+            "route_timing_exclusive_residual_ms": 0.1,
+            "route_timing_exclusive_total_delta_ms": 0.1,
+            "route_timing_exclusive_residual_status": "auditable_residual",
+            "inclusive_compatibility_to_vortex_import_ms": 0.5 if cold_route else None,
+            "inclusive_compatibility_to_vortex_import_timing_scope": (
+                "source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "exclusive_source_admission_ms": 0.0,
+            "exclusive_source_read_ms": 0.0,
+            "exclusive_source_parse_or_decode_ms": 0.1,
+            "exclusive_source_to_vortex_array_ms": 0.2,
+            "exclusive_vortex_write_ms": 0.3,
+            "exclusive_vortex_digest_ms": 0.0,
+            "exclusive_vortex_reopen_verify_ms": 0.0,
+            "exclusive_prepared_query_ms": 0.1,
+            "exclusive_result_sink_write_ms": 0.1,
+            "exclusive_evidence_render_ms": 0.1,
+            "exclusive_stage_timing_claim_boundary": "fixture_no_claim",
             "preparation_timing_included_in_total": preparation_included,
             "query_timing_included_in_total": True,
             "output_timing_included_in_total": True,
@@ -317,6 +353,20 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_excluded_stage_ids": "none",
             "route_timing_included_stage_total_ms": 1.0,
             "route_timing_total_delta_ms": 0.0,
+            "exclusive_stage_timing_schema_version": (
+                "shardloom.traditional_analytics.exclusive_stage_timing.v1"
+            ),
+            "exclusive_stage_timing_status": "external_baseline_only",
+            "exclusive_stage_timing_scope": "external_baseline_only",
+            "exclusive_stage_included_stage_ids": "none",
+            "route_timing_exclusive_stage_ids": "none",
+            "route_timing_exclusive_stage_sum_ms": None,
+            "route_timing_exclusive_residual_ms": None,
+            "route_timing_exclusive_total_delta_ms": None,
+            "route_timing_exclusive_residual_status": "not_numeric",
+            "inclusive_compatibility_to_vortex_import_ms": None,
+            "inclusive_compatibility_to_vortex_import_timing_scope": "external_baseline_only",
+            "exclusive_stage_timing_claim_boundary": "external_baseline_only",
             "preparation_timing_included_in_total": False,
             "query_timing_included_in_total": True,
             "output_timing_included_in_total": True,
@@ -845,8 +895,10 @@ class ReleaseScriptTests(unittest.TestCase):
             "correctness_digest_stable": True,
             "computed_result_sink_replay_verified": True,
             "metrics": {
+                "source_stat_micros": 2500,
                 "source_read_millis": 10.0,
                 "compatibility_parse_millis": 12.0,
+                "source_to_columnar_millis": 4.0,
                 "compatibility_to_vortex_import_millis": 95.0,
                 "vortex_array_build_millis": 20.0,
                 "vortex_write_millis": 70.0,
@@ -873,6 +925,15 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["cold_bottleneck_status"], "complete")
         self.assertEqual(published["cold_bottleneck_primary_stage"], "vortex_write")
         self.assertEqual(published["cold_bottleneck_secondary_stage"], "vortex_array_build")
+        self.assertEqual(published["source_admission_ms"], 2.5)
+        self.assertEqual(published["source_read_ms"], 0.0)
+        self.assertEqual(published["source_parse_or_columnar_decode_ms"], 16.0)
+        self.assertEqual(published["source_to_vortex_array_ms"], 20.0)
+        self.assertEqual(published["inclusive_compatibility_to_vortex_import_ms"], 95.0)
+        self.assertEqual(published["exclusive_source_read_ms"], 0.0)
+        self.assertEqual(published["exclusive_source_parse_or_decode_ms"], 16.0)
+        self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 125.0)
+        self.assertEqual(published["route_timing_exclusive_residual_ms"], 5.0)
         self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
         self.assertEqual(published["source_split_count"], 8)
         self.assertEqual(published["source_open_count"], 8)

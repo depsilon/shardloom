@@ -36,6 +36,9 @@ from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 SUMMARY_SCHEMA_VERSION = "shardloom.website.benchmark_evidence.v1"
 ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
+EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.exclusive_stage_timing.v1"
+)
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
 OPERATOR_EXECUTION_MODES = {
@@ -121,6 +124,28 @@ WEBSITE_ROW_KEYS = (
     "route_timing_excluded_stage_ids",
     "route_timing_included_stage_total_ms",
     "route_timing_total_delta_ms",
+    "exclusive_stage_timing_schema_version",
+    "exclusive_stage_timing_status",
+    "exclusive_stage_timing_scope",
+    "exclusive_stage_included_stage_ids",
+    "route_timing_exclusive_stage_ids",
+    "route_timing_exclusive_stage_sum_ms",
+    "route_timing_exclusive_residual_ms",
+    "route_timing_exclusive_total_delta_ms",
+    "route_timing_exclusive_residual_status",
+    "inclusive_compatibility_to_vortex_import_ms",
+    "inclusive_compatibility_to_vortex_import_timing_scope",
+    "exclusive_source_admission_ms",
+    "exclusive_source_read_ms",
+    "exclusive_source_parse_or_decode_ms",
+    "exclusive_source_to_vortex_array_ms",
+    "exclusive_vortex_write_ms",
+    "exclusive_vortex_digest_ms",
+    "exclusive_vortex_reopen_verify_ms",
+    "exclusive_prepared_query_ms",
+    "exclusive_result_sink_write_ms",
+    "exclusive_evidence_render_ms",
+    "exclusive_stage_timing_claim_boundary",
     "preparation_timing_included_in_total",
     "query_timing_included_in_total",
     "output_timing_included_in_total",
@@ -341,12 +366,13 @@ EXTERNAL_ENGINE_DISPLAY_NAMES = {
 COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION = {
     "full_certified_cold_ingest": (
         "source_read_millis",
+        "compatibility_parse_millis",
         "compatibility_to_vortex_import_millis",
-        "vortex_array_build_millis",
         "vortex_write_millis",
-        "vortex_reopen_verify_millis",
         "operator_compute_millis",
+        "result_sink_write_millis",
         "evidence_render_millis",
+        "route_timing_exclusive_stage_sum_ms",
         "total_runtime_millis",
         "cli_process_wall_millis",
         "python_harness_overhead_millis",
@@ -402,7 +428,6 @@ COLD_LANE_FIELD_ALIASES = {
     "vortex_reopen_verify_millis": ("vortex_reopen_or_verify_ms",),
     "operator_compute_millis": ("operator_compute_ms",),
     "result_sink_write_millis": ("result_sink_write_ms",),
-    "evidence_render_millis": ("evidence_render_ms",),
 }
 PUBLISHED_METRIC_KEYS = (
     "source_state_id",
@@ -760,14 +785,32 @@ def micros_to_millis(value: Any) -> float | None:
     return None if parsed is None else parsed / 1000.0
 
 
+def first_numeric_stage_millis(
+    fields: dict[str, Any],
+    millis_keys: tuple[str, ...] = (),
+    micros_keys: tuple[str, ...] = (),
+) -> float | None:
+    for key in millis_keys:
+        parsed = numeric_value(fields.get(key))
+        if parsed is not None:
+            return parsed
+    for key in micros_keys:
+        parsed = micros_to_millis(fields.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def source_admission_millis(fields: dict[str, Any]) -> float | None:
-    direct = first_numeric_field(
+    direct = first_numeric_stage_millis(
         fields,
-        (
+        millis_keys=(
+            "exclusive_source_admission_millis",
             "source_stat_millis",
             "source_admission_millis",
             "source_metadata_snapshot_millis",
         ),
+        micros_keys=("exclusive_source_admission_micros", "source_stat_micros"),
     )
     if direct is not None:
         return direct
@@ -945,6 +988,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     fields = runtime_validation_field_map(row)
     identity = route_identity_for_row(row)
     route_lane_id = str(row.get("route_lane_id") or identity.get("route_lane_id") or "")
+    is_shardloom = is_shardloom_engine(str(row.get("engine") or ""))
     total_runtime = route_total_runtime_millis(fields)
     query_runtime = prepared_route_query_runtime_millis(fields)
     preparation = prepare_once_preparation_millis(fields)
@@ -968,66 +1012,239 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         )
 
     def route_stage_millis(
-        primary_keys: tuple[str, ...],
-        prepare_batch_keys: tuple[str, ...] = (),
+        primary_millis_keys: tuple[str, ...] = (),
+        prepare_batch_millis_keys: tuple[str, ...] = (),
+        primary_micros_keys: tuple[str, ...] = (),
+        prepare_batch_micros_keys: tuple[str, ...] = (),
     ) -> float | None:
         if route_lane_id == "prepare_once_batch" and batch_count and batch_count > 0:
-            prepare_batch_value = first_numeric_field(fields, prepare_batch_keys)
+            prepare_batch_value = first_numeric_stage_millis(
+                fields,
+                millis_keys=prepare_batch_millis_keys,
+                micros_keys=prepare_batch_micros_keys,
+            )
             if prepare_batch_value is not None:
                 return prepare_batch_value / batch_count
-        return first_numeric_field(fields, primary_keys + prepare_batch_keys)
+        return first_numeric_stage_millis(
+            fields,
+            millis_keys=primary_millis_keys + prepare_batch_millis_keys,
+            micros_keys=primary_micros_keys + prepare_batch_micros_keys,
+        )
+
+    source_read_total = route_stage_millis(
+        ("source_read_millis",),
+        primary_micros_keys=("source_read_micros",),
+    )
+    source_parse = route_stage_millis(
+        ("compatibility_parse_millis", "source_parse_millis"),
+        primary_micros_keys=("compatibility_parse_micros", "source_parse_micros"),
+    )
+    source_to_columnar = route_stage_millis(
+        ("source_to_columnar_millis",),
+        ("prepare_batch_source_to_columnar_millis",),
+        ("source_to_columnar_micros",),
+        ("prepare_batch_source_to_columnar_micros",),
+    )
+    explicit_source_parse_or_decode = route_stage_millis(
+        ("exclusive_source_parse_or_decode_millis",),
+        primary_micros_keys=("exclusive_source_parse_or_decode_micros",),
+    )
+    if explicit_source_parse_or_decode is not None:
+        source_parse_or_decode = explicit_source_parse_or_decode
+    elif source_parse is not None or source_to_columnar is not None:
+        source_parse_or_decode = (source_parse or 0.0) + (source_to_columnar or 0.0)
+    else:
+        source_parse_or_decode = None
+    explicit_source_read = route_stage_millis(
+        ("exclusive_source_read_millis",),
+        primary_micros_keys=("exclusive_source_read_micros",),
+    )
+    if explicit_source_read is not None:
+        source_read = explicit_source_read
+    elif source_read_total is not None and source_parse_or_decode is not None:
+        source_read = max(source_read_total - source_parse_or_decode, 0.0)
+    else:
+        source_read = source_read_total
+
+    source_to_vortex_array = route_stage_millis(
+        ("exclusive_source_to_vortex_array_millis", "vortex_array_build_millis"),
+        ("prepare_batch_vortex_array_build_millis",),
+        ("exclusive_source_to_vortex_array_micros", "vortex_array_build_micros"),
+        ("prepare_batch_vortex_array_build_micros",),
+    )
+    vortex_write = route_stage_millis(
+        ("exclusive_vortex_write_millis", "vortex_write_millis"),
+        ("prepare_batch_vortex_write_millis",),
+        ("exclusive_vortex_write_micros", "vortex_write_micros"),
+        ("prepare_batch_vortex_write_micros",),
+    )
+    vortex_digest = route_stage_millis(
+        ("exclusive_vortex_digest_millis", "vortex_digest_millis"),
+        primary_micros_keys=("exclusive_vortex_digest_micros", "vortex_digest_micros"),
+    )
+    vortex_reopen_or_verify = route_stage_millis(
+        (
+            "exclusive_vortex_reopen_verify_millis",
+            "vortex_reopen_verify_millis",
+        ),
+        ("prepare_batch_vortex_reopen_verify_millis",),
+        ("exclusive_vortex_reopen_verify_micros", "vortex_reopen_verify_micros"),
+        ("prepare_batch_vortex_reopen_verify_micros",),
+    )
+    vortex_scan = route_stage_millis(
+        ("exclusive_vortex_scan_millis", "vortex_scan_millis"),
+        primary_micros_keys=("exclusive_vortex_scan_micros", "vortex_scan_micros"),
+    )
+    operator_compute = route_stage_millis(
+        ("exclusive_operator_compute_millis", "operator_compute_millis"),
+        primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
+    )
+    prepared_query = None
+    if vortex_scan is not None or operator_compute is not None:
+        prepared_query = (vortex_scan or 0.0) + (operator_compute or 0.0)
+    elif query_runtime is not None:
+        prepared_query = query_runtime
 
     output_delivery = output_delivery_millis(fields)
     evidence_render = evidence_render_route_millis(fields)
+    explicit_result_sink = route_stage_millis(
+        ("exclusive_result_sink_write_millis",),
+        primary_micros_keys=("exclusive_result_sink_write_micros",),
+    )
+    result_sink_write = explicit_result_sink if explicit_result_sink is not None else output_delivery
+    explicit_evidence_render = route_stage_millis(
+        ("exclusive_evidence_render_millis",),
+        primary_micros_keys=("exclusive_evidence_render_micros",),
+    )
+    evidence_render = (
+        explicit_evidence_render if explicit_evidence_render is not None else evidence_render
+    )
+    exclusive_stage_pairs = (
+        ("source_admission", source_admission_millis(fields)),
+        ("source_read", source_read),
+        ("source_parse_or_decode", source_parse_or_decode),
+        ("vortex_array_build", source_to_vortex_array),
+        ("vortex_write", vortex_write),
+        ("vortex_digest", vortex_digest),
+        ("vortex_reopen_verify", vortex_reopen_or_verify),
+        ("prepared_query", prepared_query),
+        ("sink_output", result_sink_write),
+        ("evidence_render", evidence_render),
+    )
+    exclusive_stage_values = (
+        [
+            (stage, value)
+            for stage, value in exclusive_stage_pairs
+            if value is not None and value >= 0.0
+        ]
+        if is_shardloom
+        else []
+    )
+    exclusive_stage_sum = round(sum(value for _, value in exclusive_stage_values), 4)
+    exclusive_residual = (
+        round(total_runtime - exclusive_stage_sum, 4)
+        if total_runtime is not None
+        else None
+    )
+    exclusive_delta = abs(exclusive_residual) if exclusive_residual is not None else None
+    inclusive_compatibility_to_vortex_import = first_numeric_stage_millis(
+        fields,
+        millis_keys=(
+            "inclusive_compatibility_to_vortex_import_millis",
+            "compatibility_to_vortex_import_millis",
+        ),
+        micros_keys=(
+            "inclusive_compatibility_to_vortex_import_micros",
+            "compatibility_to_vortex_import_micros",
+        ),
+    )
     total_route = total_runtime
     if route_lane_id == "prepare_once_batch" and query_runtime is not None:
         total_route = (
             query_runtime
             + (amortized_preparation or 0.0)
-            + output_delivery
+            + result_sink_write
             + evidence_render
         )
     elif (
         route_lane_id in {"warm_prepared_query", "native_vortex_query"}
         and query_runtime is not None
     ):
-        total_route = query_runtime + output_delivery + evidence_render
+        total_route = query_runtime + result_sink_write + evidence_render
 
     return {
         "source_admission_ms": source_admission_millis(fields),
-        "source_read_ms": first_numeric_field(fields, ("source_read_millis",)),
-        "source_parse_or_columnar_decode_ms": route_stage_millis(
-            (
-                "compatibility_parse_millis",
-                "source_parse_millis",
-                "source_to_columnar_millis",
-            ),
-            ("prepare_batch_source_to_columnar_millis",),
-        ),
-        "source_to_vortex_array_ms": route_stage_millis(
-            (
-                "vortex_array_build_millis",
-                "compatibility_to_vortex_import_millis",
-            ),
-            ("prepare_batch_vortex_array_build_millis",),
-        ),
-        "vortex_write_ms": route_stage_millis(
-            ("vortex_write_millis",),
-            ("prepare_batch_vortex_write_millis",),
-        ),
-        "vortex_reopen_or_verify_ms": route_stage_millis(
-            (
-                "vortex_reopen_verify_millis",
-                "vortex_reopen_millis",
-            ),
-            ("prepare_batch_vortex_reopen_verify_millis",),
-        ),
+        "source_read_ms": source_read,
+        "source_parse_or_columnar_decode_ms": source_parse_or_decode,
+        "source_to_vortex_array_ms": source_to_vortex_array,
+        "vortex_write_ms": vortex_write,
+        "vortex_reopen_or_verify_ms": vortex_reopen_or_verify,
         "prepared_state_lookup_or_create_ms": prepared_state_lookup,
-        "vortex_scan_ms": first_numeric_field(fields, ("vortex_scan_millis",)),
-        "operator_compute_ms": first_numeric_field(fields, ("operator_compute_millis",)),
-        "result_sink_write_ms": output_delivery,
+        "vortex_scan_ms": vortex_scan,
+        "operator_compute_ms": operator_compute,
+        "result_sink_write_ms": result_sink_write,
         "evidence_render_ms": evidence_render,
         "total_route_ms": total_route,
+        "exclusive_stage_timing_schema_version": first_meaningful_field(
+            fields, ("exclusive_stage_timing_schema_version",)
+        )
+        or EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION,
+        "exclusive_stage_timing_status": (
+            "complete"
+            if exclusive_stage_values
+            else (
+                "blocked_missing_stage_timing"
+                if is_shardloom
+                else "external_baseline_only"
+            )
+        ),
+        "exclusive_stage_timing_scope": first_meaningful_field(
+            fields, ("exclusive_stage_timing_scope",)
+        )
+        or "derived_deoverlapped_route_stage_fields",
+        "exclusive_stage_included_stage_ids": ",".join(
+            stage for stage, _ in exclusive_stage_values
+        )
+        or "none",
+        "exclusive_source_admission_ms": source_admission_millis(fields),
+        "exclusive_source_read_ms": source_read,
+        "exclusive_source_parse_or_decode_ms": source_parse_or_decode,
+        "exclusive_source_to_vortex_array_ms": source_to_vortex_array,
+        "exclusive_vortex_write_ms": vortex_write,
+        "exclusive_vortex_digest_ms": vortex_digest,
+        "exclusive_vortex_reopen_verify_ms": vortex_reopen_or_verify,
+        "exclusive_prepared_query_ms": prepared_query,
+        "exclusive_result_sink_write_ms": result_sink_write,
+        "exclusive_evidence_render_ms": evidence_render,
+        "route_timing_exclusive_stage_ids": ",".join(
+            stage for stage, _ in exclusive_stage_values
+        )
+        or "none",
+        "route_timing_exclusive_stage_sum_ms": exclusive_stage_sum
+        if exclusive_stage_values
+        else None,
+        "route_timing_exclusive_residual_ms": exclusive_residual,
+        "route_timing_exclusive_total_delta_ms": exclusive_delta,
+        "route_timing_exclusive_residual_status": "auditable_residual"
+        if exclusive_residual is not None
+        else "not_numeric",
+        "inclusive_compatibility_to_vortex_import_ms": inclusive_compatibility_to_vortex_import,
+        "inclusive_compatibility_to_vortex_import_timing_scope": first_meaningful_field(
+            fields,
+            (
+                "inclusive_compatibility_to_vortex_import_timing_scope",
+                "compatibility_to_vortex_import_timing_scope",
+            ),
+        )
+        or "not_reported",
+        "exclusive_stage_timing_claim_boundary": first_meaningful_field(
+            fields, ("exclusive_stage_timing_claim_boundary",)
+        )
+        or (
+            "exclusive stage timing is local benchmark attribution evidence only; route totals "
+            "remain the comparison surface and no performance, production, SQL/DataFrame, "
+            "object-store/lakehouse, or Spark-displacement claim is authorized"
+        ),
         "prepared_route_observed_batch_count": batch_count,
         "route_stage_timing_scope": (
             "amortized_once_per_observed_batch"
@@ -2452,16 +2669,82 @@ def runtime_status_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def format_coverage_table(artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str) -> dict[str, Any]:
+def promoted_metadata(artifact: dict[str, Any]) -> dict[str, Any]:
+    metadata = artifact.get("published_benchmark_artifact")
+    return metadata if isinstance(metadata, dict) else artifact
+
+
+def benchmark_format_order(
+    artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str
+) -> list[str]:
+    metadata = promoted_metadata(artifact)
+    declared = [
+        str(value)
+        for value in metadata.get("format_order", [])
+        if isinstance(value, str) and value
+    ]
+    if declared:
+        return list(dict.fromkeys(declared))
+    row_formats = {
+        str(row.get("storage_format"))
+        for row in rows
+        if isinstance(row.get("storage_format"), str) and row.get("storage_format")
+    }
+    if profile in PROFILES:
+        profile_order = list(
+            dict.fromkeys(
+                [
+                    *PROFILES[profile].required_formats,
+                    *PROFILES[profile].optional_formats,
+                ]
+            )
+        )
+        return [
+            *[fmt for fmt in profile_order if fmt in row_formats],
+            *sorted(row_formats - set(profile_order)),
+        ]
+    return sorted(row_formats)
+
+
+def benchmark_scenario_order(
+    artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str
+) -> list[str]:
+    metadata = promoted_metadata(artifact)
+    declared = [
+        str(value)
+        for value in metadata.get("scenario_order", [])
+        if isinstance(value, str) and value
+    ]
+    if declared:
+        return list(dict.fromkeys(declared))
+    scenarios = {
+        str(row.get("scenario_name"))
+        for row in rows
+        if isinstance(row.get("scenario_name"), str) and row.get("scenario_name")
+    }
+    if profile in PROFILES:
+        required = list(PROFILES[profile].required_scenarios)
+        ordered: list[str] = []
+        for required_name in required:
+            matches = sorted(
+                scenario
+                for scenario in scenarios
+                if scenario == required_name or scenario.endswith(f": {required_name}")
+            )
+            ordered.extend(matches or [required_name])
+        extras = sorted(scenarios - set(ordered))
+        return [*list(dict.fromkeys(ordered)), *extras]
+    return sorted(scenarios)
+
+
+def format_coverage_table(
+    artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str
+) -> dict[str, Any]:
     profile_spec = PROFILES[profile]
     required = set(profile_spec.required_formats)
     optional = set(profile_spec.optional_formats)
     expected = list(dict.fromkeys([*profile_spec.required_formats, *profile_spec.optional_formats]))
-    available = {
-        str(value)
-        for value in artifact.get("format_order", [])
-        if isinstance(value, str) and value
-    }
+    available = set(benchmark_format_order(artifact, rows, profile))
     available.update(
         str(row.get("storage_format"))
         for row in rows
@@ -3064,10 +3347,14 @@ def cold_bottleneck_stage_values(
 ) -> dict[str, float]:
     values = {
         "source_admission": source_admission_millis(fields),
-        "source_read": first_numeric_millis(fields, ("source_read_ms", "source_read_millis")),
+        "source_read": first_numeric_millis(
+            fields,
+            ("exclusive_source_read_ms", "source_read_ms", "source_read_millis"),
+        ),
         "source_parse_or_decode": first_numeric_millis(
             fields,
             (
+                "exclusive_source_parse_or_decode_ms",
                 "source_parse_or_columnar_decode_ms",
                 "compatibility_parse_millis",
                 "source_parse_millis",
@@ -3087,32 +3374,52 @@ def cold_bottleneck_stage_values(
         "vortex_array_build": first_numeric_millis(
             fields,
             (
+                "exclusive_source_to_vortex_array_ms",
                 "source_to_vortex_array_ms",
                 "vortex_array_build_millis",
                 "prepare_batch_vortex_array_build_millis",
             ),
         ),
         "vortex_write": first_numeric_millis(
-            fields, ("vortex_write_ms", "vortex_write_millis", "prepare_batch_vortex_write_millis")
+            fields,
+            (
+                "exclusive_vortex_write_ms",
+                "vortex_write_ms",
+                "vortex_write_millis",
+                "prepare_batch_vortex_write_millis",
+            ),
         ),
         "vortex_digest": first_numeric_millis(
-            fields, ("vortex_digest_millis", "vortex_digest_micros")
+            fields, ("exclusive_vortex_digest_ms", "vortex_digest_millis", "vortex_digest_micros")
         ),
         "vortex_reopen_verify": first_numeric_millis(
             fields,
             (
+                "exclusive_vortex_reopen_verify_ms",
                 "vortex_reopen_or_verify_ms",
                 "vortex_reopen_verify_millis",
-                "vortex_reopen_millis",
                 "prepare_batch_vortex_reopen_verify_millis",
             ),
         ),
-        "prepared_query": cold_prepared_query_millis(fields, route_lane_id),
+        "prepared_query": first_numeric_millis(
+            fields, ("exclusive_prepared_query_ms",)
+        )
+        or cold_prepared_query_millis(fields, route_lane_id),
         "sink_output": first_numeric_millis(
-            fields, ("result_sink_write_ms", "result_sink_write_millis")
+            fields,
+            (
+                "exclusive_result_sink_write_ms",
+                "result_sink_write_ms",
+                "result_sink_write_millis",
+            ),
         ),
         "evidence_render": first_numeric_millis(
-            fields, ("evidence_render_ms", "evidence_render_millis")
+            fields,
+            (
+                "exclusive_evidence_render_ms",
+                "evidence_render_ms",
+                "evidence_render_millis",
+            ),
         ),
     }
     return {
@@ -3413,6 +3720,17 @@ def cold_lane_adjusted_claim_fields(
     if cold_lane.get("cold_lane_timing_split_status") == "complete" and cold_lane.get(
         "cold_bottleneck_status"
     ) in {"complete", "not_applicable_non_cold_route", "external_baseline_only"}:
+        current_missing = [
+            item
+            for item in current_missing
+            if not str(item).startswith("cold_lane_timing_split_status!=complete")
+        ]
+        if (
+            current_status == "not_claim_grade"
+            and current_requirements is False
+            and not current_missing
+        ):
+            return "claim_grade", True, []
         return current_status, current_requirements, current_missing
     if current_status != "claim_grade" and current_requirements is not True:
         return current_status, current_requirements, current_missing
@@ -3613,7 +3931,8 @@ def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     counts: Counter[tuple[str, str, str, str, str]] = Counter()
     blockers: Counter[str] = Counter()
     for row in rows:
-        published = cold_lane_attribution_for_row(row)
+        route_stage_fields = route_stage_fields_for_row(row)
+        published = cold_lane_attribution_for_row({**row, **route_stage_fields})
         classification = str(published["cold_lane_classification"])
         status = str(published["cold_lane_timing_split_status"])
         primary = str(published.get("cold_bottleneck_primary_stage") or "missing")
@@ -3665,7 +3984,10 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for row in rows:
         metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
         runtime_fields = runtime_validation_field_map(row)
-        cold_lane_fields = cold_lane_attribution_for_row(row)
+        initial_route_stage_fields = route_stage_fields_for_row(row)
+        cold_lane_fields = cold_lane_attribution_for_row(
+            {**row, **initial_route_stage_fields}
+        )
         claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
             cold_lane_adjusted_claim_fields(row, cold_lane_fields)
         )
@@ -3761,28 +4083,32 @@ def published_rows_with_current_route_timing_ledger(
     rendered: list[dict[str, Any]] = []
     for row in rows:
         updated = dict(row)
+        route_stage_fields = route_stage_fields_for_row(updated)
+        updated.update(route_stage_fields)
         cold_lane_fields = cold_lane_attribution_for_row(updated)
         route_identity = route_identity_for_row(updated)
         route_diagnostics = route_diagnostic_fields_for_row(updated, route_identity)
         claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
             cold_lane_adjusted_claim_fields(updated, cold_lane_fields)
         )
-        timing_ledger = route_timing_ledger_fields_for_row(updated, updated, updated)
+        updated["claim_gate_status"] = claim_gate_status
+        updated["claim_grade_requirements_met"] = claim_grade_requirements_met
+        updated["claim_grade_missing_evidence"] = claim_grade_missing_evidence
+        timing_ledger = route_timing_ledger_fields_for_row(
+            updated, route_identity, route_stage_fields
+        )
         updated.update(timing_ledger)
         updated.update(
             route_fast_path_attribution_fields_for_row(
                 updated,
-                updated,
-                updated,
+                route_identity,
+                route_stage_fields,
                 timing_ledger,
             )
         )
         updated.update(operator_mode_fields_for_row(updated))
         updated.update(route_diagnostics)
         updated.update(cold_lane_fields)
-        updated["claim_gate_status"] = claim_gate_status
-        updated["claim_grade_requirements_met"] = claim_grade_requirements_met
-        updated["claim_grade_missing_evidence"] = claim_grade_missing_evidence
         rendered.append(
             portable_public_value(normalize_published_runtime_evidence(updated))
         )
@@ -3792,7 +4118,8 @@ def published_rows_with_current_route_timing_ledger(
 def cold_lane_claim_adjusted_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     adjusted: list[dict[str, Any]] = []
     for row in rows:
-        cold_lane_fields = cold_lane_attribution_for_row(row)
+        route_stage_fields = route_stage_fields_for_row(row)
+        cold_lane_fields = cold_lane_attribution_for_row({**row, **route_stage_fields})
         adjusted.append(row_with_cold_lane_adjusted_claim_fields(row, cold_lane_fields))
     return adjusted
 
@@ -3809,13 +4136,14 @@ def comparative_summary(
     dataset = artifact.get("dataset") if isinstance(artifact.get("dataset"), dict) else {}
     generated = artifact.get("generated_at_utc") or datetime.now(timezone.utc).isoformat()
     claim_adjusted_rows = cold_lane_claim_adjusted_rows(rows)
+    format_order = benchmark_format_order(artifact, rows, profile)
     return {
         "source": repo_relative(source_path),
         "generated": f"{generated} from promoted local benchmark artifact.",
         "cards": [
             {"label": "Rows", "value": str(len(rows))},
             {"label": "Coverage Rows", "value": str(len(coverage_rows(artifact)))},
-            {"label": "Formats", "value": str(len(artifact.get("format_order", [])))},
+            {"label": "Formats", "value": str(len(format_order))},
             {
                 "label": "Performance Claim",
                 "value": str(bool(artifact.get("performance_claim_allowed", False))),
@@ -3985,6 +4313,10 @@ def main() -> int:
     public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     write_row_chunks(args.public_output_dir, full_published_rows)
+    format_order = benchmark_format_order(artifact, full_published_rows, args.profile)
+    scenario_order = benchmark_scenario_order(
+        artifact, full_published_rows, args.profile
+    )
 
     manifest = manifest_for_artifact(
         artifact,
@@ -4005,8 +4337,8 @@ def main() -> int:
             "generated_at_utc": artifact.get("generated_at_utc"),
             "schema_version": artifact.get("schema_version"),
             "engine_order": artifact.get("engine_order", []),
-            "format_order": artifact.get("format_order", []),
-            "scenario_order": artifact.get("scenario_order", []),
+            "format_order": format_order,
+            "scenario_order": scenario_order,
         },
         "published_benchmark_rows": website_rows(full_published_rows),
         "published_benchmark_rows_inlined": "summary_only",

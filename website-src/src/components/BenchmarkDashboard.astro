@@ -41,6 +41,19 @@ const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows)
 const publicFrontDoorRows = Array.isArray((benchmark as any).public_front_door_benchmark_rows) ? (benchmark as any).public_front_door_benchmark_rows : [];
 const publicFrontDoorTable = dashboard.public_front_door_routes ?? {};
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
+const exclusiveColdStageRows = shardloomRows
+  .filter((row: any) => ["cold_certified_route", "prepare_once_first_query", "prepare_once_batch"].includes(String(row.route_lane_id ?? "")))
+  .slice(0, 10)
+  .map((row: any) => [
+    textValue(row.route_display_name, textValue(row.engine)),
+    textValue(row.storage_format),
+    textValue(row.scenario_name),
+    textValue(row.exclusive_stage_timing_status),
+    formatMs(row.route_timing_exclusive_stage_sum_ms),
+    formatMs(row.route_timing_exclusive_residual_ms),
+    formatMs(row.inclusive_compatibility_to_vortex_import_ms),
+    textValue(row.cold_bottleneck_primary_stage),
+  ]);
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
 const manifestAny = manifest as any;
@@ -156,6 +169,13 @@ function stageObject(row: unknown[]): Record<string, unknown> {
 function parseMillis(value: unknown): number | null {
   const match = String(value ?? "").match(/([0-9]+(?:\.[0-9]+)?)\s*ms/);
   return match ? Number(match[1]) : null;
+}
+
+function formatMs(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "n/a";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return `${numeric.toFixed(2)} ms`;
 }
 
 function routeStageSummary(stage: Record<string, unknown> | undefined): string {
@@ -656,6 +676,19 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">Schema: {coldLaneTable.schema_version ?? "not reported"}. Bottleneck schema: {coldLaneTable.cold_bottleneck_schema_version ?? "not reported"}. Status: <strong>{coldLaneTable.status ?? "not reported"}</strong>.</p>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Format</th><th>Scenario</th><th>Exclusive status</th><th>Exclusive sum</th><th>Residual</th><th>Inclusive import</th><th>Primary</th></tr>
+        </thead>
+        <tbody>
+          {exclusiveColdStageRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Exclusive sum is the de-overlapped ShardLoom-owned stage view. Inclusive import preserves the legacy compatibility-to-Vortex bundle for audit context.</p>
   </div>
 </section>
 

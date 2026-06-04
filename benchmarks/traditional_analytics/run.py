@@ -282,6 +282,26 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_to_columnar_millis",
     "compatibility_to_vortex_import_millis",
     "compatibility_to_vortex_import_timing_scope",
+    "inclusive_compatibility_to_vortex_import_millis",
+    "inclusive_compatibility_to_vortex_import_timing_scope",
+    "exclusive_stage_timing_schema_version",
+    "exclusive_stage_timing_status",
+    "exclusive_stage_timing_scope",
+    "exclusive_stage_included_stage_ids",
+    "exclusive_source_admission_millis",
+    "exclusive_source_read_millis",
+    "exclusive_source_parse_or_decode_millis",
+    "exclusive_source_to_vortex_array_millis",
+    "exclusive_vortex_write_millis",
+    "exclusive_vortex_digest_millis",
+    "exclusive_vortex_reopen_verify_millis",
+    "exclusive_vortex_scan_millis",
+    "exclusive_operator_compute_millis",
+    "exclusive_result_sink_write_millis",
+    "exclusive_stage_sum_millis",
+    "exclusive_stage_residual_millis",
+    "exclusive_stage_total_delta_millis",
+    "exclusive_stage_timing_claim_boundary",
     "vortex_array_build_millis",
     "vortex_write_millis",
     "vortex_digest_millis",
@@ -17511,6 +17531,26 @@ def successful_result_from_iterations(
     source_to_columnar_millis = None
     compatibility_to_vortex_import_millis = None
     compatibility_to_vortex_import_timing_scope = None
+    inclusive_compatibility_to_vortex_import_millis = None
+    inclusive_compatibility_to_vortex_import_timing_scope = None
+    exclusive_stage_timing_schema_version = None
+    exclusive_stage_timing_status = None
+    exclusive_stage_timing_scope = None
+    exclusive_stage_included_stage_ids = None
+    exclusive_source_admission_millis = None
+    exclusive_source_read_millis = None
+    exclusive_source_parse_or_decode_millis = None
+    exclusive_source_to_vortex_array_millis = None
+    exclusive_vortex_write_millis = None
+    exclusive_vortex_digest_millis = None
+    exclusive_vortex_reopen_verify_millis = None
+    exclusive_vortex_scan_millis = None
+    exclusive_operator_compute_millis = None
+    exclusive_result_sink_write_millis = None
+    exclusive_stage_sum_millis = None
+    exclusive_stage_residual_millis = None
+    exclusive_stage_total_delta_millis = None
+    exclusive_stage_timing_claim_boundary = None
     vortex_array_build_millis = None
     vortex_array_build_provider_kind = None
     vortex_array_build_provider_surface = None
@@ -17571,6 +17611,54 @@ def successful_result_from_iterations(
         )
         compatibility_to_vortex_import_timing_scope = evidence.get(
             "compatibility_to_vortex_import_timing_scope"
+        )
+        inclusive_compatibility_to_vortex_import_millis = mean_evidence_micros(
+            "inclusive_compatibility_to_vortex_import_micros"
+        )
+        inclusive_compatibility_to_vortex_import_timing_scope = evidence.get(
+            "inclusive_compatibility_to_vortex_import_timing_scope"
+        )
+        exclusive_stage_timing_schema_version = evidence.get(
+            "exclusive_stage_timing_schema_version"
+        )
+        exclusive_stage_timing_status = evidence.get("exclusive_stage_timing_status")
+        exclusive_stage_timing_scope = evidence.get("exclusive_stage_timing_scope")
+        exclusive_stage_included_stage_ids = evidence.get(
+            "exclusive_stage_included_stage_ids"
+        )
+        exclusive_source_admission_millis = mean_evidence_micros(
+            "exclusive_source_admission_micros"
+        )
+        exclusive_source_read_millis = mean_evidence_micros(
+            "exclusive_source_read_micros"
+        )
+        exclusive_source_parse_or_decode_millis = mean_evidence_micros(
+            "exclusive_source_parse_or_decode_micros"
+        )
+        exclusive_source_to_vortex_array_millis = mean_evidence_micros(
+            "exclusive_source_to_vortex_array_micros"
+        )
+        exclusive_vortex_write_millis = mean_evidence_micros("exclusive_vortex_write_micros")
+        exclusive_vortex_digest_millis = mean_evidence_micros("exclusive_vortex_digest_micros")
+        exclusive_vortex_reopen_verify_millis = mean_evidence_micros(
+            "exclusive_vortex_reopen_verify_micros"
+        )
+        exclusive_vortex_scan_millis = mean_evidence_micros("exclusive_vortex_scan_micros")
+        exclusive_operator_compute_millis = mean_evidence_micros(
+            "exclusive_operator_compute_micros"
+        )
+        exclusive_result_sink_write_millis = mean_evidence_micros(
+            "exclusive_result_sink_write_micros"
+        )
+        exclusive_stage_sum_millis = mean_evidence_micros("exclusive_stage_sum_micros")
+        exclusive_stage_residual_millis = mean_evidence_micros(
+            "exclusive_stage_residual_micros"
+        )
+        exclusive_stage_total_delta_millis = mean_evidence_micros(
+            "exclusive_stage_total_delta_micros"
+        )
+        exclusive_stage_timing_claim_boundary = evidence.get(
+            "exclusive_stage_timing_claim_boundary"
         )
         vortex_array_build_millis = mean_evidence_micros("vortex_array_build_micros")
         vortex_array_build_provider_kind = evidence.get("vortex_array_build_provider_kind")
@@ -17739,6 +17827,26 @@ def successful_result_from_iterations(
         "source_to_columnar_millis": source_to_columnar_millis,
         "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
         "compatibility_to_vortex_import_timing_scope": compatibility_to_vortex_import_timing_scope,
+        "inclusive_compatibility_to_vortex_import_millis": inclusive_compatibility_to_vortex_import_millis,
+        "inclusive_compatibility_to_vortex_import_timing_scope": inclusive_compatibility_to_vortex_import_timing_scope,
+        "exclusive_stage_timing_schema_version": exclusive_stage_timing_schema_version,
+        "exclusive_stage_timing_status": exclusive_stage_timing_status,
+        "exclusive_stage_timing_scope": exclusive_stage_timing_scope,
+        "exclusive_stage_included_stage_ids": exclusive_stage_included_stage_ids,
+        "exclusive_source_admission_millis": exclusive_source_admission_millis,
+        "exclusive_source_read_millis": exclusive_source_read_millis,
+        "exclusive_source_parse_or_decode_millis": exclusive_source_parse_or_decode_millis,
+        "exclusive_source_to_vortex_array_millis": exclusive_source_to_vortex_array_millis,
+        "exclusive_vortex_write_millis": exclusive_vortex_write_millis,
+        "exclusive_vortex_digest_millis": exclusive_vortex_digest_millis,
+        "exclusive_vortex_reopen_verify_millis": exclusive_vortex_reopen_verify_millis,
+        "exclusive_vortex_scan_millis": exclusive_vortex_scan_millis,
+        "exclusive_operator_compute_millis": exclusive_operator_compute_millis,
+        "exclusive_result_sink_write_millis": exclusive_result_sink_write_millis,
+        "exclusive_stage_sum_millis": exclusive_stage_sum_millis,
+        "exclusive_stage_residual_millis": exclusive_stage_residual_millis,
+        "exclusive_stage_total_delta_millis": exclusive_stage_total_delta_millis,
+        "exclusive_stage_timing_claim_boundary": exclusive_stage_timing_claim_boundary,
         "vortex_array_build_millis": vortex_array_build_millis,
         "vortex_array_build_provider_kind": vortex_array_build_provider_kind,
         "vortex_array_build_provider_surface": vortex_array_build_provider_surface,

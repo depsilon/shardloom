@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D exclusive stage-ledger attribution and benchmark plan cleanup
+  - Date: 2026-06-03
+  - Branch/PR: `codex/stage-ledger-exclusive-attribution` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - The 2026-06-03 code/text-only benchmark optimization note asking to convert the component
+      findings into the active phased execution plan.
+    - The existing safe-writer benchmark artifact; this slice redecorated/promoted that artifact
+      and did not rerun the benchmark suite.
+  - Scope:
+    - Added exclusive stage timing fields to the traditional analytics report so ShardLoom rows
+      publish de-overlapped source read, source parse/decode, Vortex write/digest/reopen/scan,
+      operator, sink, evidence, exclusive stage sum, residual, residual delta, schema/status, and
+      claim-boundary fields while preserving the inclusive compatibility-import audit bundle.
+    - Updated the benchmark harness, artifact promoter, completeness validator, release-script
+      tests, and website benchmark data schema to prefer exclusive ShardLoom stage fields for
+      cold-route attribution while keeping external rows `external_baseline_only`.
+    - Fixed redecorated benchmark artifact publication so format/scenario metadata can be derived
+      from published rows, stale cold-lane claim demotions are cleared when the new split is
+      complete, and cold-lane completeness no longer depends on legacy overlapping
+      `vortex_array_build_millis` or reopen cells.
+    - Updated the benchmark dashboard with an exclusive cold-stage attribution table, regenerated
+      tracked benchmark JSON/static pages from the existing latest artifact, and incorporated the
+      pasted component optimization plan into `docs/architecture/phased-execution-plan.md`.
+  - Evidence:
+    - `python3 scripts/promote_benchmark_artifact.py --input website/assets/benchmarks/latest/benchmark-results.json --profile full_local` passed against the existing latest artifact.
+    - `python3 -m unittest python.tests.test_release_scripts` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `python3 scripts/check_benchmark_constitution.py --manifest website/assets/benchmarks/latest/manifest.json` passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree` passed before commit; the dirty-worktree allowance was used because the artifact was validated before the PR commit existed and no benchmark rerun was permitted.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test -p shardloom-vortex compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state --features vortex-traditional-analytics-benchmark,vortex-write,universal-format-io -- --nocapture` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH ./node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-report.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH ./node_modules/.bin/astro check` passed from `website-src`.
+    - `git diff --check` passed.
+  - Current artifact interpretation:
+    - Existing-artifact redecorating reports ShardLoom cold certified-route exclusive stage-sum
+      geomean 133.88 ms, residual geomean 2.48 ms, inclusive compatibility-import audit bundle
+      127.94 ms, `vortex_write_ms` geomean 76.79 ms,
+      `source_parse_or_columnar_decode_ms` geomean 29.48 ms, de-overlapped `source_read_ms`
+      geomean 7.80 ms, `vortex_scan_ms` geomean 2.32 ms, `result_sink_write_ms` geomean
+      1.90 ms, and `evidence_render_ms` geomean 0.08 ms.
+    - The de-overlapped cold bottleneck distribution is `vortex_write` primary in 83/120 rows and
+      `source_parse_or_decode` primary in 37/120 rows, so remaining writer/safe-artifact emission
+      stays first and source parse/read follows after writer cost is no longer dominant.
+  - Claim boundary:
+    - This slice is an attribution, validator, website, and phase-plan cleanup over an existing
+      benchmark artifact. It authorizes cleaner stage interpretation and the next optimization
+      order only. It does not claim a new benchmark result, public performance superiority,
+      production readiness, broad SQL/DataFrame parity, object-store/table readiness, or Spark
+      replacement.
+  - Fallback boundary:
+    - The change preserves ShardLoom-owned execution and Vortex-native provider boundaries. It adds
+      no Spark/DataFusion/DuckDB/Polars/Velox execution fallback, no Vortex query-engine
+      integration, and no external-engine residual evaluation for ShardLoom rows.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D streaming workspace-safe Vortex writer helper
   - Date: 2026-06-03
   - Branch/PR: `codex/vortex-safe-writer-optimization` / pending PR.
