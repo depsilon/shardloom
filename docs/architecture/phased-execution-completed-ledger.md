@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex ORDER BY result-boundary slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-complex-ordering` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/diagnostics-capabilities.md`.
+  - Scope:
+    - Promoted scoped `ORDER BY` over already-materialized `ARRAY[...]` literal and
+      `STRUCT(<source column>, ...)` projection values through ShardLoom-owned canonical
+      structural result-boundary sort keys.
+    - Promoted scoped `UNION`/`UNION ALL` complex output ordering after branch dtype checks and
+      composition, while preserving no-fallback evidence.
+    - Split complex equality keys from complex ordering keys: DISTINCT keeps length-delimited
+      collision-safe structural keys, while ordering now uses type-tagged sortable structural keys
+      so value order is not dominated by payload length prefixes.
+    - Added report fields for complex ordering columns and ordering semantics plus complex
+      result-boundary top-N operator-family labels.
+    - Added admitted-semantics matrix rows `complex_order_by_projection` and
+      `sql_union_complex_ordering`, raising the current matrix to 79 rows and 68 executable
+      fixtures with diagnostic counts unchanged.
+    - Refreshed release-readiness expected counts, admitted-semantics docs, current architecture
+      summaries, phase-plan next-slice wording, compute-flow references, and generated website
+      compute-flow pages.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `cargo test -p shardloom-cli complex_projection -- --nocapture` passed.
+    - `cargo test -p shardloom-cli scalar_order_key_preserves_nested_value_ordering -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-complex-ordering.json` passed with `matrix_row_count=79`, `executable_fixture_count=68`, `diagnostic_case_count=11`, `unsupported_diagnostic_count=9`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-complex-ordering.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-complex-ordering.json` passed.
+    - `python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-complex-ordering.json --output target/hard-release-readiness-complex-ordering.json` wrote `status=blocked` with 48 standing release/package/evidence blockers and no admitted-semantics count blockers.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is scoped runtime semantics,
+      release-matrix, and website/status documentation work and does not make a performance claim.
+  - Claim boundary:
+    - This slice admits only scoped canonical structural ordering for result-boundary rows whose
+      complex values are already produced by admitted `ARRAY[...]` and `STRUCT(<source column>, ...)`
+      projections. It does not claim broad ANSI nested ordering, list/struct accessors, complex
+      casts, subquery membership materialization, joins over complex keys, nested source decoding,
+      flat/structured sink persistence, production SQL, benchmark speedup, public performance
+      superiority, or release readiness.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source SQL runtime with `fallback_attempted=false`
+      and `external_engine_invoked=false`; external engines remain unavailable as fallback
+      execution providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex DISTINCT/UNION DISTINCT equality slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-complex-distinct-equality` / pending PR.

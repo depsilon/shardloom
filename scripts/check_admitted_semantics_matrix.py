@@ -632,6 +632,42 @@ def complex_distinct_projection_equality_case() -> SqlFixtureCase:
     )
 
 
+def complex_order_by_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="complex_order_by_projection",
+        source_name="complex-order.csv",
+        source_text="id,label,amount\n1,gamma,13\n2,alpha,8\n3,beta,\n",
+        statement_template=(
+            "SELECT id,STRUCT(label, amount) AS payload FROM '{source}' "
+            "ORDER BY payload ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":2,"payload":{"label":"alpha","amount":8}}\n'
+            '{"id":3,"payload":{"label":"beta","amount":null}}\n'
+            '{"id":1,"payload":{"label":"gamma","amount":13}}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_complex_projection_order_by_topn_limit",
+            "order_by_runtime_execution": "true",
+            "top_n_runtime_execution": "true",
+            "sort_operator_family": "single_key_complex_result_boundary_topn",
+            "sort_keys": "payload",
+            "sort_direction": "asc",
+            "complex_projection_runtime_execution": "true",
+            "complex_projection_columns": "payload",
+            "complex_projection_count": "1",
+            "complex_projection_kind": "struct_source_columns",
+            "complex_projection_output_dtype": "struct",
+            "complex_projection_source_column": "label,amount",
+            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
+            "complex_projection_ordering_columns": "payload",
+            "complex_projection_ordering_semantics": "admitted_canonical_structural_result_boundary_values_only",
+            "projected_columns": "id,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def sql_union_complex_distinct_equality_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="sql_union_complex_distinct_equality",
@@ -664,6 +700,44 @@ def sql_union_complex_distinct_equality_case() -> SqlFixtureCase:
             "sql_union_order_by_runtime_execution": "true",
             "sort_keys": "id",
             "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def sql_union_complex_ordering_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_union_complex_ordering",
+        source_name="complex-union-order-left.csv",
+        source_text="id,label\n1,alpha\n2,beta\n",
+        auxiliary_sources=(
+            (
+                "right",
+                "complex-union-order-right.csv",
+                "id,label\n3,gamma\n4,delta\n",
+            ),
+        ),
+        statement_template=(
+            "SELECT id,STRUCT(label) AS payload FROM '{source}' "
+            "UNION ALL SELECT id,STRUCT(label) AS payload FROM '{right}' "
+            "ORDER BY payload DESC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":3,"payload":{"label":"gamma"}}\n'
+            '{"id":4,"payload":{"label":"delta"}}\n'
+            '{"id":2,"payload":{"label":"beta"}}\n'
+            '{"id":1,"payload":{"label":"alpha"}}\n'
+        ),
+        expected_fields={
+            "sql_union_runtime_execution": "true",
+            "sql_union_mode": "all",
+            "sql_union_branch_count": "2",
+            "sql_union_input_row_count": "4",
+            "sql_union_output_row_count": "4",
+            "sql_union_order_by_runtime_execution": "true",
+            "sort_operator_family": "single_key_complex_result_boundary_topn",
+            "sort_keys": "payload",
+            "sort_direction": "desc",
             "claim_gate_status": "fixture_smoke_only",
         },
     )
@@ -2845,7 +2919,9 @@ def executable_cases() -> list[SqlFixtureCase]:
         complex_array_literal_projection_case(),
         complex_struct_source_projection_case(),
         complex_distinct_projection_equality_case(),
+        complex_order_by_projection_case(),
         sql_union_complex_distinct_equality_case(),
+        sql_union_complex_ordering_case(),
         binary_cast_projection_predicate_case(),
         binary_cast_ordering_predicate_case(),
         decimal_cast_projection_predicate_case(),

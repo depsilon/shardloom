@@ -655,9 +655,10 @@ plan before coding.
   and binary source/runtime decoding. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
   `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
   boundary only, plus scoped `SELECT DISTINCT` and `UNION DISTINCT` structural equality over those
-  already-materialized projection values. Complex ordering, accessors, casts, subquery membership,
-  nested source decoding, flat nested sinks, joins over complex keys, and broader variant/union
-  semantics still fail before fallback.
+  already-materialized projection values, and scoped canonical structural `ORDER BY` over those
+  complex result-boundary values. Complex accessors, casts, subquery membership, broad nested
+  ordering, nested source decoding, flat nested sinks, joins over complex keys, and broader
+  variant/union semantics still fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit
