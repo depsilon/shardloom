@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Arrow IPC binary source columns admit direct projection, binary literal predicates, bytewise ORDER BY, and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation. Computed filters/projections admit listed cast/null/conditional/numeric/date/timestamp/temporal-difference/string helpers and bounded IN/EXISTS/ANY/ALL/correlated/projected subqueries. Blocks: lossy coercion/type/date/time errors, NULL fallback/sentinel/CASE mismatches, scalar-left multi-column, unbound or broad correlated subqueries, non-binary source columns compared to binary literals, binary sinks outside scoped Parquet/Arrow IPC/Avro/ORC flat scalar outputs, broad binary execution, broad subqueries, and broad projection trees. No broad SQL/DataFrame, production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, named-timezone/collation, fallback, or performance claim.
+- **Claim boundary:** Scoped CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Arrow IPC binary source columns admit direct projection, binary literal predicates, bytewise ORDER BY, Parquet/Arrow IPC/Avro/ORC binary sink preservation, and local Vortex flat scalar non-null binary sink preservation. Computed filters/projections admit listed cast/null/conditional/numeric/date/timestamp/temporal-difference/string helpers and bounded IN/EXISTS/ANY/ALL/correlated/projected subqueries. Blocks: lossy coercion/type/date/time errors, NULL mismatches, scalar-left multi-column, broad correlated subqueries, non-binary source columns compared to binary literals, nullable/all-null or other NULL-bearing Vortex output before writer conversion, non-scoped binary sinks, broad binary execution, broad subqueries, and broad projection trees. No broad SQL/DataFrame, production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, named-timezone/collation, fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by
 
 ## Claim Boundary
 
-Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Arrow IPC binary source columns admit direct projection, binary literal predicates, bytewise ORDER BY, and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation. Computed filters/projections admit listed cast/null/conditional/numeric/date/timestamp/temporal-difference/string helpers and bounded IN/EXISTS/ANY/ALL/correlated/projected subqueries. Blocks: lossy coercion/type/date/time errors, NULL fallback/sentinel/CASE mismatches, scalar-left multi-column, unbound or broad correlated subqueries, non-binary source columns compared to binary literals, binary sinks outside scoped Parquet/Arrow IPC/Avro/ORC flat scalar outputs, broad binary execution, broad subqueries, and broad projection trees. No broad SQL/DataFrame, production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, named-timezone/collation, fallback, or performance claim.
+Scoped CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex SELECT projection/filter/limit, aggregates, group-by, top-N, ctx.sql collect/write, local sinks/fanout, joins, and join aggregates. Arrow IPC binary source columns admit direct projection, binary literal predicates, bytewise ORDER BY, Parquet/Arrow IPC/Avro/ORC binary sink preservation, and local Vortex flat scalar non-null binary sink preservation. Computed filters/projections admit listed cast/null/conditional/numeric/date/timestamp/temporal-difference/string helpers and bounded IN/EXISTS/ANY/ALL/correlated/projected subqueries. Blocks: lossy coercion/type/date/time errors, NULL mismatches, scalar-left multi-column, broad correlated subqueries, non-binary source columns compared to binary literals, nullable/all-null or other NULL-bearing Vortex output before writer conversion, non-scoped binary sinks, broad binary execution, broad subqueries, and broad projection trees. No broad SQL/DataFrame, production runtime, broad format fidelity, claim-grade fanout/replay, object-store/table source, generalized joins/groups/orderings, named-timezone/collation, fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,am
 
 ## Blocker
 
-Vortex SQL sources, broad structured type/nesting coverage beyond flat scalar and scoped binary source projection/predicate/order plus Parquet/Arrow IPC/Avro/ORC binary sinks, default-build structured formats/Vortex writes, arbitrary join predicates, named-timezone/collation/null ordering, binary sinks outside scoped Parquet/Arrow IPC/Avro/ORC flat outputs, broad binary execution, non-binary source columns compared to binary literals, scalar-left multi-column, unbound or broad correlated subqueries, broad grouped aggregates, broad expression projections/functions, broad predicate trees, catalogs, object stores, tables/lakehouse, claim-grade output/fanout replay, and production SQL/DataFrame support require later slices.
+Vortex SQL sources, broad structured type/nesting coverage beyond flat scalar and scoped binary source projection/predicate/order plus Parquet/Arrow IPC/Avro/ORC and non-null Vortex binary sinks, default-build structured formats/Vortex writes, arbitrary join predicates, named-timezone/collation/null ordering, nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches before writer conversion, binary sinks outside scoped Parquet/Arrow IPC/Avro/ORC and non-null Vortex flat outputs, broad binary execution, non-binary source columns compared to binary literals, scalar-left multi-column, unbound or broad correlated subqueries, broad grouped aggregates, broad expression projections/functions, broad predicate trees, catalogs, object stores, tables/lakehouse, claim-grade output/fanout replay, and production SQL/DataFrame support require later slices.
 
 ## Internal Flow
 
@@ -271,6 +271,7 @@ Vortex SQL sources, broad structured type/nesting coverage beyond flat scalar an
 - `output_fidelity_loss`
 - `vortex_output_runtime_execution`
 - `vortex_output_reopen_verified`
+- `vortex_output_column_families`
 - `vortex_artifact_digest`
 - `upstream_vortex_write_called`
 - `upstream_vortex_scan_called`
@@ -289,7 +290,7 @@ A JSON envelope and typed Python report with inline JSONL helpers; optional JSON
 
 - `treating_smoke_as_sql_compatibility`
 - `expecting_parquet_or_s3_sql_sources`
-- `expecting_broad_binary_source_sinks_or_vortex_binary_sink_fidelity_or_nested_binary_execution`
+- `expecting_nullable_or_broad_binary_source_sinks_or_nested_binary_execution`
 - `expecting_broad_python_dataframe_join_support`
 - `expecting_general_join_or_grouped_aggregate_support`
 - `expecting_general_order_by_or_null_ordering_support`

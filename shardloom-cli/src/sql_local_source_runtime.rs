@@ -950,6 +950,15 @@ impl SqlResultBatchState {
         self.contains_decimal_values() || self.contains_decimal_dtype_hint()
     }
 
+    fn contains_null_values(&self) -> bool {
+        self.columns.iter().any(|column| {
+            column
+                .values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::Null))
+        })
+    }
+
     fn to_rows(&self) -> SqlOutputRows {
         (0..self.row_count)
             .map(|row_index| {
@@ -36146,6 +36155,9 @@ fn validate_sql_output_plan_sink(
             "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC typed result boundaries in this scoped runtime slice",
             format.sink_format()
         ))),
+        Some("vortex_non_null_scalar_values_required") => Err(unsupported_sql_error(
+            "output_plan_conversion_blocker=vortex_non_null_scalar_values_required; local vortex output currently admits non-null flat scalar rows only; nullable/all-null binary and other NULL values remain blocked before Vortex writer conversion; no fallback execution was attempted",
+        )),
         Some(blocker) => Err(unsupported_sql_error(&format!(
             "output_plan_conversion_blocker={blocker}; local {} output sink is blocked before conversion begins; no fallback execution was attempted",
             format.sink_format()
@@ -36211,6 +36223,9 @@ fn sql_output_plan_conversion_blocker(
         && !format.preserves_typed_decimal128()
     {
         return Some("typed_decimal128_preservation_not_admitted");
+    }
+    if matches!(format, SqlLocalSourceOutputFormat::Vortex) && batch.contains_null_values() {
+        return Some("vortex_non_null_scalar_values_required");
     }
     None
 }
@@ -39801,6 +39816,25 @@ mod tests {
         assert!(error.to_string().contains("external_engine_invoked=false"));
 
         fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn null_scalar_values_block_vortex_sink_before_writer_conversion() {
+        let batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["payload".to_string()],
+            &[Some(LogicalDType::Binary)],
+            &[vec![("payload".to_string(), ScalarValue::Null)]],
+        )
+        .expect("null binary hinted batch");
+
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &batch),
+            Some("vortex_non_null_scalar_values_required")
+        );
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Parquet, &batch),
+            None
+        );
     }
 
     #[test]

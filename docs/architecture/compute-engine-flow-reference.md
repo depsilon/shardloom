@@ -1518,7 +1518,11 @@ predicate leaves, including bounded `IN (...)` lists with non-null scalar litera
 composed UTF-8 string-expression leaves.
 That SQL path can render bounded inline JSONL or write local JSONL/CSV plus
 feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output with format-specific output Native I/O
-certificate fields.
+certificate fields, and feature-gated local Vortex output with writer/reopen evidence. Scoped
+binary output preservation covers Parquet/Arrow IPC/Avro/ORC flat scalar sinks plus local Vortex
+flat scalar non-null binary sinks; nullable/all-null Vortex binary rows and other NULL-bearing
+Vortex output batches block before writer conversion, and broad binary sink fidelity remains
+blocked until separate replay evidence exists.
 Python `ctx.read(path)` plus explicit `ctx.read_csv(...)` / flat `ctx.read_json(...)` aliases wrap
 the same admitted projection/scalar/multi-key grouped/top-N/aggregate-output-top-N/join/
 join-computed-top-N/join-aggregate runtime for local `.csv`, `.json`, `.jsonl`, `.ndjson`, and

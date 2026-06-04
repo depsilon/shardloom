@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped Vortex non-null binary sink preservation follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-vortex-binary-sink` / PR #1088.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/vortex/vortex-native-output.md`.
+    - `docs/skills/vortex/vortex-file-io.md`.
+    - `docs/skills/vortex/vortex-arrow-interop.md`.
+  - Scope:
+    - Admitted `ScalarValue::Binary` as a non-null scalar Vortex writer family using Vortex
+      `VarBinViewArray::from_iter_bin`, preserving zero-length and non-empty byte payloads without
+      text rendering.
+    - Admitted non-null Arrow `Binary`, `LargeBinary`, and `BinaryView` arrays through the columnar
+      Vortex SourceState shape validator while preserving non-empty RecordBatch-backed columnar
+      handoff through `ArrayRef::from_arrow(RecordBatch)`.
+    - Carried scoped columnar dtype hints into empty columnar Vortex shape planning so empty binary
+      columns do not silently default to UTF-8.
+    - Added Vortex writer readback tests that reopen the `.vortex` artifact, execute the reopened
+      struct to Arrow with a binary target schema, and assert exact byte payload preservation.
+    - Added SQL local-source CLI smoke coverage for feature-gated local Vortex output over non-null
+      binary literal projection rows, including output-plan blocker, column-family, writer/reopen,
+      and no-fallback evidence.
+    - Updated active README/status/phase/use-case/compute-flow/website source content to make local
+      Vortex flat scalar non-null binary output current while leaving nullable/all-null Vortex
+      binary sinks, broad binary execution, nested binary helpers, broad Vortex writer fidelity,
+      production support, and performance claims blocked.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io binary -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke binary_vortex_output -- --nocapture` passed.
+    - `cargo test -p shardloom-cli vortex_sink -- --nocapture` passed.
+    - `cargo fmt --all -- --check`, feature-gated package clippy, workspace clippy, and
+      `cargo test --workspace --all-targets` passed.
+    - Use-case, use-case coverage, admitted-semantics JSON/report validators, `astro check`,
+      `astro build`, static postbuild, static asset validation, and `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped Vortex binary
+      sink fidelity semantics and report/website evidence only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits feature-gated local Vortex flat scalar non-null binary byte preservation for
+      admitted SQL result batches and Vortex-preparation writer paths. It does not admit
+      nullable/all-null Vortex binary sink preservation, broad binary source-schema dtype
+      preservation, broader binary execution, nested binary helper expressions, typed decimal Vortex
+      output, broad SQL/DataFrame parity, production support, benchmark speedup, public performance
+      superiority, or release readiness. Nullable/all-null binary and other NULL-bearing Vortex
+      output batches block before writer conversion.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom's local Vortex writer and upstream Vortex array/file
+      APIs as native Vortex output, not fallback execution. Rows keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary Avro/ORC sink preservation follow-through
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-binary-avro-orc-sinks` / PR #1087.
