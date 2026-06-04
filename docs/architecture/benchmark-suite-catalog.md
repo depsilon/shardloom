@@ -243,10 +243,16 @@ from external baseline limitations, for example `ShardLoom unsupported rows: 0` 
 Required row fields include requested/selected execution mode, mode-selection reason, preparation
 timing, prepared artifact refs/digests, source read/parse/import timing, Vortex write/reopen/scan
 timing, operator compute timing, result-sink write timing, evidence-rendering timing,
-representation-transition summary, encoded-native status, fusion status, Scan API status,
-persistent-runner/process-overhead status, no-fallback status, and external-engine invocation
-status. Unknown or not-yet-isolated fields must be represented explicitly instead of silently
-omitted.
+route-shape stratification fields, source-to-Vortex-array guard fields, representation-transition
+summary, encoded-native status, fusion status, Scan API status, persistent-runner/process-overhead
+status, no-fallback status, and external-engine invocation status. Unknown or not-yet-isolated
+fields must be represented explicitly instead of silently omitted.
+
+HOTPATH-1/HOTPATH-5 adds `route_shape_stratification_*` and
+`source_to_vortex_array_guard_*` as required artifact fields. Route-shape metadata exists to
+interpret route totals. Source-to-array guard metadata keeps `vortex_array_build_*` and
+`exclusive_source_to_vortex_array_*` as exclusive substage evidence while preserving
+`compatibility_to_vortex_import_*` as the inclusive import bundle.
 
 The traditional analytics JSON artifact and Markdown report now include
 `execution_mode_attribution_contract`. That contract lists the canonical mode

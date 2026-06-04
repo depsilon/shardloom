@@ -16,9 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-1/HOTPATH-5 route-shape and source-array guard closeout
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-route-shape-array-guards` / PR #1072.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - HOTPATH-1 route-lane and row-shape stratification.
+    - HOTPATH-5 source-to-Vortex-array guard.
+    - `docs/architecture/performance-attribution-and-execution-structure.md`.
+    - `docs/architecture/benchmark-suite-catalog.md`.
+    - User direction to complete all current hotpath code/docs/site updates before the expensive
+      benchmark-suite rerun, keep evaluation code/text-only, avoid subagents, and keep PRs meaty.
+  - Scope:
+    - Added `route_shape_stratification_*` evidence fields to ShardLoom traditional analytics
+      report rows so route lane, route family, start/end state, row-count class, source-file shape,
+      timing-total field, stage-attribution scope, preparation/query/output/evidence inclusion, and
+      no-fallback/no-external-engine status are explicit.
+    - Added `source_to_vortex_array_guard_*` evidence fields to protect the compatibility-import
+      timing boundary: Vortex array build remains an exclusive substage, while
+      `compatibility_to_vortex_import_*` remains the inclusive source-read/parse/array-build/write
+      bundle.
+    - Extended the Python benchmark harness contract with required route-shape and source-array
+      guard field groups for successful, blocked, unsupported, and external-baseline rows.
+    - Added validator checks so ShardLoom rows fail if route-shape/source-array evidence reports
+      fallback, external-engine invocation, non-diagnostic stage attribution, a route-lane mismatch,
+      or an unguarded source-to-array conversion on compatibility-import routes.
+    - Updated focused Rust and contract tests so the compatibility-import report and benchmark
+      artifact contract pin these fields.
+    - Moved HOTPATH-1 and HOTPATH-5 out of Planned, leaving `POST-HOTPATH-DOCS-FRESHNESS` as the
+      next unchecked item before HOTPATH-14 rerun/publication.
+  - Vortex-first provider check:
+    - Classification: `wrap_vortex_concept` for route-shape interpretation and
+      source-to-array guard evidence around the existing admitted Vortex array/write provider path.
+    - This slice does not add a Vortex query-engine integration, does not add a fallback engine, and
+      does not alter runtime execution semantics.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile benchmarks/traditional_analytics/run.py` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-vortex compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness` passed.
+  - Benchmark and website status:
+    - No expensive full benchmark-suite rerun was performed in this slice.
+    - The current public benchmark artifact remains tied to the latest promoted safe-writer route
+      totals until the post-hotpath freshness gate and HOTPATH-14 rerun/publication complete.
+  - Claim boundary:
+    - This slice may claim route-shape/source-array guard field presence and validation for
+      benchmark interpretation. It does not claim a route timing change, end-to-end speedup,
+      public performance superiority, production readiness, broad SQL/DataFrame parity, or Spark
+      replacement.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. Reported ShardLoom evidence remains
+      `fallback_attempted=false` and `external_engine_invoked=false`, and unsupported routes still
+      fail through deterministic diagnostics instead of runtime delegation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-9 prepared-state regeneration repair guard
   - Date: 2026-06-04
-  - Branch/PR: `codex/hotpath-9-prepared-repair-guard` / pending PR.
+  - Branch/PR: `codex/hotpath-9-prepared-repair-guard` / PR #1071 merged.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
     - `docs/architecture/io-reuse-and-fanout-architecture.md`.

@@ -60,8 +60,10 @@ fields. Every public row carries `route_runtime_status`, `route_lane_id`, `route
 `includes_evidence`, `route_comparable_to_external_end_to_end`,
 `performance_claim_allowed=false`, `production_claim_allowed=false`, and
 `spark_replacement_claim_allowed=false`. The benchmark page must show route lanes for end-to-end
-comparison and stage pieces only as attribution. `claim_grade` is evidence quality; it is not a
-performance, production, Spark-replacement, or broad runtime-readiness claim.
+comparison and stage pieces only as attribution. HOTPATH-1/HOTPATH-5 also require
+`route_shape_stratification_*` and `source_to_vortex_array_guard_*` fields so route shape and
+exclusive/inclusive array-build timing scope are machine-checkable. `claim_grade` is evidence
+quality; it is not a performance, production, Spark-replacement, or broad runtime-readiness claim.
 
 ## Workloads
 
@@ -954,11 +956,17 @@ Every row also carries the stage timing fields
 `source_stat_millis`, `source_read_millis`, `source_parse_millis`,
 `compatibility_parse_millis`, `source_to_columnar_millis`,
 `compatibility_to_vortex_import_millis`,
-`compatibility_to_vortex_import_timing_scope`, `vortex_array_build_millis`,
+`compatibility_to_vortex_import_timing_scope`,
+`inclusive_compatibility_to_vortex_import_millis`,
+`exclusive_source_to_vortex_array_millis`, `vortex_array_build_millis`,
 `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
 `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
 `vortex_array_build_record_batch_count`,
-`vortex_array_build_manual_scalar_copy_avoided`, `vortex_write_millis`,
+`vortex_array_build_manual_scalar_copy_avoided`,
+`source_to_vortex_array_guard_status`,
+`source_to_vortex_array_guard_exclusive_stage_field`,
+`source_to_vortex_array_guard_inclusive_parent_field`,
+`source_to_vortex_array_guard_inclusive_not_exclusive_status`, `vortex_write_millis`,
 `vortex_digest_millis`, `vortex_reopen_millis`,
 `vortex_reopen_verify_millis`, `vortex_scan_millis`,
 `operator_compute_millis`, `operator_compute_timing_scope`,

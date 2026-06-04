@@ -77,6 +77,14 @@ const resultSinkCapillaryRows = publishedRows.filter((row: any) =>
   row.result_sink_capillary_schema_version
   || row.result_sink_capillary_status
 );
+const routeShapeRows = publishedRows.filter((row: any) =>
+  row.route_shape_stratification_schema_version
+  || row.route_shape_status
+);
+const sourceToArrayGuardRows = publishedRows.filter((row: any) =>
+  row.source_to_vortex_array_guard_schema_version
+  || row.source_to_vortex_array_guard_status
+);
 const evidenceRenderProofRows = publishedRows.filter((row: any) =>
   row.evidence_render_proof_schema_version
   || row.evidence_render_proof_status
@@ -585,6 +593,67 @@ const routeCards = [
 
 <section class="section-grid">
   <div>
+    <p class="eyebrow">Route-shape guard</p>
+    <h2>Route lanes and source-array boundaries are explicit.</h2>
+    <p class="narrow">
+      HOTPATH-1/HOTPATH-5 add route-shape stratification fields and a source-to-Vortex-array guard so cold, prepared, native, and external-baseline rows cannot be compared without their start state, end state, route lane, and inclusive-versus-exclusive import boundary. The current public artifact predates those fields, so route timing values stay unchanged until the benchmark suite is rerun.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Scenario</th><th>Lane</th><th>Family</th><th>Start</th><th>End</th><th>Row class</th><th>Stage scope</th><th>No fallback</th></tr>
+        </thead>
+        <tbody>
+          {routeShapeRows.length > 0 ? routeShapeRows.slice(0, 12).map((row: any) => (
+            <tr>
+              <td>{textValue(row.route_display_name, textValue(row.engine))}</td>
+              <td>{textValue(row.scenario_name)}</td>
+              <td>{textValue(row.route_shape_route_lane_id)}</td>
+              <td>{textValue(row.route_shape_route_family)}</td>
+              <td>{textValue(row.route_shape_start_state)}</td>
+              <td>{textValue(row.route_shape_end_state)}</td>
+              <td>{textValue(row.route_shape_row_count_class)}</td>
+              <td>{textValue(row.route_shape_stage_attribution_scope)}</td>
+              <td>{String(row.route_shape_fallback_attempted === false || row.route_shape_fallback_attempted === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="9">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Scenario</th><th>Status</th><th>Provider</th><th>Input layout</th><th>Record batches</th><th>Exclusive field</th><th>Inclusive parent</th><th>No fallback</th></tr>
+        </thead>
+        <tbody>
+          {sourceToArrayGuardRows.length > 0 ? sourceToArrayGuardRows.slice(0, 12).map((row: any) => (
+            <tr>
+              <td>{textValue(row.route_display_name, textValue(row.engine))}</td>
+              <td>{textValue(row.scenario_name)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_status)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_provider_kind)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_input_layout)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_record_batch_count)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_exclusive_stage_field)}</td>
+              <td>{textValue(row.source_to_vortex_array_guard_inclusive_parent_field)}</td>
+              <td>{String(row.source_to_vortex_array_guard_fallback_attempted === false || row.source_to_vortex_array_guard_fallback_attempted === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="9">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Route-shape rows in current artifact: {routeShapeRows.length}. Source-array guard rows in current artifact: {sourceToArrayGuardRows.length}. Rust and the benchmark harness now emit the new `route_shape_*` and `source_to_vortex_array_guard_*` fields; public timing values stay unchanged until the benchmark suite is rerun.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
     <p class="eyebrow">Runtime fast path</p>
     <h2>Runtime timing is separate from output and evidence rendering.</h2>
     <p class="narrow">
@@ -782,6 +851,8 @@ const routeCards = [
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
     <div class="metric"><strong>{preparedLookupRows.length}</strong><span>prepared lookup rows</span></div>
     <div class="metric"><strong>{resultSinkCapillaryRows.length}</strong><span>sink capillary rows</span></div>
+    <div class="metric"><strong>{routeShapeRows.length}</strong><span>route-shape rows</span></div>
+    <div class="metric"><strong>{sourceToArrayGuardRows.length}</strong><span>source-array guard rows</span></div>
     <div class="metric"><strong>{evidenceRenderProofRows.length}</strong><span>evidence proof rows</span></div>
     <div class="metric"><strong>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</strong><span>constitution gate</span></div>
   </div>

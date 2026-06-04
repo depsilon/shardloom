@@ -676,6 +676,10 @@ prepared_artifact_digest
 source_read_millis
 compatibility_parse_millis
 compatibility_to_vortex_import_millis
+inclusive_compatibility_to_vortex_import_millis
+exclusive_source_to_vortex_array_millis
+route_shape_stratification_*
+source_to_vortex_array_guard_*
 vortex_write_millis
 vortex_reopen_millis
 vortex_scan_millis
@@ -842,6 +846,16 @@ The route labels used in public docs are:
 | `direct_compatibility_transient` | Direct one-shot route | Source read/parse plus ShardLoom compute and optional output, with no Vortex-native claim. |
 | Generated-source reports | Source-free generated-output route | Generation plus output and evidence timing; source-read timing is zero. |
 | Fanout reports | Multi-output fanout route | Query/reuse timing plus per-output write/replay/evidence timing. |
+
+`route_shape_stratification_*` fields identify the row's route lane, route family, start/end
+state, row-count class, source-file shape, total-timing field, and diagnostic stage-attribution
+scope. They support route-total interpretation only; they are not a second timing surface.
+
+`source_to_vortex_array_guard_*` fields protect the source-to-array boundary. `vortex_array_build_*`
+and `exclusive_source_to_vortex_array_*` remain the exclusive array-build substage, while
+`compatibility_to_vortex_import_*` and `inclusive_compatibility_to_vortex_import_*` remain the
+inclusive source-read/parse/array-build/write bundle. ShardLoom rows must report
+`fallback_attempted=false` and `external_engine_invoked=false` inside both contracts.
 
 ## Vortex Alignment Notes
 

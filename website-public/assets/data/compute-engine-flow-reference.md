@@ -643,6 +643,12 @@ route_runtime_status
 route_comparable_to_external_end_to_end
 route_timing_scope
 route_total_formula
+route_shape_stratification_schema_version
+route_shape_route_lane_id
+route_shape_route_family
+route_shape_row_count_class
+route_shape_source_file_shape
+route_shape_stage_attribution_scope
 source_stat_millis
 source_read_millis
 source_parse_millis
@@ -652,6 +658,8 @@ source_state_build_millis
 source_to_columnar_millis
 compatibility_to_vortex_import_millis
 compatibility_to_vortex_import_timing_scope
+inclusive_compatibility_to_vortex_import_millis
+exclusive_source_to_vortex_array_millis
 vortex_array_build_millis
 vortex_array_build_provider_kind
 vortex_array_build_provider_surface
@@ -659,6 +667,11 @@ vortex_array_build_strategy
 vortex_array_build_input_layout
 vortex_array_build_record_batch_count
 vortex_array_build_manual_scalar_copy_avoided
+source_to_vortex_array_guard_schema_version
+source_to_vortex_array_guard_status
+source_to_vortex_array_guard_exclusive_stage_field
+source_to_vortex_array_guard_inclusive_parent_field
+source_to_vortex_array_guard_inclusive_not_exclusive_status
 vortex_write_millis
 vortex_digest_millis
 vortex_reopen_millis
@@ -1307,6 +1320,12 @@ report `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`
 `vortex_array_build_record_batch_count`, and
 `vortex_array_build_manual_scalar_copy_avoided` so users can distinguish ShardLoom scalar-row
 construction from the admitted Vortex `ArrayRef::from_arrow(RecordBatch)` provider. If the current
+route is a compatibility-import route, `source_to_vortex_array_guard_*` must show that
+`exclusive_source_to_vortex_array_*` is the Vortex array-build substage and
+`compatibility_to_vortex_import_*` is the inclusive source-read/parse/array-build/write bundle.
+`route_shape_stratification_*` must also keep route lane, route family, start/end state, row-count
+class, source-file shape, and diagnostic stage-attribution scope visible without turning stages into
+separate route benchmarks. If the current
 streaming loop cannot isolate Vortex scan from operator work, rows must keep
 `operator_compute_millis` present and disclose the limitation through
 `operator_compute_timing_scope=included_in_vortex_scan_millis_for_current_streaming_loop`.

@@ -359,6 +359,44 @@ VORTEX_SCAN_COUNTER_FIELDS = (
     "vortex_scan_columns_touched",
     "vortex_scan_decoded_values",
 )
+ROUTE_SHAPE_STRATIFICATION_CONTRACT_FIELDS = (
+    "route_shape_stratification_schema_version",
+    "route_shape_status",
+    "route_shape_route_lane_id",
+    "route_shape_route_family",
+    "route_shape_start_state",
+    "route_shape_end_state",
+    "route_shape_row_count_class",
+    "route_shape_source_file_shape",
+    "route_shape_source_format",
+    "route_shape_timing_total_field",
+    "route_shape_stage_attribution_scope",
+    "route_shape_includes_preparation",
+    "route_shape_includes_query",
+    "route_shape_includes_output",
+    "route_shape_includes_evidence",
+    "route_shape_fallback_attempted",
+    "route_shape_external_engine_invoked",
+    "route_shape_claim_boundary",
+)
+SOURCE_TO_VORTEX_ARRAY_GUARD_CONTRACT_FIELDS = (
+    "source_to_vortex_array_guard_schema_version",
+    "source_to_vortex_array_guard_status",
+    "source_to_vortex_array_guard_input_layout",
+    "source_to_vortex_array_guard_provider_kind",
+    "source_to_vortex_array_guard_provider_surface",
+    "source_to_vortex_array_guard_strategy",
+    "source_to_vortex_array_guard_record_batch_count",
+    "source_to_vortex_array_guard_manual_scalar_copy_avoided",
+    "source_to_vortex_array_guard_exclusive_stage_field",
+    "source_to_vortex_array_guard_inclusive_parent_field",
+    "source_to_vortex_array_guard_inclusive_timing_scope",
+    "source_to_vortex_array_guard_inclusive_not_exclusive_status",
+    "source_to_vortex_array_guard_regression_fixture",
+    "source_to_vortex_array_guard_fallback_attempted",
+    "source_to_vortex_array_guard_external_engine_invoked",
+    "source_to_vortex_array_guard_claim_boundary",
+)
 COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.cold_lane_attribution.v1"
 )
@@ -12900,6 +12938,24 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted cold-lane attribution fields: "
             + ", ".join(missing_cold_lane_fields)
         )
+    missing_route_shape_fields = [
+        field for field in ROUTE_SHAPE_STRATIFICATION_CONTRACT_FIELDS if field not in metrics
+    ]
+    if missing_route_shape_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted route-shape stratification fields: "
+            + ", ".join(missing_route_shape_fields)
+        )
+    missing_source_to_array_guard_fields = [
+        field for field in SOURCE_TO_VORTEX_ARRAY_GUARD_CONTRACT_FIELDS if field not in metrics
+    ]
+    if missing_source_to_array_guard_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted source-to-Vortex-array guard fields: "
+            + ", ".join(missing_source_to_array_guard_fields)
+        )
     missing_mode_fields = [
         field for field in EXECUTION_MODE_CONTRACT_FIELDS if field not in result
     ]
@@ -12909,6 +12965,63 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted execution-mode fields: "
             + ", ".join(missing_mode_fields)
         )
+    engine = str(result.get("engine", "unknown"))
+    if is_shardloom_engine(engine):
+        if metrics.get("route_shape_fallback_attempted") is True:
+            raise RuntimeError("ShardLoom route-shape contract reported fallback execution")
+        if metrics.get("route_shape_external_engine_invoked") is True:
+            raise RuntimeError("ShardLoom route-shape contract invoked an external engine")
+        if metrics.get("source_to_vortex_array_guard_fallback_attempted") is True:
+            raise RuntimeError("ShardLoom source-to-array guard reported fallback execution")
+        if metrics.get("source_to_vortex_array_guard_external_engine_invoked") is True:
+            raise RuntimeError("ShardLoom source-to-array guard invoked an external engine")
+        if metrics.get("route_shape_stage_attribution_scope") != (
+            "diagnostic_stage_fields_only_route_total_authoritative"
+        ):
+            raise RuntimeError(
+                "ShardLoom route-shape contract must keep stage fields diagnostic"
+            )
+        expected_lane = route_lane_id_for_result(
+            engine, str(result.get("selected_execution_mode") or "unknown")
+        )
+        if metrics.get("route_shape_route_lane_id") != expected_lane:
+            raise RuntimeError(
+                "ShardLoom route-shape lane mismatch: expected "
+                + expected_lane
+                + ", got "
+                + str(metrics.get("route_shape_route_lane_id"))
+            )
+        guard_status = str(metrics.get("source_to_vortex_array_guard_status"))
+        if engine in {"shardloom", "shardloom-prepare-batch"} and result.get(
+            "status"
+        ) == "success":
+            if guard_status != "guarded_vortex_array_build":
+                raise RuntimeError(
+                    "ShardLoom compatibility import route must guard source-to-Vortex array build"
+                )
+            if (
+                metrics.get("source_to_vortex_array_guard_exclusive_stage_field")
+                != "exclusive_source_to_vortex_array_millis"
+            ):
+                raise RuntimeError(
+                    "source-to-array guard must point at the exclusive array-build field"
+                )
+            if (
+                metrics.get("source_to_vortex_array_guard_inclusive_parent_field")
+                != "compatibility_to_vortex_import_millis"
+            ):
+                raise RuntimeError(
+                    "source-to-array guard must point at the inclusive import parent field"
+                )
+            if (
+                metrics.get(
+                    "source_to_vortex_array_guard_inclusive_not_exclusive_status"
+                )
+                != "inclusive_compatibility_import_contains_source_read_parse_array_build_and_write"
+            ):
+                raise RuntimeError(
+                    "compatibility import must stay labeled as an inclusive bundle"
+                )
     missing_operator_fields = [
         field for field in OPERATOR_BLOCKER_MATRIX_FIELDS if field not in result
     ]
@@ -16955,6 +17068,307 @@ def execution_mode_metadata(
     }
 
 
+def route_shape_row_count_class(row_count: int | None) -> str:
+    if row_count is None:
+        return "unknown_rows"
+    if row_count <= 1_000:
+        return "tiny_smoke_rows"
+    if row_count <= 100_000:
+        return "local_smoke_rows"
+    if row_count <= 10_000_000:
+        return "local_claim_grade_rows"
+    return "larger_than_local_claim_grade_rows"
+
+
+def route_shape_source_file_shape(paths: DatasetPaths, scenario: str, data_format: str) -> str:
+    if data_format == SHARDLOOM_VORTEX_FORMAT:
+        return "existing_vortex_input"
+    source_paths = source_state_paths(paths, scenario, data_format)
+    if scenario == "many-small-files scan" and len(source_paths) > 1:
+        return "split_fact_files_plus_dim"
+    if scenario == "small change over large base" and len(source_paths) > 2:
+        return "single_fact_single_dim_plus_cdc_delta"
+    if len(source_paths) == 1:
+        return "single_source_file"
+    if len(source_paths) == 2:
+        return "single_fact_single_dim"
+    if len(source_paths) > 2:
+        return "multi_source_file_set"
+    return "no_local_source_file"
+
+
+def route_shape_metadata(
+    engine: str,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    execution_mode: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    selected_mode = str(execution_mode.get("selected_execution_mode") or "unknown")
+    is_shardloom = is_shardloom_engine(engine)
+    if not is_shardloom:
+        route_status = "external_baseline_only"
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        route_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        route_status = "blocked"
+    else:
+        route_status = "route_total_metadata_complete"
+    route_lane_id = route_lane_id_for_result(engine, selected_mode)
+    route_family = route_family_for_result(engine, selected_mode)
+    row_count = parse_optional_int(metrics.get("rows_scanned"))
+    return {
+        "route_shape_stratification_schema_version": first_meaningful_field(
+            evidence.get("route_shape_stratification_schema_version"),
+            "shardloom.traditional_analytics.route_shape_stratification.v1",
+        ),
+        "route_shape_status": first_meaningful_field(
+            evidence.get("route_shape_status"),
+            route_status,
+        ),
+        "route_shape_route_lane_id": route_lane_id,
+        "route_shape_route_family": route_family,
+        "route_shape_start_state": first_meaningful_field(
+            route_start_state_for_result(engine, selected_mode),
+        ),
+        "route_shape_end_state": first_meaningful_field(
+            evidence.get("route_shape_end_state"),
+            "result_sink"
+            if parse_optional_bool(metrics.get("computed_result_sink_written")) is True
+            else "inline_result",
+        ),
+        "route_shape_row_count_class": first_meaningful_field(
+            evidence.get("route_shape_row_count_class"),
+            route_shape_row_count_class(row_count),
+        ),
+        "route_shape_source_file_shape": first_meaningful_field(
+            evidence.get("route_shape_source_file_shape"),
+            route_shape_source_file_shape(paths, scenario, data_format),
+        ),
+        "route_shape_source_format": first_meaningful_field(
+            evidence.get("route_shape_source_format"),
+            data_format,
+        ),
+        "route_shape_timing_total_field": first_meaningful_field(
+            evidence.get("route_shape_timing_total_field"),
+            "total_runtime_millis",
+        ),
+        "route_shape_stage_attribution_scope": first_meaningful_field(
+            evidence.get("route_shape_stage_attribution_scope"),
+            "diagnostic_stage_fields_only_route_total_authoritative",
+        ),
+        "route_shape_includes_preparation": (
+            parse_optional_bool(evidence.get("route_shape_includes_preparation"))
+            if evidence.get("route_shape_includes_preparation") is not None
+            else bool(execution_mode.get("vortex_prepare_included"))
+        ),
+        "route_shape_includes_query": (
+            parse_optional_bool(evidence.get("route_shape_includes_query"))
+            if evidence.get("route_shape_includes_query") is not None
+            else selected_mode != "external_baseline_only"
+        ),
+        "route_shape_includes_output": (
+            parse_optional_bool(evidence.get("route_shape_includes_output"))
+            if evidence.get("route_shape_includes_output") is not None
+            else metrics.get("result_sink_write_millis") is not None
+        ),
+        "route_shape_includes_evidence": (
+            parse_optional_bool(evidence.get("route_shape_includes_evidence"))
+            if evidence.get("route_shape_includes_evidence") is not None
+            else is_shardloom
+        ),
+        "route_shape_fallback_attempted": (
+            parse_optional_bool(evidence.get("route_shape_fallback_attempted")) is True
+        ),
+        "route_shape_external_engine_invoked": (
+            parse_optional_bool(evidence.get("route_shape_external_engine_invoked")) is True
+        ),
+        "route_shape_claim_boundary": first_meaningful_field(
+            evidence.get("route_shape_claim_boundary"),
+            "route-shape stratification records lane, start/end state, row-count class, and source-file shape for interpreting route totals only; stage fields remain diagnostic and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, release, or Spark-displacement claim is authorized"
+            if is_shardloom
+            else "external baselines are comparison rows only and cannot satisfy ShardLoom route-shape evidence",
+        ),
+    }
+
+
+def route_lane_id_for_result(engine: str, selected_mode: str) -> str:
+    if engine == "shardloom":
+        return "cold_certified_route"
+    if engine == "shardloom-prepare-batch":
+        return "prepare_once_batch"
+    if engine == "shardloom-prepared-vortex":
+        return "warm_prepared_query"
+    if engine == "shardloom-vortex":
+        return "native_vortex_query"
+    if engine == "shardloom-direct-transient":
+        return "direct_transient_route"
+    if selected_mode == "external_baseline_only":
+        return "external_baseline_end_to_end"
+    return selected_mode
+
+
+def route_family_for_mode(selected_mode: str) -> str:
+    return {
+        "compatibility_import_certified": "raw_compatibility_source_to_certified_vortex_ingest",
+        "prepared_vortex": "vortex_prepared_state_to_prepared_query",
+        "native_vortex": "existing_vortex_input_to_native_query",
+        "direct_compatibility_transient": "raw_compatibility_direct_transient",
+        "external_baseline_only": "external_baseline_raw_source",
+    }.get(selected_mode, "unknown_route_family")
+
+
+def route_family_for_result(engine: str, selected_mode: str) -> str:
+    if engine == "shardloom":
+        return "raw_compatibility_source_to_certified_vortex_ingest"
+    if engine == "shardloom-prepare-batch":
+        return "raw_compatibility_source_to_prepare_once_batch"
+    return route_family_for_mode(selected_mode)
+
+
+def route_start_state_for_mode(selected_mode: str) -> str:
+    return {
+        "compatibility_import_certified": "raw_compat_source",
+        "direct_compatibility_transient": "raw_compat_source",
+        "prepared_vortex": "VortexPreparedState",
+        "native_vortex": "Vortex",
+        "external_baseline_only": "raw_compat_source",
+    }.get(selected_mode, "unknown")
+
+
+def route_start_state_for_result(engine: str, selected_mode: str) -> str:
+    if engine in {"shardloom", "shardloom-prepare-batch", "shardloom-direct-transient"}:
+        return "raw_compat_source"
+    return route_start_state_for_mode(selected_mode)
+
+
+def source_to_vortex_array_guard_metadata(
+    engine: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    execution_mode: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    selected_mode = str(execution_mode.get("selected_execution_mode") or "unknown")
+    record_batch_count = parse_optional_int(
+        first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_record_batch_count"),
+            metrics.get("vortex_array_build_record_batch_count"),
+        )
+    )
+    manual_scalar_copy_avoided = parse_optional_bool(
+        first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_manual_scalar_copy_avoided"),
+            metrics.get("vortex_array_build_manual_scalar_copy_avoided"),
+        )
+    )
+    if not is_shardloom:
+        guard_status = "external_baseline_only"
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        guard_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        guard_status = "blocked"
+    elif selected_mode == "direct_compatibility_transient":
+        guard_status = "not_applicable_direct_transient_no_vortex_array_build"
+    elif selected_mode == "native_vortex":
+        guard_status = "not_applicable_existing_vortex_input"
+    elif selected_mode == "prepared_vortex" and engine != "shardloom-prepare-batch":
+        guard_status = "not_applicable_prepared_state_precreated_before_timing"
+    elif record_batch_count and record_batch_count > 0 and manual_scalar_copy_avoided is True:
+        guard_status = "guarded_vortex_array_build"
+    else:
+        guard_status = "blocked_missing_array_build_guard_evidence"
+    if engine in {"shardloom", "shardloom-prepare-batch"}:
+        reported_guard_status = first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_status"),
+            guard_status,
+        )
+    else:
+        reported_guard_status = guard_status
+    return {
+        "source_to_vortex_array_guard_schema_version": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_schema_version"),
+            "shardloom.traditional_analytics.source_to_vortex_array_guard.v1",
+        ),
+        "source_to_vortex_array_guard_status": reported_guard_status,
+        "source_to_vortex_array_guard_input_layout": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_input_layout"),
+            metrics.get("vortex_array_build_input_layout"),
+            "not_applicable" if not is_shardloom else "not_reported",
+        ),
+        "source_to_vortex_array_guard_provider_kind": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_provider_kind"),
+            metrics.get("vortex_array_build_provider_kind"),
+            "not_applicable" if not is_shardloom else "not_reported",
+        ),
+        "source_to_vortex_array_guard_provider_surface": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_provider_surface"),
+            metrics.get("vortex_array_build_provider_surface"),
+            "not_applicable" if not is_shardloom else "not_reported",
+        ),
+        "source_to_vortex_array_guard_strategy": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_strategy"),
+            metrics.get("vortex_array_build_strategy"),
+            "not_applicable" if not is_shardloom else "not_reported",
+        ),
+        "source_to_vortex_array_guard_record_batch_count": record_batch_count or 0,
+        "source_to_vortex_array_guard_manual_scalar_copy_avoided": (
+            manual_scalar_copy_avoided is True
+        ),
+        "source_to_vortex_array_guard_exclusive_stage_field": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_exclusive_stage_field"),
+            "exclusive_source_to_vortex_array_millis",
+        ),
+        "source_to_vortex_array_guard_inclusive_parent_field": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_inclusive_parent_field"),
+            "compatibility_to_vortex_import_millis",
+        ),
+        "source_to_vortex_array_guard_inclusive_timing_scope": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_inclusive_timing_scope"),
+            metrics.get("compatibility_to_vortex_import_timing_scope"),
+            "external_baseline_only" if not is_shardloom else "not_reported",
+        ),
+        "source_to_vortex_array_guard_inclusive_not_exclusive_status": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_inclusive_not_exclusive_status"),
+            "inclusive_compatibility_import_contains_source_read_parse_array_build_and_write"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "source_to_vortex_array_guard_regression_fixture": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_regression_fixture"),
+            "compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "source_to_vortex_array_guard_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get("source_to_vortex_array_guard_fallback_attempted")
+            )
+            is True
+        ),
+        "source_to_vortex_array_guard_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("source_to_vortex_array_guard_external_engine_invoked")
+            )
+            is True
+        ),
+        "source_to_vortex_array_guard_claim_boundary": first_meaningful_field(
+            evidence.get("source_to_vortex_array_guard_claim_boundary"),
+            "source-to-Vortex-array guard evidence protects timing-label integrity only: vortex_array_build is an exclusive substage, compatibility import remains an inclusive bundle, and no standalone performance or superiority claim is authorized"
+            if is_shardloom
+            else "external baselines cannot satisfy ShardLoom source-to-array guard evidence",
+        ),
+    }
+
+
 def operator_blocker_metadata(
     engine: str, evidence: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -17550,6 +17964,25 @@ def failed_result(
             status=status,
             metrics=metrics,
             selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        route_shape_metadata(
+            engine,
+            paths,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+            execution_mode=execution_mode,
+        )
+    )
+    metrics.update(
+        source_to_vortex_array_guard_metadata(
+            engine,
+            status=status,
+            metrics=metrics,
+            execution_mode=execution_mode,
         )
     )
     metrics.update(
@@ -18467,6 +18900,27 @@ def successful_result_from_iterations(
             metrics=metrics,
             evidence=evidence,
             selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        route_shape_metadata(
+            runner.name,
+            paths,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            execution_mode=execution_mode,
+            evidence=evidence,
+        )
+    )
+    metrics.update(
+        source_to_vortex_array_guard_metadata(
+            runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            execution_mode=execution_mode,
+            evidence=evidence,
         )
     )
     metrics.update(
@@ -19784,6 +20238,12 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
         "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
         "cold_lane_attribution_fields": list(COLD_LANE_ATTRIBUTION_FIELDS),
+        "route_shape_stratification_fields": list(
+            ROUTE_SHAPE_STRATIFICATION_CONTRACT_FIELDS
+        ),
+        "source_to_vortex_array_guard_fields": list(
+            SOURCE_TO_VORTEX_ARRAY_GUARD_CONTRACT_FIELDS
+        ),
         "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
@@ -20630,6 +21090,14 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         [
             "Cold-lane attribution fields",
             ", ".join(contract["cold_lane_attribution_fields"]),
+        ],
+        [
+            "Route-shape stratification fields",
+            ", ".join(contract["route_shape_stratification_fields"]),
+        ],
+        [
+            "Source-to-array guard fields",
+            ", ".join(contract["source_to_vortex_array_guard_fields"]),
         ],
         ["Operator blocker fields", ", ".join(contract["operator_blocker_matrix_fields"])],
         ["Fused pipeline fields", ", ".join(contract["fused_pipeline_fields"])],
