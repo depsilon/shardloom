@@ -5960,17 +5960,19 @@ fn scalar_column_families(
         .iter()
         .enumerate()
         .map(|(column_index, column)| {
-            let mut family: Option<&'static str> = None;
+            let mut family: Option<ScalarFamily> = None;
             for row in rows {
                 let value = &row[column_index].1;
                 let candidate = scalar_family(value).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
+                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros only; no fallback execution was attempted",
                         value.summary()
                     ))
                 })?;
                 if let Some(existing) = family {
                     if existing != candidate {
+                        let existing = existing.label();
+                        let candidate = candidate.label();
                         return Err(ShardLoomError::InvalidOperation(format!(
                             "local vortex_ingest column '{column}' mixes scalar families {existing} and {candidate}; no fallback execution was attempted"
                         )));
@@ -5979,22 +5981,62 @@ fn scalar_column_families(
                     family = Some(candidate);
                 }
             }
-            Ok((column.clone(), family.unwrap_or("utf8").to_string()))
+            Ok((
+                column.clone(),
+                family.unwrap_or(ScalarFamily::Utf8).label(),
+            ))
         })
         .collect()
 }
 
 #[cfg(feature = "vortex-write")]
-fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ScalarFamily {
+    Boolean,
+    Int64,
+    UInt64,
+    Float64,
+    Utf8,
+    Binary,
+    Decimal128 { precision: u8, scale: u8 },
+    Date32,
+    TimestampMicros,
+}
+
+#[cfg(feature = "vortex-write")]
+impl ScalarFamily {
+    fn label(self) -> String {
+        match self {
+            Self::Boolean => "boolean".to_string(),
+            Self::Int64 => "int64".to_string(),
+            Self::UInt64 => "uint64".to_string(),
+            Self::Float64 => "float64".to_string(),
+            Self::Utf8 => "utf8".to_string(),
+            Self::Binary => "binary".to_string(),
+            Self::Decimal128 { precision, scale } => format!("decimal128({precision},{scale})"),
+            Self::Date32 => "date32".to_string(),
+            Self::TimestampMicros => "timestamp_micros".to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_family(value: &ScalarValue) -> Option<ScalarFamily> {
     match value {
-        ScalarValue::Boolean(_) => Some("boolean"),
-        ScalarValue::Int64(_) => Some("int64"),
-        ScalarValue::UInt64(_) => Some("uint64"),
-        ScalarValue::Float64(value) if value.is_finite() => Some("float64"),
-        ScalarValue::Utf8(_) => Some("utf8"),
-        ScalarValue::Binary(_) => Some("binary"),
-        ScalarValue::Date32(_) => Some("date32"),
-        ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
+        ScalarValue::Boolean(_) => Some(ScalarFamily::Boolean),
+        ScalarValue::Int64(_) => Some(ScalarFamily::Int64),
+        ScalarValue::UInt64(_) => Some(ScalarFamily::UInt64),
+        ScalarValue::Float64(value) if value.is_finite() => Some(ScalarFamily::Float64),
+        ScalarValue::Utf8(_) => Some(ScalarFamily::Utf8),
+        ScalarValue::Binary(_) => Some(ScalarFamily::Binary),
+        ScalarValue::Decimal128 {
+            precision, scale, ..
+        } if (1..=38).contains(precision) && scale <= precision => Some(ScalarFamily::Decimal128 {
+            precision: *precision,
+            scale: *scale,
+        }),
+        ScalarValue::Date32(_) => Some(ScalarFamily::Date32),
+        ScalarValue::TimestampMicros(_) => Some(ScalarFamily::TimestampMicros),
         ScalarValue::Null
         | ScalarValue::Decimal128 { .. }
         | ScalarValue::Float64(_)
@@ -6590,10 +6632,70 @@ fn column_to_vortex_array(
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array()),
+        family if family.starts_with("decimal128(") => {
+            scalar_decimal128_to_vortex_array(column, column_index, family, rows)
+        }
         other => Err(ShardLoomError::InvalidOperation(format!(
             "local vortex_ingest column '{column}' has unsupported scalar family {other}; no fallback execution was attempted"
         ))),
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_decimal128_to_vortex_array(
+    column: &str,
+    column_index: usize,
+    family: &str,
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+
+    let (precision, scale_u8) = scalar_decimal128_family_precision_scale(family)
+        .ok_or_else(|| unexpected_vortex_ingest_family(column, family))?;
+    let scale_i8 = i8::try_from(scale_u8).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has unsupported decimal128 scale {scale_u8}; no fallback execution was attempted"
+        ))
+    })?;
+    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity::<i128>(
+        rows.len(),
+        vortex::array::dtype::DecimalDType::new(precision, scale_i8),
+        false.into(),
+    );
+    for row in rows {
+        match &row[column_index].1 {
+            ScalarValue::Decimal128 {
+                value,
+                precision: value_precision,
+                scale: value_scale,
+            } if *value_precision == precision && *value_scale == scale_u8 => {
+                builder.append_value(*value);
+            }
+            value => return Err(unexpected_vortex_ingest_value(column, family, value)),
+        }
+    }
+    Ok(builder.finish_into_decimal().into_array())
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_decimal128_family_precision_scale(family: &str) -> Option<(u8, u8)> {
+    let args = family
+        .strip_prefix("decimal128(")
+        .and_then(|value| value.strip_suffix(')'))?;
+    let (precision, scale) = args.split_once(',')?;
+    let precision = precision.parse::<u8>().ok()?;
+    let scale = scale.parse::<u8>().ok()?;
+    if !(1..=38).contains(&precision) || scale > precision {
+        return None;
+    }
+    Some((precision, scale))
+}
+
+#[cfg(feature = "vortex-write")]
+fn unexpected_vortex_ingest_family(column: &str, family: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local vortex_ingest column '{column}' has unsupported scalar family {family}; no fallback execution was attempted"
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7002,6 +7104,129 @@ mod tests {
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_scalar_decimal_rows_write_reopens_decimal128() {
+        use arrow_array::{Decimal128Array, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-decimal-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "amount".to_string()],
+            vec![
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(1)),
+                    (
+                        "amount".to_string(),
+                        ScalarValue::Decimal128 {
+                            value: 1234,
+                            precision: 10,
+                            scale: 2,
+                        },
+                    ),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(2)),
+                    (
+                        "amount".to_string(),
+                        ScalarValue::Decimal128 {
+                            value: -800,
+                            precision: 10,
+                            scale: 2,
+                        },
+                    ),
+                ],
+            ],
+        );
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,amount:decimal128(10,2)"
+        );
+        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "shardloom_scalar_rows_to_vortex_struct"
+        );
+        assert!(report.upstream_vortex_write_called);
+        assert!(report.upstream_vortex_scan_called);
+
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("amount", DataType::Decimal128(10, 2), false),
+        ]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let amount = struct_array
+            .column_by_name("amount")
+            .expect("amount column")
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal amount column");
+        assert_eq!(amount.value(0), 1234);
+        assert_eq!(amount.value(1), -800);
+        assert_eq!(amount.null_count(), 0);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_decimal_rows_reject_mixed_precision_scale() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-decimal-mixed-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["amount".to_string()],
+            vec![
+                vec![(
+                    "amount".to_string(),
+                    ScalarValue::Decimal128 {
+                        value: 1234,
+                        precision: 10,
+                        scale: 2,
+                    },
+                )],
+                vec![(
+                    "amount".to_string(),
+                    ScalarValue::Decimal128 {
+                        value: 1234,
+                        precision: 12,
+                        scale: 2,
+                    },
+                )],
+            ],
+        );
+
+        let error = write_flat_scalar_vortex_prepared_state(request)
+            .expect_err("mixed decimal precision/scale should block");
+
+        assert!(
+            error.to_string().contains(
+                "local vortex_ingest column 'amount' mixes scalar families decimal128(10,2) and decimal128(12,2)"
+            ),
+            "{error}"
+        );
+        assert!(!path.exists());
     }
 
     #[test]

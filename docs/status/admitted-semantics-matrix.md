@@ -166,8 +166,10 @@ runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparison
 fixed-scale division are executable within the scoped decimal route. Exact exponent notation that
 normalizes to the declared `decimal128(p,s)` scale is admitted through the scoped decimal cast route.
 Non-exact decimal division, broad ANSI decimal coercion beyond that exact exponent normalization,
-decimal/float comparison, and typed decimal sink preservation outside feature-gated Parquet/Arrow
-IPC/Avro compatibility outputs remain outside the claim boundary.
+decimal/float comparison, typed decimal sink preservation outside feature-gated Parquet/Arrow
+IPC/Avro compatibility outputs and non-null local Vortex outputs, nullable/all-null local Vortex
+decimal output before writer conversion, and ORC typed decimal sinks remain outside the claim
+boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -205,9 +207,10 @@ plus integer operands through generic expression projection evidence, mixed-scal
 comparisons are admitted, exact fixed-scale decimal division emits
 `decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
 admitted when it normalizes to the declared target scale. Non-exact decimal division, broad ANSI
-decimal coercion beyond exact exponent normalization, decimal/float comparison, local Vortex typed
-decimal output, and ORC typed decimal sink preservation remain outside the claim boundary.
-Feature-gated Parquet/Arrow IPC/Avro compatibility sinks preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
+decimal coercion beyond exact exponent normalization, decimal/float comparison, nullable/all-null
+local Vortex decimal output before writer conversion, and ORC typed decimal sink preservation remain
+outside the claim boundary. Feature-gated Parquet/Arrow IPC/Avro compatibility sinks and non-null
+local Vortex output preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
