@@ -650,11 +650,11 @@ plan before coding.
   GAR-RUNTIME-IMPL-6D evidence also promotes scoped `decimal128(p,s)` / `decimal(p,s)` /
   `numeric(p,s)` casts through exact fixed-scale projection/predicate runtime plus scoped
   mixed-scale decimal add/subtract/multiply, mixed-scale comparison, and exact fixed-scale division
-  runtime plus feature-gated Parquet/Arrow IPC/Avro typed decimal sink preservation, while keeping
-  non-exact division, broad ANSI coercion, exponent notation, decimal/float comparison, local Vortex
-  typed decimal output, and ORC typed decimal sinks blocked. The remaining advanced scalar blockers
-  still fail through shared policy guards before execution with no fallback/external engine
-  invocation.
+  runtime, exact exponent notation that normalizes to the declared target scale, plus feature-gated
+  Parquet/Arrow IPC/Avro typed decimal sink preservation, while keeping non-exact division, broad
+  ANSI coercion beyond exact exponent normalization, decimal/float comparison, local Vortex typed
+  decimal output, and ORC typed decimal sinks blocked. The remaining advanced scalar blockers still
+  fail through shared policy guards before execution with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout added executed conformance blockers and
   admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
   variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,

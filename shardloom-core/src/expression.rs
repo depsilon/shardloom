@@ -2856,12 +2856,13 @@ fn parse_decimal128_text(raw: &str, precision: u8, scale: u8) -> std::result::Re
     if body.is_empty() {
         return Err("decimal128 cast source requires digits".to_string());
     }
-    if decimal128_text_looks_like_exponent_notation(body) {
-        return Err(
-            "decimal128 cast source does not admit exponent notation in this scoped slice"
-                .to_string(),
-        );
-    }
+    let normalized_exponent_body;
+    let body = if decimal128_text_looks_like_exponent_notation(body) {
+        normalized_exponent_body = normalize_decimal128_exponent_text(body)?;
+        normalized_exponent_body.as_str()
+    } else {
+        body
+    };
     let parts = body.split('.').collect::<Vec<_>>();
     let (integer, fraction) = match parts.as_slice() {
         [integer] => (*integer, ""),
@@ -2944,6 +2945,83 @@ fn decimal128_text_looks_like_exponent_notation(body: &str) -> bool {
         }
         _ => false,
     }
+}
+
+fn normalize_decimal128_exponent_text(body: &str) -> std::result::Result<String, String> {
+    const MAX_DECIMAL128_EXPONENT_MAGNITUDE: u32 = 76;
+
+    let (mantissa, exponent_raw) = decimal128_exponent_parts(body)
+        .ok_or_else(|| "decimal128 exponent notation requires one exponent marker".to_string())?;
+    let unsigned_exponent = exponent_raw
+        .strip_prefix(['+', '-'])
+        .unwrap_or(exponent_raw);
+    if unsigned_exponent.is_empty() || !unsigned_exponent.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err("decimal128 exponent notation requires a signed integer exponent".to_string());
+    }
+    let exponent = exponent_raw
+        .parse::<i32>()
+        .map_err(|_| "decimal128 exponent is out of range".to_string())?;
+    if exponent.unsigned_abs() > MAX_DECIMAL128_EXPONENT_MAGNITUDE {
+        return Err("decimal128 exponent exceeds scoped decimal128 bounds".to_string());
+    }
+
+    let parts = mantissa.split('.').collect::<Vec<_>>();
+    let (integer, fraction) = match parts.as_slice() {
+        [integer] => (*integer, ""),
+        [integer, fraction] => (*integer, *fraction),
+        _ => {
+            return Err(
+                "decimal128 exponent mantissa must contain at most one decimal point".to_string(),
+            );
+        }
+    };
+    if integer.is_empty() && fraction.is_empty() {
+        return Err("decimal128 exponent mantissa requires digits".to_string());
+    }
+    if !integer.chars().all(|ch| ch.is_ascii_digit())
+        || !fraction.chars().all(|ch| ch.is_ascii_digit())
+    {
+        return Err(
+            "decimal128 exponent mantissa admits digits and one decimal point only".to_string(),
+        );
+    }
+
+    let digits = format!("{integer}{fraction}");
+    let integer_len = i32::try_from(integer.len())
+        .map_err(|_| "decimal128 exponent mantissa is too large".to_string())?;
+    let digit_len = i32::try_from(digits.len())
+        .map_err(|_| "decimal128 exponent mantissa is too large".to_string())?;
+    let decimal_position = integer_len
+        .checked_add(exponent)
+        .ok_or_else(|| "decimal128 exponent shift is out of range".to_string())?;
+
+    if decimal_position <= 0 {
+        let leading_zero_count = usize::try_from(-decimal_position)
+            .map_err(|_| "decimal128 exponent shift is out of range".to_string())?;
+        Ok(format!("0.{}{}", "0".repeat(leading_zero_count), digits))
+    } else if decimal_position >= digit_len {
+        let trailing_zero_count = usize::try_from(decimal_position - digit_len)
+            .map_err(|_| "decimal128 exponent shift is out of range".to_string())?;
+        Ok(format!("{}{}", digits, "0".repeat(trailing_zero_count)))
+    } else {
+        let split_index = usize::try_from(decimal_position)
+            .map_err(|_| "decimal128 exponent shift is out of range".to_string())?;
+        Ok(format!(
+            "{}.{}",
+            &digits[..split_index],
+            &digits[split_index..]
+        ))
+    }
+}
+
+fn decimal128_exponent_parts(body: &str) -> Option<(&str, &str)> {
+    let mut parts = body.split(['e', 'E']);
+    let mantissa = parts.next()?;
+    let exponent = parts.next()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((mantissa, exponent))
 }
 
 fn decimal128_from_scalar(
@@ -4698,6 +4776,60 @@ mod tests {
             })
         );
         assert_eq!(report.output_dtype, Some(decimal128_dtype(10, 2)));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_casts_scoped_decimal128_exponents_without_fallback() {
+        let cases = [
+            ("1e3", 100_000_i128),
+            ("1.23e1", 1_230_i128),
+            ("123e-2", 123_i128),
+            ("-.45e2", -4_500_i128),
+        ];
+
+        for (raw, expected) in cases {
+            let expression = Expression::cast(
+                ExprId::new(format!("cast-decimal-exponent-{expected}")).expect("valid expr id"),
+                Expression::literal(expr_id("source"), ScalarValue::Utf8(raw.to_string())),
+                decimal128_dtype(10, 2),
+            );
+            let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(
+                report.value,
+                Some(ScalarValue::Decimal128 {
+                    value: expected,
+                    precision: 10,
+                    scale: 2
+                }),
+                "case {raw}"
+            );
+            assert_eq!(report.output_dtype, Some(decimal128_dtype(10, 2)));
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+
+    #[test]
+    fn expression_semantics_blocks_inexact_decimal128_exponent_scale_without_fallback() {
+        let expression = Expression::cast(
+            expr_id("cast-inexact-decimal-exponent"),
+            Expression::literal(expr_id("source"), ScalarValue::Utf8("1e-3".to_string())),
+            decimal128_dtype(10, 2),
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::InvalidInput);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("decimal128(10,2) cast source has more than 2 fractional digits")
+        }));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

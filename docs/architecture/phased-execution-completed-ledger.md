@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped exact decimal exponent admission follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-decimal-exponent-admission` / PR #1090.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/global-architecture-review.md`.
+    - `docs/architecture/rfc-phase-traceability.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/benchmarking.md`.
+  - Scope:
+    - Admitted scoped exact exponent notation for `decimal128(p,s)` casts and predicates when the
+      normalized decimal value fits the declared precision and scale exactly.
+    - Kept normalization string-based and integer-exponent-only, without routing through binary
+      floating point or another execution engine.
+    - Preserved deterministic blockers for exponent values that cannot normalize to the declared
+      target scale, broad ANSI decimal coercion, decimal/float comparison, local Vortex typed
+      decimal output, and ORC typed decimal sinks.
+    - Updated semantic-conformance fixtures, local SQL source runtime tests, admitted semantics,
+      active phase docs, compute-flow/global-review/traceability docs, use-case sources, and
+      regenerated website/static assets so the benchmark/status pages reflect the latest admitted
+      decimal boundary.
+  - Evidence:
+    - `cargo test -p shardloom-cli decimal_cast` passed.
+    - `cargo test -p shardloom-core decimal128_exponent` passed.
+    - `cargo test -p shardloom-cli semantic_conformance` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-decimal-exponent.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped decimal
+      exponent semantics and docs/site freshness only; it does not make a speedup, superiority, or
+      claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits exact decimal exponent notation only when it normalizes to the declared
+      `decimal128(p,s)` precision/scale without loss. It does not admit broad ANSI decimal
+      coercion, decimal/float comparison, non-exact exponent scale rounding, local Vortex typed
+      decimal output, ORC typed decimal sinks, broad SQL/DataFrame parity, production support,
+      benchmark speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom expression evaluation and local-source SQL planning.
+      Unsupported exponent values fail deterministically with `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped Avro typed decimal sink preservation follow-through
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-decimal-avro-orc-sinks` / PR #1089.

@@ -593,14 +593,14 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics plus feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, local Vortex typed decimal output, ORC typed decimal sinks, performance, or production claim",
-      "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings, CSV emits exact decimal text, and feature-gated Parquet/Arrow IPC/Avro compatibility sinks preserve scoped decimal128 precision/scale",
+      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics plus exact exponent-notation normalization and feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, local Vortex typed decimal output, ORC typed decimal sinks, performance, or production claim",
+      "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text, exact exponent notation that normalizes to the declared target scale, and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings, CSV emits exact decimal text, and feature-gated Parquet/Arrow IPC/Avro compatibility sinks preserve scoped decimal128 precision/scale",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "decimal_cast_projection_predicate",
       "input_dtype": "utf8,int64,null",
-      "invalid_input_behavior": "invalid decimal text, over-scale values, over-precision values, exponent notation, unsupported source dtypes, local Vortex typed decimal output, and ORC typed decimal sinks block deterministically before fallback",
+      "invalid_input_behavior": "invalid decimal text, inexact exponent-scale values, over-scale values, over-precision values, unsupported source dtypes, local Vortex typed decimal output, and ORC typed decimal sinks block deterministically before fallback",
       "null_policy": "decimal casts are null-propagating; TRY_CAST returns NULL on invalid decimal input and preserves NULL inputs",
       "operator_family": "cast,try_cast,decimal128_cast_projection,decimal128_cast_predicate",
       "oracle_boundary": "decoded_reference_only",
