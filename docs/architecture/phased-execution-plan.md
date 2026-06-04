@@ -316,19 +316,20 @@ completed details to the ledger.
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
   IPC/Avro/ORC flat scalar outputs, broader binary execution beyond scoped columnar source
   projection/predicate/order plus explicit casts/helpers, non-binary source columns compared to
-  binary literals, local Vortex typed decimal output, Avro/ORC typed decimal sinks, broad ANSI
-  decimal coercion/exponent notation,
+  binary literals, local Vortex typed decimal output, ORC typed decimal sinks, broad ANSI decimal
+  coercion/exponent notation,
   scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
   subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
   the admitted local-source predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the scoped columnar binary source predicate/order and Parquet/Arrow IPC/Avro/ORC
-  binary sink slices; likely candidates are Vortex binary sink follow-through, complex join
-  follow-through after a dedicated semantics contract, local Vortex typed decimal output once Vortex
-  writer/reopen evidence is available, or another front-door parity gap only after the runtime route
-  is already admitted.
+  blockers after the scoped columnar binary source predicate/order, Parquet/Arrow IPC/Avro/ORC
+  binary sink slices, local Vortex non-null binary sink follow-through, and Parquet/Arrow IPC/Avro
+  typed decimal sink preservation; likely candidates are complex join follow-through after a
+  dedicated semantics contract, local Vortex typed decimal output once Vortex writer/reopen evidence
+  is available, ORC typed decimal sink preservation once ORC writer evidence exists, or another
+  front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

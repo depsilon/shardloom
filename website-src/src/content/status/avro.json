@@ -16,8 +16,8 @@
     "external_engine_invoked=false",
     "claim_gate_status"
   ],
-  "works": "Feature-gated local flat scalar Avro file sources and local Avro sinks/fanout can run through sql-local-source-smoke and Python read_avro(...) or write_avro(...) with SourceState, output certificate, and scoped binary sink preservation evidence when built with --features universal-format-io.",
-  "blocked": "Default binaries block Avro deterministically. Broad Avro schema evolution, logical-type completeness beyond admitted flat scalar rows, typed decimal sink preservation, Vortex-native output equivalence, object-store/table/runtime claims, and production support remain blocked.",
+  "works": "Feature-gated local flat scalar Avro file sources and local Avro sinks/fanout can run through sql-local-source-smoke and Python read_avro(...) or write_avro(...) with SourceState, output certificate, scoped binary sink preservation, and scoped typed decimal sink preservation evidence when built with --features universal-format-io.",
+  "blocked": "Default binaries block Avro deterministically. Broad Avro schema evolution, logical-type completeness beyond admitted flat scalar rows, Vortex-native output equivalence, object-store/table/runtime claims, and production support remain blocked.",
   "references": [
     "benchmarks/traditional_analytics/README.md",
     "docs/benchmarks/local-taxonomy-benchmark.md",

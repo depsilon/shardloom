@@ -16,10 +16,10 @@ use std::{
 };
 
 use arrow_array::{
-    Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, FixedSizeBinaryArray,
-    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
-    LargeStringArray, RecordBatch, RecordBatchReader, StringArray, StringViewArray,
-    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Decimal128Array,
+    FixedSizeBinaryArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
+    Int64Array, LargeBinaryArray, LargeStringArray, RecordBatch, RecordBatchReader, StringArray,
+    StringViewArray, TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
         BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder,
         Int64Builder, StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
@@ -702,6 +702,11 @@ fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
         | DataType::LargeBinary
         | DataType::FixedSizeBinary(_)
         | DataType::BinaryView => Some(LogicalDType::Binary),
+        DataType::Decimal128(precision, scale) => {
+            let scale = u8::try_from(*scale).ok()?;
+            (scale <= *precision)
+                .then(|| LogicalDType::Extension(format!("decimal128({precision},{scale})")))
+        }
         _ => None,
     }
 }
@@ -909,6 +914,7 @@ pub fn encode_flat_orc_rows_with_dtypes(
 ) -> Result<Vec<u8>> {
     let batch =
         flat_rows_to_record_batch_with_dtypes(columns, column_dtypes, rows, "local ORC output")?;
+    validate_orc_record_batch_supported(&batch)?;
     let buffer = SharedBufferWriter::default();
     let retained_buffer = buffer.clone();
     let mut writer = orc_rust::ArrowWriterBuilder::new(buffer, batch.schema())
@@ -927,6 +933,21 @@ pub fn encode_flat_orc_rows_with_dtypes(
         ))
     })?;
     Ok(retained_buffer.into_bytes())
+}
+
+fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
+    for field in batch.schema().fields() {
+        if matches!(
+            field.data_type(),
+            DataType::Decimal128(_, _) | DataType::Decimal256(_, _)
+        ) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice; no fallback execution was attempted",
+                field.name()
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn flat_rows_to_record_batch(
@@ -1500,8 +1521,35 @@ fn arrow_scalar_to_shardloom(
     if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
         return Ok(ScalarValue::TimestampMicros(values.value(row_index)));
     }
+    if let Some(values) = array.as_any().downcast_ref::<Decimal128Array>() {
+        let DataType::Decimal128(precision, scale) = values.data_type() else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local {source_label} source '{}' column '{column}' reported Decimal128Array with non-decimal Arrow type {:?}",
+                path.display(),
+                values.data_type()
+            )));
+        };
+        let scale = u8::try_from(*scale).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "local {source_label} source '{}' column '{column}' has unsupported negative decimal128 scale {}; scoped decimal sources require 0 <= scale <= precision",
+                path.display(),
+                scale
+            ))
+        })?;
+        if scale > *precision {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local {source_label} source '{}' column '{column}' has invalid decimal128({precision},{scale}) dtype; scoped decimal sources require scale <= precision",
+                path.display()
+            )));
+        }
+        return Ok(ScalarValue::Decimal128 {
+            value: values.value(row_index),
+            precision: *precision,
+            scale,
+        });
+    }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, binary byte arrays, date32, and timestamp_micros only",
+        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, binary byte arrays, decimal128, date32, and timestamp_micros only",
         path.display(),
         array.data_type()
     )))
@@ -1587,6 +1635,60 @@ mod tests {
                 None,
                 Some(&b"raw"[..]),
             ])),
+        );
+    }
+
+    #[test]
+    fn materializes_columnar_decimal_source_dtypes_as_scalar_decimal() {
+        let mut builder = Decimal128Builder::with_capacity(3)
+            .with_precision_and_scale(10, 2)
+            .expect("decimal precision and scale");
+        builder.append_value(1234);
+        builder.append_null();
+        builder.append_value(-500);
+        let array = Arc::new(builder.finish());
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "amount",
+            DataType::Decimal128(10, 2),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![array]).expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: vec!["amount".to_string()],
+            column_dtypes: vec![Some(LogicalDType::Extension(
+                "decimal128(10,2)".to_string(),
+            ))],
+            materialized_columns: vec!["amount".to_string()],
+            reader_projection_columns: vec!["amount".to_string()],
+            row_count: batch.num_rows(),
+            batches: vec![batch],
+        };
+
+        let table = materialize_flat_columnar_source_to_scalar_table(
+            &source,
+            Path::new("target/decimal.arrow"),
+            "Arrow IPC",
+        )
+        .expect("materialize decimal column");
+
+        assert_eq!(table.header, vec!["amount".to_string()]);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(
+            table.rows[0].get("amount"),
+            Some(&ScalarValue::Decimal128 {
+                value: 1234,
+                precision: 10,
+                scale: 2,
+            })
+        );
+        assert_eq!(table.rows[1].get("amount"), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get("amount"),
+            Some(&ScalarValue::Decimal128 {
+                value: -500,
+                precision: 10,
+                scale: 2,
+            })
         );
     }
 
@@ -1707,6 +1809,38 @@ mod tests {
             error.to_string().contains(
                 "test output column 'amount' has invalid decimal128 dtype hint \"decimal128(10,12)\""
             ),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn orc_decimal_output_blocks_before_writer_conversion() {
+        let columns = vec!["amount".to_string()];
+        let dtypes = vec![Some(LogicalDType::Extension(
+            "decimal128(10,2)".to_string(),
+        ))];
+        let rows = vec![vec![(
+            "amount".to_string(),
+            ScalarValue::Decimal128 {
+                value: 1234,
+                precision: 10,
+                scale: 2,
+            },
+        )]];
+
+        let error = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows)
+            .expect_err("ORC decimal output remains blocked");
+
+        assert!(
+            error.to_string().contains(
+                "local ORC output does not yet admit typed decimal128 preservation for column 'amount'"
+            ),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted"),
             "{error}"
         );
     }

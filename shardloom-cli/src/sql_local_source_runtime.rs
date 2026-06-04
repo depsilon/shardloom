@@ -1287,7 +1287,7 @@ impl SqlLocalSourceOutputFormat {
     }
 
     const fn preserves_typed_decimal128(self) -> bool {
-        matches!(self, Self::Parquet | Self::ArrowIpc)
+        matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
@@ -25883,7 +25883,7 @@ impl SqlLocalSourceReport {
             (
                 "decimal_cast_output_boundary".to_string(),
                 if self.parsed.has_decimal_cast() {
-                    "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked"
+                    "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked"
                         .to_string()
                 } else {
                     "not_applicable".to_string()
@@ -36135,7 +36135,7 @@ fn validate_flat_scalar_result_batch(
         && !format.preserves_typed_decimal128()
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC typed result boundaries in this scoped runtime slice",
+            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice",
             format.sink_format()
         )));
     }
@@ -36152,7 +36152,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC typed result boundaries in this scoped runtime slice",
+            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice",
             format.sink_format()
         ))),
         Some("vortex_non_null_scalar_values_required") => Err(unsupported_sql_error(
@@ -39501,7 +39501,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "decimal_cast_output_boundary",
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -39541,48 +39541,57 @@ mod tests {
 
     #[cfg(feature = "universal-format-io")]
     #[test]
-    fn decimal_cast_writes_typed_parquet_and_arrow_decimal_sinks() {
+    fn decimal_cast_writes_typed_structured_decimal_sinks() {
         let path = sql_local_source_test_path("csv");
         let parquet_output = sql_local_source_test_path("parquet");
         let arrow_output = sql_local_source_test_path("arrow");
+        let avro_output = sql_local_source_test_path("avro");
+        let orc_output = sql_local_source_test_path("orc");
         fs::write(
             &path,
             "id,amount,raw_amount\n1,12.34,not-decimal\n2,8.00,also-bad\n",
         )
         .expect("write csv source");
 
-        let parquet_request = SqlLocalSourceRequest {
-            statement: format!(
-                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
-                path.display()
-            ),
-            output_format: SqlLocalSourceOutputFormat::Parquet,
-            output_path: Some(parquet_output.clone()),
-            fanout_outputs: Vec::new(),
-            allow_overwrite: false,
-        };
+        let parquet_request = decimal_cast_structured_sink_request(
+            &path,
+            SqlLocalSourceOutputFormat::Parquet,
+            &parquet_output,
+        );
         let parquet_report =
             run_sql_local_source_smoke_single(&parquet_request).expect("write parquet decimal");
         let parquet_fields = field_map(parquet_report.fields());
 
-        let arrow_request = SqlLocalSourceRequest {
-            statement: format!(
-                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
-                path.display()
-            ),
-            output_format: SqlLocalSourceOutputFormat::ArrowIpc,
-            output_path: Some(arrow_output.clone()),
-            fanout_outputs: Vec::new(),
-            allow_overwrite: false,
-        };
+        let arrow_request = decimal_cast_structured_sink_request(
+            &path,
+            SqlLocalSourceOutputFormat::ArrowIpc,
+            &arrow_output,
+        );
         let arrow_report =
             run_sql_local_source_smoke_single(&arrow_request).expect("write arrow decimal");
         let arrow_fields = field_map(arrow_report.fields());
 
+        let avro_request = decimal_cast_structured_sink_request(
+            &path,
+            SqlLocalSourceOutputFormat::Avro,
+            &avro_output,
+        );
+        let avro_report =
+            run_sql_local_source_smoke_single(&avro_request).expect("write avro decimal");
+        let avro_fields = field_map(avro_report.fields());
+
+        let orc_request = decimal_cast_structured_sink_request(
+            &path,
+            SqlLocalSourceOutputFormat::Orc,
+            &orc_output,
+        );
+        let orc_error = run_sql_local_source_smoke_single(&orc_request)
+            .expect_err("ORC typed decimal remains blocked");
+
         assert_field_eq(
             &parquet_fields,
             "decimal_cast_output_boundary",
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked",
         );
         assert_field_eq(&parquet_fields, "output_format", "parquet");
         assert_field_eq(
@@ -39595,6 +39604,10 @@ mod tests {
         assert_field_eq(&arrow_fields, "output_format", "arrow_ipc");
         assert_field_eq(&arrow_fields, "fallback_attempted", "false");
         assert_field_eq(&arrow_fields, "external_engine_invoked", "false");
+        assert_field_eq(&avro_fields, "output_format", "avro");
+        assert_field_eq(&avro_fields, "fallback_attempted", "false");
+        assert_field_eq(&avro_fields, "external_engine_invoked", "false");
+        assert_orc_decimal_sink_blocked(&orc_error, &orc_output);
 
         assert_parquet_decimal_column(
             &parquet_output,
@@ -39612,18 +39625,35 @@ mod tests {
             &[Some(1234), Some(800)],
         );
         assert_arrow_decimal_column(&arrow_output, "invalid_decimal", 10, 2, &[None, None]);
+        assert_avro_decimal_column(
+            &avro_output,
+            "amount_decimal",
+            10,
+            2,
+            &[Some(1234), Some(800)],
+        );
+        assert_avro_decimal_column(&avro_output, "invalid_decimal", 10, 2, &[None, None]);
+        assert_decimal_scalar_readback(
+            &shardloom_vortex::read_flat_avro_source(&avro_output, 10).expect("read avro decimal"),
+            "amount_decimal",
+            10,
+            2,
+            &[Some(1234), Some(800)],
+        );
 
         fs::remove_file(&path).expect("remove csv source");
         fs::remove_file(&parquet_output).expect("remove parquet output");
         fs::remove_file(&arrow_output).expect("remove arrow output");
+        fs::remove_file(&avro_output).expect("remove avro output");
     }
 
     #[cfg(feature = "universal-format-io")]
     #[test]
-    fn decimal_generic_expression_writes_all_null_typed_parquet_and_arrow_sinks() {
+    fn decimal_generic_expression_writes_all_null_typed_structured_sinks() {
         let path = sql_local_source_test_path("csv");
         let parquet_output = sql_local_source_test_path("parquet");
         let arrow_output = sql_local_source_test_path("arrow");
+        let avro_output = sql_local_source_test_path("avro");
         fs::write(&path, "id,amount,raw_amount\n1,,\n2,,\n").expect("write csv source");
 
         let statement = format!(
@@ -39641,7 +39671,7 @@ mod tests {
             .expect("write parquet all-null computed decimal");
 
         let arrow_request = SqlLocalSourceRequest {
-            statement,
+            statement: statement.clone(),
             output_format: SqlLocalSourceOutputFormat::ArrowIpc,
             output_path: Some(arrow_output.clone()),
             fanout_outputs: Vec::new(),
@@ -39650,12 +39680,63 @@ mod tests {
         run_sql_local_source_smoke_single(&arrow_request)
             .expect("write arrow all-null computed decimal");
 
+        let avro_request = SqlLocalSourceRequest {
+            statement: statement.clone(),
+            output_format: SqlLocalSourceOutputFormat::Avro,
+            output_path: Some(avro_output.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        run_sql_local_source_smoke_single(&avro_request)
+            .expect("write avro all-null computed decimal");
+
         assert_parquet_decimal_column(&parquet_output, "adjusted", 11, 2, &[None, None]);
         assert_arrow_decimal_column(&arrow_output, "adjusted", 11, 2, &[None, None]);
+        assert_avro_decimal_column(&avro_output, "adjusted", 11, 2, &[None, None]);
+        assert_decimal_scalar_readback(
+            &shardloom_vortex::read_flat_avro_source(&avro_output, 10)
+                .expect("read avro all-null decimal"),
+            "adjusted",
+            11,
+            2,
+            &[None, None],
+        );
 
         fs::remove_file(&path).expect("remove csv source");
         fs::remove_file(&parquet_output).expect("remove parquet output");
         fs::remove_file(&arrow_output).expect("remove arrow output");
+        fs::remove_file(&avro_output).expect("remove avro output");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn decimal_cast_structured_sink_request(
+        path: &Path,
+        output_format: SqlLocalSourceOutputFormat,
+        output_path: &Path,
+    ) -> SqlLocalSourceRequest {
+        SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format,
+            output_path: Some(output_path.to_path_buf()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        }
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_orc_decimal_sink_blocked(error: &impl std::fmt::Display, output_path: &Path) {
+        let error = error.to_string();
+        assert!(
+            error.contains(
+                "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted"
+            ),
+            "{error}"
+        );
+        assert!(error.contains("external_engine_invoked=false"));
+        assert!(!output_path.exists());
     }
 
     #[cfg(feature = "universal-format-io")]
@@ -39747,6 +39828,100 @@ mod tests {
             }
         }
         assert!(reader.next().is_none());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_avro_decimal_column(
+        path: &Path,
+        column: &str,
+        precision: u8,
+        scale: i8,
+        expected_values: &[Option<i128>],
+    ) {
+        let file = fs::File::open(path).expect("open avro output");
+        let reader = arrow_avro::reader::ReaderBuilder::new()
+            .build(std::io::BufReader::new(file))
+            .expect("read avro output");
+        assert_record_batch_reader_decimal_column(
+            reader,
+            "Avro",
+            column,
+            precision,
+            scale,
+            expected_values,
+        );
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_record_batch_reader_decimal_column<R>(
+        mut reader: R,
+        label: &str,
+        column: &str,
+        precision: u8,
+        scale: i8,
+        expected_values: &[Option<i128>],
+    ) where
+        R: arrow_array::RecordBatchReader,
+    {
+        use arrow_array::{Array as _, Decimal128Array};
+        use arrow_schema::DataType;
+
+        let schema = reader.schema();
+        let column_index = schema.index_of(column).expect("decimal column");
+        assert_eq!(
+            schema.field(column_index).data_type(),
+            &DataType::Decimal128(precision, scale)
+        );
+        let batch = reader
+            .next()
+            .unwrap_or_else(|| panic!("{label} reader produced one batch"))
+            .unwrap_or_else(|error| panic!("read {label} batch: {error}"));
+        let array = batch
+            .column(column_index)
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal128 array");
+        assert_eq!(array.len(), expected_values.len());
+        for (index, expected) in expected_values.iter().enumerate() {
+            match expected {
+                Some(expected) => assert_eq!(array.value(index), *expected),
+                None => assert!(array.is_null(index)),
+            }
+        }
+        assert!(reader.next().is_none());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_decimal_scalar_readback(
+        table: &shardloom_vortex::FlatLocalSourceTable,
+        column: &str,
+        precision: u8,
+        scale: u8,
+        expected_values: &[Option<i128>],
+    ) {
+        assert_eq!(table.rows.len(), expected_values.len());
+        let column_index = table.header.iter().position(|name| name == column);
+        assert!(
+            column_index
+                .and_then(|index| table.column_dtypes.get(index))
+                .and_then(Option::as_ref)
+                .is_some_and(|dtype| dtype == &decimal128_dtype(precision, scale)),
+            "expected {column} dtype hint decimal128({precision},{scale}); got {:?}",
+            table.column_dtypes
+        );
+        for (row, expected) in table.rows.iter().zip(expected_values) {
+            match expected {
+                Some(value) => assert_eq!(
+                    row.get(column),
+                    Some(&ScalarValue::Decimal128 {
+                        value: *value,
+                        precision,
+                        scale,
+                    })
+                ),
+                None => assert_eq!(row.get(column), Some(&ScalarValue::Null)),
+            }
+        }
     }
 
     #[test]
