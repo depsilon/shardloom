@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-6D timezone/locale deterministic blocker refinement slice
   - Date: 2026-06-04
-  - Branch/PR: `codex/6d-timezone-locale-blockers` / pending PR.
+  - Branch/PR: `codex/6d-timezone-locale-blockers` / PR #1078.
   - Source:
     - `docs/architecture/phased-execution-plan.md`.
     - `docs/status/admitted-semantics-matrix.json`.
