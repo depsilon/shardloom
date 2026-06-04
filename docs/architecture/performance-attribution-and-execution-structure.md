@@ -337,6 +337,13 @@ Reuse/fanout timing is workflow coverage and attribution evidence. It does not a
 performance, superiority, production, object-store/lakehouse, Foundry, SQL/DataFrame,
 Spark-replacement, package, or release claims.
 
+HOTPATH-9 prepare/batch manifest repair evidence uses
+`prepare_batch_prepared_state_dependency_*` and
+`prepare_batch_prepared_state_partial_repair_*` fields. These fields classify manifest dependency
+hits/misses and prove that partial prepared-state repair did not run unless explicitly admitted.
+They are safety and reuse-attribution evidence only; changed source, policy, packet, manifest, or
+artifact dependencies force full reprepare rather than silent stale segment reuse.
+
 ## Compressed Encoded Kernel Registry
 
 `GAR-PERF-2D` adds scoped compressed/encoded kernel registry rows for:

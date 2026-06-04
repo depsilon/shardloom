@@ -16,9 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-9 prepared-state regeneration repair guard
+  - Date: 2026-06-04
+  - Branch/PR: `codex/hotpath-9-prepared-repair-guard` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
+    - Prepared lookup/create route-share evidence and prepared-state reuse reports.
+    - User direction to continue phased plan work first, keep benchmark evaluation code/text-only,
+      avoid subagents, avoid full benchmark reruns until all code/docs/site changes are complete,
+      and keep PRs cohesive.
+  - Scope:
+    - Added HOTPATH-9 prepare/batch workspace-manifest dependency evidence through
+      `prepare_batch_prepared_state_dependency_*` fields for dependency schema, status, checked
+      roles, changed roles, manifest digest, source-admission packet digest, artifact-manifest hash,
+      recheck policy, and no-fallback/no-external-engine status.
+    - Added deterministic partial-repair blocker evidence through
+      `prepare_batch_prepared_state_partial_repair_*` fields so manifest misses report why partial
+      repair is blocked, `regeneration_performed=false`, and
+      `stale_segment_reuse_allowed=false`.
+    - Stamped the workspace reuse manifest with dependency/recheck policy and partial-repair
+      no-regeneration/no-stale-reuse evidence.
+    - Updated the Python benchmark harness contract so `shardloom-prepare-batch` rows must include
+      the new dependency/repair fields and fail if fallback, external engine execution, partial
+      repair execution, or stale prepared segment reuse is reported.
+    - Updated benchmark docs, I/O reuse architecture, compute-flow reference, local taxonomy docs,
+      and the phased plan to leave HOTPATH-1 as the next unchecked item.
+  - Vortex-first provider check:
+    - Classification: `wrap_vortex_concept` for ShardLoom-owned manifest dependency and repair
+      admission evidence around VortexPreparedState artifacts.
+    - This slice does not add a Vortex query-engine integration, does not decode-to-Arrow as a
+      repair fallback, and does not execute unsupported work through Spark, DataFusion, DuckDB,
+      Polars, Velox, or another external engine.
+  - Evidence:
+    - `cargo test -p shardloom-vortex prepared_batch_run_reuses_workspace_manifest_on_second_run --features vortex-traditional-analytics-benchmark` passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile benchmarks/traditional_analytics/run.py` passed.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness` passed.
+    - `website-src/scripts/sync-content.mjs`, `astro build`, `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js` passed using the bundled Node runtime.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - Stale HOTPATH-9/repair wording scan passed with no matches.
+  - Benchmark and website status:
+    - No expensive full benchmark-suite rerun was performed in this slice.
+    - Website/static artifacts were regenerated from the updated compute-flow source.
+    - Existing public route totals remain tied to the latest promoted safe-writer artifact until
+      HOTPATH-14 reruns/promotes a new artifact after the remaining HOTPATH and freshness gates.
+  - Claim boundary:
+    - This slice may claim that prepare/batch workspace-manifest reuse now emits dependency and
+      partial-repair blocker evidence and that stale prepared segment reuse remains disallowed. It
+      does not claim partial repair execution, a route timing change, end-to-end speedup, production
+      readiness, broad SQL/DataFrame parity, Spark replacement, or general performance superiority.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The slice adds no Spark/DataFusion/DuckDB/
+      Polars/Velox execution fallback, no Vortex query-engine integration, and no external-engine
+      residual evaluation for ShardLoom rows. Reported ShardLoom evidence remains
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-11 operator micro-kernel discovery
   - Date: 2026-06-04
-  - Branch/PR: `codex/hotpath-11-operator-microkernels` / pending PR.
+  - Branch/PR: `codex/hotpath-11-operator-microkernels` / PR #1070 merged.
   - Source:
     - `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization`.
     - `docs/architecture/compressed-encoded-kernel-registry.md`.

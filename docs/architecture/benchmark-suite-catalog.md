@@ -166,6 +166,12 @@ synthetic standalone `.vortex` report format row; preparation metadata records t
 boundary. The shardloom-prepare-batch lane is the scoped single-process
 `compatibility_import_certified -> prepared_vortex batch` route and emits `prepare_batch_*` adapter
 timing/evidence fields without treating preparation as child query timing.
+HOTPATH-9 adds prepare/batch workspace-manifest dependency and partial-repair guard evidence through
+`prepare_batch_prepared_state_dependency_*` and
+`prepare_batch_prepared_state_partial_repair_*` fields. A manifest hit requires source, policy,
+source-admission packet, prepared-artifact, manifest-digest, and no-fallback dependencies to match.
+Any miss reports the changed dependency role and forces full reprepare; partial repair/regeneration
+and stale segment reuse remain false until separately admitted with replay/certificate proof.
 
 native_vortex rows start from existing `.vortex` input and are the cleanest future ShardLoom
 performance lane once operator coverage matures. Current native rows can still use temporary

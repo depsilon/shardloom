@@ -218,6 +218,23 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"optimizer_after_plan_digest_status\""));
     assert!(script.contains("\"optimizer_rewrite_safety_status\""));
     assert!(script.contains("\"optimizer_evidence_preserved\""));
+    assert!(script.contains("PREPARED_STATE_REPAIR_CONTRACT_FIELDS"));
+    assert!(script.contains("\"prepare_batch_prepared_state_dependency_schema_version\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_dependency_status\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_dependency_checked_roles\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_dependency_changed_roles\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_schema_version\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_status\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_blocker_id\""));
+    assert!(
+        script.contains("\"prepare_batch_prepared_state_partial_repair_regeneration_performed\"")
+    );
+    assert!(
+        script.contains(
+            "\"prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed\""
+        )
+    );
+    assert!(script.contains("prepare_batch_dependency_repair_fields"));
     assert!(script.contains("\"optimizer_no_fallback_preserved\""));
     assert!(script.contains("\"optimizer_claim_boundary_preserved\""));
     assert!(script.contains("\"optimizer_materialization_boundary_preserved\""));

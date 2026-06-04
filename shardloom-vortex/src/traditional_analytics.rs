@@ -76,6 +76,10 @@ const SOURCE_ADMISSION_PACKET_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_admission_packet.v1";
 const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
+const PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_dependency.v1";
+const PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_partial_repair.v1";
 const RESULT_SINK_CAPILLARY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.result_sink_capillary.v1";
 const EVIDENCE_RENDER_PROOF_SCHEMA_VERSION: &str =
@@ -105,6 +109,7 @@ const PREPARED_STATE_REUSE_INVALIDATION_EXPLICIT_INPUT: &str =
 const PREPARED_STATE_REUSE_INVALIDATION_IN_PROCESS: &str =
     "not_applicable_same_process_artifact_lifetime";
 const PREPARED_STATE_REUSE_INVALIDATION_NATIVE_VORTEX: &str = "not_applicable_native_vortex_input";
+const PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES: &str = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const PREPARED_STATE_REUSE_MANIFEST_DIR: &str = ".shardloom";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6102,6 +6107,20 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             "cache_miss_created_and_registered"
         };
+        let prepared_state_dependency_status = prepared_batch_dependency_status(
+            workspace_reuse_hit,
+            &self.prepared_state_reuse.reason,
+        );
+        let prepared_state_dependency_changed_roles =
+            prepared_batch_dependency_changed_roles(&self.prepared_state_reuse.reason);
+        let prepared_state_partial_repair_status = prepared_batch_partial_repair_status(
+            workspace_reuse_hit,
+            &self.prepared_state_reuse.reason,
+        );
+        let prepared_state_partial_repair_blocker_id = prepared_batch_partial_repair_blocker_id(
+            workspace_reuse_hit,
+            &self.prepared_state_reuse.reason,
+        );
         let prepare_batch_runtime_status = if workspace_reuse_hit {
             "workspace_prepared_state_reused_then_prepared_batch_supported"
         } else {
@@ -6582,6 +6601,83 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_prepared_state_lookup_external_engine_invoked".to_string(),
                 "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_schema_version".to_string(),
+                PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_status".to_string(),
+                prepared_state_dependency_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_checked_roles".to_string(),
+                PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_changed_roles".to_string(),
+                prepared_state_dependency_changed_roles.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_manifest_digest".to_string(),
+                self.prepared_state_reuse.manifest_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_source_packet_digest".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_digest
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_artifact_manifest_hash".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_artifact_manifest_hash
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_recheck_policy".to_string(),
+                "validate_manifest_digest_route_request_source_fingerprints_artifact_fingerprints_no_fallback_before_reuse".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_schema_version".to_string(),
+                PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_status".to_string(),
+                prepared_state_partial_repair_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_blocker_id".to_string(),
+                prepared_state_partial_repair_blocker_id.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_changed_roles".to_string(),
+                prepared_state_dependency_changed_roles.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_repairable_segment_count".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_regeneration_performed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
+                    .to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_claim_boundary".to_string(),
+                "HOTPATH-9 evidence only; partial prepared-state repair is not admitted for this prepare/batch workspace manifest path, so changed dependencies force full reprepare and stale prepared segments cannot be reused silently".to_string(),
             ),
             (
                 "prepare_batch_prepared_state_created".to_string(),
@@ -12227,6 +12323,46 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
     );
     json_object_insert(
         &mut manifest_payload,
+        "prepared_state_dependency_schema_version",
+        serde_json::Value::String(PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_dependency_checked_roles",
+        serde_json::Value::String(PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_dependency_recheck_policy",
+        serde_json::Value::String(
+            "validate_manifest_digest_route_request_source_fingerprints_artifact_fingerprints_no_fallback_before_reuse"
+                .to_string(),
+        ),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_schema_version",
+        serde_json::Value::String(PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_status",
+        serde_json::Value::String(
+            "blocked_until_dependency_specific_segment_repair_is_admitted".to_string(),
+        ),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_regeneration_performed",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_stale_segment_reuse_allowed",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
         "source_state_id",
         serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "source_state_id")),
     );
@@ -12432,6 +12568,103 @@ fn prepared_batch_request_invalidation_reason(
         return "source_admission_packet_changed".to_string();
     }
     "route_request_digest_mismatch".to_string()
+}
+
+fn prepared_batch_dependency_status(workspace_reuse_hit: bool, reason: &str) -> &'static str {
+    if workspace_reuse_hit {
+        return "manifest_dependencies_matched";
+    }
+    if reason == "no_reuse_manifest" {
+        return "manifest_missing_first_preparation";
+    }
+    if prepared_batch_dependency_changed_roles(reason).contains("prepared_artifact_") {
+        return "prepared_artifact_dependency_changed_full_reprepare";
+    }
+    match reason {
+        "fact_input_fingerprint_changed"
+        | "dim_input_fingerprint_changed"
+        | "cdc_delta_input_fingerprint_changed" => "source_dependency_changed_full_reprepare",
+        "prepare_policy_changed"
+        | "source_admission_packet_changed"
+        | "route_request_digest_mismatch" => "route_dependency_changed_full_reprepare",
+        reason
+            if reason.starts_with("reuse_manifest_")
+                || reason == "reuse_manifest_fallback_attempted"
+                || reason == "reuse_manifest_external_engine_invoked" =>
+        {
+            "manifest_integrity_blocked_full_reprepare"
+        }
+        _ => "dependency_changed_full_reprepare",
+    }
+}
+
+fn prepared_batch_dependency_changed_roles(reason: &str) -> &'static str {
+    match reason {
+        "manifest_fingerprints_match" | "none" => "none",
+        "no_reuse_manifest" => "workspace_manifest",
+        "fact_input_fingerprint_changed" => "fact_input",
+        "dim_input_fingerprint_changed" => "dim_input",
+        "cdc_delta_input_fingerprint_changed" => "cdc_delta_input",
+        "prepare_policy_changed" => "prepare_policy",
+        "source_admission_packet_changed" => "source_admission_packet",
+        "route_request_digest_mismatch" => "route_request",
+        reason if reason.starts_with("fact_prepared_artifact_") => "prepared_artifact_fact",
+        reason if reason.starts_with("dim_prepared_artifact_") => "prepared_artifact_dim",
+        reason if reason.starts_with("cdc_delta_prepared_artifact_") => {
+            "prepared_artifact_cdc_delta"
+        }
+        reason if reason.starts_with("reuse_manifest_") => "workspace_manifest",
+        _ => "unknown_dependency",
+    }
+}
+
+fn prepared_batch_partial_repair_status(workspace_reuse_hit: bool, reason: &str) -> &'static str {
+    if workspace_reuse_hit {
+        return "not_needed_manifest_hit";
+    }
+    match prepared_batch_dependency_status(false, reason) {
+        "manifest_missing_first_preparation" => {
+            "blocked_missing_base_manifest_full_prepare_required"
+        }
+        "source_dependency_changed_full_reprepare" => {
+            "blocked_source_dependency_changed_full_reprepare_required"
+        }
+        "prepared_artifact_dependency_changed_full_reprepare" => {
+            "blocked_prepared_artifact_dependency_changed_full_reprepare_required"
+        }
+        "route_dependency_changed_full_reprepare" => {
+            "blocked_route_dependency_changed_full_reprepare_required"
+        }
+        "manifest_integrity_blocked_full_reprepare" => {
+            "blocked_manifest_integrity_full_reprepare_required"
+        }
+        _ => "blocked_unknown_dependency_full_reprepare_required",
+    }
+}
+
+fn prepared_batch_partial_repair_blocker_id(
+    workspace_reuse_hit: bool,
+    reason: &str,
+) -> &'static str {
+    if workspace_reuse_hit {
+        return "not_applicable_manifest_dependencies_matched";
+    }
+    match prepared_batch_dependency_status(false, reason) {
+        "manifest_missing_first_preparation" => "hotpath-9.missing-base-manifest",
+        "source_dependency_changed_full_reprepare" => {
+            "hotpath-9.source-dependency-changed-no-partial-repair"
+        }
+        "prepared_artifact_dependency_changed_full_reprepare" => {
+            "hotpath-9.prepared-artifact-dependency-changed-no-partial-repair"
+        }
+        "route_dependency_changed_full_reprepare" => {
+            "hotpath-9.route-dependency-changed-no-partial-repair"
+        }
+        "manifest_integrity_blocked_full_reprepare" => {
+            "hotpath-9.manifest-integrity-blocked-no-partial-repair"
+        }
+        _ => "hotpath-9.unknown-dependency-no-partial-repair",
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -30864,6 +31097,36 @@ mod tests {
         );
         assert_eq!(
             manifest_payload
+                .get("prepared_state_dependency_schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some(PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            manifest_payload
+                .get("prepared_state_dependency_checked_roles")
+                .and_then(serde_json::Value::as_str),
+            Some(PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES)
+        );
+        assert_eq!(
+            manifest_payload
+                .get("prepared_state_partial_repair_schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some(PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            manifest_payload
+                .get("prepared_state_partial_repair_regeneration_performed")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            manifest_payload
+                .get("prepared_state_partial_repair_stale_segment_reuse_allowed")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            manifest_payload
                 .pointer("/fact_input/kind")
                 .and_then(serde_json::Value::as_str),
             Some("local_file_sha256_size_mtime")
@@ -30955,6 +31218,61 @@ mod tests {
         assert_field_eq(
             &first_fields,
             "prepare_batch_prepared_state_lookup_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_schema_version",
+            PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_status",
+            "manifest_missing_first_preparation",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_checked_roles",
+            PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_changed_roles",
+            "workspace_manifest",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_partial_repair_schema_version",
+            PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_partial_repair_status",
+            "blocked_missing_base_manifest_full_prepare_required",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_partial_repair_blocker_id",
+            "hotpath-9.missing-base-manifest",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_partial_repair_regeneration_performed",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
             "false",
         );
         assert!(
@@ -31147,6 +31465,36 @@ mod tests {
             "prepare_batch_prepared_state_lookup_external_engine_invoked",
             "false",
         );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_dependency_status",
+            "manifest_dependencies_matched",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_dependency_changed_roles",
+            "none",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_partial_repair_status",
+            "not_needed_manifest_hit",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_partial_repair_blocker_id",
+            "not_applicable_manifest_dependencies_matched",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_partial_repair_regeneration_performed",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
+            "false",
+        );
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
 
@@ -31193,6 +31541,36 @@ mod tests {
             &third_fields,
             "prepare_batch_prepared_state_lookup_status",
             "cache_miss_created_and_registered",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_dependency_status",
+            "source_dependency_changed_full_reprepare",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_dependency_changed_roles",
+            "fact_input",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_status",
+            "blocked_source_dependency_changed_full_reprepare_required",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_blocker_id",
+            "hotpath-9.source-dependency-changed-no-partial-repair",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_regeneration_performed",
+            "false",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
+            "false",
         );
         assert_field_eq(
             &third_fields,

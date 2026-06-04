@@ -276,6 +276,15 @@ and `prepared_state_claim_boundary`. This prepared-state contract covers scoped 
 artifact identity, digest, preparation timing separation, source-state linkage, and reuse posture;
 it is not output support, encoded-native operator coverage, object-store/lakehouse support,
 SQL/DataFrame runtime, or performance evidence.
+For `shardloom-prepare-batch`, HOTPATH-9 adds
+`prepare_batch_prepared_state_dependency_*` and
+`prepare_batch_prepared_state_partial_repair_*` fields. These report which workspace-manifest
+dependencies were checked, which role changed on a miss, and whether partial repair/regeneration was
+performed. Current prepared-batch partial repair remains blocked with
+`prepare_batch_prepared_state_partial_repair_regeneration_performed=false` and
+`prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed=false`; mismatched source,
+policy, packet, manifest, or artifact dependencies force full reprepare rather than silent stale
+segment reuse.
 
 `GAR-IOREUSE-1I` extends the harness schema with
 `vortex_preparation_spine_schema_version=shardloom.traditional_analytics.vortex_preparation_spine.v1`.

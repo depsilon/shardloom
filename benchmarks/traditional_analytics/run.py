@@ -736,6 +736,26 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_gate_status",
     "prepared_state_claim_boundary",
 )
+PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
+    "prepare_batch_prepared_state_dependency_schema_version",
+    "prepare_batch_prepared_state_dependency_status",
+    "prepare_batch_prepared_state_dependency_checked_roles",
+    "prepare_batch_prepared_state_dependency_changed_roles",
+    "prepare_batch_prepared_state_dependency_manifest_digest",
+    "prepare_batch_prepared_state_dependency_source_packet_digest",
+    "prepare_batch_prepared_state_dependency_artifact_manifest_hash",
+    "prepare_batch_prepared_state_dependency_recheck_policy",
+    "prepare_batch_prepared_state_dependency_fallback_attempted",
+    "prepare_batch_prepared_state_dependency_external_engine_invoked",
+    "prepare_batch_prepared_state_partial_repair_schema_version",
+    "prepare_batch_prepared_state_partial_repair_status",
+    "prepare_batch_prepared_state_partial_repair_blocker_id",
+    "prepare_batch_prepared_state_partial_repair_changed_roles",
+    "prepare_batch_prepared_state_partial_repair_repairable_segment_count",
+    "prepare_batch_prepared_state_partial_repair_regeneration_performed",
+    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
+    "prepare_batch_prepared_state_partial_repair_claim_boundary",
+)
 VORTEX_SCOUT_INGRESS_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_scout_ingress.v1"
 )
@@ -13258,6 +13278,49 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             and metrics.get("prepared_state_reuse_allowed") is True
         ):
             raise RuntimeError("direct transient rows cannot report prepared-state reuse")
+        if str(result.get("engine") or "") == "shardloom-prepare-batch":
+            missing_repair_fields = [
+                field for field in PREPARED_STATE_REPAIR_CONTRACT_FIELDS if field not in metrics
+            ]
+            if missing_repair_fields:
+                raise RuntimeError(
+                    "ShardLoom prepare/batch row omitted prepared-state dependency/repair fields: "
+                    + ", ".join(missing_repair_fields)
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_dependency_fallback_attempted"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state dependency evidence cannot report fallback attempts"
+                )
+            if (
+                metrics.get("prepare_batch_prepared_state_dependency_external_engine_invoked")
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state dependency evidence cannot report external engine execution"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepare/batch partial prepared-state repair must remain blocked in this route"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepare/batch stale prepared segments cannot be silently reused"
+                )
         missing_output_plan_fields = [
             field for field in OUTPUT_PLAN_CONTRACT_FIELDS if field not in metrics
         ]
@@ -14362,9 +14425,13 @@ def prepared_state_contract() -> dict[str, Any]:
         "companion_reference": "docs/architecture/compute-engine-flow-reference.md",
         "status_vocabulary": list(PREPARED_STATE_CONTRACT_STATUS_VOCABULARY),
         "row_fields": list(PREPARED_STATE_CONTRACT_FIELDS),
+        "prepare_batch_dependency_repair_fields": list(
+            PREPARED_STATE_REPAIR_CONTRACT_FIELDS
+        ),
         "current_scope": (
             "local prepared Vortex artifact identity, digest, preparation timing "
-            "separation, source-state linkage, and scoped reuse visibility"
+            "separation, source-state linkage, scoped reuse visibility, and "
+            "prepare/batch manifest dependency plus partial-repair blockers"
         ),
         "stable_path": (
             "InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> "
