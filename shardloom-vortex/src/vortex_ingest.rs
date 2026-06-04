@@ -6552,8 +6552,9 @@ fn write_vortex_array(
     let session = VortexSession::default().with_handle(runtime.handle());
     let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
     let write_start = Instant::now();
+    let expected_rows = usize_to_u64(array.len())?;
     let (summary, workspace_write_report) =
-        shardloom_core::write_workspace_safe_bytes_with_producer(
+        shardloom_core::write_workspace_safe_bytes_with_validated_producer(
             workspace_root,
             path,
             allow_overwrite,
@@ -6565,15 +6566,17 @@ fn write_vortex_array(
                     .write(writer, array.to_array_iterator())
                     .map_err(vortex_error)
             },
+            |summary| {
+                if summary.row_count() != expected_rows {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest writer row count mismatch: wrote {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
+                        summary.row_count(),
+                        expected_rows
+                    )));
+                }
+                Ok(())
+            },
         )?;
-    let expected_rows = usize_to_u64(array.len())?;
-    if summary.row_count() != expected_rows {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest writer row count mismatch: wrote {}, expected {}; no fallback execution was attempted",
-            summary.row_count(),
-            expected_rows
-        )));
-    }
     let artifact_digest = workspace_write_report.output_digest.clone();
     let digest_micros = 0;
     let bytes_written = workspace_write_report.bytes_written;

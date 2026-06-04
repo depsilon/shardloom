@@ -17070,8 +17070,9 @@ impl TraditionalVortexIoContext {
 
         let write_start = std::time::Instant::now();
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
-        let (summary, workspace_write_report) =
-            shardloom_core::write_workspace_safe_bytes_with_producer(
+        let expected_rows = usize_to_u64(array.len())?;
+        let (_summary, workspace_write_report) =
+            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
                 path,
                 true,
@@ -17083,15 +17084,17 @@ impl TraditionalVortexIoContext {
                         .write(writer, array.to_array_iterator())
                         .map_err(vortex_error)
                 },
+                |summary| {
+                    if summary.row_count() != expected_rows {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "Vortex writer row count mismatch: wrote {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
+                            summary.row_count(),
+                            expected_rows
+                        )));
+                    }
+                    Ok(())
+                },
             )?;
-        let expected_rows = usize_to_u64(array.len())?;
-        if summary.row_count() != expected_rows {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "Vortex writer row count mismatch: wrote {}, expected {}",
-                summary.row_count(),
-                expected_rows
-            )));
-        }
         let artifact_digest = traditional_digest_from_workspace_write(&workspace_write_report)?;
         Ok(TraditionalVortexWriteOutcome {
             write_micros: duration_to_micros(write_start.elapsed()),

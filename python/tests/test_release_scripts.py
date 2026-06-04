@@ -947,6 +947,37 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["total_route_ms"], 130.0)
         self.assertFalse(published["performance_claim_allowed"])
 
+    def test_benchmark_promoter_blocks_sparse_exclusive_query_split(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_sparse_exclusive_split_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "route_lane_id": "warm_prepared_query",
+            "status": "success",
+            "metrics": {
+                "total_runtime_millis": 10.0,
+                "query_runtime_millis": 9.0,
+                "result_sink_write_millis": 1.0,
+            },
+        }
+
+        stage_fields = module.route_stage_fields_for_row(row)
+
+        self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
+        self.assertEqual(
+            stage_fields["exclusive_stage_timing_status"],
+            "blocked_missing_query_split",
+        )
+        self.assertEqual(
+            stage_fields["route_timing_exclusive_stage_ids"],
+            "sink_output,evidence_render",
+        )
+        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 1.0)
+        self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 9.0)
+
     def test_benchmark_promoter_derives_prepare_once_first_query_route(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
