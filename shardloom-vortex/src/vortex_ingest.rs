@@ -6689,6 +6689,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn local_flat_scalar_rows_write_and_reopen_vortex_artifact() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-{}-{}.vortex",

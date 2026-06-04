@@ -3299,7 +3299,9 @@ class SqlLocalSourceSmokeReport:
     def string_predicate_like_escape_character(self) -> tuple[str, ...]:
         """Return LIKE ESCAPE characters emitted by the smoke."""
 
-        return _csv_values(self.envelope.field("string_predicate_like_escape_character"))
+        return _csv_present_values(
+            self.envelope.field("string_predicate_like_escape_character")
+        )
 
     @property
     def string_transform_runtime_execution(self) -> bool:

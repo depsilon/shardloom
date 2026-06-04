@@ -2020,6 +2020,43 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(report.string_predicate_like_escape_character, (",",))
 
+    def test_sql_local_source_report_hides_absent_like_escape_character(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {
+                        "key": "string_predicate_like_escape_character",
+                        "value": "not_applicable",
+                    },
+                ],
+            }
+        )
+        report = SqlLocalSourceSmokeReport(envelope)
+
+        self.assertEqual(report.string_predicate_like_escape_character, ())
+
     def test_sql_local_source_report_hides_absent_sink_artifact_refs(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
