@@ -1767,12 +1767,14 @@ enum SortValue {
     Int(i64),
     Float(f64),
     Utf8(String),
+    Complex(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SortValueFamily {
     Numeric,
     Utf8,
+    Complex,
 }
 
 impl SortValue {
@@ -1789,11 +1791,14 @@ impl SortValue {
             }
             ScalarValue::Float64(value) if value.is_finite() => Ok(Self::Float(*value)),
             ScalarValue::Utf8(value) => Ok(Self::Utf8(value.clone())),
+            ScalarValue::List(_) | ScalarValue::Struct(_) => {
+                Ok(Self::Complex(scalar_order_key(value)))
+            }
             ScalarValue::Null => Err(unsupported_sql_error(
                 "ORDER BY NULL ordering is not admitted in this scoped top-N smoke",
             )),
             _ => Err(unsupported_sql_error(
-                "ORDER BY top-N smoke admits numeric or UTF-8 sort columns only",
+                "ORDER BY top-N smoke admits numeric, UTF-8, or scoped ARRAY/STRUCT result-boundary sort columns only",
             )),
         }
     }
@@ -1802,6 +1807,7 @@ impl SortValue {
         match self {
             Self::Int(_) | Self::Float(_) => SortValueFamily::Numeric,
             Self::Utf8(_) => SortValueFamily::Utf8,
+            Self::Complex(_) => SortValueFamily::Complex,
         }
     }
 }
@@ -1814,7 +1820,9 @@ impl Ord for SortValue {
             (Self::Int(_) | Self::Float(_), Self::Int(_) | Self::Float(_)) => {
                 self.as_f64().total_cmp(&other.as_f64())
             }
-            (Self::Utf8(left), Self::Utf8(right)) => left.cmp(right),
+            (Self::Utf8(left), Self::Utf8(right)) | (Self::Complex(left), Self::Complex(right)) => {
+                left.cmp(right)
+            }
             _ => self.family_rank().cmp(&other.family_rank()),
         }
     }
@@ -1831,7 +1839,7 @@ impl SortValue {
         match self {
             Self::Int(value) => i64_to_f64(*value),
             Self::Float(value) => *value,
-            Self::Utf8(_) => f64::NAN,
+            Self::Utf8(_) | Self::Complex(_) => f64::NAN,
         }
     }
 
@@ -1839,6 +1847,7 @@ impl SortValue {
         match self.family() {
             SortValueFamily::Numeric => 0,
             SortValueFamily::Utf8 => 1,
+            SortValueFamily::Complex => 2,
         }
     }
 }
@@ -12685,6 +12694,71 @@ fn push_length_delimited(out: &mut String, value: &str) {
     out.push_str(value);
 }
 
+fn scalar_order_key(value: &ScalarValue) -> String {
+    match value {
+        ScalarValue::Null => "00/".to_string(),
+        ScalarValue::Boolean(false) => "01/0/".to_string(),
+        ScalarValue::Boolean(true) => "01/1/".to_string(),
+        ScalarValue::Int64(value) => format!("02/{}/", sortable_i64_hex(*value)),
+        ScalarValue::UInt64(value) => format!("03/{value:016x}/"),
+        ScalarValue::Float64(value) => format!("04/{:016x}/", sortable_f64_bits(*value)),
+        ScalarValue::Utf8(value) => format!("05/{}/", bytes_to_hex(value.as_bytes())),
+        ScalarValue::Binary(value) => format!("06/{}/", bytes_to_hex(value)),
+        ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        } => format!("07/{precision:02}{scale:02}{}/", sortable_i128_hex(*value)),
+        ScalarValue::Date32(value) => format!("08/{}/", sortable_i32_hex(*value)),
+        ScalarValue::TimestampMicros(value) => format!("09/{}/", sortable_i64_hex(*value)),
+        ScalarValue::List(values) => {
+            let mut out = String::from("10/[");
+            for value in values {
+                out.push_str(&scalar_order_key(value));
+            }
+            out.push_str("]/");
+            out
+        }
+        ScalarValue::Struct(fields) => {
+            let mut out = String::from("11/{");
+            for (name, value) in fields {
+                out.push_str(&bytes_to_hex(name.as_bytes()));
+                out.push('/');
+                out.push_str(&scalar_order_key(value));
+            }
+            out.push_str("}/");
+            out
+        }
+    }
+}
+
+fn sortable_f64_bits(value: f64) -> u64 {
+    let bits = value.to_bits();
+    if bits & 0x8000_0000_0000_0000 == 0 {
+        bits ^ 0x8000_0000_0000_0000
+    } else {
+        !bits
+    }
+}
+
+fn sortable_i32_hex(value: i32) -> String {
+    let mut bytes = value.to_be_bytes();
+    bytes[0] ^= 0x80;
+    bytes_to_hex(&bytes)
+}
+
+fn sortable_i64_hex(value: i64) -> String {
+    let mut bytes = value.to_be_bytes();
+    bytes[0] ^= 0x80;
+    bytes_to_hex(&bytes)
+}
+
+fn sortable_i128_hex(value: i128) -> String {
+    let mut bytes = value.to_be_bytes();
+    bytes[0] ^= 0x80;
+    bytes_to_hex(&bytes)
+}
+
 fn bytes_to_hex(value: &[u8]) -> String {
     let mut out = String::with_capacity(value.len().saturating_mul(2));
     for byte in value {
@@ -13824,7 +13898,6 @@ fn bind_sql_local_source(
     validate_window_projection_shape(parsed)?;
     validate_order_by_source(parsed, header)?;
     validate_distinct_projection_shape(parsed, header)?;
-    validate_complex_projection_shape(parsed)?;
     validate_computed_projection_shape(parsed)?;
     validate_projection_output_names(parsed, header)?;
     if parsed.is_grouped_aggregate() {
@@ -13939,23 +14012,6 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
         return Err(unsupported_sql_error(
             "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, ARRAY[<scalar literal>, ...] AS <column>, STRUCT(<source column>, ...) AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
         ));
-    }
-    Ok(())
-}
-
-fn validate_complex_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
-    if let Some(order_by) = parsed.order_by.as_ref() {
-        for key in &order_by.keys {
-            if parsed
-                .complex_projections
-                .iter()
-                .any(|projection| projection.alias == key.column)
-            {
-                return Err(unsupported_sql_error(
-                    "ORDER BY over ARRAY or STRUCT projection outputs is not admitted until complex ordering semantics are admitted",
-                ));
-            }
-        }
     }
     Ok(())
 }
@@ -14560,7 +14616,6 @@ fn bind_join_sql_local_source(
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
     validate_join_on_predicate_sources(join, left_alias, left_header, right_header)?;
     validate_join_type_surface(parsed, left_alias)?;
-    validate_complex_projection_shape(parsed)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
             parsed,
@@ -15578,6 +15633,58 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn complex_projection_ordering_columns(&self) -> String {
+        let Some(order_by) = self.order_by.as_ref() else {
+            return "not_requested".to_string();
+        };
+        let columns = order_by
+            .keys
+            .iter()
+            .filter(|key| {
+                self.complex_projections
+                    .iter()
+                    .any(|projection| projection.alias == key.column)
+            })
+            .map(|key| key.column.as_str())
+            .collect::<Vec<_>>();
+        if columns.is_empty() {
+            "not_requested".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn complex_projection_ordering_semantics(&self) -> &'static str {
+        if !self.has_complex_projection() {
+            return "not_applicable";
+        }
+        if self.complex_projection_ordering_columns() == "not_requested" {
+            return "not_requested";
+        }
+        "admitted_canonical_structural_result_boundary_values_only"
+    }
+
+    fn has_complex_projection_ordering(&self) -> bool {
+        let Some(order_by) = self.order_by.as_ref() else {
+            return false;
+        };
+        order_by.keys.iter().any(|key| {
+            self.complex_projections
+                .iter()
+                .any(|projection| projection.alias == key.column)
+        })
+    }
+
+    fn sort_operator_family_label(&self) -> String {
+        self.order_by.as_ref().map_or_else(
+            || "not_applicable".to_string(),
+            |order_by| {
+                order_by_operator_family_label(order_by, self.has_complex_projection_ordering())
+                    .to_string()
+            },
+        )
+    }
+
     fn literal_projection_dtypes(&self) -> String {
         if self.literal_projections.is_empty() {
             "not_applicable".to_string()
@@ -15911,7 +16018,11 @@ impl ParsedSqlLocalSource {
         if !self.has_complex_projection() {
             return None;
         }
-        Some(if self.has_filter() {
+        Some(if self.order_by.is_some() && self.has_filter() {
+            "local_source_complex_projection_order_by_topn_filter_limit"
+        } else if self.order_by.is_some() {
+            "local_source_complex_projection_order_by_topn_limit"
+        } else if self.has_filter() {
             "local_source_complex_projection_filter_limit"
         } else {
             "local_source_complex_projection_limit"
@@ -15963,6 +16074,10 @@ impl ParsedSqlLocalSource {
             "window-filter-limit".to_string()
         } else if self.has_window_projection() {
             "window-limit".to_string()
+        } else if self.has_complex_projection() && self.order_by.is_some() && self.has_filter() {
+            "complex-projection-order-by-topn-filter-limit".to_string()
+        } else if self.has_complex_projection() && self.order_by.is_some() {
+            "complex-projection-order-by-topn-limit".to_string()
         } else if self.has_complex_projection() && self.has_filter() {
             "complex-projection-filter-limit".to_string()
         } else if self.has_complex_projection() {
@@ -16043,6 +16158,10 @@ impl ParsedSqlLocalSource {
             "window_filter_limit".to_string()
         } else if self.has_window_projection() {
             "window_limit".to_string()
+        } else if self.has_complex_projection() && self.order_by.is_some() && self.has_filter() {
+            "complex_projection_order_by_topn_filter_limit".to_string()
+        } else if self.has_complex_projection() && self.order_by.is_some() {
+            "complex_projection_order_by_topn_limit".to_string()
         } else if self.has_complex_projection() && self.has_filter() {
             "complex_projection_filter_limit".to_string()
         } else if self.has_complex_projection() {
@@ -17425,11 +17544,19 @@ impl ParsedOrderBy {
     }
 
     fn operator_family_label(&self) -> &'static str {
-        if self.is_multi_key() {
-            "multi_key_scalar_topn"
-        } else {
-            "single_key_scalar_topn"
-        }
+        order_by_operator_family_label(self, false)
+    }
+}
+
+fn order_by_operator_family_label(
+    order_by: &ParsedOrderBy,
+    includes_complex_key: bool,
+) -> &'static str {
+    match (order_by.is_multi_key(), includes_complex_key) {
+        (true, true) => "multi_key_complex_result_boundary_topn",
+        (false, true) => "single_key_complex_result_boundary_topn",
+        (true, false) => "multi_key_scalar_topn",
+        (false, false) => "single_key_scalar_topn",
     }
 }
 
@@ -23685,8 +23812,24 @@ impl SqlLocalSourceUnionReport {
     fn sort_operator_family(&self) -> String {
         self.parsed.order_by.as_ref().map_or_else(
             || "not_applicable".to_string(),
-            |order_by| order_by.operator_family_label().to_string(),
+            |order_by| {
+                order_by_operator_family_label(order_by, self.has_complex_order_by_key())
+                    .to_string()
+            },
         )
+    }
+
+    fn has_complex_order_by_key(&self) -> bool {
+        let Some(order_by) = self.parsed.order_by.as_ref() else {
+            return false;
+        };
+        order_by.keys.iter().any(|key| {
+            self.result_batch_state.columns.iter().any(|column| {
+                column.name == key.column
+                    && (column.dtype.as_ref().is_some_and(logical_dtype_is_complex)
+                        || column.values.iter().any(scalar_value_is_complex))
+            })
+        })
     }
 
     fn sort_keys(&self) -> String {
@@ -24739,10 +24882,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "sort_operator_family".to_string(),
-                self.parsed.order_by.as_ref().map_or_else(
-                    || "not_applicable".to_string(),
-                    |order_by| order_by.operator_family_label().to_string(),
-                ),
+                self.parsed.sort_operator_family_label(),
             ),
             (
                 "sort_keys".to_string(),
@@ -25484,6 +25624,16 @@ impl SqlLocalSourceReport {
                 } else {
                     "not_applicable".to_string()
                 },
+            ),
+            (
+                "complex_projection_ordering_columns".to_string(),
+                self.parsed.complex_projection_ordering_columns(),
+            ),
+            (
+                "complex_projection_ordering_semantics".to_string(),
+                self.parsed
+                    .complex_projection_ordering_semantics()
+                    .to_string(),
             ),
             (
                 "binary_literal_projection_runtime_execution".to_string(),
@@ -36025,6 +36175,25 @@ mod tests {
     }
 
     #[test]
+    fn scalar_order_key_preserves_nested_value_ordering() {
+        let alpha = ScalarValue::Struct(vec![
+            ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ("amount".to_string(), ScalarValue::Int64(8)),
+        ]);
+        let beta = ScalarValue::Struct(vec![
+            ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
+            ("amount".to_string(), ScalarValue::Null),
+        ]);
+        let gamma = ScalarValue::Struct(vec![
+            ("label".to_string(), ScalarValue::Utf8("gamma".to_string())),
+            ("amount".to_string(), ScalarValue::Int64(13)),
+        ]);
+
+        assert!(scalar_order_key(&alpha) < scalar_order_key(&beta));
+        assert!(scalar_order_key(&beta) < scalar_order_key(&gamma));
+    }
+
+    #[test]
     fn output_layout_selected_strategy_preserves_mixed_vortex_and_compatibility_sinks() {
         let sink_decisions = vec![
             (
@@ -38727,6 +38896,57 @@ mod tests {
             &fields,
             "complex_projection_equality_semantics",
             "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn runs_scoped_complex_projection_order_by_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label,amount\n1,gamma,13\n2,alpha,8\n3,beta,\n")
+            .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,STRUCT(label, amount) AS payload FROM '{}' ORDER BY payload ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run complex ordering smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"payload\":{\"label\":\"alpha\",\"amount\":8}}\n{\"id\":3,\"payload\":{\"label\":\"beta\",\"amount\":null}}\n{\"id\":1,\"payload\":{\"label\":\"gamma\",\"amount\":13}}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "sql_statement_kind",
+            "local_source_complex_projection_order_by_topn_limit",
+        );
+        assert_field_eq(&fields, "order_by_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "sort_operator_family",
+            "single_key_complex_result_boundary_topn",
+        );
+        assert_field_eq(&fields, "sort_keys", "payload");
+        assert_field_eq(&fields, "sort_direction", "asc");
+        assert_field_eq(&fields, "complex_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "complex_projection_columns", "payload");
+        assert_field_eq(&fields, "complex_projection_ordering_columns", "payload");
+        assert_field_eq(
+            &fields,
+            "complex_projection_ordering_semantics",
+            "admitted_canonical_structural_result_boundary_values_only",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -42891,21 +43111,27 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_order_by_over_complex_projection_without_fallback() {
+    fn parser_admits_order_by_over_complex_projection() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,STRUCT(label, amount) AS payload FROM 'target/input.csv' ORDER BY payload LIMIT 5",
         )
-        .expect("ORDER BY complex projection parses before bind policy");
+        .expect("ORDER BY complex projection parses");
         let header = vec!["id".to_string(), "label".to_string(), "amount".to_string()];
-        let error = bind_sql_local_source(&parsed, &header, None)
-            .expect_err("ORDER BY over complex projections remains blocked");
+        bind_sql_local_source(&parsed, &header, None)
+            .expect("ORDER BY over admitted complex projection aliases is admitted");
 
-        assert!(
-            error
-                .to_string()
-                .contains("ORDER BY over ARRAY or STRUCT projection outputs is not admitted")
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_complex_projection_order_by_topn_limit"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "complex-projection-order-by-topn-limit"
+        );
+        assert_eq!(
+            parsed.claim_gate_reason_suffix(),
+            "complex_projection_order_by_topn_limit"
+        );
     }
 
     #[test]
@@ -43025,7 +43251,7 @@ mod tests {
 
         let request = SqlLocalSourceRequest {
             statement: format!(
-                "SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' UNION SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' ORDER BY id ASC LIMIT 10",
+                "SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' UNION SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' ORDER BY payload DESC LIMIT 10",
                 left.display(),
                 right.display()
             ),
@@ -43043,7 +43269,7 @@ mod tests {
 
         assert_eq!(
             report.result_jsonl,
-            "{\"id\":1,\"values\":[1],\"payload\":{\"label\":\"alpha\"}}\n{\"id\":2,\"values\":[1],\"payload\":{\"label\":\"beta\"}}\n{\"id\":3,\"values\":[1],\"payload\":{\"label\":\"gamma\"}}\n"
+            "{\"id\":3,\"values\":[1],\"payload\":{\"label\":\"gamma\"}}\n{\"id\":2,\"values\":[1],\"payload\":{\"label\":\"beta\"}}\n{\"id\":1,\"values\":[1],\"payload\":{\"label\":\"alpha\"}}\n"
         );
         assert_field_eq(&fields, "sql_union_runtime_execution", "true");
         assert_field_eq(&fields, "sql_union_mode", "distinct");
@@ -43051,6 +43277,13 @@ mod tests {
         assert_field_eq(&fields, "sql_union_distinct_input_row_count", "3");
         assert_field_eq(&fields, "sql_union_output_row_count", "3");
         assert_field_eq(&fields, "sql_union_order_by_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "sort_operator_family",
+            "single_key_complex_result_boundary_topn",
+        );
+        assert_field_eq(&fields, "sort_keys", "payload");
+        assert_field_eq(&fields, "sort_direction", "desc");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
