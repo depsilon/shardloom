@@ -399,8 +399,8 @@ and the non-executing correctness-harness boundary, and intentionally reports:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=75
-executable_fixture_count=64
+matrix_row_count=77
+executable_fixture_count=66
 diagnostic_case_count=11
 unsupported_diagnostic_count=9
 runtime_error_diagnostic_count=1

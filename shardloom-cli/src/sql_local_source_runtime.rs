@@ -8015,7 +8015,6 @@ fn compute_sql_union_output(
     branch_reports: &[SqlLocalSourceReport],
 ) -> Result<SqlUnionComputedOutput, ShardLoomError> {
     let output_columns = sql_union_output_columns(branch_reports)?;
-    validate_sql_union_complex_projection_boundary(parsed.mode, branch_reports)?;
     if let Some(order_by) = parsed.order_by.as_ref() {
         validate_order_by_output_columns(
             order_by,
@@ -8102,24 +8101,6 @@ fn sql_union_output_columns(
         }
     }
     Ok(first_columns)
-}
-
-fn validate_sql_union_complex_projection_boundary(
-    mode: SqlUnionMode,
-    branch_reports: &[SqlLocalSourceReport],
-) -> Result<(), ShardLoomError> {
-    if !matches!(mode, SqlUnionMode::Distinct) {
-        return Ok(());
-    }
-    if branch_reports
-        .iter()
-        .any(|report| report.parsed.has_complex_projection())
-    {
-        return Err(unsupported_sql_error(
-            "SQL UNION DISTINCT over ARRAY or STRUCT projection outputs is not admitted until complex equality semantics are admitted; use UNION ALL or JSONL result-boundary projection without distinct composition",
-        ));
-    }
-    Ok(())
 }
 
 fn validate_sql_union_column_dtypes(
@@ -12651,47 +12632,57 @@ fn aggregate_count_distinct(
 
 fn scalar_distinct_key(value: &ScalarValue) -> String {
     match value {
-        ScalarValue::Null => "null".to_string(),
-        ScalarValue::Boolean(value) => format!("bool:{value}"),
-        ScalarValue::Int64(value) => format!("i64:{value}"),
-        ScalarValue::UInt64(value) => format!("u64:{value}"),
-        ScalarValue::Float64(value) if *value == 0.0 => "f64:0".to_string(),
-        ScalarValue::Float64(value) => format!("f64:{:016x}", value.to_bits()),
-        ScalarValue::Utf8(value) => format!("utf8:{value}"),
-        ScalarValue::Binary(value) => {
-            let mut out = String::from("binary:");
-            for byte in value {
-                let _ = write!(out, "{byte:02x}");
-            }
-            out
+        ScalarValue::Null => distinct_key_payload("null", ""),
+        ScalarValue::Boolean(value) => distinct_key_payload("bool", &value.to_string()),
+        ScalarValue::Int64(value) => distinct_key_payload("i64", &value.to_string()),
+        ScalarValue::UInt64(value) => distinct_key_payload("u64", &value.to_string()),
+        ScalarValue::Float64(value) if *value == 0.0 => distinct_key_payload("f64", "0"),
+        ScalarValue::Float64(value) => {
+            distinct_key_payload("f64", &format!("{:016x}", value.to_bits()))
         }
+        ScalarValue::Utf8(value) => distinct_key_payload("utf8", value),
+        ScalarValue::Binary(value) => distinct_key_payload("binary", &bytes_to_hex(value)),
         ScalarValue::Decimal128 {
             value,
             precision,
             scale,
-        } => format!(
-            "decimal128({precision},{scale}):{}",
-            format_decimal128_value(*value, *scale)
+        } => distinct_key_payload(
+            &format!("decimal128({precision},{scale})"),
+            &format_decimal128_value(*value, *scale),
         ),
-        ScalarValue::Date32(value) => format!("date32:{value}"),
-        ScalarValue::TimestampMicros(value) => format!("ts_micros:{value}"),
-        ScalarValue::List(values) => format!(
-            "list:[{}]",
-            values
-                .iter()
-                .map(scalar_distinct_key)
-                .collect::<Vec<_>>()
-                .join(",")
-        ),
-        ScalarValue::Struct(fields) => format!(
-            "struct:{{{}}}",
-            fields
-                .iter()
-                .map(|(name, value)| format!("{name}:{}", scalar_distinct_key(value)))
-                .collect::<Vec<_>>()
-                .join(",")
-        ),
+        ScalarValue::Date32(value) => distinct_key_payload("date32", &value.to_string()),
+        ScalarValue::TimestampMicros(value) => {
+            distinct_key_payload("ts_micros", &value.to_string())
+        }
+        ScalarValue::List(values) => {
+            let mut out = String::new();
+            write!(out, "list:{}:[", values.len()).expect("write to string");
+            for value in values {
+                push_length_delimited(&mut out, &scalar_distinct_key(value));
+            }
+            out.push(']');
+            out
+        }
+        ScalarValue::Struct(fields) => {
+            let mut out = String::new();
+            write!(out, "struct:{}:{{", fields.len()).expect("write to string");
+            for (name, value) in fields {
+                push_length_delimited(&mut out, name);
+                push_length_delimited(&mut out, &scalar_distinct_key(value));
+            }
+            out.push('}');
+            out
+        }
     }
+}
+
+fn distinct_key_payload(tag: &str, payload: &str) -> String {
+    format!("{tag}:{}:{payload}", payload.len())
+}
+
+fn push_length_delimited(out: &mut String, value: &str) {
+    write!(out, "{}:", value.len()).expect("write to string");
+    out.push_str(value);
 }
 
 fn bytes_to_hex(value: &[u8]) -> String {
@@ -13953,11 +13944,6 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
 }
 
 fn validate_complex_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
-    if parsed.has_complex_projection() && parsed.has_distinct_projection() {
-        return Err(unsupported_sql_error(
-            "SELECT DISTINCT over ARRAY or STRUCT projection outputs is not admitted until complex equality semantics are admitted",
-        ));
-    }
     if let Some(order_by) = parsed.order_by.as_ref() {
         for key in &order_by.keys {
             if parsed
@@ -25493,7 +25479,8 @@ impl SqlLocalSourceReport {
             (
                 "complex_projection_equality_semantics".to_string(),
                 if self.parsed.has_complex_projection() {
-                    "not_admitted_distinct_join_membership_or_subquery_equality".to_string()
+                    "admitted_distinct_projection_and_union_distinct_result_boundary_values_only"
+                        .to_string()
                 } else {
                     "not_applicable".to_string()
                 },
@@ -33792,7 +33779,7 @@ fn projected_subquery_output_columns(
     }
     if parsed.has_complex_projection() {
         return Err(unsupported_sql_error(
-            "projected subqueries do not admit ARRAY or STRUCT projection outputs until complex equality semantics are admitted",
+            "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
         ));
     }
     let columns = if parsed.is_grouped_aggregate() {
@@ -36009,6 +35996,32 @@ mod tests {
 
     fn assert_field_eq(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
         assert_eq!(fields.get(key).map(String::as_str), Some(expected));
+    }
+
+    #[test]
+    fn scalar_distinct_key_is_length_delimited_for_complex_values() {
+        let single_list_value = ScalarValue::List(vec![ScalarValue::Utf8("a,utf8:b".to_string())]);
+        let two_list_values = ScalarValue::List(vec![
+            ScalarValue::Utf8("a".to_string()),
+            ScalarValue::Utf8("b".to_string()),
+        ]);
+        assert_ne!(
+            scalar_distinct_key(&single_list_value),
+            scalar_distinct_key(&two_list_values)
+        );
+
+        let single_struct_field = ScalarValue::Struct(vec![(
+            "a".to_string(),
+            ScalarValue::Utf8("b,c:utf8:d".to_string()),
+        )]);
+        let two_struct_fields = ScalarValue::Struct(vec![
+            ("a".to_string(), ScalarValue::Utf8("b".to_string())),
+            ("c".to_string(), ScalarValue::Utf8("d".to_string())),
+        ]);
+        assert_ne!(
+            scalar_distinct_key(&single_struct_field),
+            scalar_distinct_key(&two_struct_fields)
+        );
     }
 
     #[test]
@@ -38713,7 +38726,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "complex_projection_equality_semantics",
-            "not_admitted_distinct_join_membership_or_subquery_equality",
+            "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -42827,21 +42840,54 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_distinct_over_complex_projection_without_fallback() {
+    fn runs_scoped_distinct_over_complex_projection_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label,amount\n1,alpha,8\n2,alpha,8\n3,beta,\n")
+            .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT DISTINCT label,STRUCT(label, amount) AS payload,ARRAY[1,2,NULL] AS values FROM '{}' LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run distinct complex projection smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"label\":\"alpha\",\"payload\":{\"label\":\"alpha\",\"amount\":8},\"values\":[1,2,null]}\n{\"label\":\"beta\",\"payload\":{\"label\":\"beta\",\"amount\":null},\"values\":[1,2,null]}\n"
+        );
+        assert_field_eq(&fields, "distinct_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "distinct_projection_input_row_count", "3");
+        assert_field_eq(&fields, "distinct_projection_output_row_count", "2");
+        assert_field_eq(&fields, "complex_projection_runtime_execution", "true");
+        assert_field_eq(&fields, "complex_projection_columns", "payload,values");
+        assert_field_eq(
+            &fields,
+            "complex_projection_equality_semantics",
+            "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(path).expect("remove csv source");
+    }
+
+    #[test]
+    fn parser_admits_distinct_over_complex_projection() {
         let parsed = parse_sql_local_source_statement(
             "SELECT DISTINCT id,ARRAY[1,2] AS values FROM 'target/input.csv' LIMIT 5",
         )
-        .expect("distinct complex projection parses before bind policy");
+        .expect("distinct complex projection parses");
         let header = vec!["id".to_string()];
-        let error = bind_sql_local_source(&parsed, &header, None)
-            .expect_err("distinct over complex projections remains blocked");
-
-        assert!(
-            error.to_string().contains(
-                "SELECT DISTINCT over ARRAY or STRUCT projection outputs is not admitted"
-            )
-        );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        bind_sql_local_source(&parsed, &header, None)
+            .expect("distinct over complex projection is admitted for result-boundary equality");
     }
 
     #[test]
@@ -42968,18 +43014,18 @@ mod tests {
     }
 
     #[test]
-    fn union_distinct_blocks_complex_projection_outputs_without_fallback() {
+    fn runs_scoped_sql_union_distinct_complex_projection_outputs_without_fallback() {
         let left = sql_local_source_test_path("csv");
         let mut right = sql_local_source_test_path("csv");
         while right == left {
             right = sql_local_source_test_path("csv");
         }
-        fs::write(&left, "id\n1\n").expect("write left csv");
-        fs::write(&right, "id\n2\n").expect("write right csv");
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n").expect("write left csv");
+        fs::write(&right, "id,label\n1,alpha\n3,gamma\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
             statement: format!(
-                "SELECT id,ARRAY[1] AS values FROM '{}' UNION SELECT id,ARRAY[1] AS values FROM '{}' LIMIT 10",
+                "SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' UNION SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' ORDER BY id ASC LIMIT 10",
                 left.display(),
                 right.display()
             ),
@@ -42988,16 +43034,25 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke(&request)
-            .expect_err("UNION DISTINCT complex equality remains blocked");
+        let report =
+            run_sql_local_source_smoke(&request).expect("run union complex distinct smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected union report");
+        };
+        let fields = field_map(report.fields());
 
-        assert!(
-            error.to_string().contains(
-                "SQL UNION DISTINCT over ARRAY or STRUCT projection outputs is not admitted"
-            ),
-            "got {error}"
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"values\":[1],\"payload\":{\"label\":\"alpha\"}}\n{\"id\":2,\"values\":[1],\"payload\":{\"label\":\"beta\"}}\n{\"id\":3,\"values\":[1],\"payload\":{\"label\":\"gamma\"}}\n"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert_field_eq(&fields, "sql_union_runtime_execution", "true");
+        assert_field_eq(&fields, "sql_union_mode", "distinct");
+        assert_field_eq(&fields, "sql_union_input_row_count", "4");
+        assert_field_eq(&fields, "sql_union_distinct_input_row_count", "3");
+        assert_field_eq(&fields, "sql_union_output_row_count", "3");
+        assert_field_eq(&fields, "sql_union_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
 
         fs::remove_file(left).expect("remove left csv");
         fs::remove_file(right).expect("remove right csv");
