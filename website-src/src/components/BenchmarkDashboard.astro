@@ -41,6 +41,9 @@ const routeRuntimeRows = Array.isArray(routeRuntimeTable.rows) ? routeRuntimeTab
 const engineOverview = dashboard.engine_timing_overview ?? {};
 const engineHeaders = Array.isArray(engineOverview.headers) ? engineOverview.headers : ["Engine", "Available", "Success / total", "Geomean", "CSV/Parquet geomean", "Local fastest count"];
 const engineRows = Array.isArray(engineOverview.rows) ? engineOverview.rows : [];
+const commonRunDriftTable = dashboard.common_run_timing_drift ?? {};
+const commonRunDriftHeaders = Array.isArray(commonRunDriftTable.headers) ? commonRunDriftTable.headers : [];
+const commonRunDriftRows = Array.isArray(commonRunDriftTable.rows) ? commonRunDriftTable.rows : [];
 const profileLaneTable = dashboard.profile_lane_availability ?? {};
 const profileLaneRows = Array.isArray(profileLaneTable.rows) ? profileLaneTable.rows : [];
 const formatCoverage = dashboard.format_coverage ?? {};
@@ -522,6 +525,37 @@ const routeCards = [
   </div>
 </section>
 
+{commonRunDriftRows.length > 0 && (
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">Timing drift</p>
+      <h2>Common-run drift is separated from hotpath signal.</h2>
+      <p class="narrow">
+        The latest promoted route geomeans are compared with the previous published benchmark summary. When control engines slow together, component increases are treated as run-condition drift before assigning blame to ShardLoom hotpath changes.
+      </p>
+    </div>
+    <div class="artifact-panel">
+      <div class="strip mini-strip embedded-strip">
+        <div class="metric"><strong>{commonRunDriftTable.status ?? "not reported"}</strong><span>drift status</span></div>
+        <div class="metric"><strong>{commonRunDriftTable.control_route_geomean_ratio ?? "n/a"}</strong><span>control ratio</span></div>
+        <div class="metric"><strong>{commonRunDriftTable.shardloom_route_geomean_ratio ?? "n/a"}</strong><span>ShardLoom ratio</span></div>
+      </div>
+      <p class="table-note">{commonRunDriftTable.interpretation ?? "No common-run timing drift interpretation was published."}</p>
+      <div class="table-wrap compact-table">
+        <table>
+          <thead><tr>{commonRunDriftHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+          <tbody>
+            {commonRunDriftRows.map((row: unknown[]) => (
+              <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Schema: {commonRunDriftTable.schema_version ?? "not reported"}. Boundary: {commonRunDriftTable.claim_boundary ?? "not reported"}.</p>
+    </div>
+  </section>
+)}
+
 <section class="section-grid">
   <div>
     <p class="eyebrow">Stage attribution</p>
@@ -586,7 +620,7 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">
-      Schema: {routeShareTable.schema_version ?? "not reported"}. Source scout status: <strong>{sourceReadScoutTable.status ?? "not reported"}</strong>. Vortex reopen/scan status: <strong>{vortexReopenScanTable.status ?? "not reported"}</strong>. Current public route timing values stay unchanged until the benchmark suite is rerun.
+      Schema: {routeShareTable.schema_version ?? "not reported"}. Source scout status: <strong>{sourceReadScoutTable.status ?? "not reported"}</strong>. Vortex reopen/scan status: <strong>{vortexReopenScanTable.status ?? "not reported"}</strong>. Current public route timing values come from the latest promoted artifact and should be interpreted with the common-run drift table.
     </p>
   </div>
 </section>
@@ -596,7 +630,7 @@ const routeCards = [
     <p class="eyebrow">Route-shape guard</p>
     <h2>Route lanes and source-array boundaries are explicit.</h2>
     <p class="narrow">
-      HOTPATH-1/HOTPATH-5 add route-shape stratification fields and a source-to-Vortex-array guard so cold, prepared, native, and external-baseline rows cannot be compared without their start state, end state, route lane, and inclusive-versus-exclusive import boundary. The current public artifact predates those fields, so route timing values stay unchanged until the benchmark suite is rerun.
+      HOTPATH-1/HOTPATH-5 add route-shape stratification fields and a source-to-Vortex-array guard so cold, prepared, native, and external-baseline rows cannot be compared without their start state, end state, route lane, and inclusive-versus-exclusive import boundary. Current route timing values come from the latest promoted artifact and common-run drift remains diagnostic-only context.
     </p>
   </div>
   <div class="artifact-panel">
@@ -648,7 +682,7 @@ const routeCards = [
         </tbody>
       </table>
     </div>
-    <p class="table-note">Route-shape rows in current artifact: {routeShapeRows.length}. Source-array guard rows in current artifact: {sourceToArrayGuardRows.length}. Rust and the benchmark harness now emit the new `route_shape_*` and `source_to_vortex_array_guard_*` fields; public timing values stay unchanged until the benchmark suite is rerun.</p>
+    <p class="table-note">Route-shape rows in current artifact: {routeShapeRows.length}. Source-array guard rows in current artifact: {sourceToArrayGuardRows.length}. Rust and the benchmark harness emit the `route_shape_*` and `source_to_vortex_array_guard_*` fields; timing interpretation stays tied to the promoted artifact and common-run drift context.</p>
   </div>
 </section>
 
@@ -681,7 +715,7 @@ const routeCards = [
     <p class="eyebrow">Evidence-render proof</p>
     <h2>Human benchmark evidence is regenerated from compact facts.</h2>
     <p class="narrow">
-      Evidence-render proof fields carry compact route facts, digest evidence, no-fallback markers, and a claim boundary so the promoter and website can expand human tables outside the hot Rust route. Current route timing values stay unchanged until the benchmark suite is rerun.
+      Evidence-render proof fields carry compact route facts, digest evidence, no-fallback markers, and a claim boundary so the promoter and website can expand human tables outside the hot Rust route. Current route timing values come from the latest promoted artifact.
     </p>
   </div>
   <div class="artifact-panel">
@@ -720,7 +754,7 @@ const routeCards = [
     <p class="eyebrow">Result-sink capillary</p>
     <h2>Native result output is separated from compatibility fanout.</h2>
     <p class="narrow">
-      Requested result sinks now carry scalar JSON byte/digest evidence, native Vortex output selection, compatibility fanout selection, replay digest parity, and explicit no-fallback fields. The current public artifact predates those fields, so route timing values stay unchanged until the benchmark suite is rerun.
+      Requested result sinks carry scalar JSON byte/digest evidence, native Vortex output selection, compatibility fanout selection, replay digest parity, and explicit no-fallback fields. Current timing values remain artifact-bound evidence, not performance or replacement claims.
     </p>
   </div>
   <div class="artifact-panel">
@@ -748,7 +782,7 @@ const routeCards = [
         </tbody>
       </table>
     </div>
-    <p class="table-note">Capillary rows in current artifact: {resultSinkCapillaryRows.length}. Rust emits the new `result_sink_capillary_*` fields; public route timing values stay unchanged until the benchmark suite is rerun.</p>
+    <p class="table-note">Capillary rows in current artifact: {resultSinkCapillaryRows.length}. Rust emits the `result_sink_capillary_*` fields; public route timing values remain tied to the promoted artifact and common-run drift context.</p>
   </div>
 </section>
 
@@ -835,7 +869,7 @@ const routeCards = [
         </tbody>
       </table>
     </div>
-    <p class="table-note">Lookup rows in current artifact: {preparedLookupRows.length}. New fields are emitted by the Rust benchmark route; public timing values stay unchanged until the benchmark suite is rerun.</p>
+    <p class="table-note">Lookup rows in current artifact: {preparedLookupRows.length}. Prepared-state lookup fields are emitted by the Rust benchmark route; public timing values remain tied to the promoted artifact and common-run drift context.</p>
   </div>
 </section>
 
