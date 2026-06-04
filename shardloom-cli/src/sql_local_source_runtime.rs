@@ -39539,6 +39539,82 @@ mod tests {
         fs::remove_file(&path).expect("remove decimal predicate source");
     }
 
+    #[test]
+    fn decimal_cast_admits_exact_exponent_notation_without_fallback() {
+        let path = sql_local_source_test_path("decimal-exponent.csv");
+        fs::write(
+            &path,
+            "id,amount,raw_amount\n1,1e3,1.23e1\n2,9.99e2,0.01e2\n3,1.2e1,2e-1\n",
+        )
+        .expect("write decimal exponent source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS numeric(10,2)) AS raw_decimal FROM '{}' WHERE CAST(amount AS decimal128(10,2)) >= 1e3 ORDER BY id LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run exact decimal exponent cast smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"amount_decimal\":\"1000.00\",\"raw_decimal\":\"12.30\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "cast");
+        assert_field_eq(&fields, "decimal_cast_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "decimal_cast_source_column",
+            "amount,amount,raw_amount",
+        );
+        assert_field_eq(
+            &fields,
+            "decimal_cast_target_dtype",
+            "decimal128(10,2),decimal128(10,2),decimal128(10,2)",
+        );
+        assert_field_eq(&fields, "decimal_cast_precision", "10,10,10");
+        assert_field_eq(&fields, "decimal_cast_scale", "2,2,2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove decimal exponent source");
+    }
+
+    #[test]
+    fn decimal_cast_blocks_inexact_exponent_scale_without_fallback() {
+        let path = sql_local_source_test_path("decimal-inexact-exponent.csv");
+        fs::write(&path, "id,amount\n1,1e-3\n").expect("write inexact decimal exponent source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("inexact decimal exponent scale blocks");
+
+        assert!(
+            error
+                .to_string()
+                .contains("decimal128(10,2) cast source has more than 2 fractional digits"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove inexact decimal exponent source");
+    }
+
     #[cfg(feature = "universal-format-io")]
     #[test]
     fn decimal_cast_writes_typed_structured_decimal_sinks() {

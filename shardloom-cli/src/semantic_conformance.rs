@@ -730,6 +730,7 @@ fn decimal_precision_scale_fixture() -> bool {
         decimal128_dtype(10, 2),
     );
     let valid_report = evaluate_expression(&valid, &ExpressionInputRow::new());
+    let exponent_report = evaluate_expression(&exponent, &ExpressionInputRow::new());
     valid_report.status == ExpressionEvaluationStatus::Evaluated
         && valid_report.value
             == Some(ScalarValue::Decimal128 {
@@ -738,9 +739,18 @@ fn decimal_precision_scale_fixture() -> bool {
                 scale: 2,
             })
         && valid_report.output_dtype == Some(decimal128_dtype(10, 2))
+        && exponent_report.status == ExpressionEvaluationStatus::Evaluated
+        && exponent_report.value
+            == Some(ScalarValue::Decimal128 {
+                value: 100_000,
+                precision: 10,
+                scale: 2,
+            })
+        && exponent_report.output_dtype == Some(decimal128_dtype(10, 2))
         && !valid_report.fallback_attempted
         && !valid_report.external_engine_invoked
-        && invalid_report_certified(&evaluate_expression(&exponent, &ExpressionInputRow::new()))
+        && !exponent_report.fallback_attempted
+        && !exponent_report.external_engine_invoked
         && invalid_report_certified(&evaluate_expression(&overflow, &ExpressionInputRow::new()))
 }
 

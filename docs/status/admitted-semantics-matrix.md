@@ -163,10 +163,11 @@ over complex keys, and flat/structured sink persistence remain outside the claim
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
-fixed-scale division are executable within the scoped decimal route. Non-exact decimal division,
-broad ANSI decimal coercion, exponent notation, decimal/float comparison, and typed decimal sink
-preservation outside feature-gated Parquet/Arrow IPC/Avro compatibility outputs remain outside the
-claim boundary.
+fixed-scale division are executable within the scoped decimal route. Exact exponent notation that
+normalizes to the declared `decimal128(p,s)` scale is admitted through the scoped decimal cast route.
+Non-exact decimal division, broad ANSI decimal coercion beyond that exact exponent normalization,
+decimal/float comparison, and typed decimal sink preservation outside feature-gated Parquet/Arrow
+IPC/Avro compatibility outputs remain outside the claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -201,11 +202,12 @@ Scoped
 fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`
 add/subtract/multiply projections are executable for same-scale and mixed-scale decimal operands
 plus integer operands through generic expression projection evidence, mixed-scale decimal
-comparisons are admitted, and exact fixed-scale decimal division emits
-`decimal128(38,max(input_scales,6))` when the quotient is exact. Non-exact decimal division, broad
-ANSI decimal coercion, exponent notation, decimal/float comparison, local Vortex typed decimal
-output, and ORC typed decimal sink preservation remain outside the claim boundary. Feature-gated
-Parquet/Arrow IPC/Avro compatibility sinks preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
+comparisons are admitted, exact fixed-scale decimal division emits
+`decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
+admitted when it normalizes to the declared target scale. Non-exact decimal division, broad ANSI
+decimal coercion beyond exact exponent normalization, decimal/float comparison, local Vortex typed
+decimal output, and ORC typed decimal sink preservation remain outside the claim boundary.
+Feature-gated Parquet/Arrow IPC/Avro compatibility sinks preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
