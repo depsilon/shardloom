@@ -18,7 +18,7 @@
     "external_engine_invoked=false",
     "claim_gate_status"
   ],
-  "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows, and local compatibility sink fanout through the local CLI.",
+  "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC/Avro/ORC workflows, and local compatibility sink fanout through the local CLI.",
   "blocked": "It is not yet a native in-process SparkSession-equivalent runtime for all SQL/DataFrame operations.",
   "references": [
     "python/README.md",

@@ -221,8 +221,8 @@
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "Feature-gated local flat scalar Avro file sources can run through sql-local-source-smoke and Python read_avro(...) with SourceState-style evidence when built with --features universal-format-io.",
-    "blocked": "Default binaries block Avro deterministically. Broad Avro schema evolution, logical-type completeness, Avro output, object-store/table/runtime claims, and production support remain blocked.",
+    "works": "Feature-gated local flat scalar Avro file sources and local Avro sinks/fanout can run through sql-local-source-smoke and Python read_avro(...) or write_avro(...) with SourceState, output certificate, and scoped binary sink preservation evidence when built with --features universal-format-io.",
+    "blocked": "Default binaries block Avro deterministically. Broad Avro schema evolution, logical-type completeness beyond admitted flat scalar rows, typed decimal sink preservation, Vortex-native output equivalence, object-store/table/runtime claims, and production support remain blocked.",
     "references": [
       "benchmarks/traditional_analytics/README.md",
       "docs/benchmarks/local-taxonomy-benchmark.md",
@@ -247,8 +247,8 @@
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "Feature-gated local flat scalar ORC file sources can run through sql-local-source-smoke and Python read_orc(...) with SourceState-style evidence when built with --features universal-format-io.",
-    "blocked": "Default binaries block ORC deterministically. Broad ORC stripe/statistics runtime, ORC output, object-store/table/runtime claims, and production support remain blocked.",
+    "works": "Feature-gated local flat scalar ORC file sources and local ORC sinks/fanout can run through sql-local-source-smoke and Python read_orc(...) or write_orc(...) with SourceState, output certificate, and scoped binary sink preservation evidence when built with --features universal-format-io.",
+    "blocked": "Default binaries block ORC deterministically. Broad ORC stripe/statistics runtime, logical-type completeness beyond admitted flat scalar rows, typed decimal sink preservation, Vortex-native output equivalence, object-store/table/runtime claims, and production support remain blocked.",
     "references": [
       "benchmarks/traditional_analytics/README.md",
       "docs/benchmarks/local-taxonomy-benchmark.md",
@@ -330,7 +330,7 @@
       "external_engine_invoked=false",
       "claim_gate_status"
     ],
-    "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows, and local compatibility sink fanout through the local CLI.",
+    "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC/Avro/ORC workflows, and local compatibility sink fanout through the local CLI.",
     "blocked": "It is not yet a native in-process SparkSession-equivalent runtime for all SQL/DataFrame operations.",
     "references": [
       "python/README.md",
@@ -356,8 +356,8 @@
       "runtime_execution",
       "claim_gate_status"
     ],
-    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, a scoped local-source join bridge, and local compatibility sink fanout.",
-    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, subqueries, generalized joins, broad Parquet/Arrow IPC semantics, and production semantics remain blocked.",
+    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC/Avro/ORC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, joins, local compatibility sink fanout, and scoped binary sink preservation.",
+    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, broad subqueries, generalized joins, Vortex SQL sources, broad structured-format semantics, and production semantics remain blocked.",
     "references": [
       "python/README.md",
       "docs/architecture/compute-engine-flow-reference.md"

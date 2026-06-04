@@ -16,9 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary Avro/ORC sink preservation follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-avro-orc-sinks` / PR #1087.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `website-src/src/data/status-rows.json`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+  - Scope:
+    - Added Avro and ORC flat scalar row encoders that accept the same optional logical dtype hints
+      already used by Parquet and Arrow IPC sinks.
+    - Routed SQL local-source Avro and ORC output/fanout rendering through dtype-aware encoders so
+      admitted binary result columns stay Arrow binary arrays before Avro/ORC writer conversion.
+    - Extended feature-gated writer and SQL smoke coverage from Parquet/Arrow IPC to
+      Parquet/Arrow IPC/Avro/ORC binary sink round trips, including all-null Arrow IPC binary source
+      columns with source-schema dtype evidence.
+    - Updated active README/status/phase/use-case/compute-flow/website source content and regenerated
+      website/use-case/static asset data to make scoped binary compatibility sinks current while
+      leaving Vortex binary sinks, broad binary execution, nested binary helpers, typed decimal
+      Avro/ORC sinks, production support, and performance claims blocked.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-binary-avro-orc-sinks.json` passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io preserves_binary_rows_in_feature_gated_structured_sinks -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_preserves_binary_structured_sinks -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks -- --nocapture` passed.
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed again from `website-src` after static build.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped binary sink
+      fidelity semantics and report/website evidence only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar binary byte
+      preservation for admitted SQL result batches, including all-null Arrow IPC binary source
+      columns with source-schema dtype evidence. It does not admit Vortex binary sink fidelity,
+      broad source-schema dtype preservation beyond scoped binary compatibility hints, broader
+      binary execution, nested binary helper expressions, typed decimal Avro/ORC sinks, broad
+      SQL/DataFrame parity, production support, benchmark speedup, public performance superiority,
+      or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom's local compatibility adapter and Arrow structured
+      writers as compatibility-output translation, not fallback execution. Rows keep
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary Parquet/Arrow IPC sink preservation slice
   - Date: 2026-06-04
-  - Branch/PR: `codex/6d-binary-sink-boundary` / pending PR.
+  - Branch/PR: `codex/6d-binary-sink-boundary` / PR #1086 merged.
   - Source:
     - `docs/architecture/phased-execution-plan.md`.
     - `docs/status/admitted-semantics-matrix.md`.

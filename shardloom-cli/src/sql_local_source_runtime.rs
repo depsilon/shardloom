@@ -1302,8 +1302,8 @@ impl SqlLocalSourceOutputFormat {
             Self::Csv => Ok(render_csv_output_rows(columns, rows).into_bytes()),
             Self::Parquet => encode_parquet_output_rows(columns, column_dtypes, rows),
             Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, column_dtypes, rows),
-            Self::Avro => encode_avro_output_rows(columns, rows),
-            Self::Orc => encode_orc_output_rows(columns, rows),
+            Self::Avro => encode_avro_output_rows(columns, column_dtypes, rows),
+            Self::Orc => encode_orc_output_rows(columns, column_dtypes, rows),
             Self::Vortex => Err(unsupported_sql_error(
                 "local Vortex SQL output uses the Vortex writer path, not byte rendering",
             )),
@@ -36009,14 +36009,16 @@ fn encode_arrow_ipc_output_rows(
 #[cfg(feature = "universal-format-io")]
 fn encode_avro_output_rows(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_avro_rows(columns, rows)
+    shardloom_vortex::encode_flat_avro_rows_with_dtypes(columns, column_dtypes, rows)
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_avro_output_rows(
     _columns: &[String],
+    _column_dtypes: &[Option<LogicalDType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -36027,14 +36029,16 @@ fn encode_avro_output_rows(
 #[cfg(feature = "universal-format-io")]
 fn encode_orc_output_rows(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_orc_rows(columns, rows)
+    shardloom_vortex::encode_flat_orc_rows_with_dtypes(columns, column_dtypes, rows)
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_orc_output_rows(
     _columns: &[String],
+    _column_dtypes: &[Option<LogicalDType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
