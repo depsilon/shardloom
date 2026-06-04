@@ -34310,6 +34310,7 @@ fn parse_in_subquery_selected_columns(
             "IN subquery selected columns must be a plain SELECT column list, not a row-constructor expression",
         ));
     }
+    reject_complex_subquery_membership_projection(select_raw)?;
     let columns = split_sql_csv(select_raw)?;
     if columns.is_empty() || columns.iter().any(|column| column.trim().is_empty()) {
         return Err(unsupported_sql_error(
@@ -34333,6 +34334,17 @@ fn parse_in_subquery_selected_columns(
         parsed.push(normalized);
     }
     Ok(parsed)
+}
+
+fn reject_complex_subquery_membership_projection(select_raw: &str) -> Result<(), ShardLoomError> {
+    if let Ok(projection_list) = parse_projection_list(select_raw) {
+        if !projection_list.complex_projections.is_empty() {
+            return Err(unsupported_sql_error(
+                "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn parse_local_subquery_source_ref(
@@ -43036,7 +43048,19 @@ mod tests {
                 "list and array accessors, function constructors, casts, and equality semantics are not admitted",
             ),
             (
+                "SELECT id,LIST_EXTRACT(payload, 1) AS item FROM 'target/input.csv' LIMIT 5",
+                "list and array accessors, function constructors, casts, and equality semantics are not admitted",
+            ),
+            (
+                "SELECT CAST(payload AS list) AS payload FROM 'target/input.csv' LIMIT 5",
+                "list and array accessors, function constructors, casts, and equality semantics are not admitted",
+            ),
+            (
                 "SELECT id,ROW(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
+                "row constructors plus struct casts, equality, and access semantics are not admitted",
+            ),
+            (
+                "SELECT TRY_CAST(payload AS struct) AS payload FROM 'target/input.csv' LIMIT 5",
                 "row constructors plus struct casts, equality, and access semantics are not admitted",
             ),
             (
@@ -43057,6 +43081,22 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
+    }
+
+    #[test]
+    fn parser_blocks_complex_subquery_membership_materialization_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT ARRAY[1] AS value_list FROM 'target/input.csv') LIMIT 5",
+        )
+        .expect_err("complex projected subquery membership remains blocked");
+
+        assert!(
+            error.to_string().contains(
+                "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization"
+            ),
+            "unexpected error: {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

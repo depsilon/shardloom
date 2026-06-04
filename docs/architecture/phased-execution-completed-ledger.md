@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D complex dtype unsupported diagnostics slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-complex-dtype-diagnostics` / pending PR.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Split broad complex dtype blockers into first-class unsupported diagnostic rows for
+      list/array access-or-cast, struct access-or-cast, and complex ARRAY/STRUCT subquery
+      membership materialization.
+    - Tightened projected IN-subquery parsing so `ARRAY[...] AS <column>` and
+      `STRUCT(...) AS <column>` selected outputs fail with the intended complex membership
+      diagnostic instead of falling through to a generic identifier error.
+    - Added parser regression coverage for list/array accessor/cast spellings, struct cast
+      spellings, and complex projected subquery membership materialization.
+    - Raised the current admitted-semantics matrix to 82 rows, 68 executable fixtures, 14
+      diagnostic cases, and 12 unsupported diagnostics; runtime-error and invalid-shape diagnostic
+      counts remain 1 each.
+    - Refreshed release-readiness expected diagnostic counts, current phase-plan blocker wording,
+      admitted-semantics status docs, compute-flow references, and generated website compute-flow
+      pages.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `cargo test -p shardloom-cli parser_blocks_ -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-complex-dtype-diagnostics.json` passed with `matrix_row_count=82`, `executable_fixture_count=68`, `diagnostic_case_count=14`, `unsupported_diagnostic_count=12`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-complex-dtype-diagnostics.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-complex-dtype-diagnostics.json` passed.
+    - `python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-complex-dtype-diagnostics.json --output target/hard-release-readiness-complex-dtype-diagnostics.json` wrote `status=blocked` with 63 standing release/package/evidence blockers, no admitted-semantics count blockers, no fallback, and no external engine invocation.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is scoped unsupported
+      diagnostics, release-matrix, and website/status documentation work and does not make a
+      performance claim.
+  - Claim boundary:
+    - This slice adds deterministic unsupported diagnostics only. It does not admit list/array
+      accessors, struct accessors, complex casts, complex subquery membership execution, joins over
+      complex keys, nested source decoding, flat/structured sink persistence, production SQL,
+      benchmark speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - Unsupported paths fail inside ShardLoom parsing/binding with `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines remain unavailable as fallback execution
+      providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped complex ORDER BY result-boundary slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-complex-ordering` / pending PR.
