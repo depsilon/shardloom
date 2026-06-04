@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D binary source predicate/order deterministic diagnostic slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-binary-source-diagnostics` / PR #1080.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/diagnostics-capabilities.md`.
+  - Scope:
+    - Added deterministic SQL local-source diagnostics for direct source-column binary literal
+      predicates such as `label = X'<hex>'`, `label = BLOB '<utf8>'`, and source-column binary
+      ordering such as `label > BINARY '<utf8>'` when the column is not explicitly cast.
+    - Preserved admitted explicit binary cast predicate and bytewise ordering routes such as
+      `CAST(label AS binary) = BINARY '<utf8>'` and
+      `CAST(label AS binary) > BINARY '<utf8>'`.
+    - Added admitted-semantics matrix rows
+      `unsupported_binary_literal_predicate_without_cast` and
+      `unsupported_binary_source_ordering_without_cast`, and wired matching executable diagnostic
+      cases into the matrix validator.
+    - Refreshed release-readiness expected admitted-semantics counts to 75 matrix rows, 64
+      executable fixtures, 11 diagnostic cases, and 9 unsupported diagnostics.
+    - Updated admitted-semantics status docs, hard-release-readiness docs, compute-flow references,
+      the phased plan next-slice wording, and generated website compute-flow pages.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `cargo test -p shardloom-cli binary -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-binary-source-diagnostics.json` passed with `matrix_row_count=75`, `executable_fixture_count=64`, `diagnostic_case_count=11`, `unsupported_diagnostic_count=9`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-binary-source-diagnostics.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-binary-source-diagnostics.json` passed.
+    - `python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-binary-source-diagnostics.json --output target/hard-release-readiness-binary-source-diagnostics.json` wrote `status=blocked` with 48 standing release/package/evidence blockers and no admitted-semantics count blockers.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed after applying `cargo fmt --all`.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is deterministic diagnostic,
+      release-matrix, and website/status documentation work and does not make a performance claim.
+  - Claim boundary:
+    - This slice does not admit broad binary source dtype decoding, direct source-column binary
+      predicate execution, source-column binary ordering execution without explicit cast, nested
+      binary helper expressions, production SQL, benchmark speedup, public performance superiority,
+      or release readiness.
+  - Fallback boundary:
+    - Direct source-column binary literal predicates and source-column binary ordering without
+      explicit cast now fail before runtime execution with `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines remain unavailable as fallback execution
+      providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D timezone/locale deterministic blocker refinement slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-timezone-locale-blockers` / PR #1078.
