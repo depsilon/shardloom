@@ -19885,6 +19885,25 @@ fn split_selected_csv_record<'a>(
     if selected_indices.is_empty() {
         return Ok(selected_fields);
     }
+    if !line.as_bytes().contains(&b'"') {
+        let mut selected_cursor = 0_usize;
+        for (field_index, field) in line.split(',').enumerate() {
+            while selected_indices
+                .get(selected_cursor)
+                .is_some_and(|selected| *selected < field_index)
+            {
+                selected_cursor += 1;
+            }
+            if selected_indices.get(selected_cursor) == Some(&field_index) {
+                selected_fields[selected_cursor] = Some(std::borrow::Cow::Borrowed(field));
+                selected_cursor += 1;
+                if selected_cursor >= selected_indices.len() {
+                    break;
+                }
+            }
+        }
+        return Ok(selected_fields);
+    }
 
     let bytes = line.as_bytes();
     let mut in_quotes = false;
@@ -25108,6 +25127,26 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     fn selected_csv_record_borrows_unquoted_fields_and_unescapes_dimension_labels() {
+        let unquoted = split_selected_csv_record(
+            "1,2,3,4,5.5,1,c1,unused,unused",
+            std::path::Path::new("fact.csv"),
+            2,
+            &[0, 2, 6],
+        )
+        .expect("unquoted selected CSV record");
+        assert!(matches!(
+            unquoted.first().and_then(Option::as_ref),
+            Some(std::borrow::Cow::Borrowed("1"))
+        ));
+        assert!(matches!(
+            unquoted.get(1).and_then(Option::as_ref),
+            Some(std::borrow::Cow::Borrowed("3"))
+        ));
+        assert!(matches!(
+            unquoted.get(2).and_then(Option::as_ref),
+            Some(std::borrow::Cow::Borrowed("c1"))
+        ));
+
         let selected = split_selected_csv_record(
             r#"1,alpha,"north,west","unused,field""#,
             std::path::Path::new("dim.csv"),

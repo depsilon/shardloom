@@ -189,23 +189,21 @@ Current autonomous execution order:
    note attached to that run. The sink-artifact sentinel fix,
    scenario-aware optional text-column selection, shared prepared/native artifact optional-column
    preservation, post-hotpath benchmark/site refresh, streaming workspace-safe Vortex writer helper,
-   and safe-writer benchmark/site refresh are complete. The refreshed safe-writer artifact reports
-   published ShardLoom route geomeans of 137.71 ms for the cold certified route, 58.00 ms for
-   prepare-once first query, 8.37 ms for prepare-once batch, 5.57 ms for warm prepared query, and
-   5.58 ms for native Vortex query. The current live benchmark-driven slice is stage-ledger
-   de-overlap: keep route totals as the comparison surface, publish exclusive stage fields for
-   ShardLoom-owned timing, retain the inclusive compatibility-import bundle as an audit view, and
-   expose residuals rather than letting overlapping stage cells steer optimization. The existing
-   safe-writer artifact redecorated with the exclusive schema, without a benchmark rerun, reports
-   cold certified-route exclusive stage-sum geomean 133.88 ms, residual geomean 2.48 ms,
-   `vortex_write_ms` geomean 76.79 ms, `source_parse_or_columnar_decode_ms` geomean 29.48 ms,
-   de-overlapped `source_read_ms` geomean 7.80 ms, `vortex_scan_ms` geomean 2.32 ms,
-   `result_sink_write_ms` geomean 1.90 ms, and `evidence_render_ms` geomean 0.08 ms. The
-   inclusive compatibility-import audit bundle remains 127.94 ms and must not be treated as an
-   exclusive stage. After this ledger slice is validated, optimize in this order of current evidence
-   priority: remaining Vortex writer/safe artifact emission, cold source parse/read pipeline,
+   safe-writer benchmark/site refresh, exclusive stage-ledger de-overlap, and post-ledger writer
+   validation safety fix are complete. The refreshed safe-writer artifact reports published
+   ShardLoom route geomeans of 137.71 ms for the cold certified route, 58.00 ms for prepare-once
+   first query, 8.37 ms for prepare-once batch, 5.57 ms for warm prepared query, and 5.58 ms for
+   native Vortex query. The existing safe-writer artifact redecorated with the exclusive schema,
+   without a benchmark rerun, reports cold certified-route exclusive stage-sum geomean 133.88 ms,
+   residual geomean 2.48 ms, `vortex_write_ms` geomean 76.79 ms,
+   `source_parse_or_columnar_decode_ms` geomean 29.48 ms, de-overlapped `source_read_ms` geomean
+   7.80 ms, `vortex_scan_ms` geomean 2.32 ms, `result_sink_write_ms` geomean 1.90 ms, and
+   `evidence_render_ms` geomean 0.08 ms. The inclusive compatibility-import audit bundle remains
+   127.94 ms and must not be treated as an exclusive stage. The active remaining benchmark-driven
+   sequence is now: Vortex writer/safe artifact emission, cold source parse/read pipeline,
    prepared-state admission/lookup, result sink/evidence render, then scan/operator attribution and
-   pushdown.
+   pushdown. Do not rerun the expensive benchmark suite until the current code/docs/site batch is
+   complete or the user explicitly approves a rerun.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -216,7 +214,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Finish and validate exclusive stage-ledger de-overlap, then follow the refreshed benchmark-driven sequence: remaining writer/safe-artifact work, source parse/read, prepared admission/lookup, sink/evidence hot path, and scan/operator attribution. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Exclusive stage-ledger de-overlap is complete; next finish the remaining refreshed benchmark-driven sequence: writer/safe-artifact work, source parse/read, prepared admission/lookup, sink/evidence hot path, and scan/operator attribution. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -369,37 +367,39 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   normalization, shared prepared/native artifact preservation, sink-artifact sentinel preservation,
   and the streaming workspace-safe Vortex writer helper are complete and should stay in the ledger
   rather than the live queue. The writer-helper benchmark/site refresh is also complete.
-  Current branch attribution state: the existing safe-writer artifact has been redecorated with
-  exclusive stage fields and website rows without a benchmark rerun. Across the 120 ShardLoom cold
-  certified-route rows, `exclusive_stage_timing_status=complete`, the exclusive stage-sum geomean is
-  133.88 ms, the residual geomean is 2.48 ms, the inclusive compatibility-import audit bundle is
-  127.94 ms, `vortex_write_ms` geomean is 76.79 ms, `source_parse_or_columnar_decode_ms` geomean is
-  29.48 ms, de-overlapped `source_read_ms` geomean is 7.80 ms, `vortex_scan_ms` geomean is
-  2.32 ms, `result_sink_write_ms` geomean is 1.90 ms, and `evidence_render_ms` geomean is 0.08 ms.
-  The primary cold bottleneck is `vortex_write` in 83/120 rows and
-  `source_parse_or_decode` in 37/120 rows; the secondary bottleneck is source parse/decode in
-  61/120 rows, Vortex write in 37/120 rows, and source read in 22/120 rows. The old
+  Current attribution state: exclusive stage-ledger de-overlap is complete and recorded in
+  `docs/architecture/phased-execution-completed-ledger.md`. The existing safe-writer artifact has
+  been redecorated with exclusive stage fields and website rows without a benchmark rerun. Across
+  the 120 ShardLoom cold certified-route rows, `exclusive_stage_timing_status=complete`, the
+  exclusive stage-sum geomean is 133.88 ms, the residual geomean is 2.48 ms, the inclusive
+  compatibility-import audit bundle is 127.94 ms, `vortex_write_ms` geomean is 76.79 ms,
+  `source_parse_or_columnar_decode_ms` geomean is 29.48 ms, de-overlapped `source_read_ms` geomean
+  is 7.80 ms, `vortex_scan_ms` geomean is 2.32 ms, `result_sink_write_ms` geomean is 1.90 ms, and
+  `evidence_render_ms` geomean is 0.08 ms. The primary cold bottleneck is `vortex_write` in
+  83/120 rows and `source_parse_or_decode` in 37/120 rows; the secondary bottleneck is
+  source parse/decode in 61/120 rows, Vortex write in 37/120 rows, and source read in 22/120 rows.
+  The old
   `source_read_millis` inclusive/geomean cell must not be used as an exclusive read target.
+  Note reconciliation: the earlier component note's 144.27 ms cold route, 81.73 ms Vortex write,
+  and 44.69 ms source-read figures are historical inclusive/post-hotpath readings. Use the newer
+  safe-writer and exclusive attribution figures above for current ordering.
   Runtime enablement: this item keeps the same user-visible route family:
   raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
   `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
   report/result sink/evidence, with `fallback_attempted=false` and
   `external_engine_invoked=false`.
-  Next slice outcome: validate and land exclusive stage accounting for the cold route and stage
-  grid, then reduce the next dominant ShardLoom-owned stage without changing route semantics,
-  workspace safety, no-fallback evidence, route-total accounting, prepared artifact replay, or
-  compatibility-output behavior. Remaining writer/safe-artifact emission stays first because the
-  de-overlapped artifact still shows it as dominant overall; source parse/read pressure is the next
-  target after writer cost is no longer dominant.
+  Next slice outcome: reduce the next dominant ShardLoom-owned stage, starting with Vortex
+  writer/safe-artifact emission, without changing route semantics, workspace safety, no-fallback
+  evidence, route-total accounting, prepared artifact replay, or compatibility-output behavior.
+  Source parse/read pressure is the next target after writer cost is no longer dominant.
   Benchmark-driven execution sequence:
-  1. Stage ledger de-overlap: validate and land exclusive stage accounting before deeper
-     optimization. Preserve current human labels, but publish machine fields for exclusive stage
-     sums, inclusive compatibility views, residuals, and baseline-only external rows so the stage
-     grid is attribution rather than a second benchmark definition.
-  2. Vortex writer and safe artifact emission: reduce `vortex_write_ms` first while it remains
-     dominant by coalescing write, digest, and metadata capture; avoiding readback where certificate
-     policy permits; reusing layout/write advisor choices; and reducing per-artifact open/close
-     overhead without bypassing workspace-safe staging.
+  1. Stage ledger de-overlap: complete. Keep route totals as the primary comparison surface and
+     keep exclusive stage sums, inclusive compatibility views, residuals, and baseline-only
+     external rows as attribution fields rather than a second benchmark definition.
+  2. Vortex writer and safe artifact emission: active next. Reduce `vortex_write_ms` first while it
+     remains dominant by coalescing write, digest, and metadata capture; avoiding readback where
+     certificate policy permits; reusing layout/write advisor choices; and reducing per-artifact
+     open/close overhead without bypassing workspace-safe staging.
   3. Cold source parse and read: reduce `source_parse_or_columnar_decode_ms` and de-overlapped
      `source_read_ms` by splitting `bytes_read`, `lex_parse`, `type_decode`, and `row_assembly`
      evidence, then adding streaming/projected CSV/JSONL paths where scenario-local certification
@@ -415,13 +415,15 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
      they are already sub-ms; split cold `footer_open`, `metadata_verify`, `scan_open`,
      `scenario_scan`, and operator fields before adding provider-admitted Vortex scan
      projection/filter/limit tests.
-  7. Benchmark publication refresh: after each completed slice, run the full benchmark promotion
-     path, website/static validators, and claim gates before updating public benchmark language.
+  7. Benchmark publication refresh: after each completed code/docs/site slice, run artifact
+     validators, website/static validators, and claim gates before updating public benchmark
+     language. Run the full benchmark suite only at the end of the current optimization batch or
+     when explicitly approved for the slice.
   Component optimization map:
 
   | Component | Current attribution posture | Remaining implementation target |
   | --- | --- | --- |
-  | Route rows/stage ledger | Exclusive ShardLoom stage fields are the active slice; inclusive compatibility import remains audit-only. | Finish validator, release-script, and website schema alignment, then use exclusive fields for bottleneck ranking. |
+  | Route rows/stage ledger | Exclusive ShardLoom stage fields are complete; inclusive compatibility import remains audit-only. | Keep validator, release-script, website schema, and generated artifact contracts aligned as later timing fields move. |
   | Source admission | Warm/native admission evidence can still look like query cost when source-state work repeats. | Add/reuse admission packets for source stat, schema, row estimate, mtime/size, and fingerprint across prepared/native lanes. |
   | Cold source parse/read | Current exclusive cold geomeans show parse/decode ahead of read: 29.48 ms parse/decode, 7.80 ms de-overlapped read. | Split bytes read, lexical parse, type decode, and row assembly, then add streaming/projected readers where certificate scope permits. |
   | Source to Vortex array/import | Inclusive compatibility import is 127.94 ms and intentionally overlaps parse/write work. | Keep it as an inclusive compatibility audit bundle; do not use it as an exclusive optimization target. |

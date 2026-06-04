@@ -1177,17 +1177,20 @@ impl WorkspaceSafeLocalWritePlan {
     }
 }
 
+const WORKSPACE_SAFE_LOCAL_STAGING_BUFFER_BYTES: usize = 256 * 1024;
+
 /// Same-directory staging writer for workspace-safe local outputs.
 ///
 /// Callers use this through [`write_workspace_safe_bytes_with_producer`] when an
 /// output provider can stream bytes directly into the staged artifact. The
 /// writer updates the final output digest and byte count as bytes are accepted,
-/// while the surrounding helper preserves `ShardLoom`'s workspace path checks,
-/// symlink-race checks, same-directory staging, atomic commit, rollback, and
-/// no-fallback evidence.
+/// buffers staged filesystem writes to reduce provider write syscall pressure,
+/// and then the surrounding helper flushes before commit while preserving
+/// `ShardLoom`'s workspace path checks, symlink-race checks, same-directory
+/// staging, atomic commit, rollback, and no-fallback evidence.
 #[derive(Debug)]
 pub struct WorkspaceSafeLocalStagingWriter {
-    file: fs::File,
+    file: std::io::BufWriter<fs::File>,
     bytes_written: u64,
     digest: Fnv64Digest,
 }
@@ -1624,7 +1627,10 @@ fn create_workspace_safe_staging_writer(
     Ok((
         staging_path,
         WorkspaceSafeLocalStagingWriter {
-            file: staging_file,
+            file: std::io::BufWriter::with_capacity(
+                WORKSPACE_SAFE_LOCAL_STAGING_BUFFER_BYTES,
+                staging_file,
+            ),
             bytes_written: 0,
             digest: Fnv64Digest::new(),
         },
