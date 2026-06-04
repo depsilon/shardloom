@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D non-null local Vortex typed decimal sink admission
+      follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-vortex-decimal-sink` / PR #1091.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/global-architecture-review.md`.
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-native-output.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/benchmarking.md`.
+  - Scope:
+    - Admitted non-null local Vortex typed decimal output for scoped local SQL/Python decimal result
+      batches through the feature-gated Vortex writer/reopen path.
+    - Added scalar-row `decimal128(p,s)` family admission in `shardloom-vortex`, backed by upstream
+      Vortex `DecimalBuilder` / `DecimalDType` as the native provider surface rather than a query
+      engine integration.
+    - Kept scalar family detection allocation-light with a typed internal enum and preserved the
+      public `column:family` report strings for evidence compatibility.
+    - Preserved deterministic blockers for mixed decimal precision/scale, nullable/all-null Vortex
+      decimal output before writer conversion, ORC typed decimal sinks, broad ANSI decimal coercion,
+      and decimal/float comparison.
+    - Updated the SQL output boundary token, focused runtime tests, admitted semantics validator,
+      active phase docs, compute-flow/global-review/fanout docs, use-case sources, generated use-case
+      docs, and website/static assets so public status and benchmark pages reflect the current
+      latest boundary.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io decimal -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write decimal_cast -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write decimal_generic_expression_preserves_all_null_typed_hint -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-vortex-decimal-sink.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed after postbuild completed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --features vortex-write,universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features vortex-write --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped non-null
+      Vortex typed decimal sink preservation and docs/site freshness only; it does not make a
+      speedup, superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits non-null local Vortex typed decimal output for scoped flat scalar result
+      batches only. It does not admit nullable/all-null Vortex decimal rows before writer conversion,
+      ORC typed decimal sinks, broad ANSI decimal coercion, decimal/float comparison, broad
+      SQL/DataFrame parity, production support, benchmark speedup, public performance superiority,
+      or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom local SQL/Python output planning plus feature-gated
+      upstream Vortex-native array/write/reopen APIs. No Spark, DataFusion, DuckDB, Polars, Velox,
+      or Vortex query-engine integration is used or reported as ShardLoom execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped exact decimal exponent admission follow-through
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-decimal-exponent-admission` / PR #1090.

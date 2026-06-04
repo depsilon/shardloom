@@ -1287,7 +1287,10 @@ impl SqlLocalSourceOutputFormat {
     }
 
     const fn preserves_typed_decimal128(self) -> bool {
-        matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
+        matches!(
+            self,
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Vortex
+        )
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
@@ -25883,7 +25886,7 @@ impl SqlLocalSourceReport {
             (
                 "decimal_cast_output_boundary".to_string(),
                 if self.parsed.has_decimal_cast() {
-                    "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked"
+                    "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked"
                         .to_string()
                 } else {
                     "not_applicable".to_string()
@@ -36135,7 +36138,7 @@ fn validate_flat_scalar_result_batch(
         && !format.preserves_typed_decimal128()
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice",
+            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and non-null local Vortex typed decimal output in this scoped runtime slice",
             format.sink_format()
         )));
     }
@@ -36152,7 +36155,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, and feature-gated Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice",
+            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and non-null local Vortex typed decimal output in this scoped runtime slice",
             format.sink_format()
         ))),
         Some("vortex_non_null_scalar_values_required") => Err(unsupported_sql_error(
@@ -39501,7 +39504,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "decimal_cast_output_boundary",
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -39667,7 +39670,7 @@ mod tests {
         assert_field_eq(
             &parquet_fields,
             "decimal_cast_output_boundary",
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_typed_decimal_orc_vortex_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked",
         );
         assert_field_eq(&parquet_fields, "output_format", "parquet");
         assert_field_eq(
@@ -40000,9 +40003,11 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "vortex-write")]
     #[test]
-    fn decimal_cast_blocks_vortex_sink_until_decimal_preservation_is_admitted() {
+    fn decimal_cast_writes_non_null_vortex_typed_decimal_sink() {
         let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
         fs::write(&path, "id,amount\n1,12.34\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
@@ -40011,27 +40016,39 @@ mod tests {
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::Vortex,
-            output_path: None,
+            output_path: Some(output_path.clone()),
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("vortex typed decimal sink remains blocked");
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write vortex typed decimal");
+        let fields = field_map(report.fields());
 
-        assert!(
-            error
-                .to_string()
-                .contains("local vortex output does not yet admit typed decimal128 preservation"),
-            "{error}"
+        assert_field_eq(
+            &fields,
+            "decimal_cast_output_boundary",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked",
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,amount_decimal:decimal128(10,2)",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
     }
 
     #[test]
     fn decimal_cast_all_null_typed_hint_blocks_vortex_sink() {
         let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
         fs::write(&path, "id,amount\n1,not-decimal\n2,still-bad\n").expect("write csv source");
         let hinted_batch = SqlResultBatchState::from_rows_with_dtypes(
             &["amount_decimal".to_string()],
@@ -40042,7 +40059,7 @@ mod tests {
 
         assert_eq!(
             sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &hinted_batch),
-            Some("typed_decimal128_preservation_not_admitted")
+            Some("vortex_non_null_scalar_values_required")
         );
 
         let request = SqlLocalSourceRequest {
@@ -40051,7 +40068,7 @@ mod tests {
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::Vortex,
-            output_path: None,
+            output_path: Some(output_path.clone()),
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
@@ -40061,10 +40078,11 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("local vortex output does not yet admit typed decimal128 preservation"),
+                .contains("local vortex output currently admits non-null flat scalar rows only"),
             "{error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert!(!output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
     }
@@ -40107,6 +40125,7 @@ mod tests {
         );
 
         let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
         fs::write(&path, "id,amount,raw_amount\n1,,\n2,,\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
@@ -40115,7 +40134,7 @@ mod tests {
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::Vortex,
-            output_path: None,
+            output_path: Some(output_path.clone()),
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
@@ -40125,10 +40144,11 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("local vortex output does not yet admit typed decimal128 preservation"),
+                .contains("local vortex output currently admits non-null flat scalar rows only"),
             "{error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert!(!output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
     }
