@@ -2,6 +2,7 @@
 import { benchmark, manifest, routeMetrics, runsTodayMatrix } from "../lib/data";
 
 const metrics = routeMetrics();
+const EVIDENCE_RENDER_PROOF_SCHEMA_VERSION = "shardloom.traditional_analytics.evidence_render_proof.v1";
 const dashboard = (benchmark as any).comparative_dashboard ?? {};
 const claimDistribution = dashboard.claim_gate_distribution ?? {};
 const claimRows = Array.isArray(claimDistribution.rows) ? claimDistribution.rows : [];
@@ -17,6 +18,9 @@ const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? s
 const fastPathTable = dashboard.fast_path_attribution ?? {};
 const fastPathRows = Array.isArray(fastPathTable.rows) ? fastPathTable.rows : [];
 const fastPathHeaders = Array.isArray(fastPathTable.headers) ? fastPathTable.headers : [];
+const evidenceRenderProofTable = dashboard.evidence_render_proof ?? {};
+const evidenceRenderProofRowsFromTable = Array.isArray(evidenceRenderProofTable.rows) ? evidenceRenderProofTable.rows : [];
+const evidenceRenderProofHeaders = Array.isArray(evidenceRenderProofTable.headers) ? evidenceRenderProofTable.headers : [];
 const operatorModeTable = dashboard.operator_mode_inventory ?? {};
 const operatorModeRows = Array.isArray(operatorModeTable.rows) ? operatorModeTable.rows : [];
 const operatorModeHeaders = Array.isArray(operatorModeTable.headers) ? operatorModeTable.headers : [];
@@ -63,6 +67,10 @@ const preparedLookupRows = batchRows.filter((row: any) =>
 const resultSinkCapillaryRows = publishedRows.filter((row: any) =>
   row.result_sink_capillary_schema_version
   || row.result_sink_capillary_status
+);
+const evidenceRenderProofRows = publishedRows.filter((row: any) =>
+  row.evidence_render_proof_schema_version
+  || row.evidence_render_proof_status
 );
 const manifestAny = manifest as any;
 const supportCounts = (runsTodayMatrix as any).support_state_counts ?? {};
@@ -544,6 +552,45 @@ const routeCards = [
 
 <section class="section-grid">
   <div>
+    <p class="eyebrow">Evidence-render proof</p>
+    <h2>Human benchmark evidence is regenerated from compact facts.</h2>
+    <p class="narrow">
+      Evidence-render proof fields carry compact route facts, digest evidence, no-fallback markers, and a claim boundary so the promoter and website can expand human tables outside the hot Rust route. Current route timing values stay unchanged until the benchmark suite is rerun.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <p class="table-note">Artifact table: <strong>{evidenceRenderProofTable.heading ?? "Evidence-Render Proof Regeneration"}</strong>.</p>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr>
+            {(evidenceRenderProofHeaders.length ? evidenceRenderProofHeaders : ["Route", "Scenario", "Status", "Boundary", "Digest", "No fallback"]).map((header: string) => <th>{header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {evidenceRenderProofRowsFromTable.length > 0 ? evidenceRenderProofRowsFromTable.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          )) : evidenceRenderProofRows.length > 0 ? evidenceRenderProofRows.slice(0, 12).map((row: any) => (
+            <tr>
+              <td>{textValue(row.route_display_name, textValue(row.engine))}</td>
+              <td>{textValue(row.scenario_name)}</td>
+              <td>{textValue(row.evidence_render_proof_status)}</td>
+              <td>{textValue(row.evidence_render_route_timing_boundary)}</td>
+              <td>{textValue(row.evidence_render_proof_digest)}</td>
+              <td>{String(row.evidence_render_fallback_attempted === false || row.evidence_render_fallback_attempted === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="6">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {evidenceRenderProofTable.schema_version ?? firstValue(evidenceRenderProofRows, "evidence_render_proof_schema_version", EVIDENCE_RENDER_PROOF_SCHEMA_VERSION)}. Proof rows in current artifact: {evidenceRenderProofRows.length}. Boundary: {evidenceRenderProofTable.claim_boundary ?? firstValue(evidenceRenderProofRows, "evidence_render_claim_boundary")}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
     <p class="eyebrow">Result-sink capillary</p>
     <h2>Native result output is separated from compatibility fanout.</h2>
     <p class="narrow">
@@ -678,6 +725,7 @@ const routeCards = [
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
     <div class="metric"><strong>{preparedLookupRows.length}</strong><span>prepared lookup rows</span></div>
     <div class="metric"><strong>{resultSinkCapillaryRows.length}</strong><span>sink capillary rows</span></div>
+    <div class="metric"><strong>{evidenceRenderProofRows.length}</strong><span>evidence proof rows</span></div>
     <div class="metric"><strong>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</strong><span>constitution gate</span></div>
   </div>
 </section>

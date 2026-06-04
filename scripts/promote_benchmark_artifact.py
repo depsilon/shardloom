@@ -40,6 +40,22 @@ EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.exclusive_stage_timing.v1"
 )
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
+EVIDENCE_RENDER_PROOF_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.evidence_render_proof.v1"
+)
+EVIDENCE_RENDER_PROOF_FIELD_KEYS = (
+    "evidence_render_proof_schema_version",
+    "evidence_render_proof_status",
+    "evidence_render_proof_digest",
+    "evidence_render_compact_fact_keys",
+    "evidence_render_regeneration_surface",
+    "evidence_render_human_expansion_timing_scope",
+    "evidence_render_hot_path_policy",
+    "evidence_render_route_timing_boundary",
+    "evidence_render_claim_boundary",
+    "evidence_render_fallback_attempted",
+    "evidence_render_external_engine_invoked",
+)
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
 OPERATOR_EXECUTION_MODES = {
     "encoded_native",
@@ -154,6 +170,18 @@ WEBSITE_ROW_KEYS = (
     "runtime_execution_ms",
     "output_delivery_ms",
     "evidence_capture_ms",
+    "evidence_render_ms",
+    "evidence_render_proof_schema_version",
+    "evidence_render_proof_status",
+    "evidence_render_proof_digest",
+    "evidence_render_compact_fact_keys",
+    "evidence_render_regeneration_surface",
+    "evidence_render_human_expansion_timing_scope",
+    "evidence_render_hot_path_policy",
+    "evidence_render_route_timing_boundary",
+    "evidence_render_claim_boundary",
+    "evidence_render_fallback_attempted",
+    "evidence_render_external_engine_invoked",
     "certificate_link_ms",
     "runtime_execution_timing_scope",
     "output_delivery_timing_scope",
@@ -1575,6 +1603,103 @@ def route_fast_path_attribution_fields_for_row(
     }
 
 
+def evidence_render_proof_fields_for_row(
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+    timing_ledger: dict[str, Any],
+    fast_path_fields: dict[str, Any],
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    is_shardloom = is_shardloom_engine(engine)
+    existing_schema = first_meaningful_field(
+        fields, ("evidence_render_proof_schema_version",)
+    )
+    route_boundary = (
+        "route_total_includes_evidence_render_timing"
+        if timing_ledger.get("evidence_timing_included_in_total") is True
+        else "route_total_excludes_evidence_render_timing"
+    )
+    if not is_shardloom:
+        status = "external_baseline_only"
+        proof_digest = "external_baseline_only"
+        compact_fact_keys = "external_baseline_only"
+        regeneration_surface = "external_baseline_only"
+        human_scope = "external_baseline_only"
+        hot_path_policy = "external_baseline_only"
+    else:
+        status = first_meaningful_field(
+            fields, ("evidence_render_proof_status",)
+        ) or "compact_machine_evidence_derived"
+        compact_fact_keys = first_meaningful_field(
+            fields, ("evidence_render_compact_fact_keys",)
+        ) or (
+            "scenario,route_lane_id,runtime_execution_certificate_status,"
+            "native_io_certificate_status,result_sink_certificate_status,"
+            "claim_gate_status"
+        )
+        regeneration_surface = first_meaningful_field(
+            fields, ("evidence_render_regeneration_surface",)
+        ) or "promoter_fast_path_table_and_website_human_tables_from_compact_fields"
+        human_scope = first_meaningful_field(
+            fields, ("evidence_render_human_expansion_timing_scope",)
+        ) or "outside_timed_route_promoter_or_website_render"
+        hot_path_policy = first_meaningful_field(
+            fields, ("evidence_render_hot_path_policy",)
+        ) or "compact_facts_only_human_render_deferred"
+        digest_parts = [
+            EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+            str(row.get("engine") or ""),
+            str(row.get("scenario_name") or row.get("scenario_id") or ""),
+            str(row.get("storage_format") or ""),
+            str(row.get("route_lane_id") or ""),
+            str(fast_path_fields.get("runtime_execution_certificate_status") or ""),
+            str(first_meaningful_field(fields, ("native_io_certificate_status",)) or ""),
+            str(
+                first_meaningful_field(
+                    fields,
+                    (
+                        "computed_result_sink_native_io_certificate_status",
+                        "result_sink_claim_gate_status",
+                    ),
+                )
+                or ""
+            ),
+            str(stage_fields.get("evidence_render_ms") or ""),
+            route_boundary,
+        ]
+        proof_digest = first_meaningful_field(
+            fields, ("evidence_render_proof_digest",)
+        ) or (
+            "sha256:"
+            + hashlib.sha256("\0".join(digest_parts).encode("utf-8")).hexdigest()[:16]
+        )
+    return {
+        "evidence_render_proof_schema_version": existing_schema
+        or EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+        "evidence_render_proof_status": status,
+        "evidence_render_proof_digest": proof_digest,
+        "evidence_render_compact_fact_keys": compact_fact_keys,
+        "evidence_render_regeneration_surface": regeneration_surface,
+        "evidence_render_human_expansion_timing_scope": human_scope,
+        "evidence_render_hot_path_policy": hot_path_policy,
+        "evidence_render_route_timing_boundary": first_meaningful_field(
+            fields, ("evidence_render_route_timing_boundary",)
+        )
+        or route_boundary,
+        "evidence_render_claim_boundary": first_meaningful_field(
+            fields, ("evidence_render_claim_boundary",)
+        )
+        or (
+            "compact evidence-render proof is benchmark attribution only; route totals remain "
+            "the comparison surface and no performance, production, SQL/DataFrame, "
+            "object-store/lakehouse, Foundry, package, or Spark-displacement claim is authorized"
+        ),
+        "evidence_render_fallback_attempted": False,
+        "evidence_render_external_engine_invoked": False,
+    }
+
+
 def csv_unique(values: list[Any]) -> str:
     seen: list[str] = []
     for value in values:
@@ -1793,6 +1918,9 @@ def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
     fast_path_fields = route_fast_path_attribution_fields_for_row(
         row, identity, stage_fields, timing_ledger
     )
+    evidence_render_proof_fields = evidence_render_proof_fields_for_row(
+        row, stage_fields, timing_ledger, fast_path_fields
+    )
     operator_mode_fields = operator_mode_fields_for_row(row)
     return {
         **row,
@@ -1800,6 +1928,7 @@ def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
         **stage_fields,
         **timing_ledger,
         **fast_path_fields,
+        **evidence_render_proof_fields,
         **operator_mode_fields,
     }
 
@@ -1825,6 +1954,8 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
             {**row, "route_lane_id": "prepare_once_first_query"}
         )
         prepared = {**base, **first_query_stage_fields}
+        for key in EVIDENCE_RENDER_PROOF_FIELD_KEYS:
+            prepared.pop(key, None)
         prepared.update(
             {
                 "route_lane_id": "prepare_once_first_query",
@@ -1855,12 +1986,19 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
         )
         prepared_timing_ledger = route_timing_ledger_fields_for_row(row, prepared, prepared)
         prepared.update(prepared_timing_ledger)
+        prepared_fast_path_fields = route_fast_path_attribution_fields_for_row(
+            row,
+            prepared,
+            prepared,
+            prepared_timing_ledger,
+        )
+        prepared.update(prepared_fast_path_fields)
         prepared.update(
-            route_fast_path_attribution_fields_for_row(
-                row,
+            evidence_render_proof_fields_for_row(
                 prepared,
                 prepared,
                 prepared_timing_ledger,
+                prepared_fast_path_fields,
             )
         )
         prepared.update(operator_mode_fields_for_row(prepared))
@@ -2531,6 +2669,66 @@ def fast_path_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "runtime execution timing, output delivery, evidence capture, evidence render, "
             "and certificate linking are separate interpretation buckets; fast-path timing "
             "is not a performance superiority claim"
+        ),
+    }
+
+
+def evidence_render_proof_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        status = str(row.get("evidence_render_proof_status") or "missing")
+        route_boundary = str(
+            row.get("evidence_render_route_timing_boundary") or "missing"
+        )
+        hot_path_policy = str(row.get("evidence_render_hot_path_policy") or "missing")
+        human_scope = str(
+            row.get("evidence_render_human_expansion_timing_scope") or "missing"
+        )
+        key = (status, route_boundary, hot_path_policy, human_scope)
+        if key not in grouped:
+            grouped[key] = {
+                "count": 0,
+                "routes": set(),
+                "digest": str(row.get("evidence_render_proof_digest") or "missing"),
+            }
+        grouped[key]["count"] += 1
+        grouped[key]["routes"].add(
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        )
+
+    return {
+        "heading": "Evidence-Render Proof Regeneration",
+        "headers": [
+            "Status",
+            "Rows",
+            "Routes",
+            "Route timing boundary",
+            "Hot-path policy",
+            "Human expansion timing",
+            "Digest sample",
+        ],
+        "rows": [
+            [
+                status,
+                value["count"],
+                ", ".join(sorted(value["routes"])),
+                route_boundary,
+                hot_path_policy,
+                human_scope,
+                value["digest"],
+            ]
+            for (status, route_boundary, hot_path_policy, human_scope), value in sorted(
+                grouped.items()
+            )
+        ],
+        "schema_version": EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+        "claim_boundary": (
+            "compact evidence-render proof fields support benchmark attribution and "
+            "website/table regeneration only; route totals remain the comparison "
+            "surface and no performance, production, package, SQL/DataFrame, "
+            "object-store/lakehouse, Foundry, or Spark-displacement claim is authorized"
         ),
     }
 
@@ -4023,6 +4221,12 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_stage_fields,
             route_timing_ledger,
         )
+        evidence_render_proof_fields = evidence_render_proof_fields_for_row(
+            adjusted_row,
+            route_stage_fields,
+            route_timing_ledger,
+            fast_path_fields,
+        )
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -4057,6 +4261,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_stage_fields)
         rendered_row.update(route_timing_ledger)
         rendered_row.update(fast_path_fields)
+        rendered_row.update(evidence_render_proof_fields)
         rendered_row.update(cold_lane_fields)
         if runtime_validation is not None:
             rendered_row["runtime_execution_validation"] = runtime_validation
@@ -4110,12 +4315,19 @@ def published_rows_with_current_route_timing_ledger(
             updated, route_identity, route_stage_fields
         )
         updated.update(timing_ledger)
+        fast_path_fields = route_fast_path_attribution_fields_for_row(
+            updated,
+            route_identity,
+            route_stage_fields,
+            timing_ledger,
+        )
+        updated.update(fast_path_fields)
         updated.update(
-            route_fast_path_attribution_fields_for_row(
+            evidence_render_proof_fields_for_row(
                 updated,
-                route_identity,
                 route_stage_fields,
                 timing_ledger,
+                fast_path_fields,
             )
         )
         updated.update(operator_mode_fields_for_row(updated))
@@ -4171,6 +4383,7 @@ def comparative_summary(
         ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
         "fast_path_attribution": fast_path_attribution_table(claim_adjusted_rows),
+        "evidence_render_proof": evidence_render_proof_table(claim_adjusted_rows),
         "operator_mode_inventory": operator_mode_inventory_table(claim_adjusted_rows),
         "operator_hot_path_candidates": operator_hot_path_candidate_table(
             claim_adjusted_rows

@@ -201,9 +201,11 @@ Current autonomous execution order:
    `evidence_render_ms` geomean 0.08 ms. The inclusive compatibility-import audit bundle remains
    127.94 ms and must not be treated as an exclusive stage. The active remaining benchmark-driven
    sequence is now: Vortex writer/safe artifact emission, cold source parse/read pipeline,
-   prepared-state admission/lookup, result sink/evidence render, then scan/operator attribution and
-   pushdown. Do not rerun the expensive benchmark suite until the current code/docs/site batch is
-   complete or the user explicitly approves a rerun.
+   prepared-state admission/lookup, result sink/evidence-render evidence, then scan/operator
+   attribution and pushdown. The current PR batch adds result-sink capillary evidence and compact
+   evidence-render proof regeneration fields without rerunning the benchmark suite. Do not rerun the
+   expensive benchmark suite until the current code/docs/site batch is complete or the user
+   explicitly approves a rerun.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -214,7 +216,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Exclusive stage-ledger de-overlap is complete; next finish the remaining refreshed benchmark-driven sequence: writer/safe-artifact work, source parse/read, prepared admission/lookup, sink/evidence hot path, and scan/operator attribution. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Exclusive stage-ledger de-overlap, writer metadata coalescing, source-admission packets, prepared lookup evidence, result-sink capillary evidence, and compact evidence-render proof fields are in place; next finish scan/operator attribution, route-share/Amdahl publication refresh, and any remaining benchmark-validated hot path work. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -456,7 +458,7 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
   | Vortex scan | Warm/native scan is already sub-ms in the memo and remains small in current rows; cold scan geomean is 2.32 ms. | Protect the fast path and add provider-admitted Vortex scan projection/filter/limit tests before changing scan behavior. |
   | Operator compute | Warm/native compute is tiny and cold operator fields are still absent/zero in places. | Add cold operator attribution so scan, pruning, residual compute, and encoded-kernel wins are separately visible before any encoded-pushdown claim. |
   | Result sink | Current PR batch emits schema-versioned result-sink capillary evidence for requested native Vortex result sinks, no-sink rows, and compatibility-fanout rows: scalar JSON byte/digest evidence, replay digest parity, native Vortex output selection, compatibility fanout selection, metadata-loss status, provider classification, claim boundary, and explicit no-fallback fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and use refreshed route totals to decide whether further shared result-batch/fanout/layout-advisor work is still dominant. |
-  | Evidence render | Current cold evidence render geomean is 0.08 ms, while memo warm/native evidence was a visible share of total. | Keep certificate data available, but use compact hot-path evidence or separate website/render formatting outside timed query routes when render work grows. |
+  | Evidence render | Current cold evidence render geomean is 0.08 ms, while memo warm/native evidence was a visible share of total. Current PR batch emits `evidence_render_proof_*` fields from Rust reports and the promoter derives the same schema for existing artifacts: compact fact keys, proof digest, route-timing boundary, human-expansion timing scope, hot-path policy, claim boundary, and explicit no-fallback/no-external-engine fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and use refreshed route totals to decide whether human evidence formatting remains visible enough to justify moving more prose/table rendering out of the timed route. |
   | Total route/publication | Current published route geomeans remain cold 137.71 ms, first query 58.00 ms, batch 8.37 ms, warm 5.57 ms, and native 5.58 ms until rerun. | Publish refreshed route totals only after the full current code/docs/site batch and benchmark rerun; keep unsupported rows out of runtime-ready posture and keep external engines baseline-only. |
 
   Benchmark-driven hot-path child execution items: these child items convert the component-timing
@@ -694,6 +696,13 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
       0.08 ms.
     - Implementation scope: execution certificate facts, benchmark evidence JSON, website render
       path, CLI/report formatting, and promotion script.
+    - Current PR batch: adds `evidence_render_proof_*` fields to direct transient,
+      compatibility-import, prepared, and native Vortex Rust report fields; derives the same compact
+      schema in `scripts/promote_benchmark_artifact.py` for existing rows and synthetic
+      prepare-once-first-query rows; adds a comparative-dashboard evidence-render proof table;
+      updates the benchmark website section and readiness validator; and adds focused Rust/Python
+      tests. Published timing artifacts have not been rerun yet, so this is proof-schema and render
+      regeneration plumbing, not a new performance result.
     - Work: split compact machine evidence emission from human/website evidence rendering; keep
       certificate facts in the hot route but move prose/table expansion outside timed query work or
       label it separately; add stable evidence schema fields so website rendering can regenerate
@@ -721,8 +730,9 @@ Last-order runtime expansion checklist, not to be left as vague unsupported pros
       `git diff --check`.
 
   Current PR batch completed through code/docs/site evidence slices: HOTPATH-6, HOTPATH-4,
-  HOTPATH-2, HOTPATH-8, and HOTPATH-12. Suggested remaining execution order: HOTPATH-13,
-  HOTPATH-3, HOTPATH-7, HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, HOTPATH-5, then HOTPATH-14.
+  HOTPATH-2, HOTPATH-8, HOTPATH-12, and the proof-schema portion of HOTPATH-13. Suggested remaining
+  execution order: HOTPATH-3, HOTPATH-7, HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, HOTPATH-5,
+  then HOTPATH-14.
   Keep this order flexible only when new benchmark evidence changes the dominant route
   share. Non-goals for all child items: no Spark, DataFusion, DuckDB, Polars, Velox, or Vortex
   query-engine fallback; no hidden fast mode that skips claim-required evidence; no public

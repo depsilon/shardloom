@@ -73,6 +73,8 @@ const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
 const RESULT_SINK_CAPILLARY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.result_sink_capillary.v1";
+const EVIDENCE_RENDER_PROOF_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.evidence_render_proof.v1";
 const PREPARED_STATE_REUSE_SCOPE_CREATED_NOT_REUSED: &str = "prepared_state_created_not_reused";
 const PREPARED_STATE_REUSE_SCOPE_EXPLICIT_INPUT: &str = "explicit_prepared_state_input";
 const PREPARED_STATE_REUSE_SCOPE_IN_PROCESS: &str = "in_process_prepared_batch_vortex_artifacts";
@@ -2594,6 +2596,66 @@ fn result_sink_capillary_claim_boundary() -> &'static str {
     "result sink capillary evidence is local benchmark sink attribution only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is authorized"
 }
 
+fn evidence_render_proof_fields(
+    scenario: TraditionalAnalyticsScenario,
+    route_kind: &str,
+    runtime_certificate_status: &str,
+    native_io_certificate_status: &str,
+    result_sink_certificate_status: &str,
+) -> Vec<(String, String)> {
+    let proof_digest = route_evidence_digest(&[
+        EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+        scenario.as_str(),
+        route_kind,
+        runtime_certificate_status,
+        native_io_certificate_status,
+        result_sink_certificate_status,
+    ]);
+    vec![
+        (
+            "evidence_render_proof_schema_version".to_string(),
+            EVIDENCE_RENDER_PROOF_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "evidence_render_proof_status".to_string(),
+            "compact_machine_evidence_available".to_string(),
+        ),
+        ("evidence_render_proof_digest".to_string(), proof_digest),
+        (
+            "evidence_render_compact_fact_keys".to_string(),
+            "scenario,route_kind,runtime_execution_certificate_status,native_io_certificate_status,result_sink_certificate_status,claim_gate_status".to_string(),
+        ),
+        (
+            "evidence_render_regeneration_surface".to_string(),
+            "rust_fields_to_promoter_fast_path_table_and_website_human_tables".to_string(),
+        ),
+        (
+            "evidence_render_human_expansion_timing_scope".to_string(),
+            "outside_rust_timed_route_promoter_or_website_render".to_string(),
+        ),
+        (
+            "evidence_render_hot_path_policy".to_string(),
+            "compact_facts_only_human_render_deferred".to_string(),
+        ),
+        (
+            "evidence_render_route_timing_boundary".to_string(),
+            "evidence_render_micros_not_measured_in_rust_cli_report".to_string(),
+        ),
+        (
+            "evidence_render_claim_boundary".to_string(),
+            "compact evidence-render proof is local benchmark attribution only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is authorized".to_string(),
+        ),
+        (
+            "evidence_render_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "evidence_render_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
 /// Report emitted by the local compatibility-to-Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -3885,6 +3947,13 @@ impl TraditionalDirectTransientReport {
             ("fallback_attempted".to_string(), "false".to_string()),
             ("external_engine_invoked".to_string(), "false".to_string()),
         ]);
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "direct_compatibility_transient",
+            self.runtime_execution_certificate.status.as_str(),
+            "not_vortex_native",
+            "not_requested",
+        ));
         fields.extend(TraditionalResultSinkCapillaryEvidence::not_requested(false).fields());
         fields
     }
@@ -5190,6 +5259,18 @@ impl TraditionalAnalyticsReport {
                 self.spill_io_performed.to_string(),
             ),
         ]);
+        let native_io_certificate_status = self.native_io_certificate.status().to_string();
+        let result_sink_certificate_status = self
+            .computed_result_sink_native_io_certificate_status
+            .clone()
+            .unwrap_or_else(|| "not_requested".to_string());
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "compatibility_import_cold_route",
+            self.runtime_execution_certificate.status.as_str(),
+            &native_io_certificate_status,
+            &result_sink_certificate_status,
+        ));
         fields.extend(self.result_sink_capillary_evidence.fields());
         fields.extend(streaming_execution_fields(self));
         fields.extend(traditional_vortex_provider_admission_fields(
@@ -8118,6 +8199,21 @@ impl TraditionalAnalyticsVortexReport {
                 self.spill_io_performed.to_string(),
             ),
         ]);
+        let native_io_certificate_status = self.native_io_certificate.status().to_string();
+        let result_sink_certificate_status = self
+            .computed_result_sink_native_io_certificate_status
+            .clone()
+            .unwrap_or_else(|| "not_requested".to_string());
+        fields.extend(evidence_render_proof_fields(
+            self.scenario,
+            "prepared_or_native_vortex_query",
+            &self
+                .local_scale_evidence
+                .split_runtime_evidence
+                .execution_certificate_status,
+            &native_io_certificate_status,
+            &result_sink_certificate_status,
+        ));
         fields.extend(self.result_sink_capillary_evidence.fields());
         fields
     }
@@ -31938,6 +32034,35 @@ mod tests {
         );
         assert_eq!(
             fields
+                .get("evidence_render_proof_schema_version")
+                .map(String::as_str),
+            Some(EVIDENCE_RENDER_PROOF_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_proof_status")
+                .map(String::as_str),
+            Some("compact_machine_evidence_available")
+        );
+        assert!(
+            fields
+                .get("evidence_render_proof_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_hot_path_policy")
+                .map(String::as_str),
+            Some("compact_facts_only_human_render_deferred")
+        );
+        assert_eq!(
+            fields
+                .get("evidence_render_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
                 .get("source_state_projection_aware_text_decode")
                 .map(String::as_str),
             Some("false")
@@ -32775,6 +32900,19 @@ mod tests {
         }));
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "result_sink_capillary_external_engine_invoked" && value == "false"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_schema_version"
+                && value == EVIDENCE_RENDER_PROOF_SCHEMA_VERSION
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_status" && value == "compact_machine_evidence_available"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_digest" && value.starts_with("fnv1a64:")
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "evidence_render_fallback_attempted" && value == "false"
         }));
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "prepared_native_vortex_lifecycle_status"
@@ -35682,6 +35820,19 @@ mod tests {
         assert!(fields.iter().any(|(key, value)| {
             key == "result_sink_capillary_fallback_attempted" && value == "false"
         }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_schema_version"
+                && value == EVIDENCE_RENDER_PROOF_SCHEMA_VERSION
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_status" && value == "compact_machine_evidence_available"
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_proof_digest" && value.starts_with("fnv1a64:")
+        }));
+        assert!(fields.iter().any(|(key, value)| {
+            key == "evidence_render_external_engine_invoked" && value == "false"
+        }));
         assert!(
             fields
                 .iter()
@@ -35773,6 +35924,21 @@ mod tests {
                 &import_fields,
                 "result_sink_capillary_compatibility_fanout_selected",
                 "true",
+            );
+            assert_field_eq(
+                &import_fields,
+                "evidence_render_proof_schema_version",
+                EVIDENCE_RENDER_PROOF_SCHEMA_VERSION,
+            );
+            assert_field_eq(
+                &import_fields,
+                "evidence_render_proof_status",
+                "compact_machine_evidence_available",
+            );
+            assert!(
+                import_fields
+                    .get("evidence_render_proof_digest")
+                    .is_some_and(|value| value.starts_with("fnv1a64:"))
             );
             assert!(!import_report.fallback_execution_allowed);
             assert!(import_report.runtime_execution_certificate.fallback_free());

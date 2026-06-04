@@ -119,6 +119,12 @@ REQUIRED_BENCHMARK_FAST_PATH_STRINGS = {
     "Certificate status",
     "shardloom.route_fast_path_attribution.v1",
 }
+REQUIRED_BENCHMARK_EVIDENCE_RENDER_STRINGS = {
+    "Evidence-render proof",
+    "Human benchmark evidence is regenerated from compact facts.",
+    "Evidence-Render Proof Regeneration",
+    "shardloom.traditional_analytics.evidence_render_proof.v1",
+}
 REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS = {
     "Operator mode inventory",
     "Runtime support is not encoded-native support.",
@@ -469,6 +475,9 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
     for required in sorted(REQUIRED_BENCHMARK_FAST_PATH_STRINGS):
         if required not in html:
             blockers.append(f"benchmark page missing fast-path attribution string: {required}")
+    for required in sorted(REQUIRED_BENCHMARK_EVIDENCE_RENDER_STRINGS):
+        if required not in html:
+            blockers.append(f"benchmark page missing evidence-render proof string: {required}")
     for required in sorted(REQUIRED_BENCHMARK_OPERATOR_MODE_STRINGS):
         if required not in html:
             blockers.append(f"benchmark page missing operator-mode inventory string: {required}")
@@ -487,14 +496,25 @@ def check_benchmark_route_card_dashboard(website: Path, blockers: list[str]) -> 
     route_dashboard_index = html.find("data-route-card-dashboard")
     stage_index = html.find("Stage attribution")
     fast_path_index = html.find("Runtime fast path")
+    evidence_render_index = html.find("Evidence-render proof")
     operator_mode_index = html.find("Operator mode inventory")
     raw_index = html.find("Raw timing tables")
     if route_dashboard_index == -1 or stage_index == -1 or route_dashboard_index > stage_index:
         blockers.append("benchmark page must lead with route cards before stage attribution")
     if stage_index == -1 or fast_path_index == -1 or stage_index > fast_path_index:
         blockers.append("benchmark page must show fast-path attribution after stage attribution")
-    if fast_path_index == -1 or operator_mode_index == -1 or fast_path_index > operator_mode_index:
-        blockers.append("benchmark page must show operator-mode inventory after fast-path attribution")
+    if (
+        fast_path_index == -1
+        or evidence_render_index == -1
+        or fast_path_index > evidence_render_index
+    ):
+        blockers.append("benchmark page must show evidence-render proof after fast-path attribution")
+    if (
+        evidence_render_index == -1
+        or operator_mode_index == -1
+        or evidence_render_index > operator_mode_index
+    ):
+        blockers.append("benchmark page must show operator-mode inventory after evidence-render proof")
     if raw_index != -1 and route_dashboard_index != -1 and route_dashboard_index > raw_index:
         blockers.append("benchmark page must keep raw timing tables after route cards")
 
