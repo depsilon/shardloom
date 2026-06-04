@@ -74,6 +74,9 @@ VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1"
 )
 ROUTE_SHARE_AMDAHL_SCHEMA_VERSION = "shardloom.traditional_analytics.route_share_amdahl.v1"
+COMMON_RUN_TIMING_DRIFT_SCHEMA_VERSION = (
+    "shardloom.website.common_run_timing_drift.v1"
+)
 COLD_BOTTLENECK_ROUTE_LANES = {
     "cold_certified_route",
     "prepare_once_first_query",
@@ -813,6 +816,17 @@ def geomean_non_negative(values: list[float]) -> float | None:
 
 def fmt_percent(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.1f}%"
+
+
+def formatted_ms_value(value: Any) -> float | None:
+    parsed = numeric_value(value)
+    if parsed is not None:
+        return parsed
+    if isinstance(value, str):
+        match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)\s*ms\s*", value)
+        if match:
+            return float(match.group(1))
+    return None
 
 
 def is_shardloom_engine(engine: str) -> bool:
@@ -2633,6 +2647,125 @@ def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "local route timing context",
         ],
         "rows": rendered_rows,
+    }
+
+
+def engine_timing_geomeans(table: dict[str, Any]) -> dict[str, float]:
+    rows = table.get("rows")
+    if not isinstance(rows, list):
+        return {}
+    geomeans: dict[str, float] = {}
+    for row in rows:
+        if not isinstance(row, list) or len(row) < 4:
+            continue
+        engine = str(row[0])
+        geomean_value = formatted_ms_value(row[3])
+        if engine and geomean_value is not None and geomean_value > 0:
+            geomeans[engine] = geomean_value
+    return geomeans
+
+
+def previous_engine_timing_table(previous_summary: dict[str, Any]) -> dict[str, Any]:
+    dashboard = previous_summary.get("comparative_dashboard")
+    if not isinstance(dashboard, dict):
+        return {}
+    table = dashboard.get("engine_timing_overview")
+    return table if isinstance(table, dict) else {}
+
+
+def common_run_timing_drift_table(
+    previous_summary: dict[str, Any],
+    current_engine_timing: dict[str, Any],
+) -> dict[str, Any]:
+    previous = engine_timing_geomeans(previous_engine_timing_table(previous_summary))
+    current = engine_timing_geomeans(current_engine_timing)
+    common_engines = sorted(set(previous) & set(current))
+    ratios = {
+        engine: current[engine] / previous[engine]
+        for engine in common_engines
+        if previous[engine] > 0 and current[engine] > 0
+    }
+    control_ratios = [
+        ratio for engine, ratio in ratios.items() if not is_shardloom_engine(engine)
+    ]
+    shardloom_ratios = [
+        ratio for engine, ratio in ratios.items() if is_shardloom_engine(engine)
+    ]
+    control_geomean = geomean(control_ratios)
+    shardloom_geomean = geomean(shardloom_ratios)
+    control_slow_count = sum(1 for ratio in control_ratios if ratio >= 1.05)
+    common_slowdown = (
+        len(control_ratios) >= 3
+        and control_geomean is not None
+        and control_geomean >= 1.10
+        and control_slow_count / len(control_ratios) >= 0.75
+    )
+    shardloom_specific = (
+        common_slowdown
+        and control_geomean is not None
+        and shardloom_geomean is not None
+        and shardloom_geomean >= control_geomean * 1.15
+    )
+    if not previous:
+        status = "no_previous_summary"
+        interpretation = "No previous published timing summary was available for common-run drift comparison."
+    elif len(control_ratios) < 3:
+        status = "insufficient_control_rows"
+        interpretation = "Fewer than three non-ShardLoom control engines overlap with the previous summary."
+    elif shardloom_specific:
+        status = "mixed_drift_review_required"
+        interpretation = (
+            "Control engines slowed together, and ShardLoom lanes slowed materially more "
+            "than the control geomean; review both run conditions and ShardLoom changes."
+        )
+    elif common_slowdown:
+        status = "common_run_slowdown_detected"
+        interpretation = (
+            "Control engines slowed together, so this rerun should be treated as common-run "
+            "drift before attributing timing increases to ShardLoom hotpath changes."
+        )
+    else:
+        status = "stable_or_mixed_controls"
+        interpretation = (
+            "Control-engine movement does not show a broad common-run slowdown; route-level "
+            "changes need row-level review before optimization claims."
+        )
+    return {
+        "heading": "Common-Run Timing Drift",
+        "headers": [
+            "Engine",
+            "Previous route geomean",
+            "Current route geomean",
+            "Ratio",
+            "Cohort",
+        ],
+        "rows": [
+            [
+                engine,
+                fmt_ms(previous[engine]),
+                fmt_ms(current[engine]),
+                f"{ratios[engine]:.3f}x",
+                "shardloom" if is_shardloom_engine(engine) else "control_baseline",
+            ]
+            for engine in common_engines
+            if engine in ratios
+        ],
+        "schema_version": COMMON_RUN_TIMING_DRIFT_SCHEMA_VERSION,
+        "status": status,
+        "control_engine_count": len(control_ratios),
+        "control_slow_count": control_slow_count,
+        "control_route_geomean_ratio": (
+            None if control_geomean is None else round(control_geomean, 4)
+        ),
+        "shardloom_route_geomean_ratio": (
+            None if shardloom_geomean is None else round(shardloom_geomean, 4)
+        ),
+        "interpretation": interpretation,
+        "claim_boundary": (
+            "common-run drift compares the current promoted artifact to the previous "
+            "published website artifact; it is diagnostic context only and does not "
+            "authorize performance, superiority, production, or replacement claims"
+        ),
     }
 
 
@@ -4858,12 +4991,14 @@ def comparative_summary(
     profile: str,
     public_front_door_rows: list[dict[str, Any]],
     *,
+    previous_summary: dict[str, Any] | None = None,
     runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     dataset = artifact.get("dataset") if isinstance(artifact.get("dataset"), dict) else {}
     generated = artifact.get("generated_at_utc") or datetime.now(timezone.utc).isoformat()
     claim_adjusted_rows = cold_lane_claim_adjusted_rows(rows)
     format_order = benchmark_format_order(artifact, rows, profile)
+    engine_timing = engine_timing_table(rows)
     return {
         "source": repo_relative(source_path),
         "generated": f"{generated} from promoted local benchmark artifact.",
@@ -4876,7 +5011,11 @@ def comparative_summary(
                 "value": str(bool(artifact.get("performance_claim_allowed", False))),
             },
         ],
-        "engine_timing_overview": engine_timing_table(rows),
+        "engine_timing_overview": engine_timing,
+        "common_run_timing_drift": common_run_timing_drift_table(
+            previous_summary or {},
+            engine_timing,
+        ),
         "route_lane_comparison": route_lane_comparison_table(claim_adjusted_rows),
         "public_front_door_routes": public_front_door_route_table(
             public_front_door_rows
@@ -5089,6 +5228,7 @@ def main() -> int:
             source_path,
             args.profile,
             public_front_door_rows,
+            previous_summary=base,
             runtime_validation_override=runtime_validation_override,
         ),
         "benchmark_manifest": manifest,

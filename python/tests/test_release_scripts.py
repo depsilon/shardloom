@@ -1041,6 +1041,48 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(route_share["rows"][0][3], "Vortex write")
         self.assertEqual(route_share["rows"][0][6], "continue_workspace_safe_writer_metadata_coalescing")
 
+    def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_common_run_drift_for_test",
+        )
+
+        previous_summary = {
+            "comparative_dashboard": {
+                "engine_timing_overview": {
+                    "rows": [
+                        ["shardloom", "yes", "1/1", "100.00 ms"],
+                        ["shardloom-vortex", "yes", "1/1", "5.00 ms"],
+                        ["pandas", "yes", "1/1", "200.00 ms"],
+                        ["polars-eager", "yes", "1/1", "40.00 ms"],
+                        ["duckdb", "yes", "1/1", "80.00 ms"],
+                    ]
+                }
+            }
+        }
+        current_engine_timing = {
+            "rows": [
+                ["shardloom", "yes", "1/1", "126.00 ms"],
+                ["shardloom-vortex", "yes", "1/1", "6.30 ms"],
+                ["pandas", "yes", "1/1", "250.00 ms"],
+                ["polars-eager", "yes", "1/1", "52.00 ms"],
+                ["duckdb", "yes", "1/1", "100.00 ms"],
+            ]
+        }
+
+        drift = module.common_run_timing_drift_table(
+            previous_summary,
+            current_engine_timing,
+        )
+
+        self.assertEqual(drift["status"], "common_run_slowdown_detected")
+        self.assertEqual(drift["control_engine_count"], 3)
+        self.assertEqual(drift["control_slow_count"], 3)
+        self.assertGreater(drift["control_route_geomean_ratio"], 1.10)
+        self.assertIn("common-run drift", drift["interpretation"])
+        self.assertIn("shardloom", {row[4] for row in drift["rows"]})
+        self.assertIn("control_baseline", {row[4] for row in drift["rows"]})
+
     def test_benchmark_promoter_prefers_chunks_for_summary_only_inline_rows(
         self,
     ) -> None:
