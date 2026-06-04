@@ -612,11 +612,13 @@ evaluate a two-valued bounded presence test over another admitted local source. 
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
 source and apply SQL three-valued comparison semantics. Scoped correlated `outer.<column>`
 subquery filters are admitted for scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` /
-`ALL` predicates through the reserved outer-row alias. Source-qualified local subquery references
-are admitted for the subquery's explicit `AS <alias>` or SQL-identifier file stem and can be
-bound from Python with `source_alias=` and rendered with `sl.col("alias.column")`.
-Scalar-left multi-column, unbound qualified, broad projected correlated, and broader arbitrary
-subquery shapes remain deterministic blockers.
+`ALL` predicates through the reserved outer-row alias. Direct SQL predicate projections and CASE
+predicates can now reuse admitted scalar `IN` subqueries, including scoped correlated
+`outer.<column>` filters, over bounded local sources. Source-qualified local subquery references are
+admitted for the subquery's explicit `AS <alias>` or SQL-identifier file stem and can be bound from
+Python with `source_alias=` and rendered with `sl.col("alias.column")`. Scalar-left multi-column,
+unbound qualified, broad projected correlated joins/aggregates, and broader arbitrary subquery
+shapes remain deterministic blockers.
 Typed reports expose `in_predicate_runtime_execution`,
 `in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
 `row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
@@ -1428,8 +1430,9 @@ That path is still fixture-smoke evidence only. Broader grouped aggregate genera
 null ordering, collation parity,
 broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
 IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, scoped
-correlated `outer.<column>` source-subquery filters, and grouped/HAVING projected source-subquery
-tails for those families, arbitrary predicate-tree completeness beyond the admitted
+correlated `outer.<column>` source-subquery filters, scoped subquery-backed predicate/CASE
+projections, and grouped/HAVING projected source-subquery tails for those families, arbitrary
+predicate-tree completeness beyond the admitted
 parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad

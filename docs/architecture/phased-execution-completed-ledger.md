@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D correlated subquery predicate/CASE projection slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-correlated-subquery-projections` / PR #1075.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/expression-kernel-registry.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/documentation-rfc.md`.
+  - Scope:
+    - Admitted scoped SQL predicate projections and CASE predicates backed by bounded local
+      `IN (SELECT ...)` subqueries, including correlated `outer.<column>` filters over source rows.
+    - Materialized uncorrelated projection subquery predicates once during local-source evaluation
+      preparation, while correlated projection predicates rematerialize only across output rows and
+      expose `correlated_subquery_outer_row_evaluation_count` evidence.
+    - Extended required-column planning, validation, plan digesting, and report aggregation so
+      projection predicate surfaces contribute source columns, outer-correlation columns, subquery
+      families, source formats, and no-fallback report fields.
+    - Added executable Rust/CLI smoke coverage and promoted the behavior into the admitted
+      semantics validator as `subquery_predicate_projection_semantics`.
+    - Refreshed front-door parity docs, README/Python README wording, release-readiness markers,
+      the compute-engine flow reference, and the active 6D plan blocker wording.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-cli correlated_subquery_projection -- --nocapture` passed.
+    - `cargo test -p shardloom-cli subquery_predicate_projection -- --nocapture` passed.
+    - `cargo test -p shardloom-cli parses_scoped_correlated_ -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-correlated-projection.json` passed with `matrix_row_count=69`, `executable_fixture_count=62`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-correlated-projection.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-correlated-projection.json` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This slice is fixture-smoke correctness evidence for scoped local-source SQL projection
+      subquery predicates only. It does not claim broad ANSI projection-subquery parity, production
+      semantic parity, broad Python/DataFrame expression parity, benchmark speedup, public
+      performance superiority, or release readiness.
+  - Fallback boundary:
+    - ShardLoom executes the admitted route directly through its local-source runtime with
+      `fallback_attempted=false` and `external_engine_invoked=false`; external engines remain
+      unavailable as fallback execution providers.
+
 - [x] Session label: HOTPATH-14 total-route Amdahl benchmark rerun and publication
   - Date: 2026-06-04
   - Branch/PR: `codex/hotpath-14-benchmark-rerun` / PR #1074.

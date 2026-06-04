@@ -3170,6 +3170,7 @@ struct JoinEvaluationOutput {
     having_input_row_count: usize,
     having_selected_row_count: usize,
     distinct_projection_input_row_count: usize,
+    correlated_projection_outer_row_evaluation_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
 
@@ -3179,6 +3180,13 @@ struct NonJoinEvaluationOutput {
     having_input_row_count: usize,
     having_selected_row_count: usize,
     distinct_projection_input_row_count: usize,
+    correlated_projection_outer_row_evaluation_count: usize,
+    output_rows: SqlOutputRows,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ProjectionEvaluationOutput {
+    correlated_projection_outer_row_evaluation_count: usize,
     output_rows: SqlOutputRows,
 }
 
@@ -3222,6 +3230,7 @@ struct SqlLocalSourceEvaluationOutput {
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     distinct_projection_input_row_count: usize,
+    correlated_projection_outer_row_evaluation_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
 
@@ -3248,6 +3257,7 @@ struct SqlLocalSourceReport {
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     distinct_projection_input_row_count: usize,
+    correlated_projection_outer_row_evaluation_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_batch_state: SqlResultBatchState,
     output_plan: SqlOutputPlanRequirements,
@@ -7663,12 +7673,7 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
             }
         }
     }
-    for column in parsed.predicate.columns() {
-        columns.insert(column.to_string());
-    }
-    parsed
-        .predicate
-        .push_outer_correlation_columns(&mut columns);
+    push_predicate_required_source_columns(&parsed.predicate, &mut columns);
     push_projection_required_columns(parsed, &mut columns);
     push_window_required_columns(parsed, &mut columns);
 
@@ -7695,9 +7700,7 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         columns.insert(projection.column.clone());
     }
     for projection in &parsed.conditional_projections {
-        for column in projection.predicate.columns() {
-            columns.insert(column.to_string());
-        }
+        push_predicate_required_source_columns(&projection.predicate, columns);
         if let Some(column) = projection.then_branch.source_column() {
             columns.insert(column.to_string());
         }
@@ -7706,9 +7709,7 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         }
     }
     for projection in &parsed.predicate_projections {
-        for column in projection.predicate.columns() {
-            columns.insert(column.to_string());
-        }
+        push_predicate_required_source_columns(&projection.predicate, columns);
     }
     for projection in &parsed.numeric_arithmetic_projections {
         columns.insert(projection.column.clone());
@@ -7746,6 +7747,24 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
     for projection in &parsed.timestamp_extract_projections {
         columns.insert(projection.column.clone());
     }
+}
+
+fn push_predicate_required_source_columns(
+    predicate: &ParsedPredicate,
+    columns: &mut BTreeSet<String>,
+) {
+    for column in predicate.columns() {
+        if !is_outer_correlation_ref(column) {
+            columns.insert(column.to_string());
+        }
+    }
+    predicate.push_outer_correlation_columns(columns);
+}
+
+fn predicate_required_source_column_set(predicate: &ParsedPredicate) -> BTreeSet<String> {
+    let mut columns = BTreeSet::new();
+    push_predicate_required_source_columns(predicate, &mut columns);
+    columns
 }
 
 fn push_window_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTreeSet<String>) {
@@ -7847,6 +7866,8 @@ fn run_sql_local_source_smoke_single(
         unmatched_left_row_count: evaluated_output.unmatched_left_row_count,
         unmatched_right_row_count: evaluated_output.unmatched_right_row_count,
         distinct_projection_input_row_count: evaluated_output.distinct_projection_input_row_count,
+        correlated_projection_outer_row_evaluation_count: evaluated_output
+            .correlated_projection_outer_row_evaluation_count,
         output_rows: evaluated_output.output_rows,
         result_batch_state,
         output_plan,
@@ -7884,6 +7905,7 @@ fn prepare_sql_local_source_evaluation(
     )?;
     materialize_in_subquery_predicates(&mut parsed.predicate)?;
     materialize_in_subquery_predicates(&mut parsed.having)?;
+    materialize_projection_subquery_predicates(&mut parsed)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
     resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
     validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
@@ -8258,6 +8280,8 @@ fn evaluate_sql_local_source_output(
             unmatched_left_row_count: join_output.unmatched_left_row_count,
             unmatched_right_row_count: join_output.unmatched_right_row_count,
             distinct_projection_input_row_count: join_output.distinct_projection_input_row_count,
+            correlated_projection_outer_row_evaluation_count: join_output
+                .correlated_projection_outer_row_evaluation_count,
             output_rows: join_output.output_rows,
         })
     } else {
@@ -8272,6 +8296,8 @@ fn evaluate_sql_local_source_output(
             unmatched_right_row_count: 0,
             distinct_projection_input_row_count: non_join_output
                 .distinct_projection_input_row_count,
+            correlated_projection_outer_row_evaluation_count: non_join_output
+                .correlated_projection_outer_row_evaluation_count,
             output_rows: non_join_output.output_rows,
         })
     }
@@ -8285,13 +8311,14 @@ fn sql_local_source_plan_digest(
     source_schema_digest: &str,
 ) -> String {
     fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
         parsed.normalized_statement,
         source_schema_digest,
         source.source_digest,
         right_source.map_or_else(String::new, |source| source.source_digest.clone()),
         parsed.predicate.in_subquery_plan_digest_fragment(),
         parsed.having.in_subquery_plan_digest_fragment(),
+        parsed.projection_in_subquery_plan_digest_fragment(),
         request.output_format.as_str(),
         fanout_plan_digest_fragment(request),
         source.read_plan.requested_columns()
@@ -8319,6 +8346,7 @@ fn evaluate_non_join_output(
         having_input_row_count,
         having_selected_row_count,
         distinct_projection_input_row_count,
+        correlated_projection_outer_row_evaluation_count,
         output_rows,
     ) = if parsed.is_grouped_aggregate() {
         let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
@@ -8329,6 +8357,7 @@ fn evaluate_non_join_output(
             aggregate.having_input_row_count,
             aggregate.having_selected_row_count,
             distinct_projection_input_row_count,
+            0,
             output_rows,
         )
     } else if parsed.is_aggregate() {
@@ -8340,31 +8369,34 @@ fn evaluate_non_join_output(
             aggregate.having_input_row_count,
             aggregate.having_selected_row_count,
             distinct_projection_input_row_count,
+            0,
             output_rows,
         )
     } else if parsed.has_window_projection() {
         let output_rows = evaluate_window_projection_output(parsed, source, &selected_row_indexes)?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, output_rows);
-        (0, 0, distinct_projection_input_row_count, output_rows)
+        (0, 0, distinct_projection_input_row_count, 0, output_rows)
     } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
-        let output_rows =
+        let projection_output =
             evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?;
         (
             0,
             0,
             distinct_projection_input_count(parsed, selected_row_indexes.len()),
-            output_rows,
+            projection_output.correlated_projection_outer_row_evaluation_count,
+            projection_output.output_rows,
         )
     } else {
         let ordered_row_indexes =
             ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
-        let output_rows = evaluate_projection_output(parsed, source, &ordered_row_indexes)?;
+        let projection_output = evaluate_projection_output(parsed, source, &ordered_row_indexes)?;
         (
             0,
             0,
             distinct_projection_input_count(parsed, ordered_row_indexes.len()),
-            output_rows,
+            projection_output.correlated_projection_outer_row_evaluation_count,
+            projection_output.output_rows,
         )
     };
     Ok(NonJoinEvaluationOutput {
@@ -8372,6 +8404,7 @@ fn evaluate_non_join_output(
         having_input_row_count,
         having_selected_row_count,
         distinct_projection_input_row_count,
+        correlated_projection_outer_row_evaluation_count,
         output_rows,
     })
 }
@@ -8429,6 +8462,31 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
+}
+
+fn materialize_projection_subquery_predicates(
+    parsed: &mut ParsedSqlLocalSource,
+) -> Result<(), ShardLoomError> {
+    for projection in &mut parsed.conditional_projections {
+        materialize_in_subquery_predicates(&mut projection.predicate)?;
+    }
+    for projection in &mut parsed.predicate_projections {
+        materialize_in_subquery_predicates(&mut projection.predicate)?;
+    }
+    Ok(())
+}
+
+fn materialize_correlated_projection_subquery_predicates(
+    parsed: &mut ParsedSqlLocalSource,
+    outer_row: &ExpressionInputRow,
+) -> Result<(), ShardLoomError> {
+    for projection in &mut parsed.conditional_projections {
+        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+    }
+    for projection in &mut parsed.predicate_projections {
+        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+    }
+    Ok(())
 }
 
 fn materialize_correlated_subquery_predicates(
@@ -9542,18 +9600,30 @@ fn evaluate_projection_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
-) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
-        return Ok(Vec::new());
+        return Ok(ProjectionEvaluationOutput {
+            correlated_projection_outer_row_evaluation_count: 0,
+            output_rows: Vec::new(),
+        });
     }
-    let projection_expressions = projection_expressions(parsed, source)?;
+    let projection_expressions = if parsed.has_correlated_projection_predicate() {
+        None
+    } else {
+        Some(projection_expressions(parsed, source)?)
+    };
     let mut output_rows = Vec::new();
     let mut distinct_keys = BTreeSet::new();
+    let mut correlated_projection_outer_row_evaluation_count = 0usize;
     for row_index in selected_row_indexes {
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
-        let output_row = evaluate_projection_row(&projection_expressions, row)?;
+        if parsed.has_correlated_projection_predicate() {
+            correlated_projection_outer_row_evaluation_count += 1;
+        }
+        let output_row =
+            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
         if parsed.has_distinct_projection() && !distinct_keys.insert(row_distinct_key(&output_row))
         {
             continue;
@@ -9563,27 +9633,39 @@ fn evaluate_projection_output(
             break;
         }
     }
-    Ok(output_rows)
+    Ok(ProjectionEvaluationOutput {
+        correlated_projection_outer_row_evaluation_count,
+        output_rows,
+    })
 }
 
 fn evaluate_computed_projection_ordered_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
-) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     let order_by = parsed.order_by.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "computed projection ordered output requested without ORDER BY".to_string(),
         )
     })?;
-    let projection_expressions = projection_expressions(parsed, source)?;
+    let projection_expressions = if parsed.has_correlated_projection_predicate() {
+        None
+    } else {
+        Some(projection_expressions(parsed, source)?)
+    };
     let mut projected_rows = Vec::with_capacity(selected_row_indexes.len());
     let mut sort_entries = Vec::with_capacity(selected_row_indexes.len());
+    let mut correlated_projection_outer_row_evaluation_count = 0usize;
     for row_index in selected_row_indexes {
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
-        let output_row = evaluate_projection_row(&projection_expressions, row)?;
+        if parsed.has_correlated_projection_predicate() {
+            correlated_projection_outer_row_evaluation_count += 1;
+        }
+        let output_row =
+            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
         let output_index = projected_rows.len();
         let values = sort_values_for_projected_or_source_row(row, &output_row, order_by)?;
         projected_rows.push(output_row);
@@ -9604,17 +9686,24 @@ fn evaluate_computed_projection_ordered_output(
     );
 
     if !parsed.has_distinct_projection() {
-        return Ok(sort_entries
+        let output_rows = sort_entries
             .into_iter()
             .take(parsed.limit)
             .map(|(_source_index, output_index, _values)| projected_rows[output_index].clone())
-            .collect());
+            .collect();
+        return Ok(ProjectionEvaluationOutput {
+            correlated_projection_outer_row_evaluation_count,
+            output_rows,
+        });
     }
 
     let mut output_rows = Vec::new();
     let mut distinct_keys = BTreeSet::new();
     if parsed.limit == 0 {
-        return Ok(output_rows);
+        return Ok(ProjectionEvaluationOutput {
+            correlated_projection_outer_row_evaluation_count,
+            output_rows,
+        });
     }
     for (_source_index, output_index, _values) in sort_entries {
         let row = &projected_rows[output_index];
@@ -9626,7 +9715,10 @@ fn evaluate_computed_projection_ordered_output(
             break;
         }
     }
-    Ok(output_rows)
+    Ok(ProjectionEvaluationOutput {
+        correlated_projection_outer_row_evaluation_count,
+        output_rows,
+    })
 }
 
 fn evaluate_window_projection_output(
@@ -9958,6 +10050,21 @@ fn window_partition_key(
                 })
         })
         .collect()
+}
+
+fn evaluate_sql_projection_row(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    prebuilt_projection_expressions: Option<&[Expression]>,
+    row: &ExpressionInputRow,
+) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+    if let Some(projection_expressions) = prebuilt_projection_expressions {
+        return evaluate_projection_row(projection_expressions, row);
+    }
+    let mut scoped = parsed.clone();
+    materialize_correlated_projection_subquery_predicates(&mut scoped, row)?;
+    let projection_expressions = projection_expressions(&scoped, source)?;
+    evaluate_projection_row(&projection_expressions, row)
 }
 
 fn evaluate_projection_row(
@@ -10724,6 +10831,7 @@ fn evaluate_join_output(
         having_input_row_count,
         having_selected_row_count,
         distinct_projection_input_row_count,
+        correlated_projection_outer_row_evaluation_count: 0,
         output_rows,
     })
 }
@@ -14103,14 +14211,12 @@ fn validate_value_projection_source_columns(
         )?;
     }
     for projection in &parsed.conditional_projections {
-        for column in projection.predicate.columns() {
-            require_header_column(
-                header,
-                column,
-                "conditional projection predicate column",
-                "CSV header",
-            )?;
-        }
+        validate_predicate_columns_against_header(
+            &projection.predicate,
+            header,
+            "conditional projection predicate column",
+            "CSV header",
+        )?;
         if let Some(column) = projection.then_branch.source_column() {
             require_header_column(
                 header,
@@ -14129,14 +14235,12 @@ fn validate_value_projection_source_columns(
         }
     }
     for projection in &parsed.predicate_projections {
-        for column in projection.predicate.columns() {
-            require_header_column(
-                header,
-                column,
-                "predicate projection source column",
-                "local source header",
-            )?;
-        }
+        validate_predicate_columns_against_header(
+            &projection.predicate,
+            header,
+            "predicate projection source column",
+            "local source header",
+        )?;
     }
     Ok(())
 }
@@ -14237,26 +14341,39 @@ fn validate_predicate_source_columns(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
-    for predicate_column in parsed.predicate.columns() {
+    validate_predicate_columns_against_header(
+        &parsed.predicate,
+        header,
+        "predicate column",
+        "CSV header",
+    )
+}
+
+fn validate_predicate_columns_against_header(
+    predicate: &ParsedPredicate,
+    header: &[String],
+    context: &str,
+    location: &str,
+) -> Result<(), ShardLoomError> {
+    for predicate_column in predicate.columns() {
+        if is_outer_correlation_ref(predicate_column) {
+            continue;
+        }
         if !header.iter().any(|candidate| candidate == predicate_column) {
             return Err(unsupported_sql_error(&format!(
-                "predicate column {predicate_column:?} is not present in the CSV header"
+                "{context} {predicate_column:?} is not present in the {location}"
             )));
         }
     }
     let mut outer_correlation_columns = BTreeSet::new();
-    parsed
-        .predicate
-        .push_outer_correlation_columns(&mut outer_correlation_columns);
+    predicate.push_outer_correlation_columns(&mut outer_correlation_columns);
     for predicate_column in outer_correlation_columns {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &predicate_column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "correlated subquery outer column {predicate_column:?} is not present in the CSV header"
-            )));
-        }
+        require_header_column(
+            header,
+            &predicate_column,
+            "correlated subquery outer column",
+            location,
+        )?;
     }
     Ok(())
 }
@@ -14985,7 +15102,7 @@ impl ParsedSqlLocalSource {
     }
 
     fn uses_outer_correlation(&self) -> bool {
-        self.predicate.uses_outer_correlation() || self.having.uses_outer_correlation()
+        self.any_predicate_surface(ParsedPredicate::uses_outer_correlation)
     }
 
     fn outer_correlation_columns(&self) -> String {
@@ -14999,8 +15116,80 @@ impl ParsedSqlLocalSource {
     }
 
     fn push_outer_correlation_columns(&self, columns: &mut BTreeSet<String>) {
-        self.predicate.push_outer_correlation_columns(columns);
-        self.having.push_outer_correlation_columns(columns);
+        for predicate in self.predicate_surfaces() {
+            predicate.push_outer_correlation_columns(columns);
+        }
+    }
+
+    fn predicate_surfaces(&self) -> Vec<&ParsedPredicate> {
+        let mut predicates = Vec::with_capacity(
+            2 + self.conditional_projections.len() + self.predicate_projections.len(),
+        );
+        predicates.push(&self.predicate);
+        predicates.push(&self.having);
+        predicates.extend(
+            self.conditional_projections
+                .iter()
+                .map(|projection| &projection.predicate),
+        );
+        predicates.extend(
+            self.predicate_projections
+                .iter()
+                .map(|projection| &projection.predicate),
+        );
+        predicates
+    }
+
+    fn any_predicate_surface<F>(&self, test: F) -> bool
+    where
+        F: FnMut(&ParsedPredicate) -> bool,
+    {
+        self.predicate_surfaces().into_iter().any(test)
+    }
+
+    fn sum_predicate_surface<F>(&self, value: F) -> usize
+    where
+        F: FnMut(&ParsedPredicate) -> usize,
+    {
+        self.predicate_surfaces().into_iter().map(value).sum()
+    }
+
+    fn max_predicate_surface<F>(&self, value: F) -> usize
+    where
+        F: FnMut(&ParsedPredicate) -> usize,
+    {
+        self.predicate_surfaces()
+            .into_iter()
+            .map(value)
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn joined_predicate_surface_values<F>(&self, value: F) -> String
+    where
+        F: FnMut(&ParsedPredicate) -> String,
+    {
+        let values = self
+            .predicate_surfaces()
+            .into_iter()
+            .map(value)
+            .collect::<Vec<_>>();
+        joined_not_applicable(&values)
+    }
+
+    fn projection_in_subquery_plan_digest_fragment(&self) -> String {
+        let mut fragments = Vec::new();
+        for projection in &self.conditional_projections {
+            projection
+                .predicate
+                .push_in_subquery_plan_digest_fragments(&mut fragments);
+        }
+        for projection in &self.predicate_projections {
+            projection
+                .predicate
+                .push_in_subquery_plan_digest_fragments(&mut fragments);
+        }
+        fragments.join("|")
     }
 
     fn has_distinct_projection(&self) -> bool {
@@ -15090,95 +15279,79 @@ impl ParsedSqlLocalSource {
     }
 
     fn uses_in_list(&self) -> bool {
-        self.predicate.uses_in_list() || self.having.uses_in_list()
+        self.any_predicate_surface(ParsedPredicate::uses_in_list)
     }
 
     fn in_list_value_count(&self) -> usize {
-        self.predicate.in_list_value_count() + self.having.in_list_value_count()
+        self.sum_predicate_surface(ParsedPredicate::in_list_value_count)
     }
 
     fn in_list_null_value_count(&self) -> usize {
-        self.predicate.in_list_null_value_count() + self.having.in_list_null_value_count()
+        self.sum_predicate_surface(ParsedPredicate::in_list_null_value_count)
     }
 
     fn uses_row_value_in_list(&self) -> bool {
-        self.predicate.uses_row_value_in_list() || self.having.uses_row_value_in_list()
+        self.any_predicate_surface(ParsedPredicate::uses_row_value_in_list)
     }
 
     fn row_value_in_source_columns(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.row_value_in_source_columns(),
-            self.having.row_value_in_source_columns(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::row_value_in_source_columns)
     }
 
     fn row_value_in_column_groups(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.row_value_in_column_groups(),
-            self.having.row_value_in_column_groups(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::row_value_in_column_groups)
     }
 
     fn row_value_in_column_count(&self) -> usize {
-        self.predicate.row_value_in_column_count() + self.having.row_value_in_column_count()
+        self.sum_predicate_surface(ParsedPredicate::row_value_in_column_count)
     }
 
     fn row_value_in_tuple_count(&self) -> usize {
-        self.predicate.row_value_in_tuple_count() + self.having.row_value_in_tuple_count()
+        self.sum_predicate_surface(ParsedPredicate::row_value_in_tuple_count)
     }
 
     fn row_value_in_null_value_count(&self) -> usize {
-        self.predicate.row_value_in_null_value_count() + self.having.row_value_in_null_value_count()
+        self.sum_predicate_surface(ParsedPredicate::row_value_in_null_value_count)
     }
 
     fn uses_in_subquery(&self) -> bool {
-        self.predicate.uses_in_subquery() || self.having.uses_in_subquery()
+        self.any_predicate_surface(ParsedPredicate::uses_in_subquery)
     }
 
     fn in_subquery_source_columns(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.in_subquery_source_columns(),
-            self.having.in_subquery_source_columns(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::in_subquery_source_columns)
     }
 
     fn in_subquery_source_formats(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.in_subquery_source_formats(),
-            self.having.in_subquery_source_formats(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::in_subquery_source_formats)
     }
 
     fn in_subquery_value_count(&self) -> usize {
-        self.predicate.in_subquery_value_count() + self.having.in_subquery_value_count()
+        self.sum_predicate_surface(ParsedPredicate::in_subquery_value_count)
     }
 
     fn in_subquery_null_value_count(&self) -> usize {
-        self.predicate.in_subquery_null_value_count() + self.having.in_subquery_null_value_count()
+        self.sum_predicate_surface(ParsedPredicate::in_subquery_null_value_count)
     }
 
     fn in_subquery_input_row_count(&self) -> usize {
-        self.predicate.in_subquery_input_row_count() + self.having.in_subquery_input_row_count()
+        self.sum_predicate_surface(ParsedPredicate::in_subquery_input_row_count)
     }
 
     fn in_subquery_filtered_row_count(&self) -> usize {
-        self.predicate.in_subquery_filtered_row_count()
-            + self.having.in_subquery_filtered_row_count()
+        self.sum_predicate_surface(ParsedPredicate::in_subquery_filtered_row_count)
     }
 
     fn in_subquery_filter_runtime_execution(&self) -> bool {
-        self.predicate.in_subquery_filter_runtime_execution()
-            || self.having.in_subquery_filter_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::in_subquery_filter_runtime_execution)
     }
 
     fn in_subquery_order_by_runtime_execution(&self) -> bool {
-        self.predicate.in_subquery_order_by_runtime_execution()
-            || self.having.in_subquery_order_by_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::in_subquery_order_by_runtime_execution)
     }
 
     fn in_subquery_limit_runtime_execution(&self) -> bool {
-        self.predicate.in_subquery_limit_runtime_execution()
-            || self.having.in_subquery_limit_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::in_subquery_limit_runtime_execution)
     }
 
     fn having_in_subquery_runtime_execution(&self) -> bool {
@@ -15186,113 +15359,83 @@ impl ParsedSqlLocalSource {
     }
 
     fn uses_projected_subquery(&self) -> bool {
-        self.predicate.uses_projected_subquery() || self.having.uses_projected_subquery()
+        self.any_predicate_surface(ParsedPredicate::uses_projected_subquery)
     }
 
     fn projected_subquery_statement_kinds(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.projected_subquery_statement_kinds(),
-            self.having.projected_subquery_statement_kinds(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::projected_subquery_statement_kinds)
     }
 
     fn projected_subquery_output_column_counts(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.projected_subquery_output_column_counts(),
-            self.having.projected_subquery_output_column_counts(),
-        ])
+        self.joined_predicate_surface_values(
+            ParsedPredicate::projected_subquery_output_column_counts,
+        )
     }
 
     fn projected_subquery_join_runtime_execution(&self) -> bool {
-        self.predicate.projected_subquery_join_runtime_execution()
-            || self.having.projected_subquery_join_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::projected_subquery_join_runtime_execution)
     }
 
     fn projected_subquery_group_by_runtime_execution(&self) -> bool {
-        self.predicate
-            .projected_subquery_group_by_runtime_execution()
-            || self.having.projected_subquery_group_by_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::projected_subquery_group_by_runtime_execution)
     }
 
     fn projected_subquery_having_runtime_execution(&self) -> bool {
-        self.predicate.projected_subquery_having_runtime_execution()
-            || self.having.projected_subquery_having_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::projected_subquery_having_runtime_execution)
     }
 
     fn uses_quantified_subquery(&self) -> bool {
-        self.predicate.uses_quantified_subquery() || self.having.uses_quantified_subquery()
+        self.any_predicate_surface(ParsedPredicate::uses_quantified_subquery)
     }
 
     fn quantified_subquery_source_columns(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.quantified_subquery_source_columns(),
-            self.having.quantified_subquery_source_columns(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::quantified_subquery_source_columns)
     }
 
     fn quantified_subquery_source_formats(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.quantified_subquery_source_formats(),
-            self.having.quantified_subquery_source_formats(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::quantified_subquery_source_formats)
     }
 
     fn quantified_subquery_quantifiers(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.quantified_subquery_quantifiers(),
-            self.having.quantified_subquery_quantifiers(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::quantified_subquery_quantifiers)
     }
 
     fn quantified_subquery_comparison_operators(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.quantified_subquery_comparison_operators(),
-            self.having.quantified_subquery_comparison_operators(),
-        ])
+        self.joined_predicate_surface_values(
+            ParsedPredicate::quantified_subquery_comparison_operators,
+        )
     }
 
     fn quantified_subquery_value_count(&self) -> usize {
-        self.predicate.quantified_subquery_value_count()
-            + self.having.quantified_subquery_value_count()
+        self.sum_predicate_surface(ParsedPredicate::quantified_subquery_value_count)
     }
 
     fn quantified_subquery_null_value_count(&self) -> usize {
-        self.predicate.quantified_subquery_null_value_count()
-            + self.having.quantified_subquery_null_value_count()
+        self.sum_predicate_surface(ParsedPredicate::quantified_subquery_null_value_count)
     }
 
     fn quantified_subquery_input_row_count(&self) -> usize {
-        self.predicate.quantified_subquery_input_row_count()
-            + self.having.quantified_subquery_input_row_count()
+        self.sum_predicate_surface(ParsedPredicate::quantified_subquery_input_row_count)
     }
 
     fn quantified_subquery_filtered_row_count(&self) -> usize {
-        self.predicate.quantified_subquery_filtered_row_count()
-            + self.having.quantified_subquery_filtered_row_count()
+        self.sum_predicate_surface(ParsedPredicate::quantified_subquery_filtered_row_count)
     }
 
     fn quantified_subquery_filter_runtime_execution(&self) -> bool {
-        self.predicate
-            .quantified_subquery_filter_runtime_execution()
-            || self.having.quantified_subquery_filter_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::quantified_subquery_filter_runtime_execution)
     }
 
     fn quantified_subquery_order_by_runtime_execution(&self) -> bool {
-        self.predicate
-            .quantified_subquery_order_by_runtime_execution()
-            || self.having.quantified_subquery_order_by_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::quantified_subquery_order_by_runtime_execution)
     }
 
     fn quantified_subquery_limit_runtime_execution(&self) -> bool {
-        self.predicate.quantified_subquery_limit_runtime_execution()
-            || self.having.quantified_subquery_limit_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::quantified_subquery_limit_runtime_execution)
     }
 
     fn quantified_subquery_null_semantics(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.quantified_subquery_null_semantics(),
-            self.having.quantified_subquery_null_semantics(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::quantified_subquery_null_semantics)
     }
 
     fn having_quantified_subquery_runtime_execution(&self) -> bool {
@@ -15300,65 +15443,47 @@ impl ParsedSqlLocalSource {
     }
 
     fn uses_exists_subquery(&self) -> bool {
-        self.predicate.uses_exists_subquery() || self.having.uses_exists_subquery()
+        self.any_predicate_surface(ParsedPredicate::uses_exists_subquery)
     }
 
     fn exists_subquery_source_columns(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.exists_subquery_source_columns(),
-            self.having.exists_subquery_source_columns(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::exists_subquery_source_columns)
     }
 
     fn exists_subquery_source_formats(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.exists_subquery_source_formats(),
-            self.having.exists_subquery_source_formats(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::exists_subquery_source_formats)
     }
 
     fn exists_subquery_input_row_count(&self) -> usize {
-        self.predicate.exists_subquery_input_row_count()
-            + self.having.exists_subquery_input_row_count()
+        self.sum_predicate_surface(ParsedPredicate::exists_subquery_input_row_count)
     }
 
     fn exists_subquery_filtered_row_count(&self) -> usize {
-        self.predicate.exists_subquery_filtered_row_count()
-            + self.having.exists_subquery_filtered_row_count()
+        self.sum_predicate_surface(ParsedPredicate::exists_subquery_filtered_row_count)
     }
 
     fn exists_subquery_bounded_row_count(&self) -> usize {
-        self.predicate.exists_subquery_bounded_row_count()
-            + self.having.exists_subquery_bounded_row_count()
+        self.sum_predicate_surface(ParsedPredicate::exists_subquery_bounded_row_count)
     }
 
     fn exists_subquery_filter_runtime_execution(&self) -> bool {
-        self.predicate.exists_subquery_filter_runtime_execution()
-            || self.having.exists_subquery_filter_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::exists_subquery_filter_runtime_execution)
     }
 
     fn exists_subquery_order_by_runtime_execution(&self) -> bool {
-        self.predicate.exists_subquery_order_by_runtime_execution()
-            || self.having.exists_subquery_order_by_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::exists_subquery_order_by_runtime_execution)
     }
 
     fn exists_subquery_limit_runtime_execution(&self) -> bool {
-        self.predicate.exists_subquery_limit_runtime_execution()
-            || self.having.exists_subquery_limit_runtime_execution()
+        self.any_predicate_surface(ParsedPredicate::exists_subquery_limit_runtime_execution)
     }
 
     fn exists_subquery_result(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.exists_subquery_result(),
-            self.having.exists_subquery_result(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::exists_subquery_result)
     }
 
     fn exists_subquery_projection_kind(&self) -> String {
-        joined_not_applicable(&[
-            self.predicate.exists_subquery_projection_kind(),
-            self.having.exists_subquery_projection_kind(),
-        ])
+        self.joined_predicate_surface_values(ParsedPredicate::exists_subquery_projection_kind)
     }
 
     fn having_exists_subquery_runtime_execution(&self) -> bool {
@@ -15366,20 +15491,17 @@ impl ParsedSqlLocalSource {
     }
 
     fn nested_subquery_runtime_execution(&self) -> bool {
-        (self.predicate.uses_subquery_predicate()
-            && self.predicate.nested_subquery_runtime_count() > 0)
-            || (self.having.uses_subquery_predicate()
-                && self.having.nested_subquery_runtime_count() > 0)
+        self.any_predicate_surface(|predicate| {
+            predicate.uses_subquery_predicate() && predicate.nested_subquery_runtime_count() > 0
+        })
     }
 
     fn nested_subquery_runtime_count(&self) -> usize {
-        self.predicate.nested_subquery_runtime_count() + self.having.nested_subquery_runtime_count()
+        self.sum_predicate_surface(ParsedPredicate::nested_subquery_runtime_count)
     }
 
     fn nested_subquery_max_depth(&self) -> usize {
-        self.predicate
-            .nested_subquery_max_depth()
-            .max(self.having.nested_subquery_max_depth())
+        self.max_predicate_surface(ParsedPredicate::nested_subquery_max_depth)
     }
 
     fn aggregate_statement_suffix(&self, suffix: &str) -> String {
@@ -15562,6 +15684,16 @@ impl ParsedSqlLocalSource {
 
     fn has_predicate_projection(&self) -> bool {
         !self.predicate_projections.is_empty()
+    }
+
+    fn has_correlated_projection_predicate(&self) -> bool {
+        self.conditional_projections
+            .iter()
+            .any(|projection| projection.predicate.uses_outer_correlation())
+            || self
+                .predicate_projections
+                .iter()
+                .any(|projection| projection.predicate.uses_outer_correlation())
     }
 
     fn has_numeric_arithmetic_projection(&self) -> bool {
@@ -16423,12 +16555,7 @@ impl ParsedSqlLocalSource {
             self.conditional_projections
                 .iter()
                 .map(|projection| {
-                    let mut columns = projection
-                        .predicate
-                        .columns()
-                        .into_iter()
-                        .map(str::to_string)
-                        .collect::<BTreeSet<_>>();
+                    let mut columns = predicate_required_source_column_set(&projection.predicate);
                     if let Some(column) = projection.then_branch.source_column() {
                         columns.insert(column.to_string());
                     }
@@ -16504,7 +16631,12 @@ impl ParsedSqlLocalSource {
         } else {
             self.predicate_projections
                 .iter()
-                .map(|projection| projection.predicate.columns().join("+"))
+                .map(|projection| {
+                    predicate_required_source_column_set(&projection.predicate)
+                        .into_iter()
+                        .collect::<Vec<_>>()
+                        .join("+")
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -24960,7 +25092,10 @@ impl SqlLocalSourceReport {
                     } else {
                         0
                     };
-                    predicate_count.saturating_add(having_count).to_string()
+                    predicate_count
+                        .saturating_add(having_count)
+                        .saturating_add(self.correlated_projection_outer_row_evaluation_count)
+                        .to_string()
                 } else {
                     "0".to_string()
                 },
@@ -29225,11 +29360,6 @@ fn parse_conditional_projection(
         ));
     }
     let predicate = parse_predicate(predicate_raw)?;
-    if predicate.uses_outer_correlation() {
-        return Err(unsupported_sql_error(
-            "CASE projection predicates do not admit outer.<column> references; correlated subqueries are admitted only in WHERE/HAVING per-row materialization paths",
-        ));
-    }
     let then_branch = parse_conditional_projection_branch(then_raw, "THEN")?;
     let else_branch = parse_conditional_projection_branch(else_raw, "ELSE")?;
     let then_dtype = then_branch.literal_dtype();
@@ -29378,11 +29508,6 @@ fn parse_predicate_projection(
     }
     validate_sql_identifier(alias)?;
     let predicate = parse_predicate(expression_raw)?;
-    if predicate.uses_outer_correlation() {
-        return Err(unsupported_sql_error(
-            "predicate projections do not admit outer.<column> references; correlated subqueries are admitted only in WHERE/HAVING per-row materialization paths",
-        ));
-    }
     Ok(Some(ParsedPredicateProjection {
         alias: alias.to_string(),
         predicate,
@@ -37463,35 +37588,41 @@ mod tests {
     }
 
     #[test]
-    fn predicate_projection_blocks_outer_correlation_without_fallback() {
-        let error = parse_sql_local_source_statement(
+    fn parses_scoped_correlated_predicate_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,id IN (SELECT id FROM 'target/allowed.csv' WHERE id = outer.id LIMIT 5) AS matched FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("predicate projection outer refs remain blocked");
+        .expect("correlated predicate projection statement parses");
 
-        assert!(
-            error
-                .to_string()
-                .contains("predicate projections do not admit outer.<column> references"),
-            "got {error}"
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.predicate_projections.len(), 1);
+        assert_eq!(parsed.predicate_projections[0].alias, "matched");
+        assert_eq!(
+            parsed.predicate_projection_predicate_families(),
+            "in_subquery"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert_eq!(parsed.predicate_projection_source_columns(), "id");
+        assert!(parsed.has_correlated_projection_predicate());
+        assert!(parsed.uses_outer_correlation());
     }
 
     #[test]
-    fn conditional_projection_blocks_outer_correlation_without_fallback() {
-        let error = parse_sql_local_source_statement(
+    fn parses_scoped_correlated_conditional_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,CASE WHEN id IN (SELECT id FROM 'target/allowed.csv' WHERE id = outer.id LIMIT 5) THEN 'yes' ELSE 'no' END AS matched FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("CASE projection outer refs remain blocked");
+        .expect("correlated CASE projection statement parses");
 
-        assert!(
-            error
-                .to_string()
-                .contains("CASE projection predicates do not admit outer.<column> references"),
-            "got {error}"
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.conditional_projections.len(), 1);
+        assert_eq!(parsed.conditional_projections[0].alias, "matched");
+        assert_eq!(
+            parsed.conditional_projection_predicate_families(),
+            "in_subquery"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
+        assert_eq!(parsed.conditional_projection_source_columns(), "id");
+        assert!(parsed.has_correlated_projection_predicate());
+        assert!(parsed.uses_outer_correlation());
     }
 
     #[test]
@@ -41552,6 +41683,133 @@ mod tests {
         assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
         assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
         assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_uncorrelated_in_subquery_predicate_projection_without_fallback() {
+        let source_path = sql_local_source_test_path("predicate-projection-in-source.csv");
+        let allowed_path = sql_local_source_test_path("predicate-projection-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,9\n3,true,8\n4,false,7\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) AS matched FROM '{}' ORDER BY id ASC LIMIT 4",
+                allowed_path.display(),
+                source_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run uncorrelated predicate projection IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"matched\":true}\n{\"id\":2,\"matched\":false}\n{\"id\":3,\"matched\":true}\n{\"id\":4,\"matched\":false}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "none");
+        assert_field_eq(&fields, "predicate_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "predicate_projection_predicate_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "predicate_projection_source_column", "id");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_subquery_projection_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-projection-source.csv");
+        let allowed_path = sql_local_source_test_path("correlated-projection-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) AS matched,CASE WHEN id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) THEN 'allowed' ELSE 'blocked' END AS status FROM '{}' ORDER BY id ASC LIMIT 4",
+                allowed_path.display(),
+                allowed_path.display(),
+                source_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated predicate and CASE projection subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"matched\":true,\"status\":\"allowed\"}\n{\"id\":2,\"matched\":false,\"status\":\"blocked\"}\n{\"id\":3,\"matched\":true,\"status\":\"allowed\"}\n{\"id\":4,\"matched\":false,\"status\":\"blocked\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "none");
+        assert_field_eq(&fields, "predicate_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "predicate_projection_predicate_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "predicate_projection_source_column", "amount+id");
+        assert_field_eq(&fields, "conditional_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "conditional_projection_predicate_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "conditional_projection_source_column", "amount+id");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id,id");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 

@@ -165,7 +165,8 @@ scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper proje
 scoped `ARRAY[...]` / `STRUCT(<source column>, ...)` complex projections through JSONL/result rows,
 source-backed `IN` /
 `EXISTS` / `ANY` / `ALL` including grouped/HAVING projected source-subquery tails, row-level
-`SELECT DISTINCT`, scoped SQL `UNION` / `UNION ALL`, and bounded terminal paths.
+`SELECT DISTINCT`, scoped subquery-backed predicate/CASE projections, scoped SQL `UNION` /
+`UNION ALL`, and bounded terminal paths.
 Bounded `schema()`, `schema_contract(...)`, `data_quality_*`, `profile(...)`, and
 `quarantine(...)` helpers use the same local-source runtime evidence; `profile()` reports
 row/field/null-count observability from the bounded inline JSONL result, and pushdownable

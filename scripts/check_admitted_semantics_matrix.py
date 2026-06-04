@@ -2598,6 +2598,69 @@ def executable_cases() -> list[SqlFixtureCase]:
             },
         ),
         SqlFixtureCase(
+            case_id="subquery_predicate_projection_semantics",
+            source_name="subquery-predicate-projection-source.csv",
+            source_text=(
+                "id,label,amount\n"
+                "1,alpha,10\n"
+                "2,beta,20\n"
+                "3,gamma,30\n"
+                "4,delta,40\n"
+            ),
+            statement_template=(
+                "SELECT id,"
+                "id IN (SELECT id FROM '{allowed}' WHERE id = outer.id "
+                "AND active IS TRUE AND outer.amount >= min_amount "
+                "ORDER BY min_amount ASC LIMIT 10) AS matched,"
+                "CASE WHEN id IN (SELECT id FROM '{allowed}' WHERE id = outer.id "
+                "AND active IS TRUE AND outer.amount >= min_amount "
+                "ORDER BY min_amount ASC LIMIT 10) THEN 'allowed' ELSE 'blocked' END AS status "
+                "FROM '{source}' ORDER BY id ASC LIMIT 4"
+            ),
+            expected_jsonl=(
+                '{"id":1,"matched":true,"status":"allowed"}\n'
+                '{"id":2,"matched":false,"status":"blocked"}\n'
+                '{"id":3,"matched":true,"status":"allowed"}\n'
+                '{"id":4,"matched":false,"status":"blocked"}\n'
+            ),
+            expected_fields={
+                "predicate_operator_family": "none",
+                "predicate_projection_runtime_execution": "true",
+                "predicate_projection_predicate_family": "in_subquery",
+                "predicate_projection_source_column": "amount+id",
+                "conditional_projection_runtime_execution": "true",
+                "conditional_projection_predicate_family": "in_subquery",
+                "conditional_projection_source_column": "amount+id",
+                "in_subquery_runtime_execution": "true",
+                "in_subquery_source_column": "id,id",
+                "in_subquery_filter_runtime_execution": "true",
+                "in_subquery_order_by_runtime_execution": "true",
+                "in_subquery_limit_runtime_execution": "true",
+                "correlated_subquery_runtime_execution": "true",
+                "correlated_subquery_outer_alias": "outer",
+                "correlated_subquery_outer_column": "amount,id",
+                "correlated_subquery_outer_row_evaluation_count": "4",
+                "fallback_attempted": "false",
+                "external_engine_invoked": "false",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+            auxiliary_sources=(
+                (
+                    "allowed",
+                    "subquery-predicate-projection-allowed.csv",
+                    (
+                        "id,min_amount,active\n"
+                        "1,5,true\n"
+                        "1,99,true\n"
+                        "2,25,true\n"
+                        "3,25,false\n"
+                        "3,20,true\n"
+                        "5,1,true\n"
+                    ),
+                ),
+            ),
+        ),
+        SqlFixtureCase(
             case_id="aggregate_having_output_rows",
             source_name="aggregate-having.csv",
             source_text=(

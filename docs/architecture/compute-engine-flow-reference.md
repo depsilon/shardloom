@@ -356,12 +356,12 @@ sinks and emit per-output bytes, digests, certificate refs/statuses, replay/fide
 result replay/fidelity proof, persistent OutputPlan cache support, or object-store/table output
 support.
 
-4D/5G/F1 closeout note: current release-gated admitted semantics now include `matrix_row_count=68`
-and `executable_fixture_count=61`, including scoped UTF-8 regex predicates, composed string functions, temporal arithmetic/
+4D/5G/F1 closeout note: current release-gated admitted semantics now include `matrix_row_count=69`
+and `executable_fixture_count=62`, including scoped UTF-8 regex predicates, composed string functions, temporal arithmetic/
 difference, CASE, IN-list NULL semantics, row-value literal IN predicates, row-value IN-subquery predicates, projected row-value/EXISTS/quantified subqueries, correlated joined and grouped/HAVING projected scalar/row-value/EXISTS/quantified subqueries, scoped quantified ANY/ALL subqueries, scoped SQL UNION
 composition, bounded scalar IN subqueries with admitted WHERE/ORDER BY/LIMIT clauses, nested scalar
 IN subqueries, joined and grouped/HAVING projected scalar IN/EXISTS subqueries, HAVING
-IN/EXISTS/quantified subquery predicates, scoped correlated `outer.<column>` scalar/row-value/EXISTS/quantified filters, COUNT(DISTINCT), hidden HAVING aggregates, mixed
+IN/EXISTS/quantified subquery predicates, scoped correlated `outer.<column>` scalar/row-value/EXISTS/quantified filters, scoped subquery-backed predicate/CASE projections, COUNT(DISTINCT), hidden HAVING aggregates, mixed
 window row_number/rank/lag/ntile semantics, multi-key joins, source-qualified local subqueries, scoped SQL `X'<hex>'`, `BINARY '<utf8>'`, and `BLOB '<utf8>'` binary literal projections, scoped binary casts and equality/inequality cast predicates, scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, scoped decimal128/decimal/numeric cast projection and predicate fixtures with exact JSONL string and CSV text boundaries, scoped mixed-scale decimal add/subtract/multiply projections, mixed-scale decimal comparisons, exact fixed-scale decimal division, and deterministic unsupported
 diagnostics for non-UTC timestamp/timezone, arbitrary interval arithmetic, collation, non-exact decimal division, broad ANSI decimal coercion, exponent notation, decimal/float comparison, local Vortex typed decimal output, or Avro/ORC typed decimal sinks, complex equality/accessors/casts/nested source decoding/flat sinks beyond scoped JSONL/result-boundary `ARRAY[...]` and `STRUCT(<source column>, ...)` projections, variant,
 union dtype, broad binary source dtype decoding, binary ordering, scalar-left multi-column IN-subquery, unbound qualified references, and remaining non-admitted broad ANSI subquery shapes, and

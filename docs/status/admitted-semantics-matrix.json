@@ -3,7 +3,7 @@
   "fallback_boundary": "external engines may be isolated test oracles or baselines only and are not invoked by this validator",
   "matrix_id": "review-runtime-2.admitted_semantics_fixture_matrix",
   "remaining_matrix_gaps": [
-    "broad ANSI subquery parity beyond bounded local scalar IN-subquery, nested scalar IN-subquery, row-value IN-subquery, scoped correlated outer.<column> local subquery filters, joined/grouped projected IN/EXISTS subqueries, correlated joined/grouped projected subqueries, projected row-value/quantified subquery variants, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level variants of those admitted local subqueries",
+    "broad ANSI subquery parity beyond bounded local scalar IN-subquery, nested scalar IN-subquery, row-value IN-subquery, scoped correlated outer.<column> local subquery filters, scoped subquery-backed predicate/CASE projections, joined/grouped projected IN/EXISTS subqueries, correlated joined/grouped projected subqueries, projected row-value/quantified subquery variants, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level variants of those admitted local subqueries",
     "external-oracle result artifact population",
     "general fuzz execution beyond the deterministic seeded property lane"
   ],
@@ -17,6 +17,7 @@
     "temporal_extract_utc_date32_timestamp",
     "null_coalesce_nullif",
     "predicate_projection_three_valued",
+    "subquery_predicate_projection_semantics",
     "aggregate_having_output_rows",
     "string_function_composition_utf8",
     "temporal_arithmetic_difference_utc",
@@ -254,6 +255,26 @@
       "property_seed": "not_applicable_fixed_fixture",
       "runtime_validation": "required",
       "source_format": "csv",
+      "support_state": "executable",
+      "unsupported_diagnostic_code": "not_applicable_executable",
+      "unsupported_diagnostic_message": "not_applicable_executable"
+    },
+    {
+      "claim_boundary": "scoped SQL subquery-backed predicate and CASE projection semantics over bounded local sources only",
+      "coercion_policy": "projection subquery predicates must bind to admitted local source columns and reserved outer.<column> references only",
+      "decoded_reference_kind": "jsonl_inline_reference",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "id": "subquery_predicate_projection_semantics",
+      "input_dtype": "int64,utf8,boolean",
+      "invalid_input_behavior": "unsupported projection subquery shapes and unbound outer references block deterministically",
+      "null_policy": "SQL three-valued IN-subquery projection predicate behavior; CASE predicate selects THEN only on true",
+      "operator_family": "predicate_projection,conditional_projection,in_subquery,correlated_subquery",
+      "oracle_boundary": "decoded_reference_only",
+      "output_dtype": "int64,boolean,utf8",
+      "property_seed": "not_applicable_fixed_fixture",
+      "runtime_validation": "required",
+      "source_format": "csv,csv",
       "support_state": "executable",
       "unsupported_diagnostic_code": "not_applicable_executable",
       "unsupported_diagnostic_message": "not_applicable_executable"

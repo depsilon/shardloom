@@ -2626,8 +2626,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=68",
-        "executable_fixture_count=61",
+        "matrix_row_count=69",
+        "executable_fixture_count=62",
         "diagnostic_case_count=7",
         "unsupported_diagnostic_count=5",
         "runtime_error_diagnostic_count=1",
@@ -2638,6 +2638,7 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "`correlated_row_value_in_subquery_semantics`",
         "`correlated_exists_subquery_semantics`",
         "`correlated_quantified_subquery_semantics`",
+        "`subquery_predicate_projection_semantics`",
         "`correlated_joined_projected_in_subquery_semantics`",
         "`correlated_joined_projected_row_value_in_subquery_semantics`",
         "`correlated_joined_projected_quantified_subquery_semantics`",
