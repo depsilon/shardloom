@@ -11448,7 +11448,7 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
     let stdout = String::from_utf8(boolean_output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
-        "ORDER BY top-N smoke admits numeric, UTF-8, or scoped ARRAY/STRUCT result-boundary sort columns only"
+        "ORDER BY top-N smoke admits numeric, UTF-8, binary, or scoped ARRAY/STRUCT result-boundary sort columns only"
     ));
     assert!(stdout.contains("external_engine_invoked=false"));
 
@@ -11470,7 +11470,7 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(
         stdout.contains(
-            "ORDER BY mixed numeric and UTF-8 values within one sort key are not admitted"
+            "ORDER BY mixed numeric, UTF-8, binary, and scoped ARRAY/STRUCT values within one sort key are not admitted in this scoped top-N smoke"
         )
     );
     assert!(stdout.contains("external_engine_invoked=false"));
