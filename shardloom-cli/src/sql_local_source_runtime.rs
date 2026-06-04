@@ -28144,20 +28144,62 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     Ok(statement.to_string())
 }
 
+const TIMEZONE_DATABASE_POLICY_MESSAGE: &str = "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only";
+const LOCALE_COLLATION_POLICY_MESSAGE: &str = "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice";
+
 fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
-    if contains_keyword_outside_quotes(statement, "at time zone")
-        || contains_keyword_outside_quotes(statement, "with time zone")
-    {
-        return Err(unsupported_sql_error(
-            "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only",
-        ));
+    if contains_timezone_database_policy_construct(statement)? {
+        return Err(unsupported_sql_error(TIMEZONE_DATABASE_POLICY_MESSAGE));
     }
-    if contains_keyword_outside_quotes(statement, "collate") {
-        return Err(unsupported_sql_error(
-            "SQL COLLATE and locale-aware collation semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice",
-        ));
+    if contains_locale_collation_policy_construct(statement) {
+        return Err(unsupported_sql_error(LOCALE_COLLATION_POLICY_MESSAGE));
     }
     Ok(())
+}
+
+fn contains_timezone_database_policy_construct(statement: &str) -> Result<bool, ShardLoomError> {
+    Ok(contains_keyword_outside_quotes(statement, "at time zone")
+        || contains_keyword_outside_quotes(statement, "with time zone")
+        || contains_type_literal_outside_quotes(statement, "timestamp with local time zone")
+        || contains_type_literal_outside_quotes(statement, "timestamptz")
+        || contains_type_literal_outside_quotes(statement, "timestamp_tz")
+        || contains_cast_target_matching(statement, "cast", target_is_timezone_database_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_timezone_database_dtype)?
+        || contains_function_call_outside_quotes(statement, "timezone")
+        || contains_function_call_outside_quotes(statement, "convert_timezone"))
+}
+
+fn contains_locale_collation_policy_construct(statement: &str) -> bool {
+    contains_keyword_outside_quotes(statement, "collate")
+        || contains_keyword_outside_quotes(statement, "ilike")
+}
+
+fn contains_type_literal_outside_quotes(raw: &str, type_name: &str) -> bool {
+    let mut search_start = 0;
+    while search_start < raw.len() {
+        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], type_name)
+        else {
+            return false;
+        };
+        let type_index = search_start + relative_index;
+        let after_type = &raw[type_index + type_name.len()..];
+        if after_type.trim_start().starts_with('\'') {
+            return true;
+        }
+        search_start = type_index + type_name.len();
+    }
+    false
+}
+
+fn target_is_timezone_database_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(
+        target_dtype,
+        &[
+            "timestamptz",
+            "timestamp_tz",
+            "timestamp with local time zone",
+        ],
+    )
 }
 
 fn contains_cast_target_matching(
@@ -42392,8 +42434,36 @@ mod tests {
                 "timezone database semantics are not admitted",
             ),
             (
+                "SELECT id,TIMEZONE('America/Chicago', event_ts) AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
+                "SELECT id,CONVERT_TIMEZONE('UTC','America/Chicago',event_ts) AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
+                "SELECT id,CAST(event_ts AS TIMESTAMPTZ) AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
+                "SELECT id,TIMESTAMPTZ '2026-05-19 12:34:56 America/Chicago' AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
+                "SELECT id,CAST(event_ts AS TIMESTAMP_TZ) AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
+                "SELECT id,CAST(event_ts AS TIMESTAMP WITH LOCAL TIME ZONE) AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database semantics are not admitted",
+            ),
+            (
                 "SELECT id,label COLLATE nocase AS folded FROM 'target/input.csv' LIMIT 5",
-                "SQL COLLATE and locale-aware collation semantics are not admitted",
+                "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE label ILIKE 'a%' LIMIT 5",
+                "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
             ),
             (
                 "SELECT id,TRY_CAST(label AS decimal128(39,2)) AS unsupported FROM 'target/input.csv' LIMIT 5",
@@ -42409,6 +42479,21 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,timezone FROM 'target/input.csv' WHERE timezone = 'UTC' LIMIT 5",
+        )
+        .expect("timezone column name is not a timezone database function");
+        assert_eq!(parsed.projections, vec!["id", "timezone"]);
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,timestamptz,timestamp_tz FROM 'target/input.csv' WHERE timestamptz = 'UTC' LIMIT 5",
+        )
+        .expect("timezone dtype spellings are only blocked as type syntax");
+        assert_eq!(
+            parsed.projections,
+            vec!["id", "timestamptz", "timestamp_tz"]
+        );
     }
 
     #[test]

@@ -2847,6 +2847,28 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="timezone database semantics are not admitted",
         ),
         UnsupportedCase(
+            case_id="unsupported_timezone_database_function_policy",
+            source_name="timezone-db-function-unsupported.csv",
+            source_text="id,event_ts\n1,2026-05-19T17:34:56Z\n",
+            statement_template=(
+                "SELECT id,TIMEZONE('America/Chicago', event_ts) AS unsupported "
+                "FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="timezone database semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_timestamptz_policy",
+            source_name="timestamptz-unsupported.csv",
+            source_text="id,event_ts\n1,2026-05-19T17:34:56Z\n",
+            statement_template=(
+                "SELECT id,CAST(event_ts AS timestamptz) AS unsupported "
+                "FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="timezone database semantics are not admitted",
+        ),
+        UnsupportedCase(
             case_id="unsupported_locale_collation",
             source_name="collation-unsupported.csv",
             source_text="id,label\n1,alpha\n",
@@ -2854,7 +2876,17 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,label COLLATE nocase AS folded FROM '{source}' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="SQL COLLATE and locale-aware collation semantics are not admitted",
+            diagnostic_fragment="SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_locale_case_insensitive_predicate",
+            source_name="locale-casefold-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE label ILIKE 'a%' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
         ),
         UnsupportedCase(
             case_id="unsupported_variant_access",

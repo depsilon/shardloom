@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D timezone/locale deterministic blocker refinement slice
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-timezone-locale-blockers` / PR #1078.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/skills/expression-kernel-registry.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/diagnostics-capabilities.md`.
+  - Scope:
+    - Tightened SQL local-source scalar policy diagnostics so timezone database function/type
+      spellings and locale/case-folding operators fail at the deterministic no-fallback boundary.
+    - Added explicit blockers for `TIMEZONE(...)`, `CONVERT_TIMEZONE(...)`, `TIMESTAMPTZ`,
+      `TIMESTAMP_TZ`, `TIMESTAMP WITH LOCAL TIME ZONE`, and `ILIKE`, while preserving plain
+      `timezone` source-column names as ordinary identifiers.
+    - Promoted three admitted-semantics diagnostic rows:
+      `unsupported_timezone_database_function_policy`, `unsupported_timestamptz_policy`, and
+      `unsupported_locale_case_insensitive_predicate`.
+    - Updated release-readiness expected admitted-semantics counts to 73 matrix rows, 64 executable
+      fixtures, 9 diagnostic cases, and 7 unsupported diagnostics.
+    - Refreshed the status docs, compute-flow reference, phased plan next-slice wording, and
+      generated website compute-flow pages.
+  - Evidence:
+    - `cargo test -p shardloom-cli parser_blocks_advanced_scalar_policy_constructs_without_fallback -- --nocapture` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py` passed and wrote
+      `target/admitted-semantics-matrix-report.json` with `matrix_row_count=73`,
+      `executable_fixture_count=64`, `diagnostic_case_count=9`,
+      `unsupported_diagnostic_count=7`, no fallback, no external engine invocation, and no
+      production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-timezone-locale-blockers.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-timezone-locale-blockers.json` passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness compute_engine_flow_reference_anchors_execution_modes_and_claim_gates -- --nocapture` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `python3 scripts/check_release_readiness.py` wrote
+      `target/hard-release-readiness-gate.json` with `status=blocked` and 48 standing
+      release/package/evidence blockers; the admitted-semantics report ref was present.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice; the change is deterministic diagnostic,
+      release-matrix, and website/status documentation work and does not make a performance claim.
+  - Claim boundary:
+    - This slice does not admit timezone database conversion, `TIMESTAMPTZ` execution semantics,
+      locale-aware collation, locale-aware case folding, broad ANSI timezone/collation parity,
+      production SQL, benchmark speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - Unsupported timezone database and locale/case-folding constructs now fail before runtime
+      execution with `fallback_attempted=false` and `external_engine_invoked=false`; external
+      engines remain unavailable as fallback execution providers.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D fixed numeric timestamp offset literal/source normalization slice
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-timestamp-offset-literals` / PR #1077.
