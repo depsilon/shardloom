@@ -35996,6 +35996,7 @@ fn validate_sql_output_plan_sink_target(
 }
 
 #[cfg(feature = "universal-format-io")]
+#[allow(clippy::unnecessary_wraps)]
 fn validate_sql_universal_format_output_plan(
     _format: SqlLocalSourceOutputFormat,
 ) -> Result<(), ShardLoomError> {
@@ -36599,6 +36600,99 @@ mod tests {
         assert!(source_to_columnar_millis <= report.source.parse_millis);
         assert_eq!(report.output_rows.len(), 1);
         assert!(report.output_rows[0].contains(&("id".to_string(), ScalarValue::Int64(2))));
+        fs::remove_file(&path).expect("remove arrow ipc source");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn direct_transient_arrow_ipc_projects_binary_source_dtype_without_fallback() {
+        let path = sql_local_source_test_path("arrow");
+        let id = std::sync::Arc::new(arrow_array::Int64Array::from(vec![1, 2, 3]));
+        let payload = std::sync::Arc::new(arrow_array::BinaryArray::from(vec![
+            Some(&[0x00, 0xff, 0x10][..]),
+            None,
+            Some(&b"raw"[..]),
+        ]));
+        let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+            arrow_schema::Field::new("id", arrow_schema::DataType::Int64, false),
+            arrow_schema::Field::new("payload", arrow_schema::DataType::Binary, true),
+        ]));
+        let batch =
+            arrow_array::RecordBatch::try_new(schema.clone(), vec![id, payload]).expect("batch");
+        let file = fs::File::create(&path).expect("create arrow ipc source");
+        let mut writer =
+            arrow_ipc::writer::FileWriter::try_new(file, schema.as_ref()).expect("ipc writer");
+        writer.write(&batch).expect("write ipc batch");
+        writer.finish().expect("finish ipc writer");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,payload FROM '{}' ORDER BY id ASC LIMIT 3",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request).expect("run sql smoke");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "source_format", "arrow_ipc");
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "structured_reader_to_arrow_record_batches_then_scalar_rows",
+        );
+        assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+        assert_field_eq(&fields, "source_state_record_batch_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_runtime_consumption_layout",
+            "scalar_row_map_expression_runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_scalar_runtime_materialization_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_projection_pushdown_status",
+            "reader_level_projection",
+        );
+        assert_field_eq(&fields, "source_state_materialized_columns", "id,payload");
+        assert_field_eq(
+            &fields,
+            "source_state_reader_projection_columns",
+            "id,payload",
+        );
+        assert_field_eq(&fields, "format_specific_compute_path", "false");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_eq!(
+            report.result_jsonl,
+            concat!(
+                "{\"id\":1,\"payload\":\"binary[hex=00ff10]\"}\n",
+                "{\"id\":2,\"payload\":null}\n",
+                "{\"id\":3,\"payload\":\"binary[hex=726177]\"}\n"
+            )
+        );
+        assert_eq!(report.output_rows.len(), 3);
+        assert!(report.output_rows[0].contains(&(
+            "payload".to_string(),
+            ScalarValue::Binary(vec![0x00, 0xff, 0x10])
+        )));
+        assert!(report.output_rows[1].contains(&("payload".to_string(), ScalarValue::Null)));
+        assert!(
+            report.output_rows[2]
+                .contains(&("payload".to_string(), ScalarValue::Binary(b"raw".to_vec())))
+        );
         fs::remove_file(&path).expect("remove arrow ipc source");
     }
 

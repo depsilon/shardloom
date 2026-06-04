@@ -553,7 +553,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary cast projection and equality/inequality predicate semantics only; scoped binary cast ordering is tracked in the separate binary_cast_ordering_predicate row; not broad binary source dtype decoding",
+      "claim_boundary": "scoped SQL binary cast projection and equality/inequality predicate semantics only; scoped binary cast ordering is tracked in the separate binary_cast_ordering_predicate row; not binary source predicate/order/sink execution",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS binary/blob/varbinary) encodes admitted scalar values as UTF-8 byte representations; binary cast predicates admit equality and inequality against X'<hex>', BINARY/BLOB '<utf8>', single-quoted UTF-8 byte literals, or NULL",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -573,14 +573,14 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary cast lexicographic ordering predicate semantics only; not broad binary source dtype decoding, locale/collation, or production ordering parity",
+      "claim_boundary": "scoped SQL binary cast lexicographic ordering predicate semantics only; not binary source predicate/order/sink execution, locale/collation, or production ordering parity",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS binary/blob/varbinary) encodes admitted scalar values as UTF-8 byte representations before bytewise lexicographic comparison against explicit binary literals",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "binary_cast_ordering_predicate",
       "input_dtype": "utf8,null",
-      "invalid_input_behavior": "malformed binary predicate literals, source binary dtype decoding, and SQL source-column binary ordering without explicit cast block deterministically before fallback",
+      "invalid_input_behavior": "malformed binary predicate literals and SQL source-column binary ordering without explicit cast block deterministically before fallback; scoped columnar binary source projection is covered outside this predicate row",
       "null_policy": "binary casts are null-propagating; NULL comparison operands produce non-true WHERE results",
       "operator_family": "cast,binary_cast_predicate,binary_ordering",
       "oracle_boundary": "decoded_reference_only",
@@ -633,8 +633,8 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary helper projection semantics for local UTF-8 source columns only; not source binary dtype decoding, nested binary helper expressions, or broad binary input support",
-      "coercion_policy": "UNHEX(<utf8-column>) decodes even-length hexadecimal text; FROM_BASE64(<utf8-column>) decodes strict standard padded base64 text; binary casts and BINARY/BLOB text literals are tracked in separate executable rows and no source binary dtype inference is implied",
+      "claim_boundary": "scoped SQL binary helper projection semantics for local UTF-8 source columns only; not binary source predicate/order/sink execution, nested binary helper expressions, or broad binary input support",
+      "coercion_policy": "UNHEX(<utf8-column>) decodes even-length hexadecimal text; FROM_BASE64(<utf8-column>) decodes strict standard padded base64 text; binary casts, BINARY/BLOB text literals, and scoped columnar binary source projection are tracked outside this helper row",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
