@@ -189,10 +189,12 @@ IPC, and the shared materializer covers Arrow `Binary`, `LargeBinary`, `FixedSiz
 `BinaryView` arrays surfaced by admitted local structured readers. Feature-gated Parquet/Arrow
 IPC/Avro/ORC flat scalar compatibility sinks preserve admitted binary byte payloads from SQL result
 batches, including all-null Arrow IPC binary source columns with source-schema dtype evidence, with
-focused SQL fanout and writer round-trip evidence. Binary sink preservation outside those scoped
-Parquet/Arrow IPC/Avro/ORC outputs, broader binary execution beyond scoped source
-projection/predicate/order plus explicit casts/helpers, and nested binary helper expressions remain
-outside the claim boundary.
+focused SQL fanout and writer round-trip evidence. Feature-gated local Vortex flat scalar non-null
+binary sinks now preserve admitted binary byte payloads through the Vortex writer/reopen path.
+Nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before
+writer conversion; binary sink preservation outside those scoped Parquet/Arrow IPC/Avro/ORC and
+non-null Vortex outputs, broader binary execution beyond scoped source projection/predicate/order
+plus explicit casts/helpers, and nested binary helper expressions remain outside the claim boundary.
 Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate

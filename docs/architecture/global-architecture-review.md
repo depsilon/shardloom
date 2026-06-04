@@ -638,7 +638,9 @@ plan before coding.
   without fallback or external runtime engines. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
   binary cast bytewise ordering, scoped feature-gated columnar binary source
   projection/predicate/order evidence, and scoped Parquet/Arrow IPC/Avro/ORC flat scalar binary
-  sink preservation, while broader binary sinks, broader binary execution, and non-binary source
+  sink preservation plus local Vortex flat scalar non-null binary sink preservation, while
+  nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before
+  writer conversion, and broader binary sinks, broader binary execution, and non-binary source
   columns compared to binary literals remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,

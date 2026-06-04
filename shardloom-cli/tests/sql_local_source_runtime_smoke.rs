@@ -5202,6 +5202,61 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
+fn sql_local_source_smoke_writes_non_null_binary_vortex_output() {
+    let source_path = unique_path("sql-local-source-vortex-binary-output", "csv");
+    let output_path = unique_path("sql-local-source-vortex-binary-output", "vortex");
+    fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,X'00ff10' AS payload FROM '{}' ORDER BY id ASC LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_path.exists(), "local Vortex output was written");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_format", "vortex")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "true")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field("vortex_output_column_count", "2")));
+    assert!(stdout.contains(&field(
+        "vortex_output_column_families",
+        "id:int64,payload:binary"
+    )));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(output_path).expect("remove output vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     let source_path = unique_path("sql-local-source-vortex-fanout", "csv");
     let csv_output_path = unique_path("sql-local-source-vortex-fanout", "csv");
@@ -5690,6 +5745,48 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
     fs::remove_file(arrow_output_path).expect("remove all-null arrow output");
     fs::remove_file(avro_output_path).expect("remove all-null avro output");
     fs::remove_file(orc_output_path).expect("remove all-null orc output");
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_blocks_all_null_binary_vortex_output_before_writer() {
+    let source_path = unique_path("sql-local-source-all-null-binary-vortex-source", "arrow");
+    let output_path = unique_path("sql-local-source-all-null-binary-vortex-output", "vortex");
+    write_all_null_binary_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!("SELECT payload FROM '{}' LIMIT 3", source_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(
+        stdout.contains("output_plan_conversion_blocker=vortex_non_null_scalar_values_required")
+    );
+    assert!(
+        stdout.contains("nullable/all-null binary and other NULL values remain blocked before Vortex writer conversion")
+    );
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!output_path.exists());
+
+    fs::remove_file(source_path).expect("remove all-null binary source arrow");
 }
 
 #[cfg(not(feature = "universal-format-io"))]

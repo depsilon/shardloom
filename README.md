@@ -345,10 +345,11 @@ runtime-ready.
 Scoped binary cast predicates now admit bytewise lexicographic ordering against explicit binary
 literals, and feature-gated Arrow IPC binary source columns admit direct projection, bytewise binary
 literal predicates, and source-column ordering. Feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar
-sinks preserve admitted binary byte payloads from the SQL result batch. Binary sinks outside that
-scoped compatibility-output path, broader binary execution beyond the scoped source/cast/helper
-families, and non-binary source columns compared to binary literals remain outside the claim
-boundary.
+sinks and feature-gated local Vortex flat scalar non-null sinks preserve admitted binary byte
+payloads from the SQL result batch. Nullable/all-null Vortex binary rows and other NULL-bearing
+Vortex output batches block before writer conversion; binary sinks outside those scoped output
+paths, broader binary execution beyond the scoped source/cast/helper families, and non-binary
+source columns compared to binary literals remain outside the claim boundary.
 
 Unbounded convenience materializations return deterministic evidence instead of delegating to
 pandas, Polars, Spark, DataFusion, DuckDB, or another engine. Bounded local-source workflows can

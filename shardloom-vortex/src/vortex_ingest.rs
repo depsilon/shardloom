@@ -19,10 +19,13 @@ use std::{collections::BTreeSet, time::Instant};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
-    Array, ArrayRef as ArrowArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array,
-    Int8Array, Int16Array, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
-    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array,
+    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
+    LargeStringArray, StringArray, StringViewArray, TimestampMicrosecondArray, UInt8Array,
+    UInt16Array, UInt32Array, UInt64Array,
 };
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use shardloom_core::LogicalDType;
 use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport};
 use shardloom_exec::{
     OperatorMemoryClass, PulseWeaveInput, PulseWeaveReport, PulseWeaveTaskShape, plan_pulseweave,
@@ -5593,6 +5596,7 @@ pub fn write_flat_columnar_vortex_prepared_state(
 struct ColumnarProjectedColumn {
     column: String,
     reader_index: usize,
+    dtype_hint: Option<LogicalDType>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5614,6 +5618,13 @@ fn validate_flat_columnar_source_shape(
 ) -> Result<FlatColumnarSourceShape> {
     validate_flat_columns(&source.materialized_columns)?;
     validate_flat_columns(&source.reader_projection_columns)?;
+    if source.column_dtypes.len() != source.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest columnar SourceState dtype hint count is {}, expected {}; no fallback execution was attempted",
+            source.column_dtypes.len(),
+            source.header.len()
+        )));
+    }
 
     let reader_positions = source
         .reader_projection_columns
@@ -5630,9 +5641,16 @@ fn validate_flat_columnar_source_shape(
                     "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
                 ))
             })?;
+            let dtype_hint = source
+                .header
+                .iter()
+                .position(|candidate| candidate == column)
+                .and_then(|index| source.column_dtypes.get(index))
+                .and_then(Clone::clone);
             Ok(ColumnarProjectedColumn {
                 column: column.clone(),
                 reader_index: *reader_index,
+                dtype_hint,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -5947,7 +5965,7 @@ fn scalar_column_families(
                 let value = &row[column_index].1;
                 let candidate = scalar_family(value).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
+                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
                         value.summary()
                     ))
                 })?;
@@ -5974,10 +5992,10 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
         ScalarValue::UInt64(_) => Some("uint64"),
         ScalarValue::Float64(value) if value.is_finite() => Some("float64"),
         ScalarValue::Utf8(_) => Some("utf8"),
+        ScalarValue::Binary(_) => Some("binary"),
         ScalarValue::Date32(_) => Some("date32"),
         ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
         ScalarValue::Null
-        | ScalarValue::Binary(_)
         | ScalarValue::Decimal128 { .. }
         | ScalarValue::Float64(_)
         | ScalarValue::List(_)
@@ -6125,17 +6143,45 @@ fn columnar_column_families(
             }
             Ok((
                 projected_column.column.clone(),
-                family.unwrap_or("utf8").to_string(),
+                match family {
+                    Some(family) => family,
+                    None => columnar_family_from_dtype_hint(
+                        &projected_column.column,
+                        projected_column.dtype_hint.as_ref(),
+                    )?,
+                }
+                .to_string(),
             ))
         })
         .collect()
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_family_from_dtype_hint(
+    column: &str,
+    dtype_hint: Option<&LogicalDType>,
+) -> Result<&'static str> {
+    match dtype_hint {
+        Some(LogicalDType::Boolean) => Ok("boolean"),
+        Some(LogicalDType::Int64) => Ok("int64"),
+        Some(LogicalDType::UInt64) => Ok("uint64"),
+        Some(LogicalDType::Float64) => Ok("float64"),
+        Some(LogicalDType::Utf8) | None => Ok("utf8"),
+        Some(LogicalDType::Binary) => Ok("binary"),
+        Some(LogicalDType::Date32) => Ok("date32"),
+        Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros"),
+        Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
+            dtype.as_str()
+        ))),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
     if array.null_count() > 0 {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted"
+            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted"
         )));
     }
     Ok(())
@@ -6191,6 +6237,12 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> 
     {
         return Ok("utf8");
     }
+    if array.as_any().is::<BinaryArray>()
+        || array.as_any().is::<LargeBinaryArray>()
+        || array.as_any().is::<BinaryViewArray>()
+    {
+        return Ok("binary");
+    }
     if array.as_any().is::<Date32Array>() {
         return Ok("date32");
     }
@@ -6198,7 +6250,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> 
         return Ok("timestamp_micros");
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -6235,6 +6287,10 @@ fn columnar_column_to_vortex_array(
         "utf8" => {
             let values = columnar_utf8_values(column, arrays)?;
             Ok(VarBinViewArray::from_iter_str(values.iter().map(String::as_str)).into_array())
+        }
+        "binary" => {
+            let values = columnar_binary_values(column, arrays)?;
+            Ok(VarBinViewArray::from_iter_bin(values.iter().map(Vec::as_slice)).into_array())
         }
         "date32" => Ok(columnar_date32_values(column, arrays)?
             .into_iter()
@@ -6344,6 +6400,23 @@ fn columnar_utf8_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<St
             values.extend((0..array.len()).map(|index| array.value(index).to_string()));
         } else {
             return Err(unexpected_columnar_array(column, "utf8", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_binary_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<Vec<u8>>> {
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<BinaryArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_vec()));
+        } else if let Some(array) = array.as_any().downcast_ref::<LargeBinaryArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_vec()));
+        } else if let Some(array) = array.as_any().downcast_ref::<BinaryViewArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_vec()));
+        } else {
+            return Err(unexpected_columnar_array(column, "binary", array.as_ref()));
         }
     }
     Ok(values)
@@ -6486,6 +6559,16 @@ fn column_to_vortex_array(
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(VarBinViewArray::from_iter_str(values).into_array())
+        }
+        "binary" => {
+            let values = rows
+                .iter()
+                .map(|row| match &row[column_index].1 {
+                    ScalarValue::Binary(value) => Ok(value.as_slice()),
+                    value => Err(unexpected_vortex_ingest_value(column, family, value)),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(VarBinViewArray::from_iter_bin(values).into_array())
         }
         "date32" => Ok(rows
             .iter()
@@ -6655,6 +6738,49 @@ fn usize_to_u64(value: usize) -> Result<u64> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "universal-format-io")]
+    fn reopen_vortex_artifact_as_arrow_struct(
+        path: &Path,
+        schema: &arrow_schema::Schema,
+    ) -> arrow_array::ArrayRef {
+        use vortex::VortexSessionDefault as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrow::ArrowSessionExt as _;
+        use vortex::array::stream::ArrayStreamExt as _;
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let bytes = std::fs::read(path).expect("read vortex artifact");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = session
+            .open_options()
+            .open_buffer(bytes)
+            .expect("open vortex artifact");
+        let array = runtime
+            .block_on(
+                file.scan()
+                    .expect("scan vortex artifact")
+                    .into_array_stream()
+                    .expect("array stream")
+                    .read_all(),
+            )
+            .expect("read vortex array");
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let target = arrow_schema::Field::new(
+            "",
+            arrow_schema::DataType::Struct(schema.fields.clone()),
+            false,
+        );
+        vortex::array::LEGACY_SESSION
+            .arrow()
+            .execute_arrow(array, Some(&target), &mut ctx)
+            .expect("execute vortex artifact to arrow struct")
+    }
+
     fn temp_test_root(name: &str) -> PathBuf {
         let mut root = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
@@ -6795,6 +6921,85 @@ mod tests {
         );
         assert!(!report.preparation_spine.fallback_attempted);
         assert!(!report.preparation_spine.external_engine_invoked);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_scalar_binary_rows_write_reopens_exact_bytes() {
+        use arrow_array::{BinaryArray, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-binary-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "payload".to_string(), "label".to_string()];
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            columns,
+            vec![
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(1)),
+                    (
+                        "payload".to_string(),
+                        ScalarValue::Binary(vec![0x00, 0xff, 0x10]),
+                    ),
+                    ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(2)),
+                    ("payload".to_string(), ScalarValue::Binary(Vec::new())),
+                    ("label".to_string(), ScalarValue::Utf8("empty".to_string())),
+                ],
+                vec![
+                    ("id".to_string(), ScalarValue::Int64(3)),
+                    ("payload".to_string(), ScalarValue::Binary(b"raw".to_vec())),
+                    ("label".to_string(), ScalarValue::Utf8("omega".to_string())),
+                ],
+            ],
+        );
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,payload:binary,label:utf8"
+        );
+        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "shardloom_scalar_rows_to_vortex_struct"
+        );
+        assert!(report.upstream_vortex_write_called);
+        assert!(report.upstream_vortex_scan_called);
+
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("payload", DataType::Binary, false),
+            Field::new("label", DataType::Utf8, false),
+        ]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let payload = struct_array
+            .column_by_name("payload")
+            .expect("payload column")
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .expect("binary payload column");
+        assert_eq!(payload.value(0), &[0x00, 0xff, 0x10]);
+        assert_eq!(payload.value(1), &[] as &[u8]);
+        assert_eq!(payload.value(2), b"raw");
+        assert_eq!(payload.null_count(), 0);
+
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -7083,6 +7288,88 @@ mod tests {
             report.capillary_prewrite_control.reopen_gate_status,
             "applied_prewrite_window"
         );
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_binary_source_writes_reopens_exact_bytes() {
+        use std::sync::Arc;
+
+        use arrow_array::{BinaryArray, Int64Array, RecordBatch, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-binary-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "payload".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("payload", DataType::Binary, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3])),
+                Arc::new(BinaryArray::from(vec![
+                    Some(&[0x00, 0xff, 0x10][..]),
+                    Some(&[][..]),
+                    Some(&b"raw"[..]),
+                ])),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![None, Some(LogicalDType::Binary)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 3,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(report.column_family_summary(), "id:int64,payload:binary");
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_non_empty_batches"
+        );
+        assert!(report.manual_scalar_copy_avoided);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let payload = struct_array
+            .column_by_name("payload")
+            .expect("payload column")
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .expect("binary payload column");
+        assert_eq!(payload.value(0), &[0x00, 0xff, 0x10]);
+        assert_eq!(payload.value(1), &[] as &[u8]);
+        assert_eq!(payload.value(2), b"raw");
+        assert_eq!(payload.null_count(), 0);
+
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

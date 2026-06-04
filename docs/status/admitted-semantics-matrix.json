@@ -553,7 +553,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary cast projection and equality/inequality predicate semantics only; scoped binary cast ordering is tracked in the separate binary_cast_ordering_predicate row; scoped binary source predicate/order and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence are covered outside this cast row; not broad binary sink preservation or broad binary execution",
+      "claim_boundary": "scoped SQL binary cast projection and equality/inequality predicate semantics only; scoped binary cast ordering is tracked in the separate binary_cast_ordering_predicate row; scoped binary source predicate/order, Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence, and local Vortex flat scalar non-null binary sink evidence are covered outside this cast row; nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before writer conversion; not broad binary sink preservation or broad binary execution",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS binary/blob/varbinary) encodes admitted scalar values as UTF-8 byte representations; binary cast predicates admit equality and inequality against X'<hex>', BINARY/BLOB '<utf8>', single-quoted UTF-8 byte literals, or NULL",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -573,14 +573,14 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary cast lexicographic ordering predicate semantics only; scoped binary source predicate/order and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence are covered outside this cast row; not broad binary sink preservation, broad binary execution, locale/collation, or production ordering parity",
+      "claim_boundary": "scoped SQL binary cast lexicographic ordering predicate semantics only; scoped binary source predicate/order, Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence, and local Vortex flat scalar non-null binary sink evidence are covered outside this cast row; nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before writer conversion; not broad binary sink preservation, broad binary execution, locale/collation, or production ordering parity",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS binary/blob/varbinary) encodes admitted scalar values as UTF-8 byte representations before bytewise lexicographic comparison against explicit binary literals",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
       "fallback_attempted": false,
       "id": "binary_cast_ordering_predicate",
       "input_dtype": "utf8,null",
-      "invalid_input_behavior": "malformed binary predicate literals and non-binary source columns compared to binary ordering literals block deterministically before fallback; scoped columnar binary source projection/predicate/order and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation are covered outside this predicate row",
+      "invalid_input_behavior": "malformed binary predicate literals and non-binary source columns compared to binary ordering literals block deterministically before fallback; scoped columnar binary source projection/predicate/order, Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation, and local Vortex flat scalar non-null binary sink preservation are covered outside this predicate row",
       "null_policy": "binary casts are null-propagating; NULL comparison operands produce non-true WHERE results",
       "operator_family": "cast,binary_cast_predicate,binary_ordering",
       "oracle_boundary": "decoded_reference_only",
@@ -633,7 +633,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL binary helper projection semantics for local UTF-8 source columns only; scoped binary source predicate/order and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence are covered outside this helper row; not broad binary sink preservation, nested binary helper expressions, or broad binary input support",
+      "claim_boundary": "scoped SQL binary helper projection semantics for local UTF-8 source columns only; scoped binary source predicate/order, Parquet/Arrow IPC/Avro/ORC flat scalar binary sink evidence, and local Vortex flat scalar non-null binary sink evidence are covered outside this helper row; nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before writer conversion; not broad binary sink preservation, nested binary helper expressions, or broad binary input support",
       "coercion_policy": "UNHEX(<utf8-column>) decodes even-length hexadecimal text; FROM_BASE64(<utf8-column>) decodes strict standard padded base64 text; binary casts, BINARY/BLOB text literals, and scoped columnar binary source projection are tracked outside this helper row",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -1453,7 +1453,7 @@
       "unsupported_diagnostic_message": "not_applicable"
     },
     {
-      "claim_boundary": "blocked binary literal predicates against non-binary source columns only; scoped columnar binary source predicates and Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation are covered by focused Rust CLI evidence",
+      "claim_boundary": "blocked binary literal predicates against non-binary source columns only; scoped columnar binary source predicates, Parquet/Arrow IPC/Avro/ORC flat scalar binary sink preservation, and local Vortex flat scalar non-null binary sink preservation are covered by focused Rust CLI evidence",
       "coercion_policy": "binary literals compare directly only with binary source columns; non-binary source columns require explicit CAST(<column> AS binary) or fail with a deterministic operand-family diagnostic",
       "decoded_reference_kind": "unsupported_diagnostic_reference",
       "external_engine_invoked": false,
