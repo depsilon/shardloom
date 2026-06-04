@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: POST-HOTPATH-DOCS-FRESHNESS documentation/status/website freshness gate
+  - Date: 2026-06-04
+  - Branch/PR: `codex/post-hotpath-freshness-gate` / PR #1073.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - Completed HOTPATH ledger entries through HOTPATH-1/HOTPATH-5.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/performance-attribution-and-execution-structure.md`.
+    - `docs/benchmarks/local-taxonomy-benchmark.md`.
+    - Website benchmark source and generated static pages.
+  - Scope:
+    - Closed the post-hotpath freshness gate after the HOTPATH source-read scout, Vortex scan
+      counter, route-shape, and source-to-Vortex-array guard code/docs/site updates landed.
+    - Removed `POST-HOTPATH-DOCS-FRESHNESS` from Planned so `HOTPATH-14 total-route Amdahl
+      benchmark rerun and publication` is the first remaining benchmark-driven work item.
+    - Reconfirmed that docs and website copy distinguish current runtime/report semantics from the
+      still-current safe-writer benchmark artifact.
+    - Preserved the explicit no-rerun boundary for this slice: route timing statements remain tied
+      to the existing promoted artifact until HOTPATH-14 runs and promotes a new artifact.
+  - Evidence:
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Benchmark and website status:
+    - No full benchmark-suite rerun was performed in this freshness slice.
+    - The current public benchmark artifact remains the latest safe-writer artifact; HOTPATH-14 is
+      the next explicit rerun/publication action.
+  - Claim boundary:
+    - This slice may claim documentation, phase-plan, and static website freshness only. It does not
+      claim a route timing change, benchmark speedup, public performance superiority, production
+      readiness, broad SQL/DataFrame parity, or Spark replacement.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. ShardLoom docs/status/website wording keeps
+      `fallback_attempted=false` and `external_engine_invoked=false` as evidence boundaries rather
+      than fallback execution claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D HOTPATH-1/HOTPATH-5 route-shape and source-array guard closeout
   - Date: 2026-06-04
   - Branch/PR: `codex/hotpath-route-shape-array-guards` / PR #1072.
