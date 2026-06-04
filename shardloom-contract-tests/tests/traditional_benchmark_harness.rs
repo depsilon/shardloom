@@ -329,7 +329,13 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("SHARDLOOM_EXECUTION_MODE_VOCABULARY"));
     assert!(script.contains("EXECUTION_MODE_CONTRACT_FIELDS"));
     assert!(script.contains("STAGE_TIMING_CONTRACT_FIELDS"));
+    assert!(script.contains("ROUTE_SHAPE_STRATIFICATION_CONTRACT_FIELDS"));
+    assert!(script.contains("SOURCE_TO_VORTEX_ARRAY_GUARD_CONTRACT_FIELDS"));
     assert!(script.contains("OPERATOR_BLOCKER_MATRIX_FIELDS"));
+    assert!(script.contains("def route_shape_metadata("));
+    assert!(script.contains("def route_family_for_result("));
+    assert!(script.contains("def route_start_state_for_result("));
+    assert!(script.contains("def source_to_vortex_array_guard_metadata("));
     assert!(script.contains("def operator_blocker_metadata("));
     assert!(script.contains("def execution_mode_attribution_contract("));
     assert!(script.contains("def validate_result_attribution_contract("));
@@ -337,6 +343,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_persistent_runner_admission_gate("));
     assert!(script.contains("\"execution_mode_attribution_contract\""));
     assert!(script.contains("\"shardloom.execution_mode_benchmark_attribution.v1\""));
+    assert!(script.contains("route_shape_stratification_fields"));
+    assert!(script.contains("source_to_vortex_array_guard_fields"));
     assert!(script.contains("\"persistent_runner_admission_gate\""));
     assert!(script.contains("\"gar-flow-2c.persistent_runner_admission.v1\""));
     assert!(script.contains("PERSISTENT_RUNNER_ADMISSION_FIELDS"));

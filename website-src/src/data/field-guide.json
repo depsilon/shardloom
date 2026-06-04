@@ -75,6 +75,11 @@
       "source_read_millis",
       "source_state_materialization_layout",
       "source_state_record_batch_count",
+      "route_shape_route_lane_id",
+      "route_shape_stage_attribution_scope",
+      "source_to_vortex_array_guard_status",
+      "source_to_vortex_array_guard_exclusive_stage_field",
+      "source_to_vortex_array_guard_inclusive_parent_field",
       "vortex_array_build_strategy",
       "vortex_write_millis",
       "vortex_digest_millis",
@@ -467,6 +472,8 @@
       "benchmark_profile",
       "expected_lanes",
       "available_lanes",
+      "route_shape_stratification_fields",
+      "source_to_vortex_array_guard_fields",
       "performance_claim_allowed=false"
     ],
     "related_use_cases": [
@@ -490,6 +497,9 @@
       "timing_scope=cold_certified_end_to_end",
       "preparation_included=true",
       "source_state_materialization_layout",
+      "route_shape_route_lane_id",
+      "route_shape_row_count_class",
+      "source_to_vortex_array_guard_status",
       "vortex_array_build_strategy",
       "vortex_digest_millis",
       "total_runtime_millis"

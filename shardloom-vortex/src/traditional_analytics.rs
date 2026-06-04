@@ -68,6 +68,10 @@ const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_session.v1";
 const TRADITIONAL_EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.exclusive_stage_timing.v1";
+const ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.route_shape_stratification.v1";
+const SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_to_vortex_array_guard.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
@@ -4125,6 +4129,99 @@ impl TraditionalDirectTransientReport {
 }
 
 impl TraditionalAnalyticsReport {
+    fn route_shape_route_lane_id(&self) -> &'static str {
+        match self
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str()
+        {
+            "compatibility_import_certified" => "cold_certified_route",
+            "prepared_vortex" => "warm_prepared_query",
+            "native_vortex" => "native_vortex_query",
+            "direct_compatibility_transient" => "direct_transient_route",
+            _ => "unknown_route_lane",
+        }
+    }
+
+    fn route_shape_family(&self) -> &'static str {
+        match self
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str()
+        {
+            "compatibility_import_certified" => {
+                "raw_compatibility_source_to_certified_vortex_ingest"
+            }
+            "prepared_vortex" => "vortex_prepared_state_to_prepared_query",
+            "native_vortex" => "existing_vortex_input_to_native_query",
+            "direct_compatibility_transient" => "raw_compatibility_direct_transient",
+            _ => "unknown_route_family",
+        }
+    }
+
+    fn route_shape_start_state(&self) -> &'static str {
+        match self
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str()
+        {
+            "compatibility_import_certified" | "direct_compatibility_transient" => {
+                "raw_compat_source"
+            }
+            "prepared_vortex" => "VortexPreparedState",
+            "native_vortex" => "Vortex",
+            _ => "unknown",
+        }
+    }
+
+    fn route_shape_end_state(&self) -> &'static str {
+        if self.computed_result_sink_requested {
+            "result_sink"
+        } else {
+            "inline_result"
+        }
+    }
+
+    fn route_shape_row_count_class(&self) -> &'static str {
+        match self.rows_scanned {
+            0..=1_000 => "tiny_smoke_rows",
+            1_001..=100_000 => "local_smoke_rows",
+            100_001..=10_000_000 => "local_claim_grade_rows",
+            _ => "larger_than_local_claim_grade_rows",
+        }
+    }
+
+    fn route_shape_source_file_shape(&self) -> &'static str {
+        match (
+            self.fact_source_path.is_dir(),
+            self.cdc_delta_source_path.is_some(),
+        ) {
+            (true, true) => "split_fact_directory_plus_dim_plus_cdc_delta",
+            (true, false) => "split_fact_directory_plus_dim",
+            (false, true) => "single_fact_single_dim_plus_cdc_delta",
+            (false, false) => "single_fact_single_dim",
+        }
+    }
+
+    fn source_to_vortex_array_guard_status(&self) -> &'static str {
+        if self
+            .execution_mode_selection
+            .selected_execution_mode
+            .as_str()
+            == "direct_compatibility_transient"
+        {
+            return "not_applicable_direct_transient_no_vortex_array_build";
+        }
+        if self.vortex_array_build_record_batch_count > 0
+            && self.vortex_array_build_provider_kind != "not_applicable"
+            && self.vortex_array_build_manual_scalar_copy_avoided
+        {
+            "guarded_vortex_array_build"
+        } else {
+            "blocked_missing_array_build_guard_evidence"
+        }
+    }
+
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
@@ -4889,6 +4986,78 @@ impl TraditionalAnalyticsReport {
                 "exclusive stage timing is local benchmark attribution evidence only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, or Spark-displacement claim is authorized".to_string(),
             ),
             (
+                "route_shape_stratification_schema_version".to_string(),
+                ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "route_shape_status".to_string(),
+                "route_total_metadata_complete".to_string(),
+            ),
+            (
+                "route_shape_route_lane_id".to_string(),
+                self.route_shape_route_lane_id().to_string(),
+            ),
+            (
+                "route_shape_route_family".to_string(),
+                self.route_shape_family().to_string(),
+            ),
+            (
+                "route_shape_start_state".to_string(),
+                self.route_shape_start_state().to_string(),
+            ),
+            (
+                "route_shape_end_state".to_string(),
+                self.route_shape_end_state().to_string(),
+            ),
+            (
+                "route_shape_row_count_class".to_string(),
+                self.route_shape_row_count_class().to_string(),
+            ),
+            (
+                "route_shape_source_file_shape".to_string(),
+                self.route_shape_source_file_shape().to_string(),
+            ),
+            (
+                "route_shape_source_format".to_string(),
+                self.input_format.as_str().to_string(),
+            ),
+            (
+                "route_shape_timing_total_field".to_string(),
+                "total_runtime_micros".to_string(),
+            ),
+            (
+                "route_shape_stage_attribution_scope".to_string(),
+                "diagnostic_stage_fields_only_route_total_authoritative".to_string(),
+            ),
+            (
+                "route_shape_includes_preparation".to_string(),
+                self.preparation_included.to_string(),
+            ),
+            (
+                "route_shape_includes_query".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "route_shape_includes_output".to_string(),
+                self.computed_result_sink_requested.to_string(),
+            ),
+            (
+                "route_shape_includes_evidence".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "route_shape_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "route_shape_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "route_shape_claim_boundary".to_string(),
+                "route-shape stratification records lane, start/end state, row-count class, and source-file shape for interpreting route totals only; stage fields remain diagnostic and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, release, or Spark-displacement claim is authorized".to_string(),
+            ),
+            (
                 "vortex_array_build_micros".to_string(),
                 self.vortex_array_build_micros.to_string(),
             ),
@@ -4916,6 +5085,71 @@ impl TraditionalAnalyticsReport {
                 "vortex_array_build_manual_scalar_copy_avoided".to_string(),
                 self.vortex_array_build_manual_scalar_copy_avoided
                     .to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_schema_version".to_string(),
+                SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_status".to_string(),
+                self.source_to_vortex_array_guard_status().to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_input_layout".to_string(),
+                self.vortex_array_build_input_layout.clone(),
+            ),
+            (
+                "source_to_vortex_array_guard_provider_kind".to_string(),
+                self.vortex_array_build_provider_kind.clone(),
+            ),
+            (
+                "source_to_vortex_array_guard_provider_surface".to_string(),
+                self.vortex_array_build_provider_surface.clone(),
+            ),
+            (
+                "source_to_vortex_array_guard_strategy".to_string(),
+                self.vortex_array_build_strategy.clone(),
+            ),
+            (
+                "source_to_vortex_array_guard_record_batch_count".to_string(),
+                self.vortex_array_build_record_batch_count.to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_manual_scalar_copy_avoided".to_string(),
+                self.vortex_array_build_manual_scalar_copy_avoided
+                    .to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_exclusive_stage_field".to_string(),
+                "exclusive_source_to_vortex_array_micros".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_inclusive_parent_field".to_string(),
+                "compatibility_to_vortex_import_micros".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_inclusive_timing_scope".to_string(),
+                self.compatibility_to_vortex_import_timing_scope.clone(),
+            ),
+            (
+                "source_to_vortex_array_guard_inclusive_not_exclusive_status".to_string(),
+                "inclusive_compatibility_import_contains_source_read_parse_array_build_and_write".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_regression_fixture".to_string(),
+                "compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_to_vortex_array_guard_claim_boundary".to_string(),
+                "source-to-Vortex-array guard evidence protects timing-label integrity only: vortex_array_build is an exclusive substage, compatibility import remains an inclusive bundle, and no standalone performance or superiority claim is authorized".to_string(),
             ),
             (
                 "vortex_write_micros".to_string(),
@@ -29129,6 +29363,77 @@ mod tests {
             &fields,
             "vortex_array_build_manual_scalar_copy_avoided",
             "true",
+        );
+        assert_field_eq(
+            &fields,
+            "route_shape_stratification_schema_version",
+            ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "route_shape_status",
+            "route_total_metadata_complete",
+        );
+        assert_field_eq(&fields, "route_shape_route_lane_id", "cold_certified_route");
+        assert_field_eq(
+            &fields,
+            "route_shape_route_family",
+            "raw_compatibility_source_to_certified_vortex_ingest",
+        );
+        assert_field_eq(&fields, "route_shape_start_state", "raw_compat_source");
+        assert_field_eq(&fields, "route_shape_end_state", "inline_result");
+        assert_field_eq(&fields, "route_shape_row_count_class", "tiny_smoke_rows");
+        assert_field_eq(
+            &fields,
+            "route_shape_source_file_shape",
+            "single_fact_single_dim",
+        );
+        assert_field_eq(
+            &fields,
+            "route_shape_stage_attribution_scope",
+            "diagnostic_stage_fields_only_route_total_authoritative",
+        );
+        assert_field_eq(&fields, "route_shape_fallback_attempted", "false");
+        assert_field_eq(&fields, "route_shape_external_engine_invoked", "false");
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_schema_version",
+            SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_status",
+            "guarded_vortex_array_build",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_input_layout",
+            "traditional_text_adapter_record_batch",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_exclusive_stage_field",
+            "exclusive_source_to_vortex_array_micros",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_inclusive_parent_field",
+            "compatibility_to_vortex_import_micros",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_inclusive_not_exclusive_status",
+            "inclusive_compatibility_import_contains_source_read_parse_array_build_and_write",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_to_vortex_array_guard_external_engine_invoked",
+            "false",
         );
         assert_field_eq(
             &fields,

@@ -123,6 +123,13 @@ reopen/verify, scan, operator compute, sink write, and evidence render explain r
 must not be rendered as competing products or as end-to-end rows unless the route timing ledger says
 they are included in `total_route_ms` / `total_runtime_millis`.
 
+HOTPATH-1 adds `route_shape_stratification_*` fields to every benchmark row so route lane, route
+family, start/end state, row-count class, source-file shape, timing-total field, and diagnostic
+stage-attribution scope are explicit. HOTPATH-5 adds `source_to_vortex_array_guard_*` fields so the
+Vortex array-build substage is guarded separately from the inclusive compatibility-import bundle.
+These fields improve interpretation only; they do not refresh route timings or authorize a new
+performance claim.
+
 Readiness fields also stay separate:
 
 ```text
@@ -285,6 +292,13 @@ performed. Current prepared-batch partial repair remains blocked with
 `prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed=false`; mismatched source,
 policy, packet, manifest, or artifact dependencies force full reprepare rather than silent stale
 segment reuse.
+
+The source-to-array guard keeps `vortex_array_build_*` and
+`exclusive_source_to_vortex_array_*` as the exclusive Vortex array-build evidence while preserving
+`compatibility_to_vortex_import_*` and `inclusive_compatibility_to_vortex_import_*` as inclusive
+source-read/parse/array-build/write bundle evidence. The benchmark validator fails ShardLoom
+compatibility-import rows if this distinction disappears, if route-shape lane metadata mismatches
+the selected execution mode, or if either guard reports fallback/external-engine execution.
 
 `GAR-IOREUSE-1I` extends the harness schema with
 `vortex_preparation_spine_schema_version=shardloom.traditional_analytics.vortex_preparation_spine.v1`.

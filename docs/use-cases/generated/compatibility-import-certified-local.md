@@ -43,6 +43,11 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `source_state_record_batch_count`
 - `source_state_columnar_preserved`
 - `compatibility_to_vortex_import_millis`
+- `route_shape_route_lane_id`
+- `route_shape_stage_attribution_scope`
+- `source_to_vortex_array_guard_status`
+- `source_to_vortex_array_guard_exclusive_stage_field`
+- `source_to_vortex_array_guard_inclusive_parent_field`
 - `vortex_array_build_strategy`
 - `vortex_array_build_input_layout`
 - `vortex_write_millis`
@@ -60,7 +65,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence, including source-state materialization layout, RecordBatch count, Vortex array-build strategy/input layout, and digest timing attribution.
+Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence, including source-state materialization layout, route-shape stratification, source-to-Vortex-array guard status, RecordBatch count, Vortex array-build strategy/input layout, and digest timing attribution.
 
 ## Common Mistakes
 

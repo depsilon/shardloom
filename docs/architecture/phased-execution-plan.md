@@ -190,11 +190,11 @@ Current autonomous execution order:
    remain the existing safe-writer artifact until the next approved benchmark rerun: ShardLoom cold
    certified route 137.71 ms, prepare-once first query 58.00 ms, prepare-once batch 8.37 ms, warm
    prepared query 5.57 ms, and native Vortex query 5.58 ms. The current runtime batch wires
-   source-read scout timing plus Vortex scan timing/counter evidence in code, but the public
-   artifact remains unchanged until the next approved benchmark rerun. Remaining work is route
-   stratification, source-to-array guards, a document/website/status freshness pass, and the
-   post-batch route-share/Amdahl rerun. Do not rerun the expensive benchmark suite until those
-   code/docs/site changes are complete or the user explicitly approves a rerun.
+   source-read scout timing, Vortex scan timing/counter evidence, route-shape stratification, and
+   source-to-Vortex-array guard fields in code, but the public artifact remains unchanged until the
+   next approved benchmark rerun. Remaining work before the rerun is the document/website/status
+   freshness pass. Do not rerun the expensive benchmark suite until that freshness gate is complete
+   or the user explicitly approves a rerun.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -205,18 +205,17 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `HOTPATH-1`, `HOTPATH-5` | Complete the remaining benchmark-driven implementation slices before any rerun. |
-| 2 | `POST-HOTPATH-DOCS-FRESHNESS` | Refresh docs, status, website/source text, and plan/ledger freshness after HOTPATH code closes. |
-| 3 | `HOTPATH-14 total-route Amdahl gate` | Rerun/promote the full benchmark suite and update the benchmark page only after the freshness pass. |
-| 4 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 5 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 6 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 7 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 8 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 9 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 10 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 11 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 12 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `POST-HOTPATH-DOCS-FRESHNESS` | Refresh docs, status, website/source text, and plan/ledger freshness after HOTPATH code closes. |
+| 2 | `HOTPATH-14 total-route Amdahl gate` | Rerun/promote the full benchmark suite and update the benchmark page only after the freshness pass. |
+| 3 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 4 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 5 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 6 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 7 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 8 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 9 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 10 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 11 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -288,60 +287,8 @@ These are child execution slices under the existing
 phase IDs.
 Completed HOTPATH slices are recorded in
 `docs/architecture/phased-execution-completed-ledger.md`, including HOTPATH-3, HOTPATH-7,
-HOTPATH-10, HOTPATH-11, and HOTPATH-9. Do not rerun the benchmark suite until HOTPATH-1 and
-HOTPATH-5 are either complete or explicitly blocked, and the post-hotpath freshness gate has passed.
-
-- [ ] HOTPATH-1 route-lane and row-shape stratification:
-  Source: route-total interpretation across cold, first-query, batch, warm, and native lanes plus
-  benchmark publication validators.
-  Current state: route totals are authoritative, while stage tables are diagnostic. Remaining
-  route-family and row-shape metadata should clarify interpretation without creating alternate
-  benchmark claims.
-  Runtime enablement: benchmark/report row -> route lane and row-shape metadata -> promotion and
-  website attribution that preserves route-total semantics.
-  Next slice outcome: add remaining route-family/shape metadata only where it clarifies route-total
-  interpretation.
-  User-visible surface: benchmark artifacts, website benchmark page, release/readiness validators,
-  and route capability reports.
-  Implementation scope: benchmark harness fields, promotion script schema, website benchmark
-  rendering, route capability reports, and validators.
-  Evidence required: artifact completeness, publication claim-gate validation, website/static
-  checks, and no-fallback/no-external-engine row preservation.
-  Acceptance: every ShardLoom timing row carries enough route-family/shape metadata to interpret
-  route totals without treating stage tables as alternate benchmarks.
-  Verification: benchmark completeness validator, publication claim-gate validator, website
-  readiness/static checks, and `git diff --check`.
-  Non-goals: no new runtime behavior unless required for route evidence, no benchmark rerun unless
-  this item is combined with HOTPATH-14, and no public performance wording change.
-  Claim boundary: interpretation metadata only.
-  Fallback boundary: external engines remain baselines only and cannot appear as ShardLoom runtime.
-  Ledger rule: when complete, move the completed block to the ledger and leave HOTPATH-5 next.
-
-- [ ] HOTPATH-5 source-to-Vortex-array guard:
-  Source: inclusive compatibility-import audit bundle and Vortex array-build evidence fields.
-  Current state: compatibility import is labeled as an inclusive audit bundle; source-to-array
-  evidence still needs guards so it cannot be mistaken for an exclusive performance stage.
-  Runtime enablement: source adapter record batch -> Vortex array build -> workspace-safe Vortex
-  write/reopen evidence with explicit inclusive/exclusive timing labels.
-  Next slice outcome: add array-build regression guards and preserve inclusive compatibility-import
-  wording in artifacts and the website.
-  User-visible surface: compatibility-import benchmark rows, website benchmark attribution, CLI
-  traditional analytics reports, and validators.
-  Implementation scope: Vortex array-build evidence, compatibility-import labels, promotion scripts,
-  website attribution, validators, and focused compatibility-import report tests.
-  Evidence required: array-build fixture assertions, inclusive/exclusive timing consistency,
-  benchmark validators, website readiness, and no-fallback/no-external-engine fields.
-  Acceptance: array build remains separately guarded on known fixtures, and artifacts/website copy
-  cannot imply the inclusive import bundle is an exclusive stage.
-  Verification: focused compatibility-import report tests, benchmark validators, website readiness,
-  and static asset validation.
-  Non-goals: no alternate writer path, no hidden fast mode, no benchmark rerun until HOTPATH-14 or
-  explicit approval.
-  Claim boundary: evidence-label integrity only.
-  Fallback boundary: source-to-array conversion remains ShardLoom/Vortex-native and cannot delegate
-  to external engines.
-  Ledger rule: when complete, move the completed block to the ledger and continue to the
-  post-hotpath documentation freshness gate.
+HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, and HOTPATH-5. Do not rerun the benchmark suite until
+the post-hotpath freshness gate has passed.
 
 #### Post-Hotpath Documentation Freshness And Benchmark Rerun Gate
 

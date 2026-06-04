@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `mixed_by_row`
 - **Engine mode:** `batch`
-- **Claim boundary:** Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
+- **Claim boundary:** Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show route-shape/source-array guard fields plus the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Benchmark evidence, not leaderboard has a scoped local path. Treat it as technic
 
 ## Claim Boundary
 
-Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
+Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof. The next promoted artifact must show route-shape/source-array guard fields plus the new text-adapter RecordBatch and writer-byte digest evidence before any updated speed interpretation.
 
 ## How To Try It
 
@@ -41,6 +41,11 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `source_state_materialization_layout`
 - `source_state_record_batch_count`
 - `vortex_prepare_millis`
+- `route_shape_route_lane_id`
+- `route_shape_stage_attribution_scope`
+- `source_to_vortex_array_guard_status`
+- `source_to_vortex_array_guard_exclusive_stage_field`
+- `source_to_vortex_array_guard_inclusive_parent_field`
 - `vortex_array_build_strategy`
 - `vortex_array_build_input_layout`
 - `vortex_write_millis`
@@ -54,7 +59,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines, with import layout/digest attribution visible for cold certified rows.
+Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines, with route-shape stratification, source-to-Vortex-array guard status, and import layout/digest attribution visible for cold certified rows.
 
 ## Common Mistakes
 
