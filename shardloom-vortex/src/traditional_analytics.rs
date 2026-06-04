@@ -61,6 +61,8 @@ const TRADITIONAL_VORTEX_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_batch.v1";
 const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_session.v1";
+const TRADITIONAL_EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.exclusive_stage_timing.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
@@ -3789,6 +3791,34 @@ impl TraditionalAnalyticsReport {
             &self.resource_policy.max_parallelism.to_string(),
             &self.resource_policy.target_batch_rows.to_string(),
         ]);
+        let exclusive_source_parse_or_decode_micros = self
+            .source_parse_micros
+            .saturating_add(self.source_to_columnar_micros);
+        let exclusive_source_read_micros = self
+            .source_read_micros
+            .saturating_sub(exclusive_source_parse_or_decode_micros);
+        let exclusive_result_sink_write_micros =
+            self.computed_result_sink_write_micros.unwrap_or_default();
+        let exclusive_stage_sum_micros = [
+            self.source_stat_micros,
+            exclusive_source_read_micros,
+            exclusive_source_parse_or_decode_micros,
+            self.vortex_array_build_micros,
+            self.vortex_write_micros,
+            self.vortex_digest_micros,
+            self.vortex_reopen_verify_micros,
+            self.vortex_scan_micros,
+            self.operator_compute_micros,
+            exclusive_result_sink_write_micros,
+        ]
+        .into_iter()
+        .fold(0_u64, u64::saturating_add);
+        let exclusive_stage_residual_micros =
+            i128::from(self.total_runtime_micros) - i128::from(exclusive_stage_sum_micros);
+        let exclusive_stage_total_delta_micros = exclusive_stage_residual_micros.unsigned_abs();
+        let exclusive_result_sink_write_micros_text = self
+            .computed_result_sink_write_micros
+            .map_or_else(|| "none".to_string(), |value| value.to_string());
         let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
@@ -4208,6 +4238,86 @@ impl TraditionalAnalyticsReport {
             (
                 "compatibility_to_vortex_import_timing_scope".to_string(),
                 self.compatibility_to_vortex_import_timing_scope.clone(),
+            ),
+            (
+                "inclusive_compatibility_to_vortex_import_micros".to_string(),
+                self.compatibility_to_vortex_import_micros.to_string(),
+            ),
+            (
+                "inclusive_compatibility_to_vortex_import_timing_scope".to_string(),
+                self.compatibility_to_vortex_import_timing_scope.clone(),
+            ),
+            (
+                "exclusive_stage_timing_schema_version".to_string(),
+                TRADITIONAL_EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "exclusive_stage_timing_status".to_string(),
+                "complete".to_string(),
+            ),
+            (
+                "exclusive_stage_timing_scope".to_string(),
+                "cold_certified_end_to_end_deoverlapped_shardloom_owned_stages".to_string(),
+            ),
+            (
+                "exclusive_stage_included_stage_ids".to_string(),
+                "source_admission,source_read,source_parse_or_decode,vortex_array_build,vortex_write,vortex_digest,vortex_reopen_verify,prepared_query,sink_output".to_string(),
+            ),
+            (
+                "exclusive_source_admission_micros".to_string(),
+                self.source_stat_micros.to_string(),
+            ),
+            (
+                "exclusive_source_read_micros".to_string(),
+                exclusive_source_read_micros.to_string(),
+            ),
+            (
+                "exclusive_source_parse_or_decode_micros".to_string(),
+                exclusive_source_parse_or_decode_micros.to_string(),
+            ),
+            (
+                "exclusive_source_to_vortex_array_micros".to_string(),
+                self.vortex_array_build_micros.to_string(),
+            ),
+            (
+                "exclusive_vortex_write_micros".to_string(),
+                self.vortex_write_micros.to_string(),
+            ),
+            (
+                "exclusive_vortex_digest_micros".to_string(),
+                self.vortex_digest_micros.to_string(),
+            ),
+            (
+                "exclusive_vortex_reopen_verify_micros".to_string(),
+                self.vortex_reopen_verify_micros.to_string(),
+            ),
+            (
+                "exclusive_vortex_scan_micros".to_string(),
+                self.vortex_scan_micros.to_string(),
+            ),
+            (
+                "exclusive_operator_compute_micros".to_string(),
+                self.operator_compute_micros.to_string(),
+            ),
+            (
+                "exclusive_result_sink_write_micros".to_string(),
+                exclusive_result_sink_write_micros_text,
+            ),
+            (
+                "exclusive_stage_sum_micros".to_string(),
+                exclusive_stage_sum_micros.to_string(),
+            ),
+            (
+                "exclusive_stage_residual_micros".to_string(),
+                exclusive_stage_residual_micros.to_string(),
+            ),
+            (
+                "exclusive_stage_total_delta_micros".to_string(),
+                exclusive_stage_total_delta_micros.to_string(),
+            ),
+            (
+                "exclusive_stage_timing_claim_boundary".to_string(),
+                "exclusive stage timing is local benchmark attribution evidence only; route totals remain the comparison surface and no performance, production, SQL/DataFrame, object-store/lakehouse, or Spark-displacement claim is authorized".to_string(),
             ),
             (
                 "vortex_array_build_micros".to_string(),
@@ -25787,6 +25897,34 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "inclusive_compatibility_to_vortex_import_micros",
+            fields
+                .get("compatibility_to_vortex_import_micros")
+                .expect("compatibility import micros must be emitted"),
+        );
+        assert_field_eq(
+            &fields,
+            "inclusive_compatibility_to_vortex_import_timing_scope",
+            "source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write",
+        );
+        assert_field_eq(
+            &fields,
+            "exclusive_stage_timing_schema_version",
+            TRADITIONAL_EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION,
+        );
+        assert_field_eq(&fields, "exclusive_stage_timing_status", "complete");
+        assert_field_eq(
+            &fields,
+            "exclusive_stage_timing_scope",
+            "cold_certified_end_to_end_deoverlapped_shardloom_owned_stages",
+        );
+        assert_field_contains(
+            &fields,
+            "exclusive_stage_included_stage_ids",
+            "source_parse_or_decode",
+        );
+        assert_field_eq(
+            &fields,
             "source_state_materialization_layout",
             "text_adapter_record_batch_without_persistent_traditional_rows",
         );
@@ -25835,6 +25973,17 @@ mod tests {
             "vortex_scan_micros",
             "operator_compute_micros",
             "total_runtime_micros",
+            "exclusive_source_admission_micros",
+            "exclusive_source_read_micros",
+            "exclusive_source_parse_or_decode_micros",
+            "exclusive_source_to_vortex_array_micros",
+            "exclusive_vortex_write_micros",
+            "exclusive_vortex_digest_micros",
+            "exclusive_vortex_reopen_verify_micros",
+            "exclusive_vortex_scan_micros",
+            "exclusive_operator_compute_micros",
+            "exclusive_stage_sum_micros",
+            "exclusive_stage_total_delta_micros",
         ] {
             assert!(
                 fields
@@ -25844,6 +25993,14 @@ mod tests {
                 "{field} must be emitted as a numeric timing field"
             );
         }
+        assert_field_eq(&fields, "exclusive_source_read_micros", "0");
+        assert!(
+            fields
+                .get("exclusive_stage_residual_micros")
+                .and_then(|value| value.parse::<i128>().ok())
+                .is_some(),
+            "exclusive_stage_residual_micros must be emitted as a signed numeric timing field"
+        );
         assert_field_eq(&fields, "vortex_digest_micros", "0");
         assert_field_eq(
             &fields,
