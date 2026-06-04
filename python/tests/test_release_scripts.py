@@ -947,6 +947,172 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["total_route_ms"], 130.0)
         self.assertFalse(published["performance_claim_allowed"])
 
+    def test_benchmark_promoter_emits_source_scout_and_scan_attribution(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_scout_scan_attribution_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "source scout scan split",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "source_state_id": "source-state://scout-scan-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://scout-scan-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.scout-scan-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "source_stat_micros": 1000,
+                "exclusive_source_read_millis": 12.0,
+                "source_read_header_scout_micros": 1000,
+                "source_read_byte_acquisition_millis": 4.0,
+                "source_read_full_body_millis": 7.0,
+                "source_read_scout_status": "source_read_scout_split_recorded",
+                "source_read_scout_reuse_status": "not_reused_fresh_source_read",
+                "compatibility_parse_millis": 6.0,
+                "source_to_columnar_millis": 2.0,
+                "vortex_write_millis": 25.0,
+                "vortex_reopen_verify_millis": 1.0,
+                "vortex_footer_open_micros": 100,
+                "vortex_metadata_verify_micros": 200,
+                "vortex_scan_open_micros": 300,
+                "vortex_scenario_scan_micros": 400,
+                "vortex_scan_millis": 0.8,
+                "vortex_scan_bytes_touched": 2048,
+                "vortex_scan_segments_touched": 4,
+                "vortex_scan_segments_skipped": 2,
+                "vortex_scan_columns_touched": 3,
+                "vortex_scan_decoded_values": 0,
+                "operator_compute_millis": 1.2,
+                "result_sink_write_millis": 0.5,
+                "evidence_render_millis": 0.3,
+                "total_runtime_millis": 49.0,
+                "cli_process_wall_millis": 51.0,
+                "python_harness_overhead_millis": 2.0,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["source_read_scout_schema_version"],
+            "shardloom.traditional_analytics.source_read_scout.v1",
+        )
+        self.assertEqual(
+            published["source_read_scout_timing_split_status"], "complete"
+        )
+        self.assertEqual(published["source_read_header_scout_ms"], 1.0)
+        self.assertEqual(published["source_read_byte_acquisition_ms"], 4.0)
+        self.assertEqual(published["source_read_full_body_ms"], 7.0)
+        self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
+        self.assertEqual(
+            published["vortex_reopen_scan_attribution_schema_version"],
+            "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1",
+        )
+        self.assertEqual(published["vortex_reopen_verify_split_status"], "complete")
+        self.assertEqual(published["vortex_scan_counter_status"], "complete")
+        self.assertEqual(published["vortex_scan_bytes_touched"], 2048)
+        self.assertEqual(published["vortex_scan_decoded_values"], 0)
+
+        route_share = module.route_share_amdahl_table([published])
+        self.assertEqual(
+            route_share["schema_version"],
+            "shardloom.traditional_analytics.route_share_amdahl.v1",
+        )
+        self.assertEqual(route_share["rows"][0][3], "Vortex write")
+        self.assertEqual(route_share["rows"][0][6], "continue_workspace_safe_writer_metadata_coalescing")
+
+    def test_benchmark_promoter_prefers_chunks_for_summary_only_inline_rows(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_summary_only_chunk_preference_for_test",
+        )
+
+        target = REPO_ROOT / "target"
+        target.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=target) as tempdir:
+            chunk_path = Path(tempdir) / "published-benchmark-rows.json"
+            chunk_path.write_text(
+                json.dumps(
+                    {
+                        "rows": [
+                            {
+                                "engine": "shardloom",
+                                "source_state_id": "source-state://chunk",
+                                "claim_gate_status": "claim_grade",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            artifact = {
+                "published_benchmark_rows_inlined": "summary_only",
+                "published_benchmark_row_count": 1,
+                "published_benchmark_rows": [
+                    {
+                        "engine": "shardloom",
+                        "source_state_id": None,
+                        "claim_gate_status": "not_claim_grade",
+                    }
+                ],
+                "published_benchmark_row_chunks": [
+                    {
+                        "path": chunk_path.relative_to(REPO_ROOT).as_posix(),
+                        "row_count": 1,
+                    }
+                ],
+            }
+
+            rows = module.artifact_rows(artifact)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["source_state_id"], "source-state://chunk")
+        self.assertEqual(rows[0]["claim_gate_status"], "claim_grade")
+
+    def test_benchmark_promoter_rejects_summary_only_inline_without_chunks(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_summary_only_missing_chunks_for_test",
+        )
+
+        artifact = {
+            "published_benchmark_rows_inlined": "summary_only",
+            "published_benchmark_row_count": 1,
+            "published_benchmark_rows": [
+                {
+                    "engine": "shardloom",
+                    "source_state_id": None,
+                    "claim_gate_status": "not_claim_grade",
+                }
+            ],
+        }
+
+        self.assertEqual(module.artifact_rows(artifact), [])
+
     def test_benchmark_promoter_blocks_sparse_exclusive_query_split(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -3583,6 +3749,26 @@ jobs:
                 </section>
                 {public_front_door_markup}
                 <h2>Stage attribution</h2>
+                <section data-route-share-amdahl>
+                  <h2>Route-share attribution</h2>
+                  <p>Optimization targets follow route share.</p>
+                  <table>
+                    <caption>Route-Share Amdahl Attribution</caption>
+                    <tr><th>Dominant route share</th></tr>
+                    <tr><td>75.0%</td></tr>
+                  </table>
+                  <table>
+                    <caption>Source-Read Scout Attribution</caption>
+                    <tr><th>Timing split</th></tr>
+                    <tr><td>blocked_missing_source_read_scout_split</td></tr>
+                  </table>
+                  <table>
+                    <caption>Vortex Reopen And Scan Attribution</caption>
+                    <tr><th>Scan counters</th></tr>
+                    <tr><td>blocked_missing_scan_counters</td></tr>
+                  </table>
+                  <p>shardloom.traditional_analytics.route_share_amdahl.v1</p>
+                </section>
                 <section>
                   <h2>Runtime fast path</h2>
                   <p>Runtime timing is separate from output and evidence rendering.</p>

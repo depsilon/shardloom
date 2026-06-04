@@ -7,27 +7,27 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 300,
-        "sha256": "ed109ab64132200aea1504ad3b180cd9d51e0eced058e672b4356432503d9190"
+        "sha256": "0e2c426852983e9a095f2c04604bd80391ebf9cabb1dbfd07474cfc5e51f7b0c"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 300,
-        "sha256": "a9f3963f0baec35f270d44a306a1298d210630f3e10ba25f43974267ed993912"
+        "sha256": "4e42eb1d6650829f5e88e27aa5d4a55859b83d9354051422f64645819ee34d55"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 300,
-        "sha256": "d2b63358b962ed55fea022817ce30385c1a3b56b1de4441cdc7dc8edb1146a08"
+        "sha256": "47e6e05e5cc200a37315f2a110a747a107c4ce6c2858fc9108e78bebf0508b61"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 300,
-        "sha256": "f22f3fac6171f0166db1068b3c418b0c364e5083095eff81a41d54b10e181583"
+        "sha256": "378cb0fc6f0441f9ba3cf3d68609ee58cbe1b75d707a1433fec4c3ce075dbd47"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
         "row_count": 120,
-        "sha256": "e2c6a6a2ab26ae34ceb6c4d403585f7d1c6e4fa83ed2fa6a948cb540fdfb68e1"
+        "sha256": "42498bfb4516f299f68f6a12e227792384a286093e99b29d9b379fbd4852dfea"
       }
     ]
   },
@@ -68,7 +68,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "49ed9d119571df04e0b09c65f19ca92916ff0074",
+  "benchmark_git_sha": "34cf7ccd7f055243f62174107facc96876e4bdaf",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -90,7 +90,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-04T01:06:18.945180+00:00",
+  "generated_at_utc": "2026-06-04T10:42:50.947926+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -753,5 +753,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "49ed9d119571df04e0b09c65f19ca92916ff0074"
+  "shardloom_git_sha": "34cf7ccd7f055243f62174107facc96876e4bdaf"
 }

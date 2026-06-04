@@ -185,27 +185,15 @@ not by numeric CG order.
 Current autonomous execution order:
 
 1. Continue `GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` from the
-   2026-06-03 safe-writer code/text benchmark evidence and the follow-up component optimization
-   note attached to that run. The sink-artifact sentinel fix,
-   scenario-aware optional text-column selection, shared prepared/native artifact optional-column
-   preservation, post-hotpath benchmark/site refresh, streaming workspace-safe Vortex writer helper,
-   safe-writer benchmark/site refresh, exclusive stage-ledger de-overlap, and post-ledger writer
-   validation safety fix are complete. The refreshed safe-writer artifact reports published
-   ShardLoom route geomeans of 137.71 ms for the cold certified route, 58.00 ms for prepare-once
-   first query, 8.37 ms for prepare-once batch, 5.57 ms for warm prepared query, and 5.58 ms for
-   native Vortex query. The existing safe-writer artifact redecorated with the exclusive schema,
-   without a benchmark rerun, reports cold certified-route exclusive stage-sum geomean 133.88 ms,
-   residual geomean 2.48 ms, `vortex_write_ms` geomean 76.79 ms,
-   `source_parse_or_columnar_decode_ms` geomean 29.48 ms, de-overlapped `source_read_ms` geomean
-   7.80 ms, `vortex_scan_ms` geomean 2.32 ms, `result_sink_write_ms` geomean 1.90 ms, and
-   `evidence_render_ms` geomean 0.08 ms. The inclusive compatibility-import audit bundle remains
-   127.94 ms and must not be treated as an exclusive stage. The active remaining benchmark-driven
-   sequence is now: Vortex writer/safe artifact emission, cold source parse/read pipeline,
-   prepared-state admission/lookup, result sink/evidence-render evidence, then scan/operator
-   attribution and pushdown. The current PR batch adds result-sink capillary evidence and compact
-   evidence-render proof regeneration fields without rerunning the benchmark suite. Do not rerun the
-   expensive benchmark suite until the current code/docs/site batch is complete or the user
-   explicitly approves a rerun.
+   latest code/text benchmark evidence. Completed implementation and publication slices now live in
+   `docs/architecture/phased-execution-completed-ledger.md`. The current authoritative route totals
+   remain the existing safe-writer artifact until the next approved benchmark rerun: ShardLoom cold
+   certified route 137.71 ms, prepare-once first query 58.00 ms, prepare-once batch 8.37 ms, warm
+   prepared query 5.57 ms, and native Vortex query 5.58 ms. Remaining work is runtime
+   instrumentation and optimization for source-read scout timing, Vortex reopen/scan attribution,
+   scan counters, operator kernels, prepared repair, route stratification, source-to-array guards,
+   and the post-batch route-share/Amdahl rerun. Do not rerun the expensive benchmark suite until
+   those code/docs/site changes are complete or the user explicitly approves a rerun.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -216,7 +204,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Exclusive stage-ledger de-overlap, writer metadata coalescing, source-admission packets, prepared lookup evidence, result-sink capillary evidence, and compact evidence-render proof fields are in place; next finish scan/operator attribution, route-share/Amdahl publication refresh, and any remaining benchmark-validated hot path work. |
+| 1 | `6D:last_order.benchmark_driven_prepare_path_optimization` | Completed evidence/reporting slices are in the ledger; next implement runtime source-read scout splits, Vortex reopen/scan split emission, scan counters/protection, operator attribution, prepared repair, and the post-batch route-share benchmark rerun. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -348,432 +336,118 @@ the next last-order item without reintroducing already-closed route-surface hist
 Do not weaken claim gates; `not_claim_grade` remains valid until benchmark/correctness/certificate
 evidence is attached.
 
-Last-order runtime expansion checklist, not to be left as vague unsupported prose:
+  Last-order runtime expansion checklist, remaining work only:
 
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization:
-  Benchmark-driven preparation, Vortex I/O, output/evidence, and encoded-operator hot-path
-  optimization for runtime-ready local routes.
-  Source: 2026-06-03 local code/text benchmark research and attached component optimization memo
-  against the current promoted artifact and current branch sources; no vision-based benchmark
-  tooling; `docs/architecture/phased-execution-plan.md`,
-  `docs/architecture/phased-execution-completed-ledger.md`,
-  `website-src/src/data/benchmark-evidence.json`, `scripts/promote_benchmark_artifact.py`,
-  `shardloom-vortex/src/traditional_analytics.rs`, and
-  `shardloom-cli/src/sql_local_source_runtime.rs`.
-  Current state: benchmark publication and prior optimization evidence are recorded in
-  `docs/architecture/phased-execution-completed-ledger.md`. The 2026-06-03 safe-writer full-local
-  benchmark bundle reports published ShardLoom route geomeans of 137.71 ms for the cold certified
-  route, 58.00 ms for prepare-once first query, 8.37 ms for prepare-once batch, 5.57 ms for warm
-  prepared query, and 5.58 ms for native Vortex query. External baseline end-to-end geomeans in the
-  same artifact are pandas 191.21 ms, Polars eager 38.78 ms, Polars lazy 28.63 ms, DuckDB 68.57 ms,
-  DataFusion 32.42 ms across 114 successful rows, and Dask 270.90 ms. Scenario-aware text
-  normalization, shared prepared/native artifact preservation, sink-artifact sentinel preservation,
-  and the streaming workspace-safe Vortex writer helper are complete and should stay in the ledger
-  rather than the live queue. The writer-helper benchmark/site refresh is also complete.
-  Current attribution state: exclusive stage-ledger de-overlap is complete and recorded in
-  `docs/architecture/phased-execution-completed-ledger.md`. The existing safe-writer artifact has
-  been redecorated with exclusive stage fields and website rows without a benchmark rerun. Across
-  the 120 ShardLoom cold certified-route rows, `exclusive_stage_timing_status=complete`, the
-  exclusive stage-sum geomean is 133.88 ms, the residual geomean is 2.48 ms, the inclusive
-  compatibility-import audit bundle is 127.94 ms, `vortex_write_ms` geomean is 76.79 ms,
-  `source_parse_or_columnar_decode_ms` geomean is 29.48 ms, de-overlapped `source_read_ms` geomean
-  is 7.80 ms, `vortex_scan_ms` geomean is 2.32 ms, `result_sink_write_ms` geomean is 1.90 ms, and
-  `evidence_render_ms` geomean is 0.08 ms. The primary cold bottleneck is `vortex_write` in
-  83/120 rows and `source_parse_or_decode` in 37/120 rows; the secondary bottleneck is
-  source parse/decode in 61/120 rows, Vortex write in 37/120 rows, and source read in 22/120 rows.
-  The old
-  `source_read_millis` inclusive/geomean cell must not be used as an exclusive read target.
-  Note reconciliation: the earlier component note's 144.27 ms cold route, 81.73 ms Vortex write,
-  and 44.69 ms source-read figures are historical inclusive/post-hotpath readings. Use the newer
-  safe-writer and exclusive attribution figures above for current ordering. Sparse warm/native
-  query rows now remain `blocked_missing_query_split` unless both Vortex scan and operator-compute
-  substages are present, so one-sided query timing cannot be published as complete exclusive
-  prepared-query evidence.
-  Runtime enablement: this item keeps the same user-visible route family:
-  raw compatibility source, local `.vortex`, or prepared Vortex artifact -> explicit
-  `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native runtime ->
-  report/result sink/evidence, with `fallback_attempted=false` and
-  `external_engine_invoked=false`.
-  Next slice outcome: reduce the next dominant ShardLoom-owned stage, starting with Vortex
-  writer/safe-artifact emission, without changing route semantics, workspace safety, no-fallback
-  evidence, route-total accounting, prepared artifact replay, or compatibility-output behavior.
-  Source parse/read pressure is the next target after writer cost is no longer dominant.
-  Benchmark-driven execution sequence:
-  1. Stage ledger de-overlap: complete. Keep route totals as the primary comparison surface and
-     keep exclusive stage sums, inclusive compatibility views, residuals, and baseline-only
-     external rows as attribution fields rather than a second benchmark definition.
-  2. Vortex writer and safe artifact emission: active next. Reduce `vortex_write_ms` first while it
-     remains dominant by coalescing write, digest, and metadata capture; avoiding readback where
-     certificate policy permits; reusing layout/write advisor choices; and reducing per-artifact
-     open/close overhead without bypassing workspace-safe staging.
-  3. Cold source parse and read: active after the writer-metadata coalescing slice. Reduce
-     `source_parse_or_columnar_decode_ms` and de-overlapped `source_read_ms` by splitting
-     `bytes_read`, `lex_parse`, `type_decode`, and `row_assembly` evidence, then adding
-     streaming/projected CSV/JSONL paths where scenario-local certification does not require full
-     optional-column artifact preservation, while retaining full-artifact paths for shared
-     prepared/native artifacts. Current PR progress: projected text decode evidence is emitted for
-     scenario-local fact imports, row-assembly strategy is reported, and the canonical JSONL fast
-     path stops scanning unselected optional tail blocks once the route projection has enough
-     fields.
-  4. Prepared-state admission and lookup: separate `manifest_lookup`, `cache_hit`,
-     `cache_miss_create`, `artifact_write`, and `artifact_register`; reuse source-state/admission
-     packets across prepared/native lanes without hiding first-query preparation cost.
-  5. Result sink and evidence render: move result-batch/output-capillary/fanout/layout-advisor work
-     into the benchmark route path and keep render-heavy website formatting outside hot query
-     timing or separately labeled, while preserving certificate material.
-  6. Scan/operator attribution and encoded pushdown: keep warm/native scan paths protected because
-     they are already sub-ms; split cold `footer_open`, `metadata_verify`, `scan_open`,
-     `scenario_scan`, and operator fields before adding provider-admitted Vortex scan
-     projection/filter/limit tests.
-  7. Benchmark publication refresh: after each completed code/docs/site slice, run artifact
-     validators, website/static validators, and claim gates before updating public benchmark
-     language. Run the full benchmark suite only at the end of the current optimization batch or
-     when explicitly approved for the slice.
-  Conversion rules from the component memo:
-  - Treat the pasted route grid as source context, not as a new benchmark artifact. The newer
-    exclusive safe-writer values in this item are the current authoritative timing basis until a
-    full benchmark rerun is approved.
-  - Preserve end-to-end route geomeans as the comparison surface. Stage grids explain route cost;
-    they do not become alternate product lanes or superiority claims.
-  - Every hot-path change must keep ShardLoom rows backed by real ShardLoom runtime execution,
-    certificate/evidence material where required, and explicit `fallback_attempted=false` /
-    `external_engine_invoked=false` fields.
-  - Website benchmark data, static pages, promotion scripts, release validators, and phase-plan
-    text must move in the same coherent PR batch when stage semantics or published fields change.
-  - Do not rerun the expensive benchmark suite until the current code/docs/site optimization batch is
-    complete or the user explicitly approves the rerun.
-  Component optimization map:
+  - [ ] GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization:
+    Benchmark-driven ShardLoom compute hot-path completion for runtime-ready local routes.
+    Source: 2026-06-03 local code/text benchmark research, the existing safe-writer benchmark
+    artifact, `docs/architecture/phased-execution-completed-ledger.md`,
+    `benchmarks/traditional_analytics/run.py`, `scripts/promote_benchmark_artifact.py`,
+    `website-src/src/components/BenchmarkDashboard.astro`,
+    `shardloom-vortex/src/traditional_analytics.rs`, and
+    `shardloom-cli/src/sql_local_source_runtime.rs`.
+    Current state: completed slices for exclusive stage-ledger de-overlap, writer metadata
+    coalescing, projection-aware text parsing, source-admission packets, prepared-state lookup
+    evidence, result-sink capillary evidence, evidence-render proof fields, and publication-time
+    route-share/source-scout/reopen-scan attribution are recorded in the completed ledger. The
+    current public artifact was redecorated from existing benchmark output and has not been rerun;
+    route totals therefore remain cold 137.71 ms, prepare-once first query 58.00 ms, prepare-once
+    batch 8.37 ms, warm prepared query 5.57 ms, and native Vortex query 5.58 ms until the next
+    approved benchmark run.
+    Runtime enablement: raw compatibility source, local `.vortex`, or prepared Vortex artifact ->
+    explicit `SourceState`/`VortexPreparedState` boundary -> ShardLoom-owned prepared/native
+    runtime -> report/result sink/evidence, with `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+    Next slice outcome: implement runtime timing/counter emission for the next measured
+    attribution gaps before rerunning benchmarks. Route totals remain the only comparative
+    performance surface; stage grids are diagnostic attribution.
 
-  | Component | Current attribution posture | Remaining implementation target |
-  | --- | --- | --- |
-  | Route rows/lane shape | Exclusive ShardLoom stage fields are complete; inclusive compatibility import remains audit-only; sparse query rows are blocked until both scan and operator substages exist. | Keep route totals primary; keep validator, release-script, website schema, and generated artifact contracts aligned as later timing fields move. |
-  | Source admission | Current PR batch now adds source-admission packet evidence to prepared/native batch rows and prepared-batch workspace manifests: packet schema, route family, format/schema hash, local path size/mtime/content fingerprint, observed row estimates, artifact-manifest hash, fresh/reuse/mismatch status, and explicit no-fallback fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and refresh the public artifact/page so packet reuse can be interpreted beside route totals without hiding first-query preparation cost. |
-  | Prepared/native batch metadata | Prepared/native batch source state now caches the dimension Vortex row count once per session and reuses it across row-count-only prepared/native batch scenarios, including source-state-backed and non-source-state fallback scenarios, with `source_state_dim_rows` and `source_state_dim_row_count_cache_*` evidence. | Extend the same amortization pattern to other metadata-only facts after footer/layout evidence is split from scan timing and covered by validators. |
-  | Source read | Current de-overlapped cold `source_read_ms` geomean is 7.80 ms; source read is secondary in 22/120 cold rows. | Split byte acquisition from parse/decode, then add streaming/projected CSV/JSONL reads where scenario certification does not require full optional-column preservation. |
-  | Parse/decode | Current cold `source_parse_or_columnar_decode_ms` geomean is 29.48 ms; parse/decode is primary in 37/120 rows and secondary in 61/120 rows. Projected text decode evidence and row-assembly strategy fields now identify scenario-local text paths, and canonical JSONL fast-path parsing skips unselected optional tails instead of scanning every optional block. | Continue splitting lexical parse, type decode, and row assembly timing; optimize parsed row construction without changing decoded-reference correctness. |
-  | Source to Vortex array/import | Inclusive compatibility import is 127.94 ms and intentionally overlaps parse/write work; array build itself is not the dominant exclusive stage. | Preserve `compat_import_bundle` as an inclusive audit view; use `source_to_batch`, `batch_to_vortex_array`, and `compat_import_bundle` labels before optimizing any import subpath. |
-  | Vortex write/safe artifact | Current dominant exclusive stage: 76.79 ms geomean and primary bottleneck in 83/120 cold rows. The writer now returns stream digest, byte count, and row count from the workspace-safe write outcome so traditional analytics import and computed-result sink certificates do not stat Vortex artifacts immediately after write. | Continue reducing writer cost by reusing layout advisor choices, batching safe artifact emission where permitted, and trimming per-artifact open/close overhead without weakening same-directory staging. |
-  | Reopen/verify | Cold attribution still needs finer reopen versus scan boundaries; warm/native query paths should not pay full verification work. | Split footer open, metadata verify, scan open, and scenario scan; prefer Vortex footer/layout metadata for verification where certificate policy admits it. |
-  | Prepared lookup/create | Current PR batch emits prepared-state lookup evidence for prepare/batch routes: manifest lookup, cache hit, cache miss create, artifact write, artifact register, replay verification, stable source/schema/layout/certificate attractor key, and explicit no-fallback fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and use the refreshed artifact to optimize cache-hit lookup and first-query creation paths separately. |
-  | Vortex scan | Warm/native scan is already sub-ms in the memo and remains small in current rows; cold scan geomean is 2.32 ms. | Protect the fast path and add provider-admitted Vortex scan projection/filter/limit tests before changing scan behavior. |
-  | Operator compute | Warm/native compute is tiny and cold operator fields are still absent/zero in places. | Add cold operator attribution so scan, pruning, residual compute, and encoded-kernel wins are separately visible before any encoded-pushdown claim. |
-  | Result sink | Current PR batch emits schema-versioned result-sink capillary evidence for requested native Vortex result sinks, no-sink rows, and compatibility-fanout rows: scalar JSON byte/digest evidence, replay digest parity, native Vortex output selection, compatibility fanout selection, metadata-loss status, provider classification, claim boundary, and explicit no-fallback fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and use refreshed route totals to decide whether further shared result-batch/fanout/layout-advisor work is still dominant. |
-  | Evidence render | Current cold evidence render geomean is 0.08 ms, while memo warm/native evidence was a visible share of total. Current PR batch emits `evidence_render_proof_*` fields from Rust reports and the promoter derives the same schema for existing artifacts: compact fact keys, proof digest, route-timing boundary, human-expansion timing scope, hot-path policy, claim boundary, and explicit no-fallback/no-external-engine fields. Published timing artifacts have not been rerun yet. | After the full current code/docs/site batch is complete, rerun the benchmark suite and use refreshed route totals to decide whether human evidence formatting remains visible enough to justify moving more prose/table rendering out of the timed route. |
-  | Total route/publication | Current published route geomeans remain cold 137.71 ms, first query 58.00 ms, batch 8.37 ms, warm 5.57 ms, and native 5.58 ms until rerun. | Publish refreshed route totals only after the full current code/docs/site batch and benchmark rerun; keep unsupported rows out of runtime-ready posture and keep external engines baseline-only. |
+    Remaining child execution order:
 
-  Benchmark-driven hot-path child execution items: these child items convert the component-timing
-  research into feasible post-merge implementation slices under this existing 6D item. They are not
-  new top-level phase IDs. Route totals remain the comparison surface; stage timings are attribution
-  evidence. All slices must preserve ShardLoom-owned execution, Vortex-native boundaries,
-  `fallback_attempted=false`, and `external_engine_invoked=false`.
+    | Order | Child item | Next outcome |
+    | --- | --- | --- |
+    | 1 | HOTPATH-3 source-read scout runtime | Emit real header/scout, byte-acquisition, full-body, residual, and reuse evidence from CSV/JSONL/local source readers. |
+    | 2 | HOTPATH-7 Vortex reopen/scan runtime split | Emit real footer-open, metadata-verify, scan-open, scenario-scan, and verification-reason evidence from Vortex artifact verification paths. |
+    | 3 | HOTPATH-10 scan IO-aware protection | Emit scan counters for bytes touched, segments touched/skipped, columns touched, decoded values, and add fast-path regression tests. |
+    | 4 | HOTPATH-11 operator micro-kernel discovery | Add focused operator attribution and only promote branchless/layout-aware kernels with correctness and microbenchmark evidence. |
+    | 5 | HOTPATH-9 prepared-state regeneration repair | Add prepared manifest dependency evidence and deterministic partial-repair blockers before any segment repair execution. |
+    | 6 | HOTPATH-1 route-lane and row-shape stratification | Add remaining route-family/shape metadata only where it clarifies route-total interpretation. |
+    | 7 | HOTPATH-5 source-to-Vortex-array guard | Add array-build regression guards and keep inclusive compatibility import labeled as audit-only. |
+    | 8 | HOTPATH-14 post-batch Amdahl rerun | Rerun/promote the full benchmark suite only after the runtime/code/docs/site batch is complete or explicitly approved. |
 
-  - [ ] HOTPATH-1 route-lane and row-shape stratification:
-    - Concept transfer: experimental design and ecological niches. Treat cold certification,
-      prepare-once first query, prepare-once batch, warm prepared, and native Vortex as distinct
-      route ecologies instead of forcing one optimizer interpretation across all lanes.
-    - Current timing target: all 120-row route families, especially the gap between cold 137.71 ms,
-      prepare-once first query 58.00 ms, prepare-once batch 8.37 ms, warm prepared 5.57 ms, and
-      native Vortex 5.58 ms.
-    - Implementation scope: benchmark scenario catalog, benchmark artifact promotion, website
-      stage grid, route capability report, and validators.
-    - Work: add route-family stratification fields for cold certification, first-query
-      preparation, amortized prepared batch, warm prepared query, and native Vortex query; add
-      row-shape/scenario tags for tiny/small/wide/skewed/sparse-null/high-cardinality/
-      low-cardinality cases where fixture metadata already supports it; keep end-to-end route
-      geomeans primary and stage attribution secondary; make the website distinguish route totals,
-      exclusive stage timings, and inclusive audit bundles.
-    - Acceptance: every ShardLoom timing row has route-family and scenario-shape metadata, existing
-      external baselines remain `external_baseline_only`, and no stage table is presented as a
-      separate superiority benchmark.
-    - Verification: benchmark artifact completeness validator, benchmark publication claim-gate
-      validator, and website readiness/static checks if benchmark display changes.
-  - [ ] HOTPATH-2 source-admission prediction packet:
-    - Concept transfer: predictive coding and surprise minimization. Admission should become a
-      cheap prediction-confirmation step when the source, schema, route, and prepared artifact have
-      not changed.
-    - Current timing target: source admission around 42 ms in prepared/native context.
-    - Implementation scope: source-state creation, prepared/native route helpers, admission
-      evidence, benchmark report fields, and route capability report.
-    - Work: introduce or reuse an admission packet containing source path, size, mtime, schema
-      hash, route family, row estimate, format, and artifact manifest hash; record whether
-      admission was a fresh probe, packet reuse, or packet mismatch; reuse admission packets across
-      warm prepared and native Vortex lanes without hiding first-query preparation cost; emit
-      deterministic diagnostics when packet reuse is rejected.
-    - Current PR batch: Rust evidence now emits
-      `source_admission_packet_*` on prepared/native batch rows and
-      `prepare_batch_source_admission_packet_*` on compatibility prepare-plus-batch rows; the
-      workspace manifest persists the packet digest, observed row estimates, artifact-manifest
-      hash, and fresh/reuse/mismatch status without adding another source-hash pass.
-    - Remaining before rerun: run the focused/broad validators, then refresh benchmark artifacts only
-      after the whole current optimization batch is complete or the user explicitly approves.
-    - Acceptance: warm/native lanes no longer make source-state work look like query execution,
-      first-query route still reports real preparation cost, and packet reuse never bypasses
-      certificate-required validation.
-    - Verification: focused source-state/admission tests, benchmark artifact validators, and
-      no-fallback/evidence field checks.
-  - [ ] HOTPATH-3 cold source-read scout path:
-    - Concept transfer: compressed sensing and scout sampling. Read only enough to decide the route
-      before full source acquisition.
-    - Current timing target: de-overlapped cold `source_read_ms` geomean 7.80 ms; secondary
-      bottleneck in 22/120 rows.
-    - Implementation scope: CSV/JSONL/local source readers, source-read evidence, benchmark report
-      fields, and compatibility-import diagnostics.
-    - Work: split source-read timing into header/scout read, byte acquisition, and full body read;
-      add header/schema/byte-range scout evidence where the format supports it; avoid full source
-      body reads for route decisions that can be made from scout metadata; preserve full-artifact
-      read paths where shared prepared/native artifact preservation requires all columns.
-    - Acceptance: source-read timing is independently auditable from parse/decode, scout reuse is
-      explicit in evidence, and no route silently downgrades from certified full-artifact behavior.
-    - Verification: focused CSV/JSONL read tests, traditional benchmark harness tests, and
-      benchmark artifact completeness validator.
-  - [ ] HOTPATH-4 projection-aware parse/decode:
-    - Concept transfer: sparse coding and selective attention. Decode only activated fields needed
-      for the route, predicate, grouping, result, and certificate obligations.
-    - Current timing target: cold `source_parse_or_columnar_decode_ms` geomean 29.48 ms; primary
-      bottleneck in 37/120 rows and secondary in 61/120 rows.
-    - Implementation scope: CSV/JSONL parser paths, typed decode, row assembly, source evidence,
-      and decoded-reference correctness tests.
-    - Work: split parse/decode evidence into lexical parse, type decode, and row assembly; add
-      projection-aware CSV/JSONL decode paths for scenario-local routes; avoid constructing unused
-      row fields when the route and artifact policy do not require them; retain full optional-column
-      preservation for shared prepared/native artifacts. Current PR progress: report fields expose
-      projected text decode and row-assembly strategy, and canonical JSONL fast-path parsing returns
-      after the selected optional boundary for core-only, nullable-only, partition-date, dirty, and
-      nested projections instead of scanning unselected optional tail fields.
-    - Acceptance: parse/decode reduction is visible as a separate stage, decoded-reference
-      correctness remains unchanged, and null, empty, sparse, and high-cardinality cases remain
-      covered.
-    - Verification: focused parser tests, decoded-reference comparison tests, and traditional
-      benchmark harness tests.
-  - [ ] HOTPATH-5 source-to-Vortex-array shape preservation:
-    - Concept transfer: morphological computation. Preserve the physical shape of source data so
-      the data layout does part of the work.
-    - Current timing target: source-to-Vortex array is already near zero in prepared lanes, but the
-      inclusive compatibility-import audit bundle remains large and can be misread.
-    - Implementation scope: Vortex array build evidence, compatibility-import bundle labels,
-      promotion script, website attribution table, and validators.
-    - Work: keep `source_to_batch`, `batch_to_vortex_array`, and `compat_import_bundle` distinct;
-      add a regression guard so array build cannot quietly become row-object construction; preserve
-      inclusive compatibility import as audit context, not exclusive timing; document that array
-      build is not the current dominant bottleneck.
-    - Acceptance: array build remains near-zero on known fixtures and website/artifacts no longer
-      imply inclusive import is a standalone stage.
-    - Verification: benchmark artifact validators, focused compatibility-import report test, and
-      website readiness checks if labels change.
-  - [ ] HOTPATH-6 Vortex write centrifuge:
-    - Concept transfer: centrifugation, vascular flow, and irreversible-work minimization. Separate
-      write work by density, permanence, proof need, and reuse probability.
-    - Current timing target: dominant cold stage, `vortex_write_ms` geomean 76.79 ms; primary
-      bottleneck in 83/120 rows.
-    - Implementation scope: `shardloom-vortex` traditional analytics writer, shared Vortex ingest
-      helper, workspace-safe writer, digest/metadata capture, and Vortex replay verification.
-    - Work: coalesce write, digest, byte count, row count, and metadata capture into one pass where
-      policy permits; avoid artifact readback/reopen when writer-returned metadata and certificate
-      policy are enough; reuse layout/write advisor decisions across repeated compatible artifacts;
-      reduce per-artifact open/close overhead without bypassing same-directory workspace-safe
-      staging; keep native Vortex output as the highest-fidelity target. Current PR progress:
-      writer-returned digest, byte count, and row count now feed traditional analytics import
-      report/certificate fields and computed-result sink certificates, avoiding immediate
-      post-write Vortex artifact stat/readback for those metadata values while preserving replay
-      verification.
-    - Acceptance: cold route improvement comes primarily through `vortex_write_ms`, artifact digest,
-      workspace safety, and replay verification remain intact, and no compatibility output is
-      reported as native Vortex execution.
-    - Verification: Vortex write/reopen tests, workspace-safe writer tests, traditional analytics
-      benchmark harness tests, and benchmark artifact validators.
-  - [ ] HOTPATH-7 reopen/verify immune-recognition path:
-    - Concept transfer: immune recognition. Known artifact signatures should be recognized quickly
-      before expensive verification is attempted.
-    - Current timing target: reopen/verify is hidden or sparse in the current grid and needs clearer
-      separation from scan.
-    - Implementation scope: Vortex artifact footer/open verification, certificate evidence,
-      benchmark timing fields, and promotion script.
-    - Work: split footer open, metadata verify, scan open, and scenario scan timings; use
-      footer/layout/certificate metadata for fast recognition where policy admits it; record when
-      full reopen/scan verification was required and why; keep deterministic diagnostics for
-      missing or stale verification evidence.
-    - Acceptance: reopen/verify is not conflated with Vortex scan, and warm/native paths do not pay
-      full cold verification cost unless required.
-    - Verification: Vortex replay verification tests, benchmark artifact completeness validator,
-      and claim-gate validator.
-  - [ ] HOTPATH-8 prepared-state attractor lookup:
-    - Concept transfer: Hopfield networks and attractor basins. Source hash, schema hash, route
-      hash, layout policy, and certificate state should converge directly to the prepared artifact
-      or a minimal repair plan.
-    - Current timing target: prepare-once first-query `Prepared lookup/create` 51.84 ms; batch
-      amortized 2.59 ms.
-    - Implementation scope: prepared-state lookup/create path, prepared artifact manifest,
-      source-state evidence, benchmark fields, and Python/context helpers.
-    - Work: split prepared lifecycle timing into manifest lookup, cache hit, cache miss create,
-      artifact write, artifact register, and replay verification; add content-addressed prepared
-      artifact keys using source/schema/route/layout/certificate state; make cache hits cheap and
-      explicitly evidenced; keep first-query creation cost visible and separate from warm query
-      execution.
-    - Current PR batch: Rust evidence now emits
-      `prepare_batch_prepared_state_lookup_*` fields on compatibility prepare-plus-batch rows,
-      including manifest lookup, cache hit, cache miss create, artifact write, artifact register,
-      replay verification, stable prepared-state attractor key, claim boundary, and explicit
-      no-fallback/external-engine fields. The workspace-reuse regression covers first-run create,
-      second-run manifest hit, and source-change refresh.
-    - Remaining before rerun: refresh benchmark artifacts only after the whole current optimization
-      batch is complete or the user explicitly approves, then use the new fields to separate cache-hit
-      optimization from first-query creation optimization.
-    - Acceptance: prepare-once first-query route explains where the 51.84 ms is spent,
-      prepare-once batch remains honest about amortization, and prepared reuse never bypasses
-      changed-source detection.
-    - Verification: prepared artifact lookup/reuse tests, Python/context prepared-route tests where
-      applicable, and benchmark artifact validators.
-  - [ ] HOTPATH-9 prepared-state regeneration repair:
-    - Concept transfer: starfish/planarian regeneration and positional memory. Changed prepared
-      artifacts should repair affected segments instead of rebuilding the whole body.
-    - Current timing target: prepared lookup/create and Vortex write during first-query preparation.
-    - Implementation scope: prepared artifact manifest, segment/column invalidation evidence,
-      source-state delta detection, and prepared replay.
-    - Work: add manifest evidence for segment, column, schema, and certificate dependencies; detect
-      which prepared-state regions are invalidated by source changes; rebuild only invalidated
-      segments where correctness and Vortex artifact policy permit; fail explicitly when partial
-      repair is unsupported.
-    - Acceptance: incremental prepared repair is visible as a distinct route state, full rebuild
-      remains available and explicit when required, and no stale segment can be reused silently.
-    - Verification: prepared repair/invalidation tests, replay correctness tests, and no-fallback
-      evidence checks.
-  - [ ] HOTPATH-10 Vortex scan IO-aware protection:
-    - Concept transfer: FlashAttention-style IO-aware tiling. Optimize data movement before
-      arithmetic.
-    - Current timing target: Vortex scan is already fast, about 0.25 ms warm/native and 2.32 ms
-      cold.
-    - Implementation scope: Vortex scan timing, projection/filter/limit admission, decoded-value
-      counters, and scan diagnostics.
-    - Work: add scan counters for bytes touched, segments skipped, columns touched, and decoded
-      values; protect the fast path with regression thresholds on known benchmark fixtures; add
-      provider-admitted Vortex scan projection/filter/limit tests before changing scan behavior;
-      preserve segment pruning and late materialization diagnostics.
-    - Acceptance: scan remains sub-ms on warm/native fixtures, and any scan optimization proves
-      reduced data movement rather than only wall-clock variance.
-    - Verification: Vortex scan tests, encoded/pruning diagnostics tests, and benchmark artifact
-      validators.
-  - [ ] HOTPATH-11 operator micro-kernel discovery:
-    - Concept transfer: AlphaDev/AlphaEvolve-style algorithm discovery for tiny repeated kernels.
-      Operator compute is already small but will become more important after sink/evidence/write
-      shrink.
-    - Current timing target: operator compute about 0.25 ms warm/native.
-    - Implementation scope: encoded operator kernels, null-mask handling, group/count/min/max/hash
-      hot loops, correctness tests, and microbenchmarks.
-    - Work: inventory hot operator loops used by traditional benchmark scenarios; add candidate
-      branchless or layout-aware kernels for comparisons, counts, min/max, null-mask combination,
-      and hash accumulation; promote only kernels that beat the existing path in reproducible
-      focused benchmarks; keep decoded-reference tests for correctness.
-    - Acceptance: kernel changes are correctness-backed and benchmark-backed, and unsupported
-      encoded cases still fail explicitly rather than falling back.
-    - Verification: encoded operator tests over empty, null, sparse, dense, low-cardinality, and
-      high-cardinality inputs; focused microbenchmarks; workspace tests for affected crates.
-  - [ ] HOTPATH-12 result-sink capillary routing:
-    - Concept transfer: capillary networks and pressure routing. Small scalar results, report rows,
-      native Vortex output, compatibility exports, and certificate attachments should not share one
-      heavy sink path.
-    - Current timing target: result sink around 1.90-2.05 ms; a large share of warm/native totals.
-    - Implementation scope: result-batch state, output-capillary planner, fanout conversion DAG,
-      layout/write advisor, benchmark route sink path, and evidence fields.
-    - Current PR batch: adds `result_sink_capillary_*` evidence for compatibility-import and
-      prepared/native benchmark routes, including scalar result JSON bytes, compact result and
-      replay digests, native Vortex output selection, compatibility fanout selection, metadata-loss
-      status, provider classification, claim boundary, and explicit no-fallback/no-external-engine
-      fields. Direct transient/no-sink rows emit deterministic `not_requested` evidence. Focused
-      Rust tests cover direct no-sink, native result sink replay, prepared/native result sink replay,
-      and compatibility export fanout. Published timing artifacts have not been rerun yet.
-    - Work: route benchmark result sinks through shared result-batch/output-capillary
-      infrastructure; separate scalar/small-result JSON output from native Vortex output and
-      compatibility fanout; avoid repeated JSON/string materialization in timed query routes; emit
-      sink materialization and metadata-loss evidence for compatibility outputs.
-    - Acceptance: warm/native route total drops through sink reduction without losing output
-      evidence, and native Vortex output remains distinct from compatibility export.
-    - Verification: SQL/local-source output tests where applicable, traditional benchmark sink
-      tests, and benchmark artifact validators.
-  - [ ] HOTPATH-13 evidence-render proof regeneration:
-    - Concept transfer: regeneration and positional memory. Store compact proof tissue once and
-      regenerate human-readable evidence lazily.
-    - Current timing target: evidence render around 2.42-2.57 ms in warm/native grid; cold currently
-      0.08 ms.
-    - Implementation scope: execution certificate facts, benchmark evidence JSON, website render
-      path, CLI/report formatting, and promotion script.
-    - Current PR batch: adds `evidence_render_proof_*` fields to direct transient,
-      compatibility-import, prepared, and native Vortex Rust report fields; derives the same compact
-      schema in `scripts/promote_benchmark_artifact.py` for existing rows and synthetic
-      prepare-once-first-query rows; adds a comparative-dashboard evidence-render proof table;
-      updates the benchmark website section and readiness validator; and adds focused Rust/Python
-      tests. Published timing artifacts have not been rerun yet, so this is proof-schema and render
-      regeneration plumbing, not a new performance result.
-    - Work: split compact machine evidence emission from human/website evidence rendering; keep
-      certificate facts in the hot route but move prose/table expansion outside timed query work or
-      label it separately; add stable evidence schema fields so website rendering can regenerate
-      from compact facts; preserve claim-boundary and no-fallback fields.
-    - Acceptance: warm/native routes do not spend most of total time rendering human evidence, and
-      website and CLI evidence remain complete and deterministic.
-    - Verification: evidence schema tests, website readiness/static checks, and benchmark artifact
-      completeness validator.
-  - [ ] HOTPATH-14 total-route Amdahl gate:
-    - Concept transfer: Amdahl's law and systems biology. Optimize by route share, not intuition.
-    - Current timing target: total route geomeans remain cold 137.71 ms, first query 58.00 ms,
-      batch 8.37 ms, warm 5.57 ms, and native 5.58 ms until a rerun.
-    - Implementation scope: benchmark harness, promotion script, website benchmark page, release
-      validators, and phase-plan/ledger text after completed slices.
-    - Work: after each child slice, record which route total and which stage should move; do not
-      publish new public performance language until the full benchmark rerun is complete; keep
-      external rows baseline-only and unsupported rows visibly non-runtime-ready unless runtime
-      evidence exists; add a route-share dashboard table showing remaining route-dominant stages
-      after each refresh.
-    - Acceptance: every optimization has a measurable target and post-change route-total
-      interpretation, route totals remain the only comparative performance surface, and claim
-      boundaries stay aligned with benchmark evidence.
-    - Verification: full benchmark rerun only when approved for the completed optimization batch,
-      benchmark publication claim-gate validator, website readiness/static checks, and
-      `git diff --check`.
+    Remaining item details:
 
-  Current PR batch completed through code/docs/site evidence slices: HOTPATH-6, HOTPATH-4,
-  HOTPATH-2, HOTPATH-8, HOTPATH-12, and the proof-schema portion of HOTPATH-13. Suggested remaining
-  execution order: HOTPATH-3, HOTPATH-7, HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, HOTPATH-5,
-  then HOTPATH-14.
-  Keep this order flexible only when new benchmark evidence changes the dominant route
-  share. Non-goals for all child items: no Spark, DataFusion, DuckDB, Polars, Velox, or Vortex
-  query-engine fallback; no hidden fast mode that skips claim-required evidence; no public
-  superiority, production, broad SQL/DataFrame, object-store/table, or Spark-replacement claim from
-  a single optimization slice; no benchmark rerun unless explicitly approved for the slice or final
-  optimization batch.
-  User-visible surface: benchmark route totals and stage attribution, CLI traditional-analytics
-  routes, Python/context prepared/native route helpers, result-sink evidence, route capability
-  reports, and release-readiness benchmark validators.
-  Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`,
-  `shardloom-vortex/src/vortex_ingest.rs` if shared helper extraction is needed,
-  `shardloom-cli/src/sql_local_source_runtime.rs` for source-read/parse timing and cold local-source
-  reader work, `scripts/promote_benchmark_artifact.py` and benchmark/static validators when stage
-  semantics change, `docs/architecture/phased-execution-plan.md` when the active queue drifts,
-  Python/CLI docs when user behavior changes, website benchmark components/data, and
-  benchmark/release evidence artifacts after runtime changes.
-  Evidence required: focused tests or smokes that prove Vortex write/read/replay parity, workspace
-  safety, artifact digests, route ledger zero deltas, no-fallback/no-external-engine fields,
-  exclusive stage-sum/residual parity when attribution semantics change, benchmark artifact
-  completeness, copy-budget/layout fields updated when measurements improve, and a refreshed local
-  benchmark after all code/docs/site changes and before any public performance claim.
-  Acceptance: route behavior and evidence remain identical or stricter, fixable ShardLoom-owned hot
-  loops avoid unnecessary reads, decodes, allocations, string clones, or materialization, hot-stage
-  timing fields still reproduce route totals, exclusive and inclusive stage views are defensible,
-  and the refreshed benchmark run reports no ShardLoom fallback/external-engine flags.
-  Verification: focused Rust tests for traditional analytics Vortex I/O paths, `cargo fmt --all
-  -- --check`, relevant `cargo test` package/feature targets, benchmark artifact validators
-  (`scripts/check_benchmark_artifact_completeness.py`,
-  `scripts/check_benchmark_publication_claim_gate.py`,
-  `scripts/check_benchmark_constitution.py`), website readiness/static checks when benchmark pages
-  change, and `git diff --check`.
-  Non-goals: no Spark/DataFusion/Polars/DuckDB fallback, no public performance/superiority claim
-  from this slice alone, no hidden fast mode that skips claim-required evidence, no broad object-store
-  or production claim, and no dependency expansion unless separately justified.
-  Dependencies/blockers: refreshed post-merge benchmark artifacts, route-total/stage timing parity,
-  no-fallback certificate evidence, copy-budget/layout measurements, and follow-up admission work
-  for result-sink/evidence overhead, scan runtime/session reuse, and encoded operator hot paths.
-  Claim boundary: scoped local runtime optimization only; performance, production, broad
-  SQL/DataFrame parity, object-store/table, and Spark-replacement claims remain blocked until the
-  refreshed workload-scoped correctness, Native I/O, benchmark, release, and claim-gate evidence
-  exists.
+    - HOTPATH-3 source-read scout runtime:
+      source is the current source-read attribution blocker table. Current publication rows expose
+      `blocked_missing_source_read_scout_split` when split evidence is absent. Scope is
+      CSV/JSONL/local source readers, benchmark report fields, and compatibility-import
+      diagnostics. Acceptance is independently auditable source-read timing and explicit scout reuse
+      without downgrading certified full-artifact behavior. Verification is focused CSV/JSONL read
+      tests, traditional benchmark harness tests, benchmark artifact completeness, claim-gate, and
+      website readiness if display fields move.
+    - HOTPATH-7 Vortex reopen/scan runtime split:
+      source is the current Vortex reopen/scan attribution blocker table. Current publication rows
+      expose missing split status without claiming new runtime support. Scope is artifact
+      footer/open verification, certificate evidence, and benchmark timing fields. Acceptance is
+      reopen/verify no longer conflated with scan, and warm/native paths do not pay cold
+      verification unless certificate policy requires it. Verification is Vortex replay
+      verification tests plus benchmark artifact completeness and claim-gate validators.
+    - HOTPATH-10 scan IO-aware protection:
+      source is the current scan-counter blocker table. Scope is Vortex scan timing,
+      projection/filter/limit admission tests, decoded-value counters, and scan diagnostics.
+      Acceptance is sub-ms warm/native scan protection on known fixtures and data-movement evidence
+      for any scan optimization. Verification is Vortex scan tests, encoded/pruning diagnostics
+      tests, benchmark artifact validators, and no-fallback field checks.
+    - HOTPATH-11 operator micro-kernel discovery:
+      source is the remaining operator attribution gap after scan counters. Scope is encoded
+      operator kernels, null-mask handling, group/count/min/max/hash loops, correctness tests, and
+      focused microbenchmarks. Acceptance requires correctness-backed and benchmark-backed kernel
+      promotion with unsupported encoded cases failing explicitly. Verification is encoded operator
+      tests over empty/null/sparse/dense/low-cardinality/high-cardinality fixtures plus focused
+      microbenchmarks.
+    - HOTPATH-9 prepared-state regeneration repair:
+      source is the prepared lookup/create route share once source/reopen/scan counters are visible.
+      Scope is prepared artifact manifests, segment/column invalidation evidence, source-state
+      delta detection, and prepared replay. Acceptance is explicit partial-repair readiness or a
+      deterministic unsupported blocker; no stale segment can be reused silently. Verification is
+      prepared repair/invalidation tests, replay correctness tests, and no-fallback evidence checks.
+    - HOTPATH-1 route-lane and row-shape stratification:
+      source is route-total interpretation across cold, first-query, batch, warm, and native lanes.
+      Scope is scenario metadata, promotion, website attribution, route capability report, and
+      validators. Acceptance is every ShardLoom timing row carrying enough route-family/shape
+      metadata to interpret route totals without treating stage tables as alternate benchmarks.
+      Verification is benchmark completeness, publication claim-gate, and website/static checks.
+    - HOTPATH-5 source-to-Vortex-array guard:
+      source is the inclusive compatibility-import audit bundle, which must not be mistaken for an
+      exclusive stage. Scope is Vortex array-build evidence, compatibility-import labels, promotion
+      scripts, website attribution, and validators. Acceptance is array build remaining separately
+      guarded on known fixtures and the website/artifacts preserving inclusive-audit wording.
+      Verification is benchmark validators, focused compatibility-import report tests, and website
+      readiness when labels change.
+    - HOTPATH-14 post-batch Amdahl rerun:
+      source is the route-share/Amdahl publication table. Scope is benchmark harness, promotion,
+      website benchmark page, release validators, and phase-plan/ledger text after completed
+      runtime slices. Acceptance is a refreshed artifact with route totals, route-share targets,
+      and no-fallback/no-external-engine evidence aligned before any new performance language.
+      Verification is the approved full benchmark rerun, benchmark publication claim-gate,
+      website readiness/static checks, and `git diff --check`.
+
+    User-visible surface: benchmark route totals and attribution tables, CLI traditional-analytics
+    routes, Python/context prepared/native route helpers, result-sink evidence, route capability
+    reports, and release-readiness benchmark validators.
+    Evidence required: focused tests or smokes proving Vortex read/write/replay parity, workspace
+    safety, artifact digests, route ledger zero deltas where attribution semantics move,
+    no-fallback/no-external-engine fields, benchmark artifact completeness, and a refreshed local
+    benchmark after the runtime/code/docs/site batch and before any new public performance claim.
+    Non-goals: no Spark/DataFusion/Polars/DuckDB/Velox fallback, no Vortex query-engine fallback,
+    no hidden fast mode that skips claim-required evidence, no public superiority or
+    Spark-replacement claim from a single slice, no broad object-store/table/production claim, and
+    no benchmark rerun until the current batch is complete or explicitly approved.
+    Claim boundary: scoped local runtime optimization only; performance, production, broad
+    SQL/DataFrame parity, object-store/table, and Spark-replacement claims remain blocked until
+    refreshed workload-scoped correctness, Native I/O, benchmark, release, and claim-gate evidence
+    exists.
+
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
   Current state: admitted scoped SQL syntax families and their evidence rows live in

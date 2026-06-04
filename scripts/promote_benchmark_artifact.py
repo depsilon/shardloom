@@ -67,6 +67,13 @@ OPERATOR_EXECUTION_MODES = {
 PREPARED_ROUTE_AMORTIZATION_COUNTS = (1, 5, 10, 50, 100)
 DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS = "derived_from_prepare_once_batch_route_timing"
 COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottleneck.v1"
+SOURCE_READ_SCOUT_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_read_scout.v1"
+)
+VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1"
+)
+ROUTE_SHARE_AMDAHL_SCHEMA_VERSION = "shardloom.traditional_analytics.route_share_amdahl.v1"
 COLD_BOTTLENECK_ROUTE_LANES = {
     "cold_certified_route",
     "prepare_once_first_query",
@@ -223,6 +230,28 @@ WEBSITE_ROW_KEYS = (
     "cold_route_optimization_hint",
     "cold_route_optimization_hint_scope",
     "cold_route_bottleneck_claim_boundary",
+    "source_read_scout_schema_version",
+    "source_read_scout_status",
+    "source_read_scout_timing_split_status",
+    "source_read_header_scout_ms",
+    "source_read_byte_acquisition_ms",
+    "source_read_full_body_ms",
+    "source_read_scout_residual_ms",
+    "source_read_scout_reuse_status",
+    "source_read_scout_claim_boundary",
+    "vortex_reopen_scan_attribution_schema_version",
+    "vortex_reopen_verify_split_status",
+    "vortex_footer_open_ms",
+    "vortex_metadata_verify_ms",
+    "vortex_scan_open_ms",
+    "vortex_scenario_scan_ms",
+    "vortex_scan_counter_status",
+    "vortex_scan_bytes_touched",
+    "vortex_scan_segments_touched",
+    "vortex_scan_segments_skipped",
+    "vortex_scan_columns_touched",
+    "vortex_scan_decoded_values",
+    "vortex_reopen_scan_claim_boundary",
     "source_split_count",
     "source_open_count",
     "source_bytes_read",
@@ -304,6 +333,10 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "operator_execution",
     "encoded_native",
     "residual_native",
+    "source_read_scout",
+    "vortex_reopen",
+    "vortex_scan_counter",
+    "route_share",
     "cold_lane",
     "materialization",
     "decode",
@@ -339,6 +372,19 @@ ROUTE_STAGE_FIELD_KEYS = (
     "evidence_render_ms",
     "total_route_ms",
 )
+ROUTE_STAGE_DISPLAY_NAMES = {
+    "source_admission_ms": "Source admission",
+    "source_read_ms": "Source read",
+    "source_parse_or_columnar_decode_ms": "Parse/decode",
+    "source_to_vortex_array_ms": "Source -> Vortex array",
+    "vortex_write_ms": "Vortex write",
+    "vortex_reopen_or_verify_ms": "Vortex reopen/verify",
+    "prepared_state_lookup_or_create_ms": "Prepared lookup/create",
+    "vortex_scan_ms": "Vortex scan",
+    "operator_compute_ms": "Operator compute",
+    "result_sink_write_ms": "Result sink",
+    "evidence_render_ms": "Evidence render",
+}
 ROUTE_IDENTITY_KEYS = (
     "route_lane_id",
     "route_display_name",
@@ -1314,6 +1360,235 @@ def _stage_ids_with_values(stage_fields: dict[str, Any]) -> list[str]:
     ]
 
 
+def source_read_scout_fields_for_row(
+    row: dict[str, Any], stage_fields: dict[str, Any]
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    if not is_shardloom_engine(str(row.get("engine") or "")):
+        return {
+            "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
+            "source_read_scout_status": "external_baseline_only",
+            "source_read_scout_timing_split_status": "external_baseline_only",
+            "source_read_header_scout_ms": None,
+            "source_read_byte_acquisition_ms": None,
+            "source_read_full_body_ms": None,
+            "source_read_scout_residual_ms": None,
+            "source_read_scout_reuse_status": "external_baseline_only",
+            "source_read_scout_claim_boundary": "external_baseline_only",
+        }
+
+    source_read = first_numeric_millis(
+        {**fields, **stage_fields},
+        ("exclusive_source_read_ms", "source_read_ms", "source_read_millis"),
+    )
+    if source_read is None:
+        return {
+            "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
+            "source_read_scout_status": "not_applicable_no_source_read_stage",
+            "source_read_scout_timing_split_status": "not_applicable",
+            "source_read_header_scout_ms": None,
+            "source_read_byte_acquisition_ms": None,
+            "source_read_full_body_ms": None,
+            "source_read_scout_residual_ms": None,
+            "source_read_scout_reuse_status": "not_applicable",
+            "source_read_scout_claim_boundary": (
+                "source-read scout attribution is diagnostic timing evidence only; route totals "
+                "remain the comparison surface"
+            ),
+        }
+
+    header_scout = first_numeric_stage_millis(
+        fields,
+        millis_keys=(
+            "source_read_header_scout_millis",
+            "source_header_scout_millis",
+            "source_scout_read_millis",
+        ),
+        micros_keys=(
+            "source_read_header_scout_micros",
+            "source_header_scout_micros",
+            "source_scout_read_micros",
+        ),
+    )
+    byte_acquisition = first_numeric_stage_millis(
+        fields,
+        millis_keys=(
+            "source_read_byte_acquisition_millis",
+            "source_byte_acquisition_millis",
+            "source_body_read_millis",
+        ),
+        micros_keys=(
+            "source_read_byte_acquisition_micros",
+            "source_byte_acquisition_micros",
+            "source_body_read_micros",
+        ),
+    )
+    full_body = first_numeric_stage_millis(
+        fields,
+        millis_keys=("source_read_full_body_millis", "source_full_body_read_millis"),
+        micros_keys=("source_read_full_body_micros", "source_full_body_read_micros"),
+    )
+    pieces = [
+        value
+        for value in (header_scout, byte_acquisition, full_body)
+        if value is not None and value >= 0.0
+    ]
+    split_sum = sum(pieces)
+    residual = round(source_read - split_sum, 4) if pieces else None
+    complete = (
+        header_scout is not None
+        and byte_acquisition is not None
+        and full_body is not None
+        and residual is not None
+        and residual >= -0.001
+    )
+    timing_status = (
+        "complete"
+        if complete
+        else "blocked_missing_source_read_scout_split"
+    )
+    scout_status = (
+        first_meaningful_field(fields, ("source_read_scout_status",))
+        or (
+            "source_read_scout_split_recorded"
+            if complete
+            else "source_read_scout_split_missing"
+        )
+    )
+    return {
+        "source_read_scout_schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
+        "source_read_scout_status": scout_status,
+        "source_read_scout_timing_split_status": timing_status,
+        "source_read_header_scout_ms": header_scout,
+        "source_read_byte_acquisition_ms": byte_acquisition,
+        "source_read_full_body_ms": full_body,
+        "source_read_scout_residual_ms": residual,
+        "source_read_scout_reuse_status": first_meaningful_field(
+            fields, ("source_read_scout_reuse_status",)
+        )
+        or (
+            "not_reused_fresh_source_read"
+            if complete
+            else "blocked_until_scout_timing_split"
+        ),
+        "source_read_scout_claim_boundary": (
+            "source-read scout attribution explains header/scout, byte acquisition, and full-body "
+            "read composition only; it does not authorize performance, production, or "
+            "Spark-displacement claims"
+        ),
+    }
+
+
+def vortex_reopen_scan_attribution_fields_for_row(
+    row: dict[str, Any], stage_fields: dict[str, Any]
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    if not is_shardloom_engine(str(row.get("engine") or "")):
+        return {
+            "vortex_reopen_scan_attribution_schema_version": (
+                VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION
+            ),
+            "vortex_reopen_verify_split_status": "external_baseline_only",
+            "vortex_footer_open_ms": None,
+            "vortex_metadata_verify_ms": None,
+            "vortex_scan_open_ms": None,
+            "vortex_scenario_scan_ms": None,
+            "vortex_scan_counter_status": "external_baseline_only",
+            "vortex_scan_bytes_touched": None,
+            "vortex_scan_segments_touched": None,
+            "vortex_scan_segments_skipped": None,
+            "vortex_scan_columns_touched": None,
+            "vortex_scan_decoded_values": None,
+            "vortex_reopen_scan_claim_boundary": "external_baseline_only",
+        }
+
+    reopen_or_verify = first_numeric_millis(
+        {**fields, **stage_fields},
+        ("exclusive_vortex_reopen_verify_ms", "vortex_reopen_or_verify_ms"),
+    )
+    footer_open = first_numeric_stage_millis(
+        fields,
+        millis_keys=("vortex_footer_open_millis", "vortex_reopen_footer_open_millis"),
+        micros_keys=("vortex_footer_open_micros", "vortex_reopen_footer_open_micros"),
+    )
+    metadata_verify = first_numeric_stage_millis(
+        fields,
+        millis_keys=(
+            "vortex_metadata_verify_millis",
+            "vortex_reopen_metadata_verify_millis",
+        ),
+        micros_keys=("vortex_metadata_verify_micros", "vortex_reopen_metadata_verify_micros"),
+    )
+    scan_open = first_numeric_stage_millis(
+        fields,
+        millis_keys=("vortex_scan_open_millis",),
+        micros_keys=("vortex_scan_open_micros",),
+    )
+    scenario_scan = first_numeric_stage_millis(
+        fields,
+        millis_keys=("vortex_scenario_scan_millis", "vortex_scan_scenario_millis"),
+        micros_keys=("vortex_scenario_scan_micros", "vortex_scan_scenario_micros"),
+    )
+    split_pieces = [
+        value
+        for value in (footer_open, metadata_verify, scan_open, scenario_scan)
+        if value is not None and value >= 0.0
+    ]
+    if reopen_or_verify is None and not split_pieces:
+        reopen_status = "not_applicable_no_reopen_verify_stage"
+    elif footer_open is not None and metadata_verify is not None and scan_open is not None:
+        reopen_status = "complete"
+    else:
+        reopen_status = "blocked_missing_reopen_verify_split"
+
+    counter_fields = {
+        "vortex_scan_bytes_touched": first_numeric_field(
+            fields, ("vortex_scan_bytes_touched", "vortex_scan_useful_bytes")
+        ),
+        "vortex_scan_segments_touched": first_numeric_field(
+            fields, ("vortex_scan_segments_touched", "vortex_scan_segment_count")
+        ),
+        "vortex_scan_segments_skipped": first_numeric_field(
+            fields, ("vortex_scan_segments_skipped", "vortex_scan_pruned_segment_count")
+        ),
+        "vortex_scan_columns_touched": first_numeric_field(
+            fields, ("vortex_scan_columns_touched", "vortex_scan_column_count")
+        ),
+        "vortex_scan_decoded_values": first_numeric_field(
+            fields, ("vortex_scan_decoded_values", "vortex_scan_materialized_value_count")
+        ),
+    }
+    has_scan_stage = first_numeric_millis(
+        {**fields, **stage_fields}, ("vortex_scan_ms", "vortex_scan_millis")
+    ) is not None
+    counters_present = all(value is not None for value in counter_fields.values())
+    if counters_present:
+        counter_status = "complete"
+    elif has_scan_stage:
+        counter_status = "blocked_missing_scan_counters"
+    else:
+        counter_status = "not_applicable_no_scan_stage"
+
+    return {
+        "vortex_reopen_scan_attribution_schema_version": (
+            VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION
+        ),
+        "vortex_reopen_verify_split_status": reopen_status,
+        "vortex_footer_open_ms": footer_open,
+        "vortex_metadata_verify_ms": metadata_verify,
+        "vortex_scan_open_ms": scan_open,
+        "vortex_scenario_scan_ms": scenario_scan,
+        "vortex_scan_counter_status": counter_status,
+        **counter_fields,
+        "vortex_reopen_scan_claim_boundary": (
+            "Vortex reopen/scan attribution explains metadata verification, scan-open, "
+            "scenario-scan, and data-movement counters only; route totals remain the "
+            "comparison surface and no encoded-native claim is authorized without provider "
+            "evidence"
+        ),
+    }
+
+
 def route_timing_ledger_fields_for_row(
     row: dict[str, Any],
     identity: dict[str, Any],
@@ -2115,6 +2390,16 @@ def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
     rows = artifact.get("results")
     if isinstance(rows, list):
         return [row for row in rows if isinstance(row, dict)]
+    published_rows = artifact.get("published_benchmark_rows")
+    published_count = numeric_value(artifact.get("published_benchmark_row_count"))
+    if isinstance(published_rows, list):
+        inline_rows = [row for row in published_rows if isinstance(row, dict)]
+        inline_mode = str(artifact.get("published_benchmark_rows_inlined") or "")
+        summary_only_inline = inline_mode == "summary_only"
+        if not summary_only_inline and (
+            published_count is None or len(inline_rows) >= int(published_count)
+        ):
+            return inline_rows
     chunks = artifact.get("published_benchmark_row_chunks")
     if isinstance(chunks, list):
         chunk_rows: list[dict[str, Any]] = []
@@ -2133,9 +2418,10 @@ def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
                 chunk_rows.extend(row for row in rows_payload if isinstance(row, dict))
         if chunk_rows:
             return chunk_rows
-    rows = artifact.get("published_benchmark_rows")
-    if isinstance(rows, list):
-        return [row for row in rows if isinstance(row, dict)]
+    if isinstance(published_rows, list):
+        if str(artifact.get("published_benchmark_rows_inlined") or "") == "summary_only":
+            return []
+        return [row for row in published_rows if isinstance(row, dict)]
     rows = artifact.get("rows")
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
@@ -2572,6 +2858,208 @@ def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "claim_boundary": (
             "stage attribution explains why a ShardLoom route took time; stage pieces are "
             "not competing product lanes"
+        ),
+    }
+
+
+def route_share_next_step(stage_field: str, route_display: str) -> str:
+    if stage_field == "source_read_ms":
+        return "finish_source_read_scout_split_before_reader_tuning"
+    if stage_field == "source_parse_or_columnar_decode_ms":
+        return "project_decode_only_route_required_fields"
+    if stage_field == "vortex_write_ms":
+        return "continue_workspace_safe_writer_metadata_coalescing"
+    if stage_field == "vortex_reopen_or_verify_ms":
+        return "split_footer_metadata_scan_open_before_reopen_optimization"
+    if stage_field == "vortex_scan_ms":
+        return "protect_sub_ms_scan_path_with_data_movement_counters"
+    if stage_field == "operator_compute_ms":
+        return "inventory_residual_operator_microkernels_before_encoded_claim"
+    if stage_field == "result_sink_write_ms":
+        return "route_small_results_through_capillary_sink_path"
+    if stage_field == "evidence_render_ms":
+        return "regenerate_human_evidence_from_compact_proof_fields"
+    if stage_field == "prepared_state_lookup_or_create_ms":
+        return "separate_manifest_lookup_cache_hit_create_write_register"
+    if stage_field == "source_admission_ms":
+        return "reuse_source_admission_packets_when_manifest_state_matches"
+    if "Native Vortex" in route_display:
+        return "preserve_native_vortex_fast_path_before_new_pushdown"
+    return "use_route_share_before_selecting_next_optimization"
+
+
+def route_share_stage_fields_for_lane(lane_id: str) -> tuple[str, ...]:
+    query_and_tail = (
+        "vortex_scan_ms",
+        "operator_compute_ms",
+        "result_sink_write_ms",
+        "evidence_render_ms",
+    )
+    if lane_id in {"warm_prepared_query", "native_vortex_query"}:
+        return query_and_tail
+    if lane_id in {"prepare_once_first_query", "prepare_once_batch"}:
+        return ("prepared_state_lookup_or_create_ms",) + query_and_tail
+    if lane_id == "cold_certified_route":
+        return (
+            "source_read_ms",
+            "source_parse_or_columnar_decode_ms",
+            "source_to_vortex_array_ms",
+            "vortex_write_ms",
+            "vortex_reopen_or_verify_ms",
+            "vortex_scan_ms",
+            "operator_compute_ms",
+            "result_sink_write_ms",
+            "evidence_render_ms",
+        )
+    return tuple(field for field in ROUTE_STAGE_FIELD_KEYS if field != "total_route_ms")
+
+
+def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        total_geomean = geomean_non_negative(
+            [
+                value
+                for row in group_rows
+                for value in [numeric_value(row.get("total_route_ms"))]
+                if value is not None and value >= 0.0
+            ]
+        )
+        stage_geomeans: dict[str, float] = {}
+        lane_id = str(group_rows[0].get("route_lane_id") or "")
+        for field in route_share_stage_fields_for_lane(lane_id):
+            value = geomean_non_negative(
+                [
+                    parsed
+                    for row in group_rows
+                    for parsed in [numeric_value(row.get(field))]
+                    if parsed is not None and parsed >= 0.0
+                ]
+            )
+            if value is not None:
+                stage_geomeans[field] = value
+        if stage_geomeans:
+            dominant_field, dominant_ms = max(
+                stage_geomeans.items(), key=lambda item: item[1]
+            )
+            share = (
+                dominant_ms / total_geomean
+                if total_geomean and total_geomean > 0.0
+                else None
+            )
+            dominant_label = ROUTE_STAGE_DISPLAY_NAMES.get(
+                dominant_field, dominant_field
+            )
+            next_step = route_share_next_step(dominant_field, display_name)
+        else:
+            dominant_field = "missing"
+            dominant_ms = None
+            share = None
+            dominant_label = "missing"
+            next_step = "add_stage_timing_before_optimization"
+        statuses = Counter(
+            str(row.get("exclusive_stage_timing_status") or "missing")
+            for row in group_rows
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                fmt_ms(total_geomean),
+                dominant_label,
+                fmt_ms(dominant_ms),
+                fmt_percent(share * 100.0 if share is not None else None),
+                next_step,
+                "; ".join(f"{status}={count}" for status, count in sorted(statuses.items())),
+            ]
+        )
+    return {
+        "heading": "Route-Share Amdahl Attribution",
+        "headers": [
+            "Route",
+            "Rows",
+            "Route geomean",
+            "Dominant stage",
+            "Dominant stage geomean",
+            "Dominant route share",
+            "Next optimization target",
+            "Exclusive timing status",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_SHARE_AMDAHL_SCHEMA_VERSION,
+        "claim_boundary": (
+            "route-share attribution uses committed local benchmark evidence to choose the next "
+            "optimization target; it is not a public speed, production, or replacement claim"
+        ),
+    }
+
+
+def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: Counter[tuple[str, str, str]] = Counter()
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        route = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        status = str(row.get("source_read_scout_timing_split_status") or "missing")
+        reuse = str(row.get("source_read_scout_reuse_status") or "missing")
+        counts[(route, status, reuse)] += 1
+    blockers = {
+        status
+        for (_, status, _), _count in counts.items()
+        if status.startswith("blocked")
+    }
+    return {
+        "heading": "Source-Read Scout Attribution",
+        "headers": ["Route", "Timing split", "Scout reuse", "Rows"],
+        "rows": [
+            [route, status, reuse, count]
+            for (route, status, reuse), count in sorted(counts.items())
+        ],
+        "schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
+        "status": "blocked" if blockers else "passed",
+        "claim_boundary": (
+            "source-read scout fields distinguish header/scout, byte acquisition, and full-body "
+            "read timing; missing splits block scout optimization claims without blocking route "
+            "publication"
+        ),
+    }
+
+
+def vortex_reopen_scan_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: Counter[tuple[str, str, str]] = Counter()
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        route = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        reopen = str(row.get("vortex_reopen_verify_split_status") or "missing")
+        counters = str(row.get("vortex_scan_counter_status") or "missing")
+        counts[(route, reopen, counters)] += 1
+    blockers = {
+        status
+        for (_route, reopen, counters), _count in counts.items()
+        for status in (reopen, counters)
+        if status.startswith("blocked")
+    }
+    return {
+        "heading": "Vortex Reopen And Scan Attribution",
+        "headers": ["Route", "Reopen/verify split", "Scan counters", "Rows"],
+        "rows": [
+            [route, reopen, counters, count]
+            for (route, reopen, counters), count in sorted(counts.items())
+        ],
+        "schema_version": VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION,
+        "status": "blocked" if blockers else "passed",
+        "claim_boundary": (
+            "reopen/scan fields distinguish footer open, metadata verification, scan-open, "
+            "scenario scan, and data-movement counters; missing counters block scan optimization "
+            "claims without implying fallback"
         ),
     }
 
@@ -4210,6 +4698,12 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         route_identity = route_identity_for_row(adjusted_row)
         route_diagnostics = route_diagnostic_fields_for_row(adjusted_row, route_identity)
         route_stage_fields = route_stage_fields_for_row(adjusted_row)
+        source_read_scout_fields = source_read_scout_fields_for_row(
+            adjusted_row, route_stage_fields
+        )
+        vortex_reopen_scan_fields = vortex_reopen_scan_attribution_fields_for_row(
+            adjusted_row, route_stage_fields
+        )
         route_timing_ledger = route_timing_ledger_fields_for_row(
             adjusted_row,
             route_identity,
@@ -4259,6 +4753,8 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_identity)
         rendered_row.update(route_diagnostics)
         rendered_row.update(route_stage_fields)
+        rendered_row.update(source_read_scout_fields)
+        rendered_row.update(vortex_reopen_scan_fields)
         rendered_row.update(route_timing_ledger)
         rendered_row.update(fast_path_fields)
         rendered_row.update(evidence_render_proof_fields)
@@ -4302,6 +4798,10 @@ def published_rows_with_current_route_timing_ledger(
         updated = dict(row)
         route_stage_fields = route_stage_fields_for_row(updated)
         updated.update(route_stage_fields)
+        updated.update(source_read_scout_fields_for_row(updated, route_stage_fields))
+        updated.update(
+            vortex_reopen_scan_attribution_fields_for_row(updated, route_stage_fields)
+        )
         cold_lane_fields = cold_lane_attribution_for_row(updated)
         route_identity = route_identity_for_row(updated)
         route_diagnostics = route_diagnostic_fields_for_row(updated, route_identity)
@@ -4382,6 +4882,9 @@ def comparative_summary(
             claim_adjusted_rows
         ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
+        "route_share_amdahl": route_share_amdahl_table(claim_adjusted_rows),
+        "source_read_scout": source_read_scout_table(claim_adjusted_rows),
+        "vortex_reopen_scan_attribution": vortex_reopen_scan_table(claim_adjusted_rows),
         "fast_path_attribution": fast_path_attribution_table(claim_adjusted_rows),
         "evidence_render_proof": evidence_render_proof_table(claim_adjusted_rows),
         "operator_mode_inventory": operator_mode_inventory_table(claim_adjusted_rows),
