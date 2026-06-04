@@ -63,7 +63,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   casts/date/timestamp/temporal-difference/string/LIKE/regex/IN predicates, scoped decimal
   `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` casts with exact JSONL string and CSV text
   output boundaries plus scoped mixed-scale decimal add/subtract/multiply, comparison, and exact
-  fixed-scale division projections, scoped binary casts/literals and binary equality/inequality cast predicates, scoped
+  fixed-scale division projections plus feature-gated Parquet/Arrow IPC/Avro typed decimal sink
+  preservation, scoped binary casts/literals and binary equality/inequality cast predicates, scoped
   `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
   boundary, scoped
   `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
@@ -83,7 +84,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   feature-gated local Vortex sinks with ResultBatchState, sink-driven OutputPlan
   materialization/blocker evidence, shared fanout conversion DAG evidence, thresholded output
   capillary scheduling evidence, output layout/write advisor evidence, metadata preservation/loss
-  evidence, and local replay/fidelity evidence;
+  evidence, local replay/fidelity evidence, and typed decimal preservation through the admitted
+  Parquet/Arrow IPC/Avro compatibility sink boundary;
 - fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
   reads, and local-emulator read/write smokes with credential, network, and provider probes
   disabled;

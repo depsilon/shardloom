@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped Avro typed decimal sink preservation follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-decimal-avro-orc-sinks` / PR #1089.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `website-src/src/data/status-rows.json`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+  - Scope:
+    - Admitted feature-gated Avro typed `decimal128(p,s)` compatibility sinks for scoped SQL
+      local-source result batches, including non-null and all-null typed decimal output columns.
+    - Preserved Avro decimal precision/scale through Arrow Avro writer/readback and the shared
+      local columnar source materializer so Avro decimal files reopen as `ScalarValue::Decimal128`
+      with logical dtype hints.
+    - Added a deterministic ORC decimal output preflight blocker before ORC writer conversion so
+      unsupported decimal fields fail with an explicit no-fallback diagnostic instead of reaching
+      the ORC writer panic path.
+    - Updated SQL output-plan admission, result evidence, validator expectations, README, active
+      phase docs, admitted semantics matrix, use-case sources, website status rows, and regenerated
+      website/static assets to make Parquet/Arrow IPC/Avro typed decimal preservation current while
+      keeping ORC and local Vortex typed decimal output blocked.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features universal-format-io decimal -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features universal-format-io decimal -- --nocapture` passed.
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-decimal-avro-sink.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped Avro typed
+      decimal compatibility sink fidelity and deterministic ORC blocker behavior only; it does not
+      make a speedup, superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits scoped feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility
+      sink preservation for admitted local SQL result batches. It does not admit ORC typed decimal
+      sink preservation, local Vortex typed decimal output, broad ANSI decimal coercion, exponent
+      notation, decimal/float comparison, broad structured-format parity, broad SQL/DataFrame
+      parity, production support, benchmark speedup, public performance superiority, or release
+      readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom local-source planning and Arrow-backed compatibility
+      writers/readers. ORC and Vortex typed decimal output block deterministically before unsupported
+      writer conversion. Rows keep `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped Vortex non-null binary sink preservation follow-through
   - Date: 2026-06-04
   - Branch/PR: `codex/6d-vortex-binary-sink` / PR #1088.
