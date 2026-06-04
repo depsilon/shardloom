@@ -4122,6 +4122,62 @@ fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_correlated_subquery_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-correlated-projection-source", "csv");
+    let allowed_path = unique_path("sql-local-source-correlated-projection-allowed", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+    )
+    .expect("write source csv");
+    fs::write(
+        &allowed_path,
+        "id,min_amount,active\n1,5,true\n2,25,true\n3,20,true\n4,99,true\n",
+    )
+    .expect("write allowed csv");
+
+    let statement = format!(
+        "SELECT id,id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) AS matched FROM '{}' ORDER BY id ASC LIMIT 4",
+        allowed_path.display(),
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "predicate_projection_predicate_family",
+        "in_subquery"
+    )));
+    assert!(stdout.contains(&field("predicate_projection_source_column", "amount+id")));
+    assert!(stdout.contains(&field("in_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_source_column", "id")));
+    assert!(stdout.contains(&field("correlated_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("correlated_subquery_outer_column", "amount,id")));
+    assert!(stdout.contains(&field(
+        "correlated_subquery_outer_row_evaluation_count",
+        "4"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"matched\\\":true}\\n{\\\"id\\\":2,\\\"matched\\\":false}\\n{\\\"id\\\":3,\\\"matched\\\":true}\\n{\\\"id\\\":4,\\\"matched\\\":false}\\n\""
+    ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(

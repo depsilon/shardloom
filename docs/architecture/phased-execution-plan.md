@@ -308,15 +308,17 @@ completed details to the ledger.
   nested source decoding and flat sinks beyond scoped result-boundary projections,
   variant/union-dtype shapes, broad binary source dtype decoding/ordering, local Vortex typed
   decimal output, Avro/ORC typed decimal sinks, broad ANSI decimal coercion/exponent notation,
-  scalar-left multi-column subqueries, outer references outside admitted column-to-column
-  correlations, unbound source aliases, and remaining broad ANSI subquery families.
+  scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
+  subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
+  the admitted local-source predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
-  Next slice outcome: choose the next broad SQL grammar family from the remaining runtime blockers;
-  likely candidates are timezone/locale blocker refinement, broad binary source dtype refinement,
-  complex access/equality follow-through after a dedicated semantics contract, local Vortex typed
-  decimal output once Vortex writer/reopen evidence is available, or another front-door parity gap
-  only after the runtime route is already admitted.
+  Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
+  blockers after the correlated subquery predicate/CASE projection slice; likely candidates are
+  timezone/locale blocker refinement, broad binary source dtype refinement, complex access/equality
+  follow-through after a dedicated semantics contract, local Vortex typed decimal output once Vortex
+  writer/reopen evidence is available, or another front-door parity gap only after the runtime route
+  is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=68
-executable_fixture_count=61
+matrix_row_count=69
+executable_fixture_count=62
 diagnostic_case_count=7
 unsupported_diagnostic_count=5
 runtime_error_diagnostic_count=1
@@ -61,6 +61,7 @@ Covered fixture rows:
 - `temporal_extract_utc_date32_timestamp`
 - `null_coalesce_nullif`
 - `predicate_projection_three_valued`
+- `subquery_predicate_projection_semantics`
 - `aggregate_having_output_rows`
 - `string_function_composition_utf8`
 - `temporal_arithmetic_difference_utc`
@@ -123,10 +124,10 @@ Covered fixture rows:
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
 IN-subquery, nested scalar IN-subquery, row-value IN-subquery, source-qualified local subquery,
-scoped correlated `outer.<column>` local subquery filter, joined/grouped projected IN/EXISTS
-subqueries, projected row-value/quantified subquery, correlated joined and grouped/HAVING projected
-scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS, scoped quantified ANY/ALL, and
-HAVING-level local subquery fixtures;
+scoped correlated `outer.<column>` local subquery filter, scoped subquery-backed predicate/CASE
+projections, joined/grouped projected IN/EXISTS subqueries, projected row-value/quantified
+subquery, correlated joined and grouped/HAVING projected scalar/row-value/quantified/EXISTS
+subqueries, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
 property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
