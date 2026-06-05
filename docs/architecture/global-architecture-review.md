@@ -638,10 +638,12 @@ plan before coding.
   without fallback or external runtime engines. Later GAR-RUNTIME-IMPL-6D evidence promotes scoped
   binary cast bytewise ordering, scoped feature-gated columnar binary source
   projection/predicate/order evidence, and scoped Parquet/Arrow IPC/Avro/ORC flat scalar binary
-  sink preservation plus local Vortex flat scalar binary sink preservation, including nullable/
-  all-null binary rows when dtype/family evidence is present, while other NULL-bearing Vortex output
-  batches block before writer conversion, and broader binary sinks, broader binary execution, and
-  non-binary source columns compared to binary literals remain deterministic blockers.
+  sink preservation plus local Vortex known flat scalar sink preservation for boolean, int64,
+  uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/
+  all-null rows when dtype/family evidence is present, while unknown or unsupported NULL-bearing
+  Vortex output batches block before writer conversion, and broader binary sinks, broader binary
+  execution, and non-binary source columns compared to binary literals remain deterministic
+  blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,
   timezone database blockers, interval arithmetic outside scoped temporal helpers, and
@@ -651,7 +653,7 @@ plan before coding.
   `numeric(p,s)` casts through exact fixed-scale projection/predicate runtime plus scoped
   mixed-scale decimal add/subtract/multiply, mixed-scale comparison, and exact fixed-scale division
   runtime, exact exponent notation that normalizes to the declared target scale, plus feature-gated
-  Parquet/Arrow IPC/Avro typed decimal sink preservation plus scoped local Vortex typed decimal
+  Parquet/Arrow IPC/Avro typed decimal sink preservation plus scoped local Vortex known flat scalar
   output, including nullable/all-null decimal rows when dtype evidence is present, while keeping
   non-exact division, broad ANSI coercion beyond exact exponent normalization, decimal/float
   comparison, and ORC typed decimal sinks blocked. The remaining advanced scalar blockers still fail

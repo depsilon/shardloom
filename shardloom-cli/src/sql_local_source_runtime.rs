@@ -959,28 +959,25 @@ impl SqlResultBatchState {
             {
                 return false;
             }
-            let mut family = column.dtype.as_ref().and_then(|dtype| match dtype {
-                LogicalDType::Binary => Some("binary"),
-                dtype if logical_dtype_is_decimal128(dtype) => Some("decimal128"),
-                _ => None,
-            });
+            let mut family = column
+                .dtype
+                .as_ref()
+                .and_then(vortex_flat_scalar_family_from_dtype);
             for value in column
                 .values
                 .iter()
                 .filter(|value| !matches!(value, ScalarValue::Null))
             {
-                let candidate = match value {
-                    ScalarValue::Binary(_) => Some("binary"),
-                    ScalarValue::Decimal128 { .. } => Some("decimal128"),
-                    _ => return true,
+                let Some(candidate) = vortex_flat_scalar_family_from_value(value) else {
+                    return true;
                 };
-                match (family, candidate) {
-                    (None, Some(candidate)) => family = Some(candidate),
-                    (Some(existing), Some(candidate)) if existing == candidate => {}
+                match family {
+                    None => family = Some(candidate),
+                    Some(existing) if existing == candidate => {}
                     _ => return true,
                 }
             }
-            !matches!(family, Some("binary" | "decimal128"))
+            family.is_none()
         })
     }
 
@@ -5228,9 +5225,8 @@ fn output_column_dtypes(
     parsed.output_column_dtypes(&source.header, &source.column_dtypes)
 }
 
-fn scoped_compatibility_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
-    (matches!(dtype, LogicalDType::Binary) || logical_dtype_is_decimal128(dtype))
-        .then(|| dtype.clone())
+fn scoped_flat_scalar_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
+    vortex_flat_scalar_family_from_dtype(dtype).map(|_| dtype.clone())
 }
 
 fn source_column_output_dtype_hint(
@@ -5243,7 +5239,7 @@ fn source_column_output_dtype_hint(
         .position(|candidate| candidate == column)
         .and_then(|index| source_dtypes.get(index))
         .and_then(Option::as_ref)
-        .and_then(scoped_compatibility_output_dtype_hint)
+        .and_then(scoped_flat_scalar_output_dtype_hint)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5257,7 +5253,7 @@ fn generic_expression_output_dtype_hint(expression: &Expression) -> Option<Logic
     expression
         .dtype
         .as_ref()
-        .and_then(scoped_compatibility_output_dtype_hint)
+        .and_then(scoped_flat_scalar_output_dtype_hint)
         .or_else(|| match &expression.kind {
             ExpressionKind::Binary { left, op, right } => {
                 decimal_binary_expression_dtype_hint(left, *op, right)
@@ -16387,7 +16383,7 @@ impl ParsedSqlLocalSource {
                         source_dtypes
                             .get(index)
                             .and_then(Option::as_ref)
-                            .and_then(scoped_compatibility_output_dtype_hint)
+                            .and_then(scoped_flat_scalar_output_dtype_hint)
                     }));
                 }
                 ParsedProjectionOutput::Raw(column) => {
@@ -16402,7 +16398,7 @@ impl ParsedSqlLocalSource {
                         .iter()
                         .find(|projection| projection.alias == *alias)
                         .and_then(|projection| {
-                            scoped_compatibility_output_dtype_hint(&projection.target_dtype)
+                            scoped_flat_scalar_output_dtype_hint(&projection.target_dtype)
                         }),
                 ),
                 ParsedProjectionOutput::GenericExpression(alias) => {
@@ -30161,6 +30157,45 @@ fn logical_dtype_is_decimal128(dtype: &LogicalDType) -> bool {
     matches!(dtype, LogicalDType::Extension(value) if value.starts_with("decimal128("))
 }
 
+fn vortex_flat_scalar_family_from_dtype(dtype: &LogicalDType) -> Option<&'static str> {
+    match dtype {
+        LogicalDType::Boolean => Some("boolean"),
+        LogicalDType::Int64 => Some("int64"),
+        LogicalDType::UInt64 => Some("uint64"),
+        LogicalDType::Float64 => Some("float64"),
+        LogicalDType::Utf8 => Some("utf8"),
+        LogicalDType::Binary => Some("binary"),
+        LogicalDType::Date32 => Some("date32"),
+        LogicalDType::TimestampMicros => Some("timestamp_micros"),
+        dtype if logical_dtype_is_decimal128(dtype) => Some("decimal128"),
+        LogicalDType::Struct
+        | LogicalDType::List
+        | LogicalDType::Unknown
+        | LogicalDType::Extension(_) => None,
+    }
+}
+
+fn vortex_flat_scalar_family_from_value(value: &ScalarValue) -> Option<&'static str> {
+    match value {
+        ScalarValue::Boolean(_) => Some("boolean"),
+        ScalarValue::Int64(_) => Some("int64"),
+        ScalarValue::UInt64(_) => Some("uint64"),
+        ScalarValue::Float64(value) if value.is_finite() => Some("float64"),
+        ScalarValue::Utf8(_) => Some("utf8"),
+        ScalarValue::Binary(_) => Some("binary"),
+        ScalarValue::Decimal128 {
+            precision, scale, ..
+        } if (1..=38).contains(precision) && scale <= precision => Some("decimal128"),
+        ScalarValue::Date32(_) => Some("date32"),
+        ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
+        ScalarValue::Null
+        | ScalarValue::Float64(_)
+        | ScalarValue::Decimal128 { .. }
+        | ScalarValue::List(_)
+        | ScalarValue::Struct(_) => None,
+    }
+}
+
 fn expression_contains_temporal_difference_call(raw: &str) -> Result<bool, ShardLoomError> {
     let trimmed = trim_enclosing_scalar_expression_parentheses(raw)?;
     Ok(temporal_difference_function_prefix(trimmed).is_some())
@@ -36212,7 +36247,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("vortex_null_family_not_admitted") => Err(unsupported_sql_error(
-            "output_plan_conversion_blocker=vortex_null_family_not_admitted; local vortex output currently admits NULL values only for scoped binary and decimal128 result columns with known family/dtype evidence; other NULL-bearing Vortex output batches remain blocked before writer conversion; no fallback execution was attempted",
+            "output_plan_conversion_blocker=vortex_null_family_not_admitted; local vortex output admits NULL values for scoped flat scalar result columns only when known family/dtype evidence identifies boolean, int64, uint64, float64, utf8, binary, decimal128, date32, or timestamp_micros; unknown or unsupported NULL-bearing Vortex output batches remain blocked before writer conversion; no fallback execution was attempted",
         )),
         Some(blocker) => Err(unsupported_sql_error(&format!(
             "output_plan_conversion_blocker={blocker}; local {} output sink is blocked before conversion begins; no fallback execution was attempted",
@@ -40149,30 +40184,60 @@ mod tests {
     }
 
     #[test]
-    fn scoped_binary_decimal_nulls_are_admitted_for_vortex_sink() {
-        let binary_batch = SqlResultBatchState::from_rows_with_dtypes(
-            &["payload".to_string()],
-            &[Some(LogicalDType::Binary)],
-            &[vec![("payload".to_string(), ScalarValue::Null)]],
-        )
-        .expect("null binary hinted batch");
-        let int_batch = SqlResultBatchState::from_rows_with_dtypes(
+    fn scoped_flat_scalar_nulls_are_admitted_for_vortex_sink_with_family_evidence() {
+        for dtype in [
+            LogicalDType::Boolean,
+            LogicalDType::Int64,
+            LogicalDType::UInt64,
+            LogicalDType::Float64,
+            LogicalDType::Utf8,
+            LogicalDType::Binary,
+            decimal128_dtype(10, 2),
+            LogicalDType::Date32,
+            LogicalDType::TimestampMicros,
+        ] {
+            let hinted_batch = SqlResultBatchState::from_rows_with_dtypes(
+                &["value".to_string()],
+                &[Some(dtype.clone())],
+                &[vec![("value".to_string(), ScalarValue::Null)]],
+            )
+            .expect("null hinted batch");
+            assert_eq!(
+                sql_output_plan_conversion_blocker(
+                    SqlLocalSourceOutputFormat::Vortex,
+                    &hinted_batch
+                ),
+                None,
+                "expected {dtype:?} null batch to be admitted"
+            );
+        }
+
+        let inferred_batch = SqlResultBatchState::from_rows_with_dtypes(
             &["id".to_string()],
-            &[Some(LogicalDType::Int64)],
-            &[vec![("id".to_string(), ScalarValue::Null)]],
+            &[None],
+            &[
+                vec![("id".to_string(), ScalarValue::Int64(1))],
+                vec![("id".to_string(), ScalarValue::Null)],
+            ],
         )
-        .expect("null int hinted batch");
+        .expect("mixed null inferred batch");
+        let unknown_batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["value".to_string()],
+            &[None],
+            &[vec![("value".to_string(), ScalarValue::Null)]],
+        )
+        .expect("unknown all-null batch");
 
         assert_eq!(
-            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &binary_batch),
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &inferred_batch),
             None
         );
         assert_eq!(
-            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &int_batch),
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &unknown_batch),
             Some("vortex_null_family_not_admitted")
         );
         assert_eq!(
-            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Parquet, &binary_batch),
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Parquet, &unknown_batch),
             None
         );
     }
@@ -40205,6 +40270,47 @@ mod tests {
             &fields,
             "vortex_output_column_families",
             "id:int64,payload:binary",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
+    }
+
+    #[cfg(feature = "vortex-write")]
+    #[test]
+    fn scalar_cast_all_null_typed_hints_write_vortex_sink() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
+        fs::write(
+            &path,
+            "id,raw_int,raw_float,raw_text,raw_date,raw_ts\n1,bad,not-float,,bad-date,bad-ts\n2,nope,still-bad,,still-bad,also-bad\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,TRY_CAST(raw_int AS int64) AS int_null,TRY_CAST(raw_float AS float64) AS float_null,CAST(raw_text AS utf8) AS text_null,TRY_CAST(raw_date AS date32) AS date_null,TRY_CAST(raw_ts AS timestamp_micros) AS ts_null FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write all-null scalar vortex");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,int_null:int64,float_null:float64,text_null:utf8,date_null:date32,ts_null:timestamp_micros",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");

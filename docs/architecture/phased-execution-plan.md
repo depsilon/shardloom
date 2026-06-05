@@ -314,7 +314,7 @@ completed details to the ledger.
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
-  IPC/Avro/ORC flat scalar outputs and scoped local Vortex binary outputs, broader binary execution
+  IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat scalar outputs, broader binary execution
   beyond scoped columnar source projection/predicate/order plus explicit casts/helpers, non-binary
   source columns compared to binary literals, ORC typed decimal sinks, broad ANSI decimal coercion
   beyond exact exponent notation,
@@ -327,11 +327,11 @@ completed details to the ledger.
   blockers after the scoped columnar binary source predicate/order, Parquet/Arrow IPC/Avro/ORC
   binary sink slices, local Vortex binary sink follow-through including nullable/all-null binary rows
   with dtype/family evidence, Parquet/Arrow IPC/Avro typed decimal sink preservation, exact decimal
-  exponent notation, and scoped local Vortex typed decimal output including nullable/all-null decimal
-  rows with dtype evidence; likely candidates are complex join follow-through after a dedicated
-  semantics contract, remaining NULL-family Vortex output admission before writer conversion, ORC
-  typed decimal sink preservation once ORC writer evidence exists, or another front-door parity gap
-  only after the runtime route is already admitted.
+  exponent notation, and scoped local Vortex known flat scalar output for boolean, int64, uint64,
+  float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/all-null rows
+  when dtype/family evidence is present; likely candidates are complex join follow-through after a
+  dedicated semantics contract, ORC typed decimal sink preservation once ORC writer evidence exists,
+  or another front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
