@@ -42,6 +42,9 @@ EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
 TIMING_NORMALIZATION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.timing_normalization.v1"
 )
+SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+)
 ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
 )
@@ -159,8 +162,16 @@ WEBSITE_ROW_KEYS = (
     "timing_normalization_schema_version",
     "timing_normalization_status",
     "source_admission_policy_micros",
+    "source_admission_digest_policy_schema_version",
+    "source_admission_digest_policy_status",
+    "source_admission_full_content_digest_requested",
+    "source_admission_full_content_digest_micros",
     "source_stat_micros",
     "source_state_open_micros",
+    "source_state_metadata_snapshot_micros",
+    "source_state_manifest_validation_micros",
+    "source_state_row_count_metadata_micros",
+    "source_state_family_build_micros",
     "source_state_digest_micros",
     "prepared_manifest_read_micros",
     "prepared_manifest_match_micros",
@@ -1017,6 +1028,26 @@ def first_numeric_micros(
     return None
 
 
+def first_bool_field(
+    fields: dict[str, Any],
+    keys: tuple[str, ...],
+    *,
+    default: bool | None = None,
+) -> bool | None:
+    for key in keys:
+        value = fields.get(key)
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            continue
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes"}:
+            return True
+        if text in {"false", "0", "no"}:
+            return False
+    return default
+
+
 def timing_normalization_fields_for_row(
     row: dict[str, Any],
     stage_fields: dict[str, Any],
@@ -1043,12 +1074,52 @@ def timing_normalization_fields_for_row(
     normalized = {
         "source_admission_policy_micros": first_numeric_micros(
             fields,
-            micros_keys=("exclusive_source_admission_micros", "source_stat_micros"),
+            micros_keys=(
+                "source_admission_policy_micros",
+                "exclusive_source_admission_micros",
+                "source_stat_micros",
+            ),
             millis_keys=(
                 "exclusive_source_admission_millis",
                 "source_admission_millis",
                 "source_metadata_snapshot_millis",
             ),
+        ),
+        "source_admission_digest_policy_schema_version": (
+            first_meaningful_field(
+                fields,
+                (
+                    "source_admission_digest_policy_schema_version",
+                    "prepare_batch_source_admission_digest_policy_schema_version",
+                ),
+            )
+            or SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
+        ),
+        "source_admission_digest_policy_status": (
+            first_meaningful_field(
+                fields,
+                (
+                    "source_admission_digest_policy_status",
+                    "prepare_batch_source_admission_digest_policy_status",
+                ),
+            )
+            or "not_reported_by_engine"
+        ),
+        "source_admission_full_content_digest_requested": first_bool_field(
+            fields,
+            (
+                "source_admission_full_content_digest_requested",
+                "prepare_batch_source_admission_full_content_digest_requested",
+            ),
+            default=False if row.get("status") == "success" else None,
+        ),
+        "source_admission_full_content_digest_micros": first_numeric_micros(
+            fields,
+            micros_keys=(
+                "source_admission_full_content_digest_micros",
+                "prepare_batch_source_admission_full_content_digest_micros",
+            ),
+            millis_keys=("source_admission_full_content_digest_millis",),
         ),
         "source_stat_micros": first_numeric_micros(
             fields,
@@ -1059,6 +1130,26 @@ def timing_normalization_fields_for_row(
             fields,
             micros_keys=("source_state_open_micros", "source_state_prepare_micros"),
             millis_keys=("source_state_open_millis",),
+        ),
+        "source_state_metadata_snapshot_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_metadata_snapshot_micros",),
+            millis_keys=("source_state_metadata_snapshot_millis",),
+        ),
+        "source_state_manifest_validation_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_manifest_validation_micros",),
+            millis_keys=("source_state_manifest_validation_millis",),
+        ),
+        "source_state_row_count_metadata_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_row_count_metadata_micros",),
+            millis_keys=("source_state_row_count_metadata_millis",),
+        ),
+        "source_state_family_build_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_family_build_micros",),
+            millis_keys=("source_state_family_build_millis",),
         ),
         "source_state_digest_micros": first_numeric_micros(
             fields,
@@ -3448,6 +3539,90 @@ def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]
     }
 
 
+def source_admission_digest_policy_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        statuses = Counter(
+            str(row.get("source_admission_digest_policy_status") or "missing")
+            for row in group_rows
+        )
+        full_digest_requested = sum(
+            1
+            for row in group_rows
+            if first_bool_field(
+                row,
+                ("source_admission_full_content_digest_requested",),
+                default=False,
+            )
+        )
+        admission_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("source_admission_policy_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("source_admission_policy_micros")) is not None
+            ]
+        )
+        manifest_read_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("prepared_manifest_read_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("prepared_manifest_read_micros")) is not None
+            ]
+        )
+        source_open_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("source_state_open_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("source_state_open_micros")) is not None
+            ]
+        )
+        family_build_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("source_state_family_build_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("source_state_family_build_micros")) is not None
+            ]
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                "; ".join(f"{status}={count}" for status, count in sorted(statuses.items())),
+                full_digest_requested,
+                fmt_ms(admission_ms),
+                fmt_ms(manifest_read_ms),
+                fmt_ms(source_open_ms),
+                fmt_ms(family_build_ms),
+            ]
+        )
+    return {
+        "heading": "Source Admission Digest Policy",
+        "headers": [
+            "Route",
+            "Rows",
+            "Policy status",
+            "Full digest requested rows",
+            "Admission policy geomean",
+            "Manifest read geomean",
+            "Source-state open geomean",
+            "Family build geomean",
+        ],
+        "rows": rendered_rows,
+        "schema_version": SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
+        "claim_boundary": (
+            "metadata-first source admission is local benchmark reuse evidence only; "
+            "publication/claim-grade rows must request full digest verification when required"
+        ),
+    }
+
+
 def route_share_next_step(stage_field: str, route_display: str) -> str:
     if stage_field == "source_read_ms":
         return "finish_source_read_scout_split_before_reader_tuning"
@@ -5494,6 +5669,9 @@ def comparative_summary(
         ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
         "stage_inclusion_contract": stage_inclusion_contract_table(claim_adjusted_rows),
+        "source_admission_digest_policy": source_admission_digest_policy_table(
+            claim_adjusted_rows
+        ),
         "route_share_amdahl": route_share_amdahl_table(claim_adjusted_rows),
         "source_read_scout": source_read_scout_table(claim_adjusted_rows),
         "vortex_reopen_scan_attribution": vortex_reopen_scan_table(claim_adjusted_rows),

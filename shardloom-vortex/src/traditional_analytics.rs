@@ -78,6 +78,10 @@ const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.runtime_evidence_level.v1";
 const SOURCE_ADMISSION_PACKET_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_admission_packet.v1";
+const SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_admission_digest_policy.v1";
+const SOURCE_STATE_OPEN_TIMING_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_state_open_timing.v1";
 const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
 const PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION: &str =
@@ -1570,6 +1574,7 @@ impl TraditionalDateNullMetricState {
 struct TraditionalVortexBatchSourceState {
     source_snapshot: TraditionalVortexSourceSnapshot,
     dim_rows: u64,
+    open_timing: TraditionalVortexBatchSourceStateOpenTiming,
     dimension_label_state: Option<TraditionalDimensionLabelState>,
     dimension_label_state_consumer_count: usize,
     category_metric_state: Option<TraditionalCategoryMetricState>,
@@ -1584,6 +1589,15 @@ struct TraditionalVortexBatchSourceState {
     dirty_input_state_consumer_count: usize,
     date_null_metric_state: Option<TraditionalDateNullMetricState>,
     date_null_metric_state_consumer_count: usize,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalVortexBatchSourceStateOpenTiming {
+    metadata_snapshot: u64,
+    row_count_metadata: u64,
+    reusable_state_family_build: u64,
+    total_open: u64,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -1681,14 +1695,19 @@ fn scenario_uses_cached_dim_row_count_in_batch(scenario: TraditionalAnalyticsSce
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalVortexBatchSourceState {
+    #[allow(clippy::too_many_lines)]
     fn from_paths(
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
         scenarios: &[TraditionalAnalyticsScenario],
     ) -> Result<Self> {
+        let open_start = std::time::Instant::now();
+        let metadata_snapshot_start = std::time::Instant::now();
         let source_snapshot =
             TraditionalVortexSourceSnapshot::from_paths(fact_vortex, dim_vortex, cdc_delta_vortex)?;
+        let metadata_snapshot_micros = duration_to_micros(metadata_snapshot_start.elapsed());
+        let family_build_start = std::time::Instant::now();
         let dimension_label_state_consumer_count = scenarios
             .iter()
             .filter(|scenario| dimension_label_state_reuse_candidate(**scenario))
@@ -1698,10 +1717,12 @@ impl TraditionalVortexBatchSourceState {
         } else {
             Some(TraditionalDimensionLabelState::from_path(dim_vortex)?)
         };
+        let row_count_metadata_start = std::time::Instant::now();
         let dim_rows = dimension_label_state.as_ref().map_or_else(
             || vortex_file_row_count(dim_vortex),
             |state| Ok(state.stats.source_row_count),
         )?;
+        let row_count_metadata_micros = duration_to_micros(row_count_metadata_start.elapsed());
         let category_metric_state_consumer_count = scenarios
             .iter()
             .filter(|scenario| category_metric_state_reuse_candidate(**scenario))
@@ -1765,9 +1786,18 @@ impl TraditionalVortexBatchSourceState {
         } else {
             None
         };
+        let reusable_state_family_build_micros = duration_to_micros(family_build_start.elapsed())
+            .saturating_sub(row_count_metadata_micros);
+        let total_open_micros = duration_to_micros(open_start.elapsed());
         Ok(Self {
             source_snapshot,
             dim_rows,
+            open_timing: TraditionalVortexBatchSourceStateOpenTiming {
+                metadata_snapshot: metadata_snapshot_micros,
+                row_count_metadata: row_count_metadata_micros,
+                reusable_state_family_build: reusable_state_family_build_micros,
+                total_open: total_open_micros,
+            },
             dimension_label_state,
             dimension_label_state_consumer_count,
             category_metric_state,
@@ -5896,6 +5926,10 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub result_sink_requested: bool,
     pub session_evidence: TraditionalPreparedNativeSessionEvidence,
     pub source_state_prepare_micros: u64,
+    pub source_state_metadata_snapshot_micros: u64,
+    pub source_state_row_count_metadata_micros: u64,
+    pub source_state_family_build_micros: u64,
+    pub source_state_digest_micros: u64,
     pub source_state_digest: String,
     pub source_state_family_digests: String,
     pub source_state_dim_rows: u64,
@@ -6469,6 +6503,31 @@ impl TraditionalAnalyticsPreparedBatchReport {
             prepared_state_attractor_route_family,
         ]);
         let lifecycle_timing = &self.prepared_state_reuse.lifecycle_timing;
+        set_field(
+            &mut fields,
+            "source_admission_policy_micros",
+            lifecycle_timing.manifest_lookup_micros.to_string(),
+        );
+        set_field(
+            &mut fields,
+            "prepared_manifest_read_micros",
+            lifecycle_timing.manifest_lookup_micros.to_string(),
+        );
+        set_field(
+            &mut fields,
+            "prepared_manifest_match_micros",
+            lifecycle_timing.cache_hit_micros.to_string(),
+        );
+        set_field(
+            &mut fields,
+            "source_state_manifest_validation_micros",
+            lifecycle_timing.cache_hit_micros.to_string(),
+        );
+        set_field(
+            &mut fields,
+            "source_admission_full_content_digest_micros",
+            "0",
+        );
         fields.extend([
             (
                 "prepare_batch_schema_version".to_string(),
@@ -7014,6 +7073,31 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "false".to_string(),
             ),
             (
+                "prepare_batch_source_admission_digest_policy_schema_version".to_string(),
+                SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_digest_policy_status".to_string(),
+                if workspace_reuse_hit {
+                    "metadata_fingerprint_reuse_hit"
+                } else {
+                    "metadata_fingerprint_recorded_with_fresh_prepare"
+                }
+                .to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_full_content_digest_requested".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_full_content_digest_micros".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "prepare_batch_source_admission_digest_policy_reason".to_string(),
+                "normal local warm reuse compares normalized path, size, and mtime while prepared artifact digests remain persisted separately; claim-grade publication evidence must request full content digest verification".to_string(),
+            ),
+            (
                 "prepare_batch_prepared_artifact_reuse_count".to_string(),
                 prepare_batch_prepared_artifact_reuse_count,
             ),
@@ -7351,6 +7435,7 @@ impl TraditionalAnalyticsVortexBatchReport {
         } else {
             &prepared_state_reuse_digest
         };
+        let source_admission_policy_start = std::time::Instant::now();
         let source_admission_packet_reuse_hit = self.source_state_reused();
         let source_admission_packet_reuse_status = if source_admission_packet_reuse_hit {
             "per_batch_source_admission_packet_reused"
@@ -7367,6 +7452,8 @@ impl TraditionalAnalyticsVortexBatchReport {
             &self.source_state_dim_rows.to_string(),
             prepared_state_reuse_manifest_digest,
         ]);
+        let source_admission_policy_micros =
+            u64::try_from(source_admission_policy_start.elapsed().as_micros()).unwrap_or(u64::MAX);
         let mut fields = vec![
             (
                 "schema_version".to_string(),
@@ -7616,6 +7703,42 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_admission_packet_external_engine_invoked".to_string(),
                 "false".to_string(),
+            ),
+            (
+                "source_admission_digest_policy_schema_version".to_string(),
+                SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "source_admission_digest_policy_status".to_string(),
+                "metadata_packet_emitted_full_content_digest_not_requested".to_string(),
+            ),
+            (
+                "source_admission_digest_policy".to_string(),
+                "packet_digest_from_source_snapshot_schema_policy_and_prepared_manifest_identity; full content SHA is not requested for non-publication local prepared/native batch rows".to_string(),
+            ),
+            (
+                "source_admission_policy_micros".to_string(),
+                source_admission_policy_micros.to_string(),
+            ),
+            (
+                "source_admission_manifest_validation_micros".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "source_admission_full_content_digest_requested".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "source_admission_full_content_digest_micros".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "source_admission_digest_policy_reason".to_string(),
+                "prepared/native batch rows are local non-publication evidence rows; source-state FNV evidence and Native I/O certificates remain emitted while claim-grade full-content digest verification stays explicit".to_string(),
+            ),
+            (
+                "source_admission_digest_policy_claim_boundary".to_string(),
+                "digest-policy timing evidence only; no publication claim, no stale prepared-state reuse permission, and no external engine validation".to_string(),
             ),
             (
                 "source_state_dim_rows".to_string(),
@@ -7882,6 +8005,38 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "source_state_date_null_metric_recompute_avoided_count".to_string(),
                 self.date_null_metric_state_recompute_avoided_count
                     .to_string(),
+            ),
+            (
+                "source_state_open_timing_schema_version".to_string(),
+                SOURCE_STATE_OPEN_TIMING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "source_state_open_micros".to_string(),
+                self.source_state_prepare_micros.to_string(),
+            ),
+            (
+                "source_state_metadata_snapshot_micros".to_string(),
+                self.source_state_metadata_snapshot_micros.to_string(),
+            ),
+            (
+                "source_state_manifest_validation_micros".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "source_state_row_count_metadata_micros".to_string(),
+                self.source_state_row_count_metadata_micros.to_string(),
+            ),
+            (
+                "source_state_family_build_micros".to_string(),
+                self.source_state_family_build_micros.to_string(),
+            ),
+            (
+                "source_state_digest_micros".to_string(),
+                self.source_state_digest_micros.to_string(),
+            ),
+            (
+                "source_state_open_timing_scope".to_string(),
+                "batch_shared_pre_scenario_split_into_metadata_snapshot_row_count_family_build_and_digest_evidence".to_string(),
             ),
             (
                 "source_state_prepare_micros".to_string(),
@@ -12417,7 +12572,15 @@ fn traditional_source_admission_request_packet(
         "batch_route_id": "local_file_prepare_once_batch",
         "input_format": input_format.as_str(),
         "source_schema_hash": traditional_source_admission_schema_hash(),
-        "source_path_fingerprint_kind": "local_path_sha256_size_mtime",
+        "source_path_fingerprint_kind": "local_path_size_mtime_metadata",
+        "digest_policy": {
+            "schema_version": SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
+            "status": "metadata_fingerprint_fast_path",
+            "normal_warm_reuse_content_digest_requested": false,
+            "claim_grade_content_digest_required": true,
+            "full_content_digest_status": "not_requested_for_local_non_publication_row",
+            "claim_boundary": "metadata fingerprint admission is valid only for local non-publication benchmark rows; claim-grade publication rows must request full content digest verification",
+        },
         "fact_input": fact_input_fingerprint.clone(),
         "dim_input": dim_input_fingerprint.clone(),
         "cdc_delta_input": cdc_delta_input_fingerprint.clone(),
@@ -12554,6 +12717,34 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
         &mut manifest_payload,
         "source_admission_packet_artifact_manifest_hash",
         serde_json::Value::String(source_admission_packet_artifact_manifest_hash.clone()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_digest_policy_schema_version",
+        serde_json::Value::String(SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_digest_policy_status",
+        serde_json::Value::String("metadata_fingerprint_fast_path".to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_full_content_digest_requested",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_full_content_digest_required_for_claim_grade",
+        serde_json::Value::Bool(true),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_digest_policy_claim_boundary",
+        serde_json::Value::String(
+            "normal local warm reuse compares normalized path, size, and mtime; claim-grade publication evidence must request full content digest verification"
+                .to_string(),
+        ),
     );
     json_object_insert(
         &mut manifest_payload,
@@ -13033,10 +13224,12 @@ fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<s
         return Ok(serde_json::json!({
             "path": normalized,
             "exists": true,
-            "kind": "local_file_sha256_size_mtime",
+            "kind": "local_file_size_mtime",
             "size_bytes": metadata.len(),
             "mtime_ns": metadata_mtime_ns(&metadata),
-            "content_digest": file_sha256_digest(path, label)?,
+            "content_digest": serde_json::Value::Null,
+            "content_digest_status": "not_requested_metadata_fingerprint_fast_path",
+            "digest_policy": "metadata_size_mtime_normal_warm_reuse",
         }));
     }
     if path.is_dir() {
@@ -13048,6 +13241,8 @@ fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<s
             "size_bytes": directory.size_bytes,
             "mtime_ns": directory.mtime_ns,
             "content_digest": directory.content_digest,
+            "content_digest_status": "computed_for_directory_tree_fingerprint",
+            "digest_policy": "directory_tree_digest_required_until_metadata_tree_policy_exists",
         }));
     }
     Ok(serde_json::json!({
@@ -13057,6 +13252,8 @@ fn local_reuse_path_fingerprint(path: &std::path::Path, label: &str) -> Result<s
         "size_bytes": serde_json::Value::Null,
         "mtime_ns": serde_json::Value::Null,
         "content_digest": serde_json::Value::Null,
+        "content_digest_status": "not_available_path_missing",
+        "digest_policy": "metadata_size_mtime_normal_warm_reuse",
     }))
 }
 
@@ -17824,7 +18021,6 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             "traditional-analytics-vortex-batch-run --write-result-vortex requires --workspace for caller-owned result artifact output; fallback execution was not attempted".to_string(),
         ));
     }
-    let session_open_start = std::time::Instant::now();
     let session = TraditionalPreparedNativeSession::open(
         &fact_vortex,
         &dim_vortex,
@@ -17832,7 +18028,12 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         &scenarios,
         requested_execution_mode,
     )?;
-    let source_state_prepare_micros = duration_to_micros(session_open_start.elapsed());
+    let source_state_prepare_micros = session.source_state.open_timing.total_open;
+    let source_state_metadata_snapshot_micros = session.source_state.open_timing.metadata_snapshot;
+    let source_state_row_count_metadata_micros =
+        session.source_state.open_timing.row_count_metadata;
+    let source_state_family_build_micros =
+        session.source_state.open_timing.reusable_state_family_build;
     let dimension_label_state_consumer_count =
         session.source_state.dimension_label_state_consumer_count;
     let dimension_label_state_recompute_avoided_count = session
@@ -17868,10 +18069,12 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let date_null_metric_state_recompute_avoided_count = session
         .source_state
         .date_null_metric_state_recompute_avoided_count();
+    let source_state_digest_start = std::time::Instant::now();
     let source_state_digest = session
         .source_state
         .source_state_digest(requested_execution_mode);
     let source_state_family_digests = session.source_state.source_state_family_digests();
+    let source_state_digest_micros = duration_to_micros(source_state_digest_start.elapsed());
     let source_state_dim_rows = session.source_state.dim_rows;
     let source_state_dim_row_count_cache_hit_count =
         TraditionalVortexBatchSourceState::dim_row_count_cache_consumer_count(&scenarios);
@@ -17951,6 +18154,10 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         result_sink_requested: write_result_vortex,
         session_evidence,
         source_state_prepare_micros,
+        source_state_metadata_snapshot_micros,
+        source_state_row_count_metadata_micros,
+        source_state_family_build_micros,
+        source_state_digest_micros,
         source_state_digest,
         source_state_family_digests,
         source_state_dim_rows,
@@ -24035,6 +24242,7 @@ fn run_streaming_hash_join_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_streaming_hash_join_scenario_with_dim_state(
     fact_path: &std::path::Path,
     dim_state: &TraditionalDimensionLabelState,
@@ -24161,6 +24369,7 @@ fn run_streaming_join_aggregate_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_streaming_join_aggregate_scenario_with_dim_state(
     fact_path: &std::path::Path,
     dim_state: &TraditionalDimensionLabelState,
@@ -25151,6 +25360,7 @@ fn run_streaming_small_change_over_large_base_scenario(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
@@ -26482,6 +26692,7 @@ impl TraditionalOperatorMicroKernelBenchmarkReport {
     }
 
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
         let total_operator_kernel_micros = checked_u64_values_sum(
             self.pair_execution_evidence
@@ -26658,6 +26869,12 @@ fn operator_microkernel_value_rows(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+/// Run the focused local operator microkernel benchmark.
+///
+/// # Errors
+///
+/// Returns an error when no iterations are requested or when any generated fixture cannot be
+/// planned, executed, or checked against its decoded reference.
 pub fn run_traditional_operator_microkernel_benchmark(
     iterations: usize,
 ) -> Result<TraditionalOperatorMicroKernelBenchmarkReport> {
@@ -26683,6 +26900,7 @@ pub fn run_traditional_operator_microkernel_benchmark(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn operator_microkernel_fixture_evidence(
     iteration: usize,
 ) -> Result<Vec<TraditionalCompressedKernelPairExecutionEvidence>> {
@@ -26711,9 +26929,7 @@ fn operator_microkernel_fixture_evidence(
                 Nullability::NonNullable,
                 EncodedValueBatch::BitPackedUnsigned {
                     bit_width: 1,
-                    values: (0..2_048)
-                        .map(|index| if index % 16 == 0 { 0 } else { 1 })
-                        .collect(),
+                    values: (0..2_048).map(|index| u64::from(index % 16 != 0)).collect(),
                 },
             )?,
         )?,
@@ -31434,25 +31650,39 @@ mod tests {
             manifest_payload
                 .pointer("/fact_input/kind")
                 .and_then(serde_json::Value::as_str),
-            Some("local_file_sha256_size_mtime")
+            Some("local_file_size_mtime")
         );
-        assert!(
+        assert_eq!(
+            manifest_payload.pointer("/fact_input/content_digest"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(
             manifest_payload
-                .pointer("/fact_input/content_digest")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|value| value.starts_with("sha256:"))
+                .pointer("/fact_input/content_digest_status")
+                .and_then(serde_json::Value::as_str),
+            Some("not_requested_metadata_fingerprint_fast_path")
         );
         assert_eq!(
             manifest_payload
                 .pointer("/prepared_artifacts/fact/fingerprint/kind")
                 .and_then(serde_json::Value::as_str),
-            Some("local_file_sha256_size_mtime")
+            Some("local_file_size_mtime")
         );
-        assert!(
+        assert_eq!(
+            manifest_payload.pointer("/prepared_artifacts/fact/fingerprint/content_digest"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(
             manifest_payload
-                .pointer("/prepared_artifacts/fact/fingerprint/content_digest")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|value| value.starts_with("sha256:"))
+                .get("source_admission_digest_policy_schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some(SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION)
+        );
+        assert_eq!(
+            manifest_payload
+                .get("source_admission_full_content_digest_requested")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
         );
         assert!(first.prepare_report.is_some());
         assert_field_eq(
@@ -31499,6 +31729,27 @@ mod tests {
             &first_fields,
             "prepare_batch_source_admission_packet_reuse_hit",
             "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_digest_policy_schema_version",
+            SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_full_content_digest_requested",
+            "false",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_source_admission_full_content_digest_micros",
+            "0",
+        );
+        assert!(
+            first_fields
+                .get("source_admission_policy_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
         );
         assert_field_eq(
             &first_fields,
@@ -31739,6 +31990,28 @@ mod tests {
                 .get("prepare_batch_prepared_state_cache_hit_micros")
                 .and_then(|value| value.parse::<u64>().ok())
                 .is_some()
+        );
+        assert!(
+            second_fields
+                .get("prepared_manifest_read_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            second_fields
+                .get("prepared_manifest_match_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_digest_policy_status",
+            "metadata_fingerprint_reuse_hit",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_source_admission_full_content_digest_requested",
+            "false",
         );
         assert_field_eq(
             &second_fields,
@@ -33084,6 +33357,45 @@ mod tests {
             &fields,
             "source_state_digest_scope",
             "prepared_native_batch_source_state",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_open_timing_schema_version",
+            SOURCE_STATE_OPEN_TIMING_SCHEMA_VERSION,
+        );
+        assert!(
+            fields
+                .get("source_state_open_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            fields
+                .get("source_state_metadata_snapshot_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            fields
+                .get("source_state_family_build_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert!(
+            fields
+                .get("source_state_digest_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some()
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_digest_policy_schema_version",
+            SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_admission_full_content_digest_requested",
+            "false",
         );
         let source_state_family_digests = fields
             .get("source_state_family_digests")

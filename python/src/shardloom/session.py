@@ -1727,12 +1727,12 @@ class ShardLoomSession:
             certification_level,
         )
         key = (normalized_source, normalized_target, normalized_certification)
-        source_fingerprint = _fingerprint_file(source_path)
-        target_fingerprint = _fingerprint_file(target_vortex_path)
+        source_fingerprint = _fingerprint_file_metadata(source_path)
+        target_fingerprint = _fingerprint_file_metadata(target_vortex_path)
         entry = self._prepared_cache.get(key)
 
         if reuse and entry is not None:
-            reuse_reason = _reuse_reason(
+            reuse_reason = _reuse_reason_from_metadata(
                 entry,
                 source_fingerprint=source_fingerprint,
                 target_fingerprint=target_fingerprint,
@@ -1748,8 +1748,8 @@ class ShardLoomSession:
                     report=entry.report,
                     reuse_hit=True,
                     reuse_reason=reuse_reason,
-                    source_fingerprint=source_fingerprint,
-                    target_fingerprint=target_fingerprint,
+                    source_fingerprint=entry.source_fingerprint,
+                    target_fingerprint=entry.target_fingerprint,
                 )
         else:
             reuse_reason = "reuse_disabled" if not reuse else "no_cached_prepared_state"
@@ -2009,6 +2009,20 @@ class ShardLoomSession:
 
 
 def _fingerprint_file(path: str | os.PathLike[str]) -> LocalFileFingerprint:
+    metadata = _fingerprint_file_metadata(path)
+    if not metadata.exists:
+        return metadata
+    local_path = Path(path).expanduser()
+    return LocalFileFingerprint(
+        path=metadata.path,
+        exists=True,
+        size_bytes=metadata.size_bytes,
+        mtime_ns=metadata.mtime_ns,
+        content_digest=_file_content_digest(local_path),
+    )
+
+
+def _fingerprint_file_metadata(path: str | os.PathLike[str]) -> LocalFileFingerprint:
     normalized = _normalized_path(path)
     local_path = Path(path).expanduser()
     try:
@@ -2021,24 +2035,41 @@ def _fingerprint_file(path: str | os.PathLike[str]) -> LocalFileFingerprint:
             mtime_ns=None,
             content_digest=None,
         )
-    digest = hashlib.sha256()
-    with local_path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
     return LocalFileFingerprint(
         path=normalized,
         exists=True,
         size_bytes=stat.st_size,
         mtime_ns=stat.st_mtime_ns,
-        content_digest="sha256:" + digest.hexdigest(),
+        content_digest=None,
+        fingerprint_kind="local_file_size_mtime",
     )
+
+
+def _file_content_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
 
 
 def _normalized_path(path: str | os.PathLike[str]) -> str:
     return str(Path(path).expanduser().resolve(strict=False))
 
 
-def _reuse_reason(
+def _metadata_matches(
+    stored: LocalFileFingerprint,
+    current: LocalFileFingerprint,
+) -> bool:
+    return (
+        stored.path == current.path
+        and stored.exists == current.exists
+        and stored.size_bytes == current.size_bytes
+        and stored.mtime_ns == current.mtime_ns
+    )
+
+
+def _reuse_reason_from_metadata(
     entry: _PreparedCacheEntry,
     *,
     source_fingerprint: LocalFileFingerprint,
@@ -2048,9 +2079,9 @@ def _reuse_reason(
         return "source_fingerprint_missing"
     if not target_fingerprint.exists:
         return "prepared_artifact_missing"
-    if entry.source_fingerprint != source_fingerprint:
+    if not _metadata_matches(entry.source_fingerprint, source_fingerprint):
         return "source_fingerprint_changed"
-    if entry.target_fingerprint != target_fingerprint:
+    if not _metadata_matches(entry.target_fingerprint, target_fingerprint):
         return "prepared_artifact_fingerprint_changed"
     return "source_and_prepared_artifact_fingerprints_match"
 

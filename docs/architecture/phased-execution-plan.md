@@ -202,24 +202,23 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-SPLIT-1` | Make route totals and stage timing inclusion/exclusion fields unambiguous before further optimization. |
-| 2 | `PERF-SPLIT-2` | Split source admission from expensive source-state setup and enable digest-policy-aware warm reuse. |
-| 3 | `PERF-SPLIT-3` | Defer prepared/native source-state family construction until the first consuming scenario. |
-| 4 | `PERF-SPLIT-4` | Add projection-aware CSV/JSONL scout and typed decode so cold lanes avoid unused-column work. |
-| 5 | `PERF-SPLIT-5` | Reuse/coalesce local Vortex writer context for cold result/preparation writes with explicit proof. |
-| 6 | `PERF-SPLIT-6` | Make prepared-state identity content-addressed and role-repairable. |
-| 7 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
-| 8 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
-| 9 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
-| 10 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 11 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 12 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 13 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 14 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 15 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 16 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 17 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 18 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-SPLIT-2` | Split source admission from expensive source-state setup and enable digest-policy-aware warm reuse. |
+| 2 | `PERF-SPLIT-3` | Defer prepared/native source-state family construction until the first consuming scenario. |
+| 3 | `PERF-SPLIT-4` | Add projection-aware CSV/JSONL scout and typed decode so cold lanes avoid unused-column work. |
+| 4 | `PERF-SPLIT-5` | Reuse/coalesce local Vortex writer context for cold result/preparation writes with explicit proof. |
+| 5 | `PERF-SPLIT-6` | Make prepared-state identity content-addressed and role-repairable. |
+| 6 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
+| 7 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
+| 8 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
+| 9 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 10 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 11 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 12 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 13 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 14 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 15 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 16 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 17 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -293,54 +292,6 @@ timings actionable and then reduce the ShardLoom hot/cold overheads they expose.
 belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
 must preserve no-fallback evidence and claim gates.
 
-- [ ] PERF-SPLIT-1 benchmark lane/route timing split and inclusion contract:
-  - Source: `scripts/promote_benchmark_artifact.py`,
-    `scripts/check_benchmark_artifact_completeness.py`,
-    `benchmarks/traditional_analytics/run.py`, `docs/benchmarks/local-taxonomy-benchmark.md`,
-    `docs/architecture/performance-attribution-and-execution-structure.md`, and
-    `shardloom-vortex/src/traditional_analytics.rs`.
-  - Current state:
-    - [x] Route-first benchmark artifacts and route-share attribution exist.
-    - [x] Current benchmark page exposes route totals first and stage grids as attribution aids.
-    - [ ] Remaining: every stage field still needs a normalized inclusion/exclusion scope so shared
-      setup, query execution, output, evidence rendering, and harness/process overhead cannot be
-      confused with comparable route total.
-  - Runtime enablement: benchmark row emission -> timing inclusion classifier -> validator-enforced
-    route/stage contract -> website route comparison that preserves no-fallback evidence.
-  - Objective: make route totals and stage attribution impossible to confuse by splitting every
-    timing column into explicit `included_in_route_total`, `timing_scope`, and `stage_owner`
-    fields.
-  - Implementation scope: add normalized fields for `source_admission_policy_micros`,
-    `source_stat_micros`, `source_state_open_micros`, `source_state_digest_micros`,
-    `prepared_manifest_read_micros`, `prepared_manifest_match_micros`,
-    `vortex_open_footer_micros`, `scan_open_micros`, `scan_chunk_iter_micros`,
-    `operator_kernel_micros`, `operator_finalize_micros`, `result_sink_write_micros`,
-    `result_sink_replay_micros`, `human_evidence_render_micros`,
-    `json_envelope_emit_micros`, and `cli_process_wall_micros`. Promotion must stop mapping broad
-    `source_state_prepare_micros` into user-facing `source_admission_millis` without a scope label.
-  - User-visible surface: benchmark JSON/Markdown/static site grids, route timing dashboard,
-    publication validators, and benchmark CLI report fields.
-  - Evidence required: route/stage field schema, validator failures for ambiguous timing rows,
-    no-fallback fields, and docs/page copy that keeps route totals as the comparison surface.
-  - Acceptance: website/grid rows show route-level totals first, then stage attribution with every
-    stage marked `included`, `excluded_shared_preparation`, `excluded_harness`, or
-    `diagnostic_only`. Warm/native rows must no longer display a `source_admission` number larger
-    than route total unless it is visibly excluded shared preparation.
-  - Verification:
-    ```powershell
-    python scripts\promote_benchmark_artifact.py --help
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    python scripts\check_benchmark_publication_claim_gate.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no performance claim, no hiding cold costs, no comparison rewrite that treats stage
-    attribution as additive route timing.
-  - Claim boundary: timing attribution only; no superiority, production, SQL/DataFrame,
-    object-store/lakehouse, Foundry, package, or Spark-replacement claim.
-  - Fallback boundary: ShardLoom timing rows must keep `fallback_attempted=false` and
-    `external_engine_invoked=false`; baseline engines remain comparison-only.
-  - Ledger rule: after merge, move completed details and validator evidence to the completed ledger.
-
 - [ ] PERF-SPLIT-2 source admission packet and source-state setup fast path:
   - Source: `shardloom-vortex/src/traditional_analytics.rs`,
     `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`, and
@@ -372,7 +323,7 @@ must preserve no-fallback evidence and claim gates.
   - Verification:
     ```powershell
     cargo test -p shardloom-vortex traditional_prepared
-    python -m unittest python.tests.test_prepared_route
+    $env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_prepared_vortex_state_when_fingerprints_match
     python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
     git diff --check
     ```
@@ -526,7 +477,7 @@ must preserve no-fallback evidence and claim gates.
     ```powershell
     cargo test -p shardloom-vortex traditional_prepared_batch_workspace_reuse
     cargo test -p shardloom-vortex traditional_prepared_partial_repair
-    python -m unittest python.tests.test_prepared_route
+    $env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare
     git diff --check
     ```
   - Non-goals: no broad CDC/table-transaction claim, no stale artifact reuse, no

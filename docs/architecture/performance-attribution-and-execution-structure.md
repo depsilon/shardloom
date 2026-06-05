@@ -685,7 +685,14 @@ vortex_reopen_millis
 vortex_scan_millis
 evidence_render_millis
 source_admission_policy_micros
+source_admission_digest_policy_*
+source_admission_full_content_digest_requested
+source_admission_full_content_digest_micros
 source_state_open_micros
+source_state_metadata_snapshot_micros
+source_state_manifest_validation_micros
+source_state_row_count_metadata_micros
+source_state_family_build_micros
 source_state_digest_micros
 prepared_manifest_read_micros
 prepared_manifest_match_micros
@@ -718,6 +725,10 @@ stage should also be classified as `included`, `excluded_shared_preparation`,
 `excluded_harness`, or `diagnostic_only`. Broad shared setup timers such as
 `source_state_prepare_micros` are not source-admission timers; promotion must not
 map them into `source_admission_ms` without a direct admission/stat timing field.
+Metadata-first warm reuse must report the requested digest policy. Local non-publication rows may
+skip full content SHA when normalized path, size, and mtime metadata plus prepared artifact digests
+are the requested proof tier; publication or claim-grade rows must request full content digest
+verification when that evidence is required.
 
 ## Benchmark Artifact Contract
 

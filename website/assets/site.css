@@ -707,6 +707,8 @@ p {
 
 .route-dashboard-card,
 .artifact-panel {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
@@ -727,6 +729,8 @@ p {
 .route-card-shell {
   display: grid;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 24px;
 }
 
@@ -1370,6 +1374,9 @@ p {
 }
 
 .table-wrap {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1406,6 +1413,8 @@ tr:last-child td {
 }
 
 .drawer {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
