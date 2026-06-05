@@ -320,6 +320,8 @@ fn is_workflow_planning_command(command: &str) -> bool {
     matches!(
         command,
         "route"
+            | "run"
+            | "prepare"
             | "schema-plan"
             | "manifest-plan"
             | "workflow-unsupported-plan"

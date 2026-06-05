@@ -365,7 +365,7 @@
   },
   {
     "capability": "Public workflow route facade",
-    "status": "report_only",
+    "status": "scoped_runtime_supported",
     "inputs": [
       "sql",
       "python",
@@ -376,6 +376,8 @@
     ],
     "outputs": [
       "route_envelope",
+      "runtime_envelope",
+      "prepared_vortex_target",
       "blocked_diagnostic",
       "claim_boundary"
     ],
@@ -383,16 +385,18 @@
     "platform": "local",
     "evidence": [
       "public_workflow_route_schema_version",
+      "public_workflow_facade_schema_version",
       "route_id",
       "resolved_internal_command",
       "route_side_effect_free=true",
-      "runtime_execution=false",
+      "public_workflow_route_attached=true",
+      "runtime_execution=route-dependent",
       "fallback_attempted=false",
       "external_engine_invoked=false",
-      "claim_gate_status=route_inspection_only"
+      "claim_gate_status=not_claim_grade"
     ],
-    "works": "CLI `shardloom route <sql|python|dataframe|cli> --format json`, `ShardLoomContext.route(...)`, SQL workflow `.route()`, and DataFrame workflow `.route()` return the same side-effect-free route envelope for equivalent local requests.",
-    "blocked": "The facade is admission metadata only. It does not execute queries, read data, write sinks, refresh benchmark timing, or claim broad SQL/DataFrame runtime support.",
+    "works": "CLI `shardloom route`, `shardloom run`, and `shardloom prepare`, plus `ShardLoomContext.route(...)`, `ShardLoomContext.run(...)`, `ShardLoomContext.prepare(...)`, SQL workflow `.route()`/`.run()`, and DataFrame workflow `.route()`/`.run()`/`.prepare(...)` share the same route/admission metadata. Admitted run/prepare wrappers attach that metadata to scoped runtime or preparation envelopes.",
+    "blocked": "The facade does not reroute every existing collect/write helper yet, refresh benchmark timing, or claim broad SQL/DataFrame runtime support.",
     "references": [
       "docs/status/cli-command-registry.md",
       "python/README.md",

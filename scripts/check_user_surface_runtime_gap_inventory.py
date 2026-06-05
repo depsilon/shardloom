@@ -175,14 +175,14 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
     },
     "public-workflow-route-facade": {
         "classification": "runtime_available_needs_output_route",
-        "vortex_normalization_point": "route_specific_or_not_applicable_for_report_only_surface",
+        "vortex_normalization_point": "route_specific_or_public_prepare_vortex_target",
         "runtime_route": (
-            "side-effect-free public workflow route admission exists; execution wrappers still "
-            "need route envelope integration"
+            "side-effect-free route admission plus scoped run/prepare wrappers attach route "
+            "metadata to admitted runtime envelopes"
         ),
         "output_or_evidence_route": (
-            "typed public workflow route envelope today; run, prepare, collect, and write "
-            "wrappers remain pending"
+            "typed public route and execution-facade envelopes today; collect and write helper "
+            "rerouting remains pending"
         ),
         "owner": "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade",
     },

@@ -6467,6 +6467,138 @@ class PublicWorkflowRoute:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicWorkflowExecution:
+    """Typed view over a public workflow run/prepare envelope with attached route metadata."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def schema_version(self) -> str:
+        """Return the public workflow facade schema version."""
+
+        return _required_field(self.envelope, "public_workflow_facade_schema_version")
+
+    @property
+    def facade_command(self) -> str:
+        """Return the high-level facade command that emitted the envelope."""
+
+        return _required_field(self.envelope, "public_workflow_facade_command")
+
+    @property
+    def route_attached(self) -> bool:
+        """Whether a public route envelope was attached to this execution."""
+
+        return self.envelope.field_bool("public_workflow_route_attached", False) is True
+
+    @property
+    def route_id(self) -> str:
+        """Return the public route identifier attached to execution."""
+
+        return _required_field(self.envelope, "public_workflow_route_id")
+
+    @property
+    def route_status(self) -> str:
+        """Return the attached route admission status."""
+
+        return _required_field(self.envelope, "public_workflow_route_status")
+
+    @property
+    def resolved_internal_command(self) -> str:
+        """Return the internal command selected by the route."""
+
+        return _required_field(self.envelope, "public_workflow_resolved_internal_command")
+
+    @property
+    def vortex_normalization_point(self) -> str:
+        """Return the attached Vortex normalization boundary."""
+
+        return _required_field(self.envelope, "public_workflow_vortex_normalization_point")
+
+    @property
+    def execution_mode(self) -> str:
+        """Return the attached execution mode."""
+
+        return _required_field(self.envelope, "public_workflow_execution_mode")
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the emitted envelope reports runtime execution."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def preparation_included(self) -> bool:
+        """Whether route preparation is part of this facade request."""
+
+        return (
+            self.envelope.field_bool("public_workflow_preparation_included", False)
+            is True
+        )
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether fallback execution was attempted."""
+
+        return self.envelope.field_bool("fallback_attempted", False) is True
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether an external engine was invoked."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    @property
+    def public_workflow_fallback_attempted(self) -> bool:
+        """Whether the attached public route reports fallback attempted."""
+
+        return (
+            self.envelope.field_bool("public_workflow_fallback_attempted", False)
+            is True
+        )
+
+    @property
+    def public_workflow_external_engine_invoked(self) -> bool:
+        """Whether the attached public route reports external engine invocation."""
+
+        return (
+            self.envelope.field_bool("public_workflow_external_engine_invoked", False)
+            is True
+        )
+
+    @property
+    def blocker_id(self) -> str | None:
+        """Return the attached route blocker ID when blocked."""
+
+        value = self.envelope.field("public_workflow_blocker_id")
+        if value in {None, "", "none"}:
+            return None
+        return value
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a compact dictionary for notebooks and simple integrations."""
+
+        return {
+            "schema_version": self.schema_version,
+            "facade_command": self.facade_command,
+            "route_attached": self.route_attached,
+            "route_id": self.route_id,
+            "route_status": self.route_status,
+            "resolved_internal_command": self.resolved_internal_command,
+            "vortex_normalization_point": self.vortex_normalization_point,
+            "execution_mode": self.execution_mode,
+            "runtime_execution": self.runtime_execution,
+            "preparation_included": self.preparation_included,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "public_workflow_fallback_attempted": self.public_workflow_fallback_attempted,
+            "public_workflow_external_engine_invoked": (
+                self.public_workflow_external_engine_invoked
+            ),
+            "blocker_id": self.blocker_id,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CommandMetadataReport:
     """Typed view over the side-effect-free CLI command registry metadata."""
 
@@ -9884,6 +10016,103 @@ class ShardLoomClient:
         if bounded is not None:
             args.extend(["--bounded", "true" if bounded else "false"])
         return PublicWorkflowRoute(self.run(args, check=check))
+
+    def public_workflow_run(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        sql_statement: str | None = None,
+        plan_summary: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str = "auto",
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Run an admitted public workflow through the shared route facade."""
+
+        args = self._public_workflow_facade_args(
+            "run",
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            sql_statement=sql_statement,
+            plan_summary=plan_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy=execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=bounded,
+        )
+        return PublicWorkflowExecution(self.run(args, check=check))
+
+    def public_workflow_prepare(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str],
+        output_ref: str | os.PathLike[str],
+        input_format: str | None = None,
+        plan_summary: str | None = None,
+        evidence_level: str = "runtime_smoke",
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Prepare an admitted public workflow input through the shared route facade."""
+
+        args = self._public_workflow_facade_args(
+            "prepare",
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            plan_summary=plan_summary,
+            requested_output="prepare",
+            output_ref=output_ref,
+            execution_policy="prepare_once",
+            materialization_policy="bounded",
+            evidence_level=evidence_level,
+            bounded=True,
+        )
+        return PublicWorkflowExecution(self.run(args, check=check))
+
+    def _public_workflow_facade_args(
+        self,
+        command: str,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        sql_statement: str | None = None,
+        plan_summary: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str = "auto",
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+    ) -> list[CommandPart]:
+        args: list[CommandPart] = [command, surface]
+        if input_uri is not None:
+            args.extend(["--input", str(input_uri)])
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        if sql_statement is not None:
+            args.extend(["--sql", sql_statement])
+        if plan_summary is not None:
+            args.extend(["--plan", plan_summary])
+        args.extend(["--request", requested_output])
+        if output_ref is not None:
+            args.extend(["--output", str(output_ref)])
+        args.extend(["--execution-policy", execution_policy])
+        args.extend(["--materialization-policy", materialization_policy])
+        args.extend(["--evidence-level", evidence_level])
+        if bounded is not None:
+            args.extend(["--bounded", "true" if bounded else "false"])
+        return args
 
     def engine_selection_plan(
         self,

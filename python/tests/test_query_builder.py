@@ -336,6 +336,156 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(route.fallback_attempted)
         self.assertFalse(route.external_engine_invoked)
 
+    def test_workflow_run_uses_public_facade_with_attached_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
+                    "SELECT id FROM 'target/input.csv' LIMIT 10",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id) -> limit(10)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_route_id", "local_file_direct_query"],
+                    ["public_workflow_route_status", "admitted"],
+                    ["public_workflow_resolved_internal_command", "sql-local-source-smoke"],
+                    ["public_workflow_vortex_normalization_point", "direct_transient"],
+                    ["public_workflow_execution_mode", "direct"],
+                    ["public_workflow_preparation_included", "false"],
+                    ["runtime_execution", "true"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["public_workflow_fallback_attempted", "false"],
+                    ["public_workflow_external_engine_invoked", "false"],
+                    ["public_workflow_blocker_id", "none"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "public workflow run",
+                    "human_text": "run",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        execution = ctx.read_csv("target/input.csv").select("id").limit(10).run()
+
+        self.assertIsInstance(execution, sl.PublicWorkflowExecution)
+        self.assertEqual(execution.facade_command, "run")
+        self.assertTrue(execution.route_attached)
+        self.assertEqual(execution.route_id, "local_file_direct_query")
+        self.assertEqual(execution.resolved_internal_command, "sql-local-source-smoke")
+        self.assertTrue(execution.runtime_execution)
+        self.assertFalse(execution.fallback_attempted)
+        self.assertFalse(execution.external_engine_invoked)
+        self.assertFalse(execution.public_workflow_fallback_attempted)
+        self.assertFalse(execution.public_workflow_external_engine_invoked)
+        self.assertIsNone(execution.blocker_id)
+
+    def test_workflow_prepare_uses_public_facade_with_attached_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "prepare",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--plan",
+                    "read_csv(target/input.csv)",
+                    "--request",
+                    "prepare",
+                    "--output",
+                    "target/input.vortex",
+                    "--execution-policy",
+                    "prepare_once",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "prepare"],
+                    ["public_workflow_route_id", "local_file_prepare_once"],
+                    ["public_workflow_route_status", "admitted"],
+                    ["public_workflow_resolved_internal_command", "vortex-ingest-smoke"],
+                    ["public_workflow_vortex_normalization_point", "VortexPreparedState"],
+                    ["public_workflow_execution_mode", "prepared_vortex"],
+                    ["public_workflow_preparation_included", "true"],
+                    ["runtime_execution", "true"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["public_workflow_fallback_attempted", "false"],
+                    ["public_workflow_external_engine_invoked", "false"],
+                    ["public_workflow_blocker_id", "none"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "prepare",
+                    "status": "success",
+                    "summary": "public workflow prepare",
+                    "human_text": "prepare",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        execution = ctx.read_csv("target/input.csv").prepare("target/input.vortex")
+
+        self.assertIsInstance(execution, sl.PublicWorkflowExecution)
+        self.assertEqual(execution.facade_command, "prepare")
+        self.assertTrue(execution.route_attached)
+        self.assertEqual(execution.route_id, "local_file_prepare_once")
+        self.assertEqual(execution.resolved_internal_command, "vortex-ingest-smoke")
+        self.assertTrue(execution.preparation_included)
+        self.assertFalse(execution.fallback_attempted)
+        self.assertFalse(execution.external_engine_invoked)
+
     def test_from_rows_write_invokes_generated_source_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

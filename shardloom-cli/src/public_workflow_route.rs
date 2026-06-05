@@ -14,10 +14,11 @@ use shardloom_core::{
 
 use crate::{
     cli_output::{emit, emit_error},
-    cli_unknown_arg_error,
+    cli_unknown_arg_error, generated_source_runtime, sql_local_source_runtime,
 };
 
 const ROUTE_SCHEMA_VERSION: &str = "shardloom.public_workflow_route.v1";
+const FACADE_SCHEMA_VERSION: &str = "shardloom.public_workflow_execution_facade.v1";
 const ROUTE_REPORT_ID: &str = "gar-runtime-impl-6d.public_workflow_route_facade";
 const ROUTE_DOCS_REF: &str = "docs/status/cli-command-registry.md#public-route-facade-command";
 const FALLBACK_BOUNDARY: &str =
@@ -79,12 +80,110 @@ pub(crate) fn handle_public_workflow_route(
     ExitCode::SUCCESS
 }
 
+pub(crate) fn handle_public_workflow_run(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let request = match PublicWorkflowRouteRequest::parse(args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error("run", format, "public workflow run failed", &error);
+        }
+    };
+    let plan = plan_public_workflow_route(&request);
+    if plan.status != CommandStatus::Success {
+        return emit_blocked_facade("run", format, &request, &plan);
+    }
+
+    match plan.route_id {
+        "local_file_direct_query" | "local_file_direct_sink" => {
+            let Some(statement) = request.sql_statement.clone() else {
+                let blocked = executable_sql_required_route("run");
+                return emit_blocked_facade("run", format, &request, &blocked);
+            };
+            let runtime_args = match sql_local_source_runtime_args(&request, statement) {
+                Ok(args) => args,
+                Err(error) => {
+                    return emit_error("run", format, "public workflow run failed", &error);
+                }
+            };
+            sql_local_source_runtime::handle_sql_local_source_smoke_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                execution_attachment_fields("run", &request, &plan),
+            )
+        }
+        "source_free_generated_output" => {
+            let Some(statement) = request.sql_statement.clone() else {
+                let blocked = executable_sql_required_route("run");
+                return emit_blocked_facade("run", format, &request, &blocked);
+            };
+            let Some(output_ref) = request.output_ref.clone() else {
+                let blocked = output_required_route("run", "source-free SQL run");
+                return emit_blocked_facade("run", format, &request, &blocked);
+            };
+            let runtime_args = generated_source_runtime_args(&request, output_ref, statement);
+            generated_source_runtime::handle_generated_source_sql_smoke_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                execution_attachment_fields("run", &request, &plan),
+            )
+        }
+        _ => {
+            let blocked = run_route_not_executable_yet(&plan);
+            emit_blocked_facade("run", format, &request, &blocked)
+        }
+    }
+}
+
+pub(crate) fn handle_public_workflow_prepare(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let mut request = match PublicWorkflowRouteRequest::parse(args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error("prepare", format, "public workflow prepare failed", &error);
+        }
+    };
+    request.requested_output = "prepare".to_string();
+    request.execution_policy = "prepare_once".to_string();
+    request.bounded = true;
+
+    let plan = plan_public_workflow_route(&request);
+    if plan.status != CommandStatus::Success {
+        return emit_blocked_facade("prepare", format, &request, &plan);
+    }
+    let Some(input_uri) = request.input_uri.clone() else {
+        let blocked = input_not_declared_route();
+        return emit_blocked_facade("prepare", format, &request, &blocked);
+    };
+    let Some(output_ref) = request.output_ref.clone() else {
+        let blocked = output_required_route("prepare", "prepared Vortex target");
+        return emit_blocked_facade("prepare", format, &request, &blocked);
+    };
+    if request.input_format.as_deref() == Some("vortex") {
+        let blocked = already_native_vortex_prepare_route();
+        return emit_blocked_facade("prepare", format, &request, &blocked);
+    }
+
+    let extra_fields = execution_attachment_fields("prepare", &request, &plan);
+    sql_local_source_runtime::handle_vortex_ingest_smoke_with_facade(
+        [input_uri, output_ref].into_iter(),
+        format,
+        "prepare",
+        &extra_fields,
+    )
+}
+
 impl PublicWorkflowRouteRequest {
     fn parse(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false]"
                     .to_string(),
             ));
         };
@@ -227,7 +326,17 @@ fn is_local_file_format(format: &str) -> bool {
 }
 
 fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
-    if request.execution_policy == "prepare_once" {
+    if request.requested_output == "prepare" {
+        admitted_route(
+            "local_file_prepare_once",
+            "vortex-ingest-smoke",
+            "compatibility_local_source",
+            "VortexPreparedState",
+            "prepared_vortex",
+            true,
+            true,
+        )
+    } else if request.execution_policy == "prepare_once" {
         admitted_route(
             "local_file_prepare_once_first_query",
             "vortex-ingest-smoke->traditional-analytics-vortex-run",
@@ -512,6 +621,300 @@ fn route_human_text(
     )
 }
 
+fn emit_blocked_facade(
+    command: &'static str,
+    format: OutputFormat,
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> ExitCode {
+    emit(
+        command,
+        format,
+        CommandStatus::Unsupported,
+        format!("public workflow {command} blocked before execution"),
+        facade_human_text(command, request, plan, false),
+        plan.diagnostics.clone(),
+        blocked_facade_fields(command, request, plan),
+    );
+    ExitCode::from(1)
+}
+
+fn facade_human_text(
+    command: &str,
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    runtime_execution: bool,
+) -> String {
+    format!(
+        "public workflow {command}\nsurface: {}\nroute_id: {}\nresolved_internal_command: {}\nstatus: {}\nruntime_execution: {}\nfallback_attempted: false\nexternal_engine_invoked: false",
+        request.surface,
+        plan.route_id,
+        plan.resolved_internal_command,
+        plan.route_status,
+        runtime_execution
+    )
+}
+
+fn blocked_facade_fields(
+    command: &str,
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> Vec<(String, String)> {
+    let mut fields = execution_attachment_fields(command, request, plan);
+    fields.extend([
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("source_io_performed".to_string(), "false".to_string()),
+        ("output_io_performed".to_string(), "false".to_string()),
+        (
+            "execution".to_string(),
+            "blocked_before_execution".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        (
+            "claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+    ]);
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn execution_attachment_fields(
+    command: &str,
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "public_workflow_facade_schema_version".to_string(),
+            FACADE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "public_workflow_route_schema_version".to_string(),
+            ROUTE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "public_workflow_route_report_id".to_string(),
+            ROUTE_REPORT_ID.to_string(),
+        ),
+        (
+            "public_workflow_route_docs_ref".to_string(),
+            ROUTE_DOCS_REF.to_string(),
+        ),
+        (
+            "public_workflow_facade_command".to_string(),
+            command.to_string(),
+        ),
+        (
+            "public_workflow_route_attached".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "public_workflow_surface".to_string(),
+            request.surface.clone(),
+        ),
+        (
+            "public_workflow_route_id".to_string(),
+            plan.route_id.to_string(),
+        ),
+        (
+            "public_workflow_route_status".to_string(),
+            plan.route_status.to_string(),
+        ),
+        (
+            "public_workflow_resolved_internal_command".to_string(),
+            plan.resolved_internal_command.to_string(),
+        ),
+        (
+            "public_workflow_start_state".to_string(),
+            plan.start_state.to_string(),
+        ),
+        (
+            "public_workflow_vortex_normalization_point".to_string(),
+            plan.vortex_normalization_point.to_string(),
+        ),
+        (
+            "public_workflow_execution_mode".to_string(),
+            plan.execution_mode.to_string(),
+        ),
+        (
+            "public_workflow_preparation_included".to_string(),
+            plan.preparation_included.to_string(),
+        ),
+        (
+            "public_workflow_query_timing_starts_after_preparation".to_string(),
+            plan.query_timing_starts_after_preparation.to_string(),
+        ),
+        (
+            "public_workflow_requested_output".to_string(),
+            request.requested_output.clone(),
+        ),
+        (
+            "public_workflow_output_ref".to_string(),
+            optional_or_none(request.output_ref.as_ref()),
+        ),
+        (
+            "public_workflow_evidence_level".to_string(),
+            request.evidence_level.clone(),
+        ),
+        (
+            "public_workflow_bounded_request".to_string(),
+            request.bounded.to_string(),
+        ),
+        (
+            "public_workflow_blocker_id".to_string(),
+            plan.blocker_id.to_string(),
+        ),
+        (
+            "public_workflow_blocker_reason".to_string(),
+            plan.blocker_reason.to_string(),
+        ),
+        (
+            "public_workflow_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "public_workflow_claim_boundary".to_string(),
+            CLAIM_BOUNDARY.to_string(),
+        ),
+        (
+            "public_workflow_fallback_boundary".to_string(),
+            FALLBACK_BOUNDARY.to_string(),
+        ),
+    ]
+}
+
+fn sql_local_source_runtime_args(
+    request: &PublicWorkflowRouteRequest,
+    statement: String,
+) -> Result<Vec<String>, ShardLoomError> {
+    let mut args = vec![statement];
+    if let Some(output_ref) = request.output_ref.as_ref() {
+        args.extend([
+            "--output".to_string(),
+            output_ref.clone(),
+            "--output-format".to_string(),
+            local_output_format_for_request(request)?.to_string(),
+        ]);
+    }
+    Ok(args)
+}
+
+fn generated_source_runtime_args(
+    request: &PublicWorkflowRouteRequest,
+    output_ref: String,
+    statement: String,
+) -> Vec<String> {
+    vec![
+        output_ref,
+        statement,
+        "--output-format".to_string(),
+        local_output_format_for_request(request)
+            .unwrap_or("jsonl")
+            .to_string(),
+    ]
+}
+
+fn local_output_format_for_request(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<&'static str, ShardLoomError> {
+    match request.requested_output.as_str() {
+        "collect" => Ok("inline-jsonl"),
+        "write_vortex" => Ok("vortex"),
+        "write_parquet" => Ok("parquet"),
+        "write_csv" => Ok("csv"),
+        "write_jsonl" => Ok("jsonl"),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "public workflow output {other:?} is not executable by this facade"
+        ))),
+    }
+}
+
+fn executable_sql_required_route(command: &'static str) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.run.executable_sql_required",
+        "public workflow execution requires an executable SQL statement for this facade slice",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            format!("public workflow {command} requires executable SQL"),
+            Some(format!("public_workflow_{command}.sql_statement")),
+            Some("route metadata alone is not executable".to_string()),
+            Some(
+                "pass --sql or use the Python/DataFrame facade that renders admitted SQL"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn output_required_route(
+    command: &'static str,
+    target_name: &'static str,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.facade.output_required",
+        "public workflow facade requires an explicit output target for this operation",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            format!("public workflow {command} requires an explicit {target_name}"),
+            Some(format!("public_workflow_{command}.output")),
+            Some("no output target was provided".to_string()),
+            Some("pass --output with a caller-owned local target".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn already_native_vortex_prepare_route() -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.prepare.already_native_vortex",
+        "native Vortex input is already prepared and should use a native run route",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            "public workflow prepare received native Vortex input".to_string(),
+            Some("public_workflow_prepare.input_format".to_string()),
+            Some("input_format=vortex does not need compatibility preparation".to_string()),
+            Some("use route/run with --execution-policy native_vortex when an operator facade exists".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn run_route_not_executable_yet(plan: &PublicWorkflowRoutePlan) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.run.route_not_executable_yet",
+        "this admitted route still requires a dedicated execution wrapper before public run can execute it",
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "public workflow run route is not executable by this facade slice".to_string(),
+            Some("public_workflow_run.route_id".to_string()),
+            Some(format!(
+                "route_id={} resolved_internal_command={}",
+                plan.route_id, plan.resolved_internal_command
+            )),
+            Some(
+                "use the lower-level explicit runtime command until this wrapper is promoted"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
 fn required_value(
     args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     flag: &str,
@@ -553,8 +956,8 @@ fn normalize_input_format(value: &str) -> Result<String, ShardLoomError> {
 fn normalize_requested_output(value: &str) -> Result<String, ShardLoomError> {
     let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
     match normalized.as_str() {
-        "collect" | "write_vortex" | "write_parquet" | "write_csv" | "write_jsonl" | "explain"
-        | "route" | "evidence" | "profile" => Ok(normalized),
+        "collect" | "prepare" | "write_vortex" | "write_parquet" | "write_csv" | "write_jsonl"
+        | "explain" | "route" | "evidence" | "profile" => Ok(normalized),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route requested output: {value}"
         ))),

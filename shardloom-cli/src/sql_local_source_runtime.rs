@@ -3544,8 +3544,17 @@ struct VortexPreparedStateRefinementCliReport {
 }
 
 pub(crate) fn handle_sql_local_source_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_sql_local_source_smoke_with_facade(args, format, COMMAND, Vec::new())
+}
+
+pub(crate) fn handle_sql_local_source_smoke_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
@@ -3557,18 +3566,30 @@ pub(crate) fn handle_sql_local_source_smoke(
     let request = match parse_sql_local_source_request(statement_raw, args) {
         Ok(request) => request,
         Err(error) => {
-            return emit_error(COMMAND, format, "SQL local-source smoke failed", &error);
+            return emit_error(
+                emit_command,
+                format,
+                "SQL local-source smoke failed",
+                &error,
+            );
         }
     };
     let report = match run_sql_local_source_smoke(&request) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(COMMAND, format, "SQL local-source smoke failed", &error);
+            return emit_error(
+                emit_command,
+                format,
+                "SQL local-source smoke failed",
+                &error,
+            );
         }
     };
+    let mut fields = report.fields();
+    fields.extend(extra_fields);
 
     emit(
-        COMMAND,
+        emit_command,
         format,
         CommandStatus::Success,
         format!(
@@ -3577,7 +3598,7 @@ pub(crate) fn handle_sql_local_source_smoke(
         ),
         report.to_text(),
         Vec::new(),
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -3640,8 +3661,18 @@ fn parse_sql_local_source_request(
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_vortex_ingest_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_vortex_ingest_smoke_with_facade(args, format, VORTEX_INGEST_COMMAND, &[])
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_vortex_ingest_smoke_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: &[(String, String)],
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
@@ -3666,7 +3697,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             "--certification-level" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        VORTEX_INGEST_COMMAND,
+                        emit_command,
                         format,
                         "vortex_ingest smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -3679,7 +3710,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                         Ok(level) => level,
                         Err(error) => {
                             return emit_error(
-                                VORTEX_INGEST_COMMAND,
+                                emit_command,
                                 format,
                                 "vortex_ingest smoke failed",
                                 &error,
@@ -3690,7 +3721,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             "--delta-source" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        VORTEX_INGEST_COMMAND,
+                        emit_command,
                         format,
                         "vortex_ingest smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -3703,7 +3734,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             "--delta-target" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        VORTEX_INGEST_COMMAND,
+                        emit_command,
                         format,
                         "vortex_ingest smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -3715,7 +3746,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                     Ok(path) => delta_target_path = Some(path),
                     Err(error) => {
                         return emit_error(
-                            VORTEX_INGEST_COMMAND,
+                            emit_command,
                             format,
                             "vortex_ingest smoke failed",
                             &error,
@@ -3726,7 +3757,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             "--delta-update-mode" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        VORTEX_INGEST_COMMAND,
+                        emit_command,
                         format,
                         "vortex_ingest smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -3740,7 +3771,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                         Ok(mode) => mode,
                         Err(error) => {
                             return emit_error(
-                                VORTEX_INGEST_COMMAND,
+                                emit_command,
                                 format,
                                 "vortex_ingest smoke failed",
                                 &error,
@@ -3750,7 +3781,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             }
             extra => {
                 return emit_error(
-                    VORTEX_INGEST_COMMAND,
+                    emit_command,
                     format,
                     "vortex_ingest smoke failed",
                     &cli_unknown_arg_error(VORTEX_INGEST_COMMAND, extra),
@@ -3763,12 +3794,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
     let target_path = match normalize_local_vortex_ingest_target_path(&target_path_raw) {
         Ok(path) => path,
         Err(error) => {
-            return emit_error(
-                VORTEX_INGEST_COMMAND,
-                format,
-                "vortex_ingest smoke failed",
-                &error,
-            );
+            return emit_error(emit_command, format, "vortex_ingest smoke failed", &error);
         }
     };
     let delta = match (delta_source_path, delta_target_path) {
@@ -3780,7 +3806,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
         (None, None) => None,
         (Some(_), None) => {
             return emit_error(
-                VORTEX_INGEST_COMMAND,
+                emit_command,
                 format,
                 "vortex_ingest smoke failed",
                 &ShardLoomError::InvalidOperation(
@@ -3791,7 +3817,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
         }
         (None, Some(_)) => {
             return emit_error(
-                VORTEX_INGEST_COMMAND,
+                emit_command,
                 format,
                 "vortex_ingest smoke failed",
                 &ShardLoomError::InvalidOperation(
@@ -3811,14 +3837,14 @@ pub(crate) fn handle_vortex_ingest_smoke(
 
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         emit(
-            VORTEX_INGEST_COMMAND,
+            emit_command,
             format,
             CommandStatus::Unsupported,
             "vortex_ingest feature gate is not enabled".to_string(),
             "local vortex_ingest runtime requires shardloom-cli --features vortex-write; fallback execution remains disabled"
                 .to_string(),
             Vec::new(),
-            vortex_ingest_feature_blocked_fields(&request),
+            fields_with_extra(vortex_ingest_feature_blocked_fields(&request), extra_fields),
         );
         return ExitCode::from(1);
     }
@@ -3829,7 +3855,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
             if let Some(fields) = vortex_ingest_scout_blocked_fields(&request, &error) {
                 let blocked_source_path = vortex_ingest_scout_blocked_source_path(&request, &error);
                 emit(
-                    VORTEX_INGEST_COMMAND,
+                    emit_command,
                     format,
                     CommandStatus::Unsupported,
                     "vortex_ingest scout ingress blocked source before preparation".to_string(),
@@ -3838,16 +3864,11 @@ pub(crate) fn handle_vortex_ingest_smoke(
                         blocked_source_path.display()
                     ),
                     Vec::new(),
-                    fields,
+                    fields_with_extra(fields, extra_fields),
                 );
                 return ExitCode::from(1);
             }
-            return emit_error(
-                VORTEX_INGEST_COMMAND,
-                format,
-                "vortex_ingest smoke failed",
-                &error,
-            );
+            return emit_error(emit_command, format, "vortex_ingest smoke failed", &error);
         }
     };
 
@@ -3855,7 +3876,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
         VortexIngestOutcome::Prepared(report) => {
             let differential_blocked = report.differential_preparation_blocked();
             emit(
-                VORTEX_INGEST_COMMAND,
+                emit_command,
                 format,
                 if differential_blocked {
                     CommandStatus::Unsupported
@@ -3865,7 +3886,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                 report.summary(),
                 report.to_text(),
                 Vec::new(),
-                report.fields(),
+                fields_with_extra(report.fields(), extra_fields),
             );
             if differential_blocked {
                 ExitCode::from(1)
@@ -3875,20 +3896,20 @@ pub(crate) fn handle_vortex_ingest_smoke(
         }
         VortexIngestOutcome::Reused(report) => {
             emit(
-                VORTEX_INGEST_COMMAND,
+                emit_command,
                 format,
                 CommandStatus::Success,
                 report.summary(),
                 report.to_text(),
                 Vec::new(),
-                report.fields(),
+                fields_with_extra(report.fields(), extra_fields),
             );
             ExitCode::SUCCESS
         }
         VortexIngestOutcome::Refined(report) => {
             let differential_blocked = !report.differential_preparation.is_admitted();
             emit(
-                VORTEX_INGEST_COMMAND,
+                emit_command,
                 format,
                 if differential_blocked {
                     CommandStatus::Unsupported
@@ -3898,7 +3919,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
                 report.summary(),
                 report.to_text(),
                 Vec::new(),
-                report.fields(),
+                fields_with_extra(report.fields(), extra_fields),
             );
             if differential_blocked {
                 ExitCode::from(1)
@@ -3907,6 +3928,14 @@ pub(crate) fn handle_vortex_ingest_smoke(
             }
         }
     }
+}
+
+fn fields_with_extra(
+    mut fields: Vec<(String, String)>,
+    extra_fields: &[(String, String)],
+) -> Vec<(String, String)> {
+    fields.extend(extra_fields.iter().cloned());
+    fields
 }
 
 fn validate_sql_local_source_output_request(
