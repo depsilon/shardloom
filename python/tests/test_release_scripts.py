@@ -1243,6 +1243,20 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["exclusive_source_parse_or_decode_ms"], 16.0)
         self.assertEqual(published["vortex_scan_ms"], 1.0)
         self.assertEqual(published["operator_compute_ms"], 2.0)
+        self.assertIn(
+            "vortex_scan_ms", published["route_timing_excluded_stage_ids"]
+        )
+        self.assertIn(
+            "operator_compute_ms", published["route_timing_excluded_stage_ids"]
+        )
+        self.assertIn(
+            "vortex_scan:diagnostic_only",
+            published["route_timing_stage_inclusion_classes"],
+        )
+        self.assertIn(
+            "operator_compute:diagnostic_only",
+            published["route_timing_stage_inclusion_classes"],
+        )
         self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 125.0)
         self.assertEqual(published["route_timing_exclusive_residual_ms"], 5.0)
         self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
@@ -2498,6 +2512,40 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "benchmark artifact cannot be current while the worktree is dirty",
             blockers,
+        )
+
+    def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_lane_versions_for_test",
+        )
+
+        blockers: list[str] = []
+        report = module.validate_shardloom_lane_version_provenance(
+            {
+                "benchmark_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
+                "shardloom_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
+                "lane_versions": {
+                    "pandas": "2.2.3",
+                    "shardloom": "workspace-local-release-d94d30b0-dirty",
+                    "shardloom-vortex": "workspace-local-release-9835ae1",
+                },
+            },
+            blockers,
+            enforce_current_artifact=True,
+        )
+
+        self.assertEqual(report["checked_shardloom_lane_count"], 2)
+        self.assertEqual(report["dirty_shardloom_lanes"], ["shardloom"])
+        self.assertEqual(report["sha_mismatched_shardloom_lanes"], ["shardloom"])
+        self.assertTrue(
+            any("lane_versions['shardloom'] is dirty" in blocker for blocker in blockers)
+        )
+        self.assertTrue(
+            any(
+                "lane_versions['shardloom'] sha 'd94d30b0' does not match" in blocker
+                for blocker in blockers
+            )
         )
 
     def test_benchmark_publication_claim_gate_requires_claim_grade_capillary_rows(self) -> None:

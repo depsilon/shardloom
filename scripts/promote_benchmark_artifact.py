@@ -3189,10 +3189,11 @@ def stage_inclusion_class(
     output_included: bool,
     evidence_included: bool,
     stage_value_present: bool,
+    stage_excluded_from_route_total: bool,
 ) -> str:
     if stage_id == "cli_process_wall":
         return "excluded_harness"
-    if not stage_value_present:
+    if not stage_value_present or stage_excluded_from_route_total:
         return "diagnostic_only"
     if stage_id in PREPARATION_STAGE_IDS:
         return "included" if preparation_included else "excluded_shared_preparation"
@@ -3252,6 +3253,12 @@ def route_timing_stage_inclusion_fields_for_row(
     output_included = timing_ledger.get("output_timing_included_in_total") is True
     evidence_included = timing_ledger.get("evidence_timing_included_in_total") is True
     scope = str(timing_ledger.get("route_timing_scope") or "unknown")
+    excluded_stage_ids = set(
+        stage_id
+        for stage_id in str(timing_ledger.get("route_timing_excluded_stage_ids") or "")
+        .split(",")
+        if stage_id and stage_id != "none"
+    )
     classes: dict[str, str] = {}
     owners: dict[str, str] = {}
     scopes: dict[str, str] = {}
@@ -3276,6 +3283,9 @@ def route_timing_stage_inclusion_fields_for_row(
             output_included=output_included,
             evidence_included=evidence_included,
             stage_value_present=stage_value_present,
+            stage_excluded_from_route_total=(
+                STAGE_VALUE_FIELD_BY_ID[stage_id] in excluded_stage_ids
+            ),
         )
         classes[stage_id] = stage_class
         owners[stage_id] = STAGE_OWNER_BY_ID[stage_id]
