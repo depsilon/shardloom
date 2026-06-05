@@ -169,14 +169,18 @@ class QuickstartProofTests(unittest.TestCase):
                     if command == "benchmark-claim-evidence-plan":
                         fields.append({"key": "claim_evidence_status", "value": "needs_evidence"})
                     emit(command, fields)
-                if command in {
-                    "vortex-run",
-                    "vortex-count-where",
-                    "vortex-filter",
-                    "vortex-project",
-                    "vortex-filter-project",
-                } and args[-2:] == ["--format", "json"]:
-                    emit(command, [
+                if command == "run" and args[1:6] == ["cli", "--input", "fixture.vortex", "--input-format", "vortex"] and args[-2:] == ["--format", "json"]:
+                    primitive = args[args.index("--vortex-primitive") + 1]
+                    internal = {
+                        "count": "vortex-run",
+                        "count_where": "vortex-count-where",
+                        "filter": "vortex-filter",
+                        "project": "vortex-project",
+                        "filter_project": "vortex-filter-project",
+                    }[primitive]
+                    emit("run", [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_resolved_internal_command", "value": internal},
                         {"key": "local_primitive_native_io_certified", "value": "true"},
                         {"key": "local_primitive_native_io_fallback_attempted", "value": "false"},
                         {"key": "local_primitive_execution_certificate_correctness_passed", "value": "true"},

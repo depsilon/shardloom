@@ -23,9 +23,10 @@ Public workflow facade commands: `shardloom route <sql|python|dataframe|cli> --f
 
 Scoped public helper coverage: Python lazy DataFrame bounded `collect()`, general `write(...)`,
 `write_jsonl(...)`, `write_csv(...)`, structured write aliases, generated-source direct writes,
-source-free SQL writes, and admitted local/generated fanout helpers route through `shardloom run`
-and preserve typed report views. Native Vortex primitive helpers, future helper families, and
-smoke-command reclassification remain planned residuals.
+source-free SQL writes, admitted local/generated fanout helpers, and explicit native Vortex
+primitive collect/local-execution helpers route through `shardloom run` and preserve typed report
+views. Future helper families, any future native Vortex write-helper payloads, and smoke-command
+reclassification remain planned residuals.
 
 Help aliases: shardloom --help; shardloom -h; shardloom <command> --help
 

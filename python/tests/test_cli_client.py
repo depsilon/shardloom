@@ -6293,12 +6293,85 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.views, {})
         self.assertIsNone(capabilities.input_adapters)
 
-    def test_vortex_run_passes_explicit_runtime_command(self) -> None:
+    def test_vortex_run_uses_public_run_facade_payload(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
-                assert sys.argv[1:] == ["vortex-run", "file.vortex", "count", "8", "2", "--format", "json"], sys.argv
+                assert sys.argv[1:] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "file.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--vortex-primitive",
+                    "count",
+                    "--memory-gb",
+                    "8",
+                    "--max-parallelism",
+                    "2",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_count_all"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-run"},
+                        {"key": "public_workflow_vortex_primitive", "value": "count"},
+                        {"key": "public_workflow_memory_gb", "value": "8"},
+                        {"key": "public_workflow_max_parallelism", "value": "2"},
+                        {"key": "fallback_execution_allowed", "value": "false"},
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_run(
+            "file.vortex", "count", memory_gb=8, max_parallelism=2
+        )
+
+        self.assertEqual(result.command, "run")
+        self.assertEqual(result.field("public_workflow_route_id"), "native_vortex_count_all")
+        self.assertEqual(result.field("public_workflow_resolved_internal_command"), "vortex-run")
+        self.assertEqual(result.field("public_workflow_vortex_primitive"), "count")
+        self.assertEqual(result.field_map["fallback_execution_allowed"], "false")
+        self.assertEqual(result.field("fallback_execution_allowed"), "false")
+        self.assertTrue(result.field_bool("fallback_execution_allowed") is False)
+
+    def test_vortex_run_preserves_non_count_runtime_command(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-run",
+                    "file.vortex",
+                    "project:metric",
+                    "8",
+                    "2",
+                    "--format",
+                    "json",
+                ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "vortex-run",
@@ -6314,13 +6387,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         result = ShardLoomClient(binary=binary).vortex_run(
-            "file.vortex", "count", memory_gb=8, max_parallelism=2
+            "file.vortex", "project:metric", memory_gb=8, max_parallelism=2
         )
 
         self.assertEqual(result.command, "vortex-run")
-        self.assertEqual(result.field_map["fallback_execution_allowed"], "false")
         self.assertEqual(result.field("fallback_execution_allowed"), "false")
-        self.assertTrue(result.field_bool("fallback_execution_allowed") is False)
 
     def test_vortex_count_helper_dispatches_default_and_local_execution(self) -> None:
         binary = self.fake_cli(
@@ -6374,25 +6445,56 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json, sys
                 args = sys.argv[1:]
-                expected = {
-                    ("vortex-count-where", "file.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-count-where",
-                    ("vortex-filter", "file.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter",
-                    ("vortex-project", "file.vortex", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-project",
-                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter-project",
-                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--limit", "5", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter-project",
-                }
-                command = expected.get(tuple(args))
-                if command is None:
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "file.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
+                expected_command = {
+                    "count_where": "vortex-count-where",
+                    "filter": "vortex-filter",
+                    "project": "vortex-project",
+                    "filter_project": "vortex-filter-project",
+                }.get(primitive)
+                if expected_command is None:
                     raise AssertionError(args)
+                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--max-parallelism") + 1] == "2", args
+                if primitive in {"count_where", "filter", "filter_project"}:
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                if primitive in {"project", "filter_project"}:
+                    assert args[args.index("--vortex-columns") + 1] == "metric,value", args
+                if "--vortex-source-order-limit" in args:
+                    assert primitive == "filter_project", args
+                    assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
-                    "fields": [{"key": "local_execution", "value": "true"}],
+                    "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_resolved_internal_command", "value": expected_command},
+                        {"key": "public_workflow_vortex_primitive", "value": primitive},
+                        {"key": "local_execution", "value": "true"},
+                    ],
                 }))
                 """
             )
@@ -6438,11 +6540,31 @@ class ShardLoomClientTests(unittest.TestCase):
             max_parallelism=2,
         )
 
-        self.assertEqual(count_where.command, "vortex-count-where")
-        self.assertEqual(filtered.command, "vortex-filter")
-        self.assertEqual(projected.command, "vortex-project")
-        self.assertEqual(filter_project.command, "vortex-filter-project")
-        self.assertEqual(filter_project_limited.command, "vortex-filter-project")
+        self.assertEqual(count_where.command, "run")
+        self.assertEqual(
+            count_where.field("public_workflow_resolved_internal_command"),
+            "vortex-count-where",
+        )
+        self.assertEqual(filtered.command, "run")
+        self.assertEqual(
+            filtered.field("public_workflow_resolved_internal_command"),
+            "vortex-filter",
+        )
+        self.assertEqual(projected.command, "run")
+        self.assertEqual(
+            projected.field("public_workflow_resolved_internal_command"),
+            "vortex-project",
+        )
+        self.assertEqual(filter_project.command, "run")
+        self.assertEqual(
+            filter_project.field("public_workflow_resolved_internal_command"),
+            "vortex-filter-project",
+        )
+        self.assertEqual(filter_project_limited.command, "run")
+        self.assertEqual(
+            filter_project_limited.field("public_workflow_resolved_internal_command"),
+            "vortex-filter-project",
+        )
 
     def test_local_vortex_primitive_smoke_dispatches_certified_fixture_workflow(self) -> None:
         binary = self.fake_cli(
@@ -6450,33 +6572,61 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json, sys
                 args = sys.argv[1:]
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "file.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
                 expected = {
-                    ("vortex-run", "file.vortex", "count", "3", "4", "--format", "json"): (
+                    "count": (
                         "vortex-run",
                         [{"key": "local_primitive_rows_scanned", "value": "5"}],
                     ),
-                    ("vortex-count-where", "file.vortex", "gte:value:3", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                    "count_where": (
                         "vortex-count-where",
                         [{"key": "filtered_count_local_execution_rows_selected", "value": "3"}],
                     ),
-                    ("vortex-filter", "file.vortex", "gte:value:3", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                    "filter": (
                         "vortex-filter",
                         [{"key": "filter_local_execution_rows_selected", "value": "3"}],
                     ),
-                    ("vortex-project", "file.vortex", "metric,value", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                    "project": (
                         "vortex-project",
                         [{"key": "project_local_execution_rows_projected", "value": "5"}],
                     ),
-                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                    "filter_project": (
                         "vortex-filter-project",
                         [{"key": "filter_project_local_execution_rows_projected", "value": "3"}],
                     ),
                 }
-                matched = expected.get(tuple(args))
+                matched = expected.get(primitive)
                 if matched is None:
                     raise AssertionError(args)
                 command, command_fields = matched
+                assert args[args.index("--memory-gb") + 1] == "3", args
+                assert args[args.index("--max-parallelism") + 1] == "4", args
+                if primitive in {"count_where", "filter", "filter_project"}:
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                if primitive in {"project", "filter_project"}:
+                    assert args[args.index("--vortex-columns") + 1] == "metric,value", args
                 fields = [
+                    {"key": "public_workflow_route_attached", "value": "true"},
+                    {"key": "public_workflow_resolved_internal_command", "value": command},
+                    {"key": "public_workflow_vortex_primitive", "value": primitive},
                     {"key": "fallback_execution_allowed", "value": "false"},
                     {"key": "local_primitive_native_io_certificate_emitted", "value": "true"},
                     {"key": "local_primitive_native_io_certificate_status", "value": "certified"},
@@ -6491,7 +6641,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 fields.extend(command_fields)
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",

@@ -138,8 +138,9 @@ side-effect-free and is not a benchmark timing row. It must report `runtime_exec
 `claim_gate_status=route_inspection_only` unless a later phase intentionally changes the contract
 with new evidence. The `run` / `prepare` facades may attach the same metadata to admitted runtime
 envelopes, including admitted local/generated fanout helper envelopes with explicit primary-output
-and `--fanout-output` payload fields, but those helper envelopes still do not refresh benchmark
-timing values or performance interpretation.
+and `--fanout-output` payload fields and explicit native Vortex primitive collect/local-execution
+payload fields for primitive, predicate, projection, limit, and resource caps. These helper
+envelopes still do not refresh benchmark timing values or performance interpretation.
 
 Readiness fields also stay separate:
 

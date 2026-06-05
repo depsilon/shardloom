@@ -180,11 +180,13 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
             "side-effect-free route admission plus scoped run/prepare wrappers attach route "
             "metadata to admitted runtime envelopes; bounded local-source collect, general "
             "local-source writes, generated-source direct writes, source-free SQL writes, and "
-            "admitted local/generated fanout helpers now use the public run facade"
+            "admitted local/generated fanout helpers and explicit native Vortex primitive "
+            "collect/local-execution helpers now use the public run facade"
         ),
         "output_or_evidence_route": (
-            "typed public route and execution-facade envelopes today; native Vortex primitive "
-            "helpers, future helper families, and smoke-command reclassification remain pending"
+            "typed public route and execution-facade envelopes today; future helper families, any "
+            "future native Vortex write-helper payloads, and smoke-command reclassification remain "
+            "pending"
         ),
         "owner": "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade",
     },

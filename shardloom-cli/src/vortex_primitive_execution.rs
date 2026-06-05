@@ -5013,6 +5013,15 @@ pub(crate) fn handle_vortex_count_where(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    handle_vortex_count_where_with_facade(args, format, "vortex-count-where", Vec::new())
+}
+
+pub(crate) fn handle_vortex_count_where_with_facade(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+) -> ExitCode {
     let (uri, predicate_arg, predicate, local_execution_request) =
         match parse_vortex_count_where_args(args, format) {
             Ok(parsed) => parsed,
@@ -5030,12 +5039,7 @@ pub(crate) fn handle_vortex_count_where(
     let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
         Ok(result) => result,
         Err(error) => {
-            return emit_error(
-                "vortex-count-where",
-                format,
-                "vortex count where failed",
-                &error,
-            );
+            return emit_error(emit_command, format, "vortex count where failed", &error);
         }
     };
     let local_execution = match local_execution_request.as_ref() {
@@ -5044,7 +5048,7 @@ pub(crate) fn handle_vortex_count_where(
                 Ok(evidence) => Some(evidence),
                 Err(error) => {
                     return emit_error(
-                        "vortex-count-where",
+                        emit_command,
                         format,
                         "vortex count where local primitive execution failed",
                         &error,
@@ -5058,7 +5062,7 @@ pub(crate) fn handle_vortex_count_where(
         Ok(evidence) => evidence,
         Err(error) => {
             return emit_error(
-                "vortex-count-where",
+                emit_command,
                 format,
                 "vortex count where filter evidence failed",
                 &error,
@@ -5090,20 +5094,22 @@ pub(crate) fn handle_vortex_count_where(
             diagnostics.extend(certificate.diagnostics.clone());
         }
     }
+    let mut fields = vortex_count_where_fields(
+        &result,
+        count,
+        predicate_arg,
+        &evidence,
+        local_execution.as_ref(),
+    );
+    fields.extend(extra_fields);
     emit(
-        "vortex-count-where",
+        emit_command,
         format,
         status,
         "vortex count where primitive".to_string(),
         vortex_count_where_human_text(&result, &evidence, local_execution.as_ref()),
         diagnostics,
-        vortex_count_where_fields(
-            &result,
-            count,
-            predicate_arg,
-            &evidence,
-            local_execution.as_ref(),
-        ),
+        fields,
     );
     if command_has_errors {
         ExitCode::from(1)
@@ -5113,8 +5119,17 @@ pub(crate) fn handle_vortex_count_where(
 }
 
 pub(crate) fn handle_vortex_project(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_vortex_project_with_facade(args, format, "vortex-project", Vec::new())
+}
+
+pub(crate) fn handle_vortex_project_with_facade(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(uri_arg) = args.next() else {
         eprintln!(
@@ -5131,19 +5146,19 @@ pub(crate) fn handle_vortex_project(
     let uri = match DatasetUri::new(uri_arg) {
         Ok(uri) => uri,
         Err(error) => {
-            return emit_error("vortex-project", format, "vortex project failed", &error);
+            return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
     let projection = match parse_projection_columns(&columns_arg) {
         Ok(projection) => projection,
         Err(error) => {
-            return emit_error("vortex-project", format, "vortex project failed", &error);
+            return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
     let options = match parse_vortex_filter_project_options(&mut args) {
         Ok(options) => options,
         Err(error) => {
-            return emit_error("vortex-project", format, "vortex project failed", &error);
+            return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
     let mut request = VortexQueryPrimitiveRequest::project(uri.clone(), projection);
@@ -5159,7 +5174,7 @@ pub(crate) fn handle_vortex_project(
     let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
         Ok(result) => result,
         Err(error) => {
-            return emit_error("vortex-project", format, "vortex project failed", &error);
+            return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
     let local_execution = match options.local_execution_request.as_ref() {
@@ -5168,7 +5183,7 @@ pub(crate) fn handle_vortex_project(
                 Ok(evidence) => Some(evidence),
                 Err(error) => {
                     return emit_error(
-                        "vortex-project",
+                        emit_command,
                         format,
                         "vortex project local primitive execution failed",
                         &error,
@@ -5190,8 +5205,10 @@ pub(crate) fn handle_vortex_project(
             diagnostics.extend(certificate.diagnostics.clone());
         }
     }
+    let mut fields = vortex_project_fields(&result, columns_arg, local_execution.as_ref());
+    fields.extend(extra_fields);
     emit(
-        "vortex-project",
+        emit_command,
         format,
         if command_has_errors {
             CommandStatus::Unsupported
@@ -5201,7 +5218,7 @@ pub(crate) fn handle_vortex_project(
         "vortex project primitive".to_string(),
         vortex_project_human_text(&result, local_execution.as_ref()),
         diagnostics,
-        vortex_project_fields(&result, columns_arg, local_execution.as_ref()),
+        fields,
     );
     if command_has_errors {
         ExitCode::from(1)
@@ -5240,6 +5257,15 @@ pub(crate) fn handle_vortex_filter_project(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    handle_vortex_filter_project_with_facade(args, format, "vortex-filter-project", Vec::new())
+}
+
+pub(crate) fn handle_vortex_filter_project_with_facade(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+) -> ExitCode {
     let parsed = match parse_vortex_filter_project_args(args, format) {
         Ok(parsed) => parsed,
         Err(code) => return code,
@@ -5267,18 +5293,14 @@ pub(crate) fn handle_vortex_filter_project(
     let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
         Ok(result) => result,
         Err(error) => {
-            return emit_error(
-                "vortex-filter-project",
-                format,
-                "vortex filter project failed",
-                &error,
-            );
+            return emit_error(emit_command, format, "vortex filter project failed", &error);
         }
     };
     let local_execution = match vortex_filter_project_local_execution(
         &request,
         local_execution_request.as_ref(),
         format,
+        emit_command,
     ) {
         Ok(local_execution) => local_execution,
         Err(code) => return code,
@@ -5295,8 +5317,15 @@ pub(crate) fn handle_vortex_filter_project(
             diagnostics.extend(certificate.diagnostics.clone());
         }
     }
+    let mut fields = vortex_filter_project_fields(
+        &result,
+        predicate_arg,
+        columns_arg,
+        local_execution.as_ref(),
+    );
+    fields.extend(extra_fields);
     emit(
-        "vortex-filter-project",
+        emit_command,
         format,
         if command_has_errors {
             CommandStatus::Unsupported
@@ -5306,12 +5335,7 @@ pub(crate) fn handle_vortex_filter_project(
         "vortex filter project primitive".to_string(),
         vortex_filter_project_human_text(&result, local_execution.as_ref()),
         diagnostics,
-        vortex_filter_project_fields(
-            &result,
-            predicate_arg,
-            columns_arg,
-            local_execution.as_ref(),
-        ),
+        fields,
     );
     if command_has_errors {
         ExitCode::from(1)
@@ -5323,6 +5347,15 @@ pub(crate) fn handle_vortex_filter_project(
 pub(crate) fn handle_vortex_filter(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+) -> ExitCode {
+    handle_vortex_filter_with_facade(args, format, "vortex-filter", Vec::new())
+}
+
+pub(crate) fn handle_vortex_filter_with_facade(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let parsed = match parse_vortex_filter_args(args, format) {
         Ok(parsed) => parsed,
@@ -5348,14 +5381,18 @@ pub(crate) fn handle_vortex_filter(
     let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
         Ok(result) => result,
         Err(error) => {
-            return emit_error("vortex-filter", format, "vortex filter failed", &error);
+            return emit_error(emit_command, format, "vortex filter failed", &error);
         }
     };
-    let local_execution =
-        match vortex_filter_local_execution(&request, local_execution_request.as_ref(), format) {
-            Ok(local_execution) => local_execution,
-            Err(code) => return code,
-        };
+    let local_execution = match vortex_filter_local_execution(
+        &request,
+        local_execution_request.as_ref(),
+        format,
+        emit_command,
+    ) {
+        Ok(local_execution) => local_execution,
+        Err(code) => return code,
+    };
     let command_has_errors = local_execution.as_ref().map_or_else(
         || result.has_errors(),
         VortexLocalPrimitiveCliExecutionEvidence::has_errors,
@@ -5368,8 +5405,10 @@ pub(crate) fn handle_vortex_filter(
             diagnostics.extend(certificate.diagnostics.clone());
         }
     }
+    let mut fields = vortex_filter_fields(&result, predicate_arg, local_execution.as_ref());
+    fields.extend(extra_fields);
     emit(
-        "vortex-filter",
+        emit_command,
         format,
         if command_has_errors {
             CommandStatus::Unsupported
@@ -5379,7 +5418,7 @@ pub(crate) fn handle_vortex_filter(
         "vortex filter primitive".to_string(),
         vortex_filter_human_text(&result, local_execution.as_ref()),
         diagnostics,
-        vortex_filter_fields(&result, predicate_arg, local_execution.as_ref()),
+        fields,
     );
     if command_has_errors {
         ExitCode::from(1)
@@ -5554,6 +5593,15 @@ pub(crate) fn handle_vortex_run(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    handle_vortex_run_with_facade(args, format, "vortex-run", Vec::new())
+}
+
+pub(crate) fn handle_vortex_run_with_facade(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+) -> ExitCode {
     let parsed = match parse_vortex_run_args(args, format) {
         Ok(parsed) => parsed,
         Err(code) => return code,
@@ -5566,7 +5614,7 @@ pub(crate) fn handle_vortex_run(
     } = parsed;
     let report = match run_vortex_local_engine(request) {
         Ok(v) => v,
-        Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
+        Err(error) => return emit_error(emit_command, format, "vortex run failed", &error),
     };
     let runtime_work_avoided = report.runtime_work_avoided_report();
     let mut why_report = report.why_report();
@@ -5578,7 +5626,7 @@ pub(crate) fn handle_vortex_run(
         &mut why_report,
         certificates.execution.as_ref(),
     );
-    let fields = vortex_run_fields(
+    let mut fields = vortex_run_fields(
         &report,
         &VortexRunFieldContext {
             primitive_arg: &primitive_arg,
@@ -5589,8 +5637,9 @@ pub(crate) fn handle_vortex_run(
             why_report: &why_report,
         },
     );
+    fields.extend(extra_fields);
     emit(
-        "vortex-run",
+        emit_command,
         format,
         if report.has_errors() {
             CommandStatus::Unsupported
@@ -6201,6 +6250,7 @@ fn vortex_filter_project_local_execution(
     request: &VortexQueryPrimitiveRequest,
     local_execution_request: Option<&VortexLocalPrimitiveCliExecutionRequest>,
     format: OutputFormat,
+    emit_command: &'static str,
 ) -> std::result::Result<Option<VortexLocalPrimitiveCliExecutionEvidence>, ExitCode> {
     let Some(local_request) = local_execution_request else {
         return Ok(None);
@@ -6209,7 +6259,7 @@ fn vortex_filter_project_local_execution(
         .map(Some)
         .map_err(|error| {
             emit_error(
-                "vortex-filter-project",
+                emit_command,
                 format,
                 "vortex filter project local primitive execution failed",
                 &error,
@@ -6338,6 +6388,7 @@ fn vortex_filter_local_execution(
     request: &VortexQueryPrimitiveRequest,
     local_execution_request: Option<&VortexLocalPrimitiveCliExecutionRequest>,
     format: OutputFormat,
+    emit_command: &'static str,
 ) -> std::result::Result<Option<VortexLocalPrimitiveCliExecutionEvidence>, ExitCode> {
     let Some(local_request) = local_execution_request else {
         return Ok(None);
@@ -6346,7 +6397,7 @@ fn vortex_filter_local_execution(
         .map(Some)
         .map_err(|error| {
             emit_error(
-                "vortex-filter",
+                emit_command,
                 format,
                 "vortex filter local primitive execution failed",
                 &error,

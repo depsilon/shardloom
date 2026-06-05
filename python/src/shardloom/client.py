@@ -5339,7 +5339,10 @@ class LocalVortexPrimitiveSmokeReport:
     def commands(self) -> tuple[str, ...]:
         """Return the local primitive commands executed by the smoke workflow."""
 
-        return tuple(envelope.command for envelope in self.envelopes)
+        return tuple(
+            envelope.field("public_workflow_resolved_internal_command") or envelope.command
+            for envelope in self.envelopes
+        )
 
     @property
     def fallback_attempted(self) -> bool:
@@ -5365,7 +5368,7 @@ class LocalVortexPrimitiveSmokeReport:
         """Return commands that did not emit both Native I/O and correctness certification."""
 
         return tuple(
-            envelope.command
+            envelope.field("public_workflow_resolved_internal_command") or envelope.command
             for envelope in self.envelopes
             if not _all_bool_fields(envelope, LOCAL_VORTEX_CERTIFIED_FIELDS)
         )
@@ -6432,6 +6435,27 @@ class PublicWorkflowRoute:
         return () if value in {None, "", "none"} else tuple(value.split(";"))
 
     @property
+    def vortex_primitive(self) -> str | None:
+        """Return the declared native Vortex primitive payload, if present."""
+
+        value = self.envelope.field("vortex_primitive")
+        return None if value in {None, "", "none"} else value
+
+    @property
+    def vortex_predicate(self) -> str | None:
+        """Return the declared native Vortex predicate payload, if present."""
+
+        value = self.envelope.field("vortex_predicate")
+        return None if value in {None, "", "none"} else value
+
+    @property
+    def vortex_columns(self) -> tuple[str, ...]:
+        """Return declared native Vortex projection columns."""
+
+        value = self.envelope.field("vortex_columns")
+        return () if value in {None, "", "none"} else _csv_values(value)
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the route inspection attempted fallback execution."""
 
@@ -6474,6 +6498,9 @@ class PublicWorkflowRoute:
             "query_timing_starts_after_preparation": self.query_timing_starts_after_preparation,
             "fanout_output_count": self.fanout_output_count,
             "fanout_outputs": self.fanout_outputs,
+            "vortex_primitive": self.vortex_primitive,
+            "vortex_predicate": self.vortex_predicate,
+            "vortex_columns": self.vortex_columns,
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "blocker_id": self.blocker_id,
@@ -6564,6 +6591,27 @@ class PublicWorkflowExecution:
         return () if value in {None, "", "none"} else tuple(value.split(";"))
 
     @property
+    def vortex_primitive(self) -> str | None:
+        """Return the declared public native Vortex primitive payload."""
+
+        value = self.envelope.field("public_workflow_vortex_primitive")
+        return None if value in {None, "", "none"} else value
+
+    @property
+    def vortex_predicate(self) -> str | None:
+        """Return the declared public native Vortex predicate payload."""
+
+        value = self.envelope.field("public_workflow_vortex_predicate")
+        return None if value in {None, "", "none"} else value
+
+    @property
+    def vortex_columns(self) -> tuple[str, ...]:
+        """Return declared public native Vortex projection columns."""
+
+        value = self.envelope.field("public_workflow_vortex_columns")
+        return () if value in {None, "", "none"} else _csv_values(value)
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether fallback execution was attempted."""
 
@@ -6618,6 +6666,9 @@ class PublicWorkflowExecution:
             "preparation_included": self.preparation_included,
             "fanout_output_count": self.fanout_output_count,
             "fanout_outputs": self.fanout_outputs,
+            "vortex_primitive": self.vortex_primitive,
+            "vortex_predicate": self.vortex_predicate,
+            "vortex_columns": self.vortex_columns,
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "public_workflow_fallback_attempted": self.public_workflow_fallback_attempted,
@@ -10032,6 +10083,12 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        vortex_primitive: str | None = None,
+        vortex_predicate: str | None = None,
+        vortex_columns: str | Sequence[str] | None = None,
+        vortex_source_order_limit: int | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
@@ -10069,6 +10126,15 @@ class ShardLoomClient:
             args.extend(["--generated-range-step", str(generated_range_step)])
         if generated_range_column is not None:
             args.extend(["--generated-range-column", generated_range_column])
+        _append_public_vortex_payload_args(
+            args,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
         return PublicWorkflowRoute(self.run(args, check=check))
 
     def public_workflow_run(
@@ -10094,6 +10160,12 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        vortex_primitive: str | None = None,
+        vortex_predicate: str | None = None,
+        vortex_columns: str | Sequence[str] | None = None,
+        vortex_source_order_limit: int | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
@@ -10120,6 +10192,12 @@ class ShardLoomClient:
             generated_range_step=generated_range_step,
             generated_range_column=generated_range_column,
             fanout_outputs=fanout_outputs,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -10175,6 +10253,12 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        vortex_primitive: str | None = None,
+        vortex_predicate: str | None = None,
+        vortex_columns: str | Sequence[str] | None = None,
+        vortex_source_order_limit: int | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
     ) -> list[CommandPart]:
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -10211,6 +10295,15 @@ class ShardLoomClient:
             args.extend(["--generated-range-step", str(generated_range_step)])
         if generated_range_column is not None:
             args.extend(["--generated-range-column", generated_range_column])
+        _append_public_vortex_payload_args(
+            args,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
         return args
 
     def engine_selection_plan(
@@ -10540,6 +10633,21 @@ class ShardLoomClient:
     ) -> OutputEnvelope:
         """Run the explicit `vortex-run` CLI command and parse its envelope."""
 
+        if primitive.strip().lower() in {"count", "count_all"}:
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive=primitive,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
         return self.run(
             [
                 "vortex-run",
@@ -10584,6 +10692,26 @@ class ShardLoomClient:
     ) -> OutputEnvelope:
         """Run `vortex-count-where` with optional explicit local execution."""
 
+        if execute_local_primitive:
+            if memory_gb is None or max_parallelism is None:
+                raise ValueError(
+                    "--execute-local-primitive requires both memory_gb and max_parallelism"
+                )
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="count_where",
+                vortex_predicate=predicate,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
         args = ["vortex-count-where", str(dataset_uri), predicate]
         _append_resource_execution_args(
             args,
@@ -10607,6 +10735,27 @@ class ShardLoomClient:
     ) -> OutputEnvelope:
         """Run `vortex-filter` with optional explicit local execution."""
 
+        if execute_local_primitive:
+            if memory_gb is None or max_parallelism is None:
+                raise ValueError(
+                    "--execute-local-primitive requires both memory_gb and max_parallelism"
+                )
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="filter",
+                vortex_predicate=predicate,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
         args = ["vortex-filter", str(dataset_uri), predicate]
         if source_order_limit is not None:
             args.extend(
@@ -10637,6 +10786,27 @@ class ShardLoomClient:
     ) -> OutputEnvelope:
         """Run `vortex-project` with optional explicit local execution."""
 
+        if execute_local_primitive:
+            if memory_gb is None or max_parallelism is None:
+                raise ValueError(
+                    "--execute-local-primitive requires both memory_gb and max_parallelism"
+                )
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="project",
+                vortex_columns=columns,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
         args = ["vortex-project", str(dataset_uri), _columns_arg(columns)]
         if source_order_limit is not None:
             args.extend(
@@ -10668,6 +10838,28 @@ class ShardLoomClient:
     ) -> OutputEnvelope:
         """Run `vortex-filter-project` with optional explicit local execution."""
 
+        if execute_local_primitive:
+            if memory_gb is None or max_parallelism is None:
+                raise ValueError(
+                    "--execute-local-primitive requires both memory_gb and max_parallelism"
+                )
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="filter_project",
+                vortex_predicate=predicate,
+                vortex_columns=columns,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
         args = [
             "vortex-filter-project",
             str(dataset_uri),
@@ -12318,6 +12510,37 @@ def _append_resource_execution_args(
     if memory_gb is not None or max_parallelism is not None:
         raise ValueError(
             "memory_gb and max_parallelism require explicit local execution"
+        )
+
+
+def _append_public_vortex_payload_args(
+    args: list[CommandPart],
+    *,
+    vortex_primitive: str | None,
+    vortex_predicate: str | None,
+    vortex_columns: str | Sequence[str] | None,
+    vortex_source_order_limit: int | None,
+    memory_gb: int | None,
+    max_parallelism: int | None,
+) -> None:
+    if vortex_primitive is not None:
+        args.extend(["--vortex-primitive", vortex_primitive])
+    if vortex_predicate is not None:
+        args.extend(["--vortex-predicate", vortex_predicate])
+    if vortex_columns is not None:
+        args.extend(["--vortex-columns", _columns_arg(vortex_columns)])
+    if vortex_source_order_limit is not None:
+        args.extend(
+            [
+                "--vortex-source-order-limit",
+                str(_positive_int("vortex_source_order_limit", vortex_source_order_limit)),
+            ]
+        )
+    if memory_gb is not None:
+        args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
+    if max_parallelism is not None:
+        args.extend(
+            ["--max-parallelism", str(_positive_int("max_parallelism", max_parallelism))]
         )
 
 

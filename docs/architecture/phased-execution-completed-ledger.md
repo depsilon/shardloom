@@ -16,6 +16,97 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow native Vortex primitive facade payload
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-native-vortex-facade` / PR #1115.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `docs/benchmarks/local-taxonomy-benchmark.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/src/shardloom/query.py`.
+    - `python/tests/test_cli_client.py`.
+    - `python/tests/test_query_builder.py`.
+    - `python/tests/test_quickstart_proof.py`.
+    - `shardloom-cli/src/public_workflow_route.rs`.
+    - `shardloom-cli/src/vortex_primitive_execution.rs`.
+    - `shardloom-cli/tests/public_workflow_route.rs`.
+    - `website-src` status content.
+  - Scope:
+    - Added public workflow native Vortex payload fields for primitive, tiny predicate,
+      projection columns, source-order limit, memory cap, and max parallelism.
+    - Routed admitted native Vortex primitive `count`, `count_where`, `filter`, `project`, and
+      `filter_project` collect/local-execution helpers through `shardloom run` with route metadata
+      attached to the lower Vortex primitive execution envelope.
+    - Preserved lower `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and
+      `vortex-filter-project` commands for direct diagnostics, tests, and benchmark evidence while
+      Python helper wrappers use the public facade for explicit local primitive execution.
+    - Kept future helper families, any future native Vortex write-helper payloads, command
+      reclassification, and benchmark timing refresh as explicit residuals in the phase plan.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py
+      python/tests/test_cli_client.py python/tests/test_quickstart_proof.py
+      python/tests/test_query_builder.py` passed.
+    - `python3 -m unittest
+      python.tests.test_cli_client.ShardLoomClientTests.test_vortex_run_uses_public_run_facade_payload
+      python.tests.test_cli_client.ShardLoomClientTests.test_vortex_run_preserves_non_count_runtime_command
+      python.tests.test_cli_client.ShardLoomClientTests.test_local_vortex_primitive_helpers_dispatch_cli_commands
+      python.tests.test_cli_client.ShardLoomClientTests.test_local_vortex_primitive_smoke_dispatches_certified_fixture_workflow
+      python.tests.test_quickstart_proof.QuickstartProofTests.test_quickstart_proof_collects_planning_and_optional_execution
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_collect_uses_local_filter_project_primitive
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sql_vortex_collect_uses_local_filter_project_primitive
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_count_and_single_primitives_use_local_runtime
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sql_vortex_count_project_and_filter_primitives_use_local_runtime
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_session_vortex_terminals_use_local_primitive_runtime
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_session_sql_vortex_collect_passes_resource_args
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_filter_limit_uses_local_primitive_runtime
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sql_vortex_project_and_star_limits_use_local_primitive_runtime
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_python_and_session_vortex_star_and_filter_project_limits_use_local_runtime`
+      passed with 14 tests.
+    - `cargo test -p shardloom-cli --test public_workflow_route` passed with 14 tests.
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --test
+      public_workflow_route
+      public_run_executes_native_vortex_filter_project_payload_with_attached_route_envelope`
+      passed with the fixture-backed native Vortex primitive runtime test.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output
+      target/sql-python-dataframe-parity-gate.json`,
+      `python3 scripts/check_user_surface_graduation_matrix.py --output
+      target/user-surface-graduation-matrix.json`,
+      `python3 scripts/check_user_route_capability_report.py --output
+      target/user-route-capability-report.json`, and
+      `python3 scripts/check_user_surface_runtime_gap_inventory.py --output
+      target/user-surface-runtime-gap-inventory.json` passed.
+    - `python3 -m unittest python.tests.test_query_builder python.tests.test_cli_client
+      python.tests.test_quickstart_proof python.tests.test_user_surface_graduation_matrix
+      python.tests.test_user_route_capability_report python.tests.test_sql_python_dataframe_parity`
+      passed with 361 tests.
+    - Website freshness checks passed where dependencies were available:
+      `node scripts/sync-content.mjs`,
+      `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      node_modules/.bin/astro build`,
+      `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      scripts/postbuild-static.mjs`, and
+      `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      validate_static_assets.js`.
+    - `astro check` could not run locally because `@astrojs/check` and `typescript` are not
+      installed in `website-src/node_modules`, and no `npm`/`pnpm`/`yarn` binary is available in
+      this environment.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is public facade/evidence routing over existing
+      scoped Vortex primitive execution paths; it does not change benchmark timing methodology or
+      make a new performance claim.
+  - Claim boundary:
+    - This slice claims only scoped public facade routing for explicit native Vortex primitive
+      collect/local-execution payloads. It does not claim broad Vortex SQL/DataFrame runtime,
+      write-helper completion, production readiness, performance superiority, or Spark replacement.
+  - Fallback boundary:
+    - The facade preserves public and lower primitive no-fallback evidence; no pandas, Polars,
+      DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend
+      execution is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow fanout facade payload
   - Date: 2026-06-05
   - Branch/PR: `codex/public-workflow-fanout-facade` / PR #1114.

@@ -323,8 +323,11 @@ Each item below uses the same sub-checklist shape:
     - [x] Multi-output fanout helpers for admitted local-source, generated-source, generated-range,
       and source-free SQL routes now pass an explicit primary output plus `--fanout-output` payload
       through the shared public `run` facade while preserving typed report views.
-    - [ ] Remaining: route native Vortex primitive collect/write helpers and future execution
-      helpers through the shared planner/evidence envelope where the facade has a matching payload
+    - [x] Native Vortex primitive collect/local-execution helpers now route through the shared
+      public `run` facade when an explicit primitive/predicate/projection/limit/resource payload is
+      present.
+    - [ ] Remaining: route future execution helper families and any future native Vortex write
+      helpers through the shared planner/evidence envelope once each has a matching payload
       contract, so public runtime helpers do not bypass visible admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
@@ -357,8 +360,11 @@ Each item below uses the same sub-checklist shape:
       rather than only exposing route inspection.
     - [x] Route admitted local-source and generated-source multi-output fanout helpers through the
       shared planner/evidence envelope with an explicit primary-output plus fanout payload contract.
-    - [ ] Route native Vortex primitive collect/write helpers and future execution wrappers through
-      the shared planner/evidence envelope once each has an explicit facade payload contract.
+    - [x] Route native Vortex primitive collect/local-execution helpers through the shared
+      planner/evidence envelope with explicit primitive, predicate, projection, source-order limit,
+      and resource payload fields.
+    - [ ] Route future execution wrappers and any future native Vortex write helpers through the
+      shared planner/evidence envelope once each has an explicit facade payload contract.
     - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
       bounded/materialized path is present.
     - [x] Keep unbounded `collect()` blocked in the public `run` facade and keep
@@ -371,9 +377,11 @@ Each item below uses the same sub-checklist shape:
       rerouting slice.
     - [x] Update route/status docs, runtime-gap inventory, Python docs, tests, and website/static
       pages for broad bounded collect/general write/generated-output helper rerouting.
+    - [x] Update public route/status docs and website/static pages for native Vortex primitive
+      collect/local-execution helper routing.
     - [ ] Update `front_door_parity_matrix`, DataFrame method matrix, release readiness/status
-      matrices, and website/static pages again when native Vortex primitive helpers or future helper
-      families are promoted.
+      matrices, and website/static pages again when future helper families are promoted or native
+      Vortex write helper payloads are introduced.
   - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
     DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
   - Implementation scope: `shardloom-cli/src/command_registry.rs`,

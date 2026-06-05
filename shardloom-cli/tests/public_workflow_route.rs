@@ -1,5 +1,18 @@
 use std::process::Command;
 
+#[cfg(feature = "vortex-local-primitives")]
+fn local_primitive_struct_fixture() -> String {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .join("shardloom-vortex")
+        .join("tests")
+        .join("fixtures")
+        .join("local_primitive_struct_five.vortex")
+        .display()
+        .to_string()
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("\"key\":\"{key}\",\"value\":\"{value}\"")
 }
@@ -452,6 +465,169 @@ fn public_run_executes_generated_sequence_with_attached_route_envelope() {
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_admits_native_vortex_filter_project_payload() {
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--materialization-policy",
+        "zero_decode",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "filter_project",
+        "--vortex-predicate",
+        "gte:value:3",
+        "--vortex-columns",
+        "metric,value",
+        "--vortex-source-order-limit",
+        "2",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("route_id", "native_vortex_filter_project")));
+    assert!(stdout.contains(&field("resolved_internal_command", "vortex-filter-project")));
+    assert!(stdout.contains(&field("start_state", "native_vortex_file")));
+    assert!(stdout.contains(&field("execution_mode", "native_vortex")));
+    assert!(stdout.contains(&field("vortex_primitive", "filter_project")));
+    assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
+    assert!(stdout.contains(&field("vortex_columns", "metric,value")));
+    assert!(stdout.contains(&field("vortex_source_order_limit", "2")));
+    assert!(stdout.contains(&field("memory_gb", "1")));
+    assert!(stdout.contains(&field("max_parallelism", "2")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_native_vortex_missing_required_payload() {
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "count_where",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field(
+        "blocker_id",
+        "cg21.route.native_vortex_payload_invalid"
+    )));
+    assert!(stdout.contains(&field("vortex_primitive", "count_where")));
+    assert!(stdout.contains("\"feature\":\"public_workflow_route.vortex_predicate\""));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_executes_native_vortex_filter_project_payload_with_attached_route_envelope() {
+    let fixture = local_primitive_struct_fixture();
+    let stdout = run_route(&[
+        "run",
+        "cli",
+        "--input",
+        fixture.as_str(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--materialization-policy",
+        "zero_decode",
+        "--evidence-level",
+        "runtime_smoke",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "filter_project",
+        "--vortex-predicate",
+        "gte:value:3",
+        "--vortex-columns",
+        "metric",
+        "--vortex-source-order-limit",
+        "2",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "native_vortex_filter_project"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "vortex-filter-project"
+    )));
+    assert!(stdout.contains(&field("public_workflow_vortex_primitive", "filter_project")));
+    assert!(stdout.contains(&field("public_workflow_vortex_predicate", "gte:value:3")));
+    assert!(stdout.contains(&field("public_workflow_vortex_columns", "metric")));
+    assert!(stdout.contains(&field("public_workflow_vortex_source_order_limit", "2")));
+    assert!(stdout.contains(&field("mode", "vortex_filter_project")));
+    assert!(stdout.contains(&field("primitive", "filter_and_project")));
+    assert!(stdout.contains(&field(
+        "filter_project_local_execution_projected_columns",
+        "metric"
+    )));
+    assert!(stdout.contains(&field(
+        "filter_project_local_execution_source_order_limit_requested",
+        "2"
+    )));
+    assert!(stdout.contains(&field(
+        "filter_project_local_execution_source_order_limit_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+    assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+    assert!(stdout.contains(&field(
+        "filter_project_local_execution_fallback_attempted",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_execution_certificate_fallback_attempted",
+        "false"
+    )));
 }
 
 #[test]
