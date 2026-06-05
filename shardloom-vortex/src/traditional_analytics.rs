@@ -88,6 +88,8 @@ const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
 const PREPARED_STATE_INDEX_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_index.v1";
+const PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_delta_overlay.v1";
 const PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_dependency.v1";
 const PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION: &str =
@@ -128,6 +130,9 @@ const PREPARED_STATE_REUSE_MANIFEST_DIR: &str = ".shardloom";
 const PREPARED_STATE_REUSE_MANIFEST_FILE: &str = "prepared-vortex-reuse-manifest.json";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const PREPARED_STATE_INDEX_FILE: &str = "prepared-state-index.json";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const PREPARED_STATE_DELTA_OVERLAY_MANIFEST_FILE: &str =
+    "prepared-state-delta-overlay-manifest.json";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
@@ -1048,6 +1053,7 @@ pub struct TraditionalAnalyticsVortexRequest {
     pub fact_vortex: PathBuf,
     pub dim_vortex: PathBuf,
     pub cdc_delta_vortex: Option<PathBuf>,
+    pub fact_delta_overlay_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
     pub result_workspace_dir: Option<PathBuf>,
@@ -1066,6 +1072,7 @@ impl TraditionalAnalyticsVortexRequest {
             fact_vortex,
             dim_vortex,
             cdc_delta_vortex: None,
+            fact_delta_overlay_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
             resource_policy: TraditionalAnalyticsResourcePolicy::default(),
             result_workspace_dir: None,
@@ -1092,6 +1099,12 @@ impl TraditionalAnalyticsVortexRequest {
     }
 
     #[must_use]
+    pub fn with_fact_delta_overlay_vortex(mut self, value: Option<PathBuf>) -> Self {
+        self.fact_delta_overlay_vortex = value;
+        self
+    }
+
+    #[must_use]
     pub fn with_result_workspace_dir(mut self, value: Option<PathBuf>) -> Self {
         self.result_workspace_dir = value;
         self
@@ -1112,6 +1125,7 @@ pub struct TraditionalAnalyticsVortexBatchRequest {
     pub fact_vortex: PathBuf,
     pub dim_vortex: PathBuf,
     pub cdc_delta_vortex: Option<PathBuf>,
+    pub fact_delta_overlay_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
     pub requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
@@ -1132,6 +1146,7 @@ impl TraditionalAnalyticsVortexBatchRequest {
             fact_vortex,
             dim_vortex,
             cdc_delta_vortex: None,
+            fact_delta_overlay_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
             requested_evidence_level: None,
             requested_evidence_tier: None,
@@ -1168,6 +1183,12 @@ impl TraditionalAnalyticsVortexBatchRequest {
     #[must_use]
     pub fn with_cdc_delta_vortex(mut self, value: Option<PathBuf>) -> Self {
         self.cdc_delta_vortex = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_fact_delta_overlay_vortex(mut self, value: Option<PathBuf>) -> Self {
+        self.fact_delta_overlay_vortex = value;
         self
     }
 
@@ -1288,9 +1309,11 @@ fn apply_traditional_batch_evidence_request(
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TraditionalVortexSourceSnapshot {
     fact_vortex_bytes: u64,
+    fact_delta_overlay_vortex_bytes: u64,
     dim_vortex_bytes: u64,
     cdc_delta_vortex_bytes: u64,
     fact_vortex_digest: String,
+    fact_delta_overlay_vortex_digest: Option<String>,
     dim_vortex_digest: String,
     cdc_delta_vortex_digest: Option<String>,
     source_bytes_read: u64,
@@ -1302,18 +1325,26 @@ impl TraditionalVortexSourceSnapshot {
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
     ) -> Result<Self> {
         let fact_vortex_bytes = file_len(fact_vortex, "fact Vortex file")?;
+        let fact_delta_overlay_vortex_bytes = fact_delta_overlay_vortex.map_or(Ok(0), |path| {
+            file_len(path, "fact append-only delta overlay Vortex file")
+        })?;
         let dim_vortex_bytes = file_len(dim_vortex, "dimension Vortex file")?;
         let cdc_delta_vortex_bytes =
             cdc_delta_vortex.map_or(Ok(0), |path| file_len(path, "CDC delta Vortex file"))?;
         let fact_vortex_digest = file_digest(fact_vortex, "fact Vortex file")?;
+        let fact_delta_overlay_vortex_digest = fact_delta_overlay_vortex
+            .map(|path| file_digest(path, "fact append-only delta overlay Vortex file"))
+            .transpose()?;
         let dim_vortex_digest = file_digest(dim_vortex, "dimension Vortex file")?;
         let cdc_delta_vortex_digest = cdc_delta_vortex
             .map(|path| file_digest(path, "CDC delta Vortex file"))
             .transpose()?;
         let source_bytes_read = fact_vortex_bytes
-            .checked_add(dim_vortex_bytes)
+            .checked_add(fact_delta_overlay_vortex_bytes)
+            .and_then(|bytes| bytes.checked_add(dim_vortex_bytes))
             .and_then(|bytes| bytes.checked_add(cdc_delta_vortex_bytes))
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -1323,9 +1354,11 @@ impl TraditionalVortexSourceSnapshot {
 
         Ok(Self {
             fact_vortex_bytes,
+            fact_delta_overlay_vortex_bytes,
             dim_vortex_bytes,
             cdc_delta_vortex_bytes,
             fact_vortex_digest,
+            fact_delta_overlay_vortex_digest,
             dim_vortex_digest,
             cdc_delta_vortex_digest,
             source_bytes_read,
@@ -1829,6 +1862,7 @@ impl<T> TraditionalLazySourceStateFamily<T> {
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalVortexBatchSourceState {
     fact_vortex_path: PathBuf,
+    fact_delta_overlay_vortex_path: Option<PathBuf>,
     dim_vortex_path: PathBuf,
     source_snapshot: TraditionalVortexSourceSnapshot,
     dim_rows: u64,
@@ -2022,12 +2056,17 @@ impl TraditionalVortexBatchSourceState {
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
         scenarios: &[TraditionalAnalyticsScenario],
     ) -> Result<Self> {
         let open_start = std::time::Instant::now();
         let metadata_snapshot_start = std::time::Instant::now();
-        let source_snapshot =
-            TraditionalVortexSourceSnapshot::from_paths(fact_vortex, dim_vortex, cdc_delta_vortex)?;
+        let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+            fact_vortex,
+            dim_vortex,
+            cdc_delta_vortex,
+            fact_delta_overlay_vortex,
+        )?;
         let metadata_snapshot_micros = duration_to_micros(metadata_snapshot_start.elapsed());
         let dimension_label_state_consumer_count = scenarios
             .iter()
@@ -2072,6 +2111,7 @@ impl TraditionalVortexBatchSourceState {
         let total_open_micros = duration_to_micros(open_start.elapsed());
         Ok(Self {
             fact_vortex_path: fact_vortex.to_path_buf(),
+            fact_delta_overlay_vortex_path: fact_delta_overlay_vortex.map(PathBuf::from),
             dim_vortex_path: dim_vortex.to_path_buf(),
             source_snapshot,
             dim_rows,
@@ -2351,6 +2391,13 @@ impl TraditionalVortexBatchSourceState {
 
     fn update_source_snapshot_digest(&self, digest: &mut Fnv1a64) {
         digest.update(self.source_snapshot.fact_vortex_digest.as_bytes());
+        if let Some(fact_delta_overlay_digest) = self
+            .source_snapshot
+            .fact_delta_overlay_vortex_digest
+            .as_deref()
+        {
+            digest.update(fact_delta_overlay_digest.as_bytes());
+        }
         digest.update(self.source_snapshot.dim_vortex_digest.as_bytes());
         if let Some(cdc_delta_digest) = self.source_snapshot.cdc_delta_vortex_digest.as_deref() {
             digest.update(cdc_delta_digest.as_bytes());
@@ -2358,6 +2405,12 @@ impl TraditionalVortexBatchSourceState {
         digest.update(
             self.source_snapshot
                 .fact_vortex_bytes
+                .to_string()
+                .as_bytes(),
+        );
+        digest.update(
+            self.source_snapshot
+                .fact_delta_overlay_vortex_bytes
                 .to_string()
                 .as_bytes(),
         );
@@ -2684,6 +2737,7 @@ impl TraditionalPreparedNativeSession {
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
         scenarios: &[TraditionalAnalyticsScenario],
         requested_execution_mode: ShardLoomExecutionMode,
     ) -> Result<Self> {
@@ -2691,6 +2745,7 @@ impl TraditionalPreparedNativeSession {
             fact_vortex,
             dim_vortex,
             cdc_delta_vortex,
+            fact_delta_overlay_vortex,
             scenarios,
         )?;
         let session_id = traditional_prepared_native_session_id(
@@ -2702,7 +2757,9 @@ impl TraditionalPreparedNativeSession {
             session_id,
             source_state,
             scenario_count: scenarios.len(),
-            prepared_artifact_registry_entry_count: 2 + usize::from(cdc_delta_vortex.is_some()),
+            prepared_artifact_registry_entry_count: 2
+                + usize::from(cdc_delta_vortex.is_some())
+                + usize::from(fact_delta_overlay_vortex.is_some()),
             requested_execution_mode,
         })
     }
@@ -2754,6 +2811,11 @@ fn traditional_prepared_native_session_id(
     digest.update(b"prepared_native_session");
     digest.update(requested_execution_mode.as_str().as_bytes());
     digest.update(source_snapshot.fact_vortex_digest.as_bytes());
+    if let Some(fact_delta_overlay_digest) =
+        source_snapshot.fact_delta_overlay_vortex_digest.as_deref()
+    {
+        digest.update(fact_delta_overlay_digest.as_bytes());
+    }
     digest.update(source_snapshot.dim_vortex_digest.as_bytes());
     if let Some(cdc_delta_digest) = source_snapshot.cdc_delta_vortex_digest.as_deref() {
         digest.update(cdc_delta_digest.as_bytes());
@@ -6600,10 +6662,13 @@ pub struct TraditionalAnalyticsVortexReport {
     pub fact_vortex_path: PathBuf,
     pub dim_vortex_path: PathBuf,
     pub cdc_delta_vortex_path: Option<PathBuf>,
+    pub fact_delta_overlay_vortex_path: Option<PathBuf>,
     pub fact_vortex_bytes: u64,
+    pub fact_delta_overlay_vortex_bytes: u64,
     pub dim_vortex_bytes: u64,
     pub cdc_delta_vortex_bytes: u64,
     pub fact_vortex_digest: String,
+    pub fact_delta_overlay_vortex_digest: Option<String>,
     pub dim_vortex_digest: String,
     pub cdc_delta_vortex_digest: Option<String>,
     pub source_bytes_read: u64,
@@ -6765,6 +6830,173 @@ enum TraditionalPreparedBatchReuseMode {
     FullPrepare,
     ManifestHit,
     PartialRepair,
+    DeltaOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct TraditionalPreparedDeltaOverlayReport {
+    admitted: bool,
+    status: String,
+    blocker_id: String,
+    manifest_path: Option<PathBuf>,
+    manifest_digest: String,
+    base_manifest_digest: String,
+    base_prepared_state_digest: String,
+    base_artifact_reused: bool,
+    base_artifact_ref: String,
+    base_artifact_digest: String,
+    base_source_content_digest: String,
+    current_source_content_digest: String,
+    delta_source_path: Option<PathBuf>,
+    delta_source_digest: String,
+    delta_artifact_path: Option<PathBuf>,
+    delta_artifact_digest: String,
+    delta_artifact_bytes: u64,
+    base_source_size_bytes: u64,
+    current_source_size_bytes: u64,
+    delta_byte_start: u64,
+    delta_byte_end: u64,
+    base_row_count: u64,
+    delta_row_count: u64,
+    current_row_count: u64,
+    schema_hash: String,
+    route_family: String,
+    consumer_family: String,
+    consumer_status: String,
+    correctness_digest: String,
+    replay_proof: String,
+    content_digest_micros: u64,
+    delta_source_write_micros: u64,
+    delta_artifact_write_micros: u64,
+    replay_verification_micros: u64,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedDeltaOverlayReport {
+    fn not_evaluated() -> Self {
+        Self {
+            admitted: false,
+            status: "not_evaluated".to_string(),
+            blocker_id: "not_evaluated_no_manifest_or_manifest_hit".to_string(),
+            manifest_path: None,
+            manifest_digest: "none".to_string(),
+            base_manifest_digest: "none".to_string(),
+            base_prepared_state_digest: "none".to_string(),
+            base_artifact_reused: false,
+            base_artifact_ref: "none".to_string(),
+            base_artifact_digest: "none".to_string(),
+            base_source_content_digest: "none".to_string(),
+            current_source_content_digest: "none".to_string(),
+            delta_source_path: None,
+            delta_source_digest: "none".to_string(),
+            delta_artifact_path: None,
+            delta_artifact_digest: "none".to_string(),
+            delta_artifact_bytes: 0,
+            base_source_size_bytes: 0,
+            current_source_size_bytes: 0,
+            delta_byte_start: 0,
+            delta_byte_end: 0,
+            base_row_count: 0,
+            delta_row_count: 0,
+            current_row_count: 0,
+            schema_hash: traditional_source_admission_schema_hash(),
+            route_family: "compatibility_prepare_to_prepared_native_vortex".to_string(),
+            consumer_family: "none".to_string(),
+            consumer_status: "not_evaluated".to_string(),
+            correctness_digest: "none".to_string(),
+            replay_proof: "none".to_string(),
+            content_digest_micros: 0,
+            delta_source_write_micros: 0,
+            delta_artifact_write_micros: 0,
+            replay_verification_micros: 0,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn blocked(status: impl Into<String>, blocker_id: impl Into<String>) -> Self {
+        Self {
+            status: status.into(),
+            blocker_id: blocker_id.into(),
+            consumer_status: "blocked_before_scoped_consumer_admission".to_string(),
+            ..Self::not_evaluated()
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn admitted(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        base_manifest_digest: String,
+        base_prepared_state_digest: String,
+        base_artifact_ref: String,
+        base_artifact_digest: String,
+        base_source_content_digest: String,
+        current_source_content_digest: String,
+        delta_source_path: PathBuf,
+        delta_source_digest: String,
+        delta_artifact_path: PathBuf,
+        delta_artifact_digest: String,
+        delta_artifact_bytes: u64,
+        base_source_size_bytes: u64,
+        current_source_size_bytes: u64,
+        base_row_count: u64,
+        delta_row_count: u64,
+        correctness_digest: String,
+        replay_proof: String,
+        content_digest_micros: u64,
+        delta_source_write_micros: u64,
+        delta_artifact_write_micros: u64,
+        replay_verification_micros: u64,
+    ) -> Self {
+        let current_row_count = base_row_count.saturating_add(delta_row_count);
+        Self {
+            admitted: true,
+            status: "admitted_append_only_delta_overlay".to_string(),
+            blocker_id: "not_applicable_delta_overlay_admitted".to_string(),
+            manifest_path: Some(manifest_path),
+            manifest_digest,
+            base_manifest_digest,
+            base_prepared_state_digest,
+            base_artifact_reused: true,
+            base_artifact_ref,
+            base_artifact_digest,
+            base_source_content_digest,
+            current_source_content_digest,
+            delta_source_path: Some(delta_source_path),
+            delta_source_digest,
+            delta_artifact_path: Some(delta_artifact_path),
+            delta_artifact_digest,
+            delta_artifact_bytes,
+            base_source_size_bytes,
+            current_source_size_bytes,
+            delta_byte_start: base_source_size_bytes,
+            delta_byte_end: current_source_size_bytes,
+            base_row_count,
+            delta_row_count,
+            current_row_count,
+            schema_hash: traditional_source_admission_schema_hash(),
+            route_family: "compatibility_prepare_to_prepared_native_vortex".to_string(),
+            consumer_family: "scalar_metric_sum_fact_overlay".to_string(),
+            consumer_status: "admitted_base_manifest_plus_delta_overlay_scalar_metric_sum"
+                .to_string(),
+            correctness_digest,
+            replay_proof,
+            content_digest_micros,
+            delta_source_write_micros,
+            delta_artifact_write_micros,
+            replay_verification_micros,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn delta_artifact_path(&self) -> Option<PathBuf> {
+        self.delta_artifact_path.clone()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -6787,6 +7019,7 @@ struct TraditionalPreparedBatchReuseReport {
     manifest_actual_path: PathBuf,
     manifest_written: bool,
     prepare_fields: Vec<(String, String)>,
+    delta_overlay: TraditionalPreparedDeltaOverlayReport,
     lifecycle_timing: TraditionalPreparedBatchLifecycleTiming,
 }
 
@@ -6830,6 +7063,7 @@ impl TraditionalPreparedBatchReuseReport {
             manifest_actual_path: manifest_path,
             manifest_written: true,
             prepare_fields: Vec::new(),
+            delta_overlay: TraditionalPreparedDeltaOverlayReport::not_evaluated(),
             lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
@@ -6854,6 +7088,7 @@ impl TraditionalPreparedBatchReuseReport {
             manifest_actual_path: manifest_path,
             manifest_written: false,
             prepare_fields: Vec::new(),
+            delta_overlay: TraditionalPreparedDeltaOverlayReport::not_evaluated(),
             lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
@@ -6885,6 +7120,7 @@ impl TraditionalPreparedBatchReuseReport {
             manifest_actual_path: manifest_path,
             manifest_written: false,
             prepare_fields,
+            delta_overlay: TraditionalPreparedDeltaOverlayReport::not_evaluated(),
             lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
@@ -6922,6 +7158,44 @@ impl TraditionalPreparedBatchReuseReport {
             manifest_actual_path: manifest_path,
             manifest_written: true,
             prepare_fields,
+            delta_overlay: TraditionalPreparedDeltaOverlayReport::not_evaluated(),
+            lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn delta_overlay(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        source_admission_packet_digest: String,
+        source_admission_packet_artifact_manifest_hash: String,
+        index_digest: String,
+        reason: String,
+        prepare_fields: Vec<(String, String)>,
+        delta_overlay: TraditionalPreparedDeltaOverlayReport,
+    ) -> Self {
+        Self {
+            mode: TraditionalPreparedBatchReuseMode::DeltaOverlay,
+            hit: false,
+            reason: reason.clone(),
+            invalidation_reason: reason,
+            manifest_digest,
+            source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash,
+            index_digest,
+            index_lookup_status: "workspace_index_delta_overlay".to_string(),
+            repair_reused_roles: "fact_input_base,dim_input".to_string(),
+            repair_repaired_roles: "fact_input_append_only_delta_overlay".to_string(),
+            repair_invalidated_derived_states:
+                "fact_source_state_families_not_reused_delta_overlay_scalar_consumer_only"
+                    .to_string(),
+            repair_replay_proof: delta_overlay.replay_proof.clone(),
+            repairable_segment_count: 1,
+            repair_regeneration_performed: false,
+            manifest_actual_path: manifest_path,
+            manifest_written: true,
+            prepare_fields,
+            delta_overlay,
             lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
     }
@@ -6931,6 +7205,14 @@ impl TraditionalPreparedBatchReuseReport {
         lifecycle_timing: TraditionalPreparedBatchLifecycleTiming,
     ) -> Self {
         self.lifecycle_timing = lifecycle_timing;
+        self
+    }
+
+    fn with_delta_overlay_report(
+        mut self,
+        delta_overlay: TraditionalPreparedDeltaOverlayReport,
+    ) -> Self {
+        self.delta_overlay = delta_overlay;
         self
     }
 }
@@ -6958,11 +7240,16 @@ impl TraditionalAnalyticsPreparedBatchReport {
         self.prepared_state_reuse.mode == TraditionalPreparedBatchReuseMode::PartialRepair
     }
 
+    fn workspace_delta_overlay_performed(&self) -> bool {
+        self.prepared_state_reuse.mode == TraditionalPreparedBatchReuseMode::DeltaOverlay
+    }
+
     fn workspace_manifest_path_used(&self) -> bool {
         matches!(
             self.prepared_state_reuse.mode,
             TraditionalPreparedBatchReuseMode::ManifestHit
                 | TraditionalPreparedBatchReuseMode::PartialRepair
+                | TraditionalPreparedBatchReuseMode::DeltaOverlay
         )
     }
 
@@ -6992,6 +7279,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             |key: &str| -> u64 { prepare_field(key).parse::<u64>().unwrap_or_default() };
         let prepare_field_bool = |key: &str| -> bool { prepare_field(key) == "true" };
         let prepare_batch_scale_data_volume_bytes = prepare_field_u64("fact_vortex_bytes")
+            .saturating_add(prepare_field_u64("fact_delta_overlay_vortex_bytes"))
             .saturating_add(prepare_field_u64("dim_vortex_bytes"))
             .saturating_add(prepare_field_u64("cdc_delta_vortex_bytes"));
         let prepare_batch_scale_split_manifest_digests = self
@@ -7245,10 +7533,34 @@ impl TraditionalAnalyticsPreparedBatchReport {
         let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
         let workspace_reuse_hit = self.workspace_reuse_hit();
         let workspace_partial_repair_performed = self.workspace_partial_repair_performed();
+        let workspace_delta_overlay_performed = self.workspace_delta_overlay_performed();
         let workspace_manifest_path_used = self.workspace_manifest_path_used();
         let lifecycle_timing = &self.prepared_state_reuse.lifecycle_timing;
+        let delta_overlay = &self.prepared_state_reuse.delta_overlay;
+        let delta_overlay_manifest_path = delta_overlay
+            .manifest_path
+            .as_ref()
+            .map_or_else(String::new, |path| path.display().to_string());
+        let delta_overlay_delta_source_path = delta_overlay
+            .delta_source_path
+            .as_ref()
+            .map_or_else(String::new, |path| path.display().to_string());
+        let delta_overlay_delta_artifact_path = delta_overlay
+            .delta_artifact_path
+            .as_ref()
+            .map_or_else(String::new, |path| path.display().to_string());
+        let delta_overlay_changed_byte_range = format!(
+            "{}..{}",
+            delta_overlay.delta_byte_start, delta_overlay.delta_byte_end
+        );
+        let delta_overlay_changed_row_range = format!(
+            "{}..{}",
+            delta_overlay.base_row_count, delta_overlay.current_row_count
+        );
         let source_admission_packet_status = if workspace_reuse_hit {
             "packet_reuse"
+        } else if workspace_delta_overlay_performed {
+            "packet_mismatch_append_only_delta_overlay"
         } else if workspace_partial_repair_performed {
             "packet_mismatch_role_repaired"
         } else if self.prepared_state_reuse.reason == "no_reuse_manifest" {
@@ -7258,6 +7570,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let source_admission_packet_row_estimate_status = if workspace_reuse_hit {
             "reused_from_manifest_prepare_fields"
+        } else if workspace_delta_overlay_performed {
+            "base_manifest_plus_delta_overlay_row_estimate"
         } else if workspace_partial_repair_performed {
             "partially_repaired_from_manifest_prepare_fields"
         } else {
@@ -7265,19 +7579,25 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepared_state_lookup_status = if workspace_reuse_hit {
             "workspace_manifest_hit"
+        } else if workspace_delta_overlay_performed {
+            "workspace_manifest_delta_overlay"
         } else if workspace_partial_repair_performed {
             "workspace_manifest_partial_repair"
         } else {
             "cache_miss_created_and_registered"
         };
-        let prepared_state_dependency_status = if workspace_partial_repair_performed {
+        let prepared_state_dependency_status = if workspace_delta_overlay_performed {
+            "source_dependency_changed_delta_overlay"
+        } else if workspace_partial_repair_performed {
             "source_dependency_changed_partial_repair"
         } else {
             prepared_batch_dependency_status(workspace_reuse_hit, &self.prepared_state_reuse.reason)
         };
         let prepared_state_dependency_changed_roles =
             prepared_batch_dependency_changed_roles(&self.prepared_state_reuse.reason);
-        let prepared_state_partial_repair_status = if workspace_partial_repair_performed {
+        let prepared_state_partial_repair_status = if workspace_delta_overlay_performed {
+            "not_applicable_delta_overlay_admitted"
+        } else if workspace_partial_repair_performed {
             "admitted_role_repair_completed"
         } else {
             prepared_batch_partial_repair_status(
@@ -7285,7 +7605,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 &self.prepared_state_reuse.reason,
             )
         };
-        let prepared_state_partial_repair_blocker_id = if workspace_partial_repair_performed {
+        let prepared_state_partial_repair_blocker_id = if workspace_delta_overlay_performed {
+            "not_applicable_delta_overlay_admitted"
+        } else if workspace_partial_repair_performed {
             "not_applicable_partial_repair_admitted"
         } else {
             prepared_batch_partial_repair_blocker_id(
@@ -7295,6 +7617,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_runtime_status = if workspace_reuse_hit {
             "workspace_prepared_state_reused_then_prepared_batch_supported"
+        } else if workspace_delta_overlay_performed {
+            "workspace_prepared_state_delta_overlay_then_prepared_batch_supported"
         } else if workspace_partial_repair_performed {
             "workspace_prepared_state_partially_repaired_then_prepared_batch_supported"
         } else {
@@ -7302,6 +7626,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_route = if workspace_reuse_hit {
             "compatibility_import_certified_manifest_reuse_to_prepared_vortex_batch"
+        } else if workspace_delta_overlay_performed {
+            "compatibility_import_certified_manifest_delta_overlay_to_prepared_vortex_batch"
         } else if workspace_partial_repair_performed {
             "compatibility_import_certified_manifest_partial_repair_to_prepared_vortex_batch"
         } else {
@@ -7309,6 +7635,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_lifecycle_route = if workspace_reuse_hit {
             "UniversalIngress->SourceState->workspace_manifest_reuse->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
+        } else if workspace_delta_overlay_performed {
+            "UniversalIngress->SourceState->workspace_manifest_delta_overlay->VortexPreparedState(base+delta)->prepared_vortex_batch->vortex_result_sink_if_requested"
         } else if workspace_partial_repair_performed {
             "UniversalIngress->SourceState->workspace_manifest_partial_repair->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
         } else {
@@ -7316,6 +7644,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_lifecycle_preparation_status = if workspace_reuse_hit {
             "prepared_state_reused_from_workspace_manifest"
+        } else if workspace_delta_overlay_performed {
+            "prepared_state_base_reused_delta_overlay_written_from_workspace_manifest"
         } else if workspace_partial_repair_performed {
             "prepared_state_partially_repaired_from_workspace_manifest"
         } else {
@@ -7323,6 +7653,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_lifecycle_write_reopen_status = if workspace_reuse_hit {
             "prepared_artifacts_reused_manifest_fingerprints_verified"
+        } else if workspace_delta_overlay_performed {
+            "base_prepared_artifact_reused_delta_artifact_written_replay_verified"
         } else if workspace_partial_repair_performed {
             "changed_prepared_artifact_repaired_replay_verified_unchanged_artifacts_reused"
         } else if prepare_field_bool("vortex_file_written")
@@ -7335,6 +7667,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_preparation_command = if workspace_reuse_hit {
             "prepared-vortex-reuse-manifest"
+        } else if workspace_delta_overlay_performed {
+            "prepared-vortex-delta-overlay-manifest"
         } else if workspace_partial_repair_performed {
             "prepared-vortex-partial-repair-manifest"
         } else {
@@ -7342,6 +7676,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_preparation_timing_scope = if workspace_reuse_hit {
             "workspace_manifest_reuse_skips_compatibility_prepare".to_string()
+        } else if workspace_delta_overlay_performed {
+            "workspace_manifest_delta_overlay_append_only_fact_delta".to_string()
         } else if workspace_partial_repair_performed {
             "workspace_manifest_partial_repair_role_scoped".to_string()
         } else {
@@ -7349,7 +7685,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_preparation_micros = if workspace_reuse_hit {
             "0".to_string()
-        } else if workspace_partial_repair_performed {
+        } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
             lifecycle_timing
                 .cache_miss_create_micros
                 .saturating_add(lifecycle_timing.artifact_write_micros)
@@ -7507,8 +7843,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_lifecycle_artifact_refs".to_string(),
                 format!(
-                    "fact={},dim={},cdc_delta={}",
+                    "fact={},fact_delta_overlay={},dim={},cdc_delta={}",
                     prepare_field("fact_vortex_path"),
+                    empty_to_none(&prepare_field("fact_delta_overlay_vortex_path")),
                     prepare_field("dim_vortex_path"),
                     empty_to_none(&prepare_field("cdc_delta_vortex_path"))
                 ),
@@ -7516,8 +7853,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_lifecycle_artifact_digests".to_string(),
                 format!(
-                    "fact={},dim={},cdc_delta={}",
+                    "fact={},fact_delta_overlay={},dim={},cdc_delta={}",
                     prepare_field("fact_vortex_digest"),
+                    empty_to_none(&prepare_field("fact_delta_overlay_vortex_digest")),
                     prepare_field("dim_vortex_digest"),
                     empty_to_none(&prepare_field("cdc_delta_vortex_digest"))
                 ),
@@ -7816,8 +8154,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_prepared_state_index_artifact_refs".to_string(),
                 format!(
-                    "fact={},dim={},cdc_delta={}",
+                    "fact={},fact_delta_overlay={},dim={},cdc_delta={}",
                     prepare_field("fact_vortex_path"),
+                    empty_to_none(&prepare_field("fact_delta_overlay_vortex_path")),
                     prepare_field("dim_vortex_path"),
                     empty_to_none(&prepare_field("cdc_delta_vortex_path"))
                 ),
@@ -7825,8 +8164,9 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_prepared_state_index_artifact_digests".to_string(),
                 format!(
-                    "fact={},dim={},cdc_delta={}",
+                    "fact={},fact_delta_overlay={},dim={},cdc_delta={}",
                     prepare_field("fact_vortex_digest"),
+                    empty_to_none(&prepare_field("fact_delta_overlay_vortex_digest")),
                     prepare_field("dim_vortex_digest"),
                     empty_to_none(&prepare_field("cdc_delta_vortex_digest"))
                 ),
@@ -7997,10 +8337,180 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "prepare_batch_prepared_state_partial_repair_claim_boundary".to_string(),
                 if workspace_partial_repair_performed {
                     "PERF-SPLIT-6 certified role-scoped prepared-state repair; only one changed local source role was regenerated, unchanged prepared artifacts were fingerprint-verified and reused, stale changed-role artifacts were not reused, and external engine invocation remained false"
+                } else if workspace_delta_overlay_performed {
+                    "PERF-SPLIT-9 append-only delta overlay admitted; base prepared fact artifact was fingerprint-verified and reused, a separate delta artifact was written and replayed, and only scoped scalar overlay consumers were admitted"
                 } else {
                     "HOTPATH-9 evidence only; partial prepared-state repair is not admitted for this prepare/batch workspace manifest path unless a single source role change passes role-scoped repair admission, so stale prepared segments cannot be reused silently"
                 }
                 .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_schema_version".to_string(),
+                PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_status".to_string(),
+                delta_overlay.status.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_admitted".to_string(),
+                delta_overlay.admitted.to_string(),
+            ),
+            (
+                "delta_overlay_admitted".to_string(),
+                delta_overlay.admitted.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_blocker_id".to_string(),
+                delta_overlay.blocker_id.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_manifest_path".to_string(),
+                delta_overlay_manifest_path.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_manifest_digest".to_string(),
+                delta_overlay.manifest_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_manifest_digest".to_string(),
+                delta_overlay.base_manifest_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_prepared_state_digest".to_string(),
+                delta_overlay.base_prepared_state_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_artifact_reused".to_string(),
+                delta_overlay.base_artifact_reused.to_string(),
+            ),
+            (
+                "base_artifact_reused".to_string(),
+                delta_overlay.base_artifact_reused.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_artifact_ref".to_string(),
+                delta_overlay.base_artifact_ref.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_artifact_digest".to_string(),
+                delta_overlay.base_artifact_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_source_content_digest".to_string(),
+                delta_overlay.base_source_content_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_current_source_content_digest"
+                    .to_string(),
+                delta_overlay.current_source_content_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_source_path".to_string(),
+                delta_overlay_delta_source_path.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_source_digest".to_string(),
+                delta_overlay.delta_source_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_artifact_ref".to_string(),
+                delta_overlay_delta_artifact_path.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_artifact_digest".to_string(),
+                delta_overlay.delta_artifact_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_artifact_bytes".to_string(),
+                delta_overlay.delta_artifact_bytes.to_string(),
+            ),
+            (
+                "delta_artifact_written".to_string(),
+                (delta_overlay.admitted && delta_overlay.delta_artifact_bytes > 0).to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_source_size_bytes".to_string(),
+                delta_overlay.base_source_size_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_current_source_size_bytes".to_string(),
+                delta_overlay.current_source_size_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_changed_byte_range".to_string(),
+                delta_overlay_changed_byte_range,
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_changed_row_range".to_string(),
+                delta_overlay_changed_row_range,
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_base_row_count".to_string(),
+                delta_overlay.base_row_count.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_row_count".to_string(),
+                delta_overlay.delta_row_count.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_current_row_count".to_string(),
+                delta_overlay.current_row_count.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_schema_hash".to_string(),
+                delta_overlay.schema_hash.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_route_family".to_string(),
+                delta_overlay.route_family.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_consumer_family".to_string(),
+                delta_overlay.consumer_family.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_consumer_status".to_string(),
+                delta_overlay.consumer_status.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_correctness_digest".to_string(),
+                delta_overlay.correctness_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_replay_proof".to_string(),
+                delta_overlay.replay_proof.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_full_content_digest_micros"
+                    .to_string(),
+                delta_overlay.content_digest_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_source_write_micros".to_string(),
+                delta_overlay.delta_source_write_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_delta_artifact_write_micros"
+                    .to_string(),
+                delta_overlay.delta_artifact_write_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_replay_verification_micros"
+                    .to_string(),
+                delta_overlay.replay_verification_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_stale_base_reuse_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_fallback_attempted".to_string(),
+                delta_overlay.fallback_attempted.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_delta_overlay_external_engine_invoked".to_string(),
+                delta_overlay.external_engine_invoked.to_string(),
             ),
             (
                 "prepare_batch_prepared_state_created".to_string(),
@@ -8110,6 +8620,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "prepare_batch_source_admission_digest_policy_status".to_string(),
                 if workspace_reuse_hit {
                     "metadata_fingerprint_reuse_hit"
+                } else if workspace_delta_overlay_performed {
+                    "local_file_content_digest_append_only_delta_overlay"
                 } else if workspace_partial_repair_performed {
                     "metadata_fingerprint_role_repair_admitted"
                 } else {
@@ -8119,15 +8631,20 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_source_admission_full_content_digest_requested".to_string(),
-                "false".to_string(),
+                workspace_delta_overlay_performed.to_string(),
             ),
             (
                 "prepare_batch_source_admission_full_content_digest_micros".to_string(),
-                "0".to_string(),
+                delta_overlay.content_digest_micros.to_string(),
             ),
             (
                 "prepare_batch_source_admission_digest_policy_reason".to_string(),
-                "normal local warm reuse compares normalized path, size, and mtime while prepared artifact digests remain persisted separately; claim-grade publication evidence must request full content digest verification".to_string(),
+                if workspace_delta_overlay_performed {
+                    "append-only delta overlay verifies the base prefix with full source content digests before reusing the base prepared artifact and writing a delta artifact"
+                } else {
+                    "normal local warm reuse compares normalized path, size, and mtime while prepared artifact digests remain persisted separately; claim-grade publication evidence must request full content digest verification"
+                }
+                .to_string(),
             ),
             (
                 "prepare_batch_prepared_artifact_reuse_count".to_string(),
@@ -8186,6 +8703,10 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepare_field("fact_vortex_path"),
             ),
             (
+                "prepare_batch_fact_delta_overlay_vortex_path".to_string(),
+                prepare_field("fact_delta_overlay_vortex_path"),
+            ),
+            (
                 "prepare_batch_dim_vortex_path".to_string(),
                 prepare_field("dim_vortex_path"),
             ),
@@ -8196,6 +8717,14 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_fact_vortex_digest".to_string(),
                 prepare_field("fact_vortex_digest"),
+            ),
+            (
+                "prepare_batch_fact_delta_overlay_vortex_digest".to_string(),
+                prepare_field("fact_delta_overlay_vortex_digest"),
+            ),
+            (
+                "prepare_batch_fact_delta_overlay_vortex_bytes".to_string(),
+                prepare_field("fact_delta_overlay_vortex_bytes"),
             ),
             (
                 "prepare_batch_dim_vortex_digest".to_string(),
@@ -9826,6 +10355,13 @@ impl TraditionalAnalyticsVortexReport {
                     self.dim_vortex_path.display(),
                     cdc_delta_path.display()
                 )
+            } else if let Some(delta_overlay_path) = self.fact_delta_overlay_vortex_path.as_ref() {
+                format!(
+                    "fact={},fact_delta_overlay={},dim={}",
+                    self.fact_vortex_path.display(),
+                    delta_overlay_path.display(),
+                    self.dim_vortex_path.display()
+                )
             } else {
                 format!(
                     "fact={},dim={}",
@@ -9833,18 +10369,24 @@ impl TraditionalAnalyticsVortexReport {
                     self.dim_vortex_path.display()
                 )
             };
-        let prepared_artifact_digest =
-            if let Some(cdc_delta_digest) = self.cdc_delta_vortex_digest.as_ref() {
-                format!(
-                    "fact={},dim={},cdc_delta={}",
-                    self.fact_vortex_digest, self.dim_vortex_digest, cdc_delta_digest
-                )
-            } else {
-                format!(
-                    "fact={},dim={}",
-                    self.fact_vortex_digest, self.dim_vortex_digest
-                )
-            };
+        let prepared_artifact_digest = if let Some(cdc_delta_digest) =
+            self.cdc_delta_vortex_digest.as_ref()
+        {
+            format!(
+                "fact={},dim={},cdc_delta={}",
+                self.fact_vortex_digest, self.dim_vortex_digest, cdc_delta_digest
+            )
+        } else if let Some(delta_overlay_digest) = self.fact_delta_overlay_vortex_digest.as_ref() {
+            format!(
+                "fact={},fact_delta_overlay={},dim={}",
+                self.fact_vortex_digest, delta_overlay_digest, self.dim_vortex_digest
+            )
+        } else {
+            format!(
+                "fact={},dim={}",
+                self.fact_vortex_digest, self.dim_vortex_digest
+            )
+        };
         let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
@@ -9932,6 +10474,12 @@ impl TraditionalAnalyticsVortexReport {
                     .as_ref()
                     .map_or_else(String::new, |path| path.display().to_string()),
             ),
+            (
+                "fact_delta_overlay_vortex_path".to_string(),
+                self.fact_delta_overlay_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
             ("prepared_artifact_ref".to_string(), prepared_artifact_ref),
             (
                 "prepared_artifact_fact_ref".to_string(),
@@ -9944,6 +10492,12 @@ impl TraditionalAnalyticsVortexReport {
             (
                 "prepared_artifact_cdc_delta_ref".to_string(),
                 self.cdc_delta_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            (
+                "prepared_artifact_fact_delta_overlay_ref".to_string(),
+                self.fact_delta_overlay_vortex_path
                     .as_ref()
                     .map_or_else(String::new, |path| path.display().to_string()),
             ),
@@ -9962,6 +10516,12 @@ impl TraditionalAnalyticsVortexReport {
             (
                 "prepared_artifact_cdc_delta_digest".to_string(),
                 self.cdc_delta_vortex_digest.clone().unwrap_or_default(),
+            ),
+            (
+                "prepared_artifact_fact_delta_overlay_digest".to_string(),
+                self.fact_delta_overlay_vortex_digest
+                    .clone()
+                    .unwrap_or_default(),
             ),
             (
                 "prepared_artifact_lifecycle_status".to_string(),
@@ -9999,6 +10559,10 @@ impl TraditionalAnalyticsVortexReport {
                 self.fact_vortex_bytes.to_string(),
             ),
             (
+                "fact_delta_overlay_vortex_bytes".to_string(),
+                self.fact_delta_overlay_vortex_bytes.to_string(),
+            ),
+            (
                 "dim_vortex_bytes".to_string(),
                 self.dim_vortex_bytes.to_string(),
             ),
@@ -10009,6 +10573,12 @@ impl TraditionalAnalyticsVortexReport {
             (
                 "fact_vortex_digest".to_string(),
                 self.fact_vortex_digest.clone(),
+            ),
+            (
+                "fact_delta_overlay_vortex_digest".to_string(),
+                self.fact_delta_overlay_vortex_digest
+                    .clone()
+                    .unwrap_or_default(),
             ),
             (
                 "dim_vortex_digest".to_string(),
@@ -13757,11 +14327,13 @@ fn prepared_state_index_payload(
         "native_io_status": prepare_field("native_io_certificate_status"),
         "artifact_refs": {
             "fact": artifact_path("fact"),
+            "fact_delta_overlay": artifact_path("fact_delta_overlay"),
             "dim": artifact_path("dim"),
             "cdc_delta": artifact_path("cdc_delta"),
         },
         "artifact_digests": {
             "fact": artifact_digest("fact"),
+            "fact_delta_overlay": artifact_digest("fact_delta_overlay"),
             "dim": artifact_digest("dim"),
             "cdc_delta": artifact_digest("cdc_delta"),
         },
@@ -14038,6 +14610,60 @@ fn traditional_source_admission_request_packet(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_delta_overlay_base_payload(
+    prepare_fields: &[(String, String)],
+    fact_input: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+) -> Result<serde_json::Value> {
+    if !matches!(
+        input_format,
+        TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines
+    ) {
+        return Ok(serde_json::json!({
+            "schema_version": PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION,
+            "status": "blocked_base_not_local_text_format",
+            "base_source_content_digest": serde_json::Value::Null,
+            "base_source_size_bytes": serde_json::Value::Null,
+            "base_fact_row_count": serde_json::Value::Null,
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+        }));
+    }
+    if !fact_input.is_file() {
+        return Ok(serde_json::json!({
+            "schema_version": PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION,
+            "status": "blocked_base_not_single_local_file",
+            "base_source_content_digest": serde_json::Value::Null,
+            "base_source_size_bytes": serde_json::Value::Null,
+            "base_fact_row_count": serde_json::Value::Null,
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+        }));
+    }
+    let base_source_content_digest =
+        file_sha256_digest(fact_input, "prepared-state append-only base fact source")?;
+    let base_source_size_bytes =
+        file_len(fact_input, "prepared-state append-only base fact source")?;
+    let base_fact_row_count = prepare_field_from_slice(prepare_fields, "fact_rows")
+        .parse::<u64>()
+        .unwrap_or_default();
+    Ok(serde_json::json!({
+        "schema_version": PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION,
+        "status": "base_manifest_ready_for_append_only_fact_delta_overlay",
+        "base_source_format": input_format.as_str(),
+        "base_source_path": normalize_manifest_path(fact_input),
+        "base_source_content_digest": base_source_content_digest,
+        "base_source_size_bytes": base_source_size_bytes,
+        "base_fact_row_count": base_fact_row_count,
+        "schema_hash": traditional_source_admission_schema_hash(),
+        "route_family": "compatibility_prepare_to_prepared_native_vortex",
+        "claim_boundary": "scoped local append-only fact source proof for prepared-state delta overlay only; no update/delete/schema-change/table/CDC claim",
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_lines)]
 fn write_traditional_prepared_batch_workspace_reuse_manifest(
     prepare_report: &TraditionalAnalyticsReport,
@@ -14213,6 +14839,15 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
         &mut manifest_payload,
         "prepared_state_partial_repair_stale_segment_reuse_allowed",
         serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_delta_overlay_base",
+        traditional_prepared_delta_overlay_base_payload(
+            &prepare_fields,
+            fact_input,
+            prepare_report.input_format,
+        )?,
     );
     json_object_insert(
         &mut manifest_payload,
@@ -14819,6 +15454,630 @@ fn prepared_batch_single_role_repair_admission(
         [role] => Some(*role),
         _ => None,
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_delta_overlay_scenario_supported(
+    scenario: TraditionalAnalyticsScenario,
+) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::CsvFileIngest
+            | TraditionalAnalyticsScenario::ManySmallFilesScan
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_delta_overlay_manifest_path(workspace_dir: &std::path::Path) -> PathBuf {
+    workspace_dir
+        .join(PREPARED_STATE_REUSE_MANIFEST_DIR)
+        .join(PREPARED_STATE_DELTA_OVERLAY_MANIFEST_FILE)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_delta_overlay_source_path(
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    current_source_digest: &str,
+) -> PathBuf {
+    let extension = match input_format {
+        TraditionalAnalyticsInputFormat::Csv => "csv",
+        TraditionalAnalyticsInputFormat::JsonLines => "jsonl",
+        _ => "txt",
+    };
+    let digest_slug = current_source_digest.replace(':', "-");
+    workspace_dir
+        .join(PREPARED_STATE_REUSE_MANIFEST_DIR)
+        .join(format!("fact-append-only-delta-{digest_slug}.{extension}"))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_delta_overlay_artifact_path(
+    workspace_dir: &std::path::Path,
+    current_source_digest: &str,
+) -> PathBuf {
+    let digest_slug = current_source_digest.replace(':', "-");
+    workspace_dir
+        .join(PREPARED_STATE_REUSE_MANIFEST_DIR)
+        .join(format!("fact-append-only-delta-{digest_slug}.vortex"))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn evaluate_and_materialize_traditional_fact_delta_overlay(
+    manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+    fact_input: &std::path::Path,
+    _dim_input: &std::path::Path,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    scenarios: &[TraditionalAnalyticsScenario],
+    reason: &str,
+) -> Result<Option<TraditionalPreparedDeltaOverlayReport>> {
+    if reason != "fact_input_fingerprint_changed" {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_non_fact_append_only_change",
+            "perf-split-9.not-fact-input-fingerprint-change",
+        )));
+    }
+    if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy") {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_prepare_policy_changed",
+            "perf-split-9.prepare-policy-changed",
+        )));
+    }
+    if json_bool_field(manifest_payload, "fallback_attempted")
+        || json_bool_field(manifest_payload, "external_engine_invoked")
+    {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_manifest_has_external_or_fallback_execution",
+            "perf-split-9.no-fallback-policy-violation",
+        )));
+    }
+    if !matches!(
+        input_format,
+        TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines
+    ) {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_input_format_not_local_text_append_only",
+            "perf-split-9.unsupported-input-format",
+        )));
+    }
+    if !fact_input.is_file() {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_fact_input_not_single_local_file",
+            "perf-split-9.unsupported-fact-source-shape",
+        )));
+    }
+    if scenarios
+        .iter()
+        .any(|scenario| !traditional_prepared_delta_overlay_scenario_supported(*scenario))
+    {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_consumer_family_not_overlay_mergeable",
+            "perf-split-9.consumer-family-not-overlay-mergeable",
+        )));
+    }
+    let changed_roles = prepared_batch_source_changed_roles(manifest_payload, request_payload);
+    if changed_roles.as_slice() != [TraditionalPreparedRepairRole::Fact].as_slice() {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_non_single_fact_role_change",
+            "perf-split-9.non-single-fact-role-change",
+        )));
+    }
+    let artifact_reason = prepared_batch_artifact_invalidation_reason(manifest_payload)?;
+    if artifact_reason != "none" {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            format!("blocked_prepared_artifact_dependency_changed:{artifact_reason}"),
+            "perf-split-9.prepared-artifact-dependency-changed",
+        )));
+    }
+    let Some(base_overlay_payload) = manifest_payload
+        .get("prepared_state_delta_overlay_base")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_base_manifest_missing_delta_overlay_source_digest",
+            "perf-split-9.base-content-digest-missing",
+        )));
+    };
+    let base_source_content_digest = base_overlay_payload
+        .get("base_source_content_digest")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    if !base_source_content_digest.starts_with("sha256:") {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_base_manifest_invalid_delta_overlay_source_digest",
+            "perf-split-9.base-content-digest-invalid",
+        )));
+    }
+    let base_source_size_bytes = base_overlay_payload
+        .get("base_source_size_bytes")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    if base_source_size_bytes == 0 {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_base_manifest_missing_delta_overlay_source_size",
+            "perf-split-9.base-size-missing",
+        )));
+    }
+    let base_row_count = base_overlay_payload
+        .get("base_fact_row_count")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let current_size_bytes = file_len(fact_input, "fact append-only source")?;
+    if current_size_bytes <= base_source_size_bytes {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_current_source_not_larger_than_base",
+            "perf-split-9.not-append-only-growth",
+        )));
+    }
+    if base_source_size_bytes > 0 {
+        let previous_byte = byte_at_file_offset(
+            fact_input,
+            base_source_size_bytes.saturating_sub(1),
+            "fact append-only source",
+        )?;
+        if previous_byte != b'\n' {
+            return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+                "blocked_base_prefix_does_not_end_on_record_boundary",
+                "perf-split-9.prefix-record-boundary",
+            )));
+        }
+    }
+    let digest_start = std::time::Instant::now();
+    let prefix_digest = file_sha256_prefix_digest(
+        fact_input,
+        base_source_size_bytes,
+        "fact append-only source prefix",
+    )?;
+    if prefix_digest != base_source_content_digest {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_prefix_digest_mismatch",
+            "perf-split-9.prefix-digest-mismatch",
+        )));
+    }
+    let current_source_content_digest =
+        file_sha256_digest(fact_input, "fact append-only current source")?;
+    let content_digest_micros = duration_to_micros(digest_start.elapsed());
+    if current_source_content_digest == base_source_content_digest {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_current_source_digest_matches_base",
+            "perf-split-9.no-content-change",
+        )));
+    }
+    let delta_source_write_start = std::time::Instant::now();
+    let delta_source_path = write_traditional_prepared_batch_delta_source(
+        fact_input,
+        input_format,
+        workspace_dir,
+        base_source_size_bytes,
+        &current_source_content_digest,
+    )?;
+    let delta_source_write_micros = duration_to_micros(delta_source_write_start.elapsed());
+    let delta_source_digest =
+        file_sha256_digest(&delta_source_path, "fact append-only delta source")?;
+    let delta_artifact_path = traditional_prepared_delta_overlay_artifact_path(
+        workspace_dir,
+        &current_source_content_digest,
+    );
+    let delta_artifact_write_start = std::time::Instant::now();
+    let delta_artifact = write_traditional_prepared_batch_delta_artifact(
+        &delta_source_path,
+        &delta_artifact_path,
+        input_format,
+        resource_policy,
+    )?;
+    let delta_artifact_write_micros = duration_to_micros(delta_artifact_write_start.elapsed());
+    let base_artifact_ref = prepared_batch_reuse_artifact_path(manifest_payload, "fact")?;
+    let base_artifact_digest = manifest_payload
+        .pointer("/prepared_artifacts/fact/digest")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("missing_base_fact_artifact_digest")
+        .to_string();
+    let dim_vortex = prepared_batch_reuse_artifact_path(manifest_payload, "dim")?;
+    let dim_rows = vortex_file_row_count(&dim_vortex)?;
+    let replay_start = std::time::Instant::now();
+    let replay = run_vortex_derived_scenario_from_files_with_fact_delta_overlay(
+        TraditionalAnalyticsScenario::CsvFileIngest,
+        &base_artifact_ref,
+        &delta_artifact.artifact_path,
+        dim_rows,
+    )?;
+    let replay_verification_micros = duration_to_micros(replay_start.elapsed());
+    let current_row_count = checked_u64_sum(base_row_count, delta_artifact.row_count)?;
+    if replay.fact_rows != current_row_count {
+        return Ok(Some(TraditionalPreparedDeltaOverlayReport::blocked(
+            "blocked_overlay_replay_row_count_mismatch",
+            "perf-split-9.overlay-replay-row-count-mismatch",
+        )));
+    }
+    let correctness_digest = route_evidence_digest(&[
+        "prepared_state_delta_overlay_correctness",
+        replay.result_json.as_str(),
+        &base_artifact_digest,
+        &delta_artifact.artifact_digest,
+        &base_row_count.to_string(),
+        &delta_artifact.row_count.to_string(),
+        &current_row_count.to_string(),
+    ]);
+    let replay_proof = route_evidence_digest(&[
+        "prepared_state_delta_overlay_replay",
+        &correctness_digest,
+        &current_source_content_digest,
+        &delta_source_digest,
+    ]);
+    Ok(Some(TraditionalPreparedDeltaOverlayReport::admitted(
+        traditional_prepared_delta_overlay_manifest_path(workspace_dir),
+        "pending_manifest_digest".to_string(),
+        json_string_field(manifest_payload, "manifest_digest").unwrap_or_default(),
+        json_string_field(manifest_payload, "prepared_state_digest").unwrap_or_default(),
+        base_artifact_ref.display().to_string(),
+        base_artifact_digest,
+        base_source_content_digest,
+        current_source_content_digest,
+        delta_source_path,
+        delta_source_digest,
+        delta_artifact.artifact_path,
+        delta_artifact.artifact_digest,
+        delta_artifact.artifact_bytes,
+        base_source_size_bytes,
+        current_size_bytes,
+        base_row_count,
+        delta_artifact.row_count,
+        correctness_digest,
+        replay_proof,
+        content_digest_micros,
+        delta_source_write_micros,
+        delta_artifact_write_micros,
+        replay_verification_micros,
+    )))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalPreparedDeltaArtifactReport {
+    artifact_path: PathBuf,
+    artifact_digest: String,
+    artifact_bytes: u64,
+    row_count: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_traditional_prepared_batch_delta_artifact(
+    delta_source_path: &std::path::Path,
+    delta_artifact_path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    _resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalPreparedDeltaArtifactReport> {
+    let delta_source_bytes = file_len(delta_source_path, "fact append-only delta source")?;
+    let source = read_traditional_fact_text_vortex_provider_batch_with_evidence(
+        delta_source_path,
+        input_format,
+        delta_source_bytes,
+        TraditionalAnalyticsScenario::CsvFileIngest,
+        TraditionalFactTextColumnSelection::full(),
+    )?;
+    let row_count = usize_to_u64(source.row_count)?;
+    let vortex_io = TraditionalVortexIoContext::new();
+    let write_timing = write_vortex_text_record_batch_with_io(
+        &vortex_io,
+        source.batch,
+        "traditional fact append-only delta overlay",
+        delta_artifact_path,
+    )?;
+    Ok(TraditionalPreparedDeltaArtifactReport {
+        artifact_path: delta_artifact_path.to_path_buf(),
+        artifact_digest: vortex_write_artifact_digest(&write_timing, "fact_delta_overlay")?,
+        artifact_bytes: vortex_write_artifact_bytes(&write_timing, "fact_delta_overlay")?,
+        row_count,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_traditional_prepared_batch_delta_source(
+    source_path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    workspace_dir: &std::path::Path,
+    delta_start: u64,
+    current_source_digest: &str,
+) -> Result<PathBuf> {
+    let bytes = std::fs::read(source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read prepared-state append-only source '{}': {error}; fallback execution was not attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_start = usize::try_from(delta_start).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "prepared-state append-only delta offset does not fit usize: {error}; fallback execution was not attempted"
+        ))
+    })?;
+    if delta_start >= bytes.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared-state append-only delta source '{}' contains no delta bytes; fallback execution was not attempted",
+            source_path.display()
+        )));
+    }
+    let content = std::str::from_utf8(&bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "prepared-state append-only delta source '{}' must be UTF-8: {error}; fallback execution was not attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_text = std::str::from_utf8(&bytes[delta_start..]).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "prepared-state append-only delta bytes for '{}' must be UTF-8: {error}; fallback execution was not attempted",
+            source_path.display()
+        ))
+    })?;
+    let delta_payload = match input_format {
+        TraditionalAnalyticsInputFormat::Csv => {
+            let header_end = content.find('\n').ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "prepared-state CSV append-only delta source '{}' requires a header line; fallback execution was not attempted",
+                    source_path.display()
+                ))
+            })?;
+            let header = content[..header_end].trim_end_matches('\r');
+            let body = delta_text.trim_start_matches(['\n', '\r']);
+            if body.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "prepared-state CSV append-only delta source '{}' has no non-empty delta rows; fallback execution was not attempted",
+                    source_path.display()
+                )));
+            }
+            format!("{header}\n{body}")
+        }
+        TraditionalAnalyticsInputFormat::JsonLines => {
+            let body = delta_text.trim_start_matches(['\n', '\r']);
+            if body.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "prepared-state JSONL append-only delta source '{}' has no non-empty delta rows; fallback execution was not attempted",
+                    source_path.display()
+                )));
+            }
+            body.to_string()
+        }
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "prepared-state append-only delta source supports CSV/JSONL only, not {}; fallback execution was not attempted",
+                input_format.as_str()
+            )));
+        }
+    };
+    let delta_path = traditional_prepared_delta_overlay_source_path(
+        workspace_dir,
+        input_format,
+        current_source_digest,
+    );
+    let Some(parent) = delta_path.parent() else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared-state append-only delta source path '{}' has no parent; fallback execution was not attempted",
+            delta_path.display()
+        )));
+    };
+    std::fs::create_dir_all(parent).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create prepared-state append-only delta directory '{}': {error}; fallback execution was not attempted",
+            parent.display()
+        ))
+    })?;
+    std::fs::write(&delta_path, delta_payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write prepared-state append-only delta source '{}': {error}; fallback execution was not attempted",
+            delta_path.display()
+        ))
+    })?;
+    Ok(delta_path)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn write_traditional_prepared_batch_delta_overlay_manifest(
+    prior_manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+    workspace_dir: &std::path::Path,
+    reason: &str,
+    mut delta_overlay: TraditionalPreparedDeltaOverlayReport,
+) -> Result<TraditionalPreparedBatchReuseReport> {
+    let manifest_path = traditional_prepared_delta_overlay_manifest_path(workspace_dir);
+    let mut prepare_fields = prepared_batch_reuse_prepare_fields(prior_manifest_payload);
+    set_field(
+        &mut prepare_fields,
+        "timing_scope",
+        "workspace_manifest_delta_overlay",
+    );
+    set_field(
+        &mut prepare_fields,
+        "fact_rows",
+        delta_overlay.current_row_count.to_string(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "fact_delta_overlay_vortex_path",
+        delta_overlay
+            .delta_artifact_path
+            .as_ref()
+            .map_or_else(String::new, |path| path.display().to_string()),
+    );
+    set_field(
+        &mut prepare_fields,
+        "fact_delta_overlay_vortex_digest",
+        delta_overlay.delta_artifact_digest.clone(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "fact_delta_overlay_vortex_bytes",
+        delta_overlay.delta_artifact_bytes.to_string(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "source_read_micros",
+        delta_overlay
+            .content_digest_micros
+            .saturating_add(delta_overlay.delta_source_write_micros)
+            .to_string(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "vortex_write_micros",
+        delta_overlay.delta_artifact_write_micros.to_string(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "vortex_reopen_verify_micros",
+        delta_overlay.replay_verification_micros.to_string(),
+    );
+    set_field(
+        &mut prepare_fields,
+        "total_runtime_micros",
+        delta_overlay
+            .content_digest_micros
+            .saturating_add(delta_overlay.delta_source_write_micros)
+            .saturating_add(delta_overlay.delta_artifact_write_micros)
+            .saturating_add(delta_overlay.replay_verification_micros)
+            .to_string(),
+    );
+    let source_state_digest = route_evidence_digest(&[
+        "source_state_delta_overlay",
+        &delta_overlay.base_source_content_digest,
+        &delta_overlay.current_source_content_digest,
+        &delta_overlay.base_artifact_digest,
+        &delta_overlay.delta_artifact_digest,
+        &delta_overlay.current_row_count.to_string(),
+    ]);
+    set_field(
+        &mut prepare_fields,
+        "source_state_id",
+        format!("source-state://traditional-analytics/{source_state_digest}"),
+    );
+    set_field(
+        &mut prepare_fields,
+        "source_state_digest",
+        source_state_digest.clone(),
+    );
+    let dim_digest = prepare_field_from_slice(&prepare_fields, "dim_vortex_digest");
+    let cdc_delta_digest = prepare_field_from_slice(&prepare_fields, "cdc_delta_vortex_digest");
+    let prepared_state_digest = route_evidence_digest(&[
+        "prepared_state_delta_overlay",
+        &delta_overlay.base_artifact_digest,
+        &delta_overlay.delta_artifact_digest,
+        dim_digest.as_str(),
+        if cdc_delta_digest.is_empty() {
+            "none"
+        } else {
+            cdc_delta_digest.as_str()
+        },
+    ]);
+    set_field(
+        &mut prepare_fields,
+        "prepared_state_id",
+        format!("prepared-state://traditional-analytics/{prepared_state_digest}"),
+    );
+    set_field(
+        &mut prepare_fields,
+        "prepared_state_digest",
+        prepared_state_digest.clone(),
+    );
+    let source_admission_packet_digest =
+        json_string_field(request_payload, "source_admission_packet_digest")
+            .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string());
+    let base_artifacts = prior_manifest_payload
+        .get("prepared_artifacts")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let mut prepared_artifacts = base_artifacts.as_object().cloned().unwrap_or_default();
+    prepared_artifacts.insert(
+        "fact_delta_overlay".to_string(),
+        prepared_batch_artifact_manifest(
+            delta_overlay
+                .delta_artifact_path
+                .as_deref()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "admitted prepared-state delta overlay missing delta artifact path; fallback execution was not attempted"
+                            .to_string(),
+                    )
+                })?,
+            "fact append-only delta overlay",
+            &delta_overlay.delta_artifact_digest,
+        )?,
+    );
+    let prepared_artifacts = serde_json::Value::Object(prepared_artifacts);
+    let source_admission_packet_artifact_manifest_hash =
+        stable_json_value_digest(&prepared_artifacts);
+    let mut manifest_payload = serde_json::json!({
+        "schema_version": PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION,
+        "created_unix_seconds": current_unix_seconds(),
+        "manifest_path": manifest_path.display().to_string(),
+        "base_reuse_manifest_digest": json_string_field(prior_manifest_payload, "manifest_digest").unwrap_or_default(),
+        "route_request_digest": json_string_field(request_payload, "route_request_digest").unwrap_or_default(),
+        "prepare_policy": request_payload
+            .get("prepare_policy")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({})),
+        "source_admission_packet_digest": source_admission_packet_digest,
+        "source_admission_packet_artifact_manifest_hash": source_admission_packet_artifact_manifest_hash.clone(),
+        "reason": reason,
+        "prepare_fields": field_pairs_to_json_object(&prepare_fields),
+        "prepared_artifacts": prepared_artifacts,
+        "delta_overlay": {
+            "status": delta_overlay.status.clone(),
+            "admitted": delta_overlay.admitted,
+            "blocker_id": delta_overlay.blocker_id.clone(),
+            "base_prepared_state_digest": delta_overlay.base_prepared_state_digest.clone(),
+            "base_artifact_ref": delta_overlay.base_artifact_ref.clone(),
+            "base_artifact_digest": delta_overlay.base_artifact_digest.clone(),
+            "base_source_content_digest": delta_overlay.base_source_content_digest.clone(),
+            "current_source_content_digest": delta_overlay.current_source_content_digest.clone(),
+            "delta_source_path": delta_overlay.delta_source_path.as_ref().map(|path| path.display().to_string()).unwrap_or_default(),
+            "delta_source_digest": delta_overlay.delta_source_digest.clone(),
+            "delta_artifact_path": delta_overlay.delta_artifact_path.as_ref().map(|path| path.display().to_string()).unwrap_or_default(),
+            "delta_artifact_digest": delta_overlay.delta_artifact_digest.clone(),
+            "delta_artifact_bytes": delta_overlay.delta_artifact_bytes,
+            "base_source_size_bytes": delta_overlay.base_source_size_bytes,
+            "current_source_size_bytes": delta_overlay.current_source_size_bytes,
+            "delta_byte_start": delta_overlay.delta_byte_start,
+            "delta_byte_end": delta_overlay.delta_byte_end,
+            "base_row_count": delta_overlay.base_row_count,
+            "delta_row_count": delta_overlay.delta_row_count,
+            "current_row_count": delta_overlay.current_row_count,
+            "schema_hash": delta_overlay.schema_hash.clone(),
+            "route_family": delta_overlay.route_family.clone(),
+            "consumer_family": delta_overlay.consumer_family.clone(),
+            "consumer_status": delta_overlay.consumer_status.clone(),
+            "correctness_digest": delta_overlay.correctness_digest.clone(),
+            "replay_proof": delta_overlay.replay_proof.clone(),
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+        },
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+    });
+    let manifest_digest = stable_json_value_digest(&manifest_payload);
+    json_object_insert(
+        &mut manifest_payload,
+        "manifest_digest",
+        serde_json::Value::String(manifest_digest.clone()),
+    );
+    write_json_manifest_atomically(&manifest_path, &manifest_payload)?;
+    let index_digest = write_prepared_state_index(workspace_dir, &manifest_payload)?;
+    delta_overlay.manifest_digest.clone_from(&manifest_digest);
+    delta_overlay.manifest_path = Some(manifest_path.clone());
+    Ok(TraditionalPreparedBatchReuseReport::delta_overlay(
+        manifest_path,
+        manifest_digest,
+        json_string_field(request_payload, "source_admission_packet_digest")
+            .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string()),
+        source_admission_packet_artifact_manifest_hash,
+        index_digest,
+        reason.to_string(),
+        prepare_fields,
+        delta_overlay,
+    ))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16217,11 +17476,19 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
         source_snapshot: &TraditionalVortexSourceSnapshot,
     ) -> Result<Self> {
         let runtime_start = std::time::Instant::now();
         let mut reader_splits = Vec::new();
         collect_prepared_vortex_reader_splits("fact", fact_vortex, &mut reader_splits)?;
+        if let Some(fact_delta_overlay_vortex) = fact_delta_overlay_vortex {
+            collect_prepared_vortex_reader_splits(
+                "fact-delta-overlay",
+                fact_delta_overlay_vortex,
+                &mut reader_splits,
+            )?;
+        }
         collect_prepared_vortex_reader_splits("dim", dim_vortex, &mut reader_splits)?;
         if let Some(cdc_delta_vortex) = cdc_delta_vortex {
             collect_prepared_vortex_reader_splits(
@@ -17010,6 +18277,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
         cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
         source_snapshot: &TraditionalVortexSourceSnapshot,
         scenario_execution: &TraditionalScenarioExecution,
         native_io_certificate_status: &str,
@@ -17022,6 +18290,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             fact_vortex,
             dim_vortex,
             cdc_delta_vortex,
+            fact_delta_overlay_vortex,
             source_snapshot,
         )?;
         let tasks = traditional_prepared_vortex_scale_tasks(
@@ -17048,7 +18317,9 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         let shuffle_required = scenario_requires_local_scale_shuffle(scenario);
         let reader_chunk_count = split_runtime_evidence.reader_chunk_count.max(1);
         let split_count = reader_chunk_count;
-        let file_count = 2 + usize::from(source_snapshot.cdc_delta_vortex_bytes > 0);
+        let file_count = 2
+            + usize::from(source_snapshot.fact_delta_overlay_vortex_bytes > 0)
+            + usize::from(source_snapshot.cdc_delta_vortex_bytes > 0);
         let projection_mask = if scenario_execution.evidence.projected_columns.is_empty() {
             "all_columns".to_string()
         } else {
@@ -17063,6 +18334,10 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             "prepared_vortex_local_scale_source_state",
             scenario.as_str(),
             &source_snapshot.fact_vortex_digest,
+            source_snapshot
+                .fact_delta_overlay_vortex_digest
+                .as_deref()
+                .unwrap_or("none"),
             &source_snapshot.dim_vortex_digest,
             source_snapshot
                 .cdc_delta_vortex_digest
@@ -17777,6 +19052,14 @@ fn traditional_prepared_vortex_scale_tasks(
             "prepared Vortex CDC delta scan",
             OperatorMemoryClass::Scan,
             task_memory(source_snapshot.cdc_delta_vortex_bytes),
+        )?);
+    }
+    if source_snapshot.fact_delta_overlay_vortex_bytes > 0 {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-scan-fact-delta-overlay",
+            "prepared Vortex fact append-only delta overlay scan",
+            OperatorMemoryClass::Scan,
+            task_memory(source_snapshot.fact_delta_overlay_vortex_bytes),
         )?);
     }
     if scenario_requires_local_scale_shuffle(scenario) {
@@ -20244,6 +21527,94 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             input_format,
             resource_policy,
         )?;
+        let delta_overlay_report = evaluate_and_materialize_traditional_fact_delta_overlay(
+            manifest_payload,
+            &request_payload,
+            &fact_input,
+            &dim_input,
+            &workspace_dir,
+            input_format,
+            resource_policy,
+            &scenarios,
+            &reuse_decision.reason,
+        )?;
+        if delta_overlay_report
+            .as_ref()
+            .is_some_and(|report| report.admitted)
+        {
+            let overlay_start = std::time::Instant::now();
+            let mut prepared_state_reuse = write_traditional_prepared_batch_delta_overlay_manifest(
+                manifest_payload,
+                &request_payload,
+                &workspace_dir,
+                &reuse_decision.reason,
+                delta_overlay_report.expect("checked admitted delta overlay report"),
+            )?;
+            let overlay_register_micros = duration_to_micros(overlay_start.elapsed());
+            let delta_artifact_path = prepared_state_reuse
+                .delta_overlay
+                .delta_artifact_path()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "admitted prepared-state delta overlay did not expose a delta artifact path; fallback execution was not attempted"
+                            .to_string(),
+                    )
+                })?;
+            let delta_content_digest_micros =
+                prepared_state_reuse.delta_overlay.content_digest_micros;
+            let delta_source_write_micros =
+                prepared_state_reuse.delta_overlay.delta_source_write_micros;
+            let delta_artifact_write_micros = prepared_state_reuse
+                .delta_overlay
+                .delta_artifact_write_micros;
+            let delta_replay_verification_micros = prepared_state_reuse
+                .delta_overlay
+                .replay_verification_micros;
+            prepared_state_reuse = prepared_state_reuse.with_lifecycle_timing(
+                TraditionalPreparedBatchLifecycleTiming {
+                    manifest_lookup_micros,
+                    cache_miss_create_micros: delta_content_digest_micros
+                        .saturating_add(delta_source_write_micros),
+                    artifact_write_micros: delta_artifact_write_micros,
+                    artifact_register_micros: overlay_register_micros,
+                    replay_verification_micros: delta_replay_verification_micros,
+                    ..TraditionalPreparedBatchLifecycleTiming::default()
+                },
+            );
+            let fact_vortex = PathBuf::from(prepare_field_from_slice(
+                &prepared_state_reuse.prepare_fields,
+                "fact_vortex_path",
+            ));
+            let dim_vortex = PathBuf::from(prepare_field_from_slice(
+                &prepared_state_reuse.prepare_fields,
+                "dim_vortex_path",
+            ));
+            let cdc_delta_vortex = non_empty_prepare_field_path(
+                &prepared_state_reuse.prepare_fields,
+                "cdc_delta_vortex_path",
+            );
+            let batch_request =
+                TraditionalAnalyticsVortexBatchRequest::new(scenarios, fact_vortex, dim_vortex)
+                    .with_cdc_delta_vortex(cdc_delta_vortex)
+                    .with_fact_delta_overlay_vortex(Some(delta_artifact_path))
+                    .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+                    .with_resource_policy(resource_policy)
+                    .with_result_workspace_dir(result_workspace_dir)
+                    .with_result_vortex_write(write_result_vortex);
+            let batch_request = apply_traditional_batch_evidence_request(
+                batch_request,
+                requested_evidence_level,
+                requested_evidence_tier,
+            );
+            let batch_report =
+                run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
+            return Ok(TraditionalAnalyticsPreparedBatchReport {
+                preparation_scenario,
+                prepare_report: None,
+                batch_report,
+                prepared_state_reuse,
+            });
+        }
         if let Some(repair_role) =
             prepared_batch_single_role_repair_admission(manifest_payload, &request_payload)?
         {
@@ -20284,6 +21655,10 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
                     ..TraditionalPreparedBatchLifecycleTiming::default()
                 },
             );
+            if let Some(delta_overlay) = delta_overlay_report {
+                prepared_state_reuse =
+                    prepared_state_reuse.with_delta_overlay_report(delta_overlay);
+            }
             let fact_vortex = PathBuf::from(prepare_field_from_slice(
                 &prepared_state_reuse.prepare_fields,
                 "fact_vortex_path",
@@ -20396,6 +21771,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         fact_vortex,
         dim_vortex,
         cdc_delta_vortex,
+        fact_delta_overlay_vortex,
         requested_execution_mode,
         requested_evidence_level,
         requested_evidence_tier,
@@ -20422,6 +21798,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         &fact_vortex,
         &dim_vortex,
         cdc_delta_vortex.as_deref(),
+        fact_delta_overlay_vortex.as_deref(),
         &scenarios,
         requested_execution_mode,
     )?;
@@ -20489,6 +21866,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             dim_vortex.clone(),
         )
         .with_cdc_delta_vortex(child_cdc_delta_vortex)
+        .with_fact_delta_overlay_vortex(fact_delta_overlay_vortex.clone())
         .with_requested_execution_mode(requested_execution_mode)
         .with_resource_policy(resource_policy)
         .with_result_workspace_dir(scenario_workspace)
@@ -20709,6 +22087,7 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         &request.fact_vortex,
         &request.dim_vortex,
         request.cdc_delta_vortex.as_deref(),
+        request.fact_delta_overlay_vortex.as_deref(),
     )?;
     run_traditional_analytics_vortex_benchmark_with_source_context(request, &source_snapshot, None)
 }
@@ -20723,6 +22102,7 @@ fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
         &request.fact_vortex,
         &request.dim_vortex,
         request.cdc_delta_vortex.as_deref(),
+        request.fact_delta_overlay_vortex.as_deref(),
     )?;
     run_traditional_analytics_vortex_benchmark_with_source_context(
         request,
@@ -20760,9 +22140,11 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
     }
 
     let fact_vortex_bytes = source_snapshot.fact_vortex_bytes;
+    let fact_delta_overlay_vortex_bytes = source_snapshot.fact_delta_overlay_vortex_bytes;
     let dim_vortex_bytes = source_snapshot.dim_vortex_bytes;
     let cdc_delta_vortex_bytes = source_snapshot.cdc_delta_vortex_bytes;
     let fact_vortex_digest = source_snapshot.fact_vortex_digest.clone();
+    let fact_delta_overlay_vortex_digest = source_snapshot.fact_delta_overlay_vortex_digest.clone();
     let dim_vortex_digest = source_snapshot.dim_vortex_digest.clone();
     let cdc_delta_vortex_digest = source_snapshot.cdc_delta_vortex_digest.clone();
     let source_bytes_read = source_snapshot.source_bytes_read;
@@ -20777,6 +22159,14 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
             &request.dim_vortex,
             request.cdc_delta_vortex.as_deref(),
             source_state,
+        )?
+    } else if let Some(fact_delta_overlay_vortex) = request.fact_delta_overlay_vortex.as_deref() {
+        let dim_rows = vortex_file_row_count(&request.dim_vortex)?;
+        run_vortex_derived_scenario_from_files_with_fact_delta_overlay(
+            request.scenario,
+            &request.fact_vortex,
+            fact_delta_overlay_vortex,
+            dim_rows,
         )?
     } else {
         run_vortex_derived_scenario_from_files(
@@ -20851,6 +22241,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         &request.fact_vortex,
         &request.dim_vortex,
         request.cdc_delta_vortex.as_deref(),
+        request.fact_delta_overlay_vortex.as_deref(),
         source_snapshot,
         &scenario_execution,
         native_io_certificate.status(),
@@ -20872,10 +22263,13 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         fact_vortex_path: request.fact_vortex,
         dim_vortex_path: request.dim_vortex,
         cdc_delta_vortex_path: request.cdc_delta_vortex,
+        fact_delta_overlay_vortex_path: request.fact_delta_overlay_vortex,
         fact_vortex_bytes,
+        fact_delta_overlay_vortex_bytes,
         dim_vortex_bytes,
         cdc_delta_vortex_bytes,
         fact_vortex_digest,
+        fact_delta_overlay_vortex_digest,
         dim_vortex_digest,
         cdc_delta_vortex_digest,
         source_bytes_read,
@@ -21592,6 +22986,73 @@ fn file_sha256_digest(path: &std::path::Path, label: &str) -> Result<String> {
         digest.update(&buffer[..read]);
     }
     Ok(format!("sha256:{:x}", digest.finalize()))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn file_sha256_prefix_digest(path: &std::path::Path, bytes: u64, label: &str) -> Result<String> {
+    use std::io::Read as _;
+
+    let mut file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for prepared-state prefix digest: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })?;
+    let mut digest = sha2::Sha256::new();
+    let mut remaining = bytes;
+    let mut buffer = [0_u8; 8192];
+    while remaining > 0 {
+        let read_limit = usize::try_from(remaining.min(buffer.len() as u64)).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "prepared-state prefix digest read size does not fit usize: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        let read = file.read(&mut buffer[..read_limit]).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} '{}' for prepared-state prefix digest: {error}; fallback execution was not attempted",
+                path.display()
+            ))
+        })?;
+        if read == 0 {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "prepared-state prefix digest for {label} '{}' reached EOF before {bytes} bytes; fallback execution was not attempted",
+                path.display()
+            )));
+        }
+        digest.update(&buffer[..read]);
+        remaining = remaining.saturating_sub(u64::try_from(read).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "prepared-state prefix digest byte count does not fit u64: {error}; fallback execution was not attempted"
+            ))
+        })?);
+    }
+    Ok(format!("sha256:{:x}", digest.finalize()))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn byte_at_file_offset(path: &std::path::Path, offset: u64, label: &str) -> Result<u8> {
+    use std::io::{Read as _, Seek as _};
+
+    let mut file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open {label} '{}' for prepared-state byte boundary proof: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })?;
+    file.seek(std::io::SeekFrom::Start(offset)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to seek {label} '{}' for prepared-state byte boundary proof: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })?;
+    let mut byte = [0_u8; 1];
+    file.read_exact(&mut byte).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} '{}' byte {offset} for prepared-state byte boundary proof: {error}; fallback execution was not attempted",
+            path.display()
+        ))
+    })?;
+    Ok(byte[0])
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -26510,6 +27971,14 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
     cdc_delta_path: Option<&std::path::Path>,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<TraditionalScenarioExecution> {
+    if let Some(fact_delta_overlay_path) = source_state.fact_delta_overlay_vortex_path.as_deref() {
+        return run_vortex_derived_scenario_from_files_with_fact_delta_overlay(
+            scenario,
+            fact_path,
+            fact_delta_overlay_path,
+            source_state.dim_rows,
+        );
+    }
     if let Some(execution) =
         run_dimension_label_batch_source_state_scenario(scenario, fact_path, source_state)?
     {
@@ -26550,6 +28019,169 @@ fn run_vortex_derived_scenario_from_files_with_batch_source_state(
         return Ok(execution);
     }
     run_vortex_derived_scenario_from_files(scenario, fact_path, dim_path, cdc_delta_path)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_vortex_derived_scenario_from_files_with_fact_delta_overlay(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    fact_delta_overlay_path: &std::path::Path,
+    dim_rows: u64,
+) -> Result<TraditionalScenarioExecution> {
+    let sum_column = match scenario {
+        TraditionalAnalyticsScenario::CsvFileIngest
+        | TraditionalAnalyticsScenario::ManySmallFilesScan => "metric",
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "prepared-state append-only fact delta overlay is not admitted for scenario '{}'; supported overlay consumers for this slice are csv/file ingest and many-small-files scan; fallback execution was not attempted",
+                scenario.as_str()
+            )));
+        }
+    };
+    let base = run_streaming_fact_metric_sum_scenario_with_dim_rows(
+        fact_path, dim_rows, None, sum_column,
+    )?;
+    let delta = run_streaming_fact_metric_sum_scenario_with_dim_rows(
+        fact_delta_overlay_path,
+        dim_rows,
+        None,
+        sum_column,
+    )?;
+    combine_fact_delta_overlay_metric_sum_execution(&base, &delta)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn combine_fact_delta_overlay_metric_sum_execution(
+    base: &TraditionalScenarioExecution,
+    delta: &TraditionalScenarioExecution,
+) -> Result<TraditionalScenarioExecution> {
+    let (base_row_count, base_metric_sum) = scalar_result_json_parts(&base.result_json)?;
+    let (delta_row_count, delta_metric_sum) = scalar_result_json_parts(&delta.result_json)?;
+    let result_row_count = checked_u64_sum(base_row_count, delta_row_count)?;
+    let metric_sum = base_metric_sum + delta_metric_sum;
+    Ok(TraditionalScenarioExecution {
+        result_json: scalar_result_json(result_row_count, metric_sum),
+        fact_rows: checked_u64_sum(base.fact_rows, delta.fact_rows)?,
+        dim_rows: base.dim_rows,
+        cdc_delta_rows: 0,
+        rows_scanned: checked_u64_sum(base.rows_scanned, delta.rows_scanned)?,
+        rows_materialized: 1,
+        evidence: combine_fact_delta_overlay_streaming_evidence(&base.evidence, &delta.evidence)?,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scalar_result_json_parts(result_json: &str) -> Result<(u64, f64)> {
+    let value: serde_json::Value = serde_json::from_str(result_json).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to parse scalar result JSON during prepared-state delta overlay compose: {error}; fallback execution was not attempted"
+        ))
+    })?;
+    let row_count = value
+        .get("row_count")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "scalar result JSON missing row_count during prepared-state delta overlay compose; fallback execution was not attempted"
+                    .to_string(),
+            )
+        })?;
+    let metric_sum = value
+        .get("metric_sum")
+        .and_then(serde_json::Value::as_f64)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "scalar result JSON missing metric_sum during prepared-state delta overlay compose; fallback execution was not attempted"
+                    .to_string(),
+            )
+        })?;
+    Ok((row_count, metric_sum))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn combine_fact_delta_overlay_streaming_evidence(
+    base: &TraditionalScenarioExecutionEvidence,
+    delta: &TraditionalScenarioExecutionEvidence,
+) -> Result<TraditionalScenarioExecutionEvidence> {
+    if !base.streaming_vortex_execution_used || !delta.streaming_vortex_execution_used {
+        return Err(ShardLoomError::InvalidOperation(
+            "prepared-state delta overlay compose requires both base and delta executions to use streaming Vortex scans; fallback execution was not attempted"
+                .to_string(),
+        ));
+    }
+    Ok(TraditionalScenarioExecutionEvidence {
+        streaming_vortex_execution_used: true,
+        full_table_materialization_avoided: base.full_table_materialization_avoided
+            && delta.full_table_materialization_avoided,
+        filter_pushdown_applied: base.filter_pushdown_applied || delta.filter_pushdown_applied,
+        projection_pushdown_applied: base.projection_pushdown_applied
+            && delta.projection_pushdown_applied,
+        arrays_read_count: base.arrays_read_count + delta.arrays_read_count,
+        max_chunk_rows: base.max_chunk_rows.max(delta.max_chunk_rows),
+        projected_columns: union_sorted_strings(&base.projected_columns, &delta.projected_columns),
+        result_row_count: checked_u64_sum(base.result_row_count, delta.result_row_count)?,
+        reader_chunk_columns_observed: union_sorted_strings(
+            &base.reader_chunk_columns_observed,
+            &delta.reader_chunk_columns_observed,
+        ),
+        reader_chunk_dtype_summary: union_sorted_strings(
+            &base.reader_chunk_dtype_summary,
+            &delta.reader_chunk_dtype_summary,
+        ),
+        reader_chunk_encoding_summary: union_sorted_strings(
+            &base.reader_chunk_encoding_summary,
+            &delta.reader_chunk_encoding_summary,
+        ),
+        vortex_footer_open_micros: checked_u64_sum(
+            base.vortex_footer_open_micros,
+            delta.vortex_footer_open_micros,
+        )?,
+        vortex_metadata_verify_micros: checked_u64_sum(
+            base.vortex_metadata_verify_micros,
+            delta.vortex_metadata_verify_micros,
+        )?,
+        vortex_scan_open_micros: checked_u64_sum(
+            base.vortex_scan_open_micros,
+            delta.vortex_scan_open_micros,
+        )?,
+        vortex_scenario_scan_micros: checked_u64_sum(
+            base.vortex_scenario_scan_micros,
+            delta.vortex_scenario_scan_micros,
+        )?,
+        vortex_scan_bytes_touched: checked_u64_sum(
+            base.vortex_scan_bytes_touched,
+            delta.vortex_scan_bytes_touched,
+        )?,
+        vortex_scan_segments_touched: checked_u64_sum(
+            base.vortex_scan_segments_touched,
+            delta.vortex_scan_segments_touched,
+        )?,
+        vortex_scan_segments_skipped: checked_u64_sum(
+            base.vortex_scan_segments_skipped,
+            delta.vortex_scan_segments_skipped,
+        )?,
+        vortex_scan_columns_touched: base
+            .vortex_scan_columns_touched
+            .max(delta.vortex_scan_columns_touched),
+        vortex_scan_decoded_values: checked_u64_sum(
+            base.vortex_scan_decoded_values,
+            delta.vortex_scan_decoded_values,
+        )?,
+        encoded_predicate_provider:
+            TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
+        compressed_kernel_registry_pair_execution_evidence: Vec::new(),
+        data_decoded: base.data_decoded || delta.data_decoded,
+        data_materialized: base.data_materialized || delta.data_materialized,
+        row_read: base.row_read || delta.row_read,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn union_sorted_strings(left: &[String], right: &[String]) -> Vec<String> {
+    let mut values = std::collections::BTreeSet::new();
+    values.extend(left.iter().cloned());
+    values.extend(right.iter().cloned());
+    values.into_iter().collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -35074,6 +36706,21 @@ mod tests {
         );
         assert_field_eq(
             &third_fields,
+            "prepare_batch_prepared_state_delta_overlay_admitted",
+            "false",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_delta_overlay_status",
+            "blocked_consumer_family_not_overlay_mergeable",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_delta_overlay_blocker_id",
+            "perf-split-9.consumer-family-not-overlay-mergeable",
+        );
+        assert_field_eq(
+            &third_fields,
             "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
             "false",
         );
@@ -35107,6 +36754,260 @@ mod tests {
         assert_field_eq(&third_fields, "fallback_attempted", "false");
         assert_field_eq(&third_fields, "external_engine_invoked", "false");
         assert!(traditional_prepared_batch_index_path(&workspace).exists());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn traditional_prepared_delta_overlay_admits_append_only_csv_scalar_lane() {
+        use std::io::Write as _;
+
+        let root = traditional_analytics_test_root("prepared-delta-overlay-admit");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("prepare-workspace");
+        let scenarios = vec![TraditionalAnalyticsScenario::CsvFileIngest];
+
+        let first = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios.clone(),
+                fact_csv.clone(),
+                dim_csv.clone(),
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let first_fields = field_map(first.fields());
+        assert!(first.prepare_report.is_some());
+        assert_eq!(
+            first.batch_report.reports[0].result_json,
+            "{\"row_count\":3,\"metric_sum\":10.0}"
+        );
+        let base_fact_digest = first_fields
+            .get("prepare_batch_fact_vortex_digest")
+            .expect("base fact digest")
+            .clone();
+        let base_dim_digest = first_fields
+            .get("prepare_batch_dim_vortex_digest")
+            .expect("base dim digest")
+            .clone();
+        let manifest_path = traditional_prepared_batch_reuse_manifest_path(&workspace);
+        let manifest_payload: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&manifest_path).expect("read reuse manifest"),
+        )
+        .expect("parse reuse manifest");
+        assert_eq!(
+            manifest_payload
+                .pointer("/prepared_state_delta_overlay_base/status")
+                .and_then(serde_json::Value::as_str),
+            Some("base_manifest_ready_for_append_only_fact_delta_overlay")
+        );
+        assert!(
+            manifest_payload
+                .pointer("/prepared_state_delta_overlay_base/base_source_content_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert_eq!(
+            manifest_payload
+                .pointer("/prepared_state_delta_overlay_base/base_fact_row_count")
+                .and_then(serde_json::Value::as_u64),
+            Some(3)
+        );
+
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&fact_csv)
+            .unwrap()
+            .write_all(b"999,1,10,7,1.0,1,alpha,2024-01-01,,2024-01-01T00:00:00Z,7,true\n")
+            .unwrap();
+
+        let overlay = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios,
+                fact_csv,
+                dim_csv,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let overlay_fields = field_map(overlay.fields());
+        assert!(overlay.prepare_report.is_none());
+        assert_eq!(
+            overlay.batch_report.reports[0].result_json,
+            "{\"row_count\":4,\"metric_sum\":11.0}"
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_runtime_status",
+            "workspace_prepared_state_delta_overlay_then_prepared_batch_supported",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_route",
+            "compatibility_import_certified_manifest_delta_overlay_to_prepared_vortex_batch",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_admitted",
+            "true",
+        );
+        assert_field_eq(&overlay_fields, "delta_overlay_admitted", "true");
+        assert_field_eq(&overlay_fields, "base_artifact_reused", "true");
+        assert_field_eq(&overlay_fields, "delta_artifact_written", "true");
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_source_admission_full_content_digest_requested",
+            "true",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_base_row_count",
+            "3",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_delta_row_count",
+            "1",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_current_row_count",
+            "4",
+        );
+        assert_eq!(
+            overlay_fields
+                .get("prepare_batch_fact_vortex_digest")
+                .expect("overlay base fact digest"),
+            &base_fact_digest
+        );
+        assert_eq!(
+            overlay_fields
+                .get("prepare_batch_dim_vortex_digest")
+                .expect("overlay dim digest"),
+            &base_dim_digest
+        );
+        assert!(
+            overlay_fields
+                .get("prepare_batch_fact_delta_overlay_vortex_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert!(
+            overlay_fields
+                .get("prepare_batch_prepared_state_delta_overlay_correctness_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert!(
+            overlay_fields
+                .get("prepare_batch_prepared_state_delta_overlay_replay_proof")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_delta_overlay_external_engine_invoked",
+            "false",
+        );
+        let delta_artifact_path = overlay_fields
+            .get("prepare_batch_prepared_state_delta_overlay_delta_artifact_ref")
+            .expect("delta artifact ref");
+        assert!(PathBuf::from(delta_artifact_path).exists());
+        let overlay_manifest_path = traditional_prepared_delta_overlay_manifest_path(&workspace);
+        assert!(overlay_manifest_path.exists());
+        let overlay_manifest: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(&overlay_manifest_path).expect("read overlay manifest"),
+        )
+        .expect("parse overlay manifest");
+        assert_eq!(
+            overlay_manifest
+                .pointer("/delta_overlay/admitted")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            overlay_manifest
+                .pointer("/delta_overlay/delta_row_count")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn traditional_prepared_delta_overlay_blocks_prefix_mismatch_update() {
+        let root = traditional_analytics_test_root("prepared-delta-overlay-prefix-mismatch");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("prepare-workspace");
+        let scenarios = vec![TraditionalAnalyticsScenario::CsvFileIngest];
+
+        let first = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios.clone(),
+                fact_csv.clone(),
+                dim_csv.clone(),
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let first_fields = field_map(first.fields());
+        let base_fact_digest = first_fields
+            .get("prepare_batch_fact_vortex_digest")
+            .expect("base fact digest")
+            .clone();
+
+        let mut mutated = std::fs::read_to_string(&fact_csv).unwrap();
+        mutated = mutated.replacen("2.5", "2.6", 1);
+        mutated.push_str("999,1,10,7,1.0,1,alpha,2024-01-01,,2024-01-01T00:00:00Z,7,true\n");
+        std::fs::write(&fact_csv, mutated).unwrap();
+
+        let repaired = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(scenarios, fact_csv, dim_csv, workspace)
+                .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+                .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let repaired_fields = field_map(repaired.fields());
+        assert!(repaired.prepare_report.is_none());
+        assert_field_eq(
+            &repaired_fields,
+            "prepare_batch_prepared_state_delta_overlay_admitted",
+            "false",
+        );
+        assert_field_eq(
+            &repaired_fields,
+            "prepare_batch_prepared_state_delta_overlay_status",
+            "blocked_prefix_digest_mismatch",
+        );
+        assert_field_eq(
+            &repaired_fields,
+            "prepare_batch_prepared_state_delta_overlay_blocker_id",
+            "perf-split-9.prefix-digest-mismatch",
+        );
+        assert_field_eq(
+            &repaired_fields,
+            "prepare_batch_prepared_state_lookup_status",
+            "workspace_manifest_partial_repair",
+        );
+        assert_ne!(
+            repaired_fields
+                .get("prepare_batch_fact_vortex_digest")
+                .expect("repaired fact digest"),
+            &base_fact_digest
+        );
+        assert_field_eq(&repaired_fields, "fallback_attempted", "false");
+        assert_field_eq(&repaired_fields, "external_engine_invoked", "false");
 
         let _ = std::fs::remove_dir_all(root);
     }
