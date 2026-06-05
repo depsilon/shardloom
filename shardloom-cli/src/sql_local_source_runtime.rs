@@ -950,12 +950,37 @@ impl SqlResultBatchState {
         self.contains_decimal_values() || self.contains_decimal_dtype_hint()
     }
 
-    fn contains_null_values(&self) -> bool {
+    fn contains_vortex_unadmitted_null_values(&self) -> bool {
         self.columns.iter().any(|column| {
-            column
+            if !column
                 .values
                 .iter()
                 .any(|value| matches!(value, ScalarValue::Null))
+            {
+                return false;
+            }
+            let mut family = column.dtype.as_ref().and_then(|dtype| match dtype {
+                LogicalDType::Binary => Some("binary"),
+                dtype if logical_dtype_is_decimal128(dtype) => Some("decimal128"),
+                _ => None,
+            });
+            for value in column
+                .values
+                .iter()
+                .filter(|value| !matches!(value, ScalarValue::Null))
+            {
+                let candidate = match value {
+                    ScalarValue::Binary(_) => Some("binary"),
+                    ScalarValue::Decimal128 { .. } => Some("decimal128"),
+                    _ => return true,
+                };
+                match (family, candidate) {
+                    (None, Some(candidate)) => family = Some(candidate),
+                    (Some(existing), Some(candidate)) if existing == candidate => {}
+                    _ => return true,
+                }
+            }
+            !matches!(family, Some("binary" | "decimal128"))
         })
     }
 
@@ -1041,7 +1066,11 @@ impl SqlRenderedOutput {
     fn estimated_output_bytes(&self) -> u64 {
         match &self.payload {
             SqlOutputPayload::Bytes { bytes, .. } => (*bytes).max(1),
-            SqlOutputPayload::Vortex { columns, rows } => u64::try_from(rows.len())
+            SqlOutputPayload::Vortex {
+                columns,
+                column_dtypes: _,
+                rows,
+            } => u64::try_from(rows.len())
                 .unwrap_or(u64::MAX)
                 .saturating_mul(u64::try_from(columns.len()).unwrap_or(u64::MAX))
                 .saturating_mul(32)
@@ -1059,6 +1088,7 @@ enum SqlOutputPayload {
     },
     Vortex {
         columns: Vec<String>,
+        column_dtypes: Vec<Option<LogicalDType>>,
         rows: SqlOutputRows,
     },
 }
@@ -13092,6 +13122,7 @@ fn prepare_sql_output_from_shared(
     let payload = if matches!(sink.format, SqlLocalSourceOutputFormat::Vortex) {
         SqlOutputPayload::Vortex {
             columns: columns.to_vec(),
+            column_dtypes: column_dtypes.to_vec(),
             rows: rows.to_vec(),
         }
     } else {
@@ -13805,30 +13836,52 @@ fn write_sql_output(
                 vortex_report: None,
             })
         }
-        SqlOutputPayload::Vortex { columns, rows } => write_sql_vortex_output(
-            rendered.format,
-            rendered.path,
+        SqlOutputPayload::Vortex {
             columns,
+            column_dtypes,
             rows,
-            rendered.conversion_millis,
-            allow_overwrite,
+        } => write_sql_vortex_output(
+            SqlVortexOutputWriteRequest {
+                format: rendered.format,
+                path: rendered.path,
+                columns,
+                column_dtypes,
+                rows,
+                plan_conversion_millis: rendered.conversion_millis,
+                allow_overwrite,
+            },
             output_layout_write_advisor,
         ),
     }
 }
 
-fn write_sql_vortex_output(
+struct SqlVortexOutputWriteRequest {
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
     columns: Vec<String>,
+    column_dtypes: Vec<Option<LogicalDType>>,
     rows: SqlOutputRows,
     plan_conversion_millis: u128,
     allow_overwrite: bool,
+}
+
+fn write_sql_vortex_output(
+    write_request: SqlVortexOutputWriteRequest,
     output_layout_write_advisor: &SqlOutputLayoutWriteAdvisorReport,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
+    let SqlVortexOutputWriteRequest {
+        format,
+        path,
+        columns,
+        column_dtypes,
+        rows,
+        plan_conversion_millis,
+        allow_overwrite,
+    } = write_request;
     let conversion_start = Instant::now();
     let conversion_millis = plan_conversion_millis + conversion_start.elapsed().as_millis();
     let mut request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
+        .column_dtypes(column_dtypes)
         .allow_overwrite(allow_overwrite);
     if let Some(advisor) = output_layout_write_advisor.vortex_writer_advisor() {
         request = request.layout_write_advisor(advisor.clone());
@@ -36138,7 +36191,7 @@ fn validate_flat_scalar_result_batch(
         && !format.preserves_typed_decimal128()
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and non-null local Vortex typed decimal output in this scoped runtime slice",
+            "local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and local Vortex typed decimal output in this scoped runtime slice",
             format.sink_format()
         )));
     }
@@ -36155,11 +36208,11 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and non-null local Vortex typed decimal output in this scoped runtime slice",
+            "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local {} output does not yet admit typed decimal128 preservation; decimal128 values are admitted through exact JSONL string, CSV text, feature-gated Parquet/Arrow IPC/Avro typed result boundaries, and local Vortex typed decimal output in this scoped runtime slice",
             format.sink_format()
         ))),
-        Some("vortex_non_null_scalar_values_required") => Err(unsupported_sql_error(
-            "output_plan_conversion_blocker=vortex_non_null_scalar_values_required; local vortex output currently admits non-null flat scalar rows only; nullable/all-null binary and other NULL values remain blocked before Vortex writer conversion; no fallback execution was attempted",
+        Some("vortex_null_family_not_admitted") => Err(unsupported_sql_error(
+            "output_plan_conversion_blocker=vortex_null_family_not_admitted; local vortex output currently admits NULL values only for scoped binary and decimal128 result columns with known family/dtype evidence; other NULL-bearing Vortex output batches remain blocked before writer conversion; no fallback execution was attempted",
         )),
         Some(blocker) => Err(unsupported_sql_error(&format!(
             "output_plan_conversion_blocker={blocker}; local {} output sink is blocked before conversion begins; no fallback execution was attempted",
@@ -36227,8 +36280,10 @@ fn sql_output_plan_conversion_blocker(
     {
         return Some("typed_decimal128_preservation_not_admitted");
     }
-    if matches!(format, SqlLocalSourceOutputFormat::Vortex) && batch.contains_null_values() {
-        return Some("vortex_non_null_scalar_values_required");
+    if matches!(format, SqlLocalSourceOutputFormat::Vortex)
+        && batch.contains_vortex_unadmitted_null_values()
+    {
+        return Some("vortex_null_family_not_admitted");
     }
     None
 }
@@ -40045,8 +40100,9 @@ mod tests {
         fs::remove_file(&output_path).expect("remove vortex output");
     }
 
+    #[cfg(feature = "vortex-write")]
     #[test]
-    fn decimal_cast_all_null_typed_hint_blocks_vortex_sink() {
+    fn decimal_cast_all_null_typed_hint_writes_vortex_sink() {
         let path = sql_local_source_test_path("csv");
         let output_path = sql_local_source_test_path("vortex");
         fs::write(&path, "id,amount\n1,not-decimal\n2,still-bad\n").expect("write csv source");
@@ -40059,7 +40115,7 @@ mod tests {
 
         assert_eq!(
             sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &hinted_batch),
-            Some("vortex_non_null_scalar_values_required")
+            None
         );
 
         let request = SqlLocalSourceRequest {
@@ -40072,40 +40128,93 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("all-null typed decimal hint remains blocked for vortex");
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write all-null vortex decimal");
+        let fields = field_map(report.fields());
 
-        assert!(
-            error
-                .to_string()
-                .contains("local vortex output currently admits non-null flat scalar rows only"),
-            "{error}"
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,amount_decimal:decimal128(10,2)",
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
-        assert!(!output_path.exists());
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
     }
 
     #[test]
-    fn null_scalar_values_block_vortex_sink_before_writer_conversion() {
-        let batch = SqlResultBatchState::from_rows_with_dtypes(
+    fn scoped_binary_decimal_nulls_are_admitted_for_vortex_sink() {
+        let binary_batch = SqlResultBatchState::from_rows_with_dtypes(
             &["payload".to_string()],
             &[Some(LogicalDType::Binary)],
             &[vec![("payload".to_string(), ScalarValue::Null)]],
         )
         .expect("null binary hinted batch");
+        let int_batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["id".to_string()],
+            &[Some(LogicalDType::Int64)],
+            &[vec![("id".to_string(), ScalarValue::Null)]],
+        )
+        .expect("null int hinted batch");
 
         assert_eq!(
-            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &batch),
-            Some("vortex_non_null_scalar_values_required")
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &binary_batch),
+            None
         );
         assert_eq!(
-            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Parquet, &batch),
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &int_batch),
+            Some("vortex_null_family_not_admitted")
+        );
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Parquet, &binary_batch),
             None
         );
     }
 
+    #[cfg(feature = "vortex-write")]
+    #[test]
+    fn binary_cast_all_null_typed_hint_writes_vortex_sink() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
+        fs::write(&path, "id,label\n1,\n2,\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,TRY_CAST(label AS binary) AS payload FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write all-null vortex binary");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,payload:binary",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
+    }
+
+    #[cfg(feature = "vortex-write")]
     #[test]
     fn decimal_generic_expression_preserves_all_null_typed_hint() {
         let parsed = parse_sql_local_source_statement(
@@ -40138,19 +40247,24 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("all-null computed decimal output remains blocked for vortex");
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("write all-null computed decimal output to vortex");
+        let fields = field_map(report.fields());
 
-        assert!(
-            error
-                .to_string()
-                .contains("local vortex output currently admits non-null flat scalar rows only"),
-            "{error}"
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,adjusted:decimal128(11,2)",
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
-        assert!(!output_path.exists());
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
 
         fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
     }
 
     #[test]

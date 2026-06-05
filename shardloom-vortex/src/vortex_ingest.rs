@@ -24,9 +24,9 @@ use arrow_array::{
     LargeStringArray, StringArray, StringViewArray, TimestampMicrosecondArray, UInt8Array,
     UInt16Array, UInt32Array, UInt64Array,
 };
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use shardloom_core::LogicalDType;
-use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport};
+use shardloom_core::{
+    LogicalDType, Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport,
+};
 use shardloom_exec::{
     OperatorMemoryClass, PulseWeaveInput, PulseWeaveReport, PulseWeaveTaskShape, plan_pulseweave,
 };
@@ -1858,6 +1858,7 @@ fn invalid_manifest_escape() -> ShardLoomError {
 pub struct VortexPreparedStateWriteRequest {
     pub target_path: PathBuf,
     pub columns: Vec<String>,
+    pub column_dtypes: Vec<Option<LogicalDType>>,
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
@@ -1933,15 +1934,24 @@ impl VortexPreparedStateWriteRequest {
         columns: Vec<String>,
         rows: Vec<Vec<(String, ScalarValue)>>,
     ) -> Self {
+        let column_dtypes = vec![None; columns.len()];
         Self {
             target_path: target_path.into(),
             columns,
+            column_dtypes,
             rows,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
             layout_write_advisor: None,
             capillary_prewrite_input: None,
         }
+    }
+
+    /// Attach logical dtype hints for flat scalar output columns.
+    #[must_use]
+    pub fn column_dtypes(mut self, column_dtypes: Vec<Option<LogicalDType>>) -> Self {
+        self.column_dtypes = column_dtypes;
+        self
     }
 
     /// Allow overwriting an existing local target artifact.
@@ -5446,7 +5456,8 @@ pub fn write_flat_scalar_vortex_prepared_state(
     }
 
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
-    let column_families = scalar_column_families(&request.columns, &request.rows)?;
+    let column_families =
+        scalar_column_families(&request.columns, &request.column_dtypes, &request.rows)?;
     let layout_write_decision = admit_layout_write_runtime_decision(
         request.layout_write_advisor.as_ref(),
         "shardloom_kernel",
@@ -5927,6 +5938,21 @@ fn validate_flat_rows(columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -
 }
 
 #[cfg(feature = "vortex-write")]
+fn validate_scalar_column_dtype_hints(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+) -> Result<()> {
+    if column_dtypes.len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest declared {} column dtype hints for {} columns; no fallback execution was attempted",
+            column_dtypes.len(),
+            columns.len()
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
 fn validate_flat_columns(columns: &[String]) -> Result<()> {
     if columns.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
@@ -5954,21 +5980,36 @@ fn validate_flat_columns(columns: &[String]) -> Result<()> {
 #[cfg(feature = "vortex-write")]
 fn scalar_column_families(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<(String, String)>> {
+    validate_scalar_column_dtype_hints(columns, column_dtypes)?;
     columns
         .iter()
         .enumerate()
         .map(|(column_index, column)| {
-            let mut family: Option<ScalarFamily> = None;
+            let mut family = column_dtypes
+                .get(column_index)
+                .and_then(Option::as_ref)
+                .map(|dtype| scalar_family_from_dtype_hint(column, dtype))
+                .transpose()?
+                .flatten();
             for row in rows {
                 let value = &row[column_index].1;
-                let candidate = scalar_family(value).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros only; no fallback execution was attempted",
+                let Some(candidate) = scalar_family(value) else {
+                    if matches!(value, ScalarValue::Null)
+                        && matches!(
+                            family,
+                            Some(ScalarFamily::Binary | ScalarFamily::Decimal128 { .. })
+                        )
+                    {
+                        continue;
+                    }
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros plus nullable binary/decimal128 columns only when the column family is known; no fallback execution was attempted",
                         value.summary()
-                    ))
-                })?;
+                    )));
+                };
                 if let Some(existing) = family {
                     if existing != candidate {
                         let existing = existing.label();
@@ -5987,6 +6028,26 @@ fn scalar_column_families(
             ))
         })
         .collect()
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_family_from_dtype_hint(
+    column: &str,
+    dtype: &LogicalDType,
+) -> Result<Option<ScalarFamily>> {
+    match dtype {
+        LogicalDType::Binary => Ok(Some(ScalarFamily::Binary)),
+        LogicalDType::Extension(value) if value.starts_with("decimal128") => {
+            let (precision, scale) =
+                scalar_decimal128_dtype_precision_scale(column, value)?.ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest column '{column}' has invalid decimal128 dtype hint {value:?}; decimal hints must use decimal128(precision,scale) with 1 <= precision <= 38 and scale <= precision; no fallback execution was attempted"
+                    ))
+                })?;
+            Ok(Some(ScalarFamily::Decimal128 { precision, scale }))
+        }
+        _ => Ok(None),
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -6602,16 +6663,7 @@ fn column_to_vortex_array(
                 .collect::<Result<Vec<_>>>()?;
             Ok(VarBinViewArray::from_iter_str(values).into_array())
         }
-        "binary" => {
-            let values = rows
-                .iter()
-                .map(|row| match &row[column_index].1 {
-                    ScalarValue::Binary(value) => Ok(value.as_slice()),
-                    value => Err(unexpected_vortex_ingest_value(column, family, value)),
-                })
-                .collect::<Result<Vec<_>>>()?;
-            Ok(VarBinViewArray::from_iter_bin(values).into_array())
-        }
+        "binary" => scalar_binary_to_vortex_array(column, column_index, family, rows),
         "date32" => Ok(rows
             .iter()
             .map(|row| match &row[column_index].1 {
@@ -6642,6 +6694,44 @@ fn column_to_vortex_array(
 }
 
 #[cfg(feature = "vortex-write")]
+fn scalar_binary_to_vortex_array(
+    column: &str,
+    column_index: usize,
+    family: &str,
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::VarBinViewArray;
+    use vortex::array::builders::{ArrayBuilder as _, VarBinViewBuilder};
+    use vortex::array::dtype::{DType, Nullability};
+
+    if rows
+        .iter()
+        .any(|row| matches!(row[column_index].1, ScalarValue::Null))
+    {
+        let mut builder =
+            VarBinViewBuilder::with_capacity(DType::Binary(Nullability::Nullable), rows.len());
+        for row in rows {
+            match &row[column_index].1 {
+                ScalarValue::Binary(value) => builder.append_value(value),
+                ScalarValue::Null => builder.append_null(),
+                value => return Err(unexpected_vortex_ingest_value(column, family, value)),
+            }
+        }
+        return Ok(builder.finish_into_varbinview().into_array());
+    }
+
+    let values = rows
+        .iter()
+        .map(|row| match &row[column_index].1 {
+            ScalarValue::Binary(value) => Ok(value.as_slice()),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(VarBinViewArray::from_iter_bin(values).into_array())
+}
+
+#[cfg(feature = "vortex-write")]
 fn scalar_decimal128_to_vortex_array(
     column: &str,
     column_index: usize,
@@ -6649,6 +6739,8 @@ fn scalar_decimal128_to_vortex_array(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
+    use vortex::array::builders::ArrayBuilder as _;
+    use vortex::array::dtype::Nullability;
 
     let (precision, scale_u8) = scalar_decimal128_family_precision_scale(family)
         .ok_or_else(|| unexpected_vortex_ingest_family(column, family))?;
@@ -6657,10 +6749,18 @@ fn scalar_decimal128_to_vortex_array(
             "local vortex_ingest column '{column}' has unsupported decimal128 scale {scale_u8}; no fallback execution was attempted"
         ))
     })?;
+    let nullability = if rows
+        .iter()
+        .any(|row| matches!(row[column_index].1, ScalarValue::Null))
+    {
+        Nullability::Nullable
+    } else {
+        Nullability::NonNullable
+    };
     let mut builder = vortex::array::builders::DecimalBuilder::with_capacity::<i128>(
         rows.len(),
         vortex::array::dtype::DecimalDType::new(precision, scale_i8),
-        false.into(),
+        nullability,
     );
     for row in rows {
         match &row[column_index].1 {
@@ -6671,10 +6771,40 @@ fn scalar_decimal128_to_vortex_array(
             } if *value_precision == precision && *value_scale == scale_u8 => {
                 builder.append_value(*value);
             }
+            ScalarValue::Null => builder.append_null(),
             value => return Err(unexpected_vortex_ingest_value(column, family, value)),
         }
     }
     Ok(builder.finish_into_decimal().into_array())
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_decimal128_dtype_precision_scale(column: &str, value: &str) -> Result<Option<(u8, u8)>> {
+    if !value.starts_with("decimal128") {
+        return Ok(None);
+    }
+    let invalid_decimal_hint = || {
+        ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has invalid decimal128 dtype hint {value:?}; decimal hints must use decimal128(precision,scale) with 1 <= precision <= 38 and scale <= precision; no fallback execution was attempted"
+        ))
+    };
+    let args = value
+        .strip_prefix("decimal128(")
+        .and_then(|rest| rest.strip_suffix(')'))
+        .ok_or_else(invalid_decimal_hint)?;
+    let (precision_raw, scale_raw) = args.split_once(',').ok_or_else(invalid_decimal_hint)?;
+    let precision = precision_raw
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| invalid_decimal_hint())?;
+    let scale = scale_raw
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| invalid_decimal_hint())?;
+    if precision == 0 || precision > 38 || scale > precision {
+        return Err(invalid_decimal_hint());
+    }
+    Ok(Some((precision, scale)))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7108,6 +7238,54 @@ mod tests {
 
     #[cfg(feature = "universal-format-io")]
     #[test]
+    fn local_flat_scalar_all_null_binary_rows_write_reopens_binary() {
+        use arrow_array::{Array as _, BinaryArray, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-binary-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["payload".to_string()],
+            vec![
+                vec![("payload".to_string(), ScalarValue::Null)],
+                vec![("payload".to_string(), ScalarValue::Null)],
+            ],
+        )
+        .column_dtypes(vec![Some(LogicalDType::Binary)]);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(report.column_family_summary(), "payload:binary");
+        let schema = Schema::new(vec![Field::new("payload", DataType::Binary, true)]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let payload = struct_array
+            .column_by_name("payload")
+            .expect("payload column")
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .expect("binary payload column");
+        assert_eq!(payload.len(), 2);
+        assert!(payload.is_null(0));
+        assert!(payload.is_null(1));
+        assert_eq!(payload.null_count(), 2);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
     fn local_flat_scalar_decimal_rows_write_reopens_decimal128() {
         use arrow_array::{Decimal128Array, StructArray};
         use arrow_schema::{DataType, Field, Schema};
@@ -7181,6 +7359,60 @@ mod tests {
         assert_eq!(amount.value(0), 1234);
         assert_eq!(amount.value(1), -800);
         assert_eq!(amount.null_count(), 0);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_scalar_all_null_decimal_rows_write_reopens_decimal128() {
+        use arrow_array::{Array as _, Decimal128Array, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-decimal-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["amount".to_string()],
+            vec![
+                vec![("amount".to_string(), ScalarValue::Null)],
+                vec![("amount".to_string(), ScalarValue::Null)],
+            ],
+        )
+        .column_dtypes(vec![Some(LogicalDType::Extension(
+            "decimal128(10,2)".to_string(),
+        ))]);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(report.column_family_summary(), "amount:decimal128(10,2)");
+        let schema = Schema::new(vec![Field::new(
+            "amount",
+            DataType::Decimal128(10, 2),
+            true,
+        )]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let amount = struct_array
+            .column_by_name("amount")
+            .expect("amount column")
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal amount column");
+        assert_eq!(amount.len(), 2);
+        assert!(amount.is_null(0));
+        assert!(amount.is_null(1));
+        assert_eq!(amount.null_count(), 2);
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

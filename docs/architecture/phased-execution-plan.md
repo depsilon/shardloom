@@ -314,10 +314,10 @@ completed details to the ledger.
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
-  IPC/Avro/ORC flat scalar outputs, broader binary execution beyond scoped columnar source
-  projection/predicate/order plus explicit casts/helpers, non-binary source columns compared to
-  binary literals, nullable/all-null local Vortex typed decimal output before writer conversion, ORC
-  typed decimal sinks, broad ANSI decimal coercion beyond exact exponent notation,
+  IPC/Avro/ORC flat scalar outputs and scoped local Vortex binary outputs, broader binary execution
+  beyond scoped columnar source projection/predicate/order plus explicit casts/helpers, non-binary
+  source columns compared to binary literals, ORC typed decimal sinks, broad ANSI decimal coercion
+  beyond exact exponent notation,
   scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
   subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
   the admitted local-source predicate/CASE projection boundary.
@@ -325,12 +325,13 @@ completed details to the ledger.
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
   blockers after the scoped columnar binary source predicate/order, Parquet/Arrow IPC/Avro/ORC
-  binary sink slices, local Vortex non-null binary sink follow-through, Parquet/Arrow IPC/Avro
-  typed decimal sink preservation, exact decimal exponent notation, and non-null local Vortex typed
-  decimal output; likely candidates are complex join follow-through after a dedicated semantics
-  contract, nullable/all-null Vortex output before writer conversion, ORC typed decimal sink
-  preservation once ORC writer evidence exists, or another front-door parity gap only after the
-  runtime route is already admitted.
+  binary sink slices, local Vortex binary sink follow-through including nullable/all-null binary rows
+  with dtype/family evidence, Parquet/Arrow IPC/Avro typed decimal sink preservation, exact decimal
+  exponent notation, and scoped local Vortex typed decimal output including nullable/all-null decimal
+  rows with dtype evidence; likely candidates are complex join follow-through after a dedicated
+  semantics contract, remaining NULL-family Vortex output admission before writer conversion, ORC
+  typed decimal sink preservation once ORC writer evidence exists, or another front-door parity gap
+  only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session

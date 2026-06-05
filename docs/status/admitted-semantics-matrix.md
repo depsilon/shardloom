@@ -167,9 +167,8 @@ fixed-scale division are executable within the scoped decimal route. Exact expon
 normalizes to the declared `decimal128(p,s)` scale is admitted through the scoped decimal cast route.
 Non-exact decimal division, broad ANSI decimal coercion beyond that exact exponent normalization,
 decimal/float comparison, typed decimal sink preservation outside feature-gated Parquet/Arrow
-IPC/Avro compatibility outputs and non-null local Vortex outputs, nullable/all-null local Vortex
-decimal output before writer conversion, and ORC typed decimal sinks remain outside the claim
-boundary.
+IPC/Avro compatibility outputs and scoped local Vortex typed decimal output, and ORC typed decimal
+sinks remain outside the claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
@@ -192,12 +191,13 @@ IPC, and the shared materializer covers Arrow `Binary`, `LargeBinary`, `FixedSiz
 `BinaryView` arrays surfaced by admitted local structured readers. Feature-gated Parquet/Arrow
 IPC/Avro/ORC flat scalar compatibility sinks preserve admitted binary byte payloads from SQL result
 batches, including all-null Arrow IPC binary source columns with source-schema dtype evidence, with
-focused SQL fanout and writer round-trip evidence. Feature-gated local Vortex flat scalar non-null
-binary sinks now preserve admitted binary byte payloads through the Vortex writer/reopen path.
-Nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches block before
-writer conversion; binary sink preservation outside those scoped Parquet/Arrow IPC/Avro/ORC and
-non-null Vortex outputs, broader binary execution beyond scoped source projection/predicate/order
-plus explicit casts/helpers, and nested binary helper expressions remain outside the claim boundary.
+focused SQL fanout and writer round-trip evidence. Feature-gated local Vortex flat scalar binary
+sinks now preserve admitted binary byte payloads, including nullable/all-null binary result columns
+when dtype/family evidence is present, through the Vortex writer/reopen path. Other NULL-bearing
+Vortex output batches block before writer conversion; binary sink preservation outside those scoped
+Parquet/Arrow IPC/Avro/ORC and Vortex outputs, broader binary execution beyond scoped source
+projection/predicate/order plus explicit casts/helpers, and nested binary helper expressions remain
+outside the claim boundary.
 Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
@@ -207,10 +207,10 @@ plus integer operands through generic expression projection evidence, mixed-scal
 comparisons are admitted, exact fixed-scale decimal division emits
 `decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
 admitted when it normalizes to the declared target scale. Non-exact decimal division, broad ANSI
-decimal coercion beyond exact exponent normalization, decimal/float comparison, nullable/all-null
-local Vortex decimal output before writer conversion, and ORC typed decimal sink preservation remain
-outside the claim boundary. Feature-gated Parquet/Arrow IPC/Avro compatibility sinks and non-null
-local Vortex output preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
+decimal coercion beyond exact exponent normalization, decimal/float comparison, and ORC typed
+decimal sink preservation remain outside the claim boundary. Feature-gated Parquet/Arrow IPC/Avro
+compatibility sinks and scoped local Vortex output, including nullable/all-null decimal columns with
+dtype evidence, preserve scoped `decimal128(p,s)` output columns. Scoped UTF-8
 `LIKE` predicates with `%`, `_`,
 and single-character
 `ESCAPE` clauses are executable through
