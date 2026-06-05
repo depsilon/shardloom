@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=101
+matrix_row_count=103
 executable_fixture_count=85
-diagnostic_case_count=16
-unsupported_diagnostic_count=14
+diagnostic_case_count=18
+unsupported_diagnostic_count=16
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -152,14 +152,16 @@ Covered fixture rows:
 - `unsupported_arbitrary_interval_arithmetic`
 - `unsupported_complex_join_key`
 - `invalid_shape_scalar_multi_column_in_subquery`
+- `unsupported_outer_reference_non_column_comparison`
+- `unsupported_outer_to_outer_subquery_comparison`
 - `source_qualified_in_subquery_semantics`
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local
 scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
 projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
-correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection, and
-HAVING-level scoped variants; external-oracle result artifact population; and fuzz execution beyond
-the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
+correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection,
+HAVING-level scoped variants, and deterministic outer-reference diagnostics; external-oracle
+result artifact population; and fuzz execution beyond the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
 deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
 timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source
@@ -168,8 +170,10 @@ runtime. Named timezone database conversion syntax, timezone conversion function
 locale/case-folding comparisons now have deterministic unsupported diagnostics. List/array
 access-or-cast, struct access-or-cast, complex subquery membership materialization, variant, and
 union dtype families, binary literal predicates against non-binary source columns,
-non-binary source ordering predicates against binary literals, and remaining non-admitted broad
-ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback. Scoped
+non-binary source ordering predicates against binary literals, outer references outside admitted
+column-to-column subquery comparisons, outer-to-outer subquery comparisons, and remaining
+non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics with no
+fallback. Scoped
 scalar-expression `JOIN ON` predicates over qualified local sources are executable through the
 bounded expression-join route, including scoped logical `OR` over admitted qualified scalar leaves;
 complex `ARRAY[...]`/`STRUCT(...)` join keys still block deterministically. Scoped `ARRAY[...]`

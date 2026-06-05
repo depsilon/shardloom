@@ -3966,6 +3966,34 @@ def unsupported_cases() -> list[UnsupportedCase]:
             oracle_boundary="deterministic_invalid_shape_diagnostic",
             stage_kind="invalid_shape_diagnostic",
         ),
+        UnsupportedCase(
+            case_id="unsupported_outer_reference_non_column_comparison",
+            source_name="outer-reference-noncomparison-unsupported.csv",
+            source_text="id,label,amount\n1,alpha,10\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' WHERE outer.amount > 10) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "correlated IN subquery predicates admit outer.<column> references only in "
+                "column-to-column comparisons"
+            ),
+        ),
+        UnsupportedCase(
+            case_id="unsupported_outer_to_outer_subquery_comparison",
+            source_name="outer-to-outer-comparison-unsupported.csv",
+            source_text="id,label,amount\n1,alpha,10\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' WHERE outer.id = outer.amount) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "correlated IN subquery predicates require exactly one outer.<column> reference "
+                "per column comparison"
+            ),
+        ),
     ]
 
 

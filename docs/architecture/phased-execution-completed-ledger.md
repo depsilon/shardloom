@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D outer-correlation unsupported diagnostics
+  - Date: 2026-06-05
+  - Branch/PR: `codex/outer-correlation-diagnostics` / PR #1101.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+  - Scope:
+    - Added dedicated parser/runtime guard coverage for correlated subquery `outer.<column>`
+      references outside admitted column-to-column comparisons across scalar IN, row-value IN,
+      EXISTS, quantified, and projected grouped/HAVING subquery shapes.
+    - Added matrix diagnostic rows for non-comparison outer references and outer-to-outer subquery
+      comparisons.
+    - Updated latest release-readiness admitted-semantics counts to `matrix_row_count=103`,
+      `executable_fixture_count=85`, `diagnostic_case_count=18`, and
+      `unsupported_diagnostic_count=16`.
+    - Refreshed phase-plan, status, release, compute-flow, and website/public static artifacts so
+      the deterministic diagnostic boundary is current.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli correlated_subquery_outer_references_outside_column_comparisons_block_without_fallback -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-outer-correlation-diagnostics.json`
+      passed with `matrix_row_count=103`, `executable_fixture_count=85`,
+      `diagnostic_case_count=18`, `unsupported_diagnostic_count=16`, no fallback, and no external
+      engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-outer-correlation-diagnostics.json --output target/hard-release-readiness-outer-correlation-diagnostics.json`
+      remained blocked only by broader hard-release blockers; admitted-semantics blockers were not
+      reported.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs`
+      passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed; `website/assets/benchmarks/latest` still contains `benchmark-results.json`,
+      `manifest.json`, and published benchmark rows `000` through `004`.
+    - `cargo fmt --all -- --check`, `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null`,
+      and `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is deterministic SQL diagnostic,
+      documentation freshness, and website static-output freshness work, not speedup or
+      performance-superiority evidence.
+  - Claim boundary:
+    - This slice adds deterministic unsupported diagnostics for non-admitted correlated subquery
+      outer-reference shapes. It does not admit new positive ANSI subquery runtime, object-store or
+      table SQL, benchmark performance claims, package release, or production support.
+  - Fallback boundary:
+    - The blocked shapes fail inside ShardLoom parser/binder/runtime validation with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, or other external execution fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D projected negative subquery semantics admission
   - Date: 2026-06-05
   - Branch/PR: `codex/projected-negative-subquery-semantics` / PR #1100.

@@ -313,8 +313,9 @@ completed details to the ledger.
   evidence, projected scalar/row-value `NOT IN` and projected `NOT EXISTS` evidence across joined,
   grouped/HAVING, and correlated projected local-source plans, scoped
   scalar-expression `JOIN ON` predicate evidence including scoped logical `OR` over admitted
-  qualified scalar leaves, complex-key `JOIN ON` blockers, and arbitrary interval arithmetic
-  blockers outside scoped temporal helpers:
+  qualified scalar leaves, complex-key `JOIN ON` blockers, deterministic outer-reference blockers
+  for non-column-comparison and outer-to-outer subquery predicates, and arbitrary interval
+  arithmetic blockers outside scoped temporal helpers:
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
@@ -322,8 +323,8 @@ completed details to the ledger.
   beyond scoped columnar source projection/predicate/order plus explicit casts/helpers, non-binary
   source columns compared to binary literals, ORC typed decimal sinks, broad ANSI decimal coercion
   beyond exact exponent notation,
-  scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
-  subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
+  scalar-left multi-column subqueries, unbound source aliases, and remaining broad ANSI subquery
+  families outside
   the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`, quantified,
   and predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
@@ -338,7 +339,8 @@ completed details to the ledger.
   including logical `OR` over admitted qualified scalar leaves and deterministic blockers for
   complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers,
   plus scoped scalar and row-value `NOT IN (SELECT ...)`, correlated `NOT EXISTS`, and projected
-  negative-subquery evidence;
+  negative-subquery evidence, plus deterministic blockers for outer references outside admitted
+  column-to-column subquery comparisons and outer-to-outer subquery comparisons;
   likely candidates are ORC typed decimal sink
   preservation once ORC writer evidence exists, or another front-door parity gap only after the
   runtime route is already admitted.
