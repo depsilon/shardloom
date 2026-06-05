@@ -331,6 +331,63 @@ def fixture_rows() -> list[dict[str, Any]]:
         execution_mode="prepared_vortex",
     )
 
+    split_operator_compact_tier = validate_runtime_execution_fields(
+        {
+            "prepared_state_id": "prepared-state://split-operator-compact-tier",
+            "prepared_state_digest": "fnv1a64:prepared",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.split-operator-compact-tier",
+            "runtime_execution_certificate_status": "certified",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            "evidence_level": "minimal_runtime",
+            "actual_evidence_tier": "runtime_minimal",
+            "evidence_tier_result_sink_replay_required": False,
+            "prepared_vortex_scale_split_operator_runtime_status": (
+                "local_split_operator_runtime_certified"
+            ),
+            "prepared_vortex_scale_split_operator_family": "filter_projection",
+            "prepared_vortex_scale_split_operator_stateful": False,
+            "prepared_vortex_scale_split_operator_shuffle_required": False,
+            "prepared_vortex_scale_split_operator_local_combine_used": False,
+            "prepared_vortex_scale_split_operator_global_merge_used": False,
+            "prepared_vortex_scale_split_operator_retry_replay_status": (
+                "verified_idempotent_stateless_split_operator_replay"
+            ),
+            "prepared_vortex_scale_split_operator_source_replay_status": (
+                "prepared_vortex_source_replay_verified"
+            ),
+            "prepared_vortex_scale_split_operator_memory_envelope_status": (
+                "declared_local_memory_envelope_admitted"
+            ),
+            "prepared_vortex_scale_split_operator_backpressure_status": (
+                "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+            ),
+            "prepared_vortex_scale_split_operator_spill_policy_status": (
+                "larger_than_memory_spill_io_not_required_for_local_runtime_envelope"
+            ),
+            "prepared_vortex_scale_split_operator_output_commit_proof_status": (
+                "not_requested_non_replay_evidence_tier"
+            ),
+            "prepared_vortex_scale_split_operator_execution_certificate_status": (
+                "certified"
+            ),
+            "prepared_vortex_scale_split_operator_execution_certificate_id": (
+                "p746.prepared_vortex_local_split_operator.selective-filter."
+                "filter_projection"
+            ),
+            "prepared_vortex_scale_split_operator_claim_gate_status": (
+                "local_split_operator_runtime_certified"
+            ),
+            "prepared_vortex_scale_split_operator_fallback_attempted": False,
+            "prepared_vortex_scale_split_operator_external_engine_invoked": False,
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="split_operator_compact_tier",
+        execution_mode="prepared_vortex",
+    )
+
     pulseweave_missing_wip = validate_runtime_execution_fields(
         {
             "prepared_state_id": "prepared-state://pulseweave",
@@ -483,6 +540,7 @@ def fixture_rows() -> list[dict[str, Any]]:
         full_replay_missing_replay.as_dict(),
         split_operator_missing_family.as_dict(),
         split_operator_complete.as_dict(),
+        split_operator_compact_tier.as_dict(),
         pulseweave_missing_wip.as_dict(),
         pulseweave_complete.as_dict(),
     ]
@@ -666,6 +724,7 @@ def validate_repo(
         "full_replay_missing_replay": "blocked",
         "split_operator_missing_family": "blocked",
         "split_operator_complete": "passed",
+        "split_operator_compact_tier": "passed",
         "pulseweave_missing_wip": "blocked",
         "pulseweave_complete": "passed",
     }

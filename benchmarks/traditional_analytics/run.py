@@ -1572,15 +1572,26 @@ ALLOCATION_RESOURCE_PROFILE_FIELDS = (
 )
 RUNTIME_EVIDENCE_LEVEL_FIELDS = (
     "runtime_evidence_level_schema_version",
+    "evidence_sink_tier_schema_version",
     "requested_evidence_level",
+    "requested_evidence_tier",
     "selected_evidence_level",
+    "actual_evidence_tier",
+    "selected_evidence_tier",
+    "sink_tier",
+    "evidence_tier_supported_tiers",
     "evidence_level",
     "evidence_level_supported_levels",
     "evidence_level_claim_gate_status",
     "evidence_level_result_sink_replay_required",
+    "evidence_tier_result_sink_replay_required",
     "evidence_level_result_sink_replay_requested",
     "evidence_level_result_sink_replay_verified",
     "evidence_level_native_io_certificate_required",
+    "sink_timing_included_in_route_total",
+    "sink_timing_inclusion_reason",
+    "result_sink_replay_skip_reason",
+    "human_evidence_render_skip_reason",
     "evidence_level_certificate_refs",
     "evidence_level_result_sink_replay_refs",
     "evidence_level_source_state_digest",
@@ -2434,6 +2445,7 @@ SHARDLOOM_BUILD_PROFILES = (
 )
 SHARDLOOM_RESULT_SINK = False
 SHARDLOOM_EVIDENCE_LEVEL = "certified"
+SHARDLOOM_EVIDENCE_TIER = "metadata_sink"
 MIN_CLAIM_GRADE_ITERATIONS = 3
 CLAIM_READINESS_RERUN_ENGINES = (
     "shardloom",
@@ -2858,6 +2870,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Evidence depth for prepared/native batch rows. Defaults to certified, or full_replay when --shardloom-result-sink is enabled.",
     )
     parser.add_argument(
+        "--shardloom-evidence-tier",
+        choices=(
+            "runtime_minimal",
+            "metadata_sink",
+            "full_vortex_replay",
+            "publication_full",
+        ),
+        default=None,
+        help="Explicit evidence/sink tier for prepared/native batch rows. Claim-readiness reruns default to publication_full; hot local rows may request runtime_minimal or metadata_sink.",
+    )
+    parser.add_argument(
         "--require-all-engines",
         action="store_true",
         help="Return nonzero after writing artifacts if any selected engine dependency is missing.",
@@ -2876,6 +2899,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     explicit_data_dir = option_was_provided("--data-dir", argv)
     explicit_output = option_was_provided("--output", argv)
     explicit_skip_native = option_was_provided("--skip-shardloom-native", argv)
+    explicit_shardloom_evidence_level = option_was_provided(
+        "--shardloom-evidence-level", argv
+    )
     if args.claim_readiness_rerun and args.iterations < MIN_CLAIM_GRADE_ITERATIONS:
         parser.error(
             f"--claim-readiness-rerun requires --iterations >= {MIN_CLAIM_GRADE_ITERATIONS}"
@@ -2927,6 +2953,50 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error(
             "--shardloom-result-sink requires --shardloom-evidence-level full_replay"
         )
+    if args.shardloom_evidence_tier is None:
+        if args.claim_readiness_rerun:
+            args.shardloom_evidence_tier = "publication_full"
+        elif args.shardloom_evidence_level == "minimal_runtime":
+            args.shardloom_evidence_tier = "runtime_minimal"
+        elif args.shardloom_result_sink:
+            args.shardloom_evidence_tier = "full_vortex_replay"
+        else:
+            args.shardloom_evidence_tier = "metadata_sink"
+    elif args.shardloom_evidence_tier in {
+        "full_vortex_replay",
+        "publication_full",
+    }:
+        if (
+            explicit_shardloom_evidence_level
+            and args.shardloom_evidence_level != "full_replay"
+        ):
+            parser.error(
+                "--shardloom-evidence-tier full_vortex_replay/publication_full requires --shardloom-evidence-level full_replay"
+            )
+        args.shardloom_result_sink = True
+        args.shardloom_evidence_level = "full_replay"
+    elif args.shardloom_evidence_tier == "runtime_minimal":
+        if (
+            explicit_shardloom_evidence_level
+            and args.shardloom_evidence_level != "minimal_runtime"
+        ):
+            parser.error(
+                "--shardloom-evidence-tier runtime_minimal requires --shardloom-evidence-level minimal_runtime"
+            )
+        args.shardloom_evidence_level = "minimal_runtime"
+    elif args.shardloom_result_sink:
+        parser.error(
+            "--shardloom-result-sink requires --shardloom-evidence-tier full_vortex_replay or publication_full"
+        )
+    else:
+        if (
+            explicit_shardloom_evidence_level
+            and args.shardloom_evidence_level != "certified"
+        ):
+            parser.error(
+                "--shardloom-evidence-tier metadata_sink requires --shardloom-evidence-level certified"
+            )
+        args.shardloom_evidence_level = "certified"
     if args.scenario:
         args.scenario_list = tuple(args.scenario)
     else:
@@ -5287,11 +5357,27 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "runtime_evidence_level_schema_version": batch_fields.get(
                     "runtime_evidence_level_schema_version", "unknown"
                 ),
+                "evidence_sink_tier_schema_version": batch_fields.get(
+                    "evidence_sink_tier_schema_version", "unknown"
+                ),
                 "requested_evidence_level": batch_fields.get(
                     "requested_evidence_level", "unknown"
                 ),
+                "requested_evidence_tier": batch_fields.get(
+                    "requested_evidence_tier", "unknown"
+                ),
                 "selected_evidence_level": batch_fields.get(
                     "selected_evidence_level", "unknown"
+                ),
+                "actual_evidence_tier": batch_fields.get(
+                    "actual_evidence_tier", "unknown"
+                ),
+                "selected_evidence_tier": batch_fields.get(
+                    "selected_evidence_tier", "unknown"
+                ),
+                "sink_tier": batch_fields.get("sink_tier", "unknown"),
+                "evidence_tier_supported_tiers": batch_fields.get(
+                    "evidence_tier_supported_tiers", "unknown"
                 ),
                 "evidence_level": batch_fields.get("evidence_level", "unknown"),
                 "evidence_level_supported_levels": batch_fields.get(
@@ -5303,6 +5389,9 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "evidence_level_result_sink_replay_required": batch_fields.get(
                     "evidence_level_result_sink_replay_required", "unknown"
                 ),
+                "evidence_tier_result_sink_replay_required": batch_fields.get(
+                    "evidence_tier_result_sink_replay_required", "unknown"
+                ),
                 "evidence_level_result_sink_replay_requested": batch_fields.get(
                     "evidence_level_result_sink_replay_requested", "unknown"
                 ),
@@ -5311,6 +5400,18 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "evidence_level_native_io_certificate_required": batch_fields.get(
                     "evidence_level_native_io_certificate_required", "unknown"
+                ),
+                "sink_timing_included_in_route_total": batch_fields.get(
+                    "sink_timing_included_in_route_total", "unknown"
+                ),
+                "sink_timing_inclusion_reason": batch_fields.get(
+                    "sink_timing_inclusion_reason", "unknown"
+                ),
+                "result_sink_replay_skip_reason": batch_fields.get(
+                    "result_sink_replay_skip_reason", "unknown"
+                ),
+                "human_evidence_render_skip_reason": batch_fields.get(
+                    "human_evidence_render_skip_reason", "unknown"
                 ),
                 "evidence_level_certificate_refs": batch_fields.get(
                     "evidence_level_certificate_refs", "unknown"
@@ -5343,6 +5444,33 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "batch_total_result_sink_write_micros": batch_fields.get(
                     "total_result_sink_write_micros", "none"
+                ),
+                "batch_total_result_sink_plan_micros": batch_fields.get(
+                    "total_result_sink_plan_micros",
+                    batch_fields.get("result_sink_plan_micros", "none"),
+                ),
+                "batch_total_result_sink_replay_micros": batch_fields.get(
+                    "total_result_sink_replay_micros",
+                    batch_fields.get("result_sink_replay_micros", "none"),
+                ),
+                "result_sink_plan_micros": batch_fields.get(
+                    "result_sink_plan_micros", "none"
+                ),
+                "result_sink_write_micros": batch_fields.get(
+                    "result_sink_write_micros",
+                    batch_fields.get("total_result_sink_write_micros", "none"),
+                ),
+                "result_sink_replay_micros": batch_fields.get(
+                    "result_sink_replay_micros", "none"
+                ),
+                "human_evidence_render_micros": batch_fields.get(
+                    "human_evidence_render_micros", "unknown"
+                ),
+                "json_envelope_emit_micros": batch_fields.get(
+                    "json_envelope_emit_micros", "unknown"
+                ),
+                "report_fields_build_micros": batch_fields.get(
+                    "report_fields_build_micros", "unknown"
                 ),
             }
         )
@@ -5414,6 +5542,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             data_format,
             "--evidence-level",
             SHARDLOOM_EVIDENCE_LEVEL,
+            "--evidence-tier",
+            SHARDLOOM_EVIDENCE_TIER,
             "--format",
             "json",
         ]
@@ -5617,6 +5747,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             vortex_execution_mode,
             "--evidence-level",
             SHARDLOOM_EVIDENCE_LEVEL,
+            "--evidence-tier",
+            SHARDLOOM_EVIDENCE_TIER,
             "--format",
             "json",
         ]
@@ -14562,6 +14694,28 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 "full_replay",
             ):
                 raise RuntimeError("ShardLoom batch row reported unknown evidence_level")
+            if metrics.get("actual_evidence_tier") not in (
+                "runtime_minimal",
+                "metadata_sink",
+                "full_vortex_replay",
+                "publication_full",
+            ):
+                raise RuntimeError("ShardLoom batch row reported unknown actual_evidence_tier")
+            if metrics.get("selected_evidence_tier") != metrics.get("actual_evidence_tier"):
+                raise RuntimeError("ShardLoom batch row must align selected and actual evidence tier")
+            if metrics.get("sink_tier") != metrics.get("actual_evidence_tier"):
+                raise RuntimeError("ShardLoom batch row must report sink_tier")
+            if not str(metrics.get("result_sink_replay_skip_reason") or "").strip():
+                raise RuntimeError("ShardLoom batch row omitted result-sink replay skip reason")
+            if not str(metrics.get("human_evidence_render_skip_reason") or "").strip():
+                raise RuntimeError("ShardLoom batch row omitted human evidence render skip reason")
+            if (
+                metrics.get("actual_evidence_tier") in {"full_vortex_replay", "publication_full"}
+                and metrics.get("sink_timing_included_in_route_total") is not True
+            ):
+                raise RuntimeError(
+                    "ShardLoom replay tiers must mark sink timing included in route total"
+                )
             if metrics.get("evidence_level_fallback_attempted") is not False:
                 raise RuntimeError("ShardLoom evidence-level rows cannot report fallback attempts")
             if metrics.get("evidence_level_external_engine_invoked") is not False:
@@ -19664,9 +19818,11 @@ def successful_result_from_iterations(
             value = evidence.get(field)
             if field in (
                 "evidence_level_result_sink_replay_required",
+                "evidence_tier_result_sink_replay_required",
                 "evidence_level_result_sink_replay_requested",
                 "evidence_level_result_sink_replay_verified",
                 "evidence_level_native_io_certificate_required",
+                "sink_timing_included_in_route_total",
                 "evidence_level_fallback_attempted",
                 "evidence_level_external_engine_invoked",
             ):
@@ -19687,6 +19843,19 @@ def successful_result_from_iterations(
             metrics.setdefault(field, parse_optional_bool(value))
         else:
             metrics.setdefault(field, value)
+    for field in (
+        "batch_total_result_sink_plan_micros",
+        "batch_total_result_sink_write_micros",
+        "batch_total_result_sink_replay_micros",
+        "computed_result_sink_plan_micros",
+        "computed_result_sink_write_micros",
+        "computed_result_sink_replay_micros",
+        "result_sink_plan_micros",
+        "result_sink_write_micros",
+        "result_sink_replay_micros",
+    ):
+        if field in evidence:
+            metrics[field] = parse_optional_int(evidence.get(field))
     result = {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -25494,7 +25663,7 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
 
 def main() -> int:
     global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE, SHARDLOOM_RESULT_SINK
-    global SHARDLOOM_EVIDENCE_LEVEL
+    global SHARDLOOM_EVIDENCE_LEVEL, SHARDLOOM_EVIDENCE_TIER
     args = parse_args()
     print_benchmark_safety_notice(args)
     DASK_BLOCKSIZE = args.dask_blocksize
@@ -25502,6 +25671,7 @@ def main() -> int:
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
     SHARDLOOM_RESULT_SINK = args.shardloom_result_sink
     SHARDLOOM_EVIDENCE_LEVEL = args.shardloom_evidence_level
+    SHARDLOOM_EVIDENCE_TIER = args.shardloom_evidence_tier
     configure_java_home()
     if args.regenerate:
         with DatasetRegenerationLock(args.data_dir):

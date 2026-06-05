@@ -203,24 +203,22 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
-| 2 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
-| 3 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
-| 4 | `PERF-INNOV-1` | Deepen projection-aware scout and typed decode for cold CSV/JSONL ingest beyond the completed base split. |
-| 5 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
-| 6 | `PERF-INNOV-3` | Complete prepared-state index repair plus append-only delta overlays after `PERF-SPLIT-9`. |
-| 7 | `PERF-INNOV-4` | Complete compact evidence and tiered result-sink modes after `PERF-SPLIT-8` establishes the core tiers. |
-| 8 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
-| 9 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
-| 10 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 11 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 12 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 13 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 14 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 15 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 16 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 17 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 18 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
+| 2 | `PERF-INNOV-1` | Deepen projection-aware scout and typed decode for cold CSV/JSONL ingest beyond the completed base split. |
+| 3 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
+| 4 | `PERF-INNOV-3` | Complete prepared-state index repair plus append-only delta overlays after `PERF-SPLIT-9`. |
+| 5 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
+| 6 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
+| 7 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
+| 8 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 9 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 10 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 11 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 12 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 13 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 14 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 15 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 16 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -293,92 +291,6 @@ the completed ledger; the items below are the remaining implementation slices ne
 timings actionable and then reduce the ShardLoom hot/cold overheads they expose. Benchmark reruns
 belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
 must preserve no-fallback evidence and claim gates.
-
-- [ ] PERF-SPLIT-7 benchmark refresh and optimization-readiness gate:
-  - Source: benchmark harness, website benchmark artifact, publication claim validators, and the
-    completed `PERF-SPLIT-1` through `PERF-SPLIT-6` code slices.
-  - Current state:
-    - [x] The latest promoted benchmark artifact is route-first and explicitly not claim-grade.
-    - [ ] Remaining: rerun only after split counters are actionable and the code changes that can
-      affect benchmark data have landed.
-  - Runtime enablement: benchmark harness -> refreshed artifact -> publication validators -> website
-    route/stage attribution page with no-fallback evidence.
-  - Objective: prove the split timings are actionable before making any speedup claim.
-  - Implementation scope: refresh local benchmark artifacts after the split counters land; add route
-    cards for cold certified, prepare-once first query, prepare-once batch, warm prepared query, and
-    native Vortex query. Each route must expose included route total, excluded shared setup, cold
-    preparation, query execution, output, evidence, and harness overhead separately.
-  - User-visible surface: benchmark manifest, website benchmark page, local taxonomy report, and
-    publication claim gate.
-  - Evidence required: reproducible artifact, correctness digests, hardware/runtime context, route
-    timing inclusion fields, no-fallback fields, and claim-gate output.
-  - Acceptance: benchmark page can answer "what should be optimized next?" without reading code.
-    Claim gates remain blocked unless correctness, reproducibility, hardware/runtime context, and
-    benchmark methodology are complete.
-  - Verification:
-    ```powershell
-    python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --rows 100000 --iterations 3 --dataset-profile tiny_smoke --shardloom-result-sink --require-all-engines
-    python scripts\promote_benchmark_artifact.py
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    python scripts\check_benchmark_publication_claim_gate.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no superiority claim, no leaderboard claim, no Spark replacement claim, no
-    claim-grade route until validators say the evidence supports it.
-  - Claim boundary: benchmark refresh and optimization direction only unless claim validators pass.
-  - Fallback boundary: ShardLoom rows must execute through ShardLoom runtime; external engines are
-    baselines only.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
-
-- [ ] PERF-SPLIT-8 compact evidence and tiered result-sink modes for hot benchmark lanes:
-  - Source: `shardloom-cli/src/benchmark_runtime.rs`,
-    `shardloom-vortex/src/traditional_analytics.rs`, `benchmarks/traditional_analytics/run.py`,
-    `TraditionalRuntimeEvidenceLevel`, and
-    `docs/architecture/runtime-evidence-level-tiering.md`.
-  - Current state:
-    - [x] `minimal_runtime`, `certified`, and `full_replay` evidence levels exist for scoped
-      prepared/native batch rows.
-    - [x] Existing benchmark artifacts show evidence rendering as a dominant hot-lane attribution
-      target.
-    - [ ] Remaining: hot lanes need explicit evidence/sink tiers, separate render/envelope/report
-      timers, and skip-reason fields that distinguish non-publication rows from claim-grade rows.
-  - Runtime enablement: prepared/native benchmark lane -> requested evidence tier and sink tier ->
-    compact JSON-only evidence or replay/certificate proof based on claim/publication posture.
-  - Objective: prevent result-sink replay and human evidence rendering from dominating hot
-    warm/prepared/native benchmark lanes while preserving full claim-grade evidence when requested.
-  - Implementation scope: add explicit evidence/sink tiers: `runtime_minimal` for compact
-    machine-readable timing, `metadata_sink` for digest/count/path proof without replay,
-    `full_vortex_replay` for write/readback/certificate proof, and `publication_full` for human
-    text plus full field rendering. Split current evidence/render/sink timing into
-    `human_evidence_render_micros`, `json_envelope_emit_micros`,
-    `report_fields_build_micros`, `result_sink_plan_micros`,
-    `result_sink_write_micros`, and `result_sink_replay_micros`.
-  - User-visible surface: CLI benchmark JSON, benchmark harness rows, website benchmark page, and
-    publication validators.
-  - Evidence required: requested evidence tier, actual evidence tier, sink tier,
-    `sink_timing_included_in_route_total`, replay/human-render skip reasons, claim-grade proof
-    enforcement, and no-fallback fields.
-  - Acceptance: every row records requested evidence tier, actual evidence tier, sink tier, whether
-    sink timing is included in route total, and why any replay/human render work was skipped.
-    Claim-grade rows cannot skip required proof. Hot local rows can avoid full replay/human
-    rendering only when marked non-publication or non-claim-grade.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-cli benchmark_runtime
-    cargo test -p shardloom-vortex traditional_runtime_evidence_level
-    python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --rows 100000 --iterations 3 --dataset-profile tiny_smoke --shardloom-result-sink --require-all-engines
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    python scripts\check_benchmark_publication_claim_gate.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no weakening of publication evidence, no hidden benchmark-only shortcut, no
-    claim-grade route without replay/certificate evidence when that evidence is required.
-  - Claim boundary: compact hot-lane rows are non-publication/non-claim-grade unless full required
-    proof is present and validators pass.
-  - Fallback boundary: evidence tiering cannot invoke or hide external-engine execution.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
 
 - [ ] PERF-SPLIT-9 append-only delta overlay prepared-state path:
   - Source: prepared-batch reuse manifests, `TraditionalPreparedNativeSession`, cold
@@ -563,10 +475,12 @@ completed base slice, while unchecked rows define the remaining optimization wor
 - [ ] PERF-INNOV-4 compact evidence and tiered result-sink modes for hot lanes:
   - Source: `shardloom-cli/src/benchmark_runtime.rs`,
     `shardloom-vortex/src/traditional_analytics.rs`, `benchmarks/traditional_analytics/run.py`,
-    `TraditionalRuntimeEvidenceLevel`, planned `PERF-SPLIT-8`, and
+    `TraditionalRuntimeEvidenceLevel`, completed `PERF-SPLIT-8`, and
     `docs/architecture/runtime-evidence-level-tiering.md`.
   - Current state:
-    - [ ] Remaining: complete `PERF-SPLIT-8` first so the core evidence/sink tiers and fields exist.
+    - [x] `PERF-SPLIT-8` added the core evidence/sink tier vocabulary, request plumbing, compact
+      CLI/harness evidence, split render/envelope/report timing, and result-sink plan/write/replay
+      timing fields.
     - [ ] Remaining: apply the tier model across hot prepared/native lanes and the benchmark
       harness so non-publication timing can stay compact while publication rows keep full proof.
   - Runtime enablement: hot benchmark lane -> requested evidence/sink tier -> compact

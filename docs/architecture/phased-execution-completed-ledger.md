@@ -16,6 +16,119 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-8 compact evidence and tiered result-sink modes
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-evidence-sink-tiers` / PR #1124.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `shardloom-cli/src/benchmark_runtime.rs`.
+    - `shardloom-cli/src/cli_output.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `python/src/shardloom/models.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `scripts/check_runtime_execution_envelopes.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - Published benchmark artifact and website benchmark-page assets.
+  - Scope:
+    - Added explicit traditional analytics evidence/sink tiers:
+      `runtime_minimal`, `metadata_sink`, `full_vortex_replay`, and `publication_full`.
+    - Plumbed requested and actual evidence tiers through prepared/native batch requests, prepared
+      batch requests, CLI benchmark commands, benchmark harness rows, Python runtime-envelope
+      validation, publication promotion, and artifact completeness checks.
+    - Split evidence/render/sink timing into `human_evidence_render_micros`,
+      `json_envelope_emit_micros`, `report_fields_build_micros`,
+      `result_sink_plan_micros`, `result_sink_write_micros`, and
+      `result_sink_replay_micros`; result-sink replay tiers now carry measured plan/write/replay
+      values from the ShardLoom result-sink helper.
+    - Added compact JSON-only hot-lane behavior for non-publication/non-claim-grade tiers while
+      preserving full replay and human evidence for publication rows.
+    - Updated the benchmark page with an evidence/sink tier table and repromoted the current
+      benchmark artifact so existing published rows expose tier metadata and publication-full
+      proof posture.
+  - Evidence:
+    - `cargo test -p shardloom-cli benchmark_runtime` passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_runtime_evidence_level`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reports_minimal_and_certified_evidence_levels`
+      passed.
+    - Tiny-smoke `runtime_minimal` and `publication_full` benchmark runs passed for
+      `shardloom-vortex`, `shardloom-prepared-vortex`, and `shardloom-prepare-batch`; compact rows
+      skipped replay/human rendering and publication rows reported measured sink write/replay
+      timings.
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed.
+    - `python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree`
+      passed with `benchmark_run_performed=false`; this PR did not rerun the full benchmark suite.
+    - `python scripts/check_runtime_execution_envelopes.py --output target/runtime-execution-envelope-validation-perf-split-8.json`
+      passed.
+    - `node website/validate_static_assets.js` passed, and Astro source check passed with the
+      bundled Node runtime.
+    - `cargo fmt --all -- --check`, targeted `cargo clippy`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - This slice changes evidence/sink tiering and hot-lane measurement surfaces. It uses tiny
+      smoke runs plus artifact repromotion only; no new full-local timing claim is made until the
+      planned benchmark rerun gate.
+  - Claim boundary:
+    - Compact `runtime_minimal` and `metadata_sink` rows remain non-publication/non-claim-grade.
+      Claim-grade/publication rows must keep result-sink replay and certificate proof; validators
+      fail closed if required proof is missing.
+  - Fallback boundary:
+    - Evidence tiering does not invoke or authorize pandas, Polars, DuckDB, DataFusion, Spark,
+      Velox, Dask, or any external query engine as ShardLoom execution. ShardLoom rows keep
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [x] Session label: PERF-SPLIT-7 full-local benchmark refresh and optimization-readiness
+  dashboard
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-benchmark-refresh` / PR #1123, squash merge
+    `a48fe524c98937a7f9f2c0b02fbe565a60f80ad5`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `shardloom-cli/src/benchmark_runtime.rs`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `scripts/check_benchmark_publication_claim_gate.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, and
+      generated benchmark static pages.
+  - Scope:
+    - Fixed stale benchmark harness expectations for prepared/native batch source-state timing
+      scope and propagated batch-runner admission fields into per-scenario rows.
+    - Reran the full-local benchmark suite from clean code commit
+      `5a7668201486229d640ad7bd7530cd502b9ae808` and promoted the resulting artifact into the
+      website/public benchmark asset surfaces.
+    - Added the benchmark dashboard optimization triage surface so the page renders route geomean,
+      dominant stage/share, next optimization target, and artifact freshness from promoted rows.
+    - Inserted `PERF-INNOV-1` through `PERF-INNOV-6` after `PERF-SPLIT-9` and before the 6-series
+      runtime breadth queue.
+  - Evidence:
+    - Full-local benchmark command completed with ShardLoom rows supported across CSV, JSONL,
+      Parquet, Arrow IPC, Avro, and ORC using local non-Spark baselines.
+    - Promoted artifact status: `complete`; generated at `2026-06-05T17:34:55.098213+00:00`;
+      profile `full_local`; `performance_claim_allowed=false`.
+    - Promoted route geomeans: shardloom 196.41 ms, shardloom-vortex 16.86 ms,
+      shardloom-prepared-vortex 16.95 ms, and shardloom-prepare-batch 22.91 ms.
+    - Local validation passed for Python harness compilation, artifact completeness, publication
+      claim gate before and after commit, website content sync, Astro check/build, static asset
+      validation, and `git diff --check`.
+    - PR #1123 was mergeable with no reported remote status checks and was squash-merged after
+      local validation.
+  - Benchmark boundary:
+    - This slice refreshes optimization evidence only. The artifact remains explicitly
+      non-superiority and non-Spark-replacement evidence; later code-bearing optimization slices own
+      any new reruns and claim-gate changes.
+  - Claim boundary:
+    - This slice claims artifact freshness, completeness, no-fallback benchmark evidence, and
+      optimization-readiness direction only. It does not claim benchmark superiority, production
+      readiness, package-release readiness, broad SQL/DataFrame support, object-store/lakehouse
+      support, or Spark replacement.
+  - Fallback boundary:
+    - ShardLoom rows executed through ShardLoom runtime paths with `fallback_attempted=false` and
+      `external_engine_invoked=false`. External engines remained baselines only.
+
 - [x] Session label: PERF-SPLIT-6 Content-addressed prepared-state index and role-scoped
   partial repair
   - Date: 2026-06-05

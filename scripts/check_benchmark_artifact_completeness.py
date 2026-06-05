@@ -811,6 +811,45 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"benchmark row {index} includes evidence but excludes evidence timing"
                 )
+            for field in (
+                "evidence_sink_tier_schema_version",
+                "requested_evidence_tier",
+                "actual_evidence_tier",
+                "selected_evidence_tier",
+                "sink_tier",
+                "evidence_tier_supported_tiers",
+                "sink_timing_inclusion_reason",
+                "result_sink_replay_skip_reason",
+                "human_evidence_render_skip_reason",
+            ):
+                if not str(row.get(field) or "").strip():
+                    blockers.append(
+                        f"ShardLoom row {index} is missing evidence/sink tier field {field}"
+                    )
+            if row.get("actual_evidence_tier") not in {
+                "runtime_minimal",
+                "metadata_sink",
+                "full_vortex_replay",
+                "publication_full",
+            }:
+                blockers.append(f"ShardLoom row {index} has invalid actual evidence tier")
+            if row.get("selected_evidence_tier") != row.get("actual_evidence_tier"):
+                blockers.append(
+                    f"ShardLoom row {index} selected evidence tier does not match actual tier"
+                )
+            if row.get("sink_tier") != row.get("actual_evidence_tier"):
+                blockers.append(f"ShardLoom row {index} sink tier does not match actual tier")
+            if row.get("evidence_tier_result_sink_replay_required") not in {
+                True,
+                False,
+            }:
+                blockers.append(
+                    f"ShardLoom row {index} has invalid evidence tier replay-required flag"
+                )
+            if row.get("sink_timing_included_in_route_total") not in {True, False}:
+                blockers.append(
+                    f"ShardLoom row {index} has invalid sink timing route inclusion flag"
+                )
         elif row.get("route_timing_stage_inclusion_status") != "external_baseline_only":
             blockers.append(
                 f"external row {index} must keep stage inclusion external-baseline-only"
