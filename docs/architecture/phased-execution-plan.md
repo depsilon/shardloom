@@ -317,7 +317,7 @@ completed details to the ledger.
   for non-column-comparison and outer-to-outer subquery predicates, and arbitrary interval
   arithmetic blockers outside scoped temporal helpers:
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
-  DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
+  DISTINCT/UNION/INTERSECT/EXCEPT DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
   IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat scalar outputs, broader binary execution
   beyond scoped columnar source projection/predicate/order plus explicit casts/helpers, non-binary
@@ -340,7 +340,8 @@ completed details to the ledger.
   complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers,
   plus scoped scalar and row-value `NOT IN (SELECT ...)`, correlated `NOT EXISTS`, and projected
   negative-subquery evidence, plus deterministic blockers for outer references outside admitted
-  column-to-column subquery comparisons and outer-to-outer subquery comparisons;
+  column-to-column subquery comparisons and outer-to-outer subquery comparisons, plus scoped
+  local-source `INTERSECT` and `EXCEPT` over already-admitted branch `SELECT` plans;
   likely candidates are ORC typed decimal sink
   preservation once ORC writer evidence exists, or another front-door parity gap only after the
   runtime route is already admitted.

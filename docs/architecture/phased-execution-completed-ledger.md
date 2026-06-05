@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL set-operation breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/sql-set-operation-breadth` / PR #1103.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `python/src/shardloom/query.py`.
+    - `python/src/shardloom/client.py`.
+  - Scope:
+    - Promoted scoped local-source SQL `INTERSECT` and `EXCEPT` over already-admitted branch
+      `SELECT` plans through the existing bounded set-operation runtime path.
+    - Added ShardLoom-owned distinct set semantics: `INTERSECT` emits distinct left-branch rows
+      present in every branch; `EXCEPT` emits distinct left-branch rows absent from later branches.
+    - Added `sql_set_operation_*` report fields while keeping existing `sql_union_*` aliases for the
+      original union evidence surface.
+    - Added Python/DataFrame front doors through `.intersect(...)`, `.except_(...)`,
+      `.except_rows(...)`, and `.subtract(...)`, plus typed report accessors.
+    - Updated admitted-semantics, parity, release-readiness, website/static, and phase-plan docs for
+      the latest 105-row / 87-executable matrix.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli sql_intersect -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli sql_except -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli sql_union -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_intersect_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_except_invokes_sql_smoke`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-set-operations.json`
+      passed with `matrix_row_count=105`, `executable_fixture_count=87`,
+      `diagnostic_case_count=18`, `unsupported_diagnostic_count=16`, no fallback, no external
+      engine invocation, and `performance_claim_allowed=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-set-operations.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-set-operations.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-set-operations.json`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py scripts/check_release_readiness.py`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-set-operations.json --output target/release-readiness-set-operations.json`
+      remained blocked only on existing broad release/package/checklist gates; admitted-semantics
+      blockers were absent.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped SQL/DataFrame set-operation runtime
+      breadth and matrix evidence, not performance evidence.
+  - Claim boundary:
+    - This slice admits scoped local-source `INTERSECT`/`EXCEPT` over already-admitted branch
+      `SELECT` plans only. It does not claim broad ANSI SQL set-operation parity, `INTERSECT ALL` or
+      `EXCEPT ALL`, production DataFrame support, object-store/table SQL, performance equivalence,
+      or Spark replacement.
+  - Fallback boundary:
+    - Set operations execute through ShardLoom's existing bounded local-source runtime. No pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend is
+      introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D Python SQL unsupported diagnostic parity
   - Date: 2026-06-05
   - Branch/PR: `codex/python-sql-diagnostic-parity` / PR #1102.

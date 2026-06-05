@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=103
-executable_fixture_count=85
+matrix_row_count=105
+executable_fixture_count=87
 diagnostic_case_count=18
 unsupported_diagnostic_count=16
 runtime_error_diagnostic_count=1
@@ -88,6 +88,8 @@ Covered fixture rows:
 - `exists_subquery_semantics`
 - `quantified_subquery_semantics`
 - `sql_union_composition_semantics`
+- `sql_intersect_composition_semantics`
+- `sql_except_composition_semantics`
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
 - `correlated_in_subquery_semantics`

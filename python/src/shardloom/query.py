@@ -3322,6 +3322,56 @@ class LazyFrame:
 
         return self._union(other, union_all=True, check=check)
 
+    def intersect(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped SQL `INTERSECT` workflow over two local-source plans."""
+
+        return self._set_operation(
+            other,
+            operation="intersect",
+            keyword="INTERSECT",
+            check=check,
+        )
+
+    def except_(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped SQL `EXCEPT` workflow over two local-source plans."""
+
+        return self.except_rows(other, check=check)
+
+    def except_rows(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped SQL `EXCEPT` workflow over two local-source plans."""
+
+        return self._set_operation(
+            other,
+            operation="except",
+            keyword="EXCEPT",
+            check=check,
+        )
+
+    def subtract(
+        self,
+        other: "LazyFrame",
+        *,
+        check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Alias for `except_rows(...)` using familiar DataFrame naming."""
+
+        return self.except_rows(other, check=check)
+
     def drop_duplicates(self) -> "LazyFrame":
         """Alias for `distinct()` using familiar DataFrame naming."""
 
@@ -4345,11 +4395,21 @@ class LazyFrame:
         check: bool,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
         operation = "union-all" if union_all else "union"
+        keyword = "UNION ALL" if union_all else "UNION"
+        return self._set_operation(other, operation=operation, keyword=keyword, check=check)
+
+    def _set_operation(
+        self,
+        other: "LazyFrame",
+        *,
+        operation: str,
+        keyword: str,
+        check: bool,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
         if isinstance(other, LazyFrame):
             left = self._sql_local_source_union_branch_statement()
             right = other._sql_local_source_union_branch_statement()
             if left is not None and right is not None:
-                keyword = "UNION ALL" if union_all else "UNION"
                 return SqlWorkflow(
                     statement=f"{left} {keyword} {right}",
                     client=self.client,

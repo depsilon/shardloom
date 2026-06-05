@@ -1249,6 +1249,76 @@ def sql_union_composition_case() -> SqlFixtureCase:
     )
 
 
+def sql_intersect_composition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_intersect_composition_semantics",
+        source_name="intersect-left.csv",
+        source_text="id,label\n1,alpha\n2,beta\n2,beta\n3,gamma\n",
+        auxiliary_sources=(
+            (
+                "right",
+                "intersect-right.csv",
+                "id,label\n2,beta\n3,gamma\n4,delta\n",
+            ),
+        ),
+        statement_template=(
+            "SELECT id,label FROM '{source}' "
+            "INTERSECT SELECT id,label FROM '{right}' "
+            "ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "sql_set_operation_runtime_execution": "true",
+            "sql_set_operation_mode": "intersect_distinct",
+            "sql_set_operator": "INTERSECT",
+            "sql_set_operation_branch_count": "2",
+            "sql_set_operation_input_row_count": "7",
+            "sql_set_operation_candidate_row_count": "2",
+            "sql_set_operation_output_row_count": "2",
+            "sql_set_operation_null_semantics": "sql_intersect_distinct_groups_nulls",
+            "sql_union_mode": "intersect_distinct",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def sql_except_composition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_except_composition_semantics",
+        source_name="except-left.csv",
+        source_text="id,label\n1,alpha\n2,beta\n2,beta\n3,gamma\n",
+        auxiliary_sources=(
+            (
+                "right",
+                "except-right.csv",
+                "id,label\n2,beta\n4,delta\n",
+            ),
+        ),
+        statement_template=(
+            "SELECT id,label FROM '{source}' "
+            "EXCEPT SELECT id,label FROM '{right}' "
+            "ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "sql_set_operation_runtime_execution": "true",
+            "sql_set_operation_mode": "except_distinct",
+            "sql_set_operator": "EXCEPT",
+            "sql_set_operation_branch_count": "2",
+            "sql_set_operation_input_row_count": "6",
+            "sql_set_operation_candidate_row_count": "2",
+            "sql_set_operation_output_row_count": "2",
+            "sql_set_operation_null_semantics": "sql_except_distinct_groups_nulls",
+            "sql_union_mode": "except_distinct",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_subquery_scalar_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_subquery_scalar_semantics",
@@ -3741,6 +3811,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         exists_subquery_case(),
         quantified_subquery_case(),
         sql_union_composition_case(),
+        sql_intersect_composition_case(),
+        sql_except_composition_case(),
         in_subquery_scalar_case(),
         in_subquery_filtered_ordered_limited_case(),
         correlated_in_subquery_case(),

@@ -768,12 +768,14 @@ projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(..
 is admitted for bounded local-source projection, aggregate/HAVING, join, and window output rows
 through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`, `.drop_duplicates()`, and
 `.unique()` aliases; LIMIT is applied after duplicate removal and reports `distinct_projection_*`
-evidence. Scoped local-source `UNION` / `UNION ALL` is admitted over already-admitted branch
-`SELECT` plans through raw SQL or Python/DataFrame `.union(...)` / `.union_all(...)`; branch output
-columns and non-null dtypes must match, branch-local `ORDER BY` / `LIMIT` remains blocked, and the
-result emits `sql_union_*` no-fallback evidence. These aliases do not widen the expression registry
-or execution providers; they lower to the same scoped ShardLoom runtime routes and evidence fields
-as the canonical methods.
+evidence. Scoped local-source `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT` is admitted over
+already-admitted branch `SELECT` plans through raw SQL or Python/DataFrame `.union(...)`,
+`.union_all(...)`, `.intersect(...)`, `.except_(...)`, `.except_rows(...)`, and `.subtract(...)`;
+branch output columns and non-null dtypes must match, branch-local `ORDER BY` / `LIMIT` remains
+blocked, and the result emits `sql_set_operation_*` no-fallback evidence plus `sql_union_*`
+compatibility aliases for the original union route fields. These aliases do not widen the expression
+registry or execution providers; they lower to the same scoped ShardLoom runtime routes and evidence
+fields as the canonical methods.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
