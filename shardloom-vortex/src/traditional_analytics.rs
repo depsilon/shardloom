@@ -32842,7 +32842,7 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     if projection_pushdown_applied {
         scan = scan.with_projection(select(projected_columns.to_vec(), root()));
     }
-    let scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
+    let mut scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
     let vortex_scan_open_micros = duration_to_micros(scan_open_start.elapsed());
     let source_uri = DatasetUri::new(path.display().to_string())?;
     let mut result_row_count = 0_u64;
@@ -32858,13 +32858,16 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     let mut vortex_encoded_kernel_evidence_micros = 0_u64;
     let mut operator_kernel_micros = 0_u64;
     let scenario_scan_start = std::time::Instant::now();
-    for chunk in scan_iter {
+    loop {
         let chunk_iter_start = std::time::Instant::now();
-        let chunk = chunk.map_err(vortex_error)?;
+        let Some(chunk) = scan_iter.next() else {
+            break;
+        };
         scan_chunk_iter_micros = checked_u64_sum(
             scan_chunk_iter_micros,
             duration_to_micros(chunk_iter_start.elapsed()),
         )?;
+        let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
         let split_ref = format!("vortex-local-scan-chunk-{arrays_read_count}");
         let encoded_evidence_start = std::time::Instant::now();

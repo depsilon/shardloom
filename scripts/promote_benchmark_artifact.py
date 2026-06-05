@@ -1862,12 +1862,18 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         fields,
         (
             "vortex_scan_open_micros",
-            "scan_chunk_iter_micros",
-            "vortex_chunk_iteration_micros",
             "vortex_projected_field_extract_micros",
             "vortex_encoded_kernel_evidence_micros",
         ),
     )
+    chunk_iteration_micros = first_numeric_micros(
+        fields,
+        micros_keys=("scan_chunk_iter_micros", "vortex_chunk_iteration_micros"),
+    )
+    if chunk_iteration_micros is not None:
+        vortex_scan_substage = (vortex_scan_substage or 0.0) + (
+            chunk_iteration_micros / 1000.0
+        )
     if vortex_scan_substage is not None:
         vortex_scan = vortex_scan_substage
     else:

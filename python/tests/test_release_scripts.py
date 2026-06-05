@@ -1651,6 +1651,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "evidence_render_millis": 3.0,
                 "vortex_scan_open_micros": 10_000,
                 "scan_chunk_iter_micros": 20_000,
+                "vortex_chunk_iteration_micros": 20_000,
                 "vortex_projected_field_extract_micros": 5_000,
                 "vortex_encoded_kernel_evidence_micros": 15_000,
                 "operator_kernel_micros": 75_000,
