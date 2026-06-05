@@ -3664,6 +3664,78 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_outer_correlation_unsupported_diagnostics_passthrough(
+        self,
+    ) -> None:
+        reason = (
+            "correlated IN subquery predicates admit outer.<column> references only "
+            "in column-to-column comparisons"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.amount > 10) LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "unsupported",
+                    "summary": "sql local source unsupported",
+                    "human_text": {reason!r},
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [{{
+                        "code": "SL_INVALID_INPUT",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": {reason!r},
+                        "feature": "correlated_subquery_outer_reference",
+                        "reason": {reason!r},
+                        "suggested_next_step": "Use source_column = outer.column comparisons only.",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}}
+                    }}],
+                    "fields": [
+                        {{"key": "unsupported_diagnostic_code", "value": "SL_INVALID_INPUT"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "not_claim_grade"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        allowed = ctx.read_csv("target/allowed.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .filter(
+                sl.col("id").isin_source(
+                    allowed,
+                    "id",
+                    where=sl.outer("amount") > 10,
+                )
+            )
+            .limit(5)
+            .collect(check=False)
+        )
+
+        self.assertEqual(report.status, "unsupported")
+        self.assertTrue(report.is_error)
+        self.assertTrue(report.has_error_diagnostics)
+        self.assertEqual(report.diagnostics[0].code, "SL_INVALID_INPUT")
+        self.assertEqual(report.unsupported_reasons, (reason,))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_grouped_projected_subquery_helpers_invoke_sql_smoke(
         self,
     ) -> None:

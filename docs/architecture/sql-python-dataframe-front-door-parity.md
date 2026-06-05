@@ -67,7 +67,10 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   `isin_source(...)`, `not_in_source(...)`, `sl.row_in(...)`, `sl.row_not_in(...)`,
   `sl.row_in_source(...)`, `sl.row_not_in_source(...)`, `sl.exists_source(...)`,
   `sl.not_exists_source(...)`, `any_source(...)`, `all_source(...)`, and `sl.outer(...)` for the
-  reserved correlated outer-row alias.
+  reserved correlated outer-row alias. When those helpers render a non-admitted runtime shape, such
+  as `outer.<column>` outside column-to-column subquery comparisons, Python exposes the CLI status,
+  diagnostics, and deduplicated `unsupported_reasons` on `SqlLocalSourceSmokeReport` while keeping
+  `fallback_attempted=false` and `external_engine_invoked=false`.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
   and window workflows lower to `sql-local-source-smoke`.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
@@ -201,6 +204,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   `source_alias=` plus `sl.col("alias.column")`, and scoped correlated source-subquery filters are
   reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;
   direct SQL predicate and CASE projections can now reuse those admitted subquery predicates.
+  Python `SqlLocalSourceSmokeReport` now exposes runtime unsupported diagnostics for non-admitted
+  correlated subquery shapes directly as `status`, `diagnostics`, and `unsupported_reasons`, so
+  Python users can inspect the same deterministic no-fallback blocker emitted by the CLI.
   Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
   division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
   helpers, and Python result reports expose parsed typed decimal sink support for Parquet,

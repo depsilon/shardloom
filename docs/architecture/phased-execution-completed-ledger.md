@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D Python SQL unsupported diagnostic parity
+  - Date: 2026-06-05
+  - Branch/PR: `codex/python-sql-diagnostic-parity` / PR #1102.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/tests/test_query_builder.py`.
+    - `scripts/check_sql_python_dataframe_parity.py`.
+  - Scope:
+    - Added Python `SqlLocalSourceSmokeReport` accessors for runtime command `status`,
+      deterministic runtime `diagnostics`, `is_error`, `has_error_diagnostics`, and deduplicated
+      `unsupported_reasons`.
+    - Added Python query-builder coverage proving non-admitted `sl.outer(...)` correlated subquery
+      shapes pass through to the SQL local-source runtime diagnostic envelope without hidden Python
+      fallback or external engine execution.
+    - Updated the SQL/Python/DataFrame parity validator and parity docs so Python diagnostic
+      visibility remains part of the guarded front-door surface.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_outer_correlation_unsupported_diagnostics_passthrough`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate-python-diagnostics.json`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py scripts/check_sql_python_dataframe_parity.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-python-diagnostics.json`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is Python diagnostic parity over
+      existing runtime blockers, not performance evidence.
+  - Claim boundary:
+    - This slice exposes existing SQL runtime unsupported diagnostics through Python ergonomics. It
+      does not admit new SQL grammar, broaden DataFrame runtime semantics, add object-store/table
+      support, publish packages, or make performance claims.
+  - Fallback boundary:
+    - Python remains a front door into ShardLoom CLI/runtime reports. The unsupported path reports
+      `fallback_attempted=false` and `external_engine_invoked=false`; no pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, or external DataFrame backend execution is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D outer-correlation unsupported diagnostics
   - Date: 2026-06-05
   - Branch/PR: `codex/outer-correlation-diagnostics` / PR #1101.
