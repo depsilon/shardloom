@@ -330,6 +330,10 @@ WEBSITE_ROW_KEYS = (
     "source_read_header_scout_ms",
     "source_read_byte_acquisition_ms",
     "source_read_full_body_ms",
+    "source_read_typed_decode_ms",
+    "source_read_row_assembly_ms",
+    "source_read_anomaly_quarantine_ms",
+    "source_read_columnar_handoff_ms",
     "source_read_scout_residual_ms",
     "source_read_scout_reuse_status",
     "source_read_decode_status",
@@ -1865,6 +1869,10 @@ def source_read_scout_fields_for_row(
             "source_read_header_scout_ms": None,
             "source_read_byte_acquisition_ms": None,
             "source_read_full_body_ms": None,
+            "source_read_typed_decode_ms": None,
+            "source_read_row_assembly_ms": None,
+            "source_read_anomaly_quarantine_ms": None,
+            "source_read_columnar_handoff_ms": None,
             "source_read_scout_residual_ms": None,
             "source_read_scout_reuse_status": "external_baseline_only",
             "source_read_decode_status": "external_baseline_only",
@@ -1891,6 +1899,10 @@ def source_read_scout_fields_for_row(
             "source_read_header_scout_ms": None,
             "source_read_byte_acquisition_ms": None,
             "source_read_full_body_ms": None,
+            "source_read_typed_decode_ms": None,
+            "source_read_row_assembly_ms": None,
+            "source_read_anomaly_quarantine_ms": None,
+            "source_read_columnar_handoff_ms": None,
             "source_read_scout_residual_ms": None,
             "source_read_scout_reuse_status": "not_applicable",
             "source_read_decode_status": "not_applicable",
@@ -1939,6 +1951,26 @@ def source_read_scout_fields_for_row(
         millis_keys=("source_read_full_body_millis", "source_full_body_read_millis"),
         micros_keys=("source_read_full_body_micros", "source_full_body_read_micros"),
     )
+    typed_decode = first_numeric_stage_millis(
+        fields,
+        millis_keys=("source_read_typed_decode_millis",),
+        micros_keys=("source_read_typed_decode_micros",),
+    )
+    row_assembly = first_numeric_stage_millis(
+        fields,
+        millis_keys=("source_read_row_assembly_millis",),
+        micros_keys=("source_read_row_assembly_micros",),
+    )
+    anomaly_quarantine = first_numeric_stage_millis(
+        fields,
+        millis_keys=("source_read_anomaly_quarantine_millis",),
+        micros_keys=("source_read_anomaly_quarantine_micros",),
+    )
+    columnar_handoff = first_numeric_stage_millis(
+        fields,
+        millis_keys=("source_read_columnar_handoff_millis",),
+        micros_keys=("source_read_columnar_handoff_micros",),
+    )
     pieces = [
         value
         for value in (header_scout, byte_acquisition, full_body)
@@ -1973,6 +2005,10 @@ def source_read_scout_fields_for_row(
         "source_read_header_scout_ms": header_scout,
         "source_read_byte_acquisition_ms": byte_acquisition,
         "source_read_full_body_ms": full_body,
+        "source_read_typed_decode_ms": typed_decode,
+        "source_read_row_assembly_ms": row_assembly,
+        "source_read_anomaly_quarantine_ms": anomaly_quarantine,
+        "source_read_columnar_handoff_ms": columnar_handoff,
         "source_read_scout_residual_ms": residual,
         "source_read_scout_reuse_status": first_meaningful_field(
             fields, ("source_read_scout_reuse_status",)
@@ -4050,7 +4086,7 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    counts: Counter[tuple[str, str, str, int, str]] = Counter()
+    counts: Counter[tuple[str, str, str, int, str, str, str]] = Counter()
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
@@ -4061,10 +4097,14 @@ def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         materialization = str(
             row.get("source_read_row_materialization_status") or "missing"
         )
-        counts[(route, status, decode, skipped, materialization)] += 1
+        typed_decode = fmt_ms(row.get("source_read_typed_decode_ms"))
+        columnar_handoff = fmt_ms(row.get("source_read_columnar_handoff_ms"))
+        counts[
+            (route, status, decode, skipped, materialization, typed_decode, columnar_handoff)
+        ] += 1
     blockers = {
         status
-        for (_, status, _, _, _), _count in counts.items()
+        for (_, status, _, _, _, _, _), _count in counts.items()
         if status.startswith("blocked")
     }
     return {
@@ -4075,13 +4115,30 @@ def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "Decode status",
             "Skipped columns",
             "Row materialization",
+            "Typed decode",
+            "Columnar handoff",
             "Rows",
         ],
         "rows": [
-            [route, status, decode, skipped, materialization, count]
-            for (route, status, decode, skipped, materialization), count in sorted(
-                counts.items()
-            )
+            [
+                route,
+                status,
+                decode,
+                skipped,
+                materialization,
+                typed_decode,
+                columnar_handoff,
+                count,
+            ]
+            for (
+                route,
+                status,
+                decode,
+                skipped,
+                materialization,
+                typed_decode,
+                columnar_handoff,
+            ), count in sorted(counts.items())
         ],
         "schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
         "status": "blocked" if blockers else "passed",

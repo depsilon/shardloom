@@ -203,21 +203,20 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-INNOV-1` | Deepen projection-aware scout and typed decode for cold CSV/JSONL ingest beyond the completed base split. |
-| 2 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
-| 3 | `PERF-INNOV-3` | Fold completed index, repair, and delta-overlay evidence into one prepared-state optimization contract. |
-| 4 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
-| 5 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
-| 6 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
-| 7 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 8 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 9 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 10 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 11 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 12 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 13 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 14 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 15 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
+| 2 | `PERF-INNOV-3` | Fold completed index, repair, and delta-overlay evidence into one prepared-state optimization contract. |
+| 3 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
+| 4 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
+| 5 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
+| 6 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 7 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 8 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 9 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 10 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 11 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 12 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 13 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 14 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -296,52 +295,6 @@ must preserve no-fallback evidence and claim gates.
 This queue runs after `PERF-SPLIT-7` through `PERF-SPLIT-9` are merged. Some items deliberately
 extend already-landed PERF-SPLIT foundations; their checked current-state rows point to the
 completed base slice, while unchecked rows define the remaining optimization work.
-
-- [ ] PERF-INNOV-1 projection-aware scout and typed decode for CSV/JSONL cold ingest:
-  - Source: `shardloom-vortex/src/traditional_analytics.rs`,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`, benchmark
-    parse/decode rows, and completed `PERF-SPLIT-4` projection-aware source-read evidence.
-  - Current state:
-    - [x] `PERF-SPLIT-4` added projection masks, decoded/skipped column evidence, decode status,
-      row-materialization status, and unsupported-shape diagnostics for admitted text-provider
-      paths.
-    - [ ] Remaining: replace more cold text-to-row materialization with scout-guided typed column
-      builders for admitted CSV/JSONL shapes, while preserving anomaly/quarantine and explicit
-      unsupported-shape behavior.
-  - Runtime enablement: admitted CSV/JSONL local source -> structural scout -> typed column builder
-    -> Vortex/Arrow-compatible batch handoff -> ShardLoom cold certified route.
-  - Objective: reduce cold parse/decode by replacing full text-to-row materialization with
-    scout-guided, projection-aware typed column builders for admitted CSV/JSONL shapes.
-  - Implementation scope: split source timing into byte acquisition, structural scout, typed
-    decode, row assembly, anomaly/quarantine, and columnar handoff. Add field masks for predicate
-    columns, output columns, certificate columns, and skipped columns. Build typed buffers directly
-    for admitted primitive fields, then feed Vortex/Arrow-compatible batches without constructing
-    full row structs unless the route explicitly requires them.
-  - User-visible surface: benchmark source-read attribution rows, cold certified route evidence,
-    website benchmark optimization tables, and unsupported-shape diagnostics.
-  - Evidence required: decoded/skipped columns, row-materialization status, unsupported-shape
-    diagnostic, anomaly/quarantine posture, decode timing, no-fallback fields, and correctness
-    digest/replay evidence.
-  - Acceptance: rows report decoded/skipped columns, row-materialization status,
-    unsupported-shape diagnostic, anomaly/quarantine posture, and decode timing. Supported
-    selective/projection scenarios skip unused columns. Unsupported nested/dirty shapes fail closed
-    or enter explicit quarantine.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex traditional_jsonl
-    cargo test -p shardloom-vortex traditional_dirty_csv
-    cargo test -p shardloom-vortex traditional_fact_text_vortex_provider
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no external parser engine fallback, no silent row dropping, no broad JSON/database
-    claim.
-  - Claim boundary: scoped cold CSV/JSONL ingest work avoidance only until a refreshed benchmark
-    artifact and claim gates support broader wording.
-  - Fallback boundary: no pandas, Polars, DuckDB, DataFusion, Spark, Velox, or external parser/query
-    engine can execute, repair, or validate ShardLoom text ingest.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
 
 - [ ] PERF-INNOV-2 Capillary Vortex write batching and segment/workspace attribution:
   - Source: `shardloom-vortex/src/vortex_ingest.rs`,

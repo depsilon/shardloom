@@ -714,7 +714,7 @@ const artifactFreshnessRows = [
     <div class="table-wrap compact-table secondary-table">
       <p class="table-note"><strong>{sourceReadScoutTable.heading ?? "Source-Read Scout Attribution"}</strong></p>
       <table>
-        <thead><tr>{(sourceReadScoutHeaders.length ? sourceReadScoutHeaders : ["Route", "Timing split", "Decode status", "Skipped columns", "Row materialization", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{(sourceReadScoutHeaders.length ? sourceReadScoutHeaders : ["Route", "Timing split", "Decode status", "Skipped columns", "Row materialization", "Typed decode", "Columnar handoff", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {sourceReadScoutRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>

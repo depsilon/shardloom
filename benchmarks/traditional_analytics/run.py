@@ -300,6 +300,14 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_read_byte_acquisition_micros",
     "source_read_full_body_millis",
     "source_read_full_body_micros",
+    "source_read_typed_decode_millis",
+    "source_read_typed_decode_micros",
+    "source_read_row_assembly_millis",
+    "source_read_row_assembly_micros",
+    "source_read_anomaly_quarantine_millis",
+    "source_read_anomaly_quarantine_micros",
+    "source_read_columnar_handoff_millis",
+    "source_read_columnar_handoff_micros",
     "source_read_scout_status",
     "source_read_scout_reuse_status",
     "source_read_decode_status",
@@ -448,6 +456,10 @@ SOURCE_READ_SCOUT_MICROS_FIELDS = (
     "source_read_header_scout_micros",
     "source_read_byte_acquisition_micros",
     "source_read_full_body_micros",
+    "source_read_typed_decode_micros",
+    "source_read_row_assembly_micros",
+    "source_read_anomaly_quarantine_micros",
+    "source_read_columnar_handoff_micros",
 )
 VORTEX_SCAN_SPLIT_MICROS_FIELDS = (
     "vortex_footer_open_micros",
@@ -6095,6 +6107,10 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
     if field in {
         "source_read_decoded_column_count",
         "source_read_skipped_column_count",
+        "source_read_typed_decode_micros",
+        "source_read_row_assembly_micros",
+        "source_read_anomaly_quarantine_micros",
+        "source_read_columnar_handoff_micros",
         "vortex_writer_context_open_micros",
         "vortex_writer_context_write_count",
         "vortex_writer_context_reuse_hit_count",
@@ -18375,6 +18391,26 @@ def source_read_scout_stage_metrics(
         "source_read_full_body_millis": millis("source_read_full_body_micros"),
         "source_read_full_body_micros": parse_optional_int(
             evidence.get("source_read_full_body_micros")
+        ),
+        "source_read_typed_decode_millis": millis("source_read_typed_decode_micros"),
+        "source_read_typed_decode_micros": parse_optional_int(
+            evidence.get("source_read_typed_decode_micros")
+        ),
+        "source_read_row_assembly_millis": millis("source_read_row_assembly_micros"),
+        "source_read_row_assembly_micros": parse_optional_int(
+            evidence.get("source_read_row_assembly_micros")
+        ),
+        "source_read_anomaly_quarantine_millis": millis(
+            "source_read_anomaly_quarantine_micros"
+        ),
+        "source_read_anomaly_quarantine_micros": parse_optional_int(
+            evidence.get("source_read_anomaly_quarantine_micros")
+        ),
+        "source_read_columnar_handoff_millis": millis(
+            "source_read_columnar_handoff_micros"
+        ),
+        "source_read_columnar_handoff_micros": parse_optional_int(
+            evidence.get("source_read_columnar_handoff_micros")
         ),
         "source_read_scout_status": evidence.get(
             "source_read_scout_status", default_status

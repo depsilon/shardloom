@@ -221,6 +221,24 @@ struct FastFactJsonlTail<'a> {
     dirty_flag: Option<String>,
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct FastFactJsonlValues<'a> {
+    id: u64,
+    group_key: u32,
+    dim_key: u32,
+    value: u32,
+    metric: f64,
+    flag: u8,
+    tail: FastFactJsonlTail<'a>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct FastDimJsonlValues {
+    dim_key: u32,
+    dim_label: String,
+    weight: f64,
+}
+
 /// Runtime evidence level requested by the scoped prepared/native batch runner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraditionalRuntimeEvidenceLevel {
@@ -3205,6 +3223,10 @@ pub struct TraditionalAnalyticsReport {
     pub source_read_header_scout_micros: u64,
     pub source_read_byte_acquisition_micros: u64,
     pub source_read_full_body_micros: u64,
+    pub source_read_typed_decode_micros: u64,
+    pub source_read_row_assembly_micros: u64,
+    pub source_read_anomaly_quarantine_micros: u64,
+    pub source_read_columnar_handoff_micros: u64,
     pub source_read_scout_status: String,
     pub source_read_scout_reuse_status: String,
     pub source_read_decode_status: String,
@@ -3718,6 +3740,10 @@ struct TraditionalSourceReadEvidence {
     header_scout_micros: u64,
     byte_acquisition_micros: u64,
     full_body_micros: u64,
+    typed_decode_micros: u64,
+    row_assembly_micros: u64,
+    anomaly_quarantine_micros: u64,
+    columnar_handoff_micros: u64,
     projected_field_mask: u32,
     filter_field_mask: u32,
     decoded_column_mask: u32,
@@ -3750,6 +3776,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            typed_decode_micros: 0,
+            row_assembly_micros: source_read_micros,
+            anomaly_quarantine_micros: 0,
+            columnar_handoff_micros: 0,
             projected_field_mask: 0,
             filter_field_mask: 0,
             decoded_column_mask: 0,
@@ -3776,6 +3806,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            typed_decode_micros: 0,
+            row_assembly_micros: parse_micros,
+            anomaly_quarantine_micros: 0,
+            columnar_handoff_micros: columnar_micros,
             projected_field_mask: 0,
             filter_field_mask: 0,
             decoded_column_mask: 0,
@@ -3802,6 +3836,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            typed_decode_micros: 0,
+            row_assembly_micros: 0,
+            anomaly_quarantine_micros: 0,
+            columnar_handoff_micros: columnar_micros,
             projected_field_mask: 0,
             filter_field_mask: 0,
             decoded_column_mask: 0,
@@ -3835,6 +3873,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: read_scout.header_scout_micros,
             byte_acquisition_micros: read_scout.byte_acquisition_micros,
             full_body_micros: read_scout.full_body_micros,
+            typed_decode_micros: parse_micros,
+            row_assembly_micros: 0,
+            anomaly_quarantine_micros: 0,
+            columnar_handoff_micros: columnar_micros,
             projected_field_mask: projection.projected_fields,
             filter_field_mask: projection.filter_fields,
             decoded_column_mask: projection.decoded_columns,
@@ -3863,6 +3905,22 @@ impl TraditionalSourceReadEvidence {
                 other.byte_acquisition_micros,
             )?,
             full_body_micros: checked_u64_sum(self.full_body_micros, other.full_body_micros)?,
+            typed_decode_micros: checked_u64_sum(
+                self.typed_decode_micros,
+                other.typed_decode_micros,
+            )?,
+            row_assembly_micros: checked_u64_sum(
+                self.row_assembly_micros,
+                other.row_assembly_micros,
+            )?,
+            anomaly_quarantine_micros: checked_u64_sum(
+                self.anomaly_quarantine_micros,
+                other.anomaly_quarantine_micros,
+            )?,
+            columnar_handoff_micros: checked_u64_sum(
+                self.columnar_handoff_micros,
+                other.columnar_handoff_micros,
+            )?,
             projected_field_mask: self.projected_field_mask | other.projected_field_mask,
             filter_field_mask: self.filter_field_mask | other.filter_field_mask,
             decoded_column_mask: self.decoded_column_mask | other.decoded_column_mask,
@@ -4173,6 +4231,10 @@ pub struct TraditionalDirectTransientReport {
     pub source_read_header_scout_micros: u64,
     pub source_read_byte_acquisition_micros: u64,
     pub source_read_full_body_micros: u64,
+    pub source_read_typed_decode_micros: u64,
+    pub source_read_row_assembly_micros: u64,
+    pub source_read_anomaly_quarantine_micros: u64,
+    pub source_read_columnar_handoff_micros: u64,
     pub source_read_scout_status: String,
     pub source_read_scout_reuse_status: String,
     pub source_read_decode_status: String,
@@ -4435,6 +4497,22 @@ impl TraditionalDirectTransientReport {
             (
                 "source_read_full_body_micros".to_string(),
                 self.source_read_full_body_micros.to_string(),
+            ),
+            (
+                "source_read_typed_decode_micros".to_string(),
+                self.source_read_typed_decode_micros.to_string(),
+            ),
+            (
+                "source_read_row_assembly_micros".to_string(),
+                self.source_read_row_assembly_micros.to_string(),
+            ),
+            (
+                "source_read_anomaly_quarantine_micros".to_string(),
+                self.source_read_anomaly_quarantine_micros.to_string(),
+            ),
+            (
+                "source_read_columnar_handoff_micros".to_string(),
+                self.source_read_columnar_handoff_micros.to_string(),
             ),
             (
                 "source_read_scout_status".to_string(),
@@ -5626,6 +5704,22 @@ impl TraditionalAnalyticsReport {
             (
                 "source_read_full_body_micros".to_string(),
                 self.source_read_full_body_micros.to_string(),
+            ),
+            (
+                "source_read_typed_decode_micros".to_string(),
+                self.source_read_typed_decode_micros.to_string(),
+            ),
+            (
+                "source_read_row_assembly_micros".to_string(),
+                self.source_read_row_assembly_micros.to_string(),
+            ),
+            (
+                "source_read_anomaly_quarantine_micros".to_string(),
+                self.source_read_anomaly_quarantine_micros.to_string(),
+            ),
+            (
+                "source_read_columnar_handoff_micros".to_string(),
+                self.source_read_columnar_handoff_micros.to_string(),
             ),
             (
                 "source_read_scout_status".to_string(),
@@ -8669,6 +8763,22 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_source_state_projection_aware_text_decode".to_string(),
                 prepare_field("source_state_projection_aware_text_decode"),
+            ),
+            (
+                "prepare_batch_source_read_typed_decode_micros".to_string(),
+                prepare_field("source_read_typed_decode_micros"),
+            ),
+            (
+                "prepare_batch_source_read_row_assembly_micros".to_string(),
+                prepare_field("source_read_row_assembly_micros"),
+            ),
+            (
+                "prepare_batch_source_read_anomaly_quarantine_micros".to_string(),
+                prepare_field("source_read_anomaly_quarantine_micros"),
+            ),
+            (
+                "prepare_batch_source_read_columnar_handoff_micros".to_string(),
+                prepare_field("source_read_columnar_handoff_micros"),
             ),
             (
                 "prepare_batch_source_state_row_assembly_strategy".to_string(),
@@ -16867,6 +16977,7 @@ fn current_unix_seconds() -> u64 {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TraditionalFactRow {
     id: u64,
     group_key: u32,
@@ -16885,6 +16996,7 @@ struct TraditionalFactRow {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TraditionalDimRow {
     dim_key: u32,
     dim_label: String,
@@ -19704,6 +19816,10 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
     let source_read_header_scout_micros = source_read_evidence.header_scout_micros;
     let source_read_byte_acquisition_micros = source_read_evidence.byte_acquisition_micros;
     let source_read_full_body_micros = source_read_evidence.full_body_micros;
+    let source_read_typed_decode_micros = source_read_evidence.typed_decode_micros;
+    let source_read_row_assembly_micros = source_read_evidence.row_assembly_micros;
+    let source_read_anomaly_quarantine_micros = source_read_evidence.anomaly_quarantine_micros;
+    let source_read_columnar_handoff_micros = source_read_evidence.columnar_handoff_micros;
     let source_read_scout_status = source_read_evidence.source_read_scout_status().to_string();
     let source_read_scout_reuse_status = source_read_evidence
         .source_read_scout_reuse_status()
@@ -19802,6 +19918,10 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         source_read_header_scout_micros,
         source_read_byte_acquisition_micros,
         source_read_full_body_micros,
+        source_read_typed_decode_micros,
+        source_read_row_assembly_micros,
+        source_read_anomaly_quarantine_micros,
+        source_read_columnar_handoff_micros,
         source_read_scout_status,
         source_read_scout_reuse_status,
         source_read_decode_status,
@@ -20137,6 +20257,10 @@ fn run_traditional_analytics_benchmark_enabled(
     let source_read_header_scout_micros = source_read_evidence.header_scout_micros;
     let source_read_byte_acquisition_micros = source_read_evidence.byte_acquisition_micros;
     let source_read_full_body_micros = source_read_evidence.full_body_micros;
+    let source_read_typed_decode_micros = source_read_evidence.typed_decode_micros;
+    let source_read_row_assembly_micros = source_read_evidence.row_assembly_micros;
+    let source_read_anomaly_quarantine_micros = source_read_evidence.anomaly_quarantine_micros;
+    let source_read_columnar_handoff_micros = source_read_evidence.columnar_handoff_micros;
     let source_read_scout_status = source_read_evidence.source_read_scout_status().to_string();
     let source_read_scout_reuse_status = source_read_evidence
         .source_read_scout_reuse_status()
@@ -20396,6 +20520,10 @@ fn run_traditional_analytics_benchmark_enabled(
         source_read_header_scout_micros,
         source_read_byte_acquisition_micros,
         source_read_full_body_micros,
+        source_read_typed_decode_micros,
+        source_read_row_assembly_micros,
+        source_read_anomaly_quarantine_micros,
+        source_read_columnar_handoff_micros,
         source_read_scout_status,
         source_read_scout_reuse_status,
         source_read_decode_status,
@@ -23579,22 +23707,79 @@ impl TraditionalFactVortexColumns {
         self.id.len()
     }
 
-    fn push_row_owned(&mut self, row: TraditionalFactRow) {
+    fn push_fast_jsonl_values(
+        &mut self,
+        values: FastFactJsonlValues<'_>,
+        path: &std::path::Path,
+        line_number: usize,
+    ) -> Result<()> {
+        let category =
+            parse_json_string_token(values.tail.category_token, path, line_number, "category")?;
         self.push_values(
-            row.id,
-            row.group_key,
-            row.dim_key,
-            row.value,
-            row.metric,
-            row.flag,
-            row.category,
-            row.event_date,
-            row.nullable_metric_00,
-            row.nested_payload,
-            row.raw_event_time,
-            row.dirty_numeric,
-            row.dirty_flag,
+            values.id,
+            values.group_key,
+            values.dim_key,
+            values.value,
+            values.metric,
+            values.flag,
+            category,
+            values.tail.event_date,
+            values.tail.nullable_metric_00,
+            values.tail.nested_payload,
+            values.tail.raw_event_time,
+            values.tail.dirty_numeric,
+            values.tail.dirty_flag,
         );
+        Ok(())
+    }
+
+    fn push_jsonl_fields_with_selection(
+        &mut self,
+        fields: &JsonlFieldMap,
+        path: &std::path::Path,
+        line_number: usize,
+        column_selection: TraditionalFactTextColumnSelection,
+    ) -> Result<()> {
+        self.push_values(
+            parse_jsonl_numeric_field(fields, path, line_number, "id")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "group_key")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "dim_key")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "value")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "metric")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "flag")?,
+            parse_jsonl_string_field(fields, path, line_number, "category")?,
+            if column_selection.event_date {
+                parse_jsonl_optional_string_field(fields, path, line_number, "event_date")?
+            } else {
+                None
+            },
+            if column_selection.nullable_metric_00 {
+                parse_jsonl_optional_string_field(fields, path, line_number, "nullable_metric_00")?
+            } else {
+                None
+            },
+            if column_selection.nested_payload {
+                parse_jsonl_optional_string_field(fields, path, line_number, "nested_payload")?
+            } else {
+                None
+            },
+            if column_selection.raw_event_time {
+                parse_jsonl_optional_string_field(fields, path, line_number, "raw_event_time")?
+            } else {
+                None
+            },
+            if column_selection.dirty_numeric {
+                parse_jsonl_optional_string_field(fields, path, line_number, "dirty_numeric")?
+            } else {
+                None
+            },
+            if column_selection.dirty_flag {
+                parse_jsonl_optional_string_field(fields, path, line_number, "dirty_flag")?
+            } else {
+                None
+            },
+        );
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -23764,14 +23949,28 @@ impl TraditionalDimVortexColumns {
         self.dim_key.len()
     }
 
-    fn push_row_owned(&mut self, row: TraditionalDimRow) {
-        self.push_values(row.dim_key, row.dim_label, row.weight);
-    }
-
     fn push_values(&mut self, dim_key: u32, dim_label: String, weight: f64) {
         self.dim_key.push(dim_key);
         self.dim_label.push(dim_label);
         self.weight.push(weight);
+    }
+
+    fn push_fast_jsonl_values(&mut self, values: FastDimJsonlValues) {
+        self.push_values(values.dim_key, values.dim_label, values.weight);
+    }
+
+    fn push_jsonl_fields(
+        &mut self,
+        fields: &JsonlFieldMap,
+        path: &std::path::Path,
+        line_number: usize,
+    ) -> Result<()> {
+        self.push_values(
+            parse_jsonl_numeric_field(fields, path, line_number, "dim_key")?,
+            parse_jsonl_string_field(fields, path, line_number, "dim_label")?,
+            parse_jsonl_numeric_field(fields, path, line_number, "weight")?,
+        );
+        Ok(())
     }
 
     fn extend_arrow_batch(
@@ -25435,13 +25634,13 @@ fn extend_traditional_fact_jsonl_columns_from_content(
         if line.trim().is_empty() {
             continue;
         }
-        if let Some(row) = parse_benchmark_fact_jsonl_fast_with_selection(
+        if let Some(values) = parse_benchmark_fact_jsonl_fast_values_with_selection(
             line,
             path,
             line_index + 1,
             column_selection,
         )? {
-            columns.push_row_owned(row);
+            columns.push_fast_jsonl_values(values, path, line_index + 1)?;
         } else {
             let selected_fields = fact_jsonl_selected_fields_for_selection(column_selection);
             let fields = parse_jsonl_object_selected(
@@ -25451,13 +25650,12 @@ fn extend_traditional_fact_jsonl_columns_from_content(
                 "fact JSONL",
                 &selected_fields,
             )?;
-            let row = fact_row_from_jsonl_fields_with_selection(
+            columns.push_jsonl_fields_with_selection(
                 &fields,
                 path,
                 line_index + 1,
                 column_selection,
             )?;
-            columns.push_row_owned(row);
         }
         rows = rows.checked_add(1).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -25494,12 +25692,11 @@ fn extend_traditional_dim_jsonl_columns_from_content(
         if line.trim().is_empty() {
             continue;
         }
-        if let Some(row) = parse_benchmark_dim_jsonl_fast(line, path, line_index + 1)? {
-            columns.push_row_owned(row);
+        if let Some(values) = parse_benchmark_dim_jsonl_fast_values(line, path, line_index + 1)? {
+            columns.push_fast_jsonl_values(values);
         } else {
             let fields = parse_jsonl_object(line, path, line_index + 1, "dimension JSONL")?;
-            let row = dim_row_from_jsonl_fields(&fields, path, line_index + 1)?;
-            columns.push_row_owned(row);
+            columns.push_jsonl_fields(&fields, path, line_index + 1)?;
         }
         rows = rows.checked_add(1).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -25966,6 +26163,25 @@ fn parse_benchmark_fact_jsonl_fast_with_selection(
     line_number: usize,
     column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<Option<TraditionalFactRow>> {
+    let Some(values) = parse_benchmark_fact_jsonl_fast_values_with_selection(
+        line,
+        path,
+        line_number,
+        column_selection,
+    )?
+    else {
+        return Ok(None);
+    };
+    fact_row_from_fast_jsonl_values(values, path, line_number).map(Some)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_fast_values_with_selection<'a>(
+    line: &'a str,
+    path: &std::path::Path,
+    line_number: usize,
+    column_selection: TraditionalFactTextColumnSelection,
+) -> Result<Option<FastFactJsonlValues<'a>>> {
     let Some(mut cursor) = benchmark_jsonl_object_inner(line) else {
         return Ok(None);
     };
@@ -26011,22 +26227,40 @@ fn parse_benchmark_fact_jsonl_fast_with_selection(
     else {
         return Ok(None);
     };
-    let category = parse_json_string_token(tail.category_token, path, line_number, "category")?;
-    Ok(Some(TraditionalFactRow {
+    Ok(Some(FastFactJsonlValues {
         id,
         group_key,
         dim_key,
         value,
         metric,
         flag,
-        category,
-        event_date: tail.event_date,
-        nullable_metric_00: tail.nullable_metric_00,
-        nested_payload: tail.nested_payload,
-        raw_event_time: tail.raw_event_time,
-        dirty_numeric: tail.dirty_numeric,
-        dirty_flag: tail.dirty_flag,
+        tail,
     }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_row_from_fast_jsonl_values(
+    values: FastFactJsonlValues<'_>,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<TraditionalFactRow> {
+    let category =
+        parse_json_string_token(values.tail.category_token, path, line_number, "category")?;
+    Ok(TraditionalFactRow {
+        id: values.id,
+        group_key: values.group_key,
+        dim_key: values.dim_key,
+        value: values.value,
+        metric: values.metric,
+        flag: values.flag,
+        category,
+        event_date: values.tail.event_date,
+        nullable_metric_00: values.tail.nullable_metric_00,
+        nested_payload: values.tail.nested_payload,
+        raw_event_time: values.tail.raw_event_time,
+        dirty_numeric: values.tail.dirty_numeric,
+        dirty_flag: values.tail.dirty_flag,
+    })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -26262,6 +26496,22 @@ fn parse_benchmark_dim_jsonl_fast(
     path: &std::path::Path,
     line_number: usize,
 ) -> Result<Option<TraditionalDimRow>> {
+    let Some(values) = parse_benchmark_dim_jsonl_fast_values(line, path, line_number)? else {
+        return Ok(None);
+    };
+    Ok(Some(TraditionalDimRow {
+        dim_key: values.dim_key,
+        dim_label: values.dim_label,
+        weight: values.weight,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_dim_jsonl_fast_values(
+    line: &str,
+    path: &std::path::Path,
+    line_number: usize,
+) -> Result<Option<FastDimJsonlValues>> {
     let Some(mut cursor) = benchmark_jsonl_object_inner(line) else {
         return Ok(None);
     };
@@ -26289,7 +26539,7 @@ fn parse_benchmark_dim_jsonl_fast(
         return Ok(None);
     }
     let weight = parse_fast_json_number(cursor, path, line_number, "weight")?;
-    Ok(Some(TraditionalDimRow {
+    Ok(Some(FastDimJsonlValues {
         dim_key,
         dim_label,
         weight,
@@ -34092,6 +34342,10 @@ mod tests {
             "source_read_header_scout_micros",
             "source_read_byte_acquisition_micros",
             "source_read_full_body_micros",
+            "source_read_typed_decode_micros",
+            "source_read_row_assembly_micros",
+            "source_read_anomaly_quarantine_micros",
+            "source_read_columnar_handoff_micros",
             "vortex_array_build_micros",
             "vortex_write_micros",
             "vortex_writer_context_open_micros",
@@ -34201,6 +34455,19 @@ mod tests {
             scout_source_read_micros
                 + field_u64(&fields, "source_parse_micros")
                 + field_u64(&fields, "source_to_columnar_micros")
+        );
+        assert_eq!(
+            field_u64(&fields, "source_read_typed_decode_micros"),
+            field_u64(&fields, "source_parse_micros")
+        );
+        assert_eq!(field_u64(&fields, "source_read_row_assembly_micros"), 0);
+        assert_eq!(
+            field_u64(&fields, "source_read_anomaly_quarantine_micros"),
+            0
+        );
+        assert_eq!(
+            field_u64(&fields, "source_read_columnar_handoff_micros"),
+            field_u64(&fields, "source_to_columnar_micros")
         );
         for field in [
             "vortex_scan_bytes_touched",
@@ -34555,6 +34822,18 @@ mod tests {
             &import_fields,
             "source_read_row_materialization_status",
             "typed_text_column_builders_without_row_structs",
+        );
+        assert_eq!(
+            field_u64(&import_fields, "source_read_typed_decode_micros"),
+            field_u64(&import_fields, "source_parse_micros")
+        );
+        assert_eq!(
+            field_u64(&import_fields, "source_read_row_assembly_micros"),
+            0
+        );
+        assert_eq!(
+            field_u64(&import_fields, "source_read_columnar_handoff_micros"),
+            field_u64(&import_fields, "source_to_columnar_micros")
         );
         assert_field_eq(
             &import_fields,
