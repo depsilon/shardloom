@@ -6,28 +6,38 @@
     "row_chunks": [
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
-        "row_count": 300,
-        "sha256": "fdae61d2ead13e08ca28b2d5c588a210f5f05e65e2b0a47442f481d52a323d25"
+        "row_count": 200,
+        "sha256": "f3d9330b5512ef070c9a8b6843862b402367d9d7378f3e64c13a81904731b90b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
-        "row_count": 300,
-        "sha256": "4ee5de0644e9390ac17a9bffa390c739075d25ee2c45a16708fd95b1f1b7b150"
+        "row_count": 200,
+        "sha256": "3e12feef43883cb3baf4216576b0b117d4f8dd7e81b67e0a136a52e3682501dd"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
-        "row_count": 300,
-        "sha256": "673817009cd859775eb680f41bcbcb1eb02d8052cd3431720f0014afa0008d29"
+        "row_count": 200,
+        "sha256": "76e949de66736979dec0edac21a5f6f780b96983d21f1bead2368f0ebe72cc4b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
-        "row_count": 300,
-        "sha256": "cf21cd933a4763e0bc9b818b3760ff859dedcb19298aab6473ebf76eaa1f135d"
+        "row_count": 200,
+        "sha256": "805b90e3294fa11eef139df73ddd50670f775d4bb924e931fb3628c1709457ad"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
+        "row_count": 200,
+        "sha256": "50823a0ba282cb480de0eb1f0fa552902bc97e6c87401ca9d59a4ba670617b63"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
+        "row_count": 200,
+        "sha256": "5d8caab9de57f60d43f0edbb9424a3e6360c8835b2ea4ecae81481b2ba7acdcd"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
         "row_count": 120,
-        "sha256": "c5e30b16e8b70b8edd5f4907ff894fe37e46e867b132f2c4e5e6280f394f1282"
+        "sha256": "6413fd498761154e7cc9245eb7925af75fbdcf5f218904596a6b54717a740d75"
       }
     ]
   },
@@ -68,14 +78,21 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "545a72b6f22d0319d027405ef4a251118e2af0c8",
+  "benchmark_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
-    "artifact_environment": {},
+    "artifact_environment": {
+      "cpu_count": 10,
+      "machine": "arm64",
+      "platform": "macOS-26.5.1-arm64-arm-64bit",
+      "processor": "arm",
+      "python_version": "3.12.13",
+      "total_memory_bytes": 17179869184
+    },
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.9.6",
+    "python": "3.12.13",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -90,30 +107,30 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-05T19:58:38.654532+00:00",
+  "generated_at_utc": "2026-06-05T21:52:31.656048+00:00",
   "lane_availability_reasons": {
-    "dask": "available in promoted benchmark artifact",
-    "datafusion": "available in promoted benchmark artifact",
-    "duckdb": "available in promoted benchmark artifact",
-    "pandas": "available in promoted benchmark artifact",
-    "polars-eager": "available in promoted benchmark artifact",
-    "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available in promoted benchmark artifact",
-    "shardloom-prepare-batch": "available in promoted benchmark artifact",
-    "shardloom-prepared-vortex": "available in promoted benchmark artifact",
-    "shardloom-vortex": "available in promoted benchmark artifact"
+    "dask": "available, version 2026.3.0",
+    "datafusion": "available, version 53.0.0",
+    "duckdb": "available, version 1.5.3",
+    "pandas": "available, version 2.2.3",
+    "polars-eager": "available, version 1.41.2",
+    "polars-lazy": "available, version 1.41.2 (lazy scan API)",
+    "shardloom": "available, version workspace-local-release-d94d30b0-dirty",
+    "shardloom-prepare-batch": "available, version workspace-local-release-d94d30b0-dirty",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-d94d30b0-dirty",
+    "shardloom-vortex": "available, version workspace-local-release-d94d30b0-dirty"
   },
   "lane_versions": {
-    "dask": "from promoted benchmark artifact",
-    "datafusion": "from promoted benchmark artifact",
-    "duckdb": "from promoted benchmark artifact",
-    "pandas": "from promoted benchmark artifact",
-    "polars-eager": "from promoted benchmark artifact",
-    "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "from promoted benchmark artifact",
-    "shardloom-prepare-batch": "from promoted benchmark artifact",
-    "shardloom-prepared-vortex": "from promoted benchmark artifact",
-    "shardloom-vortex": "from promoted benchmark artifact"
+    "dask": "2026.3.0",
+    "datafusion": "53.0.0",
+    "duckdb": "1.5.3",
+    "pandas": "2.2.3",
+    "polars-eager": "1.41.2",
+    "polars-lazy": "1.41.2 (lazy scan API)",
+    "shardloom": "workspace-local-release-d94d30b0-dirty",
+    "shardloom-prepare-batch": "workspace-local-release-d94d30b0-dirty",
+    "shardloom-prepared-vortex": "workspace-local-release-d94d30b0-dirty",
+    "shardloom-vortex": "workspace-local-release-d94d30b0-dirty"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -753,5 +770,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "545a72b6f22d0319d027405ef4a251118e2af0c8"
+  "shardloom_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883"
 }

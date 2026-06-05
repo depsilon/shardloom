@@ -79,6 +79,9 @@ COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottlenec
 SOURCE_READ_SCOUT_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.source_read_scout.v1"
 )
+PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_optimization.v1"
+)
 VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1"
 )
@@ -115,7 +118,7 @@ DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmar
 DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
 BENCHMARK_PROFILE_ROSTER = ("full_local",)
 PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
-PUBLISHED_ROW_CHUNK_SIZE = 300
+PUBLISHED_ROW_CHUNK_SIZE = 200
 WEBSITE_ROW_KEYS = (
     "engine",
     "engine_display_name",
@@ -145,6 +148,34 @@ WEBSITE_ROW_KEYS = (
     "prepared_state_reuse_reason",
     "prepared_state_reuse_manifest_digest",
     "prepared_state_invalidation_reason",
+    "prepare_batch_prepared_state_optimization_schema_version",
+    "prepare_batch_prepared_state_optimization_status",
+    "prepare_batch_prepared_state_optimization_strategy",
+    "prepare_batch_prepared_state_optimization_index_digest",
+    "prepare_batch_prepared_state_optimization_manifest_digest",
+    "prepare_batch_prepared_state_optimization_source_packet_digest",
+    "prepare_batch_prepared_state_optimization_changed_roles",
+    "prepare_batch_prepared_state_optimization_reused_roles",
+    "prepare_batch_prepared_state_optimization_repaired_roles",
+    "prepare_batch_prepared_state_optimization_invalidated_derived_states",
+    "prepare_batch_prepared_state_optimization_invalidation_reason",
+    "prepare_batch_prepared_state_optimization_manifest_lookup_ms",
+    "prepare_batch_prepared_state_optimization_manifest_match_ms",
+    "prepare_batch_prepared_state_optimization_cache_miss_create_ms",
+    "prepare_batch_prepared_state_optimization_artifact_write_ms",
+    "prepare_batch_prepared_state_optimization_repair_ms",
+    "prepare_batch_prepared_state_optimization_delta_overlay_ms",
+    "prepare_batch_prepared_state_optimization_replay_verification_ms",
+    "prepare_batch_prepared_state_optimization_delta_overlay_admitted",
+    "prepare_batch_prepared_state_optimization_base_artifact_reused",
+    "prepare_batch_prepared_state_optimization_proof_digest",
+    "prepare_batch_prepared_state_optimization_replay_proof",
+    "prepare_batch_prepared_state_optimization_blocker_id",
+    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed",
+    "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
+    "prepare_batch_prepared_state_optimization_fallback_attempted",
+    "prepare_batch_prepared_state_optimization_external_engine_invoked",
+    "prepare_batch_prepared_state_optimization_claim_boundary",
     "prepare_batch_prepared_state_index_schema_version",
     "prepare_batch_prepared_state_index_lookup_status",
     "prepare_batch_prepared_state_index_digest",
@@ -213,8 +244,12 @@ WEBSITE_ROW_KEYS = (
     "vortex_open_footer_micros",
     "scan_open_micros",
     "scan_chunk_iter_micros",
+    "vortex_chunk_iteration_micros",
+    "vortex_projected_field_extract_micros",
+    "vortex_encoded_kernel_evidence_micros",
     "operator_kernel_micros",
     "operator_finalize_micros",
+    "result_assembly_micros",
     "result_sink_plan_micros",
     "result_sink_write_micros",
     "result_sink_replay_micros",
@@ -439,6 +474,153 @@ WEBSITE_ROW_KEYS = (
     "claim_gate_status",
     "row_classification",
     "external_baseline_only",
+)
+WEBSITE_SUMMARY_ROW_KEYS = (
+    "engine",
+    "engine_display_name",
+    "scenario_name",
+    "scenario_id",
+    "storage_format",
+    "status",
+    "selected_execution_mode",
+    "requested_execution_mode",
+    "route_lane_id",
+    "route_display_name",
+    "route_family_display_name",
+    "route_runtime_status",
+    "start_state",
+    "end_state",
+    "includes_preparation",
+    "includes_query",
+    "includes_output",
+    "includes_evidence",
+    "route_comparable_to_external_end_to_end",
+    "prepared_state_reuse_scope",
+    "benchmark_timing_boundary",
+    "benchmark_timing_status",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_gate_status",
+    "external_baseline_only",
+    "performance_claim_allowed",
+    "production_claim_allowed",
+    "spark_replacement_claim_allowed",
+    "source_admission_ms",
+    "source_read_ms",
+    "source_parse_or_columnar_decode_ms",
+    "source_to_vortex_array_ms",
+    "vortex_write_ms",
+    "vortex_reopen_or_verify_ms",
+    "prepared_state_lookup_or_create_ms",
+    "vortex_scan_ms",
+    "operator_compute_ms",
+    "result_sink_write_ms",
+    "evidence_render_ms",
+    "total_route_ms",
+    "query_runtime_millis",
+    "total_runtime_millis",
+    "vortex_scan_millis",
+    "operator_compute_millis",
+    "result_sink_write_millis",
+    "exclusive_stage_timing_status",
+    "route_timing_exclusive_stage_sum_ms",
+    "route_timing_exclusive_residual_ms",
+    "inclusive_compatibility_to_vortex_import_ms",
+    "cold_bottleneck_primary_stage",
+    "fast_path_attribution_schema_version",
+    "runtime_execution_ms",
+    "output_delivery_ms",
+    "evidence_capture_ms",
+    "certificate_link_ms",
+    "runtime_execution_timing_scope",
+    "output_delivery_timing_scope",
+    "evidence_capture_timing_status",
+    "certificate_link_timing_status",
+    "runtime_execution_certificate_id",
+    "runtime_execution_certificate_status",
+    "runtime_execution_certificate_plan_ref",
+    "certificate_link_status",
+    "evidence_required_for_claim",
+    "evidence_render_included_in_route_total",
+    "operator_mode_inventory_schema_version",
+    "operator_execution_class",
+    "operator_admission_status",
+    "operator_encoded_native_claim_allowed",
+    "operator_residual_native_used",
+    "operator_temporary_materialization_used",
+    "operator_blocker_matrix_ref",
+    "operator_execution_mode",
+    "encoded_native_operators",
+    "residual_native_operators",
+    "materialized_temporary_operators",
+    "operator_blocker_code",
+    "operator_hot_path_candidate",
+    "operator_hot_path_candidate_status",
+    "operator_hot_path_next_step",
+    "evidence_render_proof_schema_version",
+    "evidence_render_proof_status",
+    "evidence_render_proof_digest",
+    "evidence_render_route_timing_boundary",
+    "evidence_render_fallback_attempted",
+    "evidence_render_external_engine_invoked",
+    "evidence_sink_tier_schema_version",
+    "requested_evidence_tier",
+    "actual_evidence_tier",
+    "sink_tier",
+    "sink_timing_included_in_route_total",
+    "result_sink_replay_skip_reason",
+    "human_evidence_render_skip_reason",
+    "route_shape_stratification_schema_version",
+    "route_shape_status",
+    "route_shape_route_lane_id",
+    "route_shape_route_family",
+    "route_shape_start_state",
+    "route_shape_end_state",
+    "route_shape_row_count_class",
+    "route_shape_stage_attribution_scope",
+    "route_shape_fallback_attempted",
+    "source_to_vortex_array_guard_schema_version",
+    "source_to_vortex_array_guard_status",
+    "source_to_vortex_array_guard_provider_kind",
+    "source_to_vortex_array_guard_input_layout",
+    "source_to_vortex_array_guard_record_batch_count",
+    "source_to_vortex_array_guard_exclusive_stage_field",
+    "source_to_vortex_array_guard_inclusive_parent_field",
+    "source_to_vortex_array_guard_fallback_attempted",
+    "result_sink_capillary_schema_version",
+    "result_sink_capillary_status",
+    "result_sink_capillary_route",
+    "result_sink_capillary_native_vortex_output_selected",
+    "result_sink_capillary_compatibility_fanout_selected",
+    "result_sink_capillary_result_json_bytes",
+    "result_sink_capillary_result_json_digest",
+    "result_sink_capillary_fallback_attempted",
+    "prepare_batch_prepared_state_lookup_timing_schema_version",
+    "prepare_batch_prepared_state_lookup_status",
+    "prepare_batch_prepared_state_index_schema_version",
+    "prepare_batch_prepared_state_index_digest",
+    "prepare_batch_prepared_state_index_external_engine_invoked",
+    "prepare_batch_prepared_state_dependency_status",
+    "prepare_batch_prepared_state_partial_repair_status",
+    "prepare_batch_prepared_state_partial_repair_changed_roles",
+    "prepare_batch_prepared_state_partial_repair_reused_roles",
+    "prepare_batch_prepared_state_partial_repair_repaired_roles",
+    "prepare_batch_prepared_state_partial_repair_micros",
+    "prepare_batch_prepared_state_partial_repair_replay_proof",
+    "prepare_batch_prepared_state_delta_overlay_schema_version",
+    "prepare_batch_prepared_state_delta_overlay_status",
+    "prepare_batch_prepared_state_delta_overlay_admitted",
+    "prepare_batch_prepared_state_delta_overlay_base_artifact_reused",
+    "prepare_batch_prepared_state_delta_overlay_changed_byte_range",
+    "prepare_batch_prepared_state_delta_overlay_delta_row_count",
+    "prepare_batch_prepared_state_delta_overlay_consumer_status",
+    "prepare_batch_prepared_state_delta_overlay_correctness_digest",
+    "prepare_batch_prepared_state_delta_overlay_replay_proof",
+    "prepare_batch_prepared_state_delta_overlay_blocker_id",
+    "prepare_batch_prepared_state_delta_overlay_external_engine_invoked",
+    "base_artifact_reused",
+    "delta_overlay_admitted",
+    "vortex_normalization_point",
 )
 LOCAL_PATH_RE = re.compile(
     r"(?P<win>[A-Za-z]:\\[^|,;\"'\s]+)|"
@@ -747,6 +929,9 @@ PUBLISHED_METRIC_KEYS = (
     "execution_certificate_ref",
     "execution_certificate_refs",
     "evidence_level_certificate_refs",
+    "source_backed_scan_chunk_iter_micros",
+    "source_backed_scan_projection_extract_micros",
+    "source_backed_scan_encoded_evidence_micros",
     "requested_evidence_level",
     "requested_evidence_tier",
     "selected_evidence_level",
@@ -953,7 +1138,7 @@ def website_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered.append(
             {
                 key: row[key]
-                for key in WEBSITE_ROW_KEYS
+                for key in WEBSITE_SUMMARY_ROW_KEYS
                 if key in row
             }
         )
@@ -1127,6 +1312,21 @@ def first_numeric_micros(
     return None
 
 
+def summed_numeric_millis_from_micros(
+    fields: dict[str, Any],
+    micros_keys: tuple[str, ...],
+) -> float | None:
+    total = 0.0
+    found = False
+    for key in micros_keys:
+        parsed = numeric_value(fields.get(key))
+        if parsed is None:
+            continue
+        total += parsed / 1000.0
+        found = True
+    return total if found else None
+
+
 def first_bool_field(
     fields: dict[str, Any],
     keys: tuple[str, ...],
@@ -1170,6 +1370,15 @@ def timing_normalization_fields_for_row(
     )
     if operator_kernel_micros is None:
         operator_kernel_micros = millis_to_micros(stage_fields.get("operator_compute_ms"))
+    scan_chunk_iter_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "scan_chunk_iter_micros",
+            "vortex_chunk_iteration_micros",
+            "vortex_scenario_scan_micros",
+        ),
+        millis_keys=("vortex_scenario_scan_millis", "vortex_scenario_scan_ms"),
+    )
     normalized = {
         "source_admission_policy_micros": first_numeric_micros(
             fields,
@@ -1301,16 +1510,28 @@ def timing_normalization_fields_for_row(
             micros_keys=("scan_open_micros", "vortex_scan_open_micros"),
             millis_keys=("vortex_scan_open_millis", "vortex_scan_open_ms"),
         ),
-        "scan_chunk_iter_micros": first_numeric_micros(
+        "scan_chunk_iter_micros": scan_chunk_iter_micros,
+        "vortex_chunk_iteration_micros": scan_chunk_iter_micros,
+        "vortex_projected_field_extract_micros": first_numeric_micros(
             fields,
-            micros_keys=("scan_chunk_iter_micros", "vortex_scenario_scan_micros"),
-            millis_keys=("vortex_scenario_scan_millis", "vortex_scenario_scan_ms"),
+            micros_keys=("vortex_projected_field_extract_micros",),
+            millis_keys=("vortex_projected_field_extract_millis",),
+        ),
+        "vortex_encoded_kernel_evidence_micros": first_numeric_micros(
+            fields,
+            micros_keys=("vortex_encoded_kernel_evidence_micros",),
+            millis_keys=("vortex_encoded_kernel_evidence_millis",),
         ),
         "operator_kernel_micros": operator_kernel_micros,
         "operator_finalize_micros": first_numeric_micros(
             fields,
             micros_keys=("operator_finalize_micros",),
             millis_keys=("operator_finalize_millis",),
+        ),
+        "result_assembly_micros": first_numeric_micros(
+            fields,
+            micros_keys=("result_assembly_micros",),
+            millis_keys=("result_assembly_millis",),
         ),
         "result_sink_plan_micros": first_numeric_micros(
             fields,
@@ -1637,20 +1858,58 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ("exclusive_vortex_reopen_verify_micros", "vortex_reopen_verify_micros"),
         ("prepare_batch_vortex_reopen_verify_micros",),
     )
-    vortex_scan = route_stage_millis(
-        ("exclusive_vortex_scan_millis", "vortex_scan_millis"),
-        primary_micros_keys=("exclusive_vortex_scan_micros", "vortex_scan_micros"),
+    vortex_scan_substage = summed_numeric_millis_from_micros(
+        fields,
+        (
+            "vortex_scan_open_micros",
+            "scan_chunk_iter_micros",
+            "vortex_chunk_iteration_micros",
+            "vortex_projected_field_extract_micros",
+            "vortex_encoded_kernel_evidence_micros",
+        ),
     )
-    operator_compute = route_stage_millis(
-        ("exclusive_operator_compute_millis", "operator_compute_millis"),
-        primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
+    if vortex_scan_substage is not None:
+        vortex_scan = vortex_scan_substage
+    else:
+        vortex_scan = route_stage_millis(
+            ("exclusive_vortex_scan_millis", "vortex_scan_millis"),
+            primary_micros_keys=("exclusive_vortex_scan_micros", "vortex_scan_micros"),
+        )
+    operator_substage = summed_numeric_millis_from_micros(
+        fields,
+        (
+            "operator_kernel_micros",
+            "operator_finalize_micros",
+            "result_assembly_micros",
+        ),
     )
+    if operator_substage is not None:
+        operator_compute = operator_substage
+    else:
+        operator_compute = route_stage_millis(
+            ("exclusive_operator_compute_millis", "operator_compute_millis"),
+            primary_micros_keys=("exclusive_operator_compute_micros", "operator_compute_micros"),
+        )
     has_query_stage_split = vortex_scan is not None and operator_compute is not None
-    prepared_query = (
+    query_substage_sum = (
         (vortex_scan or 0.0) + (operator_compute or 0.0)
         if has_query_stage_split
         else None
     )
+    if (
+        has_query_stage_split
+        and route_lane_id
+        in {
+            "prepare_once_first_query",
+            "prepare_once_batch",
+            "warm_prepared_query",
+            "native_vortex_query",
+        }
+        and query_runtime is not None
+    ):
+        prepared_query = query_runtime
+    else:
+        prepared_query = query_substage_sum
 
     output_delivery = output_delivery_millis(fields)
     evidence_render = evidence_render_route_millis(fields)
@@ -1688,12 +1947,6 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         else []
     )
     exclusive_stage_sum = round(sum(value for _, value in exclusive_stage_values), 4)
-    exclusive_residual = (
-        round(total_runtime - exclusive_stage_sum, 4)
-        if total_runtime is not None
-        else None
-    )
-    exclusive_delta = abs(exclusive_residual) if exclusive_residual is not None else None
     inclusive_compatibility_to_vortex_import = first_numeric_stage_millis(
         fields,
         millis_keys=(
@@ -1718,6 +1971,10 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         and query_runtime is not None
     ):
         total_route = query_runtime + result_sink_write + evidence_render
+    exclusive_residual = (
+        round(total_route - exclusive_stage_sum, 4) if total_route is not None else None
+    )
+    exclusive_delta = abs(exclusive_residual) if exclusive_residual is not None else None
     requires_query_stage_split = is_shardloom and (
         query_runtime is not None
         or route_lane_id
@@ -2298,6 +2555,365 @@ def source_read_scout_fields_for_row(
             "source-read scout attribution explains header/scout, byte acquisition, and full-body "
             "read composition only; it does not authorize performance, production, or "
             "Spark-displacement claims"
+        ),
+    }
+
+
+def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    if str(row.get("engine") or "") != "shardloom-prepare-batch":
+        return {}
+
+    row_success = row.get("status") == "success"
+    lookup_status = first_meaningful_field(
+        fields,
+        (
+            "prepare_batch_prepared_state_lookup_status",
+            "prepare_batch_prepared_state_index_lookup_status",
+        ),
+    )
+    repair_status = first_meaningful_field(
+        fields, ("prepare_batch_prepared_state_partial_repair_status",)
+    )
+    dependency_status = first_meaningful_field(
+        fields, ("prepare_batch_prepared_state_dependency_status",)
+    )
+    reuse_hit = first_bool_field(
+        fields,
+        (
+            "prepared_state_reuse_hit",
+            "prepared_state_reused",
+        ),
+        default=False,
+    )
+    delta_admitted = first_bool_field(
+        fields,
+        (
+            "prepare_batch_prepared_state_optimization_delta_overlay_admitted",
+            "prepare_batch_prepared_state_delta_overlay_admitted",
+            "delta_overlay_admitted",
+        ),
+        default=False,
+    )
+    strategy = first_meaningful_field(
+        fields, ("prepare_batch_prepared_state_optimization_strategy",)
+    )
+    if strategy is None:
+        if delta_admitted:
+            strategy = "append_only_delta_overlay"
+        elif repair_status == "admitted_role_repair_completed":
+            strategy = "role_scoped_repair"
+        elif (
+            lookup_status in {"workspace_manifest_hit", "workspace_index_manifest_hit"}
+            or dependency_status == "manifest_dependencies_matched"
+            or reuse_hit
+        ):
+            strategy = "manifest_reuse"
+        elif lookup_status == "cache_miss_created_and_registered":
+            strategy = "full_prepare_register"
+        elif row_success:
+            strategy = "full_prepare_register"
+        else:
+            strategy = "not_reported"
+
+    status = first_meaningful_field(
+        fields, ("prepare_batch_prepared_state_optimization_status",)
+    )
+    if status is None:
+        status = {
+            "manifest_reuse": "prepared_state_manifest_hit",
+            "append_only_delta_overlay": "prepared_state_delta_overlay_admitted",
+            "role_scoped_repair": "prepared_state_role_repair_admitted",
+            "full_prepare_register": "prepared_state_full_prepare_registered",
+        }.get(strategy, lookup_status or "not_reported")
+
+    repair_micros = first_numeric_micros(
+        fields,
+        micros_keys=("prepare_batch_prepared_state_optimization_repair_micros",),
+        millis_keys=("prepare_batch_prepared_state_optimization_repair_ms",),
+    )
+    if repair_micros is None and strategy == "role_scoped_repair":
+        repair_micros = first_numeric_micros(
+            fields,
+            micros_keys=("prepare_batch_prepared_state_partial_repair_micros",),
+        )
+    delta_overlay_micros = first_numeric_micros(
+        fields,
+        micros_keys=("prepare_batch_prepared_state_optimization_delta_overlay_micros",),
+        millis_keys=("prepare_batch_prepared_state_optimization_delta_overlay_ms",),
+    )
+    if delta_overlay_micros is None and strategy == "append_only_delta_overlay":
+        delta_overlay_micros = sum(
+            value or 0
+            for value in (
+                first_numeric_micros(
+                    fields,
+                    micros_keys=(
+                        "prepare_batch_prepared_state_delta_overlay_full_content_digest_micros",
+                    ),
+                ),
+                first_numeric_micros(
+                    fields,
+                    micros_keys=(
+                        "prepare_batch_prepared_state_delta_overlay_delta_source_write_micros",
+                    ),
+                ),
+                first_numeric_micros(
+                    fields,
+                    micros_keys=(
+                        "prepare_batch_prepared_state_delta_overlay_delta_artifact_write_micros",
+                    ),
+                ),
+                first_numeric_micros(
+                    fields,
+                    micros_keys=(
+                        "prepare_batch_prepared_state_delta_overlay_replay_verification_micros",
+                    ),
+                ),
+            )
+        )
+    base_artifact_reused = first_bool_field(
+        fields,
+        (
+            "prepare_batch_prepared_state_optimization_base_artifact_reused",
+            "base_artifact_reused",
+            "prepare_batch_prepared_state_delta_overlay_base_artifact_reused",
+        ),
+        default=None,
+    )
+    if base_artifact_reused is None:
+        base_artifact_reused = strategy in {
+            "manifest_reuse",
+            "role_scoped_repair",
+            "append_only_delta_overlay",
+        }
+    if strategy in {"manifest_reuse", "role_scoped_repair", "append_only_delta_overlay"}:
+        base_artifact_reused = True
+    return {
+        "prepare_batch_prepared_state_optimization_schema_version": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_optimization_schema_version",),
+        )
+        or PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION,
+        "prepare_batch_prepared_state_optimization_status": status,
+        "prepare_batch_prepared_state_optimization_strategy": strategy,
+        "prepare_batch_prepared_state_optimization_index_digest": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_index_digest",
+                "prepare_batch_prepared_state_index_digest",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_manifest_digest": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_manifest_digest",
+                "prepare_batch_prepared_state_dependency_manifest_digest",
+                "prepared_state_reuse_manifest_digest",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_source_packet_digest": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_source_packet_digest",
+                "prepare_batch_prepared_state_dependency_source_packet_digest",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_changed_roles": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_changed_roles",
+                "prepare_batch_prepared_state_dependency_changed_roles",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_reused_roles": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_reused_roles",
+                "prepare_batch_prepared_state_partial_repair_reused_roles",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_repaired_roles": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_repaired_roles",
+                "prepare_batch_prepared_state_partial_repair_repaired_roles",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_invalidated_derived_states": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_invalidated_derived_states",
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_invalidation_reason": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_invalidation_reason",
+                "prepared_state_invalidation_reason",
+                "prepare_batch_prepared_state_invalidation_reason",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_manifest_lookup_ms": micros_to_millis(
+            first_numeric_micros(
+                fields,
+                micros_keys=(
+                    "prepare_batch_prepared_state_optimization_manifest_lookup_micros",
+                    "prepare_batch_prepared_state_manifest_lookup_micros",
+                ),
+                millis_keys=(
+                    "prepare_batch_prepared_state_optimization_manifest_lookup_ms",
+                    "prepared_state_lookup_or_create_ms",
+                ),
+            )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_manifest_match_ms": micros_to_millis(
+            first_numeric_micros(
+                fields,
+                micros_keys=(
+                    "prepare_batch_prepared_state_optimization_manifest_match_micros",
+                    "prepare_batch_prepared_state_cache_hit_micros",
+                ),
+                millis_keys=(
+                    "prepare_batch_prepared_state_optimization_manifest_match_ms",
+                ),
+            )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_cache_miss_create_ms": micros_to_millis(
+            first_numeric_micros(
+                fields,
+                micros_keys=(
+                    "prepare_batch_prepared_state_optimization_cache_miss_create_micros",
+                    "prepare_batch_prepared_state_cache_miss_create_micros",
+                ),
+                millis_keys=(
+                    "prepare_batch_prepared_state_optimization_cache_miss_create_ms",
+                ),
+            )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_artifact_write_ms": micros_to_millis(
+            first_numeric_micros(
+                fields,
+                micros_keys=(
+                    "prepare_batch_prepared_state_optimization_artifact_write_micros",
+                    "prepare_batch_prepared_state_artifact_write_micros",
+                ),
+                millis_keys=(
+                    "prepare_batch_prepared_state_optimization_artifact_write_ms",
+                ),
+            )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_repair_ms": micros_to_millis(
+            repair_micros
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_delta_overlay_ms": micros_to_millis(
+            delta_overlay_micros
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_replay_verification_ms": micros_to_millis(
+            first_numeric_micros(
+                fields,
+                micros_keys=(
+                    "prepare_batch_prepared_state_optimization_replay_verification_micros",
+                    "prepare_batch_prepared_state_replay_verification_micros",
+                ),
+                millis_keys=(
+                    "prepare_batch_prepared_state_optimization_replay_verification_ms",
+                ),
+            )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_optimization_delta_overlay_admitted": bool(
+            delta_admitted
+        ),
+        "prepare_batch_prepared_state_optimization_base_artifact_reused": bool(
+            base_artifact_reused
+        ),
+        "prepare_batch_prepared_state_optimization_proof_digest": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_proof_digest",
+                "prepare_batch_prepared_state_delta_overlay_correctness_digest",
+                "prepare_batch_prepared_state_partial_repair_replay_proof",
+                "prepared_state_reuse_manifest_digest",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_replay_proof": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_replay_proof",
+                "prepare_batch_prepared_state_delta_overlay_replay_proof",
+                "prepare_batch_prepared_state_partial_repair_replay_proof",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_optimization_blocker_id": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_optimization_blocker_id",
+                "prepare_batch_prepared_state_partial_repair_blocker_id",
+                "prepare_batch_prepared_state_delta_overlay_blocker_id",
+            ),
+        )
+        or "none",
+        "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed",
+                    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
+                    "prepare_batch_prepared_state_delta_overlay_stale_base_reuse_allowed",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_optimization_no_fallback_policy_status": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_optimization_no_fallback_policy_status",),
+        )
+        or "passed_fallback_false_external_engine_false",
+        "prepare_batch_prepared_state_optimization_fallback_attempted": bool(
+            first_bool_field(
+                fields,
+                ("prepare_batch_prepared_state_optimization_fallback_attempted",),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_optimization_external_engine_invoked": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_optimization_external_engine_invoked",
+                    "prepare_batch_prepared_state_index_external_engine_invoked",
+                    "prepare_batch_prepared_state_dependency_external_engine_invoked",
+                    "prepare_batch_prepared_state_delta_overlay_external_engine_invoked",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_optimization_claim_boundary": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_optimization_claim_boundary",),
+        )
+        or (
+            "Unified prepared-state optimization contract only; no stale reuse, "
+            "external-engine execution, broad CDC/table, production, or performance superiority "
+            "claim is authorized"
         ),
     }
 
@@ -6268,6 +6884,9 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         source_read_scout_fields = source_read_scout_fields_for_row(
             adjusted_row, route_stage_fields
         )
+        prepared_state_optimization_fields = prepared_state_optimization_fields_for_row(
+            adjusted_row
+        )
         vortex_reopen_scan_fields = vortex_reopen_scan_attribution_fields_for_row(
             adjusted_row, route_stage_fields
         )
@@ -6330,6 +6949,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_diagnostics)
         rendered_row.update(route_stage_fields)
         rendered_row.update(source_read_scout_fields)
+        rendered_row.update(prepared_state_optimization_fields)
         rendered_row.update(vortex_reopen_scan_fields)
         rendered_row.update(route_timing_ledger)
         rendered_row.update(timing_normalization_fields)
@@ -6377,6 +6997,7 @@ def published_rows_with_current_route_timing_ledger(
         route_stage_fields = route_stage_fields_for_row(updated)
         updated.update(route_stage_fields)
         updated.update(source_read_scout_fields_for_row(updated, route_stage_fields))
+        updated.update(prepared_state_optimization_fields_for_row(updated))
         updated.update(
             vortex_reopen_scan_attribution_fields_for_row(updated, route_stage_fields)
         )

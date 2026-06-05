@@ -92,6 +92,8 @@ const PREPARED_STATE_INDEX_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_index.v1";
 const PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_delta_overlay.v1";
+const PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_optimization.v1";
 const PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_dependency.v1";
 const PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION: &str =
@@ -3274,6 +3276,12 @@ pub struct TraditionalAnalyticsReport {
     pub vortex_metadata_verify_micros: u64,
     pub vortex_scan_open_micros: u64,
     pub vortex_scenario_scan_micros: u64,
+    pub scan_chunk_iter_micros: u64,
+    pub vortex_projected_field_extract_micros: u64,
+    pub vortex_encoded_kernel_evidence_micros: u64,
+    pub operator_kernel_micros: u64,
+    pub operator_finalize_micros: u64,
+    pub result_assembly_micros: u64,
     pub vortex_scan_bytes_touched: u64,
     pub vortex_scan_segments_touched: u64,
     pub vortex_scan_segments_skipped: u64,
@@ -6428,6 +6436,22 @@ impl TraditionalAnalyticsReport {
                 self.vortex_scenario_scan_micros.to_string(),
             ),
             (
+                "scan_chunk_iter_micros".to_string(),
+                self.scan_chunk_iter_micros.to_string(),
+            ),
+            (
+                "vortex_chunk_iteration_micros".to_string(),
+                self.scan_chunk_iter_micros.to_string(),
+            ),
+            (
+                "vortex_projected_field_extract_micros".to_string(),
+                self.vortex_projected_field_extract_micros.to_string(),
+            ),
+            (
+                "vortex_encoded_kernel_evidence_micros".to_string(),
+                self.vortex_encoded_kernel_evidence_micros.to_string(),
+            ),
+            (
                 "vortex_scan_bytes_touched".to_string(),
                 self.vortex_scan_bytes_touched.to_string(),
             ),
@@ -6452,8 +6476,20 @@ impl TraditionalAnalyticsReport {
                 self.operator_compute_micros.to_string(),
             ),
             (
+                "operator_kernel_micros".to_string(),
+                self.operator_kernel_micros.to_string(),
+            ),
+            (
+                "operator_finalize_micros".to_string(),
+                self.operator_finalize_micros.to_string(),
+            ),
+            (
+                "result_assembly_micros".to_string(),
+                self.result_assembly_micros.to_string(),
+            ),
+            (
                 "operator_compute_timing_scope".to_string(),
-                "included_in_vortex_scan_micros_for_current_streaming_loop".to_string(),
+                "operator_kernel_plus_finalization_result_assembly_substages".to_string(),
             ),
             (
                 "result_sink_plan_micros".to_string(),
@@ -7048,6 +7084,13 @@ pub struct TraditionalAnalyticsVortexReport {
     pub vortex_metadata_verify_micros: u64,
     pub vortex_scan_open_micros: u64,
     pub vortex_scenario_scan_micros: u64,
+    pub scan_chunk_iter_micros: u64,
+    pub vortex_projected_field_extract_micros: u64,
+    pub vortex_encoded_kernel_evidence_micros: u64,
+    pub operator_compute_micros: u64,
+    pub operator_kernel_micros: u64,
+    pub operator_finalize_micros: u64,
+    pub result_assembly_micros: u64,
     pub vortex_scan_bytes_touched: u64,
     pub vortex_scan_segments_touched: u64,
     pub vortex_scan_segments_skipped: u64,
@@ -8132,6 +8175,98 @@ impl TraditionalAnalyticsPreparedBatchReport {
             prepared_state_native_io_certificate_status.as_str(),
             prepared_state_attractor_route_family,
         ]);
+        let prepared_state_optimization_strategy = if workspace_reuse_hit {
+            "manifest_reuse"
+        } else if workspace_delta_overlay_performed {
+            "append_only_delta_overlay"
+        } else if workspace_partial_repair_performed {
+            "role_scoped_repair"
+        } else {
+            "full_prepare_register"
+        };
+        let prepared_state_optimization_status = if workspace_reuse_hit {
+            "prepared_state_manifest_hit"
+        } else if workspace_delta_overlay_performed {
+            "prepared_state_delta_overlay_admitted"
+        } else if workspace_partial_repair_performed {
+            "prepared_state_role_repair_admitted"
+        } else if self.prepared_state_reuse.manifest_written {
+            "prepared_state_full_prepare_registered"
+        } else {
+            "prepared_state_full_prepare_required_no_manifest_written"
+        };
+        let prepared_state_optimization_changed_roles = if workspace_reuse_hit {
+            "none".to_string()
+        } else if workspace_delta_overlay_performed {
+            "fact_input_append_only_delta".to_string()
+        } else if workspace_partial_repair_performed {
+            prepared_state_dependency_changed_roles.to_string()
+        } else {
+            "all_roles_created".to_string()
+        };
+        let prepared_state_optimization_reused_roles = if workspace_manifest_path_used {
+            self.prepared_state_reuse.repair_reused_roles.clone()
+        } else {
+            "none".to_string()
+        };
+        let prepared_state_optimization_repaired_roles = if workspace_manifest_path_used {
+            self.prepared_state_reuse.repair_repaired_roles.clone()
+        } else {
+            "all_prepared_artifacts_created".to_string()
+        };
+        let prepared_state_optimization_base_artifact_reused = workspace_manifest_path_used;
+        let prepared_state_optimization_repair_micros = if workspace_partial_repair_performed {
+            lifecycle_timing
+                .cache_miss_create_micros
+                .saturating_add(lifecycle_timing.artifact_write_micros)
+                .saturating_add(lifecycle_timing.replay_verification_micros)
+        } else {
+            0
+        };
+        let prepared_state_optimization_delta_overlay_micros = if workspace_delta_overlay_performed
+        {
+            delta_overlay
+                .content_digest_micros
+                .saturating_add(delta_overlay.delta_source_write_micros)
+                .saturating_add(delta_overlay.delta_artifact_write_micros)
+                .saturating_add(delta_overlay.replay_verification_micros)
+        } else {
+            0
+        };
+        let prepared_state_optimization_proof_digest = if workspace_delta_overlay_performed {
+            delta_overlay.correctness_digest.clone()
+        } else if workspace_partial_repair_performed {
+            self.prepared_state_reuse.repair_replay_proof.clone()
+        } else if workspace_reuse_hit {
+            self.prepared_state_reuse.manifest_digest.clone()
+        } else {
+            prepare_batch_prepared_state_digest.clone()
+        };
+        let prepared_state_optimization_replay_proof = if workspace_delta_overlay_performed {
+            delta_overlay.replay_proof.clone()
+        } else if workspace_partial_repair_performed {
+            self.prepared_state_reuse.repair_replay_proof.clone()
+        } else if workspace_reuse_hit {
+            "manifest_hit_no_replay_needed_for_lookup".to_string()
+        } else {
+            "full_prepare_replay_verified_by_prepare_report".to_string()
+        };
+        let prepared_state_optimization_blocker_id = if workspace_reuse_hit
+            || workspace_delta_overlay_performed
+            || workspace_partial_repair_performed
+        {
+            "none".to_string()
+        } else if self.prepared_state_reuse.reason == "no_reuse_manifest" {
+            "not_applicable_first_preparation".to_string()
+        } else {
+            prepared_state_partial_repair_blocker_id.to_string()
+        };
+        let prepared_state_optimization_no_fallback_policy_status =
+            if !delta_overlay.fallback_attempted && !delta_overlay.external_engine_invoked {
+                "passed_fallback_false_external_engine_false"
+            } else {
+                "blocked_external_or_fallback_execution_reported"
+            };
         set_field(
             &mut fields,
             "source_admission_policy_micros",
@@ -8473,6 +8608,125 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_query_timing_starts_after_preparation".to_string(),
                 "true".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_schema_version".to_string(),
+                PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_status".to_string(),
+                prepared_state_optimization_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_strategy".to_string(),
+                prepared_state_optimization_strategy.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_index_digest".to_string(),
+                self.prepared_state_reuse.index_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_manifest_digest".to_string(),
+                self.prepared_state_reuse.manifest_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_source_packet_digest".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_digest
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_changed_roles".to_string(),
+                prepared_state_optimization_changed_roles,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_reused_roles".to_string(),
+                prepared_state_optimization_reused_roles,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_repaired_roles".to_string(),
+                prepared_state_optimization_repaired_roles,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_invalidated_derived_states"
+                    .to_string(),
+                self.prepared_state_reuse
+                    .repair_invalidated_derived_states
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_invalidation_reason".to_string(),
+                self.prepared_state_reuse.invalidation_reason.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_manifest_lookup_micros".to_string(),
+                lifecycle_timing.manifest_lookup_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_manifest_match_micros".to_string(),
+                lifecycle_timing.cache_hit_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_cache_miss_create_micros".to_string(),
+                lifecycle_timing.cache_miss_create_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_artifact_write_micros".to_string(),
+                lifecycle_timing.artifact_write_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_repair_micros".to_string(),
+                prepared_state_optimization_repair_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_delta_overlay_micros".to_string(),
+                prepared_state_optimization_delta_overlay_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_replay_verification_micros".to_string(),
+                lifecycle_timing.replay_verification_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_delta_overlay_admitted".to_string(),
+                delta_overlay.admitted.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_base_artifact_reused".to_string(),
+                prepared_state_optimization_base_artifact_reused.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_proof_digest".to_string(),
+                prepared_state_optimization_proof_digest,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_replay_proof".to_string(),
+                prepared_state_optimization_replay_proof,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_blocker_id".to_string(),
+                prepared_state_optimization_blocker_id,
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
+                    .to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
+                    .to_string(),
+                prepared_state_optimization_no_fallback_policy_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_optimization_claim_boundary".to_string(),
+                "Unified prepared-state optimization contract only; index lookup, role repair, and append-only delta overlay evidence remain scoped local VortexPreparedState optimizations and do not authorize stale reuse, external-engine execution, production, object-store, broad CDC/table, or performance superiority claims".to_string(),
             ),
             (
                 "prepare_batch_prepared_state_lookup_timing_schema_version".to_string(),
@@ -11040,7 +11294,7 @@ impl TraditionalAnalyticsVortexReport {
             ),
             (
                 "operator_compute_micros".to_string(),
-                self.scenario_compute_micros.to_string(),
+                self.operator_compute_micros.to_string(),
             ),
             (
                 "vortex_scan_micros".to_string(),
@@ -11063,6 +11317,22 @@ impl TraditionalAnalyticsVortexReport {
                 self.vortex_scenario_scan_micros.to_string(),
             ),
             (
+                "scan_chunk_iter_micros".to_string(),
+                self.scan_chunk_iter_micros.to_string(),
+            ),
+            (
+                "vortex_chunk_iteration_micros".to_string(),
+                self.scan_chunk_iter_micros.to_string(),
+            ),
+            (
+                "vortex_projected_field_extract_micros".to_string(),
+                self.vortex_projected_field_extract_micros.to_string(),
+            ),
+            (
+                "vortex_encoded_kernel_evidence_micros".to_string(),
+                self.vortex_encoded_kernel_evidence_micros.to_string(),
+            ),
+            (
                 "vortex_scan_bytes_touched".to_string(),
                 self.vortex_scan_bytes_touched.to_string(),
             ),
@@ -11081,6 +11351,18 @@ impl TraditionalAnalyticsVortexReport {
             (
                 "vortex_scan_decoded_values".to_string(),
                 self.vortex_scan_decoded_values.to_string(),
+            ),
+            (
+                "operator_kernel_micros".to_string(),
+                self.operator_kernel_micros.to_string(),
+            ),
+            (
+                "operator_finalize_micros".to_string(),
+                self.operator_finalize_micros.to_string(),
+            ),
+            (
+                "result_assembly_micros".to_string(),
+                self.result_assembly_micros.to_string(),
             ),
             (
                 "result_sink_plan_micros".to_string(),
@@ -11570,6 +11852,18 @@ fn source_backed_scan_evidence_fields(
         (
             "source_backed_scan_max_chunk_rows".to_string(),
             report.streaming_max_chunk_rows.to_string(),
+        ),
+        (
+            "source_backed_scan_chunk_iter_micros".to_string(),
+            report.scan_chunk_iter_micros.to_string(),
+        ),
+        (
+            "source_backed_scan_projection_extract_micros".to_string(),
+            report.vortex_projected_field_extract_micros.to_string(),
+        ),
+        (
+            "source_backed_scan_encoded_evidence_micros".to_string(),
+            report.vortex_encoded_kernel_evidence_micros.to_string(),
         ),
         (
             "source_backed_scan_materialization_boundary_rows".to_string(),
@@ -17519,6 +17813,12 @@ struct TraditionalScenarioExecutionEvidence {
     vortex_metadata_verify_micros: u64,
     vortex_scan_open_micros: u64,
     vortex_scenario_scan_micros: u64,
+    scan_chunk_iter_micros: u64,
+    vortex_projected_field_extract_micros: u64,
+    vortex_encoded_kernel_evidence_micros: u64,
+    operator_kernel_micros: u64,
+    operator_finalize_micros: u64,
+    result_assembly_micros: u64,
     vortex_scan_bytes_touched: u64,
     vortex_scan_segments_touched: u64,
     vortex_scan_segments_skipped: u64,
@@ -17551,6 +17851,12 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_metadata_verify_micros: 0,
             vortex_scan_open_micros: 0,
             vortex_scenario_scan_micros: 0,
+            scan_chunk_iter_micros: 0,
+            vortex_projected_field_extract_micros: 0,
+            vortex_encoded_kernel_evidence_micros: 0,
+            operator_kernel_micros: 0,
+            operator_finalize_micros: 0,
+            result_assembly_micros: 0,
             vortex_scan_bytes_touched: 0,
             vortex_scan_segments_touched: 0,
             vortex_scan_segments_skipped: 0,
@@ -17580,6 +17886,12 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_metadata_verify_micros,
             vortex_scan_open_micros,
             vortex_scenario_scan_micros,
+            scan_chunk_iter_micros,
+            vortex_projected_field_extract_micros,
+            vortex_encoded_kernel_evidence_micros,
+            operator_kernel_micros,
+            operator_finalize_micros,
+            result_assembly_micros,
             vortex_scan_bytes_touched,
             vortex_scan_segments_touched,
             vortex_scan_segments_skipped,
@@ -17603,6 +17915,12 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_metadata_verify_micros,
             vortex_scan_open_micros,
             vortex_scenario_scan_micros,
+            scan_chunk_iter_micros,
+            vortex_projected_field_extract_micros,
+            vortex_encoded_kernel_evidence_micros,
+            operator_kernel_micros,
+            operator_finalize_micros,
+            result_assembly_micros,
             vortex_scan_bytes_touched,
             vortex_scan_segments_touched,
             vortex_scan_segments_skipped,
@@ -17639,6 +17957,31 @@ impl TraditionalScenarioExecutionEvidence {
         let mut evidence = Self::streaming(stats);
         evidence.compressed_kernel_registry_pair_execution_evidence = pair_execution_evidence;
         evidence
+    }
+
+    fn scan_substage_micros(&self) -> Result<u64> {
+        checked_u64_values_sum(
+            [
+                self.vortex_footer_open_micros,
+                self.vortex_metadata_verify_micros,
+                self.vortex_scan_open_micros,
+                self.scan_chunk_iter_micros,
+                self.vortex_projected_field_extract_micros,
+                self.vortex_encoded_kernel_evidence_micros,
+            ],
+            "traditional analytics scan substage timing",
+        )
+    }
+
+    fn operator_substage_micros(&self) -> Result<u64> {
+        checked_u64_values_sum(
+            [
+                self.operator_kernel_micros,
+                self.operator_finalize_micros,
+                self.result_assembly_micros,
+            ],
+            "traditional analytics operator substage timing",
+        )
     }
 }
 
@@ -20007,6 +20350,12 @@ struct TraditionalStreamingScanStats {
     vortex_metadata_verify_micros: u64,
     vortex_scan_open_micros: u64,
     vortex_scenario_scan_micros: u64,
+    scan_chunk_iter_micros: u64,
+    vortex_projected_field_extract_micros: u64,
+    vortex_encoded_kernel_evidence_micros: u64,
+    operator_kernel_micros: u64,
+    operator_finalize_micros: u64,
+    result_assembly_micros: u64,
     vortex_scan_bytes_touched: u64,
     vortex_scan_segments_touched: u64,
     vortex_scan_segments_skipped: u64,
@@ -20607,8 +20956,8 @@ fn run_traditional_analytics_benchmark_enabled(
         )?
     };
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
-    let vortex_scan_micros = scenario_compute_micros;
-    let operator_compute_micros = 0;
+    let vortex_scan_micros = scenario_execution.evidence.scan_substage_micros()?;
+    let operator_compute_micros = scenario_execution.evidence.operator_substage_micros()?;
     let vortex_reopen_scan_micros = checked_u64_sum(vortex_scan_micros, operator_compute_micros)?;
     let fact_compatibility_output_bytes = compatibility_output
         .as_ref()
@@ -20847,6 +21196,16 @@ fn run_traditional_analytics_benchmark_enabled(
         vortex_metadata_verify_micros: scenario_execution.evidence.vortex_metadata_verify_micros,
         vortex_scan_open_micros: scenario_execution.evidence.vortex_scan_open_micros,
         vortex_scenario_scan_micros: scenario_execution.evidence.vortex_scenario_scan_micros,
+        scan_chunk_iter_micros: scenario_execution.evidence.scan_chunk_iter_micros,
+        vortex_projected_field_extract_micros: scenario_execution
+            .evidence
+            .vortex_projected_field_extract_micros,
+        vortex_encoded_kernel_evidence_micros: scenario_execution
+            .evidence
+            .vortex_encoded_kernel_evidence_micros,
+        operator_kernel_micros: scenario_execution.evidence.operator_kernel_micros,
+        operator_finalize_micros: scenario_execution.evidence.operator_finalize_micros,
+        result_assembly_micros: scenario_execution.evidence.result_assembly_micros,
         vortex_scan_bytes_touched: scenario_execution.evidence.vortex_scan_bytes_touched,
         vortex_scan_segments_touched: scenario_execution.evidence.vortex_scan_segments_touched,
         vortex_scan_segments_skipped: scenario_execution.evidence.vortex_scan_segments_skipped,
@@ -22580,6 +22939,8 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         )?
     };
     let scenario_compute_micros = duration_to_micros(scenario_compute_start.elapsed());
+    let vortex_scan_micros = scenario_execution.evidence.scan_substage_micros()?;
+    let operator_compute_micros = scenario_execution.evidence.operator_substage_micros()?;
     let materialization_boundary_rows = if scenario_execution.evidence.data_materialized {
         checked_u64_sum(
             checked_u64_sum(scenario_execution.fact_rows, scenario_execution.dim_rows)?,
@@ -22678,11 +23039,22 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         source_bytes_read,
         materialization_boundary_rows,
         scenario_compute_micros,
-        vortex_scan_micros: scenario_compute_micros,
+        vortex_scan_micros,
         vortex_footer_open_micros: scenario_execution.evidence.vortex_footer_open_micros,
         vortex_metadata_verify_micros: scenario_execution.evidence.vortex_metadata_verify_micros,
         vortex_scan_open_micros: scenario_execution.evidence.vortex_scan_open_micros,
         vortex_scenario_scan_micros: scenario_execution.evidence.vortex_scenario_scan_micros,
+        scan_chunk_iter_micros: scenario_execution.evidence.scan_chunk_iter_micros,
+        vortex_projected_field_extract_micros: scenario_execution
+            .evidence
+            .vortex_projected_field_extract_micros,
+        vortex_encoded_kernel_evidence_micros: scenario_execution
+            .evidence
+            .vortex_encoded_kernel_evidence_micros,
+        operator_compute_micros,
+        operator_kernel_micros: scenario_execution.evidence.operator_kernel_micros,
+        operator_finalize_micros: scenario_execution.evidence.operator_finalize_micros,
+        result_assembly_micros: scenario_execution.evidence.result_assembly_micros,
         vortex_scan_bytes_touched: scenario_execution.evidence.vortex_scan_bytes_touched,
         vortex_scan_segments_touched: scenario_execution.evidence.vortex_scan_segments_touched,
         vortex_scan_segments_skipped: scenario_execution.evidence.vortex_scan_segments_skipped,
@@ -28673,6 +29045,30 @@ fn combine_fact_delta_overlay_streaming_evidence(
             base.vortex_scenario_scan_micros,
             delta.vortex_scenario_scan_micros,
         )?,
+        scan_chunk_iter_micros: checked_u64_sum(
+            base.scan_chunk_iter_micros,
+            delta.scan_chunk_iter_micros,
+        )?,
+        vortex_projected_field_extract_micros: checked_u64_sum(
+            base.vortex_projected_field_extract_micros,
+            delta.vortex_projected_field_extract_micros,
+        )?,
+        vortex_encoded_kernel_evidence_micros: checked_u64_sum(
+            base.vortex_encoded_kernel_evidence_micros,
+            delta.vortex_encoded_kernel_evidence_micros,
+        )?,
+        operator_kernel_micros: checked_u64_sum(
+            base.operator_kernel_micros,
+            delta.operator_kernel_micros,
+        )?,
+        operator_finalize_micros: checked_u64_sum(
+            base.operator_finalize_micros,
+            delta.operator_finalize_micros,
+        )?,
+        result_assembly_micros: checked_u64_sum(
+            base.result_assembly_micros,
+            delta.result_assembly_micros,
+        )?,
         vortex_scan_bytes_touched: checked_u64_sum(
             base.vortex_scan_bytes_touched,
             delta.vortex_scan_bytes_touched,
@@ -29139,6 +29535,30 @@ fn run_streaming_hash_join_scenario_with_dim_state(
             dim_stats.vortex_scenario_scan_micros,
             fact_stats.vortex_scenario_scan_micros,
         )?,
+        scan_chunk_iter_micros: checked_u64_sum(
+            dim_stats.scan_chunk_iter_micros,
+            fact_stats.scan_chunk_iter_micros,
+        )?,
+        vortex_projected_field_extract_micros: checked_u64_sum(
+            dim_stats.vortex_projected_field_extract_micros,
+            fact_stats.vortex_projected_field_extract_micros,
+        )?,
+        vortex_encoded_kernel_evidence_micros: checked_u64_sum(
+            dim_stats.vortex_encoded_kernel_evidence_micros,
+            fact_stats.vortex_encoded_kernel_evidence_micros,
+        )?,
+        operator_kernel_micros: checked_u64_sum(
+            dim_stats.operator_kernel_micros,
+            fact_stats.operator_kernel_micros,
+        )?,
+        operator_finalize_micros: checked_u64_sum(
+            dim_stats.operator_finalize_micros,
+            fact_stats.operator_finalize_micros,
+        )?,
+        result_assembly_micros: checked_u64_sum(
+            dim_stats.result_assembly_micros,
+            fact_stats.result_assembly_micros,
+        )?,
         vortex_scan_bytes_touched: checked_u64_sum(
             dim_stats.vortex_scan_bytes_touched,
             fact_stats.vortex_scan_bytes_touched,
@@ -29284,6 +29704,30 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
         vortex_scenario_scan_micros: checked_u64_sum(
             dim_stats.vortex_scenario_scan_micros,
             fact_stats.vortex_scenario_scan_micros,
+        )?,
+        scan_chunk_iter_micros: checked_u64_sum(
+            dim_stats.scan_chunk_iter_micros,
+            fact_stats.scan_chunk_iter_micros,
+        )?,
+        vortex_projected_field_extract_micros: checked_u64_sum(
+            dim_stats.vortex_projected_field_extract_micros,
+            fact_stats.vortex_projected_field_extract_micros,
+        )?,
+        vortex_encoded_kernel_evidence_micros: checked_u64_sum(
+            dim_stats.vortex_encoded_kernel_evidence_micros,
+            fact_stats.vortex_encoded_kernel_evidence_micros,
+        )?,
+        operator_kernel_micros: checked_u64_sum(
+            dim_stats.operator_kernel_micros,
+            fact_stats.operator_kernel_micros,
+        )?,
+        operator_finalize_micros: checked_u64_sum(
+            dim_stats.operator_finalize_micros,
+            fact_stats.operator_finalize_micros,
+        )?,
+        result_assembly_micros: checked_u64_sum(
+            dim_stats.result_assembly_micros,
+            fact_stats.result_assembly_micros,
         )?,
         vortex_scan_bytes_touched: checked_u64_sum(
             dim_stats.vortex_scan_bytes_touched,
@@ -30273,6 +30717,30 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
         vortex_scenario_scan_micros: checked_u64_sum(
             fact_stats.vortex_scenario_scan_micros,
             cdc_stats.vortex_scenario_scan_micros,
+        )?,
+        scan_chunk_iter_micros: checked_u64_sum(
+            fact_stats.scan_chunk_iter_micros,
+            cdc_stats.scan_chunk_iter_micros,
+        )?,
+        vortex_projected_field_extract_micros: checked_u64_sum(
+            fact_stats.vortex_projected_field_extract_micros,
+            cdc_stats.vortex_projected_field_extract_micros,
+        )?,
+        vortex_encoded_kernel_evidence_micros: checked_u64_sum(
+            fact_stats.vortex_encoded_kernel_evidence_micros,
+            cdc_stats.vortex_encoded_kernel_evidence_micros,
+        )?,
+        operator_kernel_micros: checked_u64_sum(
+            fact_stats.operator_kernel_micros,
+            cdc_stats.operator_kernel_micros,
+        )?,
+        operator_finalize_micros: checked_u64_sum(
+            fact_stats.operator_finalize_micros,
+            cdc_stats.operator_finalize_micros,
+        )?,
+        result_assembly_micros: checked_u64_sum(
+            fact_stats.result_assembly_micros,
+            cdc_stats.result_assembly_micros,
         )?,
         vortex_scan_bytes_touched: checked_u64_sum(
             fact_stats.vortex_scan_bytes_touched,
@@ -32222,17 +32690,36 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     let mut reader_chunk_columns_observed = std::collections::BTreeSet::new();
     let mut reader_chunk_dtype_summary = std::collections::BTreeSet::new();
     let mut reader_chunk_encoding_summary = std::collections::BTreeSet::new();
+    let mut scan_chunk_iter_micros = 0_u64;
+    let mut vortex_projected_field_extract_micros = 0_u64;
+    let mut vortex_encoded_kernel_evidence_micros = 0_u64;
+    let mut operator_kernel_micros = 0_u64;
     let scenario_scan_start = std::time::Instant::now();
     for chunk in scan_iter {
+        let chunk_iter_start = std::time::Instant::now();
         let chunk = chunk.map_err(vortex_error)?;
+        scan_chunk_iter_micros = checked_u64_sum(
+            scan_chunk_iter_micros,
+            duration_to_micros(chunk_iter_start.elapsed()),
+        )?;
         let chunk_rows = chunk.len();
         let split_ref = format!("vortex-local-scan-chunk-{arrays_read_count}");
+        let encoded_evidence_start = std::time::Instant::now();
         let encoded_kernel_inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
             &source_uri,
             &split_ref,
             &chunk,
         )?;
+        vortex_encoded_kernel_evidence_micros = checked_u64_sum(
+            vortex_encoded_kernel_evidence_micros,
+            duration_to_micros(encoded_evidence_start.elapsed()),
+        )?;
+        let projection_extract_start = std::time::Instant::now();
         let fields = projected_fields_from_chunk(chunk, projected_columns)?;
+        vortex_projected_field_extract_micros = checked_u64_sum(
+            vortex_projected_field_extract_micros,
+            duration_to_micros(projection_extract_start.elapsed()),
+        )?;
         for (column, array) in &fields {
             reader_chunk_columns_observed.insert(column.clone());
             reader_chunk_dtype_summary.insert(format!("{column}:{:?}", array.dtype()));
@@ -32251,7 +32738,12 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
                     )
                 })?,
         )?;
+        let operator_kernel_start = std::time::Instant::now();
         process(&fields, chunk_rows, &encoded_kernel_inputs)?;
+        operator_kernel_micros = checked_u64_sum(
+            operator_kernel_micros,
+            duration_to_micros(operator_kernel_start.elapsed()),
+        )?;
         result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
         arrays_read_count += 1;
         max_chunk_rows = max_chunk_rows.max(chunk_rows);
@@ -32275,6 +32767,12 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
         vortex_metadata_verify_micros,
         vortex_scan_open_micros,
         vortex_scenario_scan_micros,
+        scan_chunk_iter_micros,
+        vortex_projected_field_extract_micros,
+        vortex_encoded_kernel_evidence_micros,
+        operator_kernel_micros,
+        operator_finalize_micros: 0,
+        result_assembly_micros: 0,
         vortex_scan_bytes_touched,
         vortex_scan_segments_touched: usize_to_u64(arrays_read_count)?,
         vortex_scan_segments_skipped: 0,
@@ -34633,12 +35131,19 @@ mod tests {
             "vortex_metadata_verify_micros",
             "vortex_scan_open_micros",
             "vortex_scenario_scan_micros",
+            "scan_chunk_iter_micros",
+            "vortex_chunk_iteration_micros",
+            "vortex_projected_field_extract_micros",
+            "vortex_encoded_kernel_evidence_micros",
             "vortex_scan_bytes_touched",
             "vortex_scan_segments_touched",
             "vortex_scan_segments_skipped",
             "vortex_scan_columns_touched",
             "vortex_scan_decoded_values",
             "operator_compute_micros",
+            "operator_kernel_micros",
+            "operator_finalize_micros",
+            "result_assembly_micros",
             "total_runtime_micros",
             "exclusive_source_admission_micros",
             "exclusive_source_read_micros",
@@ -34830,7 +35335,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "operator_compute_timing_scope",
-            "included_in_vortex_scan_micros_for_current_streaming_loop",
+            "operator_kernel_plus_finalization_result_assembly_substages",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -35345,6 +35850,35 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_ne!(
+            field_u64(&native_fields, "vortex_scan_micros"),
+            field_u64(&native_fields, "scenario_compute_micros"),
+            "vortex_scan_micros must use scan substages rather than the full scenario timer"
+        );
+        assert_ne!(
+            field_u64(&native_fields, "operator_compute_micros"),
+            field_u64(&native_fields, "scenario_compute_micros"),
+            "operator_compute_micros must use operator substages rather than the full scenario timer"
+        );
+        for field in [
+            "scan_chunk_iter_micros",
+            "vortex_projected_field_extract_micros",
+            "vortex_encoded_kernel_evidence_micros",
+            "operator_kernel_micros",
+            "operator_finalize_micros",
+            "result_assembly_micros",
+            "source_backed_scan_chunk_iter_micros",
+            "source_backed_scan_projection_extract_micros",
+            "source_backed_scan_encoded_evidence_micros",
+        ] {
+            assert!(
+                native_fields
+                    .get(field)
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .is_some(),
+                "{field} must be emitted as a numeric PERF-INNOV-5 substage field"
+            );
+        }
         assert!(
             native_fields
                 .get("prepared_artifact_cdc_delta_ref")
