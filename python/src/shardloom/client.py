@@ -6350,6 +6350,123 @@ class MaterializationPolicyRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicWorkflowRoute:
+    """Typed view over the side-effect-free public workflow route envelope."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def schema_version(self) -> str:
+        """Return the public workflow route schema version."""
+
+        return _required_field(self.envelope, "public_workflow_route_schema_version")
+
+    @property
+    def route_id(self) -> str:
+        """Return the resolved public route identifier."""
+
+        return _required_field(self.envelope, "route_id")
+
+    @property
+    def route_status(self) -> str:
+        """Return the route admission status."""
+
+        return _required_field(self.envelope, "route_status")
+
+    @property
+    def resolved_internal_command(self) -> str:
+        """Return the internal ShardLoom command selected for admitted execution."""
+
+        return _required_field(self.envelope, "resolved_internal_command")
+
+    @property
+    def surface(self) -> str:
+        """Return the public surface that requested the route."""
+
+        return _required_field(self.envelope, "surface")
+
+    @property
+    def start_state(self) -> str:
+        """Return the declared route start state."""
+
+        return _required_field(self.envelope, "start_state")
+
+    @property
+    def vortex_normalization_point(self) -> str:
+        """Return the route's Vortex normalization boundary."""
+
+        return _required_field(self.envelope, "vortex_normalization_point")
+
+    @property
+    def execution_mode(self) -> str:
+        """Return the internal execution mode selected by the route."""
+
+        return _required_field(self.envelope, "execution_mode")
+
+    @property
+    def preparation_included(self) -> bool:
+        """Whether compatibility preparation is part of the route."""
+
+        return self.envelope.field_bool("preparation_included", False) is True
+
+    @property
+    def query_timing_starts_after_preparation(self) -> bool:
+        """Whether query timing starts after preparation for this route."""
+
+        return (
+            self.envelope.field_bool("query_timing_starts_after_preparation", False)
+            is True
+        )
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the route inspection attempted fallback execution."""
+
+        return self.envelope.field_bool("fallback_attempted", False) is True
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the route inspection invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    @property
+    def blocker_id(self) -> str | None:
+        """Return the deterministic blocker ID when the route is blocked."""
+
+        value = self.envelope.field("blocker_id")
+        if value in {None, "", "none"}:
+            return None
+        return value
+
+    @property
+    def side_effect_free(self) -> bool:
+        """Whether the route command reports side-effect-free planning."""
+
+        return self.envelope.field_bool("route_side_effect_free", False) is True
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a compact dictionary for notebooks and simple integrations."""
+
+        return {
+            "schema_version": self.schema_version,
+            "route_id": self.route_id,
+            "route_status": self.route_status,
+            "resolved_internal_command": self.resolved_internal_command,
+            "surface": self.surface,
+            "start_state": self.start_state,
+            "vortex_normalization_point": self.vortex_normalization_point,
+            "execution_mode": self.execution_mode,
+            "preparation_included": self.preparation_included,
+            "query_timing_starts_after_preparation": self.query_timing_starts_after_preparation,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "blocker_id": self.blocker_id,
+            "side_effect_free": self.side_effect_free,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CommandMetadataReport:
     """Typed view over the side-effect-free CLI command registry metadata."""
 
@@ -9730,6 +9847,43 @@ class ShardLoomClient:
         if scope is not None:
             args.append(scope)
         return self.run(args, check=check)
+
+    def public_workflow_route(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        sql_statement: str | None = None,
+        plan_summary: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str = "auto",
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowRoute:
+        """Return the side-effect-free public route envelope for a declared workflow."""
+
+        args: list[CommandPart] = ["route", surface]
+        if input_uri is not None:
+            args.extend(["--input", str(input_uri)])
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        if sql_statement is not None:
+            args.extend(["--sql", sql_statement])
+        if plan_summary is not None:
+            args.extend(["--plan", plan_summary])
+        args.extend(["--request", requested_output])
+        if output_ref is not None:
+            args.extend(["--output", str(output_ref)])
+        args.extend(["--execution-policy", execution_policy])
+        args.extend(["--materialization-policy", materialization_policy])
+        args.extend(["--evidence-level", evidence_level])
+        if bounded is not None:
+            args.extend(["--bounded", "true" if bounded else "false"])
+        return PublicWorkflowRoute(self.run(args, check=check))
 
     def engine_selection_plan(
         self,

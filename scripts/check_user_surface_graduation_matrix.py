@@ -41,6 +41,7 @@ SUPPORT_STATE_VOCABULARY = (
     "future",
 )
 HIGH_LEVEL_CONTEXT_COMMANDS = {
+    "route",
     "generated-source-user-rows-smoke",
     "generated-source-range-smoke",
     "generated-source-sequence-smoke",
@@ -258,14 +259,14 @@ def command_support_state(command: str, family: str) -> str:
 
 
 def command_graduation_posture(command: str, support_state: str) -> str:
+    if command in HIGH_LEVEL_CONTEXT_COMMANDS:
+        return "high_level_context"
     if support_state == "feature_gated":
         return "feature_gated"
     if support_state in {"diagnostic_only", "report_only", "blocked"}:
         return "diagnostic_only"
     if support_state == "future":
         return "not_user_facing"
-    if command in HIGH_LEVEL_CONTEXT_COMMANDS:
-        return "high_level_context"
     return "client_only"
 
 

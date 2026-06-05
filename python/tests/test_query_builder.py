@@ -150,6 +150,192 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 binary=["shardloom"],
             )
 
+    def test_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[-2:] == ["--format", "json"], sys.argv
+                surface = args[1]
+                if surface == "dataframe":
+                    assert args == [
+                        "route",
+                        "dataframe",
+                        "--input",
+                        "target/input.csv",
+                        "--input-format",
+                        "csv",
+                        "--plan",
+                        "read_csv(target/input.csv) -> select(id) -> limit(10)",
+                        "--request",
+                        "collect",
+                        "--execution-policy",
+                        "auto",
+                        "--materialization-policy",
+                        "bounded",
+                        "--evidence-level",
+                        "runtime_smoke",
+                        "--bounded",
+                        "true",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                elif surface == "sql":
+                    assert args == [
+                        "route",
+                        "sql",
+                        "--sql",
+                        "SELECT id FROM 'target/input.csv' LIMIT 10",
+                        "--plan",
+                        "sql(statement)",
+                        "--request",
+                        "collect",
+                        "--execution-policy",
+                        "auto",
+                        "--materialization-policy",
+                        "bounded",
+                        "--evidence-level",
+                        "runtime_smoke",
+                        "--bounded",
+                        "true",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                else:
+                    raise AssertionError(sys.argv)
+                fields = [
+                    ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
+                    ["route_id", "local_file_direct_query"],
+                    ["route_status", "admitted"],
+                    ["resolved_internal_command", "sql-local-source-smoke"],
+                    ["surface", surface],
+                    ["start_state", "compatibility_local_source"],
+                    ["vortex_normalization_point", "direct_transient"],
+                    ["execution_mode", "direct"],
+                    ["preparation_included", "false"],
+                    ["query_timing_starts_after_preparation", "false"],
+                    ["route_side_effect_free", "true"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["blocker_id", "none"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "route",
+                    "status": "success",
+                    "summary": "public workflow route",
+                    "human_text": "route",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        dataframe_route = ctx.read_csv("target/input.csv").select("id").limit(10).route()
+        sql_route = ctx.sql("SELECT id FROM 'target/input.csv' LIMIT 10").route()
+        live_context_route = ShardLoomContext(
+            ShardLoomClient(binary=binary),
+            engine="live",
+        ).route(
+            "dataframe",
+            input_uri="target/input.csv",
+            input_format="csv",
+            plan_summary="read_csv(target/input.csv) -> select(id) -> limit(10)",
+            bounded=True,
+        )
+
+        self.assertIsInstance(dataframe_route, sl.PublicWorkflowRoute)
+        self.assertEqual(dataframe_route.route_id, "local_file_direct_query")
+        self.assertEqual(sql_route.route_id, dataframe_route.route_id)
+        self.assertEqual(live_context_route.route_id, dataframe_route.route_id)
+        self.assertEqual(
+            dataframe_route.resolved_internal_command,
+            sql_route.resolved_internal_command,
+        )
+        self.assertEqual(
+            live_context_route.resolved_internal_command,
+            dataframe_route.resolved_internal_command,
+        )
+        self.assertEqual(dataframe_route.vortex_normalization_point, "direct_transient")
+        self.assertTrue(dataframe_route.side_effect_free)
+        self.assertFalse(dataframe_route.fallback_attempted)
+        self.assertFalse(dataframe_route.external_engine_invoked)
+        self.assertIsNone(dataframe_route.blocker_id)
+        self.assertEqual(dataframe_route.as_dict()["execution_mode"], "direct")
+
+    def test_workflow_route_blocks_unbounded_collect_at_admission(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "route",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--plan",
+                    "read_csv(target/input.csv)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "false",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
+                    ["route_id", "blocked"],
+                    ["route_status", "blocked"],
+                    ["resolved_internal_command", "not_resolved"],
+                    ["surface", "dataframe"],
+                    ["start_state", "blocked"],
+                    ["vortex_normalization_point", "not_applicable"],
+                    ["execution_mode", "blocked"],
+                    ["preparation_included", "false"],
+                    ["query_timing_starts_after_preparation", "false"],
+                    ["route_side_effect_free", "true"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["blocker_id", "cg21.route.unbounded_collect_blocked"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "route",
+                    "status": "unsupported",
+                    "summary": "public workflow route",
+                    "human_text": "route",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        route = ctx.read_csv("target/input.csv").route(check=False)
+
+        self.assertEqual(route.route_status, "blocked")
+        self.assertEqual(route.blocker_id, "cg21.route.unbounded_collect_blocked")
+        self.assertEqual(route.resolved_internal_command, "not_resolved")
+        self.assertTrue(route.side_effect_free)
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
+
     def test_from_rows_write_invokes_generated_source_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

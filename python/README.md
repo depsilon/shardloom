@@ -292,6 +292,25 @@ When capillary preparation is admitted, the report exposes
 build, write, reopen, and sink evidence so Python callers can see whether PulseWeave-shaped work
 windows affected the local route before artifact creation.
 
+For one concrete request, use the public workflow route facade before execution. It is
+side-effect-free: it does not read the input, write outputs, run SQL, or invoke external engines. It
+returns the same route envelope from CLI, context, SQL workflow, and DataFrame workflow surfaces:
+
+```python
+sql_route = ctx.sql("SELECT id FROM 'target/orders.csv' LIMIT 10").route()
+df_route = ctx.read("target/orders.csv").select("id").limit(10).route()
+
+print(sql_route.route_id, sql_route.resolved_internal_command)
+print(df_route.route_id, df_route.resolved_internal_command)
+print(sql_route.fallback_attempted, sql_route.external_engine_invoked)
+print(sql_route.side_effect_free, sql_route.blocker_id)
+```
+
+Unbounded collect requests block at route admission and keep
+`runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false` in the
+envelope. The equivalent CLI surface is
+`shardloom route <sql|python|dataframe|cli> --format json`.
+
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
 `session.prepare_vortex(..., workspace=...)` return a route handle for

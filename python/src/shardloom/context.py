@@ -21,6 +21,7 @@ from .client import (
     HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
+    PublicWorkflowRoute,
     PythonClientSmokeReport,
     RestApiContractPlan,
     RestApiDataPlane,
@@ -3323,6 +3324,31 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "user_route_capability_report",
         ),
         claim_boundary="Discovery and route reports classify support; they do not authorize execution or claims.",
+    ),
+    _graduation_row(
+        "public_workflow_route_facade",
+        "python_context",
+        "Public workflow route inspection before execution",
+        "high_level_context",
+        "report_only",
+        cli_commands=("route",),
+        context_methods=("route",),
+        client_methods=("public_workflow_route",),
+        runtime_route="side_effect_free_public_workflow_route_facade",
+        promotion_criteria=(
+            "SQL, Python, DataFrame, and CLI requests can inspect the same route envelope "
+            "before data reads, writes, runtime execution, or fallback"
+        ),
+        evidence_refs=(
+            "public_workflow_route_schema_version",
+            "command_registry",
+            "python_route_parity_tests",
+            "shardloom_cli_public_workflow_route_tests",
+        ),
+        claim_boundary=(
+            "Route inspection is the high-level admission facade only. It does not execute "
+            "queries, refresh benchmark timing, or authorize broad SQL/DataFrame support."
+        ),
     ),
     _graduation_row(
         "local_sql_python_dataframe_runtime",
@@ -8761,6 +8787,39 @@ class ShardLoomContext:
             status=self.client.status(check=check),
             views=views,
             input_adapters=input_adapters,
+        )
+
+    def route(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        sql_statement: str | None = None,
+        plan_summary: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str | None = None,
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowRoute:
+        """Return the shared public route envelope before execution."""
+
+        return self.client.public_workflow_route(
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            sql_statement=sql_statement,
+            plan_summary=plan_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy="auto" if execution_policy is None else execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=bounded,
+            check=check,
         )
 
     def adapters(self, *, check: bool = True) -> CapabilityView:

@@ -138,6 +138,8 @@ const REFERENCE_PROOFS = {
     "Universal input contract posture and unsupported input-family diagnostics.",
   "docs/architecture/universal-ingress-route-taxonomy.md":
     "UniversalIngress, Vortex ingest, prepared-state, and route-timing contract boundaries.",
+  "docs/status/cli-command-registry.md":
+    "CLI registry status, public route facade command discovery, user-surface posture, and no-fallback metadata.",
   "docs/benchmarks/local-taxonomy-benchmark.md":
     "Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.",
   "docs/benchmarks/baseline-comparison-boundary.md":

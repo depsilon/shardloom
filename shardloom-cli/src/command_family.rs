@@ -319,7 +319,8 @@ fn is_input_planning_command(command: &str) -> bool {
 fn is_workflow_planning_command(command: &str) -> bool {
     matches!(
         command,
-        "schema-plan"
+        "route"
+            | "schema-plan"
             | "manifest-plan"
             | "workflow-unsupported-plan"
             | "generated-source-user-rows-smoke"
@@ -409,6 +410,7 @@ mod tests {
             classify_command("command-metadata"),
             CommandFamily::StatusCapabilities
         );
+        assert_eq!(classify_command("route"), CommandFamily::WorkflowPlanning);
         assert_eq!(
             classify_command("runs-today"),
             CommandFamily::StatusCapabilities
