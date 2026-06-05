@@ -42666,6 +42666,166 @@ mod tests {
     }
 
     #[test]
+    fn runs_having_not_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("having-not-in-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("having-not-in-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "region,amount,active\nnorth,10,true\nnorth,15,true\nsouth,5,false\nsouth,7,true\neast,30,true\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "region,enabled,min_amount\nnorth,true,25\neast,true,40\nwest,true,1\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT region,sum(amount) AS total FROM '{}' GROUP BY region HAVING total NOT IN (SELECT allowed.min_amount FROM '{}' AS allowed WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run HAVING NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"region\":\"east\",\"total\":30}\n{\"region\":\"south\",\"total\":12}\n"
+        );
+        assert_field_eq(&fields, "aggregate_runtime_execution", "true");
+        assert_field_eq(&fields, "group_by_runtime_execution", "true");
+        assert_field_eq(&fields, "having_runtime_execution", "true");
+        assert_field_eq(&fields, "having_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "having_source_column", "total");
+        assert_field_eq(&fields, "having_in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "min_amount");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "3");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "3");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "3");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "in_subquery",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_column",
+            "min_amount",
+        );
+        assert_field_eq(&fields, "having_input_row_count", "3");
+        assert_field_eq(&fields, "having_selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_having_not_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("having-not-exists-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("having-not-exists-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "region,amount,active\nnorth,10,true\nnorth,15,true\nsouth,5,false\nsouth,7,true\neast,30,true\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "region,enabled,min_amount\nnorth,true,25\neast,true,40\nwest,true,1\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT region,sum(amount) AS total FROM '{}' GROUP BY region HAVING NOT EXISTS (SELECT allowed.region FROM '{}' AS allowed WHERE allowed.enabled IS TRUE AND allowed.region = outer.region ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run HAVING NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(report.result_jsonl, "{\"region\":\"south\",\"total\":12}\n");
+        assert_field_eq(&fields, "aggregate_runtime_execution", "true");
+        assert_field_eq(&fields, "group_by_runtime_execution", "true");
+        assert_field_eq(&fields, "having_runtime_execution", "true");
+        assert_field_eq(&fields, "having_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "having_exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "region");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_result", "false");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "exists_subquery",
+        );
+        assert_field_eq(&fields, "source_qualified_subquery_source_column", "region");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "region");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "3",
+        );
+        assert_field_eq(&fields, "having_input_row_count", "3");
+        assert_field_eq(&fields, "having_selected_row_count", "1");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
     fn runs_joined_projected_row_value_in_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("joined-row-value-subquery-source.csv");
         let allowed_path = sql_local_source_test_path("joined-row-value-subquery-allowed.csv");

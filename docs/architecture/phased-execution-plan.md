@@ -311,7 +311,9 @@ completed details to the ledger.
   scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN/NOT IN,
   EXISTS/NOT EXISTS, and quantified local subquery evidence with `source_qualified_subquery_*`
   report fields plus deterministic unbound source-qualified selected-column, filter, projection,
-  and ORDER BY diagnostics for those scoped subquery surfaces. Remaining live blockers are nested
+  and ORDER BY diagnostics for those scoped subquery surfaces, plus scoped HAVING `NOT IN` and
+  correlated `NOT EXISTS` local subquery predicates over aggregate output rows. Remaining live
+  blockers are nested
   source decoding and flat sinks beyond scoped
   result-boundary projections, variant/union-dtype shapes, binary sink preservation outside scoped
   feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat

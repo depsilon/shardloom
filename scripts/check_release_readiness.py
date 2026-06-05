@@ -471,7 +471,7 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics decoded_reference_differential_execution_performed missing"
             )
-        if admitted_semantics.get("executable_fixture_count") != 93:
+        if admitted_semantics.get("executable_fixture_count") != 95:
             admitted_semantics_blockers.append(
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
