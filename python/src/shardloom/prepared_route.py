@@ -37,8 +37,19 @@ _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
 _SOURCE_ADMISSION_PACKET_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.source_admission_packet.v1"
 )
+_PREPARED_STATE_INDEX_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_index.v1"
+)
+_PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_dependency.v1"
+)
+_PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
+)
+_PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy"
 _REUSE_MANIFEST_DIR = ".shardloom"
 _REUSE_MANIFEST_FILE = "prepared-vortex-reuse-manifest.json"
+_REUSE_INDEX_FILE = "prepared-state-index.json"
 
 
 def _normalize_input_format(value: str) -> str:
@@ -203,6 +214,110 @@ def _bool_field(fields: Mapping[str, str], key: str) -> bool:
 
 def _manifest_path(workspace: str | os.PathLike[str]) -> Path:
     return Path(workspace).expanduser() / _REUSE_MANIFEST_DIR / _REUSE_MANIFEST_FILE
+
+
+def _index_path(workspace: str | os.PathLike[str]) -> Path:
+    return Path(workspace).expanduser() / _REUSE_MANIFEST_DIR / _REUSE_INDEX_FILE
+
+
+def _prepared_state_index_payload(
+    manifest_payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], str]:
+    prepare_fields = manifest_payload.get("prepare_fields")
+    fields = prepare_fields if isinstance(prepare_fields, Mapping) else {}
+    artifacts = manifest_payload.get("prepared_artifacts")
+    artifact_map = artifacts if isinstance(artifacts, Mapping) else {}
+
+    def field(key: str) -> str:
+        value = fields.get(key)
+        return "" if value in {None, ""} else str(value)
+
+    def artifact_path(role: str) -> str:
+        artifact = artifact_map.get(role)
+        if isinstance(artifact, Mapping):
+            return str(artifact.get("path") or "none")
+        return "none"
+
+    def artifact_digest(role: str) -> str:
+        artifact = artifact_map.get(role)
+        if isinstance(artifact, Mapping):
+            return str(artifact.get("digest") or "none")
+        return "none"
+
+    prepare_policy = manifest_payload.get("prepare_policy")
+    prepare_policy_digest = (
+        _stable_json_digest(prepare_policy)
+        if isinstance(prepare_policy, Mapping)
+        else "missing_prepare_policy"
+    )
+    key = {
+        "schema_version": _PREPARED_STATE_INDEX_SCHEMA_VERSION,
+        "source_admission_packet_digest": str(
+            manifest_payload.get("source_admission_packet_digest")
+            or "missing_source_admission_packet_digest"
+        ),
+        "schema_hash": "traditional_fact_dim_cdc_schema.v1",
+        "route_family": "compatibility_prepare_to_prepared_native_vortex",
+        "layout_policy": {
+            "strategy": field("vortex_array_build_strategy"),
+            "input_layout": field("vortex_array_build_input_layout"),
+        },
+        "native_io_status": field("native_io_certificate_status"),
+        "artifact_refs": {
+            "fact": artifact_path("fact"),
+            "dim": artifact_path("dim"),
+            "cdc_delta": artifact_path("cdc_delta"),
+        },
+        "artifact_digests": {
+            "fact": artifact_digest("fact"),
+            "dim": artifact_digest("dim"),
+            "cdc_delta": artifact_digest("cdc_delta"),
+        },
+        "prepare_policy_digest": prepare_policy_digest,
+    }
+    index_digest = _stable_json_digest(key)
+    return (
+        {
+            "schema_version": _PREPARED_STATE_INDEX_SCHEMA_VERSION,
+            "index_digest": index_digest,
+            "index_key": key,
+            "manifest_digest": str(
+                manifest_payload.get("manifest_digest") or "missing_manifest_digest"
+            ),
+            "manifest_path": str(
+                manifest_payload.get("manifest_path")
+                or "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
+            ),
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_boundary": (
+                "workspace-local prepared-state index only; lookup never bypasses "
+                "manifest digest, source fingerprint, artifact fingerprint, replay proof, "
+                "Native I/O certificate, or no-fallback checks"
+            ),
+        },
+        index_digest,
+    )
+
+
+def _prepared_state_index_digest_from_manifest(manifest_payload: Mapping[str, Any]) -> str:
+    return _prepared_state_index_payload(manifest_payload)[1]
+
+
+def _write_index_manifest(
+    workspace: str | os.PathLike[str],
+    manifest_payload: Mapping[str, Any],
+) -> str:
+    index_payload, index_digest = _prepared_state_index_payload(manifest_payload)
+    index_file = _index_path(workspace)
+    index_file.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = index_file.with_suffix(".tmp")
+    tmp_path.write_text(
+        json.dumps(index_payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    tmp_path.replace(index_file)
+    return index_digest
 
 
 @dataclass(frozen=True, slots=True)
@@ -443,6 +558,8 @@ class CompatibilityPreparedVortexRoute:
             "prepared_state_reuse_scope": "workspace_manifest_local_vortex_artifacts",
             "prepared_state_reuse_manifest_path": str(_manifest_path(self.workspace)),
             "prepared_state_reuse_policy": _REUSE_MANIFEST_SCHEMA_VERSION,
+            "prepared_state_index_schema_version": _PREPARED_STATE_INDEX_SCHEMA_VERSION,
+            "prepared_state_index_path": str(_index_path(self.workspace)),
             "timing_contract": self.timing_contract,
         }
 
@@ -925,6 +1042,77 @@ class CompatibilityPreparedVortexRoute:
                 "normal local warm reuse compares normalized path, size, and mtime; "
                 "claim-grade publication evidence must request full content digest verification"
             ),
+            "prepared_state_dependency_schema_version": _field_any(
+                fields,
+                "prepare_batch_prepared_state_dependency_schema_version",
+                default=_PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION,
+            ),
+            "prepared_state_dependency_status": _field_any(
+                fields,
+                "prepare_batch_prepared_state_dependency_status",
+                default="manifest_dependencies_registered_after_prepare",
+            ),
+            "prepared_state_dependency_checked_roles": _field_any(
+                fields,
+                "prepare_batch_prepared_state_dependency_checked_roles",
+                default=_PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES,
+            ),
+            "prepared_state_dependency_changed_roles": _field_any(
+                fields,
+                "prepare_batch_prepared_state_dependency_changed_roles",
+                default="workspace_manifest",
+            ),
+            "prepared_state_dependency_recheck_policy": _field_any(
+                fields,
+                "prepare_batch_prepared_state_dependency_recheck_policy",
+                default=(
+                    "validate_manifest_digest_route_request_source_fingerprints_"
+                    "artifact_fingerprints_no_fallback_before_reuse"
+                ),
+            ),
+            "prepared_state_partial_repair_schema_version": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_schema_version",
+                default=_PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION,
+            ),
+            "prepared_state_partial_repair_status": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_status",
+                default="blocked_missing_base_manifest_full_prepare_required",
+            ),
+            "prepared_state_partial_repair_changed_roles": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_changed_roles",
+                default="workspace_manifest",
+            ),
+            "prepared_state_partial_repair_reused_roles": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_reused_roles",
+                default="none",
+            ),
+            "prepared_state_partial_repair_repaired_roles": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_repaired_roles",
+                default="none",
+            ),
+            "prepared_state_partial_repair_invalidated_derived_states": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states",
+                default="all_prepared_state_derived_indexes",
+            ),
+            "prepared_state_partial_repair_replay_proof": _field_any(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_replay_proof",
+                default="not_applicable_full_prepare",
+            ),
+            "prepared_state_partial_repair_regeneration_performed": _bool_field(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_regeneration_performed",
+            ),
+            "prepared_state_partial_repair_stale_segment_reuse_allowed": _bool_field(
+                fields,
+                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
+            ),
             "source_state_id": _field_any(
                 fields,
                 "prepare_batch_source_state_id",
@@ -963,6 +1151,7 @@ class CompatibilityPreparedVortexRoute:
             encoding="utf-8",
         )
         tmp_path.replace(manifest_file)
+        _write_index_manifest(self.workspace, manifest_payload)
 
     def _prepare_envelope_from_manifest(
         self,
@@ -974,6 +1163,7 @@ class CompatibilityPreparedVortexRoute:
         prepare_fields = manifest_payload.get("prepare_fields")
         fields = dict(prepare_fields) if isinstance(prepare_fields, Mapping) else {}
         artifacts = self._manifest_artifacts(manifest_payload)
+        index_digest = _prepared_state_index_digest_from_manifest(manifest_payload)
         fields.update(
             {
                 "fact_vortex_path": artifacts["fact_vortex_path"],
@@ -996,6 +1186,30 @@ class CompatibilityPreparedVortexRoute:
                 "prepared_state_reuse_reason": decision.reason,
                 "prepared_state_reuse_manifest_digest": decision.manifest_digest or "none",
                 "invalidation_reason": decision.invalidation_reason,
+                "prepared_state_index_schema_version": _PREPARED_STATE_INDEX_SCHEMA_VERSION,
+                "prepared_state_index_digest": index_digest,
+                "prepared_state_index_lookup_status": "workspace_index_manifest_hit",
+                "prepared_state_dependency_schema_version": str(
+                    manifest_payload.get("prepared_state_dependency_schema_version")
+                    or _PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION
+                ),
+                "prepared_state_dependency_status": "manifest_dependencies_matched",
+                "prepared_state_dependency_checked_roles": str(
+                    manifest_payload.get("prepared_state_dependency_checked_roles")
+                    or _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES
+                ),
+                "prepared_state_dependency_changed_roles": "none",
+                "prepared_state_partial_repair_schema_version": str(
+                    manifest_payload.get("prepared_state_partial_repair_schema_version")
+                    or _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION
+                ),
+                "prepared_state_partial_repair_status": "not_needed_manifest_hit",
+                "prepared_state_partial_repair_changed_roles": "none",
+                "prepared_state_partial_repair_reused_roles": "fact_input,dim_input,cdc_delta_input",
+                "prepared_state_partial_repair_repaired_roles": "none",
+                "prepared_state_partial_repair_invalidated_derived_states": "none",
+                "prepared_state_partial_repair_regeneration_performed": "false",
+                "prepared_state_partial_repair_stale_segment_reuse_allowed": "false",
                 "fallback_attempted": "false",
                 "external_engine_invoked": "false",
             }
@@ -1045,6 +1259,7 @@ class CompatibilityPreparedVortexRoute:
     ) -> OutputEnvelope:
         fields = dict(batch_envelope.field_map)
         artifacts = self._manifest_artifacts(manifest_payload)
+        index_digest = _prepared_state_index_digest_from_manifest(manifest_payload)
         prepared_artifacts = manifest_payload.get("prepared_artifacts")
         artifact_fields = prepared_artifacts if isinstance(prepared_artifacts, Mapping) else {}
         fact_artifact = artifact_fields.get("fact")
@@ -1141,6 +1356,94 @@ class CompatibilityPreparedVortexRoute:
                 ),
                 "prepare_batch_source_admission_full_content_digest_requested": "false",
                 "prepare_batch_source_admission_full_content_digest_micros": "0",
+                "prepare_batch_prepared_state_lookup_timing_schema_version": (
+                    "shardloom.traditional_analytics.prepared_state_lookup_timing.v1"
+                ),
+                "prepare_batch_prepared_state_lookup_status": "workspace_manifest_hit",
+                "prepare_batch_prepared_state_index_schema_version": (
+                    _PREPARED_STATE_INDEX_SCHEMA_VERSION
+                ),
+                "prepare_batch_prepared_state_index_lookup_status": (
+                    "workspace_index_manifest_hit"
+                ),
+                "prepare_batch_prepared_state_index_digest": index_digest,
+                "prepare_batch_prepared_state_index_key_components": (
+                    "source_admission_packet_digest,schema_hash,route_family,"
+                    "layout_policy,native_io_status,artifact_refs,artifact_digests,"
+                    "prepare_policy_digest"
+                ),
+                "prepare_batch_prepared_state_index_source_packet_digest": str(
+                    manifest_payload.get("source_admission_packet_digest") or ""
+                ),
+                "prepare_batch_prepared_state_index_external_engine_invoked": "false",
+                "prepare_batch_prepared_state_manifest_lookup_micros": "0",
+                "prepare_batch_prepared_state_cache_hit_micros": "0",
+                "prepare_batch_prepared_state_cache_miss_create_micros": "0",
+                "prepare_batch_prepared_state_artifact_write_micros": "0",
+                "prepare_batch_prepared_state_artifact_register_micros": "0",
+                "prepare_batch_prepared_state_replay_verification_micros": "0",
+                "prepare_batch_prepared_state_dependency_schema_version": str(
+                    manifest_payload.get("prepared_state_dependency_schema_version")
+                    or _PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION
+                ),
+                "prepare_batch_prepared_state_dependency_status": (
+                    "manifest_dependencies_matched"
+                ),
+                "prepare_batch_prepared_state_dependency_checked_roles": str(
+                    manifest_payload.get("prepared_state_dependency_checked_roles")
+                    or _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES
+                ),
+                "prepare_batch_prepared_state_dependency_changed_roles": "none",
+                "prepare_batch_prepared_state_dependency_manifest_digest": (
+                    decision.manifest_digest or "none"
+                ),
+                "prepare_batch_prepared_state_dependency_source_packet_digest": str(
+                    manifest_payload.get("source_admission_packet_digest") or ""
+                ),
+                "prepare_batch_prepared_state_dependency_artifact_manifest_hash": str(
+                    manifest_payload.get(
+                        "source_admission_packet_artifact_manifest_hash"
+                    )
+                    or ""
+                ),
+                "prepare_batch_prepared_state_dependency_recheck_policy": str(
+                    manifest_payload.get("prepared_state_dependency_recheck_policy")
+                    or (
+                        "validate_manifest_digest_route_request_source_fingerprints_"
+                        "artifact_fingerprints_no_fallback_before_reuse"
+                    )
+                ),
+                "prepare_batch_prepared_state_dependency_fallback_attempted": "false",
+                "prepare_batch_prepared_state_dependency_external_engine_invoked": "false",
+                "prepare_batch_prepared_state_partial_repair_schema_version": str(
+                    manifest_payload.get("prepared_state_partial_repair_schema_version")
+                    or _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION
+                ),
+                "prepare_batch_prepared_state_partial_repair_status": (
+                    "not_needed_manifest_hit"
+                ),
+                "prepare_batch_prepared_state_partial_repair_blocker_id": (
+                    "not_applicable_manifest_dependencies_matched"
+                ),
+                "prepare_batch_prepared_state_partial_repair_changed_roles": "none",
+                "prepare_batch_prepared_state_partial_repair_reused_roles": (
+                    "fact_input,dim_input,cdc_delta_input"
+                ),
+                "prepare_batch_prepared_state_partial_repair_repaired_roles": "none",
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states": (
+                    "none"
+                ),
+                "prepare_batch_prepared_state_partial_repair_micros": "0",
+                "prepare_batch_prepared_state_partial_repair_replay_proof": (
+                    "not_needed_manifest_hit"
+                ),
+                "prepare_batch_prepared_state_partial_repair_repairable_segment_count": "0",
+                "prepare_batch_prepared_state_partial_repair_regeneration_performed": "false",
+                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": "false",
+                "prepare_batch_prepared_state_partial_repair_claim_boundary": (
+                    "workspace manifest reuse hit; no role-scoped repair was needed and "
+                    "no stale changed-role artifact was reused"
+                ),
                 "prepare_batch_prepared_artifact_reuse_count": "1",
                 "prepare_batch_prepared_artifact_cleanup_policy": "caller_owned_workspace_cleanup",
                 "prepare_batch_prepared_artifact_reuse_eligible": "true",

@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-5 Capillary Vortex writer runtime/session reuse and write
+  coalescing
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-writer-context-reuse` / PR #1121, squash merge
+    `f644939084e61a5937976001216d615aa69fab42`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `shardloom-vortex/src/vortex_ingest.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `python/tests/test_release_scripts.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, and
+      generated benchmark static pages.
+  - Scope:
+    - Added shared Vortex runtime/session writer context timing for traditional analytics cold
+      fact/dim/CDC artifact writes, with context-open, write-count, reuse-hit, upstream segment
+      write, and workspace-safe staging/commit timing fields.
+    - Preserved per-artifact Vortex digests, paths, bytes, row counts, reopen/replay evidence,
+      Native I/O certificate fields, and workspace-safe producer validation while scheduling
+      multiple tiny cold-route writes on the same bounded context.
+    - Added local `vortex_ingest` writer-context attribution for scoped prepare-once writes so
+      prepare-state artifacts expose context-open, segment-write, and workspace-stage timing.
+    - Carried the writer-context evidence through benchmark harness row defaults, artifact
+      promotion, completeness validation, release-script fixtures, and the benchmark dashboard.
+    - Repromoted the existing latest benchmark artifact and rebuilt static benchmark assets so the
+      website and validators accept the additive fields before the next full benchmark rerun.
+  - Evidence:
+    - Local validation passed for workspace formatter, workspace clippy, workspace tests,
+      feature-gated Vortex clippy checks, focused Vortex writer/context Rust tests, full Python
+      release-script tests, artifact completeness and publication claim gates, website/docs build
+      and static validation, text-based generated HTML/artifact checks, and `git diff --check`.
+    - PR #1121 CI passed before merge: 19/19 checks green including Rust baseline, Rust feature
+      matrix, Python/package smoke, website/docs validation, dependency/security gates, release
+      readiness, workers build, and CodeQL checks.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. Current promoted rows report `not_reported`/zero
+      defaults for the new writer-context timing fields until `PERF-SPLIT-7` or a later approved
+      benchmark rerun produces fresh timing values.
+  - Claim boundary:
+    - This slice claims scoped writer-stage attribution and context reuse evidence only. It does
+      not claim benchmark superiority, production readiness, broad SQL/DataFrame support,
+      object-store/lakehouse support, package-release readiness, or Spark replacement.
+  - Fallback boundary:
+    - Vortex writes stay inside ShardLoom's feature-gated upstream Vortex writer/session boundary
+      with workspace-safe local output validation. No external writer, query engine, or object-store
+      service performs hidden ShardLoom writes.
+
 - [x] Session label: PERF-SPLIT-4 projection-aware CSV/JSONL scout and typed column decode
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-split-projection-aware-scout` / PR #1120, squash merge

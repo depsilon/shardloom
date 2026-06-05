@@ -84,6 +84,8 @@ const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage
 const preparedLookupRows = batchRows.filter((row: any) =>
   row.prepare_batch_prepared_state_lookup_timing_schema_version
   || row.prepare_batch_prepared_state_lookup_status
+  || row.prepare_batch_prepared_state_index_schema_version
+  || row.prepare_batch_prepared_state_partial_repair_status
 );
 const resultSinkCapillaryRows = publishedRows.filter((row: any) =>
   row.result_sink_capillary_schema_version
@@ -870,26 +872,27 @@ const routeCards = [
     </div>
     <p class="table-note">Schema: {preparedAmortizationTable.schema_version ?? "not reported"}. Boundary: {preparedAmortizationTable.claim_boundary ?? "not reported"}.</p>
     <div class="table-wrap compact-table secondary-table">
-      <p class="table-note"><strong>Prepared-state lookup evidence</strong></p>
+      <p class="table-note"><strong>Prepared-state index and repair evidence</strong></p>
       <table>
         <thead>
-          <tr><th>Status</th><th>Attractor key</th><th>Manifest lookup</th><th>Cache hit</th><th>Miss create</th><th>Write</th><th>Register</th><th>Replay verify</th><th>No fallback</th></tr>
+          <tr><th>Lookup</th><th>Index</th><th>Dependency</th><th>Repair</th><th>Changed</th><th>Reused</th><th>Repaired</th><th>Repair micros</th><th>Replay proof</th><th>No external engine</th></tr>
         </thead>
         <tbody>
           {preparedLookupRows.length > 0 ? preparedLookupRows.map((row: any) => (
             <tr>
               <td>{textValue(row.prepare_batch_prepared_state_lookup_status)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_attractor_key)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_manifest_lookup_micros)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_cache_hit_micros)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_cache_miss_create_micros)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_artifact_write_micros)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_artifact_register_micros)}</td>
-              <td>{textValue(row.prepare_batch_prepared_state_replay_verification_micros)}</td>
-              <td>{String(row.prepare_batch_prepared_state_lookup_fallback_attempted === false || row.prepare_batch_prepared_state_lookup_fallback_attempted === "false")}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_index_digest)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_dependency_status)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_status)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_changed_roles)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_reused_roles)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_repaired_roles)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_micros)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_partial_repair_replay_proof)}</td>
+              <td>{String(row.prepare_batch_prepared_state_index_external_engine_invoked === false || row.prepare_batch_prepared_state_index_external_engine_invoked === "false")}</td>
             </tr>
           )) : (
-            <tr><td colspan="9">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
+            <tr><td colspan="10">Awaiting refreshed benchmark artifact after the current optimization batch.</td></tr>
           )}
         </tbody>
       </table>
