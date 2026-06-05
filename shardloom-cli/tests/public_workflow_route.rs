@@ -182,6 +182,64 @@ fn public_run_forwards_local_write_output_and_overwrite_intent() {
 }
 
 #[test]
+fn public_run_forwards_local_fanout_payload_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-fanout-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let input = workspace.join("fact.csv");
+    let primary = workspace.join("out.jsonl");
+    let fanout = workspace.join("out.csv");
+    let _ = std::fs::remove_file(&primary);
+    let _ = std::fs::remove_file(&fanout);
+    std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 2", input.display());
+    let fanout_arg = format!("csv={}", fanout.to_str().expect("utf8 fanout path"));
+    let stdout = run_route(&[
+        "run",
+        "dataframe",
+        "--input",
+        input.to_str().expect("utf8 input path"),
+        "--input-format",
+        "csv",
+        "--sql",
+        &statement,
+        "--plan",
+        "read_csv(fact.csv) -> select(id,label) -> limit(2)",
+        "--request",
+        "write_jsonl",
+        "--output",
+        primary.to_str().expect("utf8 primary path"),
+        "--fanout-output",
+        &fanout_arg,
+        "--allow-overwrite",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "local_file_direct_sink")));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "sql-local-source-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
+    assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
+    assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
+    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("output_fanout_performed", "true")));
+    assert!(stdout.contains(&field("fanout_output_count", "1")));
+    assert!(stdout.contains(&field("fanout_output_formats", "csv")));
+    assert!(stdout.contains(&field(
+        "fanout_output_paths",
+        fanout.to_str().expect("utf8 fanout path")
+    )));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
     let workspace = std::path::Path::new("target/public-workflow-generated-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
@@ -227,6 +285,60 @@ fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
         "output_path",
         output.to_str().expect("utf8 output path")
     )));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_forwards_generated_fanout_payload_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-fanout-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let primary = workspace.join("user-rows.jsonl");
+    let fanout = workspace.join("user-rows.csv");
+    let _ = std::fs::remove_file(&primary);
+    let _ = std::fs::remove_file(&fanout);
+    let fanout_arg = format!("csv={}", fanout.to_str().expect("utf8 fanout path"));
+    let stdout = run_route(&[
+        "run",
+        "python",
+        "--request",
+        "write_jsonl",
+        "--output",
+        primary.to_str().expect("utf8 primary path"),
+        "--fanout-output",
+        &fanout_arg,
+        "--bounded",
+        "true",
+        "--allow-overwrite",
+        "--generated-source-kind",
+        "user_rows",
+        "--generated-schema",
+        "id:int64,label:utf8",
+        "--generated-rows",
+        "id=1,label=alpha",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "generated_user_rows_direct_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-user-rows-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
+    assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
+    assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
+    assert!(stdout.contains(&field("generated_source_kind", "user_rows")));
+    assert!(stdout.contains(&field("output_fanout_performed", "true")));
+    assert!(stdout.contains(&field("fanout_output_count", "1")));
+    assert!(stdout.contains(&field("fanout_output_formats", "csv")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));

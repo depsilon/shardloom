@@ -1101,16 +1101,21 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
         output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
             outputs
         )
-        return self.client.generated_source_user_rows_smoke(
-            output_path,
-            self.schema_arg,
-            self.rows_arg,
-            source_kind=self.source_kind,
-            output_format=output_format,
-            fanout_outputs=fanout_outputs,
+        execution = self.client.public_workflow_run(
+            "dataframe" if self.source_kind.startswith("dataframe_") else "python",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=output_path,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            generated_source_kind=self.source_kind,
+            generated_schema=self.schema_arg,
+            generated_rows=self.rows_arg,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1314,29 +1319,23 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
         output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
             outputs
         )
-        if self.source_kind == "sequence":
-            return self.client.generated_source_sequence_smoke(
-                output_path,
-                self.start,
-                self.end,
-                step=self.step,
-                column=self.column,
-                output_format=output_format,
-                fanout_outputs=fanout_outputs,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            )
-        return self.client.generated_source_range_smoke(
-            output_path,
-            self.start,
-            self.end,
-            step=self.step,
-            column=self.column,
-            output_format=output_format,
-            fanout_outputs=fanout_outputs,
+        execution = self.client.public_workflow_run(
+            "python",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=output_path,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            generated_source_kind=self.source_kind,
+            generated_range_start=self.start,
+            generated_range_end=self.end,
+            generated_range_step=self.step,
+            generated_range_column=self.column,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def _generated_vortex_stem(self) -> str:
         return f"generated-{self.source_kind}-{self.start}-{self.end}-{self.step}-{self.column}"
@@ -1608,14 +1607,20 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
         output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
             outputs
         )
-        return self.client.generated_source_sql_smoke(
-            output_path,
-            self._statement(),
-            output_format=output_format,
-            fanout_outputs=fanout_outputs,
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=self._statement(),
+            plan_summary=f"generated_range_query -> fanout({output_path})",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=output_path,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def _statement(self) -> str:
         select_items = self.select_items or _default_generated_range_select_items(
@@ -1714,14 +1719,20 @@ class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
         output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
             outputs
         )
-        return self.client.generated_source_sql_smoke(
-            output_path,
-            self.statement,
-            output_format=output_format,
-            fanout_outputs=fanout_outputs,
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=output_path,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def _generated_vortex_stem(self) -> str:
         return "generated-sql"
@@ -2347,23 +2358,39 @@ class SqlWorkflow:
         """Write an admitted SQL result to primary and fanout local sinks."""
 
         normalized_outputs = _normalize_fanout_outputs(outputs)
+        output_format, output_path = normalized_outputs[0]
+        fanout_outputs = normalized_outputs[1:]
+        requested_output = _public_write_request_for_format(output_format)
         if _is_source_free_sql_statement(self.statement):
-            output_format, output_path = normalized_outputs[0]
-            return self.client.generated_source_sql_smoke(
-                output_path,
-                self.statement,
-                output_format=output_format,
-                fanout_outputs=normalized_outputs[1:],
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output=requested_output,
+                output_ref=output_path,
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
                 allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             )
+            return GeneratedSourceWriteReport(execution.envelope)
         if _is_local_source_sql_statement(self.statement):
-            return self.client.sql_local_source_smoke(
-                self.statement,
-                fanout_outputs=normalized_outputs,
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output=requested_output,
+                output_ref=output_path,
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
                 allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             )
+            return SqlLocalSourceSmokeReport(execution.envelope)
         return self._unsupported_operation("fanout", self.statement, check=check)
 
     def _public_workflow_write_report(
@@ -3937,12 +3964,24 @@ class LazyFrame:
         statement = self._sql_local_source_statement()
         if statement is None:
             return self._unsupported_operation("fanout", check=check)
-        return self.client.sql_local_source_smoke(
-            statement,
-            fanout_outputs=_normalize_fanout_outputs(outputs),
+        normalized_outputs = _normalize_fanout_outputs(outputs)
+        output_format, output_path = normalized_outputs[0]
+        execution = self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=self.source.source_format,
+            sql_statement=statement,
+            plan_summary=self.operation_summary,
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=output_path,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            fanout_outputs=normalized_outputs[1:],
             check=check,
         )
+        return SqlLocalSourceSmokeReport(execution.envelope)
 
     def to_pandas(
         self,

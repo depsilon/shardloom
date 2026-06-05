@@ -318,10 +318,11 @@ envelope. The equivalent CLI surfaces are
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`.
 Lazy DataFrame bounded `collect()`, general `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
-structured write aliases, generated-source direct writes, and source-free SQL writes route through
-the same public `run` facade and return existing typed reports with attached `public_workflow_*`
-route fields. Native Vortex primitive helpers and multi-output fanout still use their lower-level
-evidence commands until the facade has explicit payload contracts for those shapes.
+structured write aliases, generated-source direct writes, source-free SQL writes, and admitted
+local/generated fanout helpers route through the same public `run` facade and return existing typed
+reports with attached `public_workflow_*` route fields. Native Vortex primitive helpers still use
+their lower-level evidence commands until the facade has explicit payload contracts for those
+shapes.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -845,8 +846,8 @@ returned sink report.
 `.fanout(...)` helper can reuse one computed result for multiple admitted local
 compatibility sinks such as JSONL and CSV, feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,
-and feature-gated local Vortex when built with `--features vortex-write`; fanout still uses the
-lower-level fanout evidence command until the public facade has a multi-output payload contract.
+and feature-gated local Vortex when built with `--features vortex-write`; fanout now passes an
+explicit primary output plus `--fanout-output` payload through the public workflow `run` facade.
 Written local sinks emit
 format-specific output Native I/O certificate fields plus scoped local replay/fidelity fields such
 as `result_replay_verified`, `output_replay_status`, `output_fidelity_report_status`, and
@@ -1494,8 +1495,10 @@ SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
 runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
-feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Generated
-source-free helpers also expose `.fanout(...)` over admitted generated rows and source-free SQL.
+feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting, routed
+through the public workflow `run` facade where the local output payload is admitted. Generated
+source-free helpers also expose `.fanout(...)` over admitted generated rows and source-free SQL
+through the same public facade.
 Current typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan`
 evidence where the CLI emits it; future Python capability/write views may broaden cache
 invalidation, reuse levels, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence.
@@ -2013,7 +2016,8 @@ Source-free top-N reports
 `sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
 filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms through the
 public workflow `run` facade to the generated-source SQL runtime, and `ctx.sql(...).fanout(...)`
-dispatches source-free generated forms to the same generated-source fanout contract. Generated-source fanout reports
+dispatches source-free generated forms through the same public facade and generated-source fanout
+contract. Generated-source fanout reports
 `output_route=local_sink_and_fanout`, `result_reuse_for_fanout=true`,
 `fanout_result_reuse_hit=true`, per-fanout output formats/paths/digests, workspace path-safety,
 certificate, replay, and fidelity fields. Source-free `ctx.sql(...).collect()` remains a
@@ -2033,18 +2037,17 @@ The contract separates three cases:
   Parquet/Arrow IPC/Avro/ORC local sinks are available through `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when the CLI is built with
   `--features universal-format-io`, and feature-gated local Vortex output is available through
-  `write_vortex(...)` when the CLI is built with `--features vortex-write`; direct writes route
-  through the public workflow `run` facade, while `.fanout(...)` reuses the computed generated rows
-  through the lower-level generated-source fanout evidence command. Broader generated-source APIs
-  remain report-only.
+  `write_vortex(...)` when the CLI is built with `--features vortex-write`; direct writes and
+  `.fanout(...)` route through the public workflow `run` facade, with fanout reusing the computed
+  generated rows through the generated-source fanout evidence contract. Broader generated-source
+  APIs remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
   `generate_series`/`range` JSONL/CSV fixture smokes are supported through
   `ctx.range(...).write(...)`, `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`,
   `ctx.sequence(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`;
-  direct writes route through the public workflow `run` facade. `.fanout(...)` is available for
-  generated range/sequence and source-free SQL through the lower-level generated-source fanout
-  evidence command, and the same feature-gated flat scalar structured and Vortex sinks are available
-  through the generated-source write helpers.
+  direct writes and `.fanout(...)` route through the public workflow `run` facade for generated
+  range/sequence and source-free SQL, and the same feature-gated flat scalar structured and Vortex
+  sinks are available through the generated-source write helpers.
   Engine-native `values` and deterministic synthetic profiles remain report-only.
 
 Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture

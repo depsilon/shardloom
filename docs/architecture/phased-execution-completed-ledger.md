@@ -16,6 +16,78 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow fanout facade payload
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-fanout-facade` / PR #1114.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/src/shardloom/query.py`.
+    - `python/tests/test_query_builder.py`.
+    - `scripts/check_user_surface_runtime_gap_inventory.py`.
+    - `shardloom-cli/src/public_workflow_route.rs`.
+    - `shardloom-cli/tests/public_workflow_route.rs`.
+    - `website-src` and `website` generated static artifacts.
+  - Scope:
+    - Added public workflow `--fanout-output format=local-path` payload parsing and side-effect-free
+      route metadata fields, plus attached runtime envelope fields for admitted public `run`
+      executions.
+    - Forwarded public fanout payloads into the existing SQL local-source and generated-source
+      runtime smoke contracts without changing their lower-level evidence shape.
+    - Routed Python SQL workflow, lazy DataFrame, generated rows, generated range/sequence,
+      generated range SQL, and source-free SQL `.fanout(...)` helpers through `ShardLoomClient
+      .public_workflow_run(...)` while preserving typed `SqlLocalSourceSmokeReport` and
+      `GeneratedSourceWriteReport` views.
+    - Added typed `PublicWorkflowRoute` and `PublicWorkflowExecution` fanout payload accessors so
+      route/report consumers can inspect fanout count and `format=path` targets without raw field
+      scraping.
+    - Kept native Vortex primitive helper routing, future helper families, and smoke-command
+      reclassification as explicit residuals in the phase plan.
+  - Evidence:
+    - `python3 -m unittest
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_lazyframe_fanout_uses_public_run_facade_payload
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_source_free_sql_fanout_uses_public_run_facade_payload
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_source_free_fanout_invokes_generated_source_sql_smoke
+      python.tests.test_query_builder.LazyWorkflowBuilderTests.test_range_filter_with_column_sort_limit_fanout_invokes_generated_source_sql_smoke`
+      passed.
+    - `cargo test -p shardloom-cli --test public_workflow_route` passed with 12 tests.
+    - `python3 -m unittest python.tests.test_query_builder` passed with 204 tests.
+    - `python3 -m unittest python.tests.test_query_builder
+      python.tests.test_user_surface_graduation_matrix python.tests.test_cli_client
+      python.tests.test_sql_python_dataframe_parity` passed with 353 tests.
+    - `python3 -m unittest discover -s python/tests` passed with 435 tests and 2 skipped.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output
+      target/sql-python-dataframe-parity-gate.json`,
+      `python3 scripts/check_user_surface_graduation_matrix.py --output
+      target/user-surface-graduation-matrix.json`,
+      `python3 scripts/check_user_route_capability_report.py --output
+      target/user-route-capability-report.json`, and
+      `python3 scripts/check_user_surface_runtime_gap_inventory.py --output
+      target/user-surface-runtime-gap-inventory.json` passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py
+      python/tests/test_query_builder.py python/tests/test_cli_client.py
+      scripts/check_user_surface_runtime_gap_inventory.py` passed.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      and `cargo test --workspace --all-targets` passed.
+    - Website freshness checks passed: `node scripts/sync-content.mjs`,
+      `node node_modules/.bin/astro check`, `node node_modules/.bin/astro build`,
+      `node scripts/postbuild-static.mjs`, and `node validate_static_assets.js`.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is public facade/evidence-routing breadth, not a
+      timing-methodology or performance-claim change.
+  - Claim boundary:
+    - This slice claims only scoped fanout payload routing through the public workflow `run` facade
+      for admitted local-source and generated-source helper families. It does not claim broad
+      reusable I/O, cross-format fanout benchmark support, broad SQL/DataFrame support, production
+      API stability, performance superiority, or Spark replacement.
+  - Fallback boundary:
+    - The facade preserves `fallback_attempted=false` and `external_engine_invoked=false`; no pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend
+      execution is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow helper facade breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/public-workflow-helper-facade-breadth` / PR #1113.

@@ -137,8 +137,9 @@ side-effect-free and is not a benchmark timing row. It must report `runtime_exec
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status=route_inspection_only` unless a later phase intentionally changes the contract
 with new evidence. The `run` / `prepare` facades may attach the same metadata to admitted runtime
-envelopes, but those helper envelopes still do not refresh benchmark timing values or performance
-interpretation.
+envelopes, including admitted local/generated fanout helper envelopes with explicit primary-output
+and `--fanout-output` payload fields, but those helper envelopes still do not refresh benchmark
+timing values or performance interpretation.
 
 Readiness fields also stay separate:
 

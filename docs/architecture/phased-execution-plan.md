@@ -201,7 +201,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:public_workflow_route_facade` | Finish native Vortex primitive helper routing, multi-output fanout payload contract, future helper facade routing, and smoke-command reclassification or explicitly defer each residual with evidence. |
+| 1 | `6D:public_workflow_route_facade` | Finish native Vortex primitive helper routing, future helper facade routing, and smoke-command reclassification or explicitly defer each residual with evidence. |
 | 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
 | 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
@@ -320,16 +320,18 @@ Each item below uses the same sub-checklist shape:
       direct generated-source write helpers for user rows, range, sequence, DataFrame generated
       rows, and source-free SQL now route through the shared public `run` facade while preserving
       typed report views.
-    - [ ] Remaining: route native Vortex primitive collect/write helpers, multi-output fanout, and
-      future execution helpers through the shared planner/evidence envelope where the facade has a
-      matching payload contract, so public runtime helpers do not bypass visible admission metadata.
+    - [x] Multi-output fanout helpers for admitted local-source, generated-source, generated-range,
+      and source-free SQL routes now pass an explicit primary output plus `--fanout-output` payload
+      through the shared public `run` facade while preserving typed report views.
+    - [ ] Remaining: route native Vortex primitive collect/write helpers and future execution
+      helpers through the shared planner/evidence envelope where the facade has a matching payload
+      contract, so public runtime helpers do not bypass visible admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
     no-fallback fields.
-  - Next slice outcome: close the helper-facade breadth slice by routing bounded local-source
-    collect, general local-source writes, generated-source direct writes, and source-free SQL writes
-    through `shardloom run` with attached route evidence while leaving native Vortex primitive
-    helpers, multi-output fanout, and future helper families as explicit residuals.
+  - Next slice outcome: close the helper-facade residual by routing native Vortex primitive helpers
+    and future helper families through `shardloom run` with attached route evidence, or explicitly
+    defer each remaining helper family with payload-contract evidence.
   - Execution checklist:
     - [x] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
       query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
@@ -353,9 +355,10 @@ Each item below uses the same sub-checklist shape:
     - [x] Route broad bounded local-source `collect`, general `write(...)` / `write_csv(...)`, and
       source-free generated-output write helpers through the shared planner/evidence envelope
       rather than only exposing route inspection.
-    - [ ] Route native Vortex primitive collect/write helpers, multi-output fanout, and future
-      execution wrappers through the shared planner/evidence envelope once each has an explicit
-      facade payload contract.
+    - [x] Route admitted local-source and generated-source multi-output fanout helpers through the
+      shared planner/evidence envelope with an explicit primary-output plus fanout payload contract.
+    - [ ] Route native Vortex primitive collect/write helpers and future execution wrappers through
+      the shared planner/evidence envelope once each has an explicit facade payload contract.
     - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
       bounded/materialized path is present.
     - [x] Keep unbounded `collect()` blocked in the public `run` facade and keep
@@ -369,8 +372,8 @@ Each item below uses the same sub-checklist shape:
     - [x] Update route/status docs, runtime-gap inventory, Python docs, tests, and website/static
       pages for broad bounded collect/general write/generated-output helper rerouting.
     - [ ] Update `front_door_parity_matrix`, DataFrame method matrix, release readiness/status
-      matrices, and website/static pages again when native Vortex primitive helpers, fanout, or
-      future helper families are promoted.
+      matrices, and website/static pages again when native Vortex primitive helpers or future helper
+      families are promoted.
   - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
     DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
   - Implementation scope: `shardloom-cli/src/command_registry.rs`,
@@ -424,9 +427,9 @@ Each item below uses the same sub-checklist shape:
       fixtures, Rust smokes, docs, and no-fallback report fields.
     - [x] Scoped `ARRAY[...]` / `STRUCT(...)` result-boundary projections can write local CSV as
       JSON text cells with replay/no-fallback evidence.
-    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive,
-      multi-output fanout, and future-helper residuals before widening SQL surface area that depends
-      on those helper payload contracts.
+    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive and
+      future-helper residuals before widening SQL surface area that depends on those helper payload
+      contracts.
     - [ ] Remaining: nested source decoding and typed structured sinks beyond scoped
       JSONL/result-boundary and CSV JSON-text projections.
     - [ ] Remaining: variant/union dtype shapes, broader binary execution/preservation,
@@ -489,9 +492,9 @@ Each item below uses the same sub-checklist shape:
     - [x] Python SQL smoke reports expose runtime unsupported `status`, `diagnostics`, and
       `unsupported_reasons` for non-admitted correlated subquery shapes while preserving
       no-fallback fields.
-    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive,
-      multi-output fanout, and future-helper residuals before promoting another broad
-      Python/DataFrame API family that depends on those payload contracts.
+    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive and
+      future-helper residuals before promoting another broad Python/DataFrame API family that
+      depends on those payload contracts.
     - [ ] Remaining: promote the next coherent API family that lowers to an admitted runtime route
       or deterministic unsupported diagnostic.
     - [ ] Remaining: broad DataFrame parity remains gated.
