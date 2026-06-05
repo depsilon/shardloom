@@ -27,6 +27,10 @@ DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset(
     {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
 )
+DECIMAL_CAST_TYPED_DECIMAL_OUTPUT_BOUNDARY = (
+    "jsonl_exact_decimal_string_csv_exact_decimal_text_"
+    "parquet_arrow_avro_vortex_typed_decimal_orc_blocked"
+)
 ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
@@ -3682,6 +3686,22 @@ class SqlLocalSourceSmokeReport:
         if value == "not_applicable":
             return None
         return value
+
+    @property
+    def decimal_cast_typed_decimal_sink_formats(self) -> tuple[str, ...]:
+        """Return local formats that preserve scoped decimal casts as typed decimal output."""
+
+        if self.decimal_cast_output_boundary != DECIMAL_CAST_TYPED_DECIMAL_OUTPUT_BOUNDARY:
+            return ()
+        return ("parquet", "arrow_ipc", "avro", "vortex")
+
+    @property
+    def decimal_cast_blocked_typed_decimal_sink_formats(self) -> tuple[str, ...]:
+        """Return local formats that still block scoped typed decimal output preservation."""
+
+        if self.decimal_cast_output_boundary != DECIMAL_CAST_TYPED_DECIMAL_OUTPUT_BOUNDARY:
+            return ()
+        return ("orc",)
 
     @property
     def null_coalesce_projection_runtime_execution(self) -> bool:

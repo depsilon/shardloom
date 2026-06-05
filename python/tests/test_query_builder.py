@@ -8276,7 +8276,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "decimal_cast_precision", "value": "10,10,10"},
                         {"key": "decimal_cast_scale", "value": "2,2,2"},
                         {"key": "decimal_cast_mode", "value": "strict,strict,try"},
-                        {"key": "decimal_cast_output_boundary", "value": "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked"},
+                        {"key": "decimal_cast_output_boundary", "value": "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -8323,7 +8323,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.decimal_cast_modes, ("strict", "strict", "try"))
         self.assertEqual(
             report.decimal_cast_output_boundary,
-            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_typed_decimal_vortex_blocked",
+            "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked",
+        )
+        self.assertEqual(
+            report.decimal_cast_typed_decimal_sink_formats,
+            ("parquet", "arrow_ipc", "avro", "vortex"),
+        )
+        self.assertEqual(
+            report.decimal_cast_blocked_typed_decimal_sink_formats,
+            ("orc",),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

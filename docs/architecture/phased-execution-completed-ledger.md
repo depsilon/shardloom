@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D Python decimal sink boundary parsing follow-through
+  - Date: 2026-06-05
+  - Branch/PR: `codex/python-decimal-boundary-latest` / PR #1096.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `python/README.md`.
+    - `scripts/check_sql_python_dataframe_parity.py`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/benchmarking.md`.
+  - Scope:
+    - Added Python `SqlLocalSourceSmokeReport` parsed properties for scoped typed decimal sink
+      support: `decimal_cast_typed_decimal_sink_formats` and
+      `decimal_cast_blocked_typed_decimal_sink_formats`.
+    - Updated the Python decimal cast query-builder fixture to the latest boundary:
+      Parquet/Arrow IPC/Avro/Vortex typed decimal output admitted, ORC typed decimal output still
+      blocked.
+    - Extended the SQL/Python/DataFrame parity validator so the parsed Python properties remain
+      source-gated.
+    - Updated Python README and parity/phase docs so the front-door text no longer reports Avro or
+      local Vortex typed decimal output as blocked.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/client.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_decimal_cast_invokes_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-decimal-boundary.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-decimal-boundary.json` passed.
+    - `git diff --check` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change is a Python front-door
+      evidence parsing and documentation-freshness update only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice exposes the latest typed decimal sink boundary through Python report properties. It
+      does not admit ORC typed decimal output, broad DataFrame parity, production support,
+      benchmark speedup, or public performance superiority.
+  - Fallback boundary:
+    - Python remains a front door into ShardLoom CLI/runtime evidence. No pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, or other external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D arbitrary interval arithmetic diagnostic follow-through
   - Date: 2026-06-05
   - Branch/PR: `codex/6d-interval-arithmetic-boundary` / PR #1095.
