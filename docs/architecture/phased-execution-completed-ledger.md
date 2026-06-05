@@ -16,6 +16,102 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-6 timing provenance and route-stage inclusion guardrails
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_publication_claim_gate.py`.
+    - `python/tests/test_release_scripts.py`.
+    - Current promoted benchmark manifest and row chunks.
+  - Scope:
+    - Corrected route stage inclusion classification so measured detail child stages listed in
+      `route_timing_excluded_stage_ids` are emitted as diagnostic-only instead of being labeled as
+      directly included in `total_route_ms`.
+    - Added ShardLoom lane-version provenance checks to the publication claim gate. Current-mode
+      validation now blocks dirty ShardLoom lane versions and ShardLoom lane short SHAs that do not
+      match the manifest `shardloom_git_sha`.
+    - Preserved historical/stale artifact inspection by keeping the provenance report visible but
+      not enforced when `--allow-stale-git --allow-dirty-worktree` is used.
+    - Diagnosed the current static `full_local` artifact as not clean-comparable for performance
+      claims because ShardLoom lanes report `workspace-local-release-d94d30b0-dirty` while the
+      manifest records `9835ae15633587307d7ab2e710a44bf2970ea883`.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_blocks_dirty_lane_versions python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_emits_cold_bottleneck_fields`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts`
+      passed with 73 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`
+      blocked with the expected stale HEAD, dirty worktree, dirty ShardLoom lane, and SHA-mismatch
+      diagnostics.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed while reporting the dirty/mismatched lane provenance as not enforced.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m build python`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 440 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+      passed.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark suite rerun was performed. This closeout improves timing/provenance
+      interpretation and claim gating only; it does not assert that ShardLoom is faster.
+  - Claim boundary:
+    - Claim is limited to benchmark publication integrity and route-stage attribution correctness.
+      Performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store,
+      package-release, and Foundry claims remain blocked.
+  - Fallback boundary:
+    - Timing provenance checks are static artifact validation only. They do not invoke pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, Dask, external query engines, or Vortex
+      query-engine integrations as ShardLoom execution fallback.
+
+- [x] Session label: PERF-INNOV-5 residual operator outlier reduction pass
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `docs/architecture/phased-execution-plan.md`.
+    - Current promoted benchmark rows and PERF-INNOV timing attribution fields.
+  - Scope:
+    - Reworked residual-native grouping, distinct, dirty-input, nullable/date, and dictionary
+      evidence paths to avoid avoidable owned string materialization in hot loops.
+    - Introduced scoped string interning for category/group-category aggregation state, borrowed
+      Vortex byte reads for UTF-8 fields, byte-oriented generated timestamp checks, and typed
+      dictionary evidence keys for dictionary group-by pair validation.
+    - Preserved deterministic output by sorting only during result assembly rather than maintaining
+      ordered maps on every hot update.
+    - Added explicit operator finalization and result assembly timing accumulation so remaining
+      outliers can be separated from scan/open/chunk/projection timing.
+  - Evidence:
+    - Focused `shardloom-vortex` tests passed for compatibility import timing, CDC delta import,
+      operator microkernel benchmark coverage, expanded taxonomy scenarios, prepared/native
+      category and group-category source-state reuse, multi-key/group-by prepared native scans, and
+      dictionary group-by pair prepared Vortex execution.
+    - `cargo clippy -p shardloom-vortex --all-targets --features vortex-traditional-analytics-benchmark -- -D warnings`
+      passed.
+    - Broad gates passed: `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets`.
+    - Python/package gates with bundled Python 3.12 passed:
+      `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`,
+      `python -m build python`, `python -m unittest discover -s python/tests`, and
+      `python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`.
+  - Benchmark boundary:
+    - This is a code-level outlier reduction pass with correctness and local package validation.
+      A clean non-dirty benchmark rerun is still required before interpreting route-total
+      performance deltas or claiming recovery from the reported slowdown.
+  - Claim boundary:
+    - Claim is limited to scoped hot-loop allocation/evidence reduction and improved substage
+      timing evidence. No encoded-native, performance superiority, production readiness,
+      Spark-displacement, or package-release claim is made.
+  - Fallback boundary:
+    - All execution remains ShardLoom-native within the admitted Vortex benchmark feature
+      boundary. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, Dask, external query engine,
+      or Vortex query-engine integration executes unsupported ShardLoom work.
+
 - [x] Session label: PERF-INNOV-4 compact evidence and tiered result-sink modes for hot lanes
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-prepared-state-contract` / current benchmark optimization PR

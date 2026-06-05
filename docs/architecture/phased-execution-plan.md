@@ -309,18 +309,25 @@ completed base slice, while unchecked rows define the remaining optimization wor
     - [x] The promoted `full_local` artifact has been refreshed through the new runtime
       instrumentation, so successful prepared/native rows no longer carry legacy scan/operator
       mirror cells from a pre-`PERF-INNOV-5` run.
-    - [ ] Remaining: reduce refreshed warm/native operator-kernel outliers above 10 ms; current
-      evidence concentrates the largest residual-native costs in `operator_kernel_micros`, not
-      Vortex scan open/chunk iteration/projection extraction.
+    - [x] The first operator-outlier reduction pass removes avoidable string allocation and
+      evidence-key construction from residual-native grouping/distinct/dirty-input paths by using
+      borrowed Vortex bytes, scoped string interning, typed dictionary evidence keys, and
+      deterministic result assembly.
+    - [ ] Remaining: rerun a clean benchmark artifact from a non-dirty workspace, compare against
+      the pre-`PERF-INNOV-5` baseline, and continue reducing any refreshed warm/native route
+      totals or operator-kernel rows still above 10 ms. Current checked-in evidence cannot support
+      a performance claim because the latest artifact records dirty ShardLoom lane versions and
+      mismatched lane/manifest SHAs.
   - Runtime enablement: prepared/native Vortex scan route -> file/source metadata reuse decision ->
     scan/chunk/operator/finalization substage evidence -> benchmark optimization readiness.
   - Objective: explain and then reduce per-row scan/operator outliers above 10 ms without
     overreacting to sub-ms geomean paths.
   - Implementation scope: split scan/operator timing into Vortex file open, footer/metadata verify,
     scan open, chunk iteration, projected-field extraction, encoded-kernel evidence construction,
-    operator kernel work, aggregation/finalization, and result assembly. Reuse session-owned Vortex
-    source/file metadata where legal. Use cache-aware chunk sizing and statistics-first routing
-    before adding new kernels.
+    operator kernel work, aggregation/finalization, and result assembly. Reduce proven operator
+    outliers by removing avoidable decode/allocation/evidence overhead before adding new kernels.
+    Reuse session-owned Vortex source/file metadata where legal. Use cache-aware chunk sizing and
+    statistics-first routing before adding new kernels.
   - User-visible surface: benchmark stage rows, website route-share/outlier tables, and runtime
     evidence fields for native/prepared query routes.
   - Evidence required: scan open/setup timing, metadata verification timing, chunk iteration
@@ -328,7 +335,10 @@ completed base slice, while unchecked rows define the remaining optimization wor
     no-fallback fields, and correctness digest/replay evidence.
   - Acceptance: `vortex_scan_ms` and `operator_compute_ms` no longer mirror the same scenario timer
     when substage evidence is available. Outlier rows identify whether the cost is open/setup,
-    chunk iteration, evidence construction, kernel work, or finalization.
+    chunk iteration, evidence construction, kernel work, finalization, result assembly, or
+    benchmark/provenance contamination. A clean post-fix artifact must not carry dirty
+    `lane_versions` or ShardLoom lane SHAs that disagree with the manifest SHA before any
+    route-total improvement/regression claim is made.
   - Verification:
     ```powershell
     cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state
@@ -354,8 +364,16 @@ completed base slice, while unchecked rows define the remaining optimization wor
   - Current state:
     - [x] `PERF-SPLIT-7` makes the website answer the current top optimization target from
       promoted route-share rows.
+    - [x] Route stage inclusion classification now respects the authoritative ledger: measured
+      detail child stages listed in `route_timing_excluded_stage_ids` are diagnostic-only instead
+      of being advertised as directly included in `total_route_ms`.
+    - [x] The publication claim gate now records ShardLoom lane-version provenance and blocks
+      current publication when ShardLoom lane versions are dirty or embed a short SHA that does not
+      match the manifest `shardloom_git_sha`.
     - [ ] Remaining: require every hot stage field to declare owner, parent stage, inclusion class,
-      timing scope, evidence level, and residual treatment before optimization work begins.
+      timing scope, evidence level, and residual treatment before optimization work begins; extend
+      dashboard grouping so route-total stages, excluded diagnostic children, shared preparation,
+      sink/evidence, harness, and dirty-provenance blockers are visually distinct.
   - Runtime enablement: benchmark artifact promotion -> timing-field metadata model ->
     optimization-readiness validator -> website route critical-path grouping.
   - Objective: make every performance optimization target traceable to a correctly scoped timer
@@ -372,7 +390,9 @@ completed base slice, while unchecked rows define the remaining optimization wor
     `not_optimization_ready` markers, no-fallback fields, and claim-boundary wording.
   - Acceptance: the benchmark page can answer what makes up each `>10 ms` cell and whether it is in
     the route total. Rows with missing writer/decode/sink/scan subfields remain visible but marked
-    `not_optimization_ready`.
+    `not_optimization_ready`. Current publication gates fail closed on dirty or SHA-mismatched
+    ShardLoom lane versions; historical inspection mode may still read stale artifacts while
+    reporting that provenance as not enforced.
   - Verification:
     ```powershell
     python scripts\promote_benchmark_artifact.py
