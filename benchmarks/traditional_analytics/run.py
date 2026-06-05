@@ -747,6 +747,10 @@ PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
 BATCH_HARNESS_OVERHEAD_STATUS = "batch_outer_harness_wall_minus_cli_process_wall_not_row_allocated"
+BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES = {
+    "batch_shared_pre_scenario",
+    "batch_shared_session_open_only_deferred_family_build_reported_separately",
+}
 PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "persistent_runner_status",
     "process_startup_attribution",
@@ -5346,6 +5350,9 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         for prepare_key, value in batch_fields.items():
             if prepare_key.startswith("prepare_batch_"):
                 fields.setdefault(prepare_key, value)
+        for field in BATCH_RUNNER_ADMISSION_FIELDS:
+            if field in batch_fields:
+                fields.setdefault(field, batch_fields[field])
         prepare_batch_stage_fields = {
             "source_state_columnar_preserved": "prepare_batch_source_state_columnar_preserved",
             "source_state_record_batch_count": "prepare_batch_source_state_record_batch_count",
@@ -5657,7 +5664,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             )
         if fields.get("source_metadata_snapshot_reused") != "true":
             raise RuntimeError("ShardLoom batch did not report source metadata reuse")
-        if fields.get("source_state_prepare_timing_scope") != "batch_shared_pre_scenario":
+        if (
+            fields.get("source_state_prepare_timing_scope")
+            not in BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES
+        ):
             raise RuntimeError(
                 "ShardLoom batch source-state timing scope was unexpected: "
                 + str(fields.get("source_state_prepare_timing_scope", "missing"))

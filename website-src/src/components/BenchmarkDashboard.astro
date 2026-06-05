@@ -81,7 +81,7 @@ const exclusiveColdStageRows = shardloomRows
   ]);
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
-const preparedLookupRows = batchRows.filter((row: any) =>
+const preparedLookupRows = [...batchRows, ...publishedRows].filter((row: any) =>
   row.prepare_batch_prepared_state_lookup_timing_schema_version
   || row.prepare_batch_prepared_state_lookup_status
   || row.prepare_batch_prepared_state_index_schema_version
@@ -197,20 +197,20 @@ function firstValue(rows: any[], key: string, fallback = "not reported"): string
   return fallback;
 }
 
-function routeLaneObject(row: unknown[]): Record<string, unknown> {
+function tableObject(headers: string[], row: unknown[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  routeLaneHeaders.forEach((header: string, index: number) => {
+  headers.forEach((header: string, index: number) => {
     result[header] = row[index];
   });
   return result;
 }
 
+function routeLaneObject(row: unknown[]): Record<string, unknown> {
+  return tableObject(routeLaneHeaders, row);
+}
+
 function stageObject(row: unknown[]): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  stageAttributionHeaders.forEach((header: string, index: number) => {
-    result[header] = row[index];
-  });
-  return result;
+  return tableObject(stageAttributionHeaders, row);
 }
 
 function parseMillis(value: unknown): number | null {
@@ -223,6 +223,11 @@ function formatMs(value: unknown): string {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return String(value);
   return `${numeric.toFixed(2)} ms`;
+}
+
+function parsePercent(value: unknown): number | null {
+  const match = String(value ?? "").match(/([0-9]+(?:\.[0-9]+)?)\s*%/);
+  return match ? Number(match[1]) : null;
 }
 
 function routeStageSummary(stage: Record<string, unknown> | undefined): string {
@@ -243,6 +248,7 @@ function routeStageSummary(stage: Record<string, unknown> | undefined): string {
 }
 
 const routeLaneObjects: Record<string, unknown>[] = routeLaneRows.map((row: unknown[]) => routeLaneObject(row));
+const routeShareObjects: Record<string, unknown>[] = routeShareRows.map((row: unknown[]) => tableObject(routeShareHeaders, row));
 const routeLaneByDisplay: Map<string, Record<string, unknown>> = new Map(
   routeLaneObjects.map((row: Record<string, unknown>) => [textValue(row["Lane"]), row] as const),
 );
@@ -319,6 +325,38 @@ const routeCards = [
   ...ROUTE_CARD_ORDER.map((laneId) => shardloomRouteCard(laneId)).filter((card) => card.rows.length),
   ...(externalRows.length ? [externalRouteCard] : []),
 ];
+
+const optimizationTargets = routeShareObjects
+  .map((row: Record<string, unknown>) => {
+    const dominantStageMs = parseMillis(row["Dominant stage geomean"]);
+    const routeMs = parseMillis(row["Route geomean"]);
+    const share = parsePercent(row["Dominant route share"]);
+    return {
+      route: textValue(row["Route"]),
+      rows: textValue(row["Rows"]),
+      routeGeomean: textValue(row["Route geomean"]),
+      routeMs,
+      dominantStage: textValue(row["Dominant stage"]),
+      dominantStageGeomean: textValue(row["Dominant stage geomean"]),
+      dominantStageMs,
+      dominantShare: textValue(row["Dominant route share"]),
+      share,
+      nextTarget: textValue(row["Next optimization target"]),
+      exclusiveStatus: textValue(row["Exclusive timing status"]),
+      priorityScore: dominantStageMs ?? routeMs ?? 0,
+    };
+  })
+  .sort((left, right) => right.priorityScore - left.priorityScore);
+const topOptimizationTarget = optimizationTargets[0];
+const artifactFreshnessRows = [
+  ["Benchmark profile", textValue(manifestAny.benchmark_profile)],
+  ["Artifact status", textValue(manifestAny.artifact_status)],
+  ["Artifact generated", textValue(manifestAny.generated_at_utc)],
+  ["Benchmark git SHA", textValue(manifestAny.benchmark_git_sha)],
+  ["ShardLoom git SHA", textValue(manifestAny.shardloom_git_sha)],
+  ["Performance claim allowed", String(manifestAny.performance_claim_allowed ?? false)],
+  ["Constitution gate", textValue(manifestAny.benchmark_constitution_claim_gate_status)],
+];
 ---
 
 <section class="page-hero">
@@ -327,6 +365,56 @@ const routeCards = [
   <p class="lede">
     The website renders committed static artifacts. Benchmark timing is interpreted beside the generated current-support matrix instead of restating support posture here.
   </p>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Optimization triage</p>
+    <h2>Start with the largest measured ShardLoom-owned route costs.</h2>
+    <p class="narrow">
+      This board is generated from the route-share artifact table. It ranks route work by dominant measured stage cost, then keeps claim state and artifact freshness beside the timing so optimization direction does not become a public performance claim.
+    </p>
+    {topOptimizationTarget && (
+      <dl class="definition-list">
+        <div><dt>Current largest target</dt><dd>{topOptimizationTarget.dominantStage} on {topOptimizationTarget.route}</dd></div>
+        <div><dt>Measured stage geomean</dt><dd>{topOptimizationTarget.dominantStageGeomean} ({topOptimizationTarget.dominantShare} of route)</dd></div>
+        <div><dt>Next target field</dt><dd>{topOptimizationTarget.nextTarget}</dd></div>
+      </dl>
+    )}
+  </div>
+  <div class="artifact-panel">
+    <div class="route-card-grid compact-route-grid">
+      {optimizationTargets.slice(0, 5).map((target) => (
+        <article class="route-summary-card">
+          <div class="route-card-topline">
+            <span class="badge">{target.dominantStage}</span>
+            <span class="compare-chip compare-chip-muted">{target.exclusiveStatus}</span>
+          </div>
+          <h3>{target.route}</h3>
+          <div class="route-card-metrics">
+            <div><span>Route geomean</span><strong>{target.routeGeomean}</strong></div>
+            <div><span>Stage geomean</span><strong>{target.dominantStageGeomean}</strong></div>
+            <div><span>Route share</span><strong>{target.dominantShare}</strong></div>
+            <div><span>Rows</span><strong>{target.rows}</strong></div>
+          </div>
+          <dl class="route-card-facts">
+            <div><dt>Next target</dt><dd>{target.nextTarget}</dd></div>
+          </dl>
+        </article>
+      ))}
+    </div>
+    <div class="table-wrap compact-table secondary-table">
+      <table>
+        <thead><tr><th>Artifact field</th><th>Value</th></tr></thead>
+        <tbody>
+          {artifactFreshnessRows.map((row) => (
+            <tr><td>{row[0]}</td><td>{row[1]}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Optimization triage rows: {optimizationTargets.length}. Source table: <strong>{routeShareTable.heading ?? "Route-Share Amdahl Attribution"}</strong>. Boundary: {routeShareTable.claim_boundary ?? "not reported"}.</p>
+  </div>
 </section>
 
 <section class="section-grid">

@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-6 Content-addressed prepared-state index and role-scoped
+  partial repair
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-prepared-state-identity` / PR #1122, squash merge
+    `6886577102eceb8e3f6f12f23a03a32eb3e6daed`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `python/src/shardloom/prepared_route.py`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - Generated benchmark static pages.
+  - Scope:
+    - Added a content-addressed `.shardloom/prepared-state-index.json` for traditional
+      prepared-batch reuse keyed by source-admission packet digest, schema hash, route family,
+      layout policy, Native I/O status, artifact refs/digests, and prepare policy.
+    - Added fail-closed single-role repair admission: manifest digest, route/source fingerprint,
+      prepared artifact, no-fallback, and external-engine checks must pass before a changed
+      fact/dim/CDC role can be repaired.
+    - Regenerated only the admitted changed role's Vortex artifact, preserved unchanged artifact
+      refs, rewrote the reuse manifest/index, and recorded reused roles, repaired roles,
+      invalidated derived states, repair timing, and replay proof.
+    - Propagated index and repair evidence through Python prepared-route manifests, benchmark
+      harness guards, artifact promotion keys, and the benchmark website prepared-state evidence
+      table.
+  - Evidence:
+    - Local validation passed for workspace formatter, workspace clippy, workspace tests,
+      feature-gated Vortex clippy, focused prepared-batch reuse and partial-repair Rust tests,
+      Python prepared-route and release-script tests, website/docs build and static validation,
+      benchmark artifact completeness, publication claim gate, and `git diff --check`.
+    - PR #1122 was mergeable with no reported remote status checks and was squash-merged after
+      local validation.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. `PERF-SPLIT-7` owns the refreshed benchmark artifact
+      after the completed `PERF-SPLIT-1` through `PERF-SPLIT-6` code slices.
+  - Claim boundary:
+    - This slice claims scoped prepared-state index and role-repair evidence only. It does not
+      claim benchmark superiority, broad CDC/table transactions, production readiness, package
+      release readiness, or Spark replacement.
+  - Fallback boundary:
+    - Partial repair remains ShardLoom/Vortex-native and fail-closed. No external engine repairs,
+      validates, or executes prepared-state misses.
+
 - [x] Session label: PERF-SPLIT-5 Capillary Vortex writer runtime/session reuse and write
   coalescing
   - Date: 2026-06-05
