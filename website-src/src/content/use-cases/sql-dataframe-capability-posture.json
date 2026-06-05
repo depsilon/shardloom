@@ -26,9 +26,9 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "claim_boundary": "Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.",
+  "claim_boundary": "Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows, including predicate-object join conditions that lower to admitted SQL JOIN ON expression predicates, as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.",
   "runnable_example": "target\\debug\\shardloom capabilities sql --format json",
-  "blocked_explanation": "Broad SQL parse/bind/plan/execute, catalogs, CTEs, set operations, correlated/broad subqueries, object-store/table SQL, and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.",
+  "blocked_explanation": "Broad SQL parse/bind/plan/execute, catalogs, CTEs, set operations, correlated/broad subqueries, object-store/table SQL, and broad DataFrame runtime support beyond current scoped predicate-object join conditions require future admitted runtime slices with correctness, evidence, and no-fallback proof.",
   "expected_output_evidence": "A capability posture report showing the scoped SQL runtime ladder, the Python/DataFrame method matrix split between fixture-smoke-supported rows and broad blockers, plus report_only or unsupported broad SQL/DataFrame rows.",
   "common_mistakes": [
     "submitting_broad_sql_and_expecting_execution",

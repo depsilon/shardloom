@@ -1283,9 +1283,11 @@ other local-source smokes. Use `join(..., on="key")` or
 `join(..., on=("customer_id", "region"))` for inner, left/right/full outer, left semi, or left
 anti joins over matching same-named key columns on both sides. Use `join(..., how="cross")`
 without `on` for a scoped cross join and place filters in `filter(...)` / SQL `WHERE`. Qualified
-expression joins use `join(..., condition="f.amount > d.threshold")` or direct SQL `ON`
-predicates; the condition must bind qualified columns from both sides and remains independent of
-the source file format. Qualified
+expression joins use `join(..., condition="f.amount > d.threshold")`, predicate objects such as
+`join(..., condition=(sl.col("f.customer_id") == sl.col("d.customer_id")) | (sl.col("f.region") == sl.col("d.region")))`,
+or direct SQL `ON` predicates. The condition must bind qualified columns from both sides, may use
+scoped logical `OR` over admitted scalar leaves, and remains independent of the source file format.
+Qualified
 projection columns such as `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`,
 and an explicit `limit(...)` are required. Left semi and left anti joins emit the left source only;
 right-side projections outside the `ON` clause fail closed. A joined workflow can add admitted

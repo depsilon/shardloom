@@ -3936,7 +3936,7 @@ class LazyFrame:
         other: "LazyFrame | str",
         *,
         on: str | Sequence[str] | None = None,
-        condition: str | None = None,
+        condition: object | None = None,
         how: str = "inner",
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
@@ -8532,8 +8532,8 @@ def _quote_sql_local_source_path(value: str) -> str:
     return f"'{path}'"
 
 
-def _normalize_join_condition(value: str) -> str:
-    condition = _require_non_empty("join condition", value).strip()
+def _normalize_join_condition(value: object) -> str:
+    condition = _predicate_sql(value)
     if ";" in condition:
         raise ValueError("join condition cannot contain statement separators")
     return condition

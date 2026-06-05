@@ -91,6 +91,7 @@ REQUIRED_SOURCE_MARKERS = {
     ],
     "python/tests/test_query_builder.py": [
         "test_local_csv_query_builder_join_invokes_sql_smoke",
+        "test_local_csv_query_builder_predicate_or_join_condition_invokes_sql_smoke",
         "test_local_csv_query_builder_group_by_aggregate_invokes_sql_smoke",
         "test_local_csv_query_builder_distinct_projection_invokes_sql_smoke",
         "test_local_csv_query_builder_distinct_aggregate_having_invokes_sql_smoke",

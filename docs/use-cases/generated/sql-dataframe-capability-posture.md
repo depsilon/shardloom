@@ -8,7 +8,7 @@
 - **Status:** `report_only`
 - **Execution mode:** `report_only`
 - **Engine mode:** `none`
-- **Claim boundary:** Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.
+- **Claim boundary:** Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows, including predicate-object join conditions that lower to admitted SQL JOIN ON expression predicates, as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL and DataFrame capability posture is inspectable as posture or diagnostics, b
 
 ## Claim Boundary
 
-Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.
+Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, and the Python method matrix marks ctx.sql plus scoped local DataFrame/query-builder rows, including predicate-object join conditions that lower to admitted SQL JOIN ON expression predicates, as fixture-smoke-supported. Broad SQL/DataFrame readiness remains report-only or blocked and is not production-claimable.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ target\debug\shardloom capabilities sql --format json
 
 ## Blocker
 
-Broad SQL parse/bind/plan/execute, catalogs, CTEs, set operations, correlated/broad subqueries, object-store/table SQL, and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.
+Broad SQL parse/bind/plan/execute, catalogs, CTEs, set operations, correlated/broad subqueries, object-store/table SQL, and broad DataFrame runtime support beyond current scoped predicate-object join conditions require future admitted runtime slices with correctness, evidence, and no-fallback proof.
 
 ## Internal Flow
 
