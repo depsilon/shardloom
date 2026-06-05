@@ -31,7 +31,7 @@
     "claim_gate_status=not_claim_grade"
   ],
   "works": "CLI `shardloom route`, `shardloom run`, and `shardloom prepare`, plus `ShardLoomContext.route(...)`, `ShardLoomContext.run(...)`, `ShardLoomContext.prepare(...)`, SQL workflow `.route()`/`.run()`, and DataFrame workflow `.route()`/`.run()`/`.prepare(...)` share the same route/admission metadata. Admitted run/prepare wrappers attach that metadata to scoped runtime or preparation envelopes, and bounded local-source `collect()`, general `write(...)` / `write_csv(...)`, structured write aliases, generated-source direct writes, source-free SQL writes, admitted local/generated fanout helpers, and explicit native Vortex primitive collect/local-execution helpers now route through the public `run` facade while preserving typed reports.",
-  "blocked": "The facade does not yet reroute future helper families, any future native Vortex write-helper payloads, refresh benchmark timing, or claim broad SQL/DataFrame runtime support.",
+  "blocked": "Future helper families and any future native Vortex write-helper payloads remain deferred until their owning runtime items define explicit facade payload contracts. This status does not refresh benchmark timing or claim broad SQL/DataFrame runtime support.",
   "references": [
     "docs/status/cli-command-registry.md",
     "python/README.md",

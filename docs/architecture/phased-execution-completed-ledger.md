@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow route facade closeout
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-facade-closeout` / PR #1116.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `scripts/check_user_surface_graduation_matrix.py`.
+    - `scripts/check_user_surface_runtime_gap_inventory.py`.
+    - `shardloom-cli/src/command_registry.rs`.
+    - `python/tests/test_cli_client.py`.
+    - `python/tests/test_release_scripts.py`.
+    - `website-src` status content.
+  - Scope:
+    - Closed the shared public workflow route facade parent after route/run/prepare, local-source,
+      generated-source, write helper, fanout, and native Vortex primitive helper payload routing
+      landed in prior PRs.
+    - Reclassified lower-level smoke/runtime/primitive commands as `client_only` registry surfaces
+      while keeping `route`, `run`, and `prepare` as the high-level public CLI context commands.
+    - Explicitly deferred future execution helper families and future native Vortex write-helper
+      payloads to their owning future runtime items until each has a concrete payload contract.
+    - Removed the completed facade parent from the live phase plan so the next active 6-series item
+      is `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+  - Evidence:
+    - `env PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH
+      /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      scripts/sync-content.mjs`, `./node_modules/.bin/astro build`, and
+      `node scripts/postbuild-static.mjs` passed for the website source/static refresh.
+    - `node validate_static_assets.js` passed from `website/`.
+    - `./node_modules/.bin/astro check` passed from `website-src/`.
+    - `python3 scripts/check_user_surface_graduation_matrix.py --output
+      target/user-surface-graduation-matrix.json` passed and reports
+      `high_level_context_command_count=3`.
+    - `python3 scripts/check_user_surface_runtime_gap_inventory.py --output
+      target/user-surface-runtime-gap-inventory.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output
+      target/user-route-capability-report.json` passed.
+    - `python3 -m unittest python.tests.test_cli_client
+      python.tests.test_user_surface_graduation_matrix` passed.
+    - `python3 -m unittest
+      python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed.
+    - `python3 -m unittest discover -s python/tests` passed.
+    - `cargo test -p shardloom-cli --bins command_registry` passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots` passed.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is command-registry/status/plan closeout and does
+      not change timed compute paths or benchmark interpretation.
+  - Claim boundary:
+    - This slice claims only public-facade status closeout and command posture correction. It does
+      not claim broad SQL/DataFrame runtime support, future helper payload completion, performance
+      superiority, production readiness, or Spark replacement.
+  - Fallback boundary:
+    - Registry/validator changes are side-effect-free metadata changes. No pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend execution is
+      introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow native Vortex primitive facade payload
   - Date: 2026-06-05
   - Branch/PR: `codex/public-workflow-native-vortex-facade` / PR #1115.

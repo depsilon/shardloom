@@ -184,11 +184,12 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
             "collect/local-execution helpers now use the public run facade"
         ),
         "output_or_evidence_route": (
-            "typed public route and execution-facade envelopes today; future helper families, any "
-            "future native Vortex write-helper payloads, and smoke-command reclassification remain "
-            "pending"
+            "typed public route and execution-facade envelopes today; lower smoke/runtime/primitive "
+            "commands are client_only evidence surfaces, while future helper families and future "
+            "native Vortex write-helper payloads remain deferred until their owning runtime items "
+            "define explicit payload contracts"
         ),
-        "owner": "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade",
+        "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar",
     },
     "sql-dataframe": {
         "classification": "true_runtime_expansion_item",
