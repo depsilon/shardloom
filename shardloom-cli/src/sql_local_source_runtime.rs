@@ -1981,6 +1981,7 @@ impl ParsedProjectionOutput {
 struct ParsedInSubquery {
     source_column: String,
     source_path: PathBuf,
+    source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
@@ -2038,6 +2039,7 @@ impl ParsedQuantifiedSubqueryQuantifier {
 struct ParsedRowValueInSubquery {
     source_columns: Vec<String>,
     source_path: PathBuf,
+    source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
@@ -2071,6 +2073,7 @@ struct ParsedExistsSubquery {
     projection_kind: ParsedExistsSubqueryProjectionKind,
     selected_columns: Vec<String>,
     source_path: PathBuf,
+    source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
     limit: Option<usize>,
@@ -15570,6 +15573,28 @@ impl ParsedSqlLocalSource {
         self.having.uses_in_subquery()
     }
 
+    fn source_qualified_subquery_runtime_execution(&self) -> bool {
+        self.any_predicate_surface(ParsedPredicate::source_qualified_subquery_runtime_execution)
+    }
+
+    fn source_qualified_subquery_source_qualifiers(&self) -> String {
+        self.joined_predicate_surface_values(
+            ParsedPredicate::source_qualified_subquery_source_qualifiers,
+        )
+    }
+
+    fn source_qualified_subquery_operator_families(&self) -> String {
+        self.joined_predicate_surface_values(
+            ParsedPredicate::source_qualified_subquery_operator_families,
+        )
+    }
+
+    fn source_qualified_subquery_source_columns(&self) -> String {
+        self.joined_predicate_surface_values(
+            ParsedPredicate::source_qualified_subquery_source_columns,
+        )
+    }
+
     fn uses_projected_subquery(&self) -> bool {
         self.any_predicate_surface(ParsedPredicate::uses_projected_subquery)
     }
@@ -17982,8 +18007,12 @@ fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> Strin
         |plan| format!("projected:{}", plan.statement_kind()),
     );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
+        subquery
+            .source_qualifier
+            .as_deref()
+            .unwrap_or("not_qualified"),
         subquery.source_column,
         subquery
             .source_digest
@@ -18008,8 +18037,12 @@ fn row_value_in_subquery_plan_digest_fragment(subquery: &ParsedRowValueInSubquer
         |plan| format!("projected:{}", plan.statement_kind()),
     );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
+        subquery
+            .source_qualifier
+            .as_deref()
+            .unwrap_or("not_qualified"),
         subquery.source_columns.join("+"),
         subquery
             .source_digest
@@ -18038,8 +18071,12 @@ fn quantified_subquery_plan_digest_fragment(
         |plan| format!("projected:{}", plan.statement_kind()),
     );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
+        subquery
+            .source_qualifier
+            .as_deref()
+            .unwrap_or("not_qualified"),
         subquery.source_column,
         comparison_op_label(comparison),
         quantifier.as_str(),
@@ -18066,8 +18103,12 @@ fn exists_subquery_plan_digest_fragment(subquery: &ParsedExistsSubquery) -> Stri
         |plan| format!("projected:{}", plan.statement_kind()),
     );
     format!(
-        "{}:{}:{}:{}:{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         subquery.source_path.display(),
+        subquery
+            .source_qualifier
+            .as_deref()
+            .unwrap_or("not_qualified"),
         subquery.projection_kind.as_str(),
         subquery
             .source_digest
@@ -21217,6 +21258,203 @@ impl ParsedPredicate {
 
     fn uses_subquery_predicate(&self) -> bool {
         self.uses_in_subquery() || self.uses_exists_subquery() || self.uses_quantified_subquery()
+    }
+
+    fn source_qualified_subquery_runtime_execution(&self) -> bool {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                subquery.source_qualifier.is_some()
+                    || subquery
+                        .predicate
+                        .source_qualified_subquery_runtime_execution()
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                subquery.source_qualifier.is_some()
+                    || subquery
+                        .predicate
+                        .source_qualified_subquery_runtime_execution()
+            }
+            Self::ExistsSubquery { subquery } => {
+                subquery.source_qualifier.is_some()
+                    || subquery
+                        .predicate
+                        .source_qualified_subquery_runtime_execution()
+            }
+            Self::Logical { left, right, .. } => {
+                left.source_qualified_subquery_runtime_execution()
+                    || right.source_qualified_subquery_runtime_execution()
+            }
+            Self::Not { inner } => inner.source_qualified_subquery_runtime_execution(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn source_qualified_subquery_source_qualifiers(&self) -> String {
+        let mut qualifiers = Vec::new();
+        self.push_source_qualified_subquery_source_qualifiers(&mut qualifiers);
+        not_applicable_or_join(&qualifiers)
+    }
+
+    fn push_source_qualified_subquery_source_qualifiers<'a>(
+        &'a self,
+        qualifiers: &mut Vec<&'a str>,
+    ) {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                if let Some(qualifier) = subquery.source_qualifier.as_deref() {
+                    qualifiers.push(qualifier);
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_qualifiers(qualifiers);
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                if let Some(qualifier) = subquery.source_qualifier.as_deref() {
+                    qualifiers.push(qualifier);
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_qualifiers(qualifiers);
+            }
+            Self::ExistsSubquery { subquery } => {
+                if let Some(qualifier) = subquery.source_qualifier.as_deref() {
+                    qualifiers.push(qualifier);
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_qualifiers(qualifiers);
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_source_qualified_subquery_source_qualifiers(qualifiers);
+                right.push_source_qualified_subquery_source_qualifiers(qualifiers);
+            }
+            Self::Not { inner } => {
+                inner.push_source_qualified_subquery_source_qualifiers(qualifiers);
+            }
+            _ => {}
+        }
+    }
+
+    fn source_qualified_subquery_operator_families(&self) -> String {
+        let mut families = Vec::new();
+        self.push_source_qualified_subquery_operator_families(&mut families);
+        not_applicable_or_join(&families)
+    }
+
+    fn push_source_qualified_subquery_operator_families(&self, families: &mut Vec<&'static str>) {
+        match self {
+            Self::InSubquery { subquery, .. } => {
+                if subquery.source_qualifier.is_some() {
+                    families.push("in_subquery");
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_operator_families(families);
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                if subquery.source_qualifier.is_some() {
+                    families.push("row_value_in_subquery");
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_operator_families(families);
+            }
+            Self::QuantifiedSubquery { subquery, .. } => {
+                if subquery.source_qualifier.is_some() {
+                    families.push("quantified_subquery");
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_operator_families(families);
+            }
+            Self::ExistsSubquery { subquery } => {
+                if subquery.source_qualifier.is_some() {
+                    families.push("exists_subquery");
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_operator_families(families);
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_source_qualified_subquery_operator_families(families);
+                right.push_source_qualified_subquery_operator_families(families);
+            }
+            Self::Not { inner } => {
+                inner.push_source_qualified_subquery_operator_families(families);
+            }
+            _ => {}
+        }
+    }
+
+    fn source_qualified_subquery_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_source_qualified_subquery_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_source_qualified_subquery_source_columns(&self, columns: &mut Vec<String>) {
+        match self {
+            Self::InSubquery { subquery, .. } | Self::QuantifiedSubquery { subquery, .. } => {
+                if subquery.source_qualifier.is_some() {
+                    columns.push(subquery.source_column.clone());
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_columns(columns);
+            }
+            Self::RowValueInSubquery { subquery, .. } => {
+                if subquery.source_qualifier.is_some() {
+                    columns.push(subquery.source_columns.join("+"));
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_columns(columns);
+            }
+            Self::ExistsSubquery { subquery } => {
+                if subquery.source_qualifier.is_some() {
+                    if subquery.selected_columns.is_empty() {
+                        columns.push(subquery.projection_kind.as_str().to_string());
+                    } else {
+                        columns.push(subquery.selected_columns.join("+"));
+                    }
+                }
+                subquery
+                    .predicate
+                    .push_source_qualified_subquery_source_columns(columns);
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_source_qualified_subquery_source_columns(columns);
+                right.push_source_qualified_subquery_source_columns(columns);
+            }
+            Self::Not { inner } => {
+                inner.push_source_qualified_subquery_source_columns(columns);
+            }
+            _ => {}
+        }
     }
 
     fn nested_subquery_runtime_count(&self) -> usize {
@@ -25580,6 +25818,24 @@ impl SqlLocalSourceReport {
                 } else {
                     "0".to_string()
                 },
+            ),
+            (
+                "source_qualified_subquery_runtime_execution".to_string(),
+                self.parsed
+                    .source_qualified_subquery_runtime_execution()
+                    .to_string(),
+            ),
+            (
+                "source_qualified_subquery_source_qualifier".to_string(),
+                self.parsed.source_qualified_subquery_source_qualifiers(),
+            ),
+            (
+                "source_qualified_subquery_operator_family".to_string(),
+                self.parsed.source_qualified_subquery_operator_families(),
+            ),
+            (
+                "source_qualified_subquery_source_column".to_string(),
+                self.parsed.source_qualified_subquery_source_columns(),
             ),
             (
                 "projected_subquery_runtime_execution".to_string(),
@@ -34076,6 +34332,7 @@ fn parse_row_value_in_subquery_predicate(
         subquery: Box::new(ParsedRowValueInSubquery {
             source_columns,
             source_path: source_ref.path,
+            source_qualifier: source_ref.qualifier,
             predicate: Box::new(predicate),
             order_by,
             limit,
@@ -34113,6 +34370,7 @@ fn parse_projected_row_value_in_subquery_predicate(
         subquery: Box::new(ParsedRowValueInSubquery {
             source_columns,
             source_path: projected_plan.source_path.clone(),
+            source_qualifier: None,
             predicate: Box::new(ParsedPredicate::All),
             order_by: projected_plan.order_by.clone(),
             limit: Some(projected_plan.limit),
@@ -34298,6 +34556,7 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
         subquery: Box::new(ParsedInSubquery {
             source_column: select_column.clone(),
             source_path: source_ref.path,
+            source_qualifier: source_ref.qualifier,
             predicate: Box::new(predicate),
             order_by,
             limit,
@@ -34327,6 +34586,7 @@ fn parse_projected_in_subquery_predicate(
         subquery: Box::new(ParsedInSubquery {
             source_column: source_column.clone(),
             source_path: projected_plan.source_path.clone(),
+            source_qualifier: None,
             predicate: Box::new(ParsedPredicate::All),
             order_by: projected_plan.order_by.clone(),
             limit: Some(projected_plan.limit),
@@ -34611,6 +34871,7 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
         projection_kind,
         selected_columns,
         source_path: source_ref.path,
+        source_qualifier: source_ref.qualifier,
         predicate: Box::new(predicate),
         order_by,
         limit,
@@ -34639,6 +34900,7 @@ fn parse_projected_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, Sh
         projection_kind,
         selected_columns,
         source_path: projected_plan.source_path.clone(),
+        source_qualifier: None,
         predicate: Box::new(ParsedPredicate::All),
         order_by: projected_plan.order_by.clone(),
         limit: Some(projected_plan.limit),
@@ -42073,6 +42335,7 @@ mod tests {
                 subquery: Box::new(ParsedInSubquery {
                     source_column: "id".to_string(),
                     source_path: PathBuf::from("target/allowed.csv"),
+                    source_qualifier: None,
                     predicate: Box::new(ParsedPredicate::All),
                     order_by: None,
                     limit: None,
@@ -44138,6 +44401,272 @@ mod tests {
 
         fs::remove_file(&source_path).expect("remove source csv");
         fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_source_qualified_row_value_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-row-value-source.csv");
+        let allowed_path = sql_local_source_test_path("source-qualified-row-value-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,label,min_amount,active\n1,alpha,5,true\n1,alpha,99,true\n2,beta,25,true\n3,gamma,25,false\n3,gamma,20,true\n5,epsilon,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT allowed.id,allowed.label FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified row-value IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "predicate_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_column",
+            "id+label",
+        );
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_source_qualified_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-exists-source.csv");
+        let allowed_path = sql_local_source_test_path("source-qualified-exists-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE EXISTS (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND allowed.min_amount <= outer.amount ORDER BY allowed.min_amount ASC LIMIT 1) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "id");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "exists_subquery",
+        );
+        assert_field_eq(&fields, "source_qualified_subquery_source_column", "id");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_source_qualified_not_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-not-exists-source.csv");
+        let allowed_path = sql_local_source_test_path("source-qualified-not-exists-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND allowed.min_amount <= outer.amount LIMIT 1) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "exists_subquery",
+        );
+        assert_field_eq(&fields, "source_qualified_subquery_source_column", "id");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_source_qualified_quantified_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-quantified-source.csv");
+        let thresholds_path =
+            sql_local_source_test_path("source-qualified-quantified-thresholds.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &thresholds_path,
+            "id,min_amount\n1,5\n1,9\n2,25\n3,20\n3,29\n5,1\n",
+        )
+        .expect("write thresholds csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT thresholds.min_amount FROM '{}' AS thresholds WHERE thresholds.id = outer.id ORDER BY thresholds.min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                thresholds_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified quantified subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "quantified_subquery");
+        assert_field_eq(&fields, "quantified_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "quantified_subquery_quantifier", "all");
+        assert_field_eq(&fields, "quantified_subquery_source_column", "min_amount");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "thresholds",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "quantified_subquery",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_column",
+            "min_amount",
+        );
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "id");
+        assert_field_eq(&fields, "selected_row_count", "3");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&thresholds_path).expect("remove thresholds csv");
     }
 
     #[test]

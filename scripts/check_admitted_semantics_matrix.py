@@ -1475,6 +1475,195 @@ def source_qualified_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def source_qualified_row_value_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="source_qualified_row_value_in_subquery_semantics",
+        source_name="source-qualified-row-value-in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) IN ("
+            "SELECT allowed.id,allowed.label FROM '{allowed}' AS allowed "
+            "WHERE allowed.id = outer.id AND allowed.active IS TRUE "
+            "AND outer.amount >= allowed.min_amount "
+            "ORDER BY allowed.min_amount ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "row_value_in_subquery",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "allowed",
+            "source_qualified_subquery_operator_family": "row_value_in_subquery",
+            "source_qualified_subquery_source_column": "id+label",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "source-qualified-row-value-in-subquery-allowed.csv",
+                (
+                    "id,label,min_amount,active\n"
+                    "1,alpha,5,true\n"
+                    "1,alpha,99,true\n"
+                    "2,beta,25,true\n"
+                    "3,gamma,25,false\n"
+                    "3,gamma,20,true\n"
+                    "5,epsilon,1,true\n"
+                ),
+            ),
+        ),
+    )
+
+
+def source_qualified_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="source_qualified_exists_subquery_semantics",
+        source_name="source-qualified-exists-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE EXISTS ("
+            "SELECT allowed.id FROM '{allowed}' AS allowed "
+            "WHERE allowed.id = outer.id AND allowed.active IS TRUE "
+            "AND allowed.min_amount <= outer.amount "
+            "ORDER BY allowed.min_amount ASC LIMIT 1"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "exists_subquery",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "id",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "allowed",
+            "source_qualified_subquery_operator_family": "exists_subquery",
+            "source_qualified_subquery_source_column": "id",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "source-qualified-exists-subquery-allowed.csv",
+                (
+                    "id,min_amount,active\n"
+                    "1,5,true\n"
+                    "1,99,true\n"
+                    "2,25,true\n"
+                    "3,25,false\n"
+                    "3,20,true\n"
+                    "5,1,true\n"
+                ),
+            ),
+        ),
+    )
+
+
+def source_qualified_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="source_qualified_not_exists_subquery_semantics",
+        source_name="source-qualified-not-exists-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT allowed.id FROM '{allowed}' AS allowed "
+            "WHERE allowed.id = outer.id AND allowed.active IS TRUE "
+            "AND allowed.min_amount <= outer.amount LIMIT 1"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_operator": "not",
+            "exists_subquery_runtime_execution": "true",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "allowed",
+            "source_qualified_subquery_operator_family": "exists_subquery",
+            "source_qualified_subquery_source_column": "id",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "source-qualified-not-exists-subquery-allowed.csv",
+                (
+                    "id,min_amount,active\n"
+                    "1,5,true\n"
+                    "1,99,true\n"
+                    "2,25,true\n"
+                    "3,25,false\n"
+                    "3,20,true\n"
+                    "5,1,true\n"
+                ),
+            ),
+        ),
+    )
+
+
+def source_qualified_quantified_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="source_qualified_quantified_subquery_semantics",
+        source_name="source-qualified-quantified-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE amount > ALL ("
+            "SELECT thresholds.min_amount FROM '{thresholds}' AS thresholds "
+            "WHERE thresholds.id = outer.id "
+            "ORDER BY thresholds.min_amount ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "quantified_subquery",
+            "quantified_subquery_runtime_execution": "true",
+            "quantified_subquery_quantifier": "all",
+            "quantified_subquery_comparison_operator": "gt",
+            "quantified_subquery_source_column": "min_amount",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "thresholds",
+            "source_qualified_subquery_operator_family": "quantified_subquery",
+            "source_qualified_subquery_source_column": "min_amount",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "3",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "thresholds",
+                "source-qualified-quantified-subquery-thresholds.csv",
+                "id,min_amount\n1,5\n1,9\n2,25\n3,20\n3,29\n5,1\n",
+            ),
+        ),
+    )
+
+
 def correlated_row_value_in_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="correlated_row_value_in_subquery_semantics",
@@ -3817,6 +4006,10 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_subquery_filtered_ordered_limited_case(),
         correlated_in_subquery_case(),
         source_qualified_in_subquery_case(),
+        source_qualified_row_value_in_subquery_case(),
+        source_qualified_exists_subquery_case(),
+        source_qualified_not_exists_subquery_case(),
+        source_qualified_quantified_subquery_case(),
         correlated_row_value_in_subquery_case(),
         correlated_exists_subquery_case(),
         correlated_not_exists_subquery_case(),

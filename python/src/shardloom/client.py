@@ -2993,6 +2993,44 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def source_qualified_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed a source-qualified local subquery path."""
+
+        return (
+            self.envelope.field_bool(
+                "source_qualified_subquery_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def source_qualified_subquery_source_qualifiers(self) -> tuple[str, ...]:
+        """Return source qualifiers used by admitted local subqueries."""
+
+        value = self.envelope.field("source_qualified_subquery_source_qualifier", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def source_qualified_subquery_operator_families(self) -> tuple[str, ...]:
+        """Return operator families for source-qualified local subqueries."""
+
+        value = self.envelope.field("source_qualified_subquery_operator_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def source_qualified_subquery_source_columns(self) -> tuple[str, ...]:
+        """Return normalized source columns for source-qualified local subqueries."""
+
+        value = self.envelope.field("source_qualified_subquery_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def quantified_subquery_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted ANY/ALL-subquery predicate path."""
 

@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=105
-executable_fixture_count=87
+matrix_row_count=109
+executable_fixture_count=91
 diagnostic_case_count=18
 unsupported_diagnostic_count=16
 runtime_error_diagnostic_count=1
@@ -157,10 +157,15 @@ Covered fixture rows:
 - `unsupported_outer_reference_non_column_comparison`
 - `unsupported_outer_to_outer_subquery_comparison`
 - `source_qualified_in_subquery_semantics`
+- `source_qualified_row_value_in_subquery_semantics`
+- `source_qualified_exists_subquery_semantics`
+- `source_qualified_not_exists_subquery_semantics`
+- `source_qualified_quantified_subquery_semantics`
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local
 scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
 projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
+source-qualified scalar/row-value IN/EXISTS/NOT EXISTS/quantified local subquery references,
 correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection,
 HAVING-level scoped variants, and deterministic outer-reference diagnostics; external-oracle
 result artifact population; and fuzz execution beyond the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather

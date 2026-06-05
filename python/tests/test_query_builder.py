@@ -3664,6 +3664,83 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_context_sql_source_qualified_exists_subquery_exposes_report_fields(
+        self,
+    ) -> None:
+        statement = (
+            "SELECT id,label FROM 'target/input.csv' WHERE EXISTS "
+            "(SELECT allowed.id FROM 'target/allowed.csv' AS allowed "
+            "WHERE allowed.id = outer.id AND allowed.active IS TRUE LIMIT 1) LIMIT 10"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source source-qualified exists",
+                    "human_text": "sql local source source-qualified exists",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1,\\"label\\":\\"alpha\\"}}\\n{{\\"id\\":3,\\"label\\":\\"gamma\\"}}\\n"}},
+                        {{"key": "predicate_operator_family", "value": "exists_subquery"}},
+                        {{"key": "exists_subquery_runtime_execution", "value": "true"}},
+                        {{"key": "exists_subquery_projection_kind", "value": "column_list"}},
+                        {{"key": "exists_subquery_source_column", "value": "id"}},
+                        {{"key": "source_qualified_subquery_runtime_execution", "value": "true"}},
+                        {{"key": "source_qualified_subquery_source_qualifier", "value": "allowed"}},
+                        {{"key": "source_qualified_subquery_operator_family", "value": "exists_subquery"}},
+                        {{"key": "source_qualified_subquery_source_column", "value": "id"}},
+                        {{"key": "correlated_subquery_runtime_execution", "value": "true"}},
+                        {{"key": "correlated_subquery_outer_alias", "value": "outer"}},
+                        {{"key": "correlated_subquery_outer_column", "value": "id"}},
+                        {{"key": "output_row_count", "value": "2"}},
+                        {{"key": "selected_row_count", "value": "2"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect()
+
+        self.assertEqual(report.predicate_operator_family, "exists_subquery")
+        self.assertTrue(report.exists_subquery_runtime_execution)
+        self.assertEqual(report.exists_subquery_projection_kind, ("column_list",))
+        self.assertEqual(report.exists_subquery_source_columns, ("id",))
+        self.assertTrue(report.source_qualified_subquery_runtime_execution)
+        self.assertEqual(
+            report.source_qualified_subquery_source_qualifiers,
+            ("allowed",),
+        )
+        self.assertEqual(
+            report.source_qualified_subquery_operator_families,
+            ("exists_subquery",),
+        )
+        self.assertEqual(report.source_qualified_subquery_source_columns, ("id",))
+        self.assertTrue(report.correlated_subquery_runtime_execution)
+        self.assertEqual(report.correlated_subquery_outer_aliases, ("outer",))
+        self.assertEqual(report.correlated_subquery_outer_columns, ("id",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_outer_correlation_unsupported_diagnostics_passthrough(
         self,
     ) -> None:

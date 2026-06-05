@@ -64,15 +64,18 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   correlated `outer.<column>` source-subquery filters now share the same ShardLoom SQL runtime
   evidence boundary. Scoped subquery-backed predicate projections and CASE predicates use that same
   local-source runtime boundary when every source and outer reference is admitted.
-  Source-qualified local subquery references bind to an explicit source
-  `AS <alias>` or SQL-identifier file stem; Python helpers expose the alias with `source_alias=`
-  and render qualified refs with `sl.col("alias.column")`. Python/DataFrame users can express
+  Source-qualified local subquery references for scalar IN, row-value IN, EXISTS, NOT EXISTS, and
+  quantified predicates bind to an explicit source `AS <alias>` or SQL-identifier file stem; Python
+  helpers expose the alias with `source_alias=` and render qualified refs with
+  `sl.col("alias.column")`. Python/DataFrame users can express
   those routes with
   `isin_source(...)`, `not_in_source(...)`, `sl.row_in(...)`, `sl.row_not_in(...)`,
   `sl.row_in_source(...)`, `sl.row_not_in_source(...)`, `sl.exists_source(...)`,
   `sl.not_exists_source(...)`, `any_source(...)`, `all_source(...)`, and `sl.outer(...)` for the
-  reserved correlated outer-row alias. When those helpers render a non-admitted runtime shape, such
-  as `outer.<column>` outside column-to-column subquery comparisons, Python exposes the CLI status,
+  reserved correlated outer-row alias. `SqlLocalSourceSmokeReport` exposes
+  `source_qualified_subquery_*` fields for the runtime-execution flag, bound qualifiers, operator
+  families, and source columns. When those helpers render a non-admitted runtime shape, such as
+  `outer.<column>` outside column-to-column subquery comparisons, Python exposes the CLI status,
   diagnostics, and deduplicated `unsupported_reasons` on `SqlLocalSourceSmokeReport` while keeping
   `fallback_attempted=false` and `external_engine_invoked=false`.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
@@ -204,13 +207,19 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   bounded local-source projection, aggregate/HAVING, join, and window output rows is now admitted,
   scoped row-value literal `IN`/`NOT IN` predicates are admitted through SQL and Python helpers,
   scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
-  materialization evidence, source-qualified selected/filter/order refs are reachable through
-  `source_alias=` plus `sl.col("alias.column")`, and scoped correlated source-subquery filters are
+  materialization evidence, source-qualified scalar/row-value IN, EXISTS/NOT EXISTS, and quantified
+  subquery refs are reachable through `source_alias=` plus `sl.col("alias.column")`, and scoped
+  correlated source-subquery filters are
   reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;
   direct SQL predicate and CASE projections can now reuse those admitted subquery predicates.
   Python `SqlLocalSourceSmokeReport` now exposes runtime unsupported diagnostics for non-admitted
   correlated subquery shapes directly as `status`, `diagnostics`, and `unsupported_reasons`, so
   Python users can inspect the same deterministic no-fallback blocker emitted by the CLI.
+  It also exposes source-qualified subquery evidence directly as
+  `source_qualified_subquery_runtime_execution`,
+  `source_qualified_subquery_source_qualifiers`,
+  `source_qualified_subquery_operator_families`, and
+  `source_qualified_subquery_source_columns`.
   Scoped local-source `INTERSECT` and `EXCEPT` now reuse the same branch-bound set-operation
   runtime and Python/DataFrame aliases as scoped `UNION`, with `sql_set_operation_*` evidence over
   already-admitted branch `SELECT` plans. Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
