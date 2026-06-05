@@ -25,8 +25,10 @@ Scoped public helper coverage: Python lazy DataFrame bounded `collect()`, genera
 `write_jsonl(...)`, `write_csv(...)`, structured write aliases, generated-source direct writes,
 source-free SQL writes, admitted local/generated fanout helpers, and explicit native Vortex
 primitive collect/local-execution helpers route through `shardloom run` and preserve typed report
-views. Future helper families, any future native Vortex write-helper payloads, and smoke-command
-reclassification remain planned residuals.
+views. Lower smoke/runtime/primitive commands remain executable `client_only` diagnostics and
+benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the high-level CLI context
+commands. Future helper families and any future native Vortex write-helper payloads are deferred
+until their owning runtime items define explicit facade payload contracts.
 
 Help aliases: shardloom --help; shardloom -h; shardloom <command> --help
 

@@ -3816,7 +3816,7 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_ingest_smoke_user_surface_graduation_posture",
-        "high_level_context"
+        "client_only"
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_ingest_smoke_output_contract",

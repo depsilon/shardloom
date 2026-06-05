@@ -1063,39 +1063,7 @@ fn command_user_surface_graduation_posture(command: &str) -> &'static str {
 }
 
 fn is_high_level_context_command(command: &str) -> bool {
-    matches!(
-        command,
-        "route"
-            | "run"
-            | "prepare"
-            | "generated-source-user-rows-smoke"
-            | "generated-source-range-smoke"
-            | "generated-source-sequence-smoke"
-            | "generated-source-sql-smoke"
-            | "sql-local-source-smoke"
-            | "vortex-ingest-smoke"
-            | "sqlite-local-import-export-smoke"
-            | "udf-local-scalar-fixture-smoke"
-            | "object-store-read-smoke"
-            | "object-store-write-smoke"
-            | "local-table-metadata-read-smoke"
-            | "local-table-append-commit-rehearsal-smoke"
-            | "live-fixture-run"
-            | "hybrid-overlay-run"
-            | "session-cache-smoke"
-            | "traditional-analytics-vortex-run"
-            | "traditional-analytics-vortex-batch-run"
-            | "traditional-analytics-prepare-batch-run"
-            | "vortex-count"
-            | "vortex-count-where"
-            | "vortex-project"
-            | "vortex-filter"
-            | "vortex-filter-project"
-            | "vortex-local-exec"
-            | "vortex-bounded-local-exec"
-            | "vortex-run"
-            | "vortex-query-trace"
-    )
+    matches!(command, "route" | "run" | "prepare")
 }
 
 fn command_side_effect_level(command: &str) -> &'static str {
