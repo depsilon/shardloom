@@ -4232,6 +4232,60 @@ def unsupported_cases() -> list[UnsupportedCase]:
             stage_kind="invalid_shape_diagnostic",
         ),
         UnsupportedCase(
+            case_id="unsupported_unbound_source_qualified_in_subquery_select",
+            source_name="unbound-source-qualified-in-subquery-select.csv",
+            source_text="id,label,amount,active\n1,alpha,10,true\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT missing.id FROM '{source}' AS allowed) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "qualified IN subquery selected columns references admit only the subquery source qualifier"
+            ),
+        ),
+        UnsupportedCase(
+            case_id="unsupported_unbound_source_qualified_row_value_subquery_filter",
+            source_name="unbound-source-qualified-row-value-filter.csv",
+            source_text="id,label,amount,active\n1,alpha,10,true\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE (id,label) IN "
+                "(SELECT allowed.id,allowed.label FROM '{source}' AS allowed "
+                "WHERE missing.id = outer.id) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "qualified IN subquery predicates admit only outer.<column> references or the subquery source qualifier"
+            ),
+        ),
+        UnsupportedCase(
+            case_id="unsupported_unbound_source_qualified_exists_projection",
+            source_name="unbound-source-qualified-exists-projection.csv",
+            source_text="id,label,amount,active\n1,alpha,10,true\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE EXISTS "
+                "(SELECT missing.id FROM '{source}' AS allowed LIMIT 1) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "qualified EXISTS subquery projection references admit only the subquery source qualifier"
+            ),
+        ),
+        UnsupportedCase(
+            case_id="unsupported_unbound_source_qualified_quantified_order_by",
+            source_name="unbound-source-qualified-quantified-order-by.csv",
+            source_text="id,label,amount,active\n1,alpha,10,true\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE amount > ALL "
+                "(SELECT allowed.amount FROM '{source}' AS allowed "
+                "ORDER BY missing.amount LIMIT 10) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment=(
+                "qualified local subquery ORDER BY references admit only the subquery source qualifier"
+            ),
+        ),
+        UnsupportedCase(
             case_id="unsupported_outer_reference_non_column_comparison",
             source_name="outer-reference-noncomparison-unsupported.csv",
             source_text="id,label,amount\n1,alpha,10\n",
