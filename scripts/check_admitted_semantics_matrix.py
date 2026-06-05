@@ -3144,6 +3144,20 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="union dtype casts are not admitted",
         ),
         UnsupportedCase(
+            case_id="unsupported_arbitrary_interval_arithmetic",
+            source_name="arbitrary-interval-arithmetic-unsupported.csv",
+            source_text=(
+                "id,event_date,event_ts,interval\n"
+                "1,2026-05-19,2026-05-19T12:34:45Z,1\n"
+            ),
+            statement_template=(
+                "SELECT id,event_date + INTERVAL '1' DAY AS next_day "
+                "FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="arbitrary ANSI INTERVAL arithmetic is not admitted",
+        ),
+        UnsupportedCase(
             case_id="unsupported_complex_join_key",
             source_name="complex-join-key-fact.csv",
             source_text="id,customer_id\n1,10\n",

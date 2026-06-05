@@ -356,7 +356,7 @@ sinks and emit per-output bytes, digests, certificate refs/statuses, replay/fide
 result replay/fidelity proof, persistent OutputPlan cache support, or object-store/table output
 support.
 
-4D/5G/F1 closeout note: current release-gated admitted semantics now include `matrix_row_count=85`
+4D/5G/F1 closeout note: current release-gated admitted semantics now include `matrix_row_count=86`
 and `executable_fixture_count=69`, including scoped UTF-8 regex predicates, composed string functions, temporal arithmetic/
 difference, CASE, IN-list NULL semantics, row-value literal IN predicates, row-value IN-subquery predicates, projected row-value/EXISTS/quantified subqueries, correlated joined and grouped/HAVING projected scalar/row-value/EXISTS/quantified subqueries, scoped quantified ANY/ALL subqueries, scoped SQL UNION
 composition, bounded scalar IN subqueries with admitted WHERE/ORDER BY/LIMIT clauses, nested scalar

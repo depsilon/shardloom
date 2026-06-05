@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D arbitrary interval arithmetic diagnostic follow-through
+  - Date: 2026-06-05
+  - Branch/PR: `codex/6d-interval-arithmetic-boundary` / PR #1095.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/diagnostics-capabilities.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/benchmarking.md`.
+  - Scope:
+    - Added a deterministic unsupported diagnostic for arbitrary ANSI `INTERVAL` literals outside
+      scoped temporal helper argument lists.
+    - Preserved admitted scoped interval literals inside `DATE_ADD_DAYS`, `DATE_SUB_DAYS`,
+      `TIMESTAMP_ADD_SECONDS`, and `TIMESTAMP_SUB_SECONDS`.
+    - Added a parser control case so ordinary `interval` source columns remain admitted and are not
+      misclassified as interval literals.
+    - Added the admitted-semantics unsupported row
+      `unsupported_arbitrary_interval_arithmetic`, updated latest counts to
+      `matrix_row_count=86`, `executable_fixture_count=69`, `diagnostic_case_count=17`, and
+      `unsupported_diagnostic_count=15`, and locked those values through release metadata checks.
+    - Updated active phase docs, status docs, release readiness docs, compute-flow references, and
+      generated website pages while preserving the latest published benchmark assets for the
+      benchmark page.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `git diff --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli parser_blocks_unscoped_interval_literal_shapes_without_fallback -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-interval-boundary.json` passed with `matrix_row_count=86`, `executable_fixture_count=69`, `diagnostic_case_count=17`, `unsupported_diagnostic_count=15`, `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no external engine invocation, and no production/ANSI/performance claim allowance.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-interval-boundary.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-interval-boundary.json` passed.
+    - `python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-interval-boundary.json --output target/hard-release-readiness-interval-boundary.json` exited with the expected blocked release status and no admitted-semantics count blockers.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change adds a deterministic SQL
+      grammar diagnostic boundary and status/site freshness only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice blocks arbitrary ANSI interval arithmetic outside the scoped temporal helpers. It
+      does not admit broad ANSI interval arithmetic, production SQL parity, release readiness,
+      benchmark speedup, or public performance superiority.
+  - Fallback boundary:
+    - Unsupported interval shapes fail inside ShardLoom SQL policy validation with deterministic
+      diagnostics. No Spark, DataFusion, DuckDB, Polars, Velox, or Vortex query-engine integration
+      is used or reported as ShardLoom execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped scalar-expression join boundary follow-through
   - Date: 2026-06-05
   - Branch/PR: `codex/6d-join-boundary-diagnostics` / PR #1094.

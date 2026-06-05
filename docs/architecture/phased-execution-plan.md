@@ -310,8 +310,8 @@ completed details to the ledger.
   result-boundary ordering, first-class list/array plus struct access/cast unsupported
   diagnostics, complex subquery membership materialization unsupported diagnostics, scoped
   scalar-expression `JOIN ON` predicate evidence, complex-key `JOIN ON` blockers, and disjunctive
-  `JOIN ON OR` blockers: arbitrary interval arithmetic
-  outside scoped temporal helpers,
+  `JOIN ON OR` blockers, and arbitrary interval arithmetic blockers outside scoped temporal
+  helpers:
   nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
   DISTINCT/UNION DISTINCT result-row equality, and scoped result-boundary ORDER BY,
   variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
@@ -331,10 +331,10 @@ completed details to the ledger.
   exponent notation, and scoped local Vortex known flat scalar output for boolean, int64, uint64,
   float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/all-null rows
   when dtype/family evidence is present, plus scoped scalar-expression `JOIN ON` predicate evidence
-  and deterministic blockers for complex-key/disjunctive join predicates; likely candidates are
-  arbitrary interval arithmetic diagnostics/promotion, ORC typed decimal sink preservation once ORC
-  writer evidence exists, or another front-door parity gap only after the runtime route is already
-  admitted.
+  and deterministic blockers for complex-key/disjunctive join predicates plus arbitrary interval
+  arithmetic outside scoped temporal helpers; likely candidates are ORC typed decimal sink
+  preservation once ORC writer evidence exists, or another front-door parity gap only after the
+  runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
