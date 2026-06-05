@@ -310,7 +310,8 @@ completed details to the ledger.
   result-boundary ordering, first-class list/array plus struct access/cast unsupported
   diagnostics, complex subquery membership materialization unsupported diagnostics, scoped
   scalar and row-value `NOT IN (SELECT ...)` subquery evidence, correlated `NOT EXISTS`
-  evidence, scoped
+  evidence, projected scalar/row-value `NOT IN` and projected `NOT EXISTS` evidence across joined,
+  grouped/HAVING, and correlated projected local-source plans, scoped
   scalar-expression `JOIN ON` predicate evidence including scoped logical `OR` over admitted
   qualified scalar leaves, complex-key `JOIN ON` blockers, and arbitrary interval arithmetic
   blockers outside scoped temporal helpers:
@@ -336,7 +337,8 @@ completed details to the ledger.
   when dtype/family evidence is present, plus scoped scalar-expression `JOIN ON` predicate evidence
   including logical `OR` over admitted qualified scalar leaves and deterministic blockers for
   complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers,
-  plus scoped scalar and row-value `NOT IN (SELECT ...)` and correlated `NOT EXISTS` evidence;
+  plus scoped scalar and row-value `NOT IN (SELECT ...)`, correlated `NOT EXISTS`, and projected
+  negative-subquery evidence;
   likely candidates are ORC typed decimal sink
   preservation once ORC writer evidence exists, or another front-door parity gap only after the
   runtime route is already admitted.

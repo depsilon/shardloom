@@ -581,9 +581,9 @@ plan before coding.
   IN-subqueries with admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` clauses, executes HAVING
   IN-subquery predicates over aggregate output rows, exposes subquery filter/order/limit and
   input/filtered/materialization-bound evidence through SQL/Python reports. Later 6D slices promote
-  row-value, nested scalar, joined/grouped projected scalar/row-value/quantified, `EXISTS`,
-  `ANY` / `ALL`, source-qualified local subquery references, and scoped correlated
-  `outer.<column>` scalar/row-value/EXISTS/quantified subquery families; scalar-left multi-column,
+  row-value, nested scalar, joined/grouped projected scalar/row-value IN/NOT IN,
+  `EXISTS`/`NOT EXISTS`, quantified, source-qualified local subquery references, and scoped correlated
+  `outer.<column>` scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and quantified subquery families; scalar-left multi-column,
   unbound qualified, or broad correlated subquery shapes remain deterministic blockers with no
   fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D scoped UTF-8 string functions add native `CONCAT`, `SUBSTR` /

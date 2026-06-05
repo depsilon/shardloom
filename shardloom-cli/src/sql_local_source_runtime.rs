@@ -42542,6 +42542,394 @@ mod tests {
         fs::remove_file(&grouped_path).expect("remove grouped csv");
     }
 
+    fn write_joined_projected_negative_subquery_csv_fixtures(suffix: &str) -> (PathBuf, PathBuf) {
+        let source_path =
+            sql_local_source_test_path(&format!("joined-projected-negative-{suffix}-source.csv"));
+        let allowed_path =
+            sql_local_source_test_path(&format!("joined-projected-negative-{suffix}-allowed.csv"));
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,label,active,score\n1,alpha,true,30\n2,beta,false,20\n3,gamma,true,40\n5,epsilon,true,50\n",
+        )
+        .expect("write allowed csv");
+        (source_path, allowed_path)
+    }
+
+    fn write_grouped_projected_negative_subquery_csv_fixtures(suffix: &str) -> (PathBuf, PathBuf) {
+        let source_path =
+            sql_local_source_test_path(&format!("grouped-projected-negative-{suffix}-source.csv"));
+        let grouped_path =
+            sql_local_source_test_path(&format!("grouped-projected-negative-{suffix}-values.csv"));
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &grouped_path,
+            "id,label,amount\n1,alpha,10\n1,alpha,20\n2,beta,5\n3,gamma,7\n3,gamma,9\n4,delta,1\n",
+        )
+        .expect("write grouped csv");
+        (source_path, grouped_path)
+    }
+
+    #[test]
+    fn runs_joined_projected_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, allowed_path) =
+            write_joined_projected_negative_subquery_csv_fixtures("not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_list_value_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "a.id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "false",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_grouped_having_projected_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, grouped_path) =
+            write_grouped_projected_negative_subquery_csv_fixtures("not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run grouped HAVING projected NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_list_value_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "6");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn runs_joined_projected_row_value_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, allowed_path) =
+            write_joined_projected_negative_subquery_csv_fixtures("row-value-not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT s.id,s.label FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "row_value_in_tuple_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "s.id,s.label");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_grouped_having_projected_row_value_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, grouped_path) =
+            write_grouped_projected_negative_subquery_csv_fixtures("row-value-not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT id,label FROM '{}' GROUP BY id,label HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run grouped HAVING projected row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id,label");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn runs_joined_projected_not_exists_subquery_csv_statement_without_fallback() {
+        let (source_path, allowed_path) =
+            write_joined_projected_negative_subquery_csv_fixtures("not-exists");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE AND a.score > 100 ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run joined projected NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "a.id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_input_row_count", "4");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_result", "false");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "selected_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_grouped_having_projected_not_exists_subquery_csv_statement_without_fallback() {
+        let (source_path, grouped_path) =
+            write_grouped_projected_negative_subquery_csv_fixtures("not-exists");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 3 ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run grouped HAVING projected NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "false");
+        assert_field_eq(&fields, "exists_subquery_input_row_count", "6");
+        assert_field_eq(&fields, "exists_subquery_filtered_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_bounded_row_count", "0");
+        assert_field_eq(&fields, "exists_subquery_result", "false");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "selected_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    fn write_correlated_joined_projected_negative_subquery_csv_fixtures(
+        suffix: &str,
+    ) -> (PathBuf, PathBuf, PathBuf) {
+        let source_path = sql_local_source_test_path(&format!(
+            "correlated-joined-projected-negative-{suffix}-source.csv"
+        ));
+        let candidates_path = sql_local_source_test_path(&format!(
+            "correlated-joined-projected-negative-{suffix}-candidates.csv"
+        ));
+        let allowed_path = sql_local_source_test_path(&format!(
+            "correlated-joined-projected-negative-{suffix}-allowed.csv"
+        ));
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &candidates_path,
+            "id,label,min_amount\n1,alpha,5\n1,alpha,99\n2,beta,25\n3,gamma,20\n5,epsilon,1\n",
+        )
+        .expect("write candidates csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n",
+        )
+        .expect("write allowed csv");
+        (source_path, candidates_path, allowed_path)
+    }
+
     #[test]
     fn runs_correlated_joined_projected_in_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("correlated-joined-projected-in-source.csv");
@@ -42842,6 +43230,183 @@ mod tests {
         fs::remove_file(&allowed_path).expect("remove allowed csv");
     }
 
+    #[test]
+    fn runs_correlated_joined_projected_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, candidates_path, allowed_path) =
+            write_correlated_joined_projected_negative_subquery_csv_fixtures("not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "c.id");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_row_value_not_in_subquery_csv_statement_without_fallback() {
+        let (source_path, candidates_path, allowed_path) =
+            write_correlated_joined_projected_negative_subquery_csv_fixtures("row-value-not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT c.id,c.label FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "c.id,c.label");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_joined_projected_not_exists_subquery_csv_statement_without_fallback() {
+        let (source_path, candidates_path, allowed_path) =
+            write_correlated_joined_projected_negative_subquery_csv_fixtures("not-exists");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                candidates_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated joined projected NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "c.id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_order_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_join_runtime_execution", "true");
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&candidates_path).expect("remove candidates csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
     fn write_correlated_grouped_projected_subquery_csv_fixtures(
         suffix: &str,
     ) -> (PathBuf, PathBuf) {
@@ -43085,6 +43650,198 @@ mod tests {
             "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
         );
         assert_field_eq(&fields, "predicate_operator_family", "exists_subquery");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
+        assert_field_eq(&fields, "exists_subquery_source_column", "id");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "false");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn correlated_grouped_having_projected_not_in_subquery_smoke() {
+        let (source_path, grouped_path) =
+            write_correlated_grouped_projected_subquery_csv_fixtures("not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated grouped HAVING projected NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "false");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "1");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn correlated_grouped_having_projected_row_value_not_in_subquery_smoke() {
+        let (source_path, grouped_path) =
+            write_correlated_grouped_projected_subquery_csv_fixtures("row-value-not-in");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT id,label FROM '{}' GROUP BY id,label HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated grouped HAVING projected row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "false");
+        assert_field_eq(&fields, "in_subquery_source_column", "id,label");
+        assert_field_eq(&fields, "projected_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "projected_subquery_group_by_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "projected_subquery_having_runtime_execution",
+            "true",
+        );
+        assert_field_eq(&fields, "projected_subquery_output_column_count", "2");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&grouped_path).expect("remove grouped csv");
+    }
+
+    #[test]
+    fn correlated_grouped_having_projected_not_exists_subquery_smoke() {
+        let (source_path, grouped_path) =
+            write_correlated_grouped_projected_subquery_csv_fixtures("not-exists");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                grouped_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated grouped HAVING projected NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
         assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
         assert_field_eq(&fields, "exists_subquery_projection_kind", "column_list");
         assert_field_eq(&fields, "exists_subquery_source_column", "id");

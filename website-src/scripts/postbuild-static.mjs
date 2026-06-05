@@ -4,6 +4,29 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(root, "..", "website");
+const publicRoot = path.resolve(root, "..", "website-public");
+
+function copyPublicPath(relativePath) {
+  const source = path.join(publicRoot, relativePath);
+  const target = path.join(out, relativePath);
+  if (!fs.existsSync(source)) {
+    throw new Error(`missing public asset path ${relativePath}: ${source}`);
+  }
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.cpSync(source, target, { recursive: true, force: true });
+}
+
+function removeDuplicateSuffixedArtifacts(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (/ \d+(?:\.html)?$/.test(entry.name)) {
+      fs.rmSync(child, { recursive: true, force: true });
+      continue;
+    }
+    if (entry.isDirectory()) removeDuplicateSuffixedArtifacts(child);
+  }
+}
 
 function copyLegacyHtml(route) {
   const legacyDirectory = path.join(out, `${route}.html`);
@@ -32,4 +55,20 @@ for (const route of [
   copyLegacyHtml(route);
 }
 
-console.log("wrote legacy .html compatibility pages");
+for (const relativePath of [
+  "_headers",
+  "_redirects",
+  "robots.txt",
+  "validate_static_assets.js",
+  "assets/site.css",
+  "assets/site.js",
+  "assets/logo",
+  "assets/data",
+  "assets/benchmarks",
+]) {
+  copyPublicPath(relativePath);
+}
+
+removeDuplicateSuffixedArtifacts(out);
+
+console.log("wrote legacy .html compatibility pages and refreshed public assets");
