@@ -123,6 +123,17 @@ reopen/verify, scan, operator compute, sink write, and evidence render explain r
 must not be rendered as competing products or as end-to-end rows unless the route timing ledger says
 they are included in `total_route_ms` / `total_runtime_millis`.
 
+Every promoted row also carries a stage inclusion contract. The fields
+`route_timing_stage_inclusion_stage_ids`, `route_timing_stage_inclusion_classes`,
+`route_timing_stage_inclusion_stage_owners`,
+`route_timing_stage_inclusion_timing_scopes`, and
+`route_timing_stage_inclusion_skip_reasons` classify each canonical stage as
+`included`, `excluded_shared_preparation`, `excluded_harness`, or
+`diagnostic_only`. Broad shared setup such as `source_state_prepare_micros`
+must not be remapped into `source_admission_ms`; it is exposed through
+normalized timing fields such as `source_state_open_micros` unless a direct
+admission/stat timer exists.
+
 HOTPATH-1 adds `route_shape_stratification_*` fields to every benchmark row so route lane, route
 family, start/end state, row-count class, source-file shape, timing-total field, and diagnostic
 stage-attribution scope are explicit. HOTPATH-5 adds `source_to_vortex_array_guard_*` fields so the

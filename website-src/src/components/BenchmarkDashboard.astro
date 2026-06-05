@@ -15,6 +15,9 @@ const preparedAmortizationHeaders = Array.isArray(preparedAmortizationTable.head
 const stageAttributionTable = dashboard.stage_attribution ?? {};
 const stageAttributionRows = Array.isArray(stageAttributionTable.rows) ? stageAttributionTable.rows : [];
 const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? stageAttributionTable.headers : [];
+const stageInclusionTable = dashboard.stage_inclusion_contract ?? {};
+const stageInclusionRows = Array.isArray(stageInclusionTable.rows) ? stageInclusionTable.rows : [];
+const stageInclusionHeaders = Array.isArray(stageInclusionTable.headers) ? stageInclusionTable.headers : [];
 const routeShareTable = dashboard.route_share_amdahl ?? {};
 const routeShareRows = Array.isArray(routeShareTable.rows) ? routeShareTable.rows : [];
 const routeShareHeaders = Array.isArray(routeShareTable.headers) ? routeShareTable.headers : [];
@@ -539,7 +542,19 @@ const routeCards = [
         </tbody>
       </table>
     </div>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{stageInclusionTable.heading ?? "Stage Inclusion Contract"}</strong></p>
+      <table>
+        <thead><tr>{(stageInclusionHeaders.length ? stageInclusionHeaders : ["Route", "Rows", "Included in route total", "Excluded shared preparation", "Excluded harness", "Diagnostic only", "Timing scope", "Status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {stageInclusionRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
     <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Inclusion schema: {stageInclusionTable.schema_version ?? "not reported"}. Boundary: {stageInclusionTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 

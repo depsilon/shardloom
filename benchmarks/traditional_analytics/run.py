@@ -279,6 +279,7 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
 )
 STAGE_TIMING_CONTRACT_FIELDS = (
     "source_stat_millis",
+    "source_stat_micros",
     "source_read_millis",
     "source_parse_millis",
     "compatibility_parse_millis",
@@ -326,6 +327,33 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "exclusive_stage_residual_millis",
     "exclusive_stage_total_delta_millis",
     "exclusive_stage_timing_claim_boundary",
+    "timing_normalization_schema_version",
+    "timing_normalization_status",
+    "source_admission_policy_micros",
+    "source_state_open_micros",
+    "source_state_digest_micros",
+    "prepared_manifest_read_micros",
+    "prepared_manifest_match_micros",
+    "vortex_open_footer_micros",
+    "scan_open_micros",
+    "scan_chunk_iter_micros",
+    "operator_kernel_micros",
+    "operator_finalize_micros",
+    "result_sink_plan_micros",
+    "result_sink_write_micros",
+    "result_sink_replay_micros",
+    "human_evidence_render_micros",
+    "json_envelope_emit_micros",
+    "report_fields_build_micros",
+    "cli_process_wall_micros",
+    "route_timing_stage_inclusion_schema_version",
+    "route_timing_stage_inclusion_status",
+    "route_timing_stage_inclusion_stage_ids",
+    "route_timing_stage_inclusion_classes",
+    "route_timing_stage_inclusion_stage_owners",
+    "route_timing_stage_inclusion_timing_scopes",
+    "route_timing_stage_inclusion_skip_reasons",
+    "route_timing_stage_inclusion_claim_boundary",
     "vortex_array_build_millis",
     "vortex_write_millis",
     "vortex_digest_millis",
@@ -344,6 +372,42 @@ STAGE_TIMING_CONTRACT_FIELDS = (
 EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.exclusive_stage_timing.v1"
 )
+TIMING_NORMALIZATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.timing_normalization.v1"
+)
+ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
+    "shardloom.route_timing_stage_inclusion.v1"
+)
+CANONICAL_ROUTE_TIMING_STAGES = (
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_to_vortex_array",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_state_lookup_or_create",
+    "vortex_scan",
+    "operator_compute",
+    "result_sink_write",
+    "evidence_render",
+    "cli_process_wall",
+)
+STAGE_OWNER_BY_ID = {
+    "source_admission": "shardloom_source_admission",
+    "source_read": "shardloom_source_reader",
+    "source_parse_or_decode": "shardloom_compatibility_adapter",
+    "source_to_vortex_array": "shardloom_vortex_ingest",
+    "vortex_write": "vortex_sink",
+    "vortex_digest": "shardloom_certificate_digest",
+    "vortex_reopen_verify": "shardloom_native_io_replay",
+    "prepared_state_lookup_or_create": "shardloom_prepared_state_manifest",
+    "vortex_scan": "shardloom_vortex_scan",
+    "operator_compute": "shardloom_operator_runtime",
+    "result_sink_write": "shardloom_result_sink",
+    "evidence_render": "shardloom_evidence_renderer",
+    "cli_process_wall": "benchmark_harness",
+}
 SOURCE_READ_SCOUT_MICROS_FIELDS = (
     "source_read_header_scout_micros",
     "source_read_byte_acquisition_micros",
@@ -5721,10 +5785,64 @@ def source_to_vortex_array_guard_benchmark_field(value: Any, default: str) -> st
 def stage_timing_contract_default(field: str, row_status: str) -> Any:
     if field in SOURCE_READ_SCOUT_MICROS_FIELDS or field in VORTEX_SCAN_SPLIT_MICROS_FIELDS:
         return None
+    if field in {
+        "source_admission_policy_micros",
+        "source_stat_micros",
+        "source_state_open_micros",
+        "source_state_digest_micros",
+        "prepared_manifest_read_micros",
+        "prepared_manifest_match_micros",
+        "vortex_open_footer_micros",
+        "scan_open_micros",
+        "scan_chunk_iter_micros",
+        "operator_kernel_micros",
+        "operator_finalize_micros",
+        "result_sink_plan_micros",
+        "result_sink_write_micros",
+        "result_sink_replay_micros",
+        "human_evidence_render_micros",
+        "json_envelope_emit_micros",
+        "report_fields_build_micros",
+        "cli_process_wall_micros",
+    }:
+        return None
     if field in VORTEX_SCAN_COUNTER_FIELDS:
         return 0
     if field == "exclusive_stage_timing_schema_version":
         return EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
+    if field == "timing_normalization_schema_version":
+        return TIMING_NORMALIZATION_SCHEMA_VERSION
+    if field == "route_timing_stage_inclusion_schema_version":
+        return ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
+    if field == "route_timing_stage_inclusion_stage_ids":
+        return ",".join(CANONICAL_ROUTE_TIMING_STAGES)
+    if field == "route_timing_stage_inclusion_stage_owners":
+        return ";".join(
+            f"{stage_id}:{STAGE_OWNER_BY_ID[stage_id]}"
+            for stage_id in CANONICAL_ROUTE_TIMING_STAGES
+        )
+    if field in {
+        "route_timing_stage_inclusion_classes",
+        "route_timing_stage_inclusion_timing_scopes",
+        "route_timing_stage_inclusion_skip_reasons",
+    }:
+        default_value = "not_executed" if row_status != "success" else "diagnostic_only"
+        return ";".join(
+            f"{stage_id}:{default_value}" for stage_id in CANONICAL_ROUTE_TIMING_STAGES
+        )
+    if field == "route_timing_stage_inclusion_claim_boundary":
+        return (
+            "stage inclusion fields classify timing components as included, excluded shared "
+            "preparation, excluded harness, or diagnostic-only; route totals remain authoritative"
+        )
+    if field == "timing_normalization_status":
+        return (
+            "complete_with_unmeasured_optional_fields"
+            if row_status == "success"
+            else "not_executed"
+        )
+    if field == "route_timing_stage_inclusion_status":
+        return "complete" if row_status == "success" else "not_executed"
     if field == "exclusive_stage_included_stage_ids":
         return "none"
     if field in {
@@ -19306,7 +19424,7 @@ def successful_result_from_iterations(
             metrics.setdefault(field, parse_optional_bool(value))
         else:
             metrics.setdefault(field, value)
-    return {
+    result = {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
         "storage_format": data_format,
@@ -19325,6 +19443,8 @@ def successful_result_from_iterations(
         **operator_metadata,
         **execution_mode,
     }
+    ensure_result_contract_defaults(result)
+    return result
 
 
 def run_one(
