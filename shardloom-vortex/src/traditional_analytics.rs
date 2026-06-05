@@ -74,6 +74,8 @@ const SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_to_vortex_array_guard.v1";
 const VORTEX_WRITER_CONTEXT_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_writer_context.v1";
+const VORTEX_WRITE_PLAN_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.vortex_write_plan.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
@@ -151,6 +153,8 @@ const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fus
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
 const TRADITIONAL_FACT_COLUMN_COUNT: usize = 13;
+const TRADITIONAL_DIM_COLUMN_COUNT: usize = 3;
+const TRADITIONAL_CDC_DELTA_COLUMN_COUNT: usize = 5;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const SOURCE_READ_FACT_ID: u32 = 1 << 0;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -3730,6 +3734,50 @@ fn traditional_capillary_source_refs(
     )
 }
 
+struct TraditionalCapillarySourceRef<'a> {
+    role: &'static str,
+    path: &'a std::path::Path,
+    bytes: u64,
+    rows: u64,
+    split_count: usize,
+}
+
+fn traditional_capillary_source_refs_for_roles(
+    source_state_id: &str,
+    sources: &[TraditionalCapillarySourceRef<'_>],
+) -> (String, String, String, usize, u64, u64) {
+    let mut split_refs = Vec::with_capacity(sources.len());
+    let mut byte_refs = Vec::with_capacity(sources.len());
+    let mut row_refs = Vec::with_capacity(sources.len());
+    let mut split_count = 0usize;
+    let mut source_bytes = 0u64;
+    let mut row_count = 0u64;
+    for source in sources {
+        let role_source_state_id = format!("{source_state_id}:{}", source.role);
+        let (role_split_refs, role_byte_refs, role_row_refs) = traditional_capillary_source_refs(
+            &role_source_state_id,
+            source.path,
+            source.bytes,
+            source.rows,
+            source.split_count,
+        );
+        split_refs.push(role_split_refs);
+        byte_refs.push(role_byte_refs);
+        row_refs.push(role_row_refs);
+        split_count = split_count.saturating_add(source.split_count.max(1));
+        source_bytes = source_bytes.saturating_add(source.bytes);
+        row_count = row_count.saturating_add(source.rows);
+    }
+    (
+        split_refs.join(";"),
+        byte_refs.join(";"),
+        row_refs.join(";"),
+        split_count,
+        source_bytes,
+        row_count,
+    )
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -5059,6 +5107,195 @@ impl TraditionalAnalyticsReport {
         }
     }
 
+    fn vortex_write_plan_artifact_roles(&self) -> Vec<&'static str> {
+        let mut roles = vec!["fact", "dim"];
+        if self.cdc_delta_vortex_path.is_some() {
+            roles.push("cdc_delta");
+        }
+        roles
+    }
+
+    fn vortex_write_plan_artifact_paths(&self) -> Vec<String> {
+        let mut paths = vec![
+            self.fact_vortex_path.display().to_string(),
+            self.dim_vortex_path.display().to_string(),
+        ];
+        if let Some(path) = self.cdc_delta_vortex_path.as_ref() {
+            paths.push(path.display().to_string());
+        }
+        paths
+    }
+
+    fn vortex_write_plan_artifact_digests(&self) -> Vec<String> {
+        let mut digests = vec![
+            self.fact_vortex_digest.clone(),
+            self.dim_vortex_digest.clone(),
+        ];
+        if let Some(digest) = self.cdc_delta_vortex_digest.as_ref() {
+            digests.push(digest.clone());
+        }
+        digests
+    }
+
+    fn vortex_write_plan_artifact_bytes(&self) -> Vec<u64> {
+        let mut bytes = vec![self.fact_vortex_bytes, self.dim_vortex_bytes];
+        if self.cdc_delta_vortex_path.is_some() {
+            bytes.push(self.cdc_delta_vortex_bytes);
+        }
+        bytes
+    }
+
+    fn vortex_write_plan_artifact_rows(&self) -> Vec<u64> {
+        let mut rows = vec![self.fact_rows, self.dim_rows];
+        if self.cdc_delta_vortex_path.is_some() {
+            rows.push(self.cdc_delta_rows);
+        }
+        rows
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn vortex_write_plan_fields(&self) -> Vec<(String, String)> {
+        let roles = self.vortex_write_plan_artifact_roles();
+        let paths = self.vortex_write_plan_artifact_paths();
+        let digests = self.vortex_write_plan_artifact_digests();
+        let bytes = self.vortex_write_plan_artifact_bytes();
+        let rows = self.vortex_write_plan_artifact_rows();
+        let artifact_count = roles.len();
+        let shared_context =
+            self.vortex_writer_context_write_count == artifact_count && artifact_count > 0;
+        let context_count = usize::from(self.vortex_writer_context_write_count > 0);
+        let total_bytes = bytes.iter().copied().fold(0_u64, u64::saturating_add);
+        let total_rows = rows.iter().copied().fold(0_u64, u64::saturating_add);
+        let verification_status = if self.output_replay_verified {
+            "native_vortex_replay_verified"
+        } else if self.output_replay_requested {
+            "blocked_native_vortex_replay_not_verified"
+        } else {
+            "not_requested"
+        };
+        let status = if self.vortex_writer_context_write_count == 0 {
+            "blocked_missing_writer_context_evidence"
+        } else if shared_context {
+            "bounded_capillary_write_plan_reported"
+        } else {
+            "reported_without_full_context_coalescing"
+        };
+        vec![
+            (
+                "vortex_write_plan_schema_version".to_string(),
+                VORTEX_WRITE_PLAN_SCHEMA_VERSION.to_string(),
+            ),
+            ("vortex_write_plan_status".to_string(), status.to_string()),
+            (
+                "vortex_write_plan_artifact_count".to_string(),
+                artifact_count.to_string(),
+            ),
+            (
+                "vortex_write_plan_artifact_roles".to_string(),
+                roles.join(","),
+            ),
+            (
+                "vortex_write_plan_artifact_paths".to_string(),
+                paths.join(","),
+            ),
+            (
+                "vortex_write_plan_artifact_digests".to_string(),
+                digests.join(","),
+            ),
+            (
+                "vortex_write_plan_artifact_bytes".to_string(),
+                bytes
+                    .iter()
+                    .map(u64::to_string)
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            (
+                "vortex_write_plan_artifact_rows".to_string(),
+                rows.iter()
+                    .map(u64::to_string)
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            (
+                "vortex_write_plan_total_artifact_bytes".to_string(),
+                total_bytes.to_string(),
+            ),
+            (
+                "vortex_write_plan_total_artifact_rows".to_string(),
+                total_rows.to_string(),
+            ),
+            (
+                "vortex_write_plan_writer_context_count".to_string(),
+                context_count.to_string(),
+            ),
+            (
+                "vortex_write_plan_shared_writer_context".to_string(),
+                shared_context.to_string(),
+            ),
+            (
+                "vortex_write_plan_writer_context_write_count".to_string(),
+                self.vortex_writer_context_write_count.to_string(),
+            ),
+            (
+                "vortex_write_plan_writer_context_reuse_hit_count".to_string(),
+                self.vortex_writer_context_reuse_hit_count.to_string(),
+            ),
+            (
+                "vortex_write_plan_context_open_micros".to_string(),
+                self.vortex_writer_context_open_micros.to_string(),
+            ),
+            (
+                "vortex_write_plan_segment_write_micros".to_string(),
+                self.vortex_segment_write_micros.to_string(),
+            ),
+            (
+                "vortex_write_plan_workspace_stage_micros".to_string(),
+                self.vortex_workspace_stage_micros.to_string(),
+            ),
+            (
+                "vortex_write_plan_digest_micros".to_string(),
+                self.vortex_digest_micros.to_string(),
+            ),
+            (
+                "vortex_write_plan_verification_micros".to_string(),
+                self.vortex_reopen_verify_micros.to_string(),
+            ),
+            (
+                "vortex_write_plan_coalescing_status".to_string(),
+                self.vortex_write_coalescing_status.clone(),
+            ),
+            (
+                "vortex_write_plan_coalescing_reason".to_string(),
+                self.vortex_write_coalescing_reason.clone(),
+            ),
+            (
+                "vortex_write_plan_digest_status".to_string(),
+                "streaming_workspace_writer_digest_no_post_write_digest_pass".to_string(),
+            ),
+            (
+                "vortex_write_plan_verification_status".to_string(),
+                verification_status.to_string(),
+            ),
+            (
+                "vortex_write_plan_native_io_certificate_status".to_string(),
+                self.native_io_certificate.status().to_string(),
+            ),
+            (
+                "vortex_write_plan_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_write_plan_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_write_plan_claim_boundary".to_string(),
+                "bounded local write-plan evidence decomposes ShardLoom Vortex artifact writes into writer-open, segment-write, workspace-stage, streaming digest, and verification substages; it is optimization evidence only and no standalone performance or production claim is authorized".to_string(),
+            ),
+        ]
+    }
+
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
@@ -5108,6 +5345,7 @@ impl TraditionalAnalyticsReport {
             })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn capillary_preparation_input(
         &self,
         source_state_id: &str,
@@ -5115,14 +5353,46 @@ impl TraditionalAnalyticsReport {
         prepared_state_id: &str,
         prepared_state_digest: &str,
     ) -> VortexCapillaryPreparationInput {
-        let (source_split_refs, source_byte_range_refs, source_row_range_refs) =
-            traditional_capillary_source_refs(
-                source_state_id,
-                &self.fact_source_path,
-                self.fact_source_bytes,
-                self.fact_rows,
-                self.runtime_split_count,
-            );
+        let mut capillary_sources = vec![
+            TraditionalCapillarySourceRef {
+                role: "fact",
+                path: &self.fact_source_path,
+                bytes: self.fact_source_bytes,
+                rows: self.fact_rows,
+                split_count: self.runtime_split_count,
+            },
+            TraditionalCapillarySourceRef {
+                role: "dim",
+                path: &self.dim_source_path,
+                bytes: self.dim_source_bytes,
+                rows: self.dim_rows,
+                split_count: 1,
+            },
+        ];
+        if let Some(cdc_delta_source_path) = self.cdc_delta_source_path.as_deref() {
+            capillary_sources.push(TraditionalCapillarySourceRef {
+                role: "cdc_delta",
+                path: cdc_delta_source_path,
+                bytes: self.cdc_delta_source_bytes,
+                rows: self.cdc_delta_rows,
+                split_count: usize::from(self.cdc_delta_rows > 0),
+            });
+        }
+        let (
+            source_split_refs,
+            source_byte_range_refs,
+            source_row_range_refs,
+            _source_split_count,
+            source_byte_count,
+            row_count,
+        ) = traditional_capillary_source_refs_for_roles(source_state_id, &capillary_sources);
+        let mut writer_sink_refs = vec![
+            format!("fact={}", self.fact_vortex_path.display()),
+            format!("dim={}", self.dim_vortex_path.display()),
+        ];
+        if let Some(cdc_delta_vortex_path) = self.cdc_delta_vortex_path.as_deref() {
+            writer_sink_refs.push(format!("cdc_delta={}", cdc_delta_vortex_path.display()));
+        }
         VortexCapillaryPreparationInput {
             source_state_id: source_state_id.to_string(),
             source_state_digest: source_state_digest.to_string(),
@@ -5136,9 +5406,15 @@ impl TraditionalAnalyticsReport {
                 traditional_scenario_slug(self.scenario)
             ),
             certification_depth: self.certification_level.clone(),
-            row_count: self.fact_rows,
-            source_byte_count: self.fact_source_bytes,
-            column_count: TRADITIONAL_FACT_COLUMN_COUNT,
+            row_count,
+            source_byte_count,
+            column_count: TRADITIONAL_FACT_COLUMN_COUNT
+                .saturating_add(TRADITIONAL_DIM_COLUMN_COUNT)
+                .saturating_add(if self.cdc_delta_source_path.is_some() {
+                    TRADITIONAL_CDC_DELTA_COLUMN_COUNT
+                } else {
+                    0
+                }),
             source_split_refs,
             source_byte_range_refs,
             source_row_range_refs,
@@ -5159,11 +5435,7 @@ impl TraditionalAnalyticsReport {
                 "{prepared_state_id}:fact_bytes={}:dim_bytes={}:cdc_delta_bytes={}",
                 self.fact_vortex_bytes, self.dim_vortex_bytes, self.cdc_delta_vortex_bytes
             ),
-            writer_sink_refs: format!(
-                "{},{}",
-                self.fact_vortex_path.display(),
-                self.dim_vortex_path.display()
-            ),
+            writer_sink_refs: writer_sink_refs.join(","),
             materialization_boundary_status: if self.materialization_boundary_report_emitted {
                 "materialization_boundary_reported"
             } else {
@@ -6124,6 +6396,9 @@ impl TraditionalAnalyticsReport {
                 "vortex_digest_micros".to_string(),
                 self.vortex_digest_micros.to_string(),
             ),
+        ]);
+        fields.extend(self.vortex_write_plan_fields());
+        fields.extend(vec![
             (
                 "vortex_reopen_verify_micros".to_string(),
                 self.vortex_reopen_verify_micros.to_string(),
@@ -34413,6 +34688,69 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "vortex_write_plan_schema_version",
+            VORTEX_WRITE_PLAN_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_status",
+            "bounded_capillary_write_plan_reported",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_artifact_count",
+            if report.cdc_delta_rows > 0 { "3" } else { "2" },
+        );
+        assert_field_contains(&fields, "vortex_write_plan_artifact_roles", "fact");
+        assert_field_contains(&fields, "vortex_write_plan_artifact_roles", "dim");
+        assert_field_contains(
+            &fields,
+            "vortex_write_plan_artifact_digests",
+            &report.fact_vortex_digest,
+        );
+        assert_field_eq(&fields, "vortex_write_plan_shared_writer_context", "true");
+        assert_field_eq(&fields, "vortex_write_plan_writer_context_count", "1");
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_writer_context_write_count",
+            if report.cdc_delta_rows > 0 { "3" } else { "2" },
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_writer_context_reuse_hit_count",
+            if report.cdc_delta_rows > 0 { "2" } else { "1" },
+        );
+        assert_eq!(
+            field_u64(&fields, "vortex_write_plan_total_artifact_rows"),
+            report.fact_rows + report.dim_rows + report.cdc_delta_rows
+        );
+        assert_eq!(
+            field_u64(&fields, "vortex_write_plan_total_artifact_bytes"),
+            report.fact_vortex_bytes + report.dim_vortex_bytes + report.cdc_delta_vortex_bytes
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_digest_status",
+            "streaming_workspace_writer_digest_no_post_write_digest_pass",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_verification_status",
+            "native_vortex_replay_verified",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_native_io_certificate_status",
+            "certified",
+        );
+        assert_field_eq(&fields, "vortex_write_plan_fallback_attempted", "false");
+        assert_field_eq(
+            &fields,
+            "vortex_write_plan_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "source_read_scout_status",
             "source_read_scout_split_recorded",
         );
@@ -34548,12 +34886,22 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_capillary_preparation_activation_observed_rows",
-            "3",
+            "5",
         );
         assert_field_eq(
             &fields,
             "vortex_capillary_preparation_activation_observed_split_count",
-            "1",
+            "2",
+        );
+        assert_field_contains(
+            &fields,
+            "vortex_capillary_preparation_writer_sink_refs",
+            "fact=",
+        );
+        assert_field_contains(
+            &fields,
+            "vortex_capillary_preparation_writer_sink_refs",
+            "dim=",
         );
         assert_field_eq(
             &fields,

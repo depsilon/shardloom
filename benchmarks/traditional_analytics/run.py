@@ -332,6 +332,33 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "vortex_workspace_stage_micros",
     "vortex_write_coalescing_status",
     "vortex_write_coalescing_reason",
+    "vortex_write_plan_schema_version",
+    "vortex_write_plan_status",
+    "vortex_write_plan_artifact_count",
+    "vortex_write_plan_artifact_roles",
+    "vortex_write_plan_artifact_paths",
+    "vortex_write_plan_artifact_digests",
+    "vortex_write_plan_artifact_bytes",
+    "vortex_write_plan_artifact_rows",
+    "vortex_write_plan_total_artifact_bytes",
+    "vortex_write_plan_total_artifact_rows",
+    "vortex_write_plan_writer_context_count",
+    "vortex_write_plan_shared_writer_context",
+    "vortex_write_plan_writer_context_write_count",
+    "vortex_write_plan_writer_context_reuse_hit_count",
+    "vortex_write_plan_context_open_micros",
+    "vortex_write_plan_segment_write_micros",
+    "vortex_write_plan_workspace_stage_micros",
+    "vortex_write_plan_digest_micros",
+    "vortex_write_plan_verification_micros",
+    "vortex_write_plan_coalescing_status",
+    "vortex_write_plan_coalescing_reason",
+    "vortex_write_plan_digest_status",
+    "vortex_write_plan_verification_status",
+    "vortex_write_plan_native_io_certificate_status",
+    "vortex_write_plan_fallback_attempted",
+    "vortex_write_plan_external_engine_invoked",
+    "vortex_write_plan_claim_boundary",
     "exclusive_vortex_digest_millis",
     "exclusive_vortex_reopen_verify_millis",
     "vortex_footer_open_millis",
@@ -6116,10 +6143,29 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "vortex_writer_context_reuse_hit_count",
         "vortex_segment_write_micros",
         "vortex_workspace_stage_micros",
+        "vortex_write_plan_artifact_count",
+        "vortex_write_plan_total_artifact_bytes",
+        "vortex_write_plan_total_artifact_rows",
+        "vortex_write_plan_writer_context_count",
+        "vortex_write_plan_writer_context_write_count",
+        "vortex_write_plan_writer_context_reuse_hit_count",
+        "vortex_write_plan_context_open_micros",
+        "vortex_write_plan_segment_write_micros",
+        "vortex_write_plan_workspace_stage_micros",
+        "vortex_write_plan_digest_micros",
+        "vortex_write_plan_verification_micros",
     }:
         return 0
+    if field in {
+        "vortex_write_plan_shared_writer_context",
+        "vortex_write_plan_fallback_attempted",
+        "vortex_write_plan_external_engine_invoked",
+    }:
+        return False
     if field == "vortex_writer_context_schema_version":
         return "shardloom.traditional_analytics.vortex_writer_context.v1"
+    if field == "vortex_write_plan_schema_version":
+        return "shardloom.traditional_analytics.vortex_write_plan.v1"
     if field == "timing_normalization_status":
         return (
             "complete_with_unmeasured_optional_fields"
@@ -6130,6 +6176,21 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         return "complete" if row_status == "success" else "not_executed"
     if field == "exclusive_stage_included_stage_ids":
         return "none"
+    if field in {
+        "vortex_write_plan_status",
+        "vortex_write_plan_artifact_roles",
+        "vortex_write_plan_artifact_paths",
+        "vortex_write_plan_artifact_digests",
+        "vortex_write_plan_artifact_bytes",
+        "vortex_write_plan_artifact_rows",
+        "vortex_write_plan_coalescing_status",
+        "vortex_write_plan_coalescing_reason",
+        "vortex_write_plan_digest_status",
+        "vortex_write_plan_verification_status",
+        "vortex_write_plan_native_io_certificate_status",
+        "vortex_write_plan_claim_boundary",
+    }:
+        return "not_reported_by_engine" if row_status == "success" else "not_executed"
     if field in {
         "compatibility_to_vortex_import_timing_scope",
         "inclusive_compatibility_to_vortex_import_timing_scope",

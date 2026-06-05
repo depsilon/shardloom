@@ -356,6 +356,25 @@ WEBSITE_ROW_KEYS = (
     "vortex_workspace_stage_ms",
     "vortex_write_coalescing_status",
     "vortex_write_coalescing_reason",
+    "vortex_write_plan_schema_version",
+    "vortex_write_plan_status",
+    "vortex_write_plan_artifact_count",
+    "vortex_write_plan_artifact_roles",
+    "vortex_write_plan_total_artifact_bytes",
+    "vortex_write_plan_total_artifact_rows",
+    "vortex_write_plan_writer_context_count",
+    "vortex_write_plan_shared_writer_context",
+    "vortex_write_plan_writer_context_write_count",
+    "vortex_write_plan_writer_context_reuse_hit_count",
+    "vortex_write_plan_context_open_ms",
+    "vortex_write_plan_segment_write_ms",
+    "vortex_write_plan_workspace_stage_ms",
+    "vortex_write_plan_digest_ms",
+    "vortex_write_plan_verification_ms",
+    "vortex_write_plan_coalescing_status",
+    "vortex_write_plan_coalescing_reason",
+    "vortex_write_plan_digest_status",
+    "vortex_write_plan_verification_status",
     "vortex_reopen_scan_attribution_schema_version",
     "vortex_reopen_verify_split_status",
     "vortex_footer_open_ms",
@@ -1724,6 +1743,88 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     )
     if exclusive_stage_timing_schema_version != EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION:
         exclusive_stage_timing_schema_version = EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
+    writer_context_write_count = int(
+        numeric_value(
+            first_meaningful_field(fields, ("vortex_writer_context_write_count",))
+        )
+        or 0
+    )
+    writer_context_reuse_hit_count = int(
+        numeric_value(
+            first_meaningful_field(fields, ("vortex_writer_context_reuse_hit_count",))
+        )
+        or 0
+    )
+    write_plan_artifact_count = int(
+        numeric_value(first_meaningful_field(fields, ("vortex_write_plan_artifact_count",)))
+        or writer_context_write_count
+        or 0
+    )
+    derived_roles = (
+        "fact,dim,cdc_delta"
+        if write_plan_artifact_count >= 3
+        else ("fact,dim" if write_plan_artifact_count == 2 else "not_reported")
+    )
+    write_plan_shared_context = first_bool_field(
+        fields, ("vortex_write_plan_shared_writer_context",), default=None
+    )
+    if write_plan_shared_context is None:
+        write_plan_shared_context = bool(
+            write_plan_artifact_count > 0
+            and writer_context_write_count == write_plan_artifact_count
+        )
+    write_plan_status = first_meaningful_field(fields, ("vortex_write_plan_status",))
+    if write_plan_status is None:
+        if writer_context_write_count > 0 and write_plan_shared_context:
+            write_plan_status = "bounded_capillary_write_plan_derived_from_writer_context"
+        elif is_shardloom:
+            write_plan_status = "not_reported"
+        else:
+            write_plan_status = "external_baseline_only"
+    derived_artifact_paths = ",".join(
+        str(fields.get(key))
+        for key in (
+            "fact_vortex_path",
+            "dim_vortex_path",
+            "cdc_delta_vortex_path",
+        )
+        if fields.get(key) not in {None, "", "none", "not_reported"}
+    )
+    derived_artifact_digests = ",".join(
+        str(fields.get(key))
+        for key in (
+            "fact_vortex_digest",
+            "dim_vortex_digest",
+            "cdc_delta_vortex_digest",
+        )
+        if fields.get(key) not in {None, "", "none", "not_reported"}
+    )
+    derived_artifact_bytes_values = [
+        int(numeric_value(fields.get(key)) or 0)
+        for key in (
+            "fact_vortex_bytes",
+            "dim_vortex_bytes",
+            "cdc_delta_vortex_bytes",
+        )
+        if fields.get(key) not in {None, "", "none", "not_reported"}
+    ]
+    derived_artifact_rows_values = [
+        int(numeric_value(fields.get(key)) or 0)
+        for key in ("fact_rows", "dim_rows", "cdc_delta_rows")
+        if fields.get(key) not in {None, "", "none", "not_reported"}
+    ]
+    derived_artifact_bytes = (
+        ",".join(str(value) for value in derived_artifact_bytes_values)
+        if derived_artifact_bytes_values
+        else "not_reported"
+    )
+    derived_artifact_rows = (
+        ",".join(str(value) for value in derived_artifact_rows_values)
+        if derived_artifact_rows_values
+        else "not_reported"
+    )
+    derived_total_artifact_bytes = sum(derived_artifact_bytes_values)
+    derived_total_artifact_rows = sum(derived_artifact_rows_values)
 
     return {
         "source_admission_ms": source_admission_millis(fields),
@@ -1742,18 +1843,8 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "vortex_writer_context_open_ms": micros_to_millis(
             first_meaningful_field(fields, ("vortex_writer_context_open_micros",))
         ),
-        "vortex_writer_context_write_count": int(
-            numeric_value(
-                first_meaningful_field(fields, ("vortex_writer_context_write_count",))
-            )
-            or 0
-        ),
-        "vortex_writer_context_reuse_hit_count": int(
-            numeric_value(
-                first_meaningful_field(fields, ("vortex_writer_context_reuse_hit_count",))
-            )
-            or 0
-        ),
+        "vortex_writer_context_write_count": writer_context_write_count,
+        "vortex_writer_context_reuse_hit_count": writer_context_reuse_hit_count,
         "vortex_writer_context_reuse_status": first_meaningful_field(
             fields, ("vortex_writer_context_reuse_status",)
         )
@@ -1772,6 +1863,151 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("vortex_write_coalescing_reason",)
         )
         or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_plan_schema_version": first_meaningful_field(
+            fields, ("vortex_write_plan_schema_version",)
+        )
+        or "shardloom.traditional_analytics.vortex_write_plan.v1",
+        "vortex_write_plan_status": write_plan_status,
+        "vortex_write_plan_artifact_count": write_plan_artifact_count,
+        "vortex_write_plan_artifact_roles": first_meaningful_field(
+            fields, ("vortex_write_plan_artifact_roles",)
+        )
+        or derived_roles,
+        "vortex_write_plan_artifact_paths": first_meaningful_field(
+            fields, ("vortex_write_plan_artifact_paths",)
+        )
+        or derived_artifact_paths
+        or "not_reported",
+        "vortex_write_plan_artifact_digests": first_meaningful_field(
+            fields, ("vortex_write_plan_artifact_digests",)
+        )
+        or derived_artifact_digests
+        or "not_reported",
+        "vortex_write_plan_artifact_bytes": first_meaningful_field(
+            fields, ("vortex_write_plan_artifact_bytes",)
+        )
+        or derived_artifact_bytes,
+        "vortex_write_plan_artifact_rows": first_meaningful_field(
+            fields, ("vortex_write_plan_artifact_rows",)
+        )
+        or derived_artifact_rows,
+        "vortex_write_plan_total_artifact_bytes": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("vortex_write_plan_total_artifact_bytes",)
+                )
+            )
+            or derived_total_artifact_bytes
+        ),
+        "vortex_write_plan_total_artifact_rows": int(
+            numeric_value(
+                first_meaningful_field(fields, ("vortex_write_plan_total_artifact_rows",))
+            )
+            or derived_total_artifact_rows
+        ),
+        "vortex_write_plan_writer_context_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("vortex_write_plan_writer_context_count",))
+            )
+            or (1 if writer_context_write_count > 0 else 0)
+        ),
+        "vortex_write_plan_shared_writer_context": write_plan_shared_context,
+        "vortex_write_plan_writer_context_write_count": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("vortex_write_plan_writer_context_write_count",)
+                )
+            )
+            or writer_context_write_count
+        ),
+        "vortex_write_plan_writer_context_reuse_hit_count": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("vortex_write_plan_writer_context_reuse_hit_count",)
+                )
+            )
+            or writer_context_reuse_hit_count
+        ),
+        "vortex_write_plan_context_open_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_write_plan_context_open_millis",),
+            micros_keys=(
+                "vortex_write_plan_context_open_micros",
+                "vortex_writer_context_open_micros",
+            ),
+        ),
+        "vortex_write_plan_segment_write_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_write_plan_segment_write_millis",),
+            micros_keys=(
+                "vortex_write_plan_segment_write_micros",
+                "vortex_segment_write_micros",
+            ),
+        ),
+        "vortex_write_plan_workspace_stage_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_write_plan_workspace_stage_millis",),
+            micros_keys=(
+                "vortex_write_plan_workspace_stage_micros",
+                "vortex_workspace_stage_micros",
+            ),
+        ),
+        "vortex_write_plan_digest_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_write_plan_digest_millis",),
+            micros_keys=("vortex_write_plan_digest_micros", "vortex_digest_micros"),
+        ),
+        "vortex_write_plan_verification_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_write_plan_verification_millis",),
+            micros_keys=(
+                "vortex_write_plan_verification_micros",
+                "vortex_reopen_verify_micros",
+            ),
+        ),
+        "vortex_write_plan_coalescing_status": first_meaningful_field(
+            fields, ("vortex_write_plan_coalescing_status",)
+        )
+        or first_meaningful_field(fields, ("vortex_write_coalescing_status",))
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_plan_coalescing_reason": first_meaningful_field(
+            fields, ("vortex_write_plan_coalescing_reason",)
+        )
+        or first_meaningful_field(fields, ("vortex_write_coalescing_reason",))
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_plan_digest_status": first_meaningful_field(
+            fields, ("vortex_write_plan_digest_status",)
+        )
+        or (
+            "streaming_workspace_writer_digest_no_post_write_digest_pass"
+            if writer_context_write_count > 0
+            else ("not_reported" if is_shardloom else "external_baseline_only")
+        ),
+        "vortex_write_plan_verification_status": first_meaningful_field(
+            fields, ("vortex_write_plan_verification_status",)
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_plan_native_io_certificate_status": first_meaningful_field(
+            fields,
+            (
+                "vortex_write_plan_native_io_certificate_status",
+                "native_io_certificate_status",
+                "output_native_io_certificate_status",
+            ),
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_plan_fallback_attempted": first_bool_field(
+            fields, ("vortex_write_plan_fallback_attempted",), default=False
+        ),
+        "vortex_write_plan_external_engine_invoked": first_bool_field(
+            fields, ("vortex_write_plan_external_engine_invoked",), default=False
+        ),
+        "vortex_write_plan_claim_boundary": first_meaningful_field(
+            fields, ("vortex_write_plan_claim_boundary",)
+        )
+        or (
+            "bounded local write-plan evidence decomposes ShardLoom Vortex artifact writes into writer-open, segment-write, workspace-stage, streaming digest, and verification substages; it is optimization evidence only"
+        ),
         "vortex_reopen_or_verify_ms": vortex_reopen_or_verify,
         "prepared_state_lookup_or_create_ms": prepared_state_lookup,
         "vortex_scan_ms": vortex_scan,
@@ -4151,16 +4387,36 @@ def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def vortex_writer_context_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str, str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
         route = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        plan = str(row.get("vortex_write_plan_status") or "missing")
         reuse = str(row.get("vortex_writer_context_reuse_status") or "missing")
-        coalescing = str(row.get("vortex_write_coalescing_status") or "missing")
-        groups[(route, reuse, coalescing)].append(row)
+        coalescing = str(
+            row.get("vortex_write_plan_coalescing_status")
+            or row.get("vortex_write_coalescing_status")
+            or "missing"
+        )
+        digest = str(row.get("vortex_write_plan_digest_status") or "missing")
+        verify = str(row.get("vortex_write_plan_verification_status") or "missing")
+        groups[(route, plan, reuse, coalescing, digest, verify)].append(row)
     rendered_rows: list[list[Any]] = []
-    for (route, reuse, coalescing), group_rows in sorted(groups.items()):
+    for (route, plan, reuse, coalescing, digest, verify), group_rows in sorted(
+        groups.items()
+    ):
+        artifact_count = sum(
+            int(numeric_value(row.get("vortex_write_plan_artifact_count")) or 0)
+            for row in group_rows
+        )
+        shared_context_rows = sum(
+            1
+            for row in group_rows
+            if first_bool_field(
+                row, ("vortex_write_plan_shared_writer_context",), default=False
+            )
+        )
         write_count = sum(
             int(numeric_value(row.get("vortex_writer_context_write_count")) or 0)
             for row in group_rows
@@ -4196,13 +4452,18 @@ def vortex_writer_context_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         rendered_rows.append(
             [
                 route,
+                plan,
                 reuse,
                 coalescing,
+                artifact_count,
+                shared_context_rows,
                 write_count,
                 reuse_hits,
                 fmt_ms(open_ms),
                 fmt_ms(segment_ms),
                 fmt_ms(workspace_ms),
+                digest,
+                verify,
                 len(group_rows),
             ]
         )
@@ -4210,13 +4471,18 @@ def vortex_writer_context_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "heading": "Vortex Writer Context Attribution",
         "headers": [
             "Route",
+            "Write plan",
             "Context reuse",
             "Coalescing",
+            "Artifacts",
+            "Shared rows",
             "Writes",
             "Reuse hits",
             "Context open",
             "Segment write",
             "Workspace stage",
+            "Digest",
+            "Verify",
             "Rows",
         ],
         "rows": rendered_rows,

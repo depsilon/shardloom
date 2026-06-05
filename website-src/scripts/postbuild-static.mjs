@@ -20,7 +20,7 @@ function removeDuplicateSuffixedArtifacts(directory) {
   if (!fs.existsSync(directory)) return;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const child = path.join(directory, entry.name);
-    if (/ \d+(?:\.html)?$/.test(entry.name)) {
+    if (/ \d+(?:\.[^.]+)?$/.test(entry.name)) {
       fs.rmSync(child, { recursive: true, force: true });
       continue;
     }

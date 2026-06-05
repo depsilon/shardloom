@@ -16,6 +16,79 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-2 Capillary Vortex write-plan batching attribution
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-vortex-write-batching` / current benchmark optimization PR
+    batch.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website-src/scripts/postbuild-static.mjs`.
+    - Promoted benchmark website/public artifact data.
+  - Scope:
+    - Added a bounded cold-route Vortex write-plan evidence block derived from actual fact,
+      dimension, and optional CDC Vortex artifacts. The block reports artifact roles, counts,
+      total rows/bytes, shared writer context status, write/reuse counts, coalescing posture,
+      digest status, verification status, Native I/O certificate posture, and explicit
+      no-fallback/no-external-engine fields.
+    - Broadened Capillary preparation evidence from a fact-only source reference to role-specific
+      fact, dimension, and optional CDC source/sink references so preparation rows expose the full
+      write plan instead of a single artifact surrogate.
+    - Split write-plan attribution into writer-context open, segment write, workspace stage,
+      streaming digest, and verification substages while preserving the existing workspace-safe
+      Vortex artifact commit and replay/certificate boundaries.
+    - Propagated compact write-plan fields through benchmark harness rows, artifact promotion,
+      completeness validation, and the benchmark dashboard writer-context table.
+    - Kept the public benchmark payload compact by excluding bulky artifact path/digest arrays from
+      the website row schema while retaining aggregate artifact/write-plan evidence and manifest
+      completeness checks.
+    - Updated static website postbuild cleanup so duplicate suffixed Pagefind and asset files are
+      removed alongside duplicate HTML aliases.
+    - Repromoted the existing `full_local` benchmark artifact only. The benchmark suite was not
+      rerun and no new timing claim is made.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo clippy -p shardloom-vortex --all-targets --features vortex-traditional-analytics-benchmark -- -D warnings`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark record_batch_strategy_merge_preserves_mixed_provider_evidence`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_emits_engine_capillary_activation_evidence`
+      passed.
+    - `cargo test -p shardloom-core workspace_safe_local_write` passed.
+    - `cargo test -p shardloom-vortex vortex_ingest` passed as a no-feature compile-filter check.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py scripts/check_benchmark_artifact_completeness.py`
+      passed.
+    - `python3 scripts/promote_benchmark_artifact.py --input website/assets/benchmarks/latest/benchmark-results.json --profile full_local`
+      passed; this repromoted the existing artifact without a benchmark rerun.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete`.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-dirty-worktree`
+      passed with `benchmark_run_performed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Astro source check and static build passed from `website-src` with the bundled Node runtime.
+    - `node website/validate_static_assets.js` passed with the bundled Node runtime.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+  - Benchmark boundary:
+    - This slice adds runtime write-plan attribution and republishes the existing artifact schema.
+      It does not rerun the full benchmark suite and does not claim the route became faster. A
+      later approved benchmark rerun can measure the new attribution path after the remaining
+      ordered performance items land.
+  - Claim boundary:
+    - The claim is scoped to ShardLoom-native write-plan evidence and Capillary source/sink
+      attribution for admitted local cold/prepare Vortex artifact writes. Broad layout coalescing
+      superiority, production write throughput, and benchmark superiority claims remain gated by
+      refreshed benchmark evidence and release claim gates.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, DataFusion, Spark, Velox, Dask, external writer, external query
+      engine, or Vortex query-engine integration performs, verifies, or substitutes for ShardLoom
+      Vortex writes. ShardLoom rows keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PERF-INNOV-1 projection-aware scout and typed decode for CSV/JSONL cold ingest
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-csv-jsonl-typed-decode` / current benchmark optimization PR batch.
