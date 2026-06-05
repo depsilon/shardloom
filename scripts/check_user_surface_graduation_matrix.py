@@ -42,6 +42,8 @@ SUPPORT_STATE_VOCABULARY = (
 )
 HIGH_LEVEL_CONTEXT_COMMANDS = {
     "route",
+    "run",
+    "prepare",
     "generated-source-user-rows-smoke",
     "generated-source-range-smoke",
     "generated-source-sequence-smoke",
@@ -74,6 +76,8 @@ EXECUTABLE_METADATA_COMMANDS = {
     "help",
     "command-metadata",
     "evidence-schema",
+    "run",
+    "prepare",
     "status",
     "runs-today",
     "capabilities",

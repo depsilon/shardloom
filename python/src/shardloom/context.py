@@ -21,6 +21,7 @@ from .client import (
     HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
+    PublicWorkflowExecution,
     PublicWorkflowRoute,
     PythonClientSmokeReport,
     RestApiContractPlan,
@@ -3328,26 +3329,34 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
     _graduation_row(
         "public_workflow_route_facade",
         "python_context",
-        "Public workflow route inspection before execution",
+        "Public workflow route, run, and prepare facade",
         "high_level_context",
-        "report_only",
-        cli_commands=("route",),
-        context_methods=("route",),
-        client_methods=("public_workflow_route",),
-        runtime_route="side_effect_free_public_workflow_route_facade",
+        "scoped_runtime_supported",
+        cli_commands=("route", "run", "prepare"),
+        context_methods=("route", "run", "prepare"),
+        client_methods=(
+            "public_workflow_route",
+            "public_workflow_run",
+            "public_workflow_prepare",
+        ),
+        runtime_route="public_workflow_route_admission_with_attached_run_prepare_evidence",
         promotion_criteria=(
-            "SQL, Python, DataFrame, and CLI requests can inspect the same route envelope "
-            "before data reads, writes, runtime execution, or fallback"
+            "SQL, Python, DataFrame, and CLI requests use the same route envelope before "
+            "execution; admitted run and prepare wrappers attach that metadata to runtime "
+            "or preparation evidence"
         ),
         evidence_refs=(
             "public_workflow_route_schema_version",
+            "public_workflow_execution_facade_schema_version",
             "command_registry",
             "python_route_parity_tests",
-            "shardloom_cli_public_workflow_route_tests",
+            "python_run_prepare_facade_tests",
+            "shardloom_cli_public_workflow_route_run_prepare_tests",
         ),
         claim_boundary=(
-            "Route inspection is the high-level admission facade only. It does not execute "
-            "queries, refresh benchmark timing, or authorize broad SQL/DataFrame support."
+            "The facade covers shared admission plus scoped admitted run/prepare wrappers only. "
+            "It does not refresh benchmark timing, reroute every collect/write helper, or "
+            "authorize broad SQL/DataFrame support."
         ),
     ),
     _graduation_row(
@@ -8819,6 +8828,62 @@ class ShardLoomContext:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,
+            check=check,
+        )
+
+    def run(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        sql_statement: str | None = None,
+        plan_summary: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str | None = None,
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Run an admitted public workflow through the shared route facade."""
+
+        return self.client.public_workflow_run(
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            sql_statement=sql_statement,
+            plan_summary=plan_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy="auto" if execution_policy is None else execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=bounded,
+            check=check,
+        )
+
+    def prepare(
+        self,
+        surface: str,
+        *,
+        input_uri: str | os.PathLike[str],
+        output_ref: str | os.PathLike[str],
+        input_format: str | None = None,
+        plan_summary: str | None = None,
+        evidence_level: str = "runtime_smoke",
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Prepare an admitted public workflow input through the shared route facade."""
+
+        return self.client.public_workflow_prepare(
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            output_ref=output_ref,
+            plan_summary=plan_summary,
+            evidence_level=evidence_level,
             check=check,
         )
 

@@ -292,24 +292,31 @@ When capillary preparation is admitted, the report exposes
 build, write, reopen, and sink evidence so Python callers can see whether PulseWeave-shaped work
 windows affected the local route before artifact creation.
 
-For one concrete request, use the public workflow route facade before execution. It is
-side-effect-free: it does not read the input, write outputs, run SQL, or invoke external engines. It
-returns the same route envelope from CLI, context, SQL workflow, and DataFrame workflow surfaces:
+For one concrete request, use the public workflow facade. `route()` is side-effect-free: it does
+not read the input, write outputs, run SQL, or invoke external engines. `run()` and `prepare(...)`
+execute only admitted ShardLoom-native wrapper paths and attach the same route metadata to the
+runtime or preparation envelope:
 
 ```python
 sql_route = ctx.sql("SELECT id FROM 'target/orders.csv' LIMIT 10").route()
 df_route = ctx.read("target/orders.csv").select("id").limit(10).route()
+execution = ctx.read("target/orders.csv").select("id").limit(10).run()
+prepared = ctx.read_csv("target/orders.csv").prepare("target/orders.vortex")
 
 print(sql_route.route_id, sql_route.resolved_internal_command)
 print(df_route.route_id, df_route.resolved_internal_command)
 print(sql_route.fallback_attempted, sql_route.external_engine_invoked)
 print(sql_route.side_effect_free, sql_route.blocker_id)
+print(execution.facade_command, execution.route_id, execution.runtime_execution)
+print(prepared.facade_command, prepared.route_id, prepared.preparation_included)
 ```
 
 Unbounded collect requests block at route admission and keep
 `runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false` in the
-envelope. The equivalent CLI surface is
-`shardloom route <sql|python|dataframe|cli> --format json`.
+envelope. The equivalent CLI surfaces are
+`shardloom route <sql|python|dataframe|cli> --format json`,
+`shardloom run <sql|python|dataframe|cli> --format json`, and
+`shardloom prepare <sql|python|dataframe|cli> --format json`.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and

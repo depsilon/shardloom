@@ -875,6 +875,8 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("command-metadata") => command_registry::handle_command_metadata(args, format),
         Some("evidence-schema") => evidence_schema_registry::handle_evidence_schema(args, format),
         Some("route") => public_workflow_route::handle_public_workflow_route(args, format),
+        Some("run") => public_workflow_route::handle_public_workflow_run(args, format),
+        Some("prepare") => public_workflow_route::handle_public_workflow_prepare(args, format),
         Some("status") => status_capabilities::handle_status(format),
         Some("runs-today") => status_capabilities::handle_runs_today(format),
         Some("release-plan") => packaging_deployment::handle_release_plan(format),

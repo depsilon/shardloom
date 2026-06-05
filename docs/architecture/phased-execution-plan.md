@@ -308,17 +308,19 @@ Each item below uses the same sub-checklist shape:
       it resolves route metadata or deterministic blockers before execution without I/O.
     - [x] Route metadata and blockers are exposed consistently through CLI JSON first and typed
       Python accessors second.
-    - [ ] Remaining: keep lower-level smoke/runtime commands available for evidence while making
-      high-level facade commands the normal user/agent route.
-    - [ ] Remaining: add high-level `run` and `prepare` facade wrappers after the route envelope
-      contract has landed and is report-gated.
-    - [ ] Remaining: make execution wrappers require or attach the route/evidence envelope instead
-      of allowing public runtime paths to bypass visible admission metadata.
+    - [x] Lower-level smoke/runtime commands remain available for tests and benchmark evidence while
+      high-level facade commands become the normal user/agent route.
+    - [x] High-level `run` and `prepare` facade wrappers exist and attach route metadata to admitted
+      runtime or preparation envelopes.
+    - [ ] Remaining: route `collect`, `write_vortex`, `write_parquet`, and future execution helpers
+      through the shared planner/evidence envelope so no public runtime helper bypasses visible
+      admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
     no-fallback fields.
-  - Next slice outcome: implement the small shared route planner/facade contract first, then use it
-    as the admission spine for the next SQL/Python/DataFrame breadth slices.
+  - Next slice outcome: finish the shared facade wrapper spine by keeping `route` side-effect-free,
+    running admitted `run`/`prepare` paths with attached route evidence, and leaving collect/write
+    helper rerouting as the next explicit residual.
   - Execution checklist:
     - [x] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
       query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
@@ -329,23 +331,27 @@ Each item below uses the same sub-checklist shape:
       `external_engine_invoked=false`, and deterministic blockers before execution.
     - [x] Add the high-level side-effect-free CLI `route` JSON facade while preserving existing
       internal smoke/runtime commands for tests and benchmark evidence.
-    - [ ] Add high-level CLI facade commands or JSON paths for `run` and `prepare` while
+    - [x] Add high-level CLI facade commands or JSON paths for `run` and `prepare` while
       preserving existing internal smoke/runtime commands for tests and benchmark evidence.
     - [x] Mark the public `route` facade command as `high_level_context` in the command registry.
     - [ ] Reclassify remaining smoke/benchmark primitive commands as `client_only` or
-      `not_user_facing` once the corresponding high-level wrappers exist.
+      `not_user_facing` once the corresponding high-level wrappers exist for collect/write/helper
+      paths.
     - [x] Add `ShardLoomContext.route(...)`, SQL workflow `route()`, and lazy DataFrame workflow
       `route()` methods that call the shared CLI planner rather than a Python-only planner.
     - [ ] Route `collect`, `write_vortex`, `write_parquet`, and future execution wrappers through
       the shared planner/evidence envelope rather than only exposing route inspection.
     - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
       bounded/materialized path is present.
-    - [ ] Keep unbounded `collect()` blocked in every public execution wrapper;
-      keep pandas/Arrow/NumPy conversion explicit and evidence-bearing.
+    - [x] Keep unbounded `collect()` blocked in the public `run` facade and keep
+      pandas/Arrow/NumPy conversion explicit and evidence-bearing.
     - [x] Add route parity tests proving equivalent SQL/Python/DataFrame workflows resolve to the
       same route metadata and unsupported workflows fail at admission.
-    - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method matrix,
-      command registry metadata, release readiness/status matrices, and website/static pages.
+    - [x] Update command registry metadata, user-surface graduation/gap validators, Python docs,
+      phase plan, and website/static pages for route/run/prepare.
+    - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method
+      matrix, release readiness/status matrices, and website/static pages again for collect/write
+      helper rerouting when that residual lands.
   - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
     DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
   - Implementation scope: `shardloom-cli/src/command_registry.rs`,

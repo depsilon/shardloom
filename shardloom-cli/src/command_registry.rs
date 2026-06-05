@@ -43,6 +43,8 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "command-metadata",
     "evidence-schema",
     "route",
+    "run",
+    "prepare",
     "spill-lifecycle",
     "spill-reservation-plan",
     "spill-payload-roundtrip",
@@ -843,6 +845,8 @@ fn command_usage_fragment(command: &str) -> String {
         "help" => "help [command]".to_string(),
         "evidence-schema" => "evidence-schema [surface]".to_string(),
         "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>]".to_string(),
+        "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl>] [--output <ref>]".to_string(),
+        "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "rest-api-plan-preview" => format!("{command} [certified-local-batch|partial-hybrid-fixture|blocked-remote-object-store|invalid-input|unsupported-operator]"),
         "rest-api-local-lifecycle" => format!("{command} [certified-local-batch|certified-live-fixture|certified-hybrid-fixture|cancel-requested|retry-requested|blocked-uncertified]"),
@@ -1033,6 +1037,8 @@ fn command_support_state(command: &str) -> &'static str {
             | "vortex-bounded-local-exec"
             | "vortex-run"
             | "vortex-query-trace"
+            | "run"
+            | "prepare"
     ) || command.ends_with("-smoke")
         || command.ends_with("-run")
     {
@@ -1060,6 +1066,8 @@ fn is_high_level_context_command(command: &str) -> bool {
     matches!(
         command,
         "route"
+            | "run"
+            | "prepare"
             | "generated-source-user-rows-smoke"
             | "generated-source-range-smoke"
             | "generated-source-sequence-smoke"
@@ -1125,6 +1133,8 @@ fn command_side_effect_level(command: &str) -> &'static str {
                 | "vortex-bounded-local-exec"
                 | "vortex-run"
                 | "vortex-query-trace"
+                | "run"
+                | "prepare"
                 | "vortex-encoded-read-spike"
                 | "spill-payload-roundtrip"
                 | "cleanup-synthetic-payload"
@@ -1151,6 +1161,9 @@ fn command_input_contract(command: &str) -> &'static str {
     }
     if command == "route" {
         return "declared_public_workflow_route_request";
+    }
+    if matches!(command, "run" | "prepare") {
+        return "declared_public_workflow_request_with_route_admission";
     }
     match classify_command(command).as_str() {
         "status_capabilities" => "registry_or_capability_scope_args",
@@ -1182,6 +1195,9 @@ fn command_output_contract(command: &str) -> &'static str {
     if command == "route" {
         return "typed_public_workflow_route_envelope_no_execution";
     }
+    if matches!(command, "run" | "prepare") {
+        return "typed_runtime_envelope_with_attached_public_workflow_route";
+    }
     if command.ends_with("-smoke")
         || command.ends_with("-run")
         || command.contains("write")
@@ -1212,6 +1228,9 @@ fn command_owning_phase_item(command: &str) -> &'static str {
         return "REVIEW-P1-2";
     }
     if command == "route" {
+        return "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade";
+    }
+    if matches!(command, "run" | "prepare") {
         return "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade";
     }
     if command == "session-cache-smoke" {

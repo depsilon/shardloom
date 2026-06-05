@@ -21,6 +21,7 @@ from .client import (
     DEFAULT_PROFILE_ORDER,
     EngineSelectionPlan,
     GeneratedSourceWriteReport,
+    PublicWorkflowExecution,
     PublicWorkflowRoute,
     ShardLoomClient,
     SqlLocalSourceSmokeReport,
@@ -1736,6 +1737,38 @@ class SqlWorkflow:
             else bounded
         )
         return self.client.public_workflow_route(
+            "sql",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy=execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=normalized_bounded,
+            check=check,
+        )
+
+    def run(
+        self,
+        *,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str = "auto",
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Run this SQL workflow through the shared public route facade."""
+
+        normalized_bounded = (
+            _find_top_level_sql_keyword_outside_quotes(self.statement.strip(), "limit")
+            is not None
+            if bounded is None and requested_output == "collect"
+            else bounded
+        )
+        return self.client.public_workflow_run(
             "sql",
             sql_statement=self.statement,
             plan_summary=self.operation_summary,
@@ -3538,6 +3571,58 @@ class LazyFrame:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
+            check=check,
+        )
+
+    def run(
+        self,
+        *,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        execution_policy: str | None = None,
+        materialization_policy: str = "bounded",
+        evidence_level: str = "runtime_smoke",
+        bounded: bool | None = None,
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Run this lazy workflow through the shared public route facade."""
+
+        normalized_bounded = (
+            _workflow_has_limit(self.operations)
+            if bounded is None and requested_output == "collect"
+            else bounded
+        )
+        return self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=self.source.source_format,
+            sql_statement=self._sql_local_source_statement(),
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy="auto" if execution_policy is None else execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=normalized_bounded,
+            check=check,
+        )
+
+    def prepare(
+        self,
+        target_vortex_path: str | os.PathLike[str],
+        *,
+        evidence_level: str = "runtime_smoke",
+        check: bool = True,
+    ) -> PublicWorkflowExecution:
+        """Prepare this source through the shared public route facade."""
+
+        return self.client.public_workflow_prepare(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=self.source.source_format,
+            output_ref=target_vortex_path,
+            plan_summary=self.operation_summary,
+            evidence_level=evidence_level,
             check=check,
         )
 

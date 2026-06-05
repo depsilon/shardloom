@@ -1060,8 +1060,18 @@ fn handle_generated_source_range_like_smoke(
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_generated_source_sql_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_sql_smoke_with_facade(args, format, SQL_COMMAND, Vec::new())
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_generated_source_sql_smoke_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
@@ -1071,7 +1081,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
     };
     let Some(statement_raw) = args.next() else {
         return emit_error(
-            SQL_COMMAND,
+            emit_command,
             format,
             "generated-source SQL smoke failed",
             &ShardLoomError::InvalidOperation(
@@ -1088,7 +1098,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
             "--output-format" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        SQL_COMMAND,
+                        emit_command,
                         format,
                         "generated-source SQL smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -1100,7 +1110,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            SQL_COMMAND,
+                            emit_command,
                             format,
                             "generated-source SQL smoke failed",
                             &error,
@@ -1111,7 +1121,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
             "--fanout-output" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        SQL_COMMAND,
+                        emit_command,
                         format,
                         "generated-source SQL smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -1123,7 +1133,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
                     Ok(target) => fanout_outputs.push(target),
                     Err(error) => {
                         return emit_error(
-                            SQL_COMMAND,
+                            emit_command,
                             format,
                             "generated-source SQL smoke failed",
                             &error,
@@ -1134,7 +1144,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
             "--allow-overwrite" => allow_overwrite = true,
             extra => {
                 return emit_error(
-                    SQL_COMMAND,
+                    emit_command,
                     format,
                     "generated-source SQL smoke failed",
                     &cli_unknown_arg_error(SQL_COMMAND, extra),
@@ -1153,7 +1163,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
         Ok(request) => request,
         Err(error) => {
             return emit_error(
-                SQL_COMMAND,
+                emit_command,
                 format,
                 "generated-source SQL smoke failed",
                 &error,
@@ -1165,16 +1175,18 @@ pub(crate) fn handle_generated_source_sql_smoke(
         Ok(report) => report,
         Err(error) => {
             return emit_error(
-                SQL_COMMAND,
+                emit_command,
                 format,
                 "generated-source SQL smoke failed",
                 &error,
             );
         }
     };
+    let mut fields = report.fields();
+    fields.extend(extra_fields);
 
     emit(
-        SQL_COMMAND,
+        emit_command,
         format,
         CommandStatus::Success,
         format!(
@@ -1183,7 +1195,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
         ),
         report.to_text(),
         vec![],
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }

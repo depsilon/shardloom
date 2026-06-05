@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow run/prepare facade
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-run-prepare-facade` / PR #1111.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/src/shardloom/context.py`.
+    - `python/src/shardloom/query.py`.
+    - `scripts/check_user_surface_graduation_matrix.py`.
+    - `scripts/check_user_surface_runtime_gap_inventory.py`.
+    - `shardloom-cli/src/public_workflow_route.rs`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `shardloom-cli/src/generated_source_runtime.rs`.
+    - `website-src`, `website-public`, and `website` generated static artifacts.
+  - Scope:
+    - Added high-level `shardloom run` and `shardloom prepare` facade commands on top of the
+      shared public workflow route/admission planner while preserving lower-level smoke/runtime
+      commands for evidence and benchmark harness use.
+    - Attached stable `public_workflow_*` route metadata to admitted SQL local-source,
+      generated-source, and compatibility-to-Vortex preparation envelopes without overriding core
+      runtime fields.
+    - Added typed Python `PublicWorkflowExecution` plus `ShardLoomContext.run(...)`,
+      `ShardLoomContext.prepare(...)`, SQL workflow `.run()`, and lazy DataFrame `.run()` /
+      `.prepare(...)` helpers.
+    - Updated command registry metadata, user-surface graduation/gap validators, Python docs, phase
+      plan checklist state, and generated website/static pages for the route/run/prepare facade
+      slice.
+    - Left collect/write helper rerouting, remaining smoke-command reclassification, and broader
+      SQL/DataFrame breadth as explicit unchecked residuals in the phase plan.
+  - Evidence:
+    - `python3 scripts/check_user_surface_graduation_matrix.py --output target/user-surface-graduation-matrix.json`
+      passed with `context_method_count=84`, `client_method_count=104`, `cli_command_count=198`,
+      and no blockers.
+    - `python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory.json`
+      passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json`
+      passed.
+    - `python3 -m unittest python.tests.test_query_builder python.tests.test_user_surface_graduation_matrix python.tests.test_cli_client`
+      passed.
+    - Website/static checks passed: `website-src/scripts/sync-content.mjs`, `astro check`,
+      `astro build`, `website-src/scripts/postbuild-static.mjs`, and
+      `website/validate_static_assets.js`.
+    - `CARGO_TARGET_DIR=target/run-prepare-validation cargo test -p shardloom-cli --test public_workflow_route`
+      passed.
+    - `CARGO_TARGET_DIR=target/run-prepare-validation cargo test -p shardloom-cli command_registry`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is a public facade/admission/evidence slice, not
+      benchmark timing methodology, benchmark-result publication, or a new performance claim.
+  - Claim boundary:
+    - This slice claims only a simplified public route/run/prepare facade over admitted ShardLoom
+      routes with attached evidence. It does not claim broad SQL/DataFrame support, production API
+      stability, performance superiority, Spark replacement, or full collect/write helper rerouting.
+  - Fallback boundary:
+    - The facade preserves `fallback_attempted=false` and `external_engine_invoked=false`; no pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend
+      execution is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D complex CSV JSON-text output breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/complex-csv-flat-sink-breadth` / PR #1109.
