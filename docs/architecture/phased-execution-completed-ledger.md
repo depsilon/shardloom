@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D HAVING negative subquery breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/having-negative-subquery-breadth` / PR #1107.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`.
+  - Scope:
+    - Promoted scoped aggregate `HAVING NOT IN` and correlated `HAVING NOT EXISTS` local subquery
+      predicates into executable admitted-semantics fixtures.
+    - Added Rust local-source runtime coverage proving negative HAVING subquery filtering,
+      source-qualified subquery evidence, correlated aggregate-row evaluation for `NOT EXISTS`, and
+      no fallback or external engine invocation.
+    - Updated latest admitted-semantics counts to `matrix_row_count=117`,
+      `executable_fixture_count=95`, `diagnostic_case_count=22`,
+      `unsupported_diagnostic_count=20`, `runtime_error_diagnostic_count=1`, and
+      `invalid_shape_diagnostic_count=1`.
+    - Updated the phase plan, hard release readiness gate, release metadata guard, compute-flow
+      source docs, and generated website/static pages.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli having_not -- --nocapture` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-having-negative-subqueries.json`
+      passed with `matrix_row_count=117`, `executable_fixture_count=95`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, and no performance claim reported.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-having-negative-subqueries.json --output target/release-readiness-having-negative-subqueries.json`
+      remained blocked only on existing broad release/package/checklist gates; admitted-semantics
+      blockers were absent and fallback/external-engine fields remained false.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped SQL/HAVING subquery runtime breadth,
+      matrix/release evidence, and docs/static freshness work, not performance evidence.
+  - Claim boundary:
+    - This slice admits scoped local aggregate `HAVING NOT IN` and correlated `HAVING NOT EXISTS`
+      subquery predicates only. It does not claim broad ANSI subquery parity, row-value HAVING
+      subquery parity, production SQL/DataFrame support, performance equivalence, or Spark
+      replacement.
+  - Fallback boundary:
+    - HAVING negative subquery predicates execute through ShardLoom's bounded local-source runtime.
+      No pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external
+      DataFrame backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified negative membership breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/source-qualified-not-in-breadth` / PR #1106.

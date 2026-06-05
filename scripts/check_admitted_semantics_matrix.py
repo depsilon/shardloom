@@ -3282,6 +3282,66 @@ def having_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def having_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_not_in_subquery_semantics",
+        source_name="having-not-in-subquery-source.csv",
+        source_text=(
+            "region,amount,active\n"
+            "north,10,true\n"
+            "north,15,true\n"
+            "south,5,false\n"
+            "south,7,true\n"
+            "east,30,true\n"
+        ),
+        statement_template=(
+            "SELECT region,sum(amount) AS total FROM '{source}' "
+            "GROUP BY region HAVING total NOT IN ("
+            "SELECT allowed.min_amount FROM '{allowed}' AS allowed "
+            "WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10"
+            ") ORDER BY region ASC LIMIT 10"
+        ),
+        expected_jsonl='{"region":"east","total":30}\n{"region":"south","total":12}\n',
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "having_runtime_execution": "true",
+            "having_operator_family": "logical_predicate",
+            "having_source_column": "total",
+            "having_in_subquery_runtime_execution": "true",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "3",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "min_amount",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "3",
+            "in_subquery_filtered_row_count": "3",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "3",
+            "in_subquery_materialized_null_value_count": "0",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "allowed",
+            "source_qualified_subquery_operator_family": "in_subquery",
+            "source_qualified_subquery_source_column": "min_amount",
+            "having_input_row_count": "3",
+            "having_selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "having-not-in-subquery-allowed.csv",
+                "region,enabled,min_amount\nnorth,true,25\neast,true,40\nwest,true,1\n",
+            ),
+        ),
+    )
+
+
 def having_exists_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="having_exists_subquery_semantics",
@@ -3333,6 +3393,68 @@ def having_exists_subquery_case() -> SqlFixtureCase:
                 "allowed",
                 "having-exists-subquery-allowed.csv",
                 "active,score\nfalse,10\ntrue,30\ntrue,20\n",
+            ),
+        ),
+    )
+
+
+def having_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_not_exists_subquery_semantics",
+        source_name="having-not-exists-subquery-source.csv",
+        source_text=(
+            "region,amount,active\n"
+            "north,10,true\n"
+            "north,15,true\n"
+            "south,5,false\n"
+            "south,7,true\n"
+            "east,30,true\n"
+        ),
+        statement_template=(
+            "SELECT region,sum(amount) AS total FROM '{source}' "
+            "GROUP BY region HAVING NOT EXISTS ("
+            "SELECT allowed.region FROM '{allowed}' AS allowed "
+            "WHERE allowed.enabled IS TRUE AND allowed.region = outer.region "
+            "ORDER BY allowed.min_amount ASC LIMIT 10"
+            ") ORDER BY region ASC LIMIT 10"
+        ),
+        expected_jsonl='{"region":"south","total":12}\n',
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "having_runtime_execution": "true",
+            "having_operator_family": "logical_predicate",
+            "having_exists_subquery_runtime_execution": "true",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "region",
+            "exists_subquery_source_format": "not_materialized",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_filtered_row_count": "0",
+            "exists_subquery_bounded_row_count": "0",
+            "exists_subquery_result": "false",
+            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
+            "source_qualified_subquery_runtime_execution": "true",
+            "source_qualified_subquery_source_qualifier": "allowed",
+            "source_qualified_subquery_operator_family": "exists_subquery",
+            "source_qualified_subquery_source_column": "region",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "region",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "3",
+            "having_input_row_count": "3",
+            "having_selected_row_count": "1",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "having-not-exists-subquery-allowed.csv",
+                "region,enabled,min_amount\nnorth,true,25\neast,true,40\nwest,true,1\n",
             ),
         ),
     )
@@ -4147,7 +4269,9 @@ def executable_cases() -> list[SqlFixtureCase]:
         correlated_grouped_having_projected_not_exists_subquery_case(),
         nested_in_subquery_case(),
         having_in_subquery_case(),
+        having_not_in_subquery_case(),
         having_exists_subquery_case(),
+        having_not_exists_subquery_case(),
         having_quantified_subquery_case(),
         distinct_count_grouped_case(),
         select_distinct_projection_case(),

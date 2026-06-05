@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=115
-executable_fixture_count=93
+matrix_row_count=117
+executable_fixture_count=95
 diagnostic_case_count=22
 unsupported_diagnostic_count=20
 runtime_error_diagnostic_count=1
@@ -125,7 +125,9 @@ Covered fixture rows:
 - `correlated_grouped_having_projected_not_exists_subquery_semantics`
 - `nested_in_subquery_semantics`
 - `having_in_subquery_semantics`
+- `having_not_in_subquery_semantics`
 - `having_exists_subquery_semantics`
+- `having_not_exists_subquery_semantics`
 - `having_quantified_subquery_semantics`
 - `distinct_count_grouped`
 - `select_distinct_projection`
@@ -173,7 +175,7 @@ scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar
 projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
 source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references,
 correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection,
-HAVING-level scoped variants, and deterministic outer-reference diagnostics; external-oracle
+remaining HAVING-level row-value/correlated quantified variants, and deterministic outer-reference diagnostics; external-oracle
 result artifact population; and fuzz execution beyond the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
 deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
