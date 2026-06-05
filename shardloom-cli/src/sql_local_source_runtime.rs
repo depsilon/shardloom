@@ -44475,6 +44475,143 @@ mod tests {
     }
 
     #[test]
+    fn runs_source_qualified_not_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("source-qualified-not-in-source.csv");
+        let allowed_path = sql_local_source_test_path("source-qualified-not-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,label,min_amount,active\n1,alpha,5,true\n1,alpha,99,true\n2,beta,25,true\n3,gamma,20,true\n5,epsilon,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "source_qualified_subquery_source_column", "id");
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_source_qualified_row_value_not_in_subquery_csv_statement_without_fallback() {
+        let source_path =
+            sql_local_source_test_path("source-qualified-row-value-not-in-source.csv");
+        let allowed_path =
+            sql_local_source_test_path("source-qualified-row-value-not-in-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,label,min_amount,active\n1,alpha,5,true\n1,alpha,99,true\n2,beta,25,true\n3,gamma,20,true\n5,epsilon,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT allowed.id,allowed.label FROM '{}' AS allowed WHERE allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run source-qualified row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_qualifier",
+            "allowed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_operator_family",
+            "row_value_in_subquery",
+        );
+        assert_field_eq(
+            &fields,
+            "source_qualified_subquery_source_column",
+            "id+label",
+        );
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
     fn runs_source_qualified_exists_subquery_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("source-qualified-exists-source.csv");
         let allowed_path = sql_local_source_test_path("source-qualified-exists-allowed.csv");

@@ -64,8 +64,8 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   correlated `outer.<column>` source-subquery filters now share the same ShardLoom SQL runtime
   evidence boundary. Scoped subquery-backed predicate projections and CASE predicates use that same
   local-source runtime boundary when every source and outer reference is admitted.
-  Source-qualified local subquery references for scalar IN, row-value IN, EXISTS, NOT EXISTS, and
-  quantified predicates bind to an explicit source `AS <alias>` or SQL-identifier file stem; Python
+  Source-qualified local subquery references for scalar IN/NOT IN, row-value IN/NOT IN, EXISTS,
+  NOT EXISTS, and quantified predicates bind to an explicit source `AS <alias>` or SQL-identifier file stem; Python
   helpers expose the alias with `source_alias=` and render qualified refs with
   `sl.col("alias.column")`. Python/DataFrame users can express
   those routes with
@@ -207,7 +207,7 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   bounded local-source projection, aggregate/HAVING, join, and window output rows is now admitted,
   scoped row-value literal `IN`/`NOT IN` predicates are admitted through SQL and Python helpers,
   scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
-  materialization evidence, source-qualified scalar/row-value IN, EXISTS/NOT EXISTS, and quantified
+  materialization evidence, source-qualified scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and quantified
   subquery refs are reachable through `source_alias=` plus `sl.col("alias.column")`, and scoped
   correlated source-subquery filters are
   reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;

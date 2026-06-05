@@ -611,8 +611,8 @@ bounded scalar column or row-value tuple set from another admitted local source.
 `EXISTS`/`NOT EXISTS` subqueries evaluate a two-valued bounded presence test over another admitted
 local source. Scoped local
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
-source and apply SQL three-valued comparison semantics. Source-qualified scalar IN, row-value IN,
-EXISTS, NOT EXISTS, and quantified local subquery references are admitted when they bind to an
+source and apply SQL three-valued comparison semantics. Source-qualified scalar IN/NOT IN,
+row-value IN/NOT IN, EXISTS, NOT EXISTS, and quantified local subquery references are admitted when they bind to an
 explicit subquery `AS <alias>` or SQL-identifier file stem; Python helpers can set that binding with
 `source_alias=` and render the qualified column with `sl.col("alias.column")`. Scoped correlated `outer.<column>`
 subquery filters are admitted for scalar `IN`/`NOT IN`, row-value `IN`/`NOT IN`,
@@ -1441,7 +1441,7 @@ That path is still fixture-smoke evidence only. Broader grouped aggregate genera
 null ordering, collation parity,
 broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
 IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, scoped
-source-qualified scalar/row-value IN, EXISTS/NOT EXISTS, and quantified local subquery refs, scoped
+source-qualified scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and quantified local subquery refs, scoped
 correlated `outer.<column>` source-subquery filters, scoped subquery-backed predicate/CASE
 projections, and grouped/HAVING projected source-subquery tails for those families, arbitrary
 predicate-tree completeness beyond the admitted

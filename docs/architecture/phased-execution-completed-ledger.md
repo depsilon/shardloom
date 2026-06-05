@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified negative membership breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/source-qualified-not-in-breadth` / PR #1106.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`.
+  - Scope:
+    - Promoted scoped source-qualified local scalar `NOT IN` and row-value `NOT IN` subquery
+      predicates into executable admitted-semantics fixtures.
+    - Added Rust local-source runtime coverage proving negative membership results, logical NOT
+      predicate evidence, source-qualified subquery fields, correlation evidence, and no fallback or
+      external engine invocation.
+    - Updated latest admitted-semantics counts to `matrix_row_count=115`,
+      `executable_fixture_count=93`, `diagnostic_case_count=22`,
+      `unsupported_diagnostic_count=20`, `runtime_error_diagnostic_count=1`, and
+      `invalid_shape_diagnostic_count=1`.
+    - Updated the phase plan, hard release readiness gate, release metadata guard, compute-flow
+      source docs, parity docs, Python README, and generated website/static pages.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli source_qualified -- --nocapture` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-source-qualified-not-in.json`
+      passed with `matrix_row_count=115`, `executable_fixture_count=93`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, and no performance claim reported.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-source-qualified-not-in.json --output target/release-readiness-source-qualified-not-in.json`
+      remained blocked only on existing broad release/package/checklist gates; admitted-semantics
+      blockers were absent and fallback/external-engine fields remained false.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped SQL subquery runtime breadth,
+      matrix/release evidence, and docs/static freshness work, not performance evidence.
+  - Claim boundary:
+    - This slice admits scoped source-qualified local scalar and row-value `NOT IN` subquery
+      predicates only. It does not claim broad ANSI subquery parity, object-store/table SQL,
+      production SQL/DataFrame support, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - Source-qualified negative membership subqueries execute through ShardLoom's bounded
+      local-source runtime. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL
+      engine, or external DataFrame backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified subquery diagnostics
   - Date: 2026-06-05
   - Branch/PR: `codex/source-qualified-subquery-diagnostics` / PR #1105.
