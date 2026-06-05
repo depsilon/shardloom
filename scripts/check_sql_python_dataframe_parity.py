@@ -86,6 +86,8 @@ REQUIRED_SOURCE_MARKERS = {
         "def decimal_cast_runtime_execution(",
         "def decimal_cast_target_dtypes(",
         "def decimal_cast_output_boundary(",
+        "def decimal_cast_typed_decimal_sink_formats(",
+        "def decimal_cast_blocked_typed_decimal_sink_formats(",
     ],
     "python/tests/test_query_builder.py": [
         "test_local_csv_query_builder_join_invokes_sql_smoke",
@@ -102,6 +104,8 @@ REQUIRED_SOURCE_MARKERS = {
         "cast_projection_target_dtype",
         "test_local_csv_query_builder_with_decimal_cast_invokes_sql_smoke",
         "decimal_cast_output_boundary",
+        "decimal_cast_typed_decimal_sink_formats",
+        "decimal_cast_blocked_typed_decimal_sink_formats",
         "test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke",
         "binary_helper_projection_runtime_execution",
         "binary_helper_projection_operator",

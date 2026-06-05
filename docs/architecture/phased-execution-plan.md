@@ -363,7 +363,9 @@ completed details to the ledger.
   report, completed Python surface ledger entries, and remaining DataFrame parity blockers.
   Current state: familiar aliases lower to admitted ShardLoom runtime paths where available;
   `schema_contract(...)`, `profile(...)`, and scoped `quarantine(...)` have bounded local-source
-  evidence, while broad DataFrame parity remains gated.
+  evidence, and Python SQL result reports expose parsed typed decimal sink support for the latest
+  Parquet/Arrow IPC/Avro/Vortex admitted and ORC-blocked boundary, while broad DataFrame parity
+  remains gated.
   Runtime enablement: Python/DataFrame-style API call -> deterministic ShardLoom query lowering ->
   admitted runtime route or explicit unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
