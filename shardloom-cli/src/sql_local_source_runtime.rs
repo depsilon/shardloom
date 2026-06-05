@@ -3370,6 +3370,8 @@ impl SqlLocalSourceRunReport {
 enum SqlUnionMode {
     Distinct,
     All,
+    IntersectDistinct,
+    ExceptDistinct,
 }
 
 impl SqlUnionMode {
@@ -3377,6 +3379,8 @@ impl SqlUnionMode {
         match self {
             Self::Distinct => "distinct",
             Self::All => "all",
+            Self::IntersectDistinct => "intersect_distinct",
+            Self::ExceptDistinct => "except_distinct",
         }
     }
 
@@ -3384,6 +3388,8 @@ impl SqlUnionMode {
         match self {
             Self::Distinct => "UNION",
             Self::All => "UNION ALL",
+            Self::IntersectDistinct => "INTERSECT",
+            Self::ExceptDistinct => "EXCEPT",
         }
     }
 
@@ -3391,6 +3397,8 @@ impl SqlUnionMode {
         match self {
             Self::Distinct => "local_source_union_distinct_limit",
             Self::All => "local_source_union_all_limit",
+            Self::IntersectDistinct => "local_source_intersect_distinct_limit",
+            Self::ExceptDistinct => "local_source_except_distinct_limit",
         }
     }
 
@@ -3398,6 +3406,8 @@ impl SqlUnionMode {
         match self {
             Self::Distinct => "union_distinct",
             Self::All => "union_all",
+            Self::IntersectDistinct => "intersect_distinct",
+            Self::ExceptDistinct => "except_distinct",
         }
     }
 
@@ -3405,6 +3415,8 @@ impl SqlUnionMode {
         match self {
             Self::Distinct => "sql_union_distinct_groups_nulls",
             Self::All => "not_applicable_union_all_preserves_rows",
+            Self::IntersectDistinct => "sql_intersect_distinct_groups_nulls",
+            Self::ExceptDistinct => "sql_except_distinct_groups_nulls",
         }
     }
 }
@@ -8092,7 +8104,7 @@ fn compute_sql_union_output(
         validate_order_by_output_columns(
             order_by,
             &output_columns,
-            "UNION ORDER BY output column",
+            "SQL set-operation ORDER BY output column",
         )?;
     }
     let output_column_dtypes = validate_sql_union_column_dtypes(branch_reports)?;
@@ -8103,8 +8115,11 @@ fn compute_sql_union_output(
     let mut output_rows = sql_union_output_rows(parsed.mode, branch_reports);
     let union_distinct_input_row_count = output_rows.len();
     if let Some(order_by) = parsed.order_by.as_ref() {
-        let ordered =
-            ordered_output_row_indexes(&output_rows, order_by, "UNION ORDER BY output column")?;
+        let ordered = ordered_output_row_indexes(
+            &output_rows,
+            order_by,
+            "SQL set-operation ORDER BY output column",
+        )?;
         output_rows = ordered
             .into_iter()
             .map(|index| output_rows[index].clone())
@@ -8145,7 +8160,7 @@ fn validate_sql_union_branch_boundaries(
     for (index, report) in branch_reports.iter().enumerate() {
         if report.output_rows.len() >= MAX_LIMIT_ROWS {
             return Err(unsupported_sql_error(&format!(
-                "SQL UNION branch {} reached the scoped branch row bound of {MAX_LIMIT_ROWS}; add a selective predicate before UNION so composition does not silently truncate branch rows",
+                "SQL set-operation branch {} reached the scoped branch row bound of {MAX_LIMIT_ROWS}; add a selective predicate before composition so set-operation evaluation does not silently truncate branch rows",
                 index + 1
             )));
         }
@@ -8158,7 +8173,7 @@ fn sql_union_output_columns(
 ) -> Result<Vec<String>, ShardLoomError> {
     let Some(first) = branch_reports.first() else {
         return Err(unsupported_sql_error(
-            "SQL UNION requires at least two SELECT branches",
+            "SQL set operation requires at least two SELECT branches",
         ));
     };
     let first_columns = output_column_names(&first.parsed, &first.source);
@@ -8166,7 +8181,7 @@ fn sql_union_output_columns(
         let columns = output_column_names(&report.parsed, &report.source);
         if columns != first_columns {
             return Err(unsupported_sql_error(&format!(
-                "SQL UNION branch {} output columns {:?} do not match first branch columns {:?}; use matching aliases before UNION",
+                "SQL set-operation branch {} output columns {:?} do not match first branch columns {:?}; use matching aliases before composition",
                 index + 1,
                 columns,
                 first_columns
@@ -8193,7 +8208,7 @@ fn validate_sql_union_column_dtypes(
             .output_column_dtypes(&report.source.header, &report.source.column_dtypes);
         if branch_dtypes.len() != width {
             return Err(unsupported_sql_error(&format!(
-                "SQL UNION branch {} declared {} dtype hints but first branch width is {}; use matching projections before UNION",
+                "SQL set-operation branch {} declared {} dtype hints but first branch width is {}; use matching projections before composition",
                 branch_index + 1,
                 branch_dtypes.len(),
                 width
@@ -8203,7 +8218,7 @@ fn validate_sql_union_column_dtypes(
             for (column_index, dtype) in branch_dtypes.iter().enumerate() {
                 if dtype.is_none() {
                     return Err(unsupported_sql_error(&format!(
-                        "SQL UNION branch {} column {} has no row values and no schema dtype hint; scoped UNION requires dtype evidence before admitting empty-branch composition",
+                        "SQL set-operation branch {} column {} has no row values and no schema dtype hint; scoped set operations require dtype evidence before admitting empty-branch composition",
                         branch_index + 1,
                         column_index + 1
                     )));
@@ -8224,7 +8239,7 @@ fn validate_sql_union_column_dtypes(
         for row in &report.output_rows {
             if row.len() != width {
                 return Err(unsupported_sql_error(&format!(
-                    "SQL UNION branch {} row width {} does not match first branch width {}; use matching projections before UNION",
+                    "SQL set-operation branch {} row width {} does not match first branch width {}; use matching projections before composition",
                     branch_index + 1,
                     row.len(),
                     width
@@ -8254,7 +8269,7 @@ fn merge_sql_union_column_dtype(
 ) -> Result<(), ShardLoomError> {
     match current {
         Some(expected) if expected != &candidate => Err(unsupported_sql_error(&format!(
-            "SQL UNION branch {branch_index} column {column_index} mixes {} and {} values; scoped UNION requires matching non-null dtypes before coercion is admitted",
+            "SQL set-operation branch {branch_index} column {column_index} mixes {} and {} values; scoped set operations require matching non-null dtypes before coercion is admitted",
             expected.as_str(),
             candidate.as_str()
         ))),
@@ -8270,6 +8285,19 @@ fn sql_union_output_rows(
     mode: SqlUnionMode,
     branch_reports: &[SqlLocalSourceReport],
 ) -> Vec<Vec<(String, ScalarValue)>> {
+    match mode {
+        SqlUnionMode::Distinct | SqlUnionMode::All => {
+            sql_union_distinct_or_all_output_rows(mode, branch_reports)
+        }
+        SqlUnionMode::IntersectDistinct => sql_intersect_distinct_output_rows(branch_reports),
+        SqlUnionMode::ExceptDistinct => sql_except_distinct_output_rows(branch_reports),
+    }
+}
+
+fn sql_union_distinct_or_all_output_rows(
+    mode: SqlUnionMode,
+    branch_reports: &[SqlLocalSourceReport],
+) -> Vec<Vec<(String, ScalarValue)>> {
     let mut output_rows = Vec::new();
     let mut distinct_keys = BTreeSet::new();
     for row in branch_reports
@@ -8280,6 +8308,60 @@ fn sql_union_output_rows(
             continue;
         }
         output_rows.push(row);
+    }
+    output_rows
+}
+
+fn sql_intersect_distinct_output_rows(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Vec<Vec<(String, ScalarValue)>> {
+    let Some(first) = branch_reports.first() else {
+        return Vec::new();
+    };
+    let other_branch_keys = branch_reports
+        .iter()
+        .skip(1)
+        .map(|report| {
+            report
+                .output_rows
+                .iter()
+                .map(|row| row_distinct_key(row))
+                .collect::<BTreeSet<_>>()
+        })
+        .collect::<Vec<_>>();
+    let mut seen = BTreeSet::new();
+    let mut output_rows = Vec::new();
+    for row in &first.output_rows {
+        let key = row_distinct_key(row);
+        if !seen.insert(key.clone()) {
+            continue;
+        }
+        if other_branch_keys.iter().all(|keys| keys.contains(&key)) {
+            output_rows.push(row.clone());
+        }
+    }
+    output_rows
+}
+
+fn sql_except_distinct_output_rows(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Vec<Vec<(String, ScalarValue)>> {
+    let Some(first) = branch_reports.first() else {
+        return Vec::new();
+    };
+    let excluded_keys = branch_reports
+        .iter()
+        .skip(1)
+        .flat_map(|report| report.output_rows.iter().map(|row| row_distinct_key(row)))
+        .collect::<BTreeSet<_>>();
+    let mut seen = BTreeSet::new();
+    let mut output_rows = Vec::new();
+    for row in &first.output_rows {
+        let key = row_distinct_key(row);
+        if !seen.insert(key.clone()) || excluded_keys.contains(&key) {
+            continue;
+        }
+        output_rows.push(row.clone());
     }
     output_rows
 }
@@ -8306,7 +8388,7 @@ fn sql_local_source_union_plan_digest(
             .map(|report| report.plan_digest.clone()),
     );
     fnv64_digest(&format!(
-        "sql_union|mode={}|statement={}|branches={}|branch_plans={branch_plan_digests}|order_by={order_by}|limit={}|output_format={}|output_path={}|fanout={}|schema={source_schema_digest}",
+        "sql_set_operation|mode={}|statement={}|branches={}|branch_plans={branch_plan_digests}|order_by={order_by}|limit={}|output_format={}|output_path={}|fanout={}|schema={source_schema_digest}",
         parsed.mode.as_str(),
         parsed.normalized_statement,
         parsed.branch_statements.len(),
@@ -23499,7 +23581,7 @@ impl SqlLocalSourceUnionReport {
             ),
             (
                 "execution_route_label".to_string(),
-                "Direct one-shot UNION route".to_string(),
+                "Direct one-shot SQL set-operation route".to_string(),
             ),
             ("timing_scope".to_string(), "direct_one_shot".to_string()),
             (
@@ -23513,6 +23595,46 @@ impl SqlLocalSourceUnionReport {
             (
                 "certification_blocker_id".to_string(),
                 "not_claim_grade_fixture_smoke".to_string(),
+            ),
+            (
+                "sql_set_operation_runtime_execution".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "sql_set_operation_mode".to_string(),
+                self.parsed.mode.as_str().to_string(),
+            ),
+            (
+                "sql_set_operator".to_string(),
+                self.parsed.mode.sql_keyword().to_string(),
+            ),
+            (
+                "sql_set_operator_family".to_string(),
+                self.parsed.mode.operator_family().to_string(),
+            ),
+            (
+                "sql_set_operation_branch_count".to_string(),
+                self.branch_reports.len().to_string(),
+            ),
+            (
+                "sql_set_operation_input_row_count".to_string(),
+                self.union_input_row_count.to_string(),
+            ),
+            (
+                "sql_set_operation_candidate_row_count".to_string(),
+                self.union_distinct_input_row_count.to_string(),
+            ),
+            (
+                "sql_set_operation_output_row_count".to_string(),
+                self.output_rows.len().to_string(),
+            ),
+            (
+                "sql_set_operation_null_semantics".to_string(),
+                self.parsed.mode.null_semantics().to_string(),
+            ),
+            (
+                "sql_set_operation_order_by_runtime_execution".to_string(),
+                self.parsed.order_by.is_some().to_string(),
             ),
             (
                 "sql_union_runtime_execution".to_string(),
@@ -23884,7 +24006,7 @@ impl SqlLocalSourceUnionReport {
             |path| path.display().to_string(),
         );
         format!(
-            "SQL local-source UNION smoke\nschema_version: {SCHEMA_VERSION}\nbranches: {}\nmode: {}\nrows input: {}\nrows output: {}\noutput: {output}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "SQL local-source set-operation smoke\nschema_version: {SCHEMA_VERSION}\nbranches: {}\nmode: {}\nrows input: {}\nrows output: {}\noutput: {output}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.branch_reports.len(),
             self.parsed.mode.as_str(),
             self.union_input_row_count,
@@ -24192,7 +24314,7 @@ impl SqlLocalSourceUnionReport {
 
     fn output_native_io_certificate_status(&self) -> String {
         if self.output_io_performed() {
-            "certified_local_sql_union_sink".to_string()
+            "certified_local_sql_set_operation_sink".to_string()
         } else {
             "not_applicable_inline_result".to_string()
         }
@@ -24201,12 +24323,12 @@ impl SqlLocalSourceUnionReport {
     fn output_plan_id(&self) -> String {
         if self.output_fanout_performed() {
             format!(
-                "sql-local-source.union.{}.fanout.output-plan.v1",
+                "sql-local-source.set-operation.{}.fanout.output-plan.v1",
                 self.parsed.mode.as_str()
             )
         } else {
             format!(
-                "sql-local-source.union.{}.{}.output-plan.v1",
+                "sql-local-source.set-operation.{}.{}.output-plan.v1",
                 self.parsed.mode.as_str(),
                 self.request.output_format.sink_format()
             )
@@ -24248,7 +24370,7 @@ impl SqlLocalSourceUnionReport {
 
     fn execution_certificate_ref(&self) -> String {
         format!(
-            "sql-local-source.union.{}.execution.v1",
+            "sql-local-source.set-operation.{}.execution.v1",
             self.parsed.mode.as_str()
         )
     }
@@ -28188,25 +28310,25 @@ fn parse_sql_local_source_union_statement(
     let operators = top_level_sql_union_operators(&statement)?;
     if operators.is_empty() {
         return Err(unsupported_sql_error(
-            "SQL UNION runtime requires at least two SELECT branches",
+            "SQL set-operation runtime requires at least two SELECT branches",
         ));
     }
     let mode = operators[0].mode;
     if operators.iter().any(|operator| operator.mode != mode) {
         return Err(unsupported_sql_error(
-            "Mixed UNION and UNION ALL chains are not admitted in this scoped local-source runtime; use one UNION mode per statement",
+            "Mixed SQL set-operation chains are not admitted in this scoped local-source runtime; use one set operator and mode per statement",
         ));
     }
     let last_union_index = operators.last().expect("operators checked non-empty").index;
     let limit_indexes = top_level_keyword_indexes(&statement, "limit")?;
     let Some(&limit_index) = limit_indexes.last() else {
         return Err(unsupported_sql_error(
-            "SQL UNION local-source runtime requires one global LIMIT <n> clause",
+            "SQL set-operation local-source runtime requires one global LIMIT <n> clause",
         ));
     };
     if limit_indexes.iter().any(|index| *index < last_union_index) || limit_indexes.len() > 1 {
         return Err(unsupported_sql_error(
-            "SQL UNION branch-local LIMIT clauses are not admitted; apply one global LIMIT after the UNION chain",
+            "SQL set-operation branch-local LIMIT clauses are not admitted; apply one global LIMIT after the set-operation chain",
         ));
     }
     let order_by_indexes = top_level_keyword_indexes(&statement, "order by")?;
@@ -28216,25 +28338,25 @@ fn parse_sql_local_source_union_statement(
         || order_by_indexes.len() > 1
     {
         return Err(unsupported_sql_error(
-            "SQL UNION branch-local ORDER BY clauses are not admitted; apply one global ORDER BY after the UNION chain",
+            "SQL set-operation branch-local ORDER BY clauses are not admitted; apply one global ORDER BY after the set-operation chain",
         ));
     }
     let order_by_index = order_by_indexes.first().copied();
     if order_by_index.is_some_and(|index| index > limit_index) {
         return Err(unsupported_sql_error(
-            "SQL UNION global ORDER BY must appear before the global LIMIT clause",
+            "SQL set-operation global ORDER BY must appear before the global LIMIT clause",
         ));
     }
     if limit_index < last_union_index {
         return Err(unsupported_sql_error(
-            "SQL UNION global LIMIT must appear after the UNION branches",
+            "SQL set-operation global LIMIT must appear after the SELECT branches",
         ));
     }
 
     let limit_raw = statement[limit_index + "limit".len()..].trim();
     if limit_raw.is_empty() || limit_clause_contains_sql_clause_keyword(limit_raw) {
         return Err(unsupported_sql_error(
-            "SQL UNION global LIMIT admits one non-negative integer literal only",
+            "SQL set-operation global LIMIT admits one non-negative integer literal only",
         ));
     }
     let limit = parse_limit(limit_raw)?;
@@ -28253,7 +28375,7 @@ fn parse_sql_local_source_union_statement(
         .collect::<Result<Vec<_>, _>>()?;
     if branches.len() < 2 {
         return Err(unsupported_sql_error(
-            "SQL UNION requires at least two SELECT branches",
+            "SQL set operation requires at least two SELECT branches",
         ));
     }
 
@@ -28277,7 +28399,7 @@ fn sql_union_branch_statements(
     for operator in operators {
         if operator.index >= union_body_end {
             return Err(unsupported_sql_error(
-                "SQL UNION operator must appear before the global ORDER BY/LIMIT tail",
+                "SQL set operator must appear before the global ORDER BY/LIMIT tail",
             ));
         }
         let branch = statement[branch_start..operator.index].trim();
@@ -28292,7 +28414,7 @@ fn sql_union_branch_statements(
 fn sql_union_bounded_branch_statement(branch: &str) -> Result<String, ShardLoomError> {
     if branch.is_empty() {
         return Err(unsupported_sql_error(
-            "SQL UNION branches must not be empty",
+            "SQL set-operation branches must not be empty",
         ));
     }
     if !branch
@@ -28300,7 +28422,7 @@ fn sql_union_bounded_branch_statement(branch: &str) -> Result<String, ShardLoomE
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
     {
         return Err(unsupported_sql_error(
-            "SQL UNION branches must be SELECT local-source statements",
+            "SQL set-operation branches must be SELECT local-source statements",
         ));
     }
     Ok(format!("{branch} LIMIT {MAX_LIMIT_ROWS}"))
@@ -28727,9 +28849,13 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
             "union dtype casts are not admitted by the current complex dtype profile",
         ));
     }
-    if !allow_sql_union && contains_keyword_outside_quotes(statement, "union") {
+    if !allow_sql_union
+        && ["union", "intersect", "except"]
+            .iter()
+            .any(|keyword| contains_keyword_outside_quotes(statement, keyword))
+    {
         return Err(unsupported_sql_error(
-            "SQL UNION is not admitted in single SELECT branch parsing; use the scoped top-level UNION runtime path",
+            "SQL set operations are not admitted in single SELECT branch parsing; use the scoped top-level set-operation runtime path",
         ));
     }
     Ok(())
@@ -35832,26 +35958,36 @@ fn top_level_sql_union_operators(raw: &str) -> Result<Vec<SqlUnionOperator>, Sha
         if depth != 0 {
             continue;
         }
-        let remaining = &raw[index..];
-        if !remaining
-            .get(.."union".len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("union"))
-            || !keyword_boundary(raw, index, "union".len())
-        {
+        let Some((mut len, mode)) = top_level_sql_set_operator_at(raw, index) else {
             continue;
-        }
-        let mut len = "union".len();
+        };
         let tail = &raw[index + len..];
         let whitespace_len = tail.len() - tail.trim_start().len();
         let tail_trimmed = &tail[whitespace_len..];
-        let mode = if starts_with_keyword(tail_trimmed, "all") {
-            len += whitespace_len + "all".len();
-            SqlUnionMode::All
-        } else if starts_with_keyword(tail_trimmed, "distinct") {
-            len += whitespace_len + "distinct".len();
-            SqlUnionMode::Distinct
-        } else {
-            SqlUnionMode::Distinct
+        let mode = match mode {
+            SqlUnionMode::Distinct => {
+                if starts_with_keyword(tail_trimmed, "all") {
+                    len += whitespace_len + "all".len();
+                    SqlUnionMode::All
+                } else if starts_with_keyword(tail_trimmed, "distinct") {
+                    len += whitespace_len + "distinct".len();
+                    SqlUnionMode::Distinct
+                } else {
+                    SqlUnionMode::Distinct
+                }
+            }
+            SqlUnionMode::IntersectDistinct | SqlUnionMode::ExceptDistinct => {
+                if starts_with_keyword(tail_trimmed, "all") {
+                    return Err(unsupported_sql_error(
+                        "INTERSECT ALL and EXCEPT ALL are not admitted in this scoped local-source runtime; use distinct set semantics only",
+                    ));
+                }
+                if starts_with_keyword(tail_trimmed, "distinct") {
+                    len += whitespace_len + "distinct".len();
+                }
+                mode
+            }
+            SqlUnionMode::All => SqlUnionMode::All,
         };
         operators.push(SqlUnionOperator { index, len, mode });
     }
@@ -35864,6 +36000,23 @@ fn top_level_sql_union_operators(raw: &str) -> Result<Vec<SqlUnionOperator>, Sha
         ));
     }
     Ok(operators)
+}
+
+fn top_level_sql_set_operator_at(raw: &str, index: usize) -> Option<(usize, SqlUnionMode)> {
+    for (keyword, mode) in [
+        ("intersect", SqlUnionMode::IntersectDistinct),
+        ("except", SqlUnionMode::ExceptDistinct),
+        ("union", SqlUnionMode::Distinct),
+    ] {
+        if raw
+            .get(index..index + keyword.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+            && keyword_boundary(raw, index, keyword.len())
+        {
+            return Some((keyword.len(), mode));
+        }
+    }
+    None
 }
 
 fn top_level_keyword_indexes(raw: &str, keyword: &str) -> Result<Vec<usize>, ShardLoomError> {
@@ -45208,6 +45361,47 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_sql_intersect_and_except_statements() {
+        let intersect = parse_sql_local_source_union_statement(
+            "SELECT id,label FROM 'target/left.csv' INTERSECT DISTINCT SELECT id,label FROM 'target/right.csv' ORDER BY id ASC LIMIT 3",
+        )
+        .expect("scoped intersect statement parses");
+        assert_eq!(intersect.mode, SqlUnionMode::IntersectDistinct);
+        assert_eq!(intersect.branches.len(), 2);
+        assert_eq!(intersect.limit, 3);
+        let order_by = intersect.order_by.expect("global order by parsed");
+        assert_eq!(order_by.columns_label(), "id");
+        assert_eq!(order_by.directions_label(), "asc");
+
+        let except = parse_sql_local_source_union_statement(
+            "SELECT id,label FROM 'target/left.csv' EXCEPT SELECT id,label FROM 'target/right.csv' LIMIT 5",
+        )
+        .expect("scoped except statement parses");
+        assert_eq!(except.mode, SqlUnionMode::ExceptDistinct);
+        assert_eq!(except.branches.len(), 2);
+        assert_eq!(except.limit, 5);
+        assert!(except.order_by.is_none());
+    }
+
+    #[test]
+    fn parser_blocks_intersect_all_and_except_all_without_fallback() {
+        for statement in [
+            "SELECT id FROM 'target/left.csv' INTERSECT ALL SELECT id FROM 'target/right.csv' LIMIT 5",
+            "SELECT id FROM 'target/left.csv' EXCEPT ALL SELECT id FROM 'target/right.csv' LIMIT 5",
+        ] {
+            let error = parse_sql_local_source_union_statement(statement)
+                .expect_err("ALL set operation remains blocked");
+            assert!(
+                error
+                    .to_string()
+                    .contains("INTERSECT ALL and EXCEPT ALL are not admitted"),
+                "got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
     fn parser_blocks_union_branch_local_limit_without_fallback() {
         let error = parse_sql_local_source_union_statement(
             "SELECT id FROM 'target/left.csv' LIMIT 2 UNION SELECT id FROM 'target/right.csv' LIMIT 5",
@@ -45217,7 +45411,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("SQL UNION branch-local LIMIT clauses are not admitted"),
+                .contains("SQL set-operation branch-local LIMIT clauses are not admitted"),
             "got {error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
@@ -45248,9 +45442,9 @@ mod tests {
             .expect_err("missing UNION ORDER BY output column remains blocked");
 
         assert!(
-            error
-                .to_string()
-                .contains("UNION ORDER BY output column \"missing\" is not present in the row"),
+            error.to_string().contains(
+                "SQL set-operation ORDER BY output column \"missing\" is not present in the row"
+            ),
             "got {error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
@@ -45286,7 +45480,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("has no row values and no schema dtype hint"),
+                .contains("scoped set operations require dtype evidence"),
             "got {error}"
         );
         assert!(error.to_string().contains("external_engine_invoked=false"));
@@ -45441,6 +45635,108 @@ mod tests {
             "sql_union_null_semantics",
             "not_applicable_union_all_preserves_rows",
         );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn runs_scoped_sql_intersect_distinct_csv_statement() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n2,beta\n3,gamma\n").expect("write left csv");
+        fs::write(&right, "id,label\n2,beta\n3,gamma\n4,delta\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' INTERSECT SELECT id,label FROM '{}' ORDER BY id ASC LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run intersect smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected set-operation report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "sql_set_operation_runtime_execution", "true");
+        assert_field_eq(&fields, "sql_set_operation_mode", "intersect_distinct");
+        assert_field_eq(&fields, "sql_set_operator", "INTERSECT");
+        assert_field_eq(&fields, "sql_set_operation_branch_count", "2");
+        assert_field_eq(&fields, "sql_set_operation_input_row_count", "7");
+        assert_field_eq(&fields, "sql_set_operation_candidate_row_count", "2");
+        assert_field_eq(&fields, "sql_set_operation_output_row_count", "2");
+        assert_field_eq(
+            &fields,
+            "sql_set_operation_null_semantics",
+            "sql_intersect_distinct_groups_nulls",
+        );
+        assert_field_eq(&fields, "sql_union_mode", "intersect_distinct");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn runs_scoped_sql_except_distinct_csv_statement() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n2,beta\n3,gamma\n").expect("write left csv");
+        fs::write(&right, "id,label\n2,beta\n4,delta\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' EXCEPT SELECT id,label FROM '{}' ORDER BY id ASC LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run except smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected set-operation report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "sql_set_operation_runtime_execution", "true");
+        assert_field_eq(&fields, "sql_set_operation_mode", "except_distinct");
+        assert_field_eq(&fields, "sql_set_operator", "EXCEPT");
+        assert_field_eq(&fields, "sql_set_operation_branch_count", "2");
+        assert_field_eq(&fields, "sql_set_operation_input_row_count", "6");
+        assert_field_eq(&fields, "sql_set_operation_candidate_row_count", "2");
+        assert_field_eq(&fields, "sql_set_operation_output_row_count", "2");
+        assert_field_eq(
+            &fields,
+            "sql_set_operation_null_semantics",
+            "sql_except_distinct_groups_nulls",
+        );
+        assert_field_eq(&fields, "sql_union_mode", "except_distinct");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
 

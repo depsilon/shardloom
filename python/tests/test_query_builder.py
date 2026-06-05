@@ -5208,6 +5208,140 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_intersect_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/left.csv' INTERSECT SELECT id,label FROM 'target/right.csv' LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source intersect",
+                    "human_text": "sql local source intersect",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_intersect_distinct_limit"},
+                        {"key": "sql_set_operation_runtime_execution", "value": "true"},
+                        {"key": "sql_set_operation_mode", "value": "intersect_distinct"},
+                        {"key": "sql_set_operator", "value": "INTERSECT"},
+                        {"key": "sql_set_operation_branch_count", "value": "2"},
+                        {"key": "sql_set_operation_input_row_count", "value": "7"},
+                        {"key": "sql_set_operation_candidate_row_count", "value": "2"},
+                        {"key": "sql_set_operation_output_row_count", "value": "2"},
+                        {"key": "sql_set_operation_null_semantics", "value": "sql_intersect_distinct_groups_nulls"},
+                        {"key": "sql_union_runtime_execution", "value": "true"},
+                        {"key": "sql_union_mode", "value": "intersect_distinct"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/left.csv").select("id", "label").intersect(
+            ctx.read_csv("target/right.csv").select("id", "label")
+        )
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        report = workflow.collect(limit=3)
+
+        self.assertTrue(report.sql_set_operation_runtime_execution)
+        self.assertEqual(report.sql_set_operation_mode, "intersect_distinct")
+        self.assertEqual(report.sql_set_operator, "INTERSECT")
+        self.assertEqual(report.sql_set_operation_branch_count, 2)
+        self.assertEqual(report.sql_set_operation_input_row_count, 7)
+        self.assertEqual(report.sql_set_operation_candidate_row_count, 2)
+        self.assertEqual(report.sql_set_operation_output_row_count, 2)
+        self.assertEqual(
+            report.sql_set_operation_null_semantics,
+            "sql_intersect_distinct_groups_nulls",
+        )
+        self.assertEqual(report.sql_union_mode, "intersect_distinct")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_except_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/left.csv' EXCEPT SELECT id,label FROM 'target/right.csv' LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source except",
+                    "human_text": "sql local source except",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_except_distinct_limit"},
+                        {"key": "sql_set_operation_runtime_execution", "value": "true"},
+                        {"key": "sql_set_operation_mode", "value": "except_distinct"},
+                        {"key": "sql_set_operator", "value": "EXCEPT"},
+                        {"key": "sql_set_operation_branch_count", "value": "2"},
+                        {"key": "sql_set_operation_input_row_count", "value": "6"},
+                        {"key": "sql_set_operation_candidate_row_count", "value": "2"},
+                        {"key": "sql_set_operation_output_row_count", "value": "2"},
+                        {"key": "sql_set_operation_null_semantics", "value": "sql_except_distinct_groups_nulls"},
+                        {"key": "sql_union_runtime_execution", "value": "true"},
+                        {"key": "sql_union_mode", "value": "except_distinct"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/left.csv").select("id", "label").except_(
+            ctx.read_csv("target/right.csv").select("id", "label")
+        )
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        report = workflow.collect(limit=3)
+
+        self.assertTrue(report.sql_set_operation_runtime_execution)
+        self.assertEqual(report.sql_set_operation_mode, "except_distinct")
+        self.assertEqual(report.sql_set_operator, "EXCEPT")
+        self.assertEqual(report.sql_set_operation_branch_count, 2)
+        self.assertEqual(report.sql_set_operation_input_row_count, 6)
+        self.assertEqual(report.sql_set_operation_candidate_row_count, 2)
+        self.assertEqual(report.sql_set_operation_output_row_count, 2)
+        self.assertEqual(
+            report.sql_set_operation_null_semantics,
+            "sql_except_distinct_groups_nulls",
+        )
+        self.assertEqual(report.sql_union_mode, "except_distinct")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_distinct_aggregate_having_invokes_sql_smoke(
         self,
     ) -> None:

@@ -2369,6 +2369,57 @@ class SqlLocalSourceSmokeReport:
         return value
 
     @property
+    def sql_set_operation_runtime_execution(self) -> bool:
+        """Whether this smoke executed scoped SQL set-operation composition."""
+
+        return (
+            self.envelope.field_bool("sql_set_operation_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def sql_set_operation_mode(self) -> str | None:
+        """Return the scoped SQL set-operation mode, when present."""
+
+        return self.envelope.field("sql_set_operation_mode")
+
+    @property
+    def sql_set_operator(self) -> str | None:
+        """Return the SQL set operator, when present."""
+
+        return self.envelope.field("sql_set_operator")
+
+    @property
+    def sql_set_operation_branch_count(self) -> int:
+        """Return the number of SELECT branches composed by the set operation."""
+
+        return self.envelope.field_int("sql_set_operation_branch_count", 0) or 0
+
+    @property
+    def sql_set_operation_input_row_count(self) -> int:
+        """Return rows entering SQL set-operation composition after branch filters."""
+
+        return self.envelope.field_int("sql_set_operation_input_row_count", 0) or 0
+
+    @property
+    def sql_set_operation_candidate_row_count(self) -> int:
+        """Return rows remaining after set-operation distinct semantics before LIMIT."""
+
+        return self.envelope.field_int("sql_set_operation_candidate_row_count", 0) or 0
+
+    @property
+    def sql_set_operation_output_row_count(self) -> int:
+        """Return rows emitted by the SQL set-operation result."""
+
+        return self.envelope.field_int("sql_set_operation_output_row_count", 0) or 0
+
+    @property
+    def sql_set_operation_null_semantics(self) -> str | None:
+        """Return scoped SQL set-operation null-semantics evidence."""
+
+        return self.envelope.field("sql_set_operation_null_semantics")
+
+    @property
     def sql_union_runtime_execution(self) -> bool:
         """Whether this smoke executed scoped SQL UNION composition."""
 

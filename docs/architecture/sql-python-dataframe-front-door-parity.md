@@ -53,7 +53,11 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   duplicate removal is admitted for bounded local-source projection, aggregate/HAVING, join, and
   window output rows through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`,
   `.drop_duplicates()`, and `.unique()`; the runtime deduplicates before applying `LIMIT` and emits
-  `distinct_projection_*` evidence. Scalar literal `IN`/`NOT IN`, row-value literal `IN`/`NOT IN`,
+  `distinct_projection_*` evidence. Scoped local-source set operations are admitted for already
+  admitted branch `SELECT` plans through SQL `UNION`/`UNION ALL`/`INTERSECT`/`EXCEPT` and
+  Python/DataFrame `.union(...)`, `.union_all(...)`, `.intersect(...)`, `.except_(...)`,
+  `.except_rows(...)`, and `.subtract(...)`; branch dtypes must match and the runtime emits
+  `sql_set_operation_*` no-fallback evidence. Scalar literal `IN`/`NOT IN`, row-value literal `IN`/`NOT IN`,
   bounded scalar local-source `IN`/`NOT IN` subqueries, nested bounded scalar local-source
   `IN` subqueries, row-value local-source `IN`/`NOT IN` subqueries, scoped local
   `EXISTS`/`NOT EXISTS`, quantified `ANY`/`ALL`, and scoped
@@ -207,7 +211,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   Python `SqlLocalSourceSmokeReport` now exposes runtime unsupported diagnostics for non-admitted
   correlated subquery shapes directly as `status`, `diagnostics`, and `unsupported_reasons`, so
   Python users can inspect the same deterministic no-fallback blocker emitted by the CLI.
-  Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
+  Scoped local-source `INTERSECT` and `EXCEPT` now reuse the same branch-bound set-operation
+  runtime and Python/DataFrame aliases as scoped `UNION`, with `sql_set_operation_*` evidence over
+  already-admitted branch `SELECT` plans. Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
   division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
   helpers, and Python result reports expose parsed typed decimal sink support for Parquet,
   Arrow IPC, Avro, and Vortex while leaving ORC typed decimals as the deterministic provider-backed
