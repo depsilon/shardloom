@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5/6 follow-up timing, low-cardinality group-by, and reuse P1 closeout
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - Unresolved Codex review sweep for PRs `#1090` through `#1128`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `python/src/shardloom/prepared_route.py`.
+    - Local bounded benchmark artifacts under `target/codex-perf-*.json`.
+  - Scope:
+    - Fixed the PR `#1128` timing comments by treating `scan_chunk_iter_micros` and
+      `vortex_chunk_iteration_micros` as aliases during benchmark promotion and by starting Vortex
+      scan chunk timing before advancing the iterator.
+    - Recovered the low-cardinality numeric group-by path by using ordered `u32` group maps for
+      plain group aggregation while retaining the interned hash path for string/category-heavy
+      grouping.
+    - Fixed the PR `#1118` P1 prepared-route reuse issue by including local file content digests in
+      source reuse fingerprints and adding a regression test that preserves file size and mtime
+      while changing contents.
+  - Evidence:
+    - PR comment sweep confirmed `#1128` had the timing P1/P2 pair and `#1118` had the remaining
+      P1 prepared-state reuse fingerprint issue; both are addressed locally in this branch.
+    - Clean bounded group-by benchmark comparison:
+      `target/codex-perf-groupby-clean.json` (`workspace-local-release-bbcc3abd`) versus
+      `target/codex-perf-groupby-origin-main.json` (`workspace-local-release-9fa200bd`) showed
+      `query_runtime_millis` geomean `0.994x` current/main and `operator_kernel` geomean `0.985x`
+      current/main across the scoped `group by aggregation` rows. `vortex_scan_ms` increased as
+      expected because main undercounted iterator advancement before the timing fix.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_cli_client`
+      passed with 145 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 440 tests.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - Bounded local artifacts are optimization triage evidence only. They are not a full
+      claim-readiness rerun and do not update the checked-in public benchmark artifact.
+  - Claim boundary:
+    - Claim is limited to fixing timing attribution, restoring scoped low-cardinality group-by
+      query/kernel parity in local bounded evidence, and preventing stale prepared-state reuse.
+      Performance superiority, Spark-displacement, production readiness, package-release, and
+      public benchmark publication claims remain blocked.
+  - Fallback boundary:
+    - All execution remains within admitted ShardLoom/Vortex benchmark and Python reuse paths with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no external query engine or
+      Vortex query-engine integration is introduced as fallback.
+
 - [x] Session label: PERF-INNOV-6 timing provenance and route-stage inclusion guardrails
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
