@@ -309,6 +309,8 @@ completed details to the ledger.
   feature-gated local materialization boundary, scoped complex
   result-boundary ordering, first-class list/array plus struct access/cast unsupported
   diagnostics, complex subquery membership materialization unsupported diagnostics, scoped
+  scalar and row-value `NOT IN (SELECT ...)` subquery evidence, correlated `NOT EXISTS`
+  evidence, scoped
   scalar-expression `JOIN ON` predicate evidence including scoped logical `OR` over admitted
   qualified scalar leaves, complex-key `JOIN ON` blockers, and arbitrary interval arithmetic
   blockers outside scoped temporal helpers:
@@ -321,7 +323,8 @@ completed details to the ledger.
   beyond exact exponent notation,
   scalar-left multi-column subqueries, outer references outside admitted WHERE/HAVING/projection
   subquery correlations, unbound source aliases, and remaining broad ANSI subquery families outside
-  the admitted local-source predicate/CASE projection boundary.
+  the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`, quantified,
+  and predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
@@ -332,7 +335,8 @@ completed details to the ledger.
   float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/all-null rows
   when dtype/family evidence is present, plus scoped scalar-expression `JOIN ON` predicate evidence
   including logical `OR` over admitted qualified scalar leaves and deterministic blockers for
-  complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers;
+  complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers,
+  plus scoped scalar and row-value `NOT IN (SELECT ...)` and correlated `NOT EXISTS` evidence;
   likely candidates are ORC typed decimal sink
   preservation once ORC writer evidence exists, or another front-door parity gap only after the
   runtime route is already admitted.

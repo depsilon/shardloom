@@ -54,8 +54,9 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   window output rows through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`,
   `.drop_duplicates()`, and `.unique()`; the runtime deduplicates before applying `LIMIT` and emits
   `distinct_projection_*` evidence. Scalar literal `IN`/`NOT IN`, row-value literal `IN`/`NOT IN`,
-  bounded scalar local-source `IN` subqueries, nested bounded scalar local-source `IN` subqueries,
-  row-value local-source `IN` subqueries, scoped local `EXISTS`, quantified `ANY`/`ALL`, and scoped
+  bounded scalar local-source `IN`/`NOT IN` subqueries, nested bounded scalar local-source
+  `IN` subqueries, row-value local-source `IN`/`NOT IN` subqueries, scoped local
+  `EXISTS`/`NOT EXISTS`, quantified `ANY`/`ALL`, and scoped
   correlated `outer.<column>` source-subquery filters now share the same ShardLoom SQL runtime
   evidence boundary. Scoped subquery-backed predicate projections and CASE predicates use that same
   local-source runtime boundary when every source and outer reference is admitted.

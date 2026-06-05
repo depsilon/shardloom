@@ -606,13 +606,15 @@ subquery predicates, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python `bet
 familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
 including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
 semantics. Row-value literal predicates admit up to 32 literal tuples with arity/type checks and
-SQL three-valued row comparison semantics. Scoped local `IN` subqueries materialize a bounded scalar
-column or row-value tuple set from another admitted local source. Scoped local `EXISTS` subqueries
-evaluate a two-valued bounded presence test over another admitted local source. Scoped local
+SQL three-valued row comparison semantics. Scoped local `IN`/`NOT IN` subqueries materialize a
+bounded scalar column or row-value tuple set from another admitted local source. Scoped local
+`EXISTS`/`NOT EXISTS` subqueries evaluate a two-valued bounded presence test over another admitted
+local source. Scoped local
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
 source and apply SQL three-valued comparison semantics. Scoped correlated `outer.<column>`
-subquery filters are admitted for scalar `IN`, row-value `IN`, `EXISTS`, and quantified `ANY` /
-`ALL` predicates through the reserved outer-row alias. Direct SQL predicate projections and CASE
+subquery filters are admitted for scalar `IN`/`NOT IN`, row-value `IN`/`NOT IN`,
+`EXISTS`/`NOT EXISTS`, and quantified `ANY` / `ALL` predicates through the reserved outer-row alias.
+Direct SQL predicate projections and CASE
 predicates can now reuse admitted scalar `IN` subqueries, including scoped correlated
 `outer.<column>` filters, over bounded local sources. Source-qualified local subquery references are
 admitted for the subquery's explicit `AS <alias>` or SQL-identifier file stem and can be bound from
