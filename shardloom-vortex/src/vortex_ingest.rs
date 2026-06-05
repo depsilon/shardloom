@@ -5997,16 +5997,11 @@ fn scalar_column_families(
             for row in rows {
                 let value = &row[column_index].1;
                 let Some(candidate) = scalar_family(value) else {
-                    if matches!(value, ScalarValue::Null)
-                        && matches!(
-                            family,
-                            Some(ScalarFamily::Binary | ScalarFamily::Decimal128 { .. })
-                        )
-                    {
+                    if matches!(value, ScalarValue::Null) && family.is_some() {
                         continue;
                     }
                     return Err(ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros plus nullable binary/decimal128 columns only when the column family is known; no fallback execution was attempted",
+                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros columns only when the column family is known; no fallback execution was attempted",
                         value.summary()
                     )));
                 };
@@ -6036,7 +6031,14 @@ fn scalar_family_from_dtype_hint(
     dtype: &LogicalDType,
 ) -> Result<Option<ScalarFamily>> {
     match dtype {
+        LogicalDType::Boolean => Ok(Some(ScalarFamily::Boolean)),
+        LogicalDType::Int64 => Ok(Some(ScalarFamily::Int64)),
+        LogicalDType::UInt64 => Ok(Some(ScalarFamily::UInt64)),
+        LogicalDType::Float64 => Ok(Some(ScalarFamily::Float64)),
+        LogicalDType::Utf8 => Ok(Some(ScalarFamily::Utf8)),
         LogicalDType::Binary => Ok(Some(ScalarFamily::Binary)),
+        LogicalDType::Date32 => Ok(Some(ScalarFamily::Date32)),
+        LogicalDType::TimestampMicros => Ok(Some(ScalarFamily::TimestampMicros)),
         LogicalDType::Extension(value) if value.starts_with("decimal128") => {
             let (precision, scale) =
                 scalar_decimal128_dtype_precision_scale(column, value)?.ok_or_else(|| {
@@ -6605,85 +6607,32 @@ fn column_to_vortex_array(
     family: &str,
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
-    use vortex::array::IntoArray as _;
-    use vortex::array::arrays::{BoolArray, PrimitiveArray, VarBinViewArray};
-    use vortex::array::validity::Validity;
-    use vortex::buffer::BitBuffer;
-
     match family {
-        "boolean" => Ok(BoolArray::new(
-            BitBuffer::from(
-                rows.iter()
-                    .map(|row| match &row[column_index].1 {
-                        ScalarValue::Boolean(value) => Ok(*value),
-                        value => Err(unexpected_vortex_ingest_value(column, family, value)),
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-            ),
-            Validity::NonNullable,
-        )
-        .into_array()),
-        "int64" => Ok(rows
-            .iter()
-            .map(|row| match &row[column_index].1 {
-                ScalarValue::Int64(value) => Ok(*value),
-                value => Err(unexpected_vortex_ingest_value(column, family, value)),
-            })
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
-        "uint64" => Ok(rows
-            .iter()
-            .map(|row| match &row[column_index].1 {
-                ScalarValue::UInt64(value) => Ok(*value),
-                value => Err(unexpected_vortex_ingest_value(column, family, value)),
-            })
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
-        "float64" => Ok(rows
-            .iter()
-            .map(|row| match &row[column_index].1 {
-                ScalarValue::Float64(value) if value.is_finite() => Ok(*value),
-                value => Err(unexpected_vortex_ingest_value(column, family, value)),
-            })
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
-        "utf8" => {
-            let values = rows
-                .iter()
-                .map(|row| match &row[column_index].1 {
-                    ScalarValue::Utf8(value) => Ok(value.as_str()),
-                    value => Err(unexpected_vortex_ingest_value(column, family, value)),
-                })
-                .collect::<Result<Vec<_>>>()?;
-            Ok(VarBinViewArray::from_iter_str(values).into_array())
-        }
+        "boolean" => scalar_boolean_to_vortex_array(column, column_index, family, rows),
+        "int64" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
+            ScalarValue::Int64(value) => Ok(*value),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        }),
+        "uint64" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
+            ScalarValue::UInt64(value) => Ok(*value),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        }),
+        "float64" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
+            ScalarValue::Float64(value) if value.is_finite() => Ok(*value),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        }),
+        "utf8" => scalar_utf8_to_vortex_array(column, column_index, family, rows),
         "binary" => scalar_binary_to_vortex_array(column, column_index, family, rows),
-        "date32" => Ok(rows
-            .iter()
-            .map(|row| match &row[column_index].1 {
-                ScalarValue::Date32(value) => Ok(*value),
-                value => Err(unexpected_vortex_ingest_value(column, family, value)),
-            })
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
-        "timestamp_micros" => Ok(rows
-            .iter()
-            .map(|row| match &row[column_index].1 {
+        "date32" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
+            ScalarValue::Date32(value) => Ok(*value),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        }),
+        "timestamp_micros" => {
+            scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
                 ScalarValue::TimestampMicros(value) => Ok(*value),
                 value => Err(unexpected_vortex_ingest_value(column, family, value)),
             })
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
+        }
         family if family.starts_with("decimal128(") => {
             scalar_decimal128_to_vortex_array(column, column_index, family, rows)
         }
@@ -6691,6 +6640,111 @@ fn column_to_vortex_array(
             "local vortex_ingest column '{column}' has unsupported scalar family {other}; no fallback execution was attempted"
         ))),
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_boolean_to_vortex_array(
+    column: &str,
+    column_index: usize,
+    family: &str,
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::BoolArray;
+
+    if rows
+        .iter()
+        .any(|row| matches!(row[column_index].1, ScalarValue::Null))
+    {
+        let values = rows
+            .iter()
+            .map(|row| match &row[column_index].1 {
+                ScalarValue::Boolean(value) => Ok(Some(*value)),
+                ScalarValue::Null => Ok(None),
+                value => Err(unexpected_vortex_ingest_value(column, family, value)),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        return Ok(BoolArray::from_iter(values).into_array());
+    }
+
+    let values = rows
+        .iter()
+        .map(|row| match &row[column_index].1 {
+            ScalarValue::Boolean(value) => Ok(*value),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(BoolArray::from_iter(values).into_array())
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_primitive_to_vortex_array<T>(
+    column_index: usize,
+    rows: &[Vec<(String, ScalarValue)>],
+    value_from_scalar: impl Fn(&ScalarValue) -> Result<T>,
+) -> Result<vortex::array::ArrayRef>
+where
+    T: vortex::array::dtype::NativePType,
+{
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::PrimitiveArray;
+
+    if rows
+        .iter()
+        .any(|row| matches!(row[column_index].1, ScalarValue::Null))
+    {
+        let values = rows
+            .iter()
+            .map(|row| match &row[column_index].1 {
+                ScalarValue::Null => Ok(None),
+                value => value_from_scalar(value).map(Some),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        return Ok(PrimitiveArray::from_option_iter(values).into_array());
+    }
+
+    Ok(rows
+        .iter()
+        .map(|row| value_from_scalar(&row[column_index].1))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .collect::<PrimitiveArray>()
+        .into_array())
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_utf8_to_vortex_array(
+    column: &str,
+    column_index: usize,
+    family: &str,
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::VarBinViewArray;
+
+    if rows
+        .iter()
+        .any(|row| matches!(row[column_index].1, ScalarValue::Null))
+    {
+        let values = rows
+            .iter()
+            .map(|row| match &row[column_index].1 {
+                ScalarValue::Utf8(value) => Ok(Some(value.as_str())),
+                ScalarValue::Null => Ok(None),
+                value => Err(unexpected_vortex_ingest_value(column, family, value)),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        return Ok(VarBinViewArray::from_iter_nullable_str(values).into_array());
+    }
+
+    let values = rows
+        .iter()
+        .map(|row| match &row[column_index].1 {
+            ScalarValue::Utf8(value) => Ok(value.as_str()),
+            value => Err(unexpected_vortex_ingest_value(column, family, value)),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(VarBinViewArray::from_iter_str(values).into_array())
 }
 
 #[cfg(feature = "vortex-write")]
@@ -6702,23 +6756,20 @@ fn scalar_binary_to_vortex_array(
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::VarBinViewArray;
-    use vortex::array::builders::{ArrayBuilder as _, VarBinViewBuilder};
-    use vortex::array::dtype::{DType, Nullability};
 
     if rows
         .iter()
         .any(|row| matches!(row[column_index].1, ScalarValue::Null))
     {
-        let mut builder =
-            VarBinViewBuilder::with_capacity(DType::Binary(Nullability::Nullable), rows.len());
-        for row in rows {
-            match &row[column_index].1 {
-                ScalarValue::Binary(value) => builder.append_value(value),
-                ScalarValue::Null => builder.append_null(),
-                value => return Err(unexpected_vortex_ingest_value(column, family, value)),
-            }
-        }
-        return Ok(builder.finish_into_varbinview().into_array());
+        let values = rows
+            .iter()
+            .map(|row| match &row[column_index].1 {
+                ScalarValue::Binary(value) => Ok(Some(value.as_slice())),
+                ScalarValue::Null => Ok(None),
+                value => Err(unexpected_vortex_ingest_value(column, family, value)),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        return Ok(VarBinViewArray::from_iter_nullable_bin(values).into_array());
     }
 
     let values = rows
@@ -7279,6 +7330,315 @@ mod tests {
         assert!(payload.is_null(0));
         assert!(payload.is_null(1));
         assert_eq!(payload.null_count(), 2);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn local_flat_scalar_all_null_typed_rows_write_reopens_nullable_scalars() {
+        use arrow_array::{
+            Array as _, BooleanArray, Date32Array, Float64Array, Int64Array, StringArray,
+            StructArray, TimestampMicrosecondArray, UInt64Array,
+        };
+        use arrow_schema::{DataType, Field, Schema, TimeUnit};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-scalar-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec![
+            "active".to_string(),
+            "id".to_string(),
+            "count".to_string(),
+            "metric".to_string(),
+            "label".to_string(),
+            "event_day".to_string(),
+            "event_ts".to_string(),
+        ];
+        let null_row = || {
+            vec![
+                ("active".to_string(), ScalarValue::Null),
+                ("id".to_string(), ScalarValue::Null),
+                ("count".to_string(), ScalarValue::Null),
+                ("metric".to_string(), ScalarValue::Null),
+                ("label".to_string(), ScalarValue::Null),
+                ("event_day".to_string(), ScalarValue::Null),
+                ("event_ts".to_string(), ScalarValue::Null),
+            ]
+        };
+        let request =
+            VortexPreparedStateWriteRequest::new(&path, columns, vec![null_row(), null_row()])
+                .column_dtypes(vec![
+                    Some(LogicalDType::Boolean),
+                    Some(LogicalDType::Int64),
+                    Some(LogicalDType::UInt64),
+                    Some(LogicalDType::Float64),
+                    Some(LogicalDType::Utf8),
+                    Some(LogicalDType::Date32),
+                    Some(LogicalDType::TimestampMicros),
+                ]);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(
+            report.column_family_summary(),
+            "active:boolean,id:int64,count:uint64,metric:float64,label:utf8,event_day:date32,event_ts:timestamp_micros"
+        );
+        let schema = Schema::new(vec![
+            Field::new("active", DataType::Boolean, true),
+            Field::new("id", DataType::Int64, true),
+            Field::new("count", DataType::UInt64, true),
+            Field::new("metric", DataType::Float64, true),
+            Field::new("label", DataType::Utf8, true),
+            Field::new("event_day", DataType::Date32, true),
+            Field::new(
+                "event_ts",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                true,
+            ),
+        ]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+
+        assert_eq!(
+            struct_array
+                .column_by_name("active")
+                .expect("active column")
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .expect("boolean column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("id")
+                .expect("id column")
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .expect("int64 column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("count")
+                .expect("count column")
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .expect("uint64 column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("metric")
+                .expect("metric column")
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .expect("float64 column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("label")
+                .expect("label column")
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("utf8 column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("event_day")
+                .expect("event_day column")
+                .as_any()
+                .downcast_ref::<Date32Array>()
+                .expect("date32 column")
+                .null_count(),
+            2
+        );
+        assert_eq!(
+            struct_array
+                .column_by_name("event_ts")
+                .expect("event_ts column")
+                .as_any()
+                .downcast_ref::<TimestampMicrosecondArray>()
+                .expect("timestamp_micros column")
+                .null_count(),
+            2
+        );
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn local_flat_scalar_mixed_null_rows_write_reopens_nullable_scalars() {
+        use arrow_array::{
+            Array as _, BooleanArray, Date32Array, Float64Array, Int64Array, StringArray,
+            StructArray, TimestampMicrosecondArray, UInt64Array,
+        };
+        use arrow_schema::{DataType, Field, Schema, TimeUnit};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-scalar-mixed-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec![
+                "active".to_string(),
+                "id".to_string(),
+                "count".to_string(),
+                "metric".to_string(),
+                "label".to_string(),
+                "event_day".to_string(),
+                "event_ts".to_string(),
+            ],
+            vec![
+                vec![
+                    ("active".to_string(), ScalarValue::Boolean(true)),
+                    ("id".to_string(), ScalarValue::Int64(-10)),
+                    ("count".to_string(), ScalarValue::UInt64(7)),
+                    ("metric".to_string(), ScalarValue::Float64(1.5)),
+                    ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                    ("event_day".to_string(), ScalarValue::Date32(20_000)),
+                    (
+                        "event_ts".to_string(),
+                        ScalarValue::TimestampMicros(1_700_000_000_000_000),
+                    ),
+                ],
+                vec![
+                    ("active".to_string(), ScalarValue::Null),
+                    ("id".to_string(), ScalarValue::Null),
+                    ("count".to_string(), ScalarValue::Null),
+                    ("metric".to_string(), ScalarValue::Null),
+                    ("label".to_string(), ScalarValue::Null),
+                    ("event_day".to_string(), ScalarValue::Null),
+                    ("event_ts".to_string(), ScalarValue::Null),
+                ],
+                vec![
+                    ("active".to_string(), ScalarValue::Boolean(false)),
+                    ("id".to_string(), ScalarValue::Int64(20)),
+                    ("count".to_string(), ScalarValue::UInt64(8)),
+                    ("metric".to_string(), ScalarValue::Float64(2.5)),
+                    ("label".to_string(), ScalarValue::Utf8("omega".to_string())),
+                    ("event_day".to_string(), ScalarValue::Date32(20_001)),
+                    (
+                        "event_ts".to_string(),
+                        ScalarValue::TimestampMicros(1_700_000_000_001_000),
+                    ),
+                ],
+            ],
+        );
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(
+            report.column_family_summary(),
+            "active:boolean,id:int64,count:uint64,metric:float64,label:utf8,event_day:date32,event_ts:timestamp_micros"
+        );
+        let schema = Schema::new(vec![
+            Field::new("active", DataType::Boolean, true),
+            Field::new("id", DataType::Int64, true),
+            Field::new("count", DataType::UInt64, true),
+            Field::new("metric", DataType::Float64, true),
+            Field::new("label", DataType::Utf8, true),
+            Field::new("event_day", DataType::Date32, true),
+            Field::new(
+                "event_ts",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                true,
+            ),
+        ]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let active = struct_array
+            .column_by_name("active")
+            .expect("active column")
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("boolean column");
+        assert!(active.value(0));
+        assert!(active.is_null(1));
+        assert!(!active.value(2));
+        assert_eq!(active.null_count(), 1);
+        let id = struct_array
+            .column_by_name("id")
+            .expect("id column")
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("int64 column");
+        assert_eq!(id.value(0), -10);
+        assert!(id.is_null(1));
+        assert_eq!(id.value(2), 20);
+        let count = struct_array
+            .column_by_name("count")
+            .expect("count column")
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .expect("uint64 column");
+        assert_eq!(count.value(0), 7);
+        assert!(count.is_null(1));
+        assert_eq!(count.value(2), 8);
+        let metric = struct_array
+            .column_by_name("metric")
+            .expect("metric column")
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("float64 column");
+        assert!((metric.value(0) - 1.5).abs() < f64::EPSILON);
+        assert!(metric.is_null(1));
+        assert!((metric.value(2) - 2.5).abs() < f64::EPSILON);
+        let label = struct_array
+            .column_by_name("label")
+            .expect("label column")
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("utf8 column");
+        assert_eq!(label.value(0), "alpha");
+        assert!(label.is_null(1));
+        assert_eq!(label.value(2), "omega");
+        let event_day = struct_array
+            .column_by_name("event_day")
+            .expect("event_day column")
+            .as_any()
+            .downcast_ref::<Date32Array>()
+            .expect("date32 column");
+        assert_eq!(event_day.value(0), 20_000);
+        assert!(event_day.is_null(1));
+        assert_eq!(event_day.value(2), 20_001);
+        let event_ts = struct_array
+            .column_by_name("event_ts")
+            .expect("event_ts column")
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+            .expect("timestamp_micros column");
+        assert_eq!(event_ts.value(0), 1_700_000_000_000_000);
+        assert!(event_ts.is_null(1));
+        assert_eq!(event_ts.value(2), 1_700_000_000_001_000);
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

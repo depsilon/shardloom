@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped nullable Vortex flat scalar sink admission
+      follow-through
+  - Date: 2026-06-05
+  - Branch/PR: `codex/6d-vortex-nullable-scalars` / PR #1093.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/global-architecture-review.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-concepts.md`.
+    - `docs/skills/vortex/vortex-native-output.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `docs/skills/benchmarking.md`.
+  - Scope:
+    - Admitted scoped nullable/all-null local Vortex flat scalar output for boolean, int64, uint64,
+      float64, utf8, binary, `decimal128(p,s)`, date32, and timestamp_micros result columns when
+      dtype/family evidence is present.
+    - Expanded `VortexPreparedStateWriteRequest` dtype-hint family admission and Vortex-native
+      array builders for the admitted nullable scalar families.
+    - Widened SQL result dtype-hint retention and the pre-writer Vortex NULL-family blocker so
+      known flat scalar families pass while unknown or unsupported NULL-bearing batches keep the
+      deterministic `vortex_null_family_not_admitted` diagnostic.
+    - Updated active phase docs, admitted semantics, source use-case records, generated website
+      content, and static website/benchmark/status assets so the public pages reflect the latest
+      boundary only.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_scalar_ -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write vortex_sink -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-vortex-nullable-scalars.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --features vortex-write,universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features vortex-write --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped nullable/all-null
+      Vortex flat scalar sink preservation and docs/site freshness only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits only scoped flat scalar local Vortex result columns for boolean, int64,
+      uint64, float64, utf8, binary, `decimal128(p,s)`, date32, and timestamp_micros, including
+      nullable/all-null columns when dtype/family evidence is present. It does not admit unknown or
+      unsupported NULL-bearing Vortex output batches, broad Vortex writer behavior, ORC typed
+      decimal sinks, broad SQL/DataFrame parity, production support, benchmark speedup, public
+      performance superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom local SQL/Python output planning plus feature-gated
+      upstream Vortex-native array/write/reopen APIs. No Spark, DataFusion, DuckDB, Polars, Velox,
+      or Vortex query-engine integration is used or reported as ShardLoom execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped nullable Vortex binary/decimal sink admission
       follow-through
   - Date: 2026-06-04
