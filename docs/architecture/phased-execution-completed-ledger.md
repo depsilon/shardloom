@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-1 projection-aware scout and typed decode for CSV/JSONL cold ingest
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-csv-jsonl-typed-decode` / current benchmark optimization PR batch.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - Promoted benchmark website/public artifact data.
+  - Scope:
+    - Added source-read substage evidence for typed decode, row assembly,
+      anomaly/quarantine planning, and columnar handoff alongside the existing header scout, byte
+      acquisition, and full-body read fields.
+    - Refactored admitted fact and dimension JSONL text-provider paths to parse fast-path and
+      selected generic fallback values directly into typed Vortex/Arrow-compatible column builders
+      instead of constructing `TraditionalFactRow` or `TraditionalDimRow` before the provider batch.
+    - Preserved CSV selected-column parsing, quoted selected-field handling, and deterministic
+      fail-closed behavior for selected malformed fields while continuing to skip malformed
+      unselected optional tails.
+    - Propagated the new source-read substage fields through cold certified rows, direct transient
+      rows, prepare-batch promoted fields, benchmark harness metrics, artifact promotion,
+      completeness validation, and the benchmark dashboard source-read table.
+    - Repromoted the existing `full_local` benchmark artifact only to refresh schema/dashboard
+      fields. The benchmark suite was not rerun and no new timing claim is made.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo clippy -p shardloom-vortex --all-targets --features vortex-traditional-analytics-benchmark -- -D warnings`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark benchmark_jsonl`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selected_csv_record`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark source_read_evidence`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark fact_text_column_selection`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark nested_json_field_scan_runs_jsonl_fixture`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark malformed_timestamp_dirty`
+      passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py` passed.
+    - `python3 -m py_compile scripts/promote_benchmark_artifact.py` passed.
+    - `python3 -m py_compile scripts/check_benchmark_artifact_completeness.py` passed.
+    - `python3 scripts/promote_benchmark_artifact.py --input website/assets/benchmarks/latest/benchmark-results.json --profile full_local`
+      passed; this repromoted the existing artifact without a benchmark rerun.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete`.
+    - Astro source check and static build passed from `website-src` with the bundled Node runtime.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - This slice changes runtime parsing behavior and attribution surfaces, then repromotes the
+      current artifact to expose the new fields. It does not rerun the full benchmark suite or make
+      a new speed/performance claim.
+  - Claim boundary:
+    - The claim is scoped to admitted local CSV/JSONL text-provider work avoidance and
+      attribution: JSONL provider rows avoid decoded row structs before typed column builder
+      handoff, selected optional fields remain skippable, and unsupported/dirty selected shapes
+      fail closed. Broad JSON/database support, production ingest, and superiority claims remain
+      gated by refreshed benchmark evidence and release claim gates.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, DataFusion, Spark, Velox, Dask, external parser engine, or Vortex
+      query-engine integration executes, repairs, or validates the text ingest path. ShardLoom rows
+      keep `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: PERF-SPLIT-9 append-only delta overlay prepared-state path
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-split-delta-overlays` / current benchmark optimization PR batch.
