@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=82
-executable_fixture_count=68
-diagnostic_case_count=14
-unsupported_diagnostic_count=12
+matrix_row_count=85
+executable_fixture_count=69
+diagnostic_case_count=16
+unsupported_diagnostic_count=14
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -118,6 +118,7 @@ Covered fixture rows:
 - `window_rank_offset_distribution`
 - `select_distinct_window`
 - `join_multi_key_expression_condition`
+- `join_scalar_expression_condition`
 - `select_distinct_join`
 - `runtime_error_numeric_division_by_zero`
 - `timestamp_offset_literal_normalization`
@@ -133,6 +134,8 @@ Covered fixture rows:
 - `unsupported_complex_subquery_membership`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
+- `unsupported_complex_join_key`
+- `unsupported_join_or_predicate`
 - `invalid_shape_scalar_multi_column_in_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
@@ -153,13 +156,16 @@ access-or-cast, struct access-or-cast, complex subquery membership materializati
 union dtype families, binary literal predicates against non-binary source columns,
 non-binary source ordering predicates against binary literals, and remaining non-admitted broad
 ANSI subquery shapes now have deterministic unsupported diagnostics with no fallback. Scoped
-`ARRAY[...]` literal projection and `STRUCT(<source column>, ...)` projection are
+scalar-expression `JOIN ON` predicates over qualified local sources are executable through the
+bounded expression-join route; complex `ARRAY[...]`/`STRUCT(...)` join keys and disjunctive `JOIN ON
+OR` predicates block deterministically. Scoped `ARRAY[...]` literal projection and
+`STRUCT(<source column>, ...)` projection are
 executable through the JSONL result boundary only. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
 over those already-materialized ARRAY/STRUCT projection values are executable through structural
 result-row equality, and scoped `ORDER BY` over those complex projection values is executable
 through canonical structural result-boundary sort keys. Nested source decoding, broad ANSI nested
-ordering, complex subquery membership materialization, joins
-over complex keys, and flat/structured sink persistence remain outside the claim boundary.
+ordering, complex subquery membership materialization, broad disjunctive joins, complex-key joins,
+and flat/structured sink persistence remain outside the claim boundary.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact

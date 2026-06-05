@@ -2576,6 +2576,44 @@ def join_multi_key_case() -> SqlFixtureCase:
     )
 
 
+def join_scalar_expression_condition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="join_scalar_expression_condition",
+        source_name="join-expression-fact.csv",
+        source_text="id,amount\n1,8\n2,15\n3,21\n",
+        statement_template=(
+            "SELECT f.id,d.segment FROM '{source}' AS f INNER JOIN '{dim}' AS d "
+            "ON f.amount + d.discount >= 25 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"f.id":2,"d.segment":"large"}\n'
+            '{"f.id":3,"d.segment":"small"}\n'
+            '{"f.id":3,"d.segment":"large"}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_inner_expression_join_limit",
+            "join_runtime_execution": "true",
+            "join_type": "inner_expression",
+            "join_on_predicate_runtime_execution": "true",
+            "join_on_predicate_operator_family": "generic_expression",
+            "join_on_predicate_source_column": "d.discount,f.amount",
+            "join_key_arity": "0",
+            "join_candidate_row_count": "6",
+            "join_matched_row_count": "3",
+            "join_rows_output": "3",
+            "projected_columns": "f.id,d.segment",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "dim",
+                "join-expression-dim.csv",
+                "segment,discount\nsmall,4\nlarge,10\n",
+            ),
+        ),
+    )
+
+
 def select_distinct_join_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="select_distinct_join",
@@ -2965,6 +3003,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         window_mixed_case(),
         select_distinct_window_case(),
         join_multi_key_case(),
+        join_scalar_expression_condition_case(),
         select_distinct_join_case(),
     ]
 
@@ -3103,6 +3142,28 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT CAST(payload AS union) AS payload FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="union dtype casts are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_complex_join_key",
+            source_name="complex-join-key-fact.csv",
+            source_text="id,customer_id\n1,10\n",
+            statement_template=(
+                "SELECT f.id,d.segment FROM '{source}' AS f "
+                "JOIN '{source}' AS d ON ARRAY[f.customer_id] = ARRAY[d.customer_id] LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="JOIN ON complex key expressions are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_join_or_predicate",
+            source_name="join-or-predicate-fact.csv",
+            source_text="id,customer_id,region\n1,10,east\n",
+            statement_template=(
+                "SELECT f.id,d.id FROM '{source}' AS f JOIN '{source}' AS d "
+                "ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="JOIN ON OR predicates are not admitted",
         ),
         UnsupportedCase(
             case_id="invalid_shape_scalar_multi_column_in_subquery",
