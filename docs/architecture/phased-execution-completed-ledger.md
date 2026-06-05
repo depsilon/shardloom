@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-3 lazy source-state family construction for prepared/native
+  sessions
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-lazy-source-state-family` / PR #1119, squash merge
+    `680940df915c885c9cb0e8b2ab582d6329c4c3ab`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website/assets/benchmarks/latest/*` and generated benchmark static pages.
+  - Scope:
+    - Replaced eager prepared/native source-state family construction with lazy memoized family
+      accessors so session open no longer has to build unused dimension, category/metric, grouped,
+      ranked, filter, dirty, and date/null families.
+    - Added public source-state family runtime evidence with per-family build/reuse timing,
+      reuse-hit, recompute-avoided, build-count, and invalidation reason fields.
+    - Carried the lazy-family fields through the benchmark harness, artifact promotion,
+      completeness validator, dashboard data model, and benchmark page.
+    - Repromoted the existing static benchmark artifact so the website and validators understand
+      the new schema before the next full benchmark rerun.
+  - Evidence:
+    - Focused Rust tests passed for prepared/native source-state family reuse.
+    - `cargo fmt --all`, `cargo fmt --all -- --check`, focused `shardloom-vortex` tests,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark
+      --all-targets -- -D warnings`, workspace clippy/check variants, Python release-script tests,
+      benchmark artifact completeness checks, release provenance dry run, website build/check/static
+      validation, browser QA, and `git diff --check` passed before PR merge.
+    - PR #1119 CI and CodeQL passed before merge.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. The PR repromoted the existing current artifact with
+      lazy-family evidence fields, so rows without a fresh rerun report `not_reported`/zero timing
+      for the new lazy-family table.
+  - Claim boundary:
+    - This slice claims scoped prepared/native session work avoidance and evidence plumbing only.
+      It does not claim performance superiority, production readiness, broad SQL/DataFrame support,
+      object-store/lakehouse support, package-release readiness, or Spark replacement.
+  - Fallback boundary:
+    - Source-state families are built and reused inside ShardLoom prepared/native runtime paths.
+      No pandas, Polars, DuckDB, DataFusion, Spark, Velox, or external query engine is invoked as a
+      fallback.
+
 - [x] Session label: PERF-SPLIT-2 source admission packet and source-state setup fast path
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-split-source-admission-fastpath` / PR #1118, squash merge

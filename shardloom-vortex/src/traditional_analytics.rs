@@ -140,6 +140,56 @@ const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fus
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
 const TRADITIONAL_FACT_COLUMN_COUNT: usize = 13;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_ID: u32 = 1 << 0;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_GROUP_KEY: u32 = 1 << 1;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_DIM_KEY: u32 = 1 << 2;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_VALUE: u32 = 1 << 3;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_METRIC: u32 = 1 << 4;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_FLAG: u32 = 1 << 5;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_CATEGORY: u32 = 1 << 6;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_EVENT_DATE: u32 = 1 << 7;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_NULLABLE_METRIC_00: u32 = 1 << 8;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_NESTED_PAYLOAD: u32 = 1 << 9;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_RAW_EVENT_TIME: u32 = 1 << 10;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_DIRTY_NUMERIC: u32 = 1 << 11;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_DIRTY_FLAG: u32 = 1 << 12;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_DIM_DIM_KEY: u32 = 1 << 13;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_DIM_DIM_LABEL: u32 = 1 << 14;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_DIM_WEIGHT: u32 = 1 << 15;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_CORE_MASK: u32 = SOURCE_READ_FACT_ID
+    | SOURCE_READ_FACT_GROUP_KEY
+    | SOURCE_READ_FACT_DIM_KEY
+    | SOURCE_READ_FACT_VALUE
+    | SOURCE_READ_FACT_METRIC
+    | SOURCE_READ_FACT_FLAG
+    | SOURCE_READ_FACT_CATEGORY;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_FACT_OPTIONAL_MASK: u32 = SOURCE_READ_FACT_EVENT_DATE
+    | SOURCE_READ_FACT_NULLABLE_METRIC_00
+    | SOURCE_READ_FACT_NESTED_PAYLOAD
+    | SOURCE_READ_FACT_RAW_EVENT_TIME
+    | SOURCE_READ_FACT_DIRTY_NUMERIC
+    | SOURCE_READ_FACT_DIRTY_FLAG;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const SOURCE_READ_DIM_MASK: u32 =
+    SOURCE_READ_DIM_DIM_KEY | SOURCE_READ_DIM_DIM_LABEL | SOURCE_READ_DIM_WEIGHT;
 const TRADITIONAL_DIM_SCHEMA_SUMMARY: &str = "dim(dim_key:u32,dim_label:utf8,weight:f64)";
 const TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY: &str =
     "cdc_delta(id:u64,op:utf8,value:utf8,metric:utf8,effective_ts:utf8)";
@@ -2952,6 +3002,15 @@ pub struct TraditionalAnalyticsReport {
     pub source_read_full_body_micros: u64,
     pub source_read_scout_status: String,
     pub source_read_scout_reuse_status: String,
+    pub source_read_decode_status: String,
+    pub source_read_projected_field_mask: String,
+    pub source_read_filter_field_mask: String,
+    pub source_read_decoded_columns: String,
+    pub source_read_skipped_columns: String,
+    pub source_read_decoded_column_count: u32,
+    pub source_read_skipped_column_count: u32,
+    pub source_read_row_materialization_status: String,
+    pub source_read_unsupported_shape_diagnostic: String,
     pub source_state_materialization_layout: String,
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
@@ -3374,6 +3433,10 @@ struct TraditionalSourceReadEvidence {
     header_scout_micros: u64,
     byte_acquisition_micros: u64,
     full_body_micros: u64,
+    projected_field_mask: u32,
+    filter_field_mask: u32,
+    decoded_column_mask: u32,
+    skipped_column_mask: u32,
     source_read_scout_recorded: bool,
     record_batch_count: usize,
     scalar_rows_materialized: bool,
@@ -3381,6 +3444,15 @@ struct TraditionalSourceReadEvidence {
     direct_vortex_provider_batch: bool,
     text_vortex_provider_batch: bool,
     projection_aware_text_decode: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalTextProjectionEvidence {
+    projected_fields: u32,
+    filter_fields: u32,
+    decoded_columns: u32,
+    skipped_columns: u32,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -3393,6 +3465,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            projected_field_mask: 0,
+            filter_field_mask: 0,
+            decoded_column_mask: 0,
+            skipped_column_mask: 0,
             source_read_scout_recorded: false,
             record_batch_count: 0,
             scalar_rows_materialized: true,
@@ -3415,6 +3491,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            projected_field_mask: 0,
+            filter_field_mask: 0,
+            decoded_column_mask: 0,
+            skipped_column_mask: 0,
             source_read_scout_recorded: false,
             record_batch_count,
             scalar_rows_materialized: false,
@@ -3437,6 +3517,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: 0,
             byte_acquisition_micros: 0,
             full_body_micros: 0,
+            projected_field_mask: 0,
+            filter_field_mask: 0,
+            decoded_column_mask: 0,
+            skipped_column_mask: 0,
             source_read_scout_recorded: false,
             record_batch_count,
             scalar_rows_materialized: false,
@@ -3453,6 +3537,7 @@ impl TraditionalSourceReadEvidence {
         columnar_micros: u64,
         record_batch_count: usize,
         projection_aware_text_decode: bool,
+        projection: TraditionalTextProjectionEvidence,
     ) -> Result<Self> {
         let source_read_micros = read_scout.total_micros()?;
         Ok(Self {
@@ -3465,6 +3550,10 @@ impl TraditionalSourceReadEvidence {
             header_scout_micros: read_scout.header_scout_micros,
             byte_acquisition_micros: read_scout.byte_acquisition_micros,
             full_body_micros: read_scout.full_body_micros,
+            projected_field_mask: projection.projected_fields,
+            filter_field_mask: projection.filter_fields,
+            decoded_column_mask: projection.decoded_columns,
+            skipped_column_mask: projection.skipped_columns,
             source_read_scout_recorded: read_scout.recorded,
             record_batch_count,
             scalar_rows_materialized: false,
@@ -3489,6 +3578,11 @@ impl TraditionalSourceReadEvidence {
                 other.byte_acquisition_micros,
             )?,
             full_body_micros: checked_u64_sum(self.full_body_micros, other.full_body_micros)?,
+            projected_field_mask: self.projected_field_mask | other.projected_field_mask,
+            filter_field_mask: self.filter_field_mask | other.filter_field_mask,
+            decoded_column_mask: self.decoded_column_mask | other.decoded_column_mask,
+            skipped_column_mask: (self.skipped_column_mask | other.skipped_column_mask)
+                & !(self.decoded_column_mask | other.decoded_column_mask),
             source_read_scout_recorded: self.source_read_scout_recorded
                 || other.source_read_scout_recorded,
             record_batch_count: self
@@ -3525,6 +3619,68 @@ impl TraditionalSourceReadEvidence {
         } else {
             "not_applicable_columnar_or_materialized_source"
         }
+    }
+
+    fn decode_status(&self) -> &'static str {
+        if self.text_vortex_provider_batch && self.projection_aware_text_decode {
+            "projection_aware_text_column_decode"
+        } else if self.text_vortex_provider_batch {
+            "full_text_column_decode"
+        } else if self.direct_vortex_provider_batch {
+            "direct_columnar_provider_decode"
+        } else if self.columnar_preserved {
+            "columnar_source_decode"
+        } else if self.scalar_rows_materialized {
+            "scalar_row_materialization_decode"
+        } else {
+            "not_reported"
+        }
+    }
+
+    fn row_materialization_status(&self) -> &'static str {
+        if self.scalar_rows_materialized
+            && (self.text_vortex_provider_batch || self.direct_vortex_provider_batch)
+        {
+            "mixed_scalar_rows_and_provider_batches"
+        } else if self.scalar_rows_materialized {
+            "row_structs_materialized"
+        } else if self.text_vortex_provider_batch {
+            "typed_text_column_builders_without_row_structs"
+        } else if self.direct_vortex_provider_batch {
+            "columnar_provider_batches_without_row_structs"
+        } else if self.columnar_preserved {
+            "columnar_source_preserved_until_row_boundary"
+        } else {
+            "not_reported"
+        }
+    }
+
+    fn unsupported_shape_diagnostic(&self) -> &'static str {
+        if self.text_vortex_provider_batch {
+            "none_admitted_text_shape"
+        } else if self.scalar_rows_materialized {
+            "not_applicable_scalar_row_materialization"
+        } else if self.direct_vortex_provider_batch || self.columnar_preserved {
+            "not_applicable_non_text_source"
+        } else {
+            "not_reported"
+        }
+    }
+
+    fn projected_field_mask_hex(&self) -> String {
+        source_read_mask_hex(self.projected_field_mask)
+    }
+
+    fn filter_field_mask_hex(&self) -> String {
+        source_read_mask_hex(self.filter_field_mask)
+    }
+
+    fn decoded_columns(&self) -> String {
+        source_read_mask_columns(self.decoded_column_mask)
+    }
+
+    fn skipped_columns(&self) -> String {
+        source_read_mask_columns(self.skipped_column_mask)
     }
 
     fn materialization_layout(&self) -> &'static str {
@@ -3587,6 +3743,45 @@ impl TraditionalSourceReadEvidence {
         } else {
             "traditional_row_buffer_materialized"
         }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn source_read_mask_hex(mask: u32) -> String {
+    format!("0x{mask:08x}")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn source_read_mask_columns(mask: u32) -> String {
+    const COLUMNS: &[(u32, &str)] = &[
+        (SOURCE_READ_FACT_ID, "fact.id"),
+        (SOURCE_READ_FACT_GROUP_KEY, "fact.group_key"),
+        (SOURCE_READ_FACT_DIM_KEY, "fact.dim_key"),
+        (SOURCE_READ_FACT_VALUE, "fact.value"),
+        (SOURCE_READ_FACT_METRIC, "fact.metric"),
+        (SOURCE_READ_FACT_FLAG, "fact.flag"),
+        (SOURCE_READ_FACT_CATEGORY, "fact.category"),
+        (SOURCE_READ_FACT_EVENT_DATE, "fact.event_date"),
+        (
+            SOURCE_READ_FACT_NULLABLE_METRIC_00,
+            "fact.nullable_metric_00",
+        ),
+        (SOURCE_READ_FACT_NESTED_PAYLOAD, "fact.nested_payload"),
+        (SOURCE_READ_FACT_RAW_EVENT_TIME, "fact.raw_event_time"),
+        (SOURCE_READ_FACT_DIRTY_NUMERIC, "fact.dirty_numeric"),
+        (SOURCE_READ_FACT_DIRTY_FLAG, "fact.dirty_flag"),
+        (SOURCE_READ_DIM_DIM_KEY, "dim.dim_key"),
+        (SOURCE_READ_DIM_DIM_LABEL, "dim.dim_label"),
+        (SOURCE_READ_DIM_WEIGHT, "dim.weight"),
+    ];
+    let names = COLUMNS
+        .iter()
+        .filter_map(|(bit, name)| (mask & *bit != 0).then_some(*name))
+        .collect::<Vec<_>>();
+    if names.is_empty() {
+        "none".to_string()
+    } else {
+        names.join("|")
     }
 }
 
@@ -3695,6 +3890,15 @@ pub struct TraditionalDirectTransientReport {
     pub source_read_full_body_micros: u64,
     pub source_read_scout_status: String,
     pub source_read_scout_reuse_status: String,
+    pub source_read_decode_status: String,
+    pub source_read_projected_field_mask: String,
+    pub source_read_filter_field_mask: String,
+    pub source_read_decoded_columns: String,
+    pub source_read_skipped_columns: String,
+    pub source_read_decoded_column_count: u32,
+    pub source_read_skipped_column_count: u32,
+    pub source_read_row_materialization_status: String,
+    pub source_read_unsupported_shape_diagnostic: String,
     pub source_state_materialization_layout: String,
     pub source_state_parse_normalization: String,
     pub source_state_columnar_preserved: bool,
@@ -3954,6 +4158,42 @@ impl TraditionalDirectTransientReport {
             (
                 "source_read_scout_reuse_status".to_string(),
                 self.source_read_scout_reuse_status.clone(),
+            ),
+            (
+                "source_read_decode_status".to_string(),
+                self.source_read_decode_status.clone(),
+            ),
+            (
+                "source_read_projected_field_mask".to_string(),
+                self.source_read_projected_field_mask.clone(),
+            ),
+            (
+                "source_read_filter_field_mask".to_string(),
+                self.source_read_filter_field_mask.clone(),
+            ),
+            (
+                "source_read_decoded_columns".to_string(),
+                self.source_read_decoded_columns.clone(),
+            ),
+            (
+                "source_read_skipped_columns".to_string(),
+                self.source_read_skipped_columns.clone(),
+            ),
+            (
+                "source_read_decoded_column_count".to_string(),
+                self.source_read_decoded_column_count.to_string(),
+            ),
+            (
+                "source_read_skipped_column_count".to_string(),
+                self.source_read_skipped_column_count.to_string(),
+            ),
+            (
+                "source_read_row_materialization_status".to_string(),
+                self.source_read_row_materialization_status.clone(),
+            ),
+            (
+                "source_read_unsupported_shape_diagnostic".to_string(),
+                self.source_read_unsupported_shape_diagnostic.clone(),
             ),
             (
                 "source_state_materialization_layout".to_string(),
@@ -5087,6 +5327,42 @@ impl TraditionalAnalyticsReport {
             (
                 "source_read_scout_reuse_status".to_string(),
                 self.source_read_scout_reuse_status.clone(),
+            ),
+            (
+                "source_read_decode_status".to_string(),
+                self.source_read_decode_status.clone(),
+            ),
+            (
+                "source_read_projected_field_mask".to_string(),
+                self.source_read_projected_field_mask.clone(),
+            ),
+            (
+                "source_read_filter_field_mask".to_string(),
+                self.source_read_filter_field_mask.clone(),
+            ),
+            (
+                "source_read_decoded_columns".to_string(),
+                self.source_read_decoded_columns.clone(),
+            ),
+            (
+                "source_read_skipped_columns".to_string(),
+                self.source_read_skipped_columns.clone(),
+            ),
+            (
+                "source_read_decoded_column_count".to_string(),
+                self.source_read_decoded_column_count.to_string(),
+            ),
+            (
+                "source_read_skipped_column_count".to_string(),
+                self.source_read_skipped_column_count.to_string(),
+            ),
+            (
+                "source_read_row_materialization_status".to_string(),
+                self.source_read_row_materialization_status.clone(),
+            ),
+            (
+                "source_read_unsupported_shape_diagnostic".to_string(),
+                self.source_read_unsupported_shape_diagnostic.clone(),
             ),
             (
                 "source_state_materialization_layout".to_string(),
@@ -16585,6 +16861,19 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
     let source_read_scout_reuse_status = source_read_evidence
         .source_read_scout_reuse_status()
         .to_string();
+    let source_read_decode_status = source_read_evidence.decode_status().to_string();
+    let source_read_projected_field_mask = source_read_evidence.projected_field_mask_hex();
+    let source_read_filter_field_mask = source_read_evidence.filter_field_mask_hex();
+    let source_read_decoded_columns = source_read_evidence.decoded_columns();
+    let source_read_skipped_columns = source_read_evidence.skipped_columns();
+    let source_read_decoded_column_count = source_read_evidence.decoded_column_mask.count_ones();
+    let source_read_skipped_column_count = source_read_evidence.skipped_column_mask.count_ones();
+    let source_read_row_materialization_status = source_read_evidence
+        .row_materialization_status()
+        .to_string();
+    let source_read_unsupported_shape_diagnostic = source_read_evidence
+        .unsupported_shape_diagnostic()
+        .to_string();
     let source_state_materialization_layout =
         source_read_evidence.materialization_layout().to_string();
     let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
@@ -16668,6 +16957,15 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         source_read_full_body_micros,
         source_read_scout_status,
         source_read_scout_reuse_status,
+        source_read_decode_status,
+        source_read_projected_field_mask,
+        source_read_filter_field_mask,
+        source_read_decoded_columns,
+        source_read_skipped_columns,
+        source_read_decoded_column_count,
+        source_read_skipped_column_count,
+        source_read_row_materialization_status,
+        source_read_unsupported_shape_diagnostic,
         source_state_materialization_layout,
         source_state_parse_normalization,
         source_state_columnar_preserved,
@@ -16922,6 +17220,7 @@ fn run_traditional_analytics_benchmark_enabled(
             &request.fact_csv,
             request.input_format,
             fact_source_bytes,
+            request.scenario,
             fact_text_column_selection,
         )?;
         let dim_source = read_traditional_dim_text_vortex_provider_batch_with_evidence(
@@ -16994,6 +17293,19 @@ fn run_traditional_analytics_benchmark_enabled(
     let source_read_scout_status = source_read_evidence.source_read_scout_status().to_string();
     let source_read_scout_reuse_status = source_read_evidence
         .source_read_scout_reuse_status()
+        .to_string();
+    let source_read_decode_status = source_read_evidence.decode_status().to_string();
+    let source_read_projected_field_mask = source_read_evidence.projected_field_mask_hex();
+    let source_read_filter_field_mask = source_read_evidence.filter_field_mask_hex();
+    let source_read_decoded_columns = source_read_evidence.decoded_columns();
+    let source_read_skipped_columns = source_read_evidence.skipped_columns();
+    let source_read_decoded_column_count = source_read_evidence.decoded_column_mask.count_ones();
+    let source_read_skipped_column_count = source_read_evidence.skipped_column_mask.count_ones();
+    let source_read_row_materialization_status = source_read_evidence
+        .row_materialization_status()
+        .to_string();
+    let source_read_unsupported_shape_diagnostic = source_read_evidence
+        .unsupported_shape_diagnostic()
         .to_string();
     let source_state_materialization_layout =
         source_read_evidence.materialization_layout().to_string();
@@ -17229,6 +17541,15 @@ fn run_traditional_analytics_benchmark_enabled(
         source_read_full_body_micros,
         source_read_scout_status,
         source_read_scout_reuse_status,
+        source_read_decode_status,
+        source_read_projected_field_mask,
+        source_read_filter_field_mask,
+        source_read_decoded_columns,
+        source_read_skipped_columns,
+        source_read_decoded_column_count,
+        source_read_skipped_column_count,
+        source_read_row_materialization_status,
+        source_read_unsupported_shape_diagnostic,
         source_state_materialization_layout,
         source_state_parse_normalization,
         source_state_columnar_preserved,
@@ -21279,6 +21600,44 @@ impl TraditionalFactTextColumnSelection {
         }
     }
 
+    const fn decoded_mask(self) -> u32 {
+        SOURCE_READ_FACT_CORE_MASK
+            | if self.event_date {
+                SOURCE_READ_FACT_EVENT_DATE
+            } else {
+                0
+            }
+            | if self.nullable_metric_00 {
+                SOURCE_READ_FACT_NULLABLE_METRIC_00
+            } else {
+                0
+            }
+            | if self.nested_payload {
+                SOURCE_READ_FACT_NESTED_PAYLOAD
+            } else {
+                0
+            }
+            | if self.raw_event_time {
+                SOURCE_READ_FACT_RAW_EVENT_TIME
+            } else {
+                0
+            }
+            | if self.dirty_numeric {
+                SOURCE_READ_FACT_DIRTY_NUMERIC
+            } else {
+                0
+            }
+            | if self.dirty_flag {
+                SOURCE_READ_FACT_DIRTY_FLAG
+            } else {
+                0
+            }
+    }
+
+    const fn skipped_mask(self) -> u32 {
+        SOURCE_READ_FACT_OPTIONAL_MASK & !self.decoded_mask()
+    }
+
     const fn needs_after_category(self) -> bool {
         self.event_date
             || self.nullable_metric_00
@@ -21314,10 +21673,34 @@ impl TraditionalFactTextColumnSelection {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn source_read_filter_field_mask_for_scenario(scenario: TraditionalAnalyticsScenario) -> u32 {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter
+        | TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_FLAG
+        }
+        TraditionalAnalyticsScenario::PartitionPruning => SOURCE_READ_FACT_EVENT_DATE,
+        TraditionalAnalyticsScenario::CleanCastFilterWrite => {
+            SOURCE_READ_FACT_RAW_EVENT_TIME
+                | SOURCE_READ_FACT_DIRTY_NUMERIC
+                | SOURCE_READ_FACT_DIRTY_FLAG
+        }
+        TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => {
+            SOURCE_READ_FACT_RAW_EVENT_TIME | SOURCE_READ_FACT_DIRTY_NUMERIC
+        }
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::JoinAggregate
+        | TraditionalAnalyticsScenario::SmallChangeOverLargeBase => SOURCE_READ_FACT_DIM_KEY,
+        _ => 0,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     source_bytes_hint: u64,
+    scenario: TraditionalAnalyticsScenario,
     column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<TraditionalVortexProviderBatchRead> {
     if !matches!(
@@ -21355,6 +21738,12 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
             source_to_columnar_micros,
             1,
             column_selection != TraditionalFactTextColumnSelection::full(),
+            TraditionalTextProjectionEvidence {
+                projected_fields: column_selection.decoded_mask(),
+                filter_fields: source_read_filter_field_mask_for_scenario(scenario),
+                decoded_columns: column_selection.decoded_mask(),
+                skipped_columns: column_selection.skipped_mask(),
+            },
         )?,
     })
 }
@@ -21399,6 +21788,12 @@ fn read_traditional_dim_text_vortex_provider_batch_with_evidence(
             source_to_columnar_micros,
             1,
             false,
+            TraditionalTextProjectionEvidence {
+                projected_fields: SOURCE_READ_DIM_MASK,
+                filter_fields: 0,
+                decoded_columns: SOURCE_READ_DIM_MASK,
+                skipped_columns: 0,
+            },
         )?,
     })
 }
@@ -21801,7 +22196,14 @@ fn extend_traditional_fact_jsonl_columns_from_content(
         )? {
             columns.push_row_owned(row);
         } else {
-            let fields = parse_jsonl_object(line, path, line_index + 1, "fact JSONL")?;
+            let selected_fields = fact_jsonl_selected_fields_for_selection(column_selection);
+            let fields = parse_jsonl_object_selected(
+                line,
+                path,
+                line_index + 1,
+                "fact JSONL",
+                &selected_fields,
+            )?;
             let row = fact_row_from_jsonl_fields_with_selection(
                 &fields,
                 path,
@@ -22199,6 +22601,40 @@ fn fact_row_from_jsonl_fields(
         line_number,
         TraditionalFactTextColumnSelection::full(),
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_jsonl_selected_fields_for_selection(
+    column_selection: TraditionalFactTextColumnSelection,
+) -> Vec<&'static str> {
+    let mut fields = vec![
+        "id",
+        "group_key",
+        "dim_key",
+        "value",
+        "metric",
+        "flag",
+        "category",
+    ];
+    if column_selection.event_date {
+        fields.push("event_date");
+    }
+    if column_selection.nullable_metric_00 {
+        fields.push("nullable_metric_00");
+    }
+    if column_selection.nested_payload {
+        fields.push("nested_payload");
+    }
+    if column_selection.raw_event_time {
+        fields.push("raw_event_time");
+    }
+    if column_selection.dirty_numeric {
+        fields.push("dirty_numeric");
+    }
+    if column_selection.dirty_flag {
+        fields.push("dirty_flag");
+    }
+    fields
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -22852,6 +23288,9 @@ fn split_selected_csv_record<'a>(
                         line_number,
                     )?);
                     selected_cursor += 1;
+                    if selected_cursor >= selected_fields.len() {
+                        return Ok(selected_fields);
+                    }
                 }
                 field_index = field_index.checked_add(1).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
@@ -23142,6 +23581,44 @@ fn parse_jsonl_object(
         {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "{label} '{}' line {line_number} contains duplicate field '{key}'",
+                path.display()
+            )));
+        }
+    }
+    Ok(fields)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_jsonl_object_selected(
+    line: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    label: &str,
+    selected_fields: &[&str],
+) -> Result<JsonlFieldMap> {
+    let trimmed = line.trim();
+    let Some(inner) = trimmed
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+    else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} is not a JSON object",
+            path.display()
+        )));
+    };
+    let mut fields = JsonlFieldMap::with_capacity(selected_fields.len());
+    for field in split_json_fields(inner, path, line_number, label)? {
+        let (key, value) = split_json_key_value(field, path, line_number, label)?;
+        let key = parse_json_string_token(key.trim(), path, line_number, "field name")?;
+        if !selected_fields.contains(&key.as_str()) {
+            continue;
+        }
+        if fields
+            .insert(key.clone(), value.trim().to_string())
+            .is_some()
+        {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{label} '{}' line {line_number} contains duplicate selected field '{key}'",
                 path.display()
             )));
         }
@@ -28872,6 +29349,12 @@ mod tests {
             17,
             1,
             true,
+            TraditionalTextProjectionEvidence {
+                projected_fields: SOURCE_READ_FACT_CORE_MASK,
+                filter_fields: SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_FLAG,
+                decoded_columns: SOURCE_READ_FACT_CORE_MASK,
+                skipped_columns: SOURCE_READ_FACT_OPTIONAL_MASK,
+            },
         )
         .expect("text evidence");
 
@@ -28889,6 +29372,21 @@ mod tests {
         assert!(mixed.direct_vortex_provider_batch);
         assert!(mixed.text_vortex_provider_batch);
         assert!(mixed.projection_aware_text_decode);
+        assert_eq!(mixed.decode_status(), "projection_aware_text_column_decode");
+        assert_eq!(
+            mixed.row_materialization_status(),
+            "typed_text_column_builders_without_row_structs"
+        );
+        assert_eq!(mixed.projected_field_mask_hex(), "0x0000007f");
+        assert_eq!(mixed.filter_field_mask_hex(), "0x00000028");
+        assert_eq!(
+            mixed.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category"
+        );
+        assert_eq!(
+            mixed.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
         assert_eq!(
             mixed.row_assembly_strategy(),
             "mixed_provider_record_batches_without_persistent_traditional_rows"
@@ -28932,10 +29430,13 @@ mod tests {
     #[test]
     fn fact_text_column_selection_limits_optional_csv_fields_by_scenario() {
         let optional_indices = (Some(7), Some(8), Some(12), Some(9), Some(10), Some(11));
+        let selective = TraditionalFactTextColumnSelection::for_scenario(
+            TraditionalAnalyticsScenario::SelectiveFilter,
+        );
+        assert_eq!(selective.decoded_mask(), SOURCE_READ_FACT_CORE_MASK);
+        assert_eq!(selective.skipped_mask(), SOURCE_READ_FACT_OPTIONAL_MASK);
         let core_only = traditional_fact_csv_selected_indices_for_selection(
-            TraditionalFactTextColumnSelection::for_scenario(
-                TraditionalAnalyticsScenario::SelectiveFilter,
-            ),
+            selective,
             optional_indices.0,
             optional_indices.1,
             optional_indices.2,
@@ -29107,6 +29608,34 @@ mod tests {
         assert_eq!(dim.0.as_ref(), "1");
         assert_eq!(dim.1.as_ref(), "north,west");
         assert_eq!(dim.2.as_ref(), "2.5");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn selected_csv_record_skips_malformed_unselected_trailing_fields() {
+        let path = std::path::Path::new("fact.csv");
+        let projected = split_selected_csv_record(
+            "1,2,3,4,5.5,1,c1,\"unterminated",
+            path,
+            2,
+            &[0, 1, 2, 3, 4, 5, 6],
+        )
+        .expect("projection-aware CSV reader should stop after selected fields");
+        assert_eq!(
+            selected_csv_required(&projected, 6, path, 2, "category").expect("category"),
+            "c1"
+        );
+
+        assert!(
+            split_selected_csv_record(
+                "1,2,3,4,5.5,1,c1,\"unterminated",
+                path,
+                2,
+                &[0, 1, 2, 3, 4, 5, 6, 7],
+            )
+            .is_err(),
+            "selected malformed fields must still fail deterministically"
+        );
     }
 
     #[test]
@@ -29434,6 +29963,50 @@ mod tests {
         assert_eq!(dirty.dirty_numeric.as_deref(), Some("bad-number"));
         assert_eq!(dirty.dirty_flag.as_deref(), Some("Y"));
         assert_eq!(dirty.event_date, None);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn benchmark_jsonl_generic_fallback_applies_optional_field_selection() {
+        let path = PathBuf::from("fact.jsonl");
+        let row = "{ \"id\":8, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":0, \"category\":\"c8\", \"nullable_metric_00\":\"\\u0031\" }";
+        assert!(
+            parse_benchmark_fact_jsonl_fast_with_selection(
+                row,
+                &path,
+                1,
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ),
+            )
+            .unwrap()
+            .is_none(),
+            "whitespace row should exercise the generic selected-field fallback"
+        );
+
+        let mut projected_columns = TraditionalFactVortexColumns::with_capacity(1);
+        let rows = extend_traditional_fact_jsonl_columns_from_content(
+            &path,
+            row,
+            &mut projected_columns,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .expect("unselected JSONL optional field should not be parsed");
+        assert_eq!(rows, 1);
+
+        let mut full_columns = TraditionalFactVortexColumns::with_capacity(1);
+        assert!(
+            extend_traditional_fact_jsonl_columns_from_content(
+                &path,
+                row,
+                &mut full_columns,
+                TraditionalFactTextColumnSelection::full(),
+            )
+            .is_err(),
+            "selected malformed optional JSONL text must still fail deterministically"
+        );
     }
 
     #[test]
@@ -30121,6 +30694,28 @@ mod tests {
             "source_read_scout_reuse_status",
             "not_reused_fresh_source_read",
         );
+        assert_field_eq(
+            &fields,
+            "source_read_decode_status",
+            "full_text_column_decode",
+        );
+        assert_field_eq(&fields, "source_read_projected_field_mask", "0x0000ffff");
+        assert_field_eq(&fields, "source_read_filter_field_mask", "0x00000028");
+        assert_field_contains(&fields, "source_read_decoded_columns", "fact.id");
+        assert_field_contains(&fields, "source_read_decoded_columns", "dim.weight");
+        assert_field_eq(&fields, "source_read_skipped_columns", "none");
+        assert_field_eq(&fields, "source_read_decoded_column_count", "16");
+        assert_field_eq(&fields, "source_read_skipped_column_count", "0");
+        assert_field_eq(
+            &fields,
+            "source_read_row_materialization_status",
+            "typed_text_column_builders_without_row_structs",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_unsupported_shape_diagnostic",
+            "none_admitted_text_shape",
+        );
         let scout_source_read_micros = field_u64(&fields, "source_read_header_scout_micros")
             + field_u64(&fields, "source_read_byte_acquisition_micros")
             + field_u64(&fields, "source_read_full_body_micros");
@@ -30445,6 +31040,53 @@ mod tests {
             &import_fields,
             "source_state_text_decode_policy",
             "projected_text_columns_skip_unselected_optional_fields",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_read_decode_status",
+            "projection_aware_text_column_decode",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_read_projected_field_mask",
+            "0x0000e27f",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_read_filter_field_mask",
+            "0x00000000",
+        );
+        assert_field_contains(
+            &import_fields,
+            "source_read_decoded_columns",
+            "fact.nested_payload",
+        );
+        assert_field_contains(
+            &import_fields,
+            "source_read_decoded_columns",
+            "dim.dim_label",
+        );
+        assert_field_contains(
+            &import_fields,
+            "source_read_skipped_columns",
+            "fact.event_date",
+        );
+        assert_field_contains(
+            &import_fields,
+            "source_read_skipped_columns",
+            "fact.dirty_flag",
+        );
+        assert_field_eq(&import_fields, "source_read_decoded_column_count", "11");
+        assert_field_eq(&import_fields, "source_read_skipped_column_count", "5");
+        assert_field_eq(
+            &import_fields,
+            "source_read_row_materialization_status",
+            "typed_text_column_builders_without_row_structs",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_read_unsupported_shape_diagnostic",
+            "none_admitted_text_shape",
         );
         assert_field_eq(
             &import_fields,

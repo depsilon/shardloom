@@ -292,6 +292,15 @@ WEBSITE_ROW_KEYS = (
     "source_read_full_body_ms",
     "source_read_scout_residual_ms",
     "source_read_scout_reuse_status",
+    "source_read_decode_status",
+    "source_read_projected_field_mask",
+    "source_read_filter_field_mask",
+    "source_read_decoded_columns",
+    "source_read_skipped_columns",
+    "source_read_decoded_column_count",
+    "source_read_skipped_column_count",
+    "source_read_row_materialization_status",
+    "source_read_unsupported_shape_diagnostic",
     "source_read_scout_claim_boundary",
     "vortex_reopen_scan_attribution_schema_version",
     "vortex_reopen_verify_split_status",
@@ -1756,6 +1765,15 @@ def source_read_scout_fields_for_row(
             "source_read_full_body_ms": None,
             "source_read_scout_residual_ms": None,
             "source_read_scout_reuse_status": "external_baseline_only",
+            "source_read_decode_status": "external_baseline_only",
+            "source_read_projected_field_mask": "0x00000000",
+            "source_read_filter_field_mask": "0x00000000",
+            "source_read_decoded_columns": "none",
+            "source_read_skipped_columns": "none",
+            "source_read_decoded_column_count": 0,
+            "source_read_skipped_column_count": 0,
+            "source_read_row_materialization_status": "external_baseline_only",
+            "source_read_unsupported_shape_diagnostic": "external_baseline_only",
             "source_read_scout_claim_boundary": "external_baseline_only",
         }
 
@@ -1773,6 +1791,15 @@ def source_read_scout_fields_for_row(
             "source_read_full_body_ms": None,
             "source_read_scout_residual_ms": None,
             "source_read_scout_reuse_status": "not_applicable",
+            "source_read_decode_status": "not_applicable",
+            "source_read_projected_field_mask": "0x00000000",
+            "source_read_filter_field_mask": "0x00000000",
+            "source_read_decoded_columns": "none",
+            "source_read_skipped_columns": "none",
+            "source_read_decoded_column_count": 0,
+            "source_read_skipped_column_count": 0,
+            "source_read_row_materialization_status": "not_applicable",
+            "source_read_unsupported_shape_diagnostic": "not_applicable",
             "source_read_scout_claim_boundary": (
                 "source-read scout attribution is diagnostic timing evidence only; route totals "
                 "remain the comparison surface"
@@ -1853,6 +1880,46 @@ def source_read_scout_fields_for_row(
             if complete
             else "blocked_until_scout_timing_split"
         ),
+        "source_read_decode_status": first_meaningful_field(
+            fields, ("source_read_decode_status",)
+        )
+        or "not_reported",
+        "source_read_projected_field_mask": first_meaningful_field(
+            fields, ("source_read_projected_field_mask",)
+        )
+        or "0x00000000",
+        "source_read_filter_field_mask": first_meaningful_field(
+            fields, ("source_read_filter_field_mask",)
+        )
+        or "0x00000000",
+        "source_read_decoded_columns": first_meaningful_field(
+            fields, ("source_read_decoded_columns",)
+        )
+        or "none",
+        "source_read_skipped_columns": first_meaningful_field(
+            fields, ("source_read_skipped_columns",)
+        )
+        or "none",
+        "source_read_decoded_column_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("source_read_decoded_column_count",))
+            )
+            or 0
+        ),
+        "source_read_skipped_column_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("source_read_skipped_column_count",))
+            )
+            or 0
+        ),
+        "source_read_row_materialization_status": first_meaningful_field(
+            fields, ("source_read_row_materialization_status",)
+        )
+        or "not_reported",
+        "source_read_unsupported_shape_diagnostic": first_meaningful_field(
+            fields, ("source_read_unsupported_shape_diagnostic",)
+        )
+        or "not_reported",
         "source_read_scout_claim_boundary": (
             "source-read scout attribution explains header/scout, byte acquisition, and full-body "
             "read composition only; it does not authorize performance, production, or "
@@ -3881,25 +3948,38 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    counts: Counter[tuple[str, str, str]] = Counter()
+    counts: Counter[tuple[str, str, str, int, str]] = Counter()
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
         route = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
         status = str(row.get("source_read_scout_timing_split_status") or "missing")
-        reuse = str(row.get("source_read_scout_reuse_status") or "missing")
-        counts[(route, status, reuse)] += 1
+        decode = str(row.get("source_read_decode_status") or "missing")
+        skipped = int(numeric_value(row.get("source_read_skipped_column_count")) or 0)
+        materialization = str(
+            row.get("source_read_row_materialization_status") or "missing"
+        )
+        counts[(route, status, decode, skipped, materialization)] += 1
     blockers = {
         status
-        for (_, status, _), _count in counts.items()
+        for (_, status, _, _, _), _count in counts.items()
         if status.startswith("blocked")
     }
     return {
         "heading": "Source-Read Scout Attribution",
-        "headers": ["Route", "Timing split", "Scout reuse", "Rows"],
+        "headers": [
+            "Route",
+            "Timing split",
+            "Decode status",
+            "Skipped columns",
+            "Row materialization",
+            "Rows",
+        ],
         "rows": [
-            [route, status, reuse, count]
-            for (route, status, reuse), count in sorted(counts.items())
+            [route, status, decode, skipped, materialization, count]
+            for (route, status, decode, skipped, materialization), count in sorted(
+                counts.items()
+            )
         ],
         "schema_version": SOURCE_READ_SCOUT_SCHEMA_VERSION,
         "status": "blocked" if blockers else "passed",

@@ -535,7 +535,7 @@ const routeCards = [
   <div>
     <p class="eyebrow">Stage attribution</p>
     <h2>ShardLoom stage pieces explain route cost.</h2>
-    <p class="narrow">Preparation, query, output, evidence, and diagnostic context are separated from route-level comparisons so a warm prepared slice cannot be read as a cold end-to-end route. The refreshed safe-writer artifact keeps exclusive stage timing visible for source read/parse, the inclusive import audit bundle, and workspace-safe Vortex write timing; the active child execution queue now records writer metadata coalescing, projection-aware text decode, source-admission packets, row-assembly strategy evidence, JSONL fast-path tail skipping, prepared-state lookup timing evidence, and result-sink capillary evidence before evidence rendering.</p>
+    <p class="narrow">Preparation, query, output, evidence, and diagnostic context are separated from route-level comparisons so a warm prepared slice cannot be read as a cold end-to-end route. The benchmark artifact now keeps source admission, source-read scout timing, projection-aware text decode masks, row materialization status, lazy source-state family timing, Vortex array/write timing, prepared-state lookup timing, and result-sink evidence visible as code-backed attribution rather than route-total substitutes.</p>
   </div>
   <div class="artifact-panel">
     <div class="table-wrap compact-table">
@@ -593,7 +593,7 @@ const routeCards = [
     <p class="eyebrow">Route-share attribution</p>
     <h2>Optimization targets follow route share.</h2>
     <p class="narrow">
-      Route totals remain the comparison surface. The Amdahl table identifies the largest measured stage per ShardLoom route, while source-read scout and Vortex reopen/scan tables show which split evidence is complete or still blocked before stronger optimization claims.
+      Route totals remain the comparison surface. The Amdahl table identifies the largest measured stage per ShardLoom route, while source-read scout, projection-aware decode, and Vortex reopen/scan tables show which split evidence is complete or still blocked before stronger optimization claims.
     </p>
   </div>
   <div class="artifact-panel">
@@ -611,7 +611,7 @@ const routeCards = [
     <div class="table-wrap compact-table secondary-table">
       <p class="table-note"><strong>{sourceReadScoutTable.heading ?? "Source-Read Scout Attribution"}</strong></p>
       <table>
-        <thead><tr>{(sourceReadScoutHeaders.length ? sourceReadScoutHeaders : ["Route", "Timing split", "Scout reuse", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{(sourceReadScoutHeaders.length ? sourceReadScoutHeaders : ["Route", "Timing split", "Decode status", "Skipped columns", "Row materialization", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {sourceReadScoutRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
