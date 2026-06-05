@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D negative subquery semantics admission
+  - Date: 2026-06-05
+  - Branch/PR: `codex/sql-negative-subquery-semantics` / PR #1099.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Added ShardLoom-native local-source runtime smokes for scalar
+      `NOT IN (SELECT ...)`, row-value `NOT IN (SELECT ...)`, and correlated
+      `NOT EXISTS (...)` predicates.
+    - Promoted the three negative-subquery fixtures into the admitted-semantics validator and
+      matrix as executable decoded-reference rows.
+    - Updated latest release-readiness admitted-semantics counts to `matrix_row_count=89`,
+      `executable_fixture_count=73`, `diagnostic_case_count=16`, and
+      `unsupported_diagnostic_count=14`.
+    - Refreshed active phase-plan state, status docs, release-readiness docs, and public website
+      source content so negative subquery semantics are listed in the current admitted boundary.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli not_in_subquery -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli not_exists_subquery -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-negative-subqueries.json` passed with `matrix_row_count=89`, `executable_fixture_count=73`, `diagnostic_case_count=16`, `unsupported_diagnostic_count=14`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-negative-subqueries.json --output target/hard-release-readiness-negative-subqueries.json` exited with the expected blocked release status and no admitted-semantics count blockers.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is SQL semantics admission,
+      documentation freshness, and website static-output freshness work, not a speedup or
+      performance-superiority claim.
+  - Claim boundary:
+    - This slice admits scoped scalar and row-value local-source `NOT IN (SELECT ...)` predicates
+      plus scoped correlated local-source `NOT EXISTS (...)` predicates. It does not admit broad
+      ANSI subquery parity, arbitrary projected negative subquery shapes, object-store/table
+      sources, benchmark performance claims, package release, or production support.
+  - Fallback boundary:
+    - Parsing, subquery materialization, predicate lowering, and result rendering remain inside
+      ShardLoom SQL local-source runtime. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, or
+      other external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D Python predicate-object join condition
   - Date: 2026-06-05
   - Branch/PR: `codex/python-join-condition-predicate` / PR #1098.

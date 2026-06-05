@@ -41504,6 +41504,139 @@ mod tests {
         fs::remove_file(&allowed_path).expect("remove allowed csv");
     }
 
+    #[test]
+    fn runs_scoped_not_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("not-in-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("not-in-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,10\n3,true,20\n4,false,30\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score ASC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "in_list_value_count", "2");
+        assert_field_eq(&fields, "in_list_null_value_count", "0");
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_column", "id");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "3");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_null_value_count", "0");
+        assert_field_eq(&fields, "in_predicate_null_semantics", "not_applicable");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_scoped_row_value_not_in_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("row-value-not-in-subquery-source.csv");
+        let allowed_path = sql_local_source_test_path("row-value-not-in-subquery-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "allowed_id,allowed_label,active,score\n1,alpha,true,20\n3,gamma,true,40\n4,delta,false,60\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT allowed_id,allowed_label FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run row-value NOT IN subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "row_value_in_source_columns", "id,label");
+        assert_field_eq(&fields, "row_value_in_column_groups", "id+label");
+        assert_field_eq(&fields, "row_value_in_column_count", "2");
+        assert_field_eq(&fields, "row_value_in_tuple_count", "2");
+        assert_field_eq(&fields, "row_value_in_null_value_count", "0");
+        assert_field_eq(
+            &fields,
+            "row_value_in_null_semantics",
+            "sql_row_value_three_valued_where_filter",
+        );
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "in_subquery_source_column",
+            "allowed_id,allowed_label",
+        );
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_limit_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_input_row_count", "3");
+        assert_field_eq(&fields, "in_subquery_filtered_row_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_value_count", "2");
+        assert_field_eq(&fields, "in_subquery_materialized_null_value_count", "0");
+        assert_field_eq(&fields, "in_predicate_null_semantics", "not_applicable");
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
     fn write_quantified_subquery_csv_fixtures() -> (PathBuf, PathBuf, PathBuf) {
         let source_path = sql_local_source_test_path("source.csv");
         let allowed_path = sql_local_source_test_path("allowed.csv");
@@ -43303,6 +43436,73 @@ mod tests {
         assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
         assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
         assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_outer_row_evaluation_count",
+            "4",
+        );
+        assert_field_eq(&fields, "selected_row_count", "2");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove source csv");
+        fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_correlated_not_exists_subquery_csv_statement_without_fallback() {
+        let source_path = sql_local_source_test_path("correlated-not-exists-source.csv");
+        let allowed_path = sql_local_source_test_path("correlated-not-exists-allowed.csv");
+        fs::write(
+            &source_path,
+            "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        )
+        .expect("write source csv");
+        fs::write(
+            &allowed_path,
+            "id,min_amount,active\n1,5,true\n1,99,true\n2,25,true\n3,25,false\n3,20,true\n5,1,true\n",
+        )
+        .expect("write allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT * FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount LIMIT 1) LIMIT 10",
+                source_path.display(),
+                allowed_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run correlated NOT EXISTS subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"label\":\"beta\"}\n{\"id\":4,\"label\":\"delta\"}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "logical_predicate_operator", "not");
+        assert_field_eq(&fields, "logical_predicate_leaf_count", "1");
+        assert_field_eq(&fields, "exists_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "exists_subquery_limit_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "exists_subquery_null_semantics",
+            "sql_exists_two_valued_presence_test",
+        );
+        assert_field_eq(&fields, "correlated_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "correlated_subquery_outer_alias", "outer");
+        assert_field_eq(&fields, "correlated_subquery_outer_column", "amount,id");
+        assert_field_eq(
+            &fields,
+            "correlated_subquery_evaluation_strategy",
+            "per_outer_row_bounded_subquery_materialization",
+        );
         assert_field_eq(
             &fields,
             "correlated_subquery_outer_row_evaluation_count",

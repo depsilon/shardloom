@@ -1019,6 +1019,103 @@ def row_value_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+def not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="not_in_subquery_semantics",
+        source_name="not-in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id NOT IN ("
+            "SELECT id FROM '{allowed}' WHERE active IS TRUE ORDER BY score ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_input_row_count": "3",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "in_predicate_null_semantics": "not_applicable",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "not-in-subquery-allowed.csv",
+                "id,active,score\n1,true,10\n3,true,20\n4,false,30\n",
+            ),
+        ),
+    )
+
+
+def row_value_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="row_value_not_in_subquery_semantics",
+        source_name="row-value-not-in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) NOT IN ("
+            "SELECT allowed_id,allowed_label FROM '{allowed}' "
+            "WHERE active IS TRUE ORDER BY score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_groups": "id+label",
+            "row_value_in_column_count": "2",
+            "row_value_in_tuple_count": "2",
+            "row_value_in_null_value_count": "0",
+            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "allowed_id,allowed_label",
+            "in_subquery_source_format": "csv",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_input_row_count": "3",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "in_predicate_null_semantics": "not_applicable",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "row-value-not-in-subquery-allowed.csv",
+                (
+                    "allowed_id,allowed_label,active,score\n"
+                    "1,alpha,true,20\n"
+                    "3,gamma,true,40\n"
+                    "4,delta,false,60\n"
+                ),
+            ),
+        ),
+    )
+
+
 def exists_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="exists_subquery_semantics",
@@ -1382,6 +1479,53 @@ def correlated_exists_subquery_case() -> SqlFixtureCase:
             (
                 "allowed",
                 "correlated-exists-subquery-allowed.csv",
+                (
+                    "id,min_amount,active\n"
+                    "1,5,true\n"
+                    "1,99,true\n"
+                    "2,25,true\n"
+                    "3,25,false\n"
+                    "3,20,true\n"
+                    "5,1,true\n"
+                ),
+            ),
+        ),
+    )
+
+
+def correlated_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_not_exists_subquery_semantics",
+        source_name="correlated-not-exists-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT * FROM '{allowed}' WHERE id = outer.id AND active IS TRUE "
+            "AND min_amount <= outer.amount LIMIT 1"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "correlated-not-exists-subquery-allowed.csv",
                 (
                     "id,min_amount,active\n"
                     "1,5,true\n"
@@ -3019,6 +3163,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),
+        not_in_subquery_case(),
+        row_value_not_in_subquery_case(),
         exists_subquery_case(),
         quantified_subquery_case(),
         sql_union_composition_case(),
@@ -3028,6 +3174,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         source_qualified_in_subquery_case(),
         correlated_row_value_in_subquery_case(),
         correlated_exists_subquery_case(),
+        correlated_not_exists_subquery_case(),
         correlated_quantified_subquery_case(),
         joined_projected_in_subquery_case(),
         joined_projected_row_value_in_subquery_case(),

@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=86
-executable_fixture_count=70
+matrix_row_count=89
+executable_fixture_count=73
 diagnostic_case_count=16
 unsupported_diagnostic_count=14
 runtime_error_diagnostic_count=1
@@ -83,6 +83,8 @@ Covered fixture rows:
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
 - `row_value_in_subquery_semantics`
+- `not_in_subquery_semantics`
+- `row_value_not_in_subquery_semantics`
 - `exists_subquery_semantics`
 - `quantified_subquery_semantics`
 - `sql_union_composition_semantics`
@@ -92,6 +94,7 @@ Covered fixture rows:
 - `source_qualified_in_subquery_semantics`
 - `correlated_row_value_in_subquery_semantics`
 - `correlated_exists_subquery_semantics`
+- `correlated_not_exists_subquery_semantics`
 - `correlated_quantified_subquery_semantics`
 - `joined_projected_in_subquery_semantics`
 - `joined_projected_row_value_in_subquery_semantics`
@@ -140,11 +143,12 @@ Covered fixture rows:
 - `invalid_shape_scalar_multi_column_in_subquery`
 
 Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
-IN-subquery, nested scalar IN-subquery, row-value IN-subquery, source-qualified local subquery,
-scoped correlated `outer.<column>` local subquery filter, scoped subquery-backed predicate/CASE
-projections, joined/grouped projected IN/EXISTS subqueries, projected row-value/quantified
-subquery, correlated joined and grouped/HAVING projected scalar/row-value/quantified/EXISTS
-subqueries, scoped EXISTS, scoped quantified ANY/ALL, and HAVING-level local subquery fixtures;
+IN/NOT IN subquery, nested scalar IN-subquery, row-value IN/NOT IN subquery,
+source-qualified local subquery, scoped correlated `outer.<column>` local subquery filter,
+scoped subquery-backed predicate/CASE projections, joined/grouped projected IN/EXISTS subqueries,
+projected row-value/quantified subquery, correlated joined and grouped/HAVING projected
+scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS/NOT EXISTS, scoped quantified
+ANY/ALL, and HAVING-level local subquery fixtures;
 external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
 property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
