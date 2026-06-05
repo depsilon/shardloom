@@ -303,37 +303,46 @@ Each item below uses the same sub-checklist shape:
       parity, and user-route validators exist as separate evidence surfaces.
     - [x] Existing public and smoke paths already preserve `fallback_attempted=false` and
       `external_engine_invoked=false` where admitted.
-    - [ ] Remaining: add a shared public workflow route contract before execution so SQL, Python,
-      DataFrame, and CLI do not independently choose runtime paths.
-    - [ ] Remaining: expose route metadata and blockers consistently across CLI JSON first, then
-      typed Python accessors.
+    - [x] Shared route-inspection contract now exists for CLI `route`, Python
+      `ShardLoomContext.route(...)`, SQL workflow `route()`, and lazy DataFrame workflow `route()`;
+      it resolves route metadata or deterministic blockers before execution without I/O.
+    - [x] Route metadata and blockers are exposed consistently through CLI JSON first and typed
+      Python accessors second.
     - [ ] Remaining: keep lower-level smoke/runtime commands available for evidence while making
       high-level facade commands the normal user/agent route.
+    - [ ] Remaining: add high-level `run` and `prepare` facade wrappers after the route envelope
+      contract has landed and is report-gated.
+    - [ ] Remaining: make execution wrappers require or attach the route/evidence envelope instead
+      of allowing public runtime paths to bypass visible admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
     no-fallback fields.
   - Next slice outcome: implement the small shared route planner/facade contract first, then use it
     as the admission spine for the next SQL/Python/DataFrame breadth slices.
   - Execution checklist:
-    - [ ] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
+    - [x] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
       query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
       `prepare_once`, `direct`, or blocked), materialization/decode policy, and evidence level.
-    - [ ] Ensure the route planner returns `route_id`, `resolved_internal_command`, `start_state`,
+    - [x] Ensure the route planner returns `route_id`, `resolved_internal_command`, `start_state`,
       `vortex_normalization_point`, `execution_mode`, `preparation_included`,
       `query_timing_starts_after_preparation`, `fallback_attempted=false`,
       `external_engine_invoked=false`, and deterministic blockers before execution.
-    - [ ] Add high-level CLI facade commands or JSON paths for `route`, `run`, and `prepare` while
+    - [x] Add the high-level side-effect-free CLI `route` JSON facade while preserving existing
+      internal smoke/runtime commands for tests and benchmark evidence.
+    - [ ] Add high-level CLI facade commands or JSON paths for `run` and `prepare` while
       preserving existing internal smoke/runtime commands for tests and benchmark evidence.
-    - [ ] Mark public facade commands as `high_level_context` and smoke/benchmark primitive commands
-      as `client_only` or `not_user_facing` in the command registry.
-    - [ ] Route `ShardLoomContext`, Python SQL, and lazy DataFrame workflow methods through the shared
-      planner rather than Python-only one-off helpers.
-    - [ ] Add `workflow.explain()`, `workflow.route()`, `workflow.collect(limit=...)`,
-      `workflow.write_vortex(...)`, `workflow.write_parquet(...)`, and `workflow.evidence()` only
-      where they lower to admitted ShardLoom routes or deterministic unsupported envelopes.
-    - [ ] Keep unbounded `collect()` blocked unless an explicit bounded/materialized path is present;
+    - [x] Mark the public `route` facade command as `high_level_context` in the command registry.
+    - [ ] Reclassify remaining smoke/benchmark primitive commands as `client_only` or
+      `not_user_facing` once the corresponding high-level wrappers exist.
+    - [x] Add `ShardLoomContext.route(...)`, SQL workflow `route()`, and lazy DataFrame workflow
+      `route()` methods that call the shared CLI planner rather than a Python-only planner.
+    - [ ] Route `collect`, `write_vortex`, `write_parquet`, and future execution wrappers through
+      the shared planner/evidence envelope rather than only exposing route inspection.
+    - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
+      bounded/materialized path is present.
+    - [ ] Keep unbounded `collect()` blocked in every public execution wrapper;
       keep pandas/Arrow/NumPy conversion explicit and evidence-bearing.
-    - [ ] Add route parity tests proving equivalent SQL/Python/DataFrame workflows resolve to the
+    - [x] Add route parity tests proving equivalent SQL/Python/DataFrame workflows resolve to the
       same route metadata and unsupported workflows fail at admission.
     - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method matrix,
       command registry metadata, release readiness/status matrices, and website/static pages.

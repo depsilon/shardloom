@@ -364,6 +364,42 @@
     ]
   },
   {
+    "capability": "Public workflow route facade",
+    "status": "report_only",
+    "inputs": [
+      "sql",
+      "python",
+      "dataframe",
+      "cli",
+      "local_file",
+      "vortex"
+    ],
+    "outputs": [
+      "route_envelope",
+      "blocked_diagnostic",
+      "claim_boundary"
+    ],
+    "route": "public_workflow_route_facade",
+    "platform": "local",
+    "evidence": [
+      "public_workflow_route_schema_version",
+      "route_id",
+      "resolved_internal_command",
+      "route_side_effect_free=true",
+      "runtime_execution=false",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status=route_inspection_only"
+    ],
+    "works": "CLI `shardloom route <sql|python|dataframe|cli> --format json`, `ShardLoomContext.route(...)`, SQL workflow `.route()`, and DataFrame workflow `.route()` return the same side-effect-free route envelope for equivalent local requests.",
+    "blocked": "The facade is admission metadata only. It does not execute queries, read data, write sinks, refresh benchmark timing, or claim broad SQL/DataFrame runtime support.",
+    "references": [
+      "docs/status/cli-command-registry.md",
+      "python/README.md",
+      "docs/benchmarks/local-taxonomy-benchmark.md"
+    ]
+  },
+  {
     "capability": "S3 / GCS / ADLS",
     "status": "smoke_supported",
     "inputs": [

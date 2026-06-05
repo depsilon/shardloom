@@ -42,6 +42,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "help",
     "command-metadata",
     "evidence-schema",
+    "route",
     "spill-lifecycle",
     "spill-reservation-plan",
     "spill-payload-roundtrip",
@@ -841,32 +842,13 @@ fn command_usage_fragment(command: &str) -> String {
     match command {
         "help" => "help [command]".to_string(),
         "evidence-schema" => "evidence-schema [surface]".to_string(),
+        "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>]".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
-        "rest-api-plan-preview" => {
-            format!(
-                "{command} [certified-local-batch|partial-hybrid-fixture|blocked-remote-object-store|invalid-input|unsupported-operator]"
-            )
-        }
-        "rest-api-local-lifecycle" => {
-            format!(
-                "{command} [certified-local-batch|certified-live-fixture|certified-hybrid-fixture|cancel-requested|retry-requested|blocked-uncertified]"
-            )
-        }
-        "rest-api-event-stream" => {
-            format!(
-                "{command} [certified-live-fixture|certified-hybrid-fixture|blocked-production-workload|broker-requested]"
-            )
-        }
-        "rest-api-security-governance" => {
-            format!(
-                "{command} [safe-local-default|destructive-policy-required|agent-mcp-discovery]"
-            )
-        }
-        "rest-api-data-plane" => {
-            format!(
-                "{command} [artifact-reference-default|flight-ticket-requested|adbc-endpoint-requested|standards-matrix]"
-            )
-        }
+        "rest-api-plan-preview" => format!("{command} [certified-local-batch|partial-hybrid-fixture|blocked-remote-object-store|invalid-input|unsupported-operator]"),
+        "rest-api-local-lifecycle" => format!("{command} [certified-local-batch|certified-live-fixture|certified-hybrid-fixture|cancel-requested|retry-requested|blocked-uncertified]"),
+        "rest-api-event-stream" => format!("{command} [certified-live-fixture|certified-hybrid-fixture|blocked-production-workload|broker-requested]"),
+        "rest-api-security-governance" => format!("{command} [safe-local-default|destructive-policy-required|agent-mcp-discovery]"),
+        "rest-api-data-plane" => format!("{command} [artifact-reference-default|flight-ticket-requested|adbc-endpoint-requested|standards-matrix]"),
         "serve" => "serve --mode discovery [--bind host:port]".to_string(),
         "generated-source-user-rows-smoke" => {
             format!("{command} <local-output-path> <schema> <rows>")
@@ -1063,11 +1045,13 @@ fn command_support_state(command: &str) -> &'static str {
 }
 
 fn command_user_surface_graduation_posture(command: &str) -> &'static str {
+    if is_high_level_context_command(command) {
+        return "high_level_context";
+    }
     match command_support_state(command) {
         "feature_gated" => "feature_gated",
         "diagnostic_only" | "report_only" | "blocked" => "diagnostic_only",
         "future" => "not_user_facing",
-        _ if is_high_level_context_command(command) => "high_level_context",
         _ => "client_only",
     }
 }
@@ -1075,7 +1059,8 @@ fn command_user_surface_graduation_posture(command: &str) -> &'static str {
 fn is_high_level_context_command(command: &str) -> bool {
     matches!(
         command,
-        "generated-source-user-rows-smoke"
+        "route"
+            | "generated-source-user-rows-smoke"
             | "generated-source-range-smoke"
             | "generated-source-sequence-smoke"
             | "generated-source-sql-smoke"
@@ -1111,6 +1096,7 @@ fn command_side_effect_level(command: &str) -> &'static str {
         "help"
             | "command-metadata"
             | "evidence-schema"
+            | "route"
             | "status"
             | "runs-today"
             | "capabilities"
@@ -1163,6 +1149,9 @@ fn command_input_contract(command: &str) -> &'static str {
     if command == "session-cache-smoke" {
         return "scoped_cli_session_cache_lifecycle_smoke";
     }
+    if command == "route" {
+        return "declared_public_workflow_route_request";
+    }
     match classify_command(command).as_str() {
         "status_capabilities" => "registry_or_capability_scope_args",
         "prepared_source_backed_execution" => "local_source_or_vortex_artifact_args",
@@ -1189,6 +1178,9 @@ fn command_input_contract(command: &str) -> &'static str {
 fn command_output_contract(command: &str) -> &'static str {
     if command == "session-cache-smoke" {
         return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
+    }
+    if command == "route" {
+        return "typed_public_workflow_route_envelope_no_execution";
     }
     if command.ends_with("-smoke")
         || command.ends_with("-run")
@@ -1218,6 +1210,9 @@ fn command_output_contract(command: &str) -> &'static str {
 fn command_owning_phase_item(command: &str) -> &'static str {
     if command == "evidence-schema" {
         return "REVIEW-P1-2";
+    }
+    if command == "route" {
+        return "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade";
     }
     if command == "session-cache-smoke" {
         return "GAR-RUNTIME-IMPL-4L/GAR-RUNTIME-IMPL-5I";
@@ -1339,6 +1334,7 @@ mod tests {
         assert!(seen.contains("help"));
         assert!(seen.contains("command-metadata"));
         assert!(seen.contains("evidence-schema"));
+        assert!(seen.contains("route"));
         assert!(seen.contains("capabilities"));
         assert!(seen.contains("vortex-ingest-smoke"));
         assert!(seen.contains("vortex-local-commit-execute"));
@@ -1348,6 +1344,7 @@ mod tests {
     fn usage_line_is_registry_backed() {
         let usage = usage_line("shardloom");
         assert!(usage.starts_with("usage: shardloom <help [command]|command-metadata|"));
+        assert!(usage.contains("route <sql|python|dataframe|cli>"));
         assert!(usage.contains("evidence-schema [surface]"));
         assert!(usage.contains("capabilities [sql|functions"));
         assert!(usage.contains("serve --mode discovery"));
