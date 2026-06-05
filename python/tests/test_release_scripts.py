@@ -236,6 +236,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_state_manifest_validation_micros": None,
             "source_state_row_count_metadata_micros": None,
             "source_state_family_build_micros": None,
+            "source_state_lazy_family_construction": None,
+            "source_state_family_build_timing_scope": "not_reported_by_engine",
+            "source_state_family_build_count": None,
+            "source_state_family_reuse_hit_count": None,
+            "source_state_family_reuse_hit": None,
+            "source_state_family_recompute_avoided": None,
             "source_state_digest_micros": None,
             "prepared_manifest_read_micros": None,
             "prepared_manifest_match_micros": None,
@@ -446,6 +452,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_state_manifest_validation_micros": None,
             "source_state_row_count_metadata_micros": None,
             "source_state_family_build_micros": None,
+            "source_state_lazy_family_construction": None,
+            "source_state_family_build_timing_scope": "not_applicable_external_baseline",
+            "source_state_family_build_count": None,
+            "source_state_family_reuse_hit_count": None,
+            "source_state_family_reuse_hit": None,
+            "source_state_family_recompute_avoided": None,
             "source_state_digest_micros": None,
             "prepared_manifest_read_micros": None,
             "prepared_manifest_match_micros": None,
@@ -1135,6 +1147,12 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertFalse(published["source_admission_full_content_digest_requested"])
         self.assertIsNone(published["source_state_family_build_micros"])
+        self.assertIsNone(published["source_state_lazy_family_construction"])
+        self.assertIsNone(published["source_state_family_build_count"])
+        self.assertIsNone(published["source_state_family_reuse_hit_count"])
+        self.assertIsNone(published["source_state_family_reuse_hit"])
+        self.assertIsNone(published["source_state_family_recompute_avoided"])
+        self.assertIsNone(published["source_state_family_build_timing_scope"])
         self.assertEqual(published["operator_kernel_micros"], 0)
         self.assertEqual(
             published["timing_normalization_schema_version"],
@@ -2648,7 +2666,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-SPLIT-2", packet["next_implementation_slice"])
+        self.assertIn("PERF-SPLIT-3", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:

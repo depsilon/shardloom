@@ -202,23 +202,22 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-SPLIT-2` | Split source admission from expensive source-state setup and enable digest-policy-aware warm reuse. |
-| 2 | `PERF-SPLIT-3` | Defer prepared/native source-state family construction until the first consuming scenario. |
-| 3 | `PERF-SPLIT-4` | Add projection-aware CSV/JSONL scout and typed decode so cold lanes avoid unused-column work. |
-| 4 | `PERF-SPLIT-5` | Reuse/coalesce local Vortex writer context for cold result/preparation writes with explicit proof. |
-| 5 | `PERF-SPLIT-6` | Make prepared-state identity content-addressed and role-repairable. |
-| 6 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
-| 7 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
-| 8 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
-| 9 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 10 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 11 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 12 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 13 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 14 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 15 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 16 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 17 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-SPLIT-3` | Defer prepared/native source-state family construction until the first consuming scenario. |
+| 2 | `PERF-SPLIT-4` | Add projection-aware CSV/JSONL scout and typed decode so cold lanes avoid unused-column work. |
+| 3 | `PERF-SPLIT-5` | Reuse/coalesce local Vortex writer context for cold result/preparation writes with explicit proof. |
+| 4 | `PERF-SPLIT-6` | Make prepared-state identity content-addressed and role-repairable. |
+| 5 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
+| 6 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
+| 7 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
+| 8 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 9 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 10 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 11 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 12 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 13 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 14 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 15 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 16 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -291,48 +290,6 @@ the completed ledger; the items below are the remaining implementation slices ne
 timings actionable and then reduce the ShardLoom hot/cold overheads they expose. Benchmark reruns
 belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
 must preserve no-fallback evidence and claim gates.
-
-- [ ] PERF-SPLIT-2 source admission packet and source-state setup fast path:
-  - Source: `shardloom-vortex/src/traditional_analytics.rs`,
-    `python/src/shardloom/session.py`, `python/src/shardloom/prepared_route.py`, and
-    prepared-state reuse manifest fields.
-  - Current state:
-    - [x] Prepared-state manifests and reuse scopes exist for warm/prepared benchmark lanes.
-    - [x] Source-state setup timing is visible as shared pre-scenario evidence.
-    - [ ] Remaining: cheap source admission and expensive digest/state construction are not fully
-      separated for warm reuse decisions.
-  - Runtime enablement: local source fingerprint -> source-admission packet -> digest-policy
-    decision -> prepared/native reuse or deterministic invalidation without fallback.
-  - Objective: reduce the shared source-state/session setup path by separating cheap admission from
-    expensive digest/state construction while keeping claim-grade validation available.
-  - Implementation scope: persist a source-admission packet artifact keyed by normalized path, size,
-    mtime, schema hash, route family, layout policy, prepared manifest digest, Native I/O posture,
-    and no-fallback policy. Add a two-tier validation path: cheap fingerprint match for normal warm
-    reuse, full content digest for claim-grade or suspicious/stale cases. Carry prepared manifest
-    digests through Python so `_fingerprint_file` does not full-SHA every local file when a trusted
-    prepared manifest already supplies the digest. Split `TraditionalPreparedNativeSession::open`
-    into metadata snapshot, manifest validation, source-state open, and reusable-state-family
-    construction timers.
-  - User-visible surface: prepared/native benchmark rows, Python prepared route manifests, reuse
-    diagnostics, and benchmark route attribution.
-  - Evidence required: reuse hit/miss reasons, invalidated dependency roles, digest policy, packet
-    digest, timing splits, `fallback_attempted=false`, and `external_engine_invoked=false`.
-  - Acceptance: prepared/native rows emit separate admission, manifest, digest, open, and
-    state-family timings. Reuse hits avoid full file hashing unless claim-grade digest verification
-    is requested.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex traditional_prepared
-    $env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_prepared_vortex_state_when_fingerprints_match
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no stale reuse, no background daemon, no persistent adaptive cache outside explicit
-    workspace manifests.
-  - Claim boundary: scoped reuse/admission optimization only; no benchmark claim until rerun and
-    claim gates pass.
-  - Fallback boundary: no external engine may validate, hash, or prepare ShardLoom rows as fallback.
-  - Ledger rule: after merge, move completed details and validator evidence to the completed ledger.
 
 - [ ] PERF-SPLIT-3 lazy source-state family construction for prepared/native sessions:
   - Source: `TraditionalVortexBatchSourceState::from_paths` and

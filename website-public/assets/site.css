@@ -39,6 +39,11 @@ body {
   overflow-x: hidden;
 }
 
+main {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 img,
 svg {
   max-width: 100%;
@@ -205,6 +210,9 @@ p {
 .route-step p,
 .drawer p {
   color: var(--muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .eyebrow {
@@ -709,6 +717,7 @@ p {
 .artifact-panel {
   min-width: 0;
   max-width: 100%;
+  overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
@@ -946,6 +955,9 @@ p {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.55;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .table-note code {

@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-2 source admission packet and source-state setup fast path
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-source-admission-fastpath` / PR #1118, squash merge
+    `72686abd53abba4b71a812b831626d6bb6a784f3`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `python/src/shardloom/session.py`.
+    - `python/src/shardloom/prepared_route.py`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+  - Scope:
+    - Split source admission, manifest validation, source-state open, digest policy, and reusable
+      family construction into explicit timing/evidence fields for prepared/native benchmark rows.
+    - Added digest-policy-aware prepared-route reuse metadata so trusted prepared manifests can
+      avoid full local file hashing on normal warm reuse while preserving claim-grade validation
+      paths.
+    - Carried source-admission packet fields through Python prepared/session manifests and
+      benchmark promotion so warm reuse decisions have deterministic hit/miss and invalidation
+      reasons.
+    - Updated benchmark artifact completeness checks, local taxonomy docs, and the benchmark page
+      with the source-admission/source-state split.
+    - Repromoted the current benchmark artifact with the new timing/evidence fields and rebuilt the
+      benchmark static pages.
+  - Evidence:
+    - Local code, Python, benchmark-artifact, and website validation passed in the PR branch.
+    - PR #1118 CI passed before merge, including Rust baseline, Rust feature matrix,
+      Python/package smoke, website/docs validation, dependency/security gates, release readiness,
+      and CodeQL checks.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. The PR repromoted the existing current artifact with
+      new source-admission timing/evidence fields and did not make a speedup or superiority claim.
+  - Claim boundary:
+    - This slice claims scoped source-admission and digest-policy reuse instrumentation only. It
+      does not claim benchmark superiority, production readiness, broad SQL/DataFrame support,
+      object-store/lakehouse support, package-release readiness, or Spark replacement.
+  - Fallback boundary:
+    - ShardLoom rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+      External engines remain benchmark baselines only and are not runtime fallback paths.
+
 - [x] Session label: PERF-SPLIT-1 benchmark lane/route timing split and inclusion contract
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-split-evidence-tiers` / PR #1117, squash merge
