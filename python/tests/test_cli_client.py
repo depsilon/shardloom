@@ -78,6 +78,7 @@ from shardloom import (
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
     import json as _shardloom_json
+    import sys as _shardloom_sys
 
     _shardloom_original_json_dumps = _shardloom_json.dumps
 
@@ -102,6 +103,118 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         )
 
     _shardloom_json.dumps = _shardloom_json_dumps
+
+    def _shardloom_public_request_output_format(requested_output):
+        return {
+            "collect": "inline-jsonl",
+            "write_jsonl": "jsonl",
+            "write_csv": "csv",
+            "write_parquet": "parquet",
+            "write_arrow_ipc": "arrow-ipc",
+            "write_avro": "avro",
+            "write_orc": "orc",
+            "write_vortex": "vortex",
+        }[requested_output]
+
+    def _shardloom_take_flag(args, flag):
+        if flag not in args:
+            return None
+        index = args.index(flag)
+        if index + 1 >= len(args):
+            return None
+        return args[index + 1]
+
+    def _shardloom_has_flag(args, flag):
+        return flag in args
+
+    def _shardloom_without_format(args):
+        if "--format" not in args:
+            return args, []
+        index = args.index("--format")
+        return args[:index] + args[index + 2 :], args[index : index + 2]
+
+    def _shardloom_rewrite_public_run_argv():
+        args = _shardloom_sys.argv[1:]
+        if len(args) < 2 or args[0] != "run":
+            return
+        args, format_tail = _shardloom_without_format(args)
+        surface = args[1]
+        requested_output = _shardloom_take_flag(args, "--request") or "collect"
+        output_format = _shardloom_public_request_output_format(requested_output)
+        output_ref = _shardloom_take_flag(args, "--output")
+        sql = _shardloom_take_flag(args, "--sql")
+        generated_kind = _shardloom_take_flag(args, "--generated-source-kind")
+        allow_overwrite = _shardloom_has_flag(args, "--allow-overwrite")
+
+        if generated_kind is not None:
+            if generated_kind in {
+                "user_rows",
+                "literal_table",
+                "calendar",
+                "dataframe_source_free_projection",
+                "dataframe_generated_with_column",
+            }:
+                rewritten = [
+                    "generated-source-user-rows-smoke",
+                    output_ref,
+                    _shardloom_take_flag(args, "--generated-schema"),
+                    _shardloom_take_flag(args, "--generated-rows"),
+                    "--source-kind",
+                    generated_kind,
+                    "--output-format",
+                    output_format,
+                ]
+            else:
+                command = (
+                    "generated-source-sequence-smoke"
+                    if generated_kind == "sequence"
+                    else "generated-source-range-smoke"
+                )
+                rewritten = [
+                    command,
+                    output_ref,
+                    _shardloom_take_flag(args, "--generated-range-start"),
+                    _shardloom_take_flag(args, "--generated-range-end"),
+                    "--step",
+                    _shardloom_take_flag(args, "--generated-range-step") or "1",
+                    "--column",
+                    _shardloom_take_flag(args, "--generated-range-column") or "value",
+                    "--output-format",
+                    output_format,
+                ]
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+            return
+
+        if sql is not None and surface == "sql" and output_ref is not None and " FROM '" not in sql:
+            rewritten = [
+                "generated-source-sql-smoke",
+                output_ref,
+                sql,
+                "--output-format",
+                output_format,
+            ]
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+            return
+
+        if sql is not None:
+            rewritten = [
+                "sql-local-source-smoke",
+                sql,
+                "--output-format",
+                output_format,
+            ]
+            if output_ref is not None:
+                rewritten.extend(["--output", output_ref])
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+
+    if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
+        _shardloom_rewrite_public_run_argv()
     """
 )
 
@@ -169,11 +282,12 @@ def _complete_pulseweave_runtime_fields() -> dict[str, object]:
 
 
 class ShardLoomClientTests(unittest.TestCase):
-    def fake_cli(self, body: str) -> list[str]:
+    def fake_cli(self, body: str, *, rewrite_public_run: bool = True) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        path.write_text(_FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
+        prefix = "" if rewrite_public_run else "_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE = True\n"
+        path.write_text(prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
     def test_package_exports_non_placeholder_version(self) -> None:

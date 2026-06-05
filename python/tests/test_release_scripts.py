@@ -3221,6 +3221,41 @@ jobs:
                         emit("capabilities", [{"key": "scope", "value": "deployment"}])
                     if args == ["input-adapters", "--format", "json"]:
                         emit("input-adapters", [{"key": "plan_only", "value": "true"}])
+                    if args[0] == "run":
+                        output_path = Path(args[args.index("--output") + 1])
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        if "--generated-source-kind" in args:
+                            output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
+                            emit("run", [
+                                {"key": "public_workflow_route_attached", "value": "true"},
+                                {"key": "public_workflow_route_id", "value": "generated_user_rows_direct_output"},
+                                {"key": "public_workflow_resolved_internal_command", "value": "generated-source-user-rows-smoke"},
+                                {"key": "output_path", "value": str(output_path)},
+                                {"key": "output_format", "value": "jsonl"},
+                                {"key": "output_row_count", "value": "1"},
+                                {"key": "output_io_performed", "value": "true"},
+                                {"key": "generated_source_kind", "value": "user_rows"},
+                                {"key": "generated_source_row_count", "value": "1"},
+                                {"key": "generated_source_certificate_status", "value": "certified"},
+                                {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                                {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            ])
+                        output_path.write_text('{"id":2,"label":"beta","amount":15}\\n', encoding="utf-8")
+                        emit("run", [
+                            {"key": "public_workflow_route_attached", "value": "true"},
+                            {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                            {"key": "public_workflow_resolved_internal_command", "value": "sql-local-source-smoke"},
+                            {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\",\\"amount\\":15}\\n"},
+                            {"key": "source_format", "value": "csv"},
+                            {"key": "execution_mode", "value": "batch"},
+                            {"key": "operator_family", "value": "filter_project_limit"},
+                            {"key": "output_path", "value": str(output_path)},
+                            {"key": "output_format", "value": "jsonl"},
+                            {"key": "output_row_count", "value": "1"},
+                            {"key": "output_io_performed", "value": "true"},
+                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        ])
                     if args[0] == "sql-local-source-smoke":
                         output_path = Path(args[args.index("--output") + 1])
                         output_path.parent.mkdir(parents=True, exist_ok=True)

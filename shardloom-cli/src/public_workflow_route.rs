@@ -39,6 +39,13 @@ struct PublicWorkflowRouteRequest {
     evidence_level: String,
     bounded: bool,
     allow_overwrite: bool,
+    generated_source_kind: Option<String>,
+    generated_schema: Option<String>,
+    generated_rows: Option<String>,
+    generated_range_start: Option<String>,
+    generated_range_end: Option<String>,
+    generated_range_step: Option<String>,
+    generated_range_column: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,27 +122,119 @@ pub(crate) fn handle_public_workflow_run(
                 execution_attachment_fields("run", &request, &plan),
             )
         }
-        "source_free_generated_output" => {
-            let Some(statement) = request.sql_statement.clone() else {
-                let blocked = executable_sql_required_route("run");
-                return emit_blocked_facade("run", format, &request, &blocked);
-            };
-            let Some(output_ref) = request.output_ref.clone() else {
-                let blocked = output_required_route("run", "source-free SQL run");
-                return emit_blocked_facade("run", format, &request, &blocked);
-            };
-            let runtime_args = generated_source_runtime_args(&request, output_ref, statement);
-            generated_source_runtime::handle_generated_source_sql_smoke_with_facade(
-                runtime_args.into_iter(),
-                format,
-                "run",
-                execution_attachment_fields("run", &request, &plan),
-            )
+        "source_free_generated_output"
+        | "generated_user_rows_direct_output"
+        | "generated_range_direct_output"
+        | "generated_sequence_direct_output" => {
+            execute_generated_source_run(&request, &plan, format)
         }
         _ => {
             let blocked = run_route_not_executable_yet(&plan);
             emit_blocked_facade("run", format, &request, &blocked)
         }
+    }
+}
+
+fn execute_generated_source_run(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+) -> ExitCode {
+    match plan.route_id {
+        "source_free_generated_output" => {
+            execute_source_free_generated_sql_run(request, plan, format)
+        }
+        "generated_user_rows_direct_output" => {
+            execute_generated_user_rows_run(request, plan, format)
+        }
+        "generated_range_direct_output" => {
+            execute_generated_range_run(request, plan, format, false)
+        }
+        "generated_sequence_direct_output" => {
+            execute_generated_range_run(request, plan, format, true)
+        }
+        _ => {
+            let blocked = run_route_not_executable_yet(plan);
+            emit_blocked_facade("run", format, request, &blocked)
+        }
+    }
+}
+
+fn execute_source_free_generated_sql_run(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(statement) = request.sql_statement.clone() else {
+        let blocked = executable_sql_required_route("run");
+        return emit_blocked_facade("run", format, request, &blocked);
+    };
+    let Some(output_ref) = request.output_ref.clone() else {
+        let blocked = output_required_route("run", "source-free SQL run");
+        return emit_blocked_facade("run", format, request, &blocked);
+    };
+    let runtime_args = generated_source_runtime_args(request, output_ref, statement);
+    generated_source_runtime::handle_generated_source_sql_smoke_with_facade(
+        runtime_args.into_iter(),
+        format,
+        "run",
+        execution_attachment_fields("run", request, plan),
+    )
+}
+
+fn execute_generated_user_rows_run(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(output_ref) = request.output_ref.clone() else {
+        let blocked = output_required_route("run", "generated-source run");
+        return emit_blocked_facade("run", format, request, &blocked);
+    };
+    let runtime_args = match generated_user_rows_runtime_args(request, output_ref) {
+        Ok(args) => args,
+        Err(error) => {
+            return emit_error("run", format, "public workflow run failed", &error);
+        }
+    };
+    generated_source_runtime::handle_generated_source_user_rows_smoke_with_facade(
+        runtime_args.into_iter(),
+        format,
+        "run",
+        execution_attachment_fields("run", request, plan),
+    )
+}
+
+fn execute_generated_range_run(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    sequence: bool,
+) -> ExitCode {
+    let Some(output_ref) = request.output_ref.clone() else {
+        let blocked = output_required_route("run", "generated-source run");
+        return emit_blocked_facade("run", format, request, &blocked);
+    };
+    let runtime_args = match generated_range_runtime_args(request, output_ref) {
+        Ok(args) => args,
+        Err(error) => {
+            return emit_error("run", format, "public workflow run failed", &error);
+        }
+    };
+    if sequence {
+        generated_source_runtime::handle_generated_source_sequence_smoke_with_facade(
+            runtime_args.into_iter(),
+            format,
+            "run",
+            execution_attachment_fields("run", request, plan),
+        )
+    } else {
+        generated_source_runtime::handle_generated_source_range_smoke_with_facade(
+            runtime_args.into_iter(),
+            format,
+            "run",
+            execution_attachment_fields("run", request, plan),
+        )
     }
 }
 
@@ -184,12 +283,23 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>]"
                     .to_string(),
             ));
         };
         let surface = normalize_surface(&surface)?;
-        let mut request = Self {
+        let mut request = Self::new(surface);
+
+        while let Some(flag) = args.next() {
+            request.parse_flag(&flag, &mut args)?;
+        }
+
+        request.infer_defaults();
+        Ok(request)
+    }
+
+    fn new(surface: String) -> Self {
+        Self {
             surface,
             input_uri: None,
             input_format: None,
@@ -202,77 +312,106 @@ impl PublicWorkflowRouteRequest {
             evidence_level: "runtime_smoke".to_string(),
             bounded: false,
             allow_overwrite: false,
-        };
+            generated_source_kind: None,
+            generated_schema: None,
+            generated_rows: None,
+            generated_range_start: None,
+            generated_range_end: None,
+            generated_range_step: None,
+            generated_range_column: None,
+        }
+    }
 
-        while let Some(flag) = args.next() {
-            match flag.as_str() {
-                "--input" => request.input_uri = Some(required_value(&mut args, "--input")?),
-                "--input-format" => {
-                    request.input_format = Some(normalize_input_format(&required_value(
-                        &mut args,
-                        "--input-format",
-                    )?)?);
-                }
-                "--sql" => request.sql_statement = Some(required_value(&mut args, "--sql")?),
-                "--plan" => request.plan_summary = Some(required_value(&mut args, "--plan")?),
-                "--request" | "--requested-output" => {
-                    request.requested_output =
-                        normalize_requested_output(&required_value(&mut args, &flag)?)?;
-                }
-                "--output" => request.output_ref = Some(required_value(&mut args, "--output")?),
-                "--execution-policy" => {
-                    request.execution_policy = normalize_execution_policy(&required_value(
-                        &mut args,
-                        "--execution-policy",
-                    )?)?;
-                }
-                "--materialization-policy" | "--decode-policy" => {
-                    request.materialization_policy =
-                        normalize_materialization_policy(&required_value(&mut args, &flag)?)?;
-                }
-                "--evidence-level" => {
-                    request.evidence_level =
-                        normalize_evidence_level(&required_value(&mut args, "--evidence-level")?)?;
-                }
-                "--bounded" => {
-                    request.bounded =
-                        parse_bool_flag("--bounded", &required_value(&mut args, "--bounded")?)?;
-                }
-                "--allow-overwrite" => request.allow_overwrite = true,
-                extra => {
-                    return Err(cli_unknown_arg_error("route", extra));
-                }
+    fn parse_flag(
+        &mut self,
+        flag: &str,
+        args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
+    ) -> Result<(), ShardLoomError> {
+        match flag {
+            "--input" => self.input_uri = Some(required_value(args, "--input")?),
+            "--input-format" => {
+                self.input_format = Some(normalize_input_format(&required_value(
+                    args,
+                    "--input-format",
+                )?)?);
             }
+            "--sql" => self.sql_statement = Some(required_value(args, "--sql")?),
+            "--plan" => self.plan_summary = Some(required_value(args, "--plan")?),
+            "--request" | "--requested-output" => {
+                self.requested_output = normalize_requested_output(&required_value(args, flag)?)?;
+            }
+            "--output" => self.output_ref = Some(required_value(args, "--output")?),
+            "--execution-policy" => {
+                self.execution_policy =
+                    normalize_execution_policy(&required_value(args, "--execution-policy")?)?;
+            }
+            "--materialization-policy" | "--decode-policy" => {
+                self.materialization_policy =
+                    normalize_materialization_policy(&required_value(args, flag)?)?;
+            }
+            "--evidence-level" => {
+                self.evidence_level =
+                    normalize_evidence_level(&required_value(args, "--evidence-level")?)?;
+            }
+            "--bounded" => {
+                self.bounded = parse_bool_flag("--bounded", &required_value(args, "--bounded")?)?;
+            }
+            "--allow-overwrite" => self.allow_overwrite = true,
+            "--generated-source-kind" => {
+                self.generated_source_kind = Some(required_value(args, "--generated-source-kind")?);
+            }
+            "--generated-schema" => {
+                self.generated_schema = Some(required_value(args, "--generated-schema")?);
+            }
+            "--generated-rows" => {
+                self.generated_rows = Some(required_value(args, "--generated-rows")?);
+            }
+            "--generated-range-start" => {
+                self.generated_range_start = Some(required_value(args, "--generated-range-start")?);
+            }
+            "--generated-range-end" => {
+                self.generated_range_end = Some(required_value(args, "--generated-range-end")?);
+            }
+            "--generated-range-step" => {
+                self.generated_range_step = Some(required_value(args, "--generated-range-step")?);
+            }
+            "--generated-range-column" => {
+                self.generated_range_column =
+                    Some(required_value(args, "--generated-range-column")?);
+            }
+            extra => return Err(cli_unknown_arg_error("route", extra)),
         }
+        Ok(())
+    }
 
-        if request.sql_statement.is_none() && request.plan_summary.is_none() {
-            request.plan_summary = Some(format!("{} workflow", request.surface));
+    fn infer_defaults(&mut self) {
+        if self.sql_statement.is_none() && self.plan_summary.is_none() {
+            self.plan_summary = Some(format!("{} workflow", self.surface));
         }
-        if request.input_uri.is_none() {
-            request.input_uri = request
+        if self.input_uri.is_none() {
+            self.input_uri = self
                 .sql_statement
                 .as_deref()
                 .and_then(extract_first_quoted_source_ref);
         }
-        if request.input_format.is_none() {
-            request.input_format = request
+        if self.input_format.is_none() {
+            self.input_format = self
                 .input_uri
                 .as_deref()
                 .and_then(infer_input_format_from_ref)
                 .map(str::to_string);
         }
-        if !request.bounded {
-            request.bounded = request
+        if !self.bounded {
+            self.bounded = self
                 .sql_statement
                 .as_deref()
                 .is_some_and(sql_statement_has_limit)
-                || request
+                || self
                     .plan_summary
                     .as_deref()
                     .is_some_and(plan_summary_has_limit)
-                || !matches!(request.requested_output.as_str(), "collect");
+                || !matches!(self.requested_output.as_str(), "collect");
         }
-        Ok(request)
     }
 }
 
@@ -287,6 +426,9 @@ fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWor
 
     match request.input_format.as_deref() {
         Some(format) if is_local_file_format(format) => local_file_route(request),
+        None if is_generated_source_write_request(request) => {
+            generated_source_output_route(request)
+        }
         None if is_source_free_sql_write_request(request) => source_free_generated_output_route(),
         Some(other) => input_format_not_admitted_route(other),
         None => input_not_declared_route(),
@@ -405,6 +547,116 @@ fn source_free_generated_output_route() -> PublicWorkflowRoutePlan {
     )
 }
 
+fn is_generated_source_write_request(request: &PublicWorkflowRouteRequest) -> bool {
+    request.generated_source_kind.is_some() && is_write_request(request)
+}
+
+fn generated_source_output_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
+    let Some(kind) = normalized_generated_source_kind(request) else {
+        return generated_source_payload_blocked_route(
+            "public_workflow_route.generated_source_kind",
+            "unsupported generated source kind",
+            "use user_rows, literal_table, calendar, dataframe_source_free_projection, dataframe_generated_with_column, range, or sequence",
+        );
+    };
+    match kind {
+        "user_rows"
+        | "literal_table"
+        | "calendar"
+        | "dataframe_source_free_projection"
+        | "dataframe_generated_with_column" => {
+            if request.generated_schema.is_none() || request.generated_rows.is_none() {
+                return generated_source_payload_blocked_route(
+                    "public_workflow_route.generated_rows",
+                    "generated rows require schema and row payload",
+                    "pass --generated-schema and --generated-rows",
+                );
+            }
+            admitted_route(
+                "generated_user_rows_direct_output",
+                "generated-source-user-rows-smoke",
+                "generated_user_rows",
+                "generated_rows_boundary",
+                "generated_source_output",
+                false,
+                false,
+            )
+        }
+        "range" | "sequence" => {
+            if request.generated_range_start.is_none() || request.generated_range_end.is_none() {
+                return generated_source_payload_blocked_route(
+                    "public_workflow_route.generated_range",
+                    "generated range requires start and end",
+                    "pass --generated-range-start and --generated-range-end",
+                );
+            }
+            admitted_route(
+                if kind == "sequence" {
+                    "generated_sequence_direct_output"
+                } else {
+                    "generated_range_direct_output"
+                },
+                if kind == "sequence" {
+                    "generated-source-sequence-smoke"
+                } else {
+                    "generated-source-range-smoke"
+                },
+                "engine_native_generated_source",
+                "generated_rows_boundary",
+                "generated_source_output",
+                false,
+                false,
+            )
+        }
+        _ => unreachable!("normalized generated source kind is exhaustive"),
+    }
+}
+
+fn normalized_generated_source_kind(request: &PublicWorkflowRouteRequest) -> Option<&'static str> {
+    match request
+        .generated_source_kind
+        .as_deref()?
+        .trim()
+        .to_ascii_lowercase()
+        .replace('-', "_")
+        .as_str()
+    {
+        "user_rows" | "rows" => Some("user_rows"),
+        "literal_table" | "literal" => Some("literal_table"),
+        "calendar" | "date_dimension" => Some("calendar"),
+        "dataframe_projection" | "dataframe_source_free_projection" => {
+            Some("dataframe_source_free_projection")
+        }
+        "dataframe_generated_with_column" | "generated_with_column" => {
+            Some("dataframe_generated_with_column")
+        }
+        "range" => Some("range"),
+        "sequence" => Some("sequence"),
+        _ => None,
+    }
+}
+
+fn generated_source_payload_blocked_route(
+    field: &'static str,
+    reason: &'static str,
+    remediation: &'static str,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.generated_source_payload_invalid",
+        reason,
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            reason,
+            Some(field.to_string()),
+            Some(reason.to_string()),
+            Some(remediation.to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
 fn input_format_not_admitted_route(format: &str) -> PublicWorkflowRoutePlan {
     blocked_route(
         "cg21.route.input_format_not_admitted",
@@ -421,17 +673,16 @@ fn input_format_not_admitted_route(format: &str) -> PublicWorkflowRoutePlan {
 fn input_not_declared_route() -> PublicWorkflowRoutePlan {
     blocked_route(
         "cg21.route.input_not_declared",
-        "route requires a declared input, inferred SQL source, or source-free SQL write request",
+        "route requires a declared input, inferred SQL source, source-free SQL write request, or generated-source payload",
         Diagnostic::new(
             DiagnosticCode::InvalidInput,
             DiagnosticSeverity::Error,
             DiagnosticCategory::InvalidInput,
-            "public workflow route requires a declared input boundary",
+            "public workflow route requires a declared input or generated-source boundary",
             Some("public_workflow_route.input".to_string()),
             Some("no input URI or inferable SQL source was provided".to_string()),
             Some(
-                "pass --input with --input-format or route a source-free SQL write request"
-                    .to_string(),
+                "pass --input with --input-format, route a source-free SQL write request, or pass explicit generated-source payload fields".to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
         ),
@@ -573,6 +824,62 @@ fn add_route_request_fields(
         fields,
         "allow_overwrite",
         request.allow_overwrite.to_string(),
+    );
+    add_route_generated_source_request_fields(fields, request);
+}
+
+fn add_route_generated_source_request_fields(
+    fields: &mut Vec<(String, String)>,
+    request: &PublicWorkflowRouteRequest,
+) {
+    push_field(
+        fields,
+        "generated_source_kind",
+        normalized_generated_source_kind(request)
+            .unwrap_or("none")
+            .to_string(),
+    );
+    push_field(
+        fields,
+        "generated_source_schema_present",
+        request.generated_schema.is_some().to_string(),
+    );
+    push_field(
+        fields,
+        "generated_source_rows_present",
+        request.generated_rows.is_some().to_string(),
+    );
+    push_field(
+        fields,
+        "generated_source_range_start",
+        request
+            .generated_range_start
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    push_field(
+        fields,
+        "generated_source_range_end",
+        request
+            .generated_range_end
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    push_field(
+        fields,
+        "generated_source_range_step",
+        request
+            .generated_range_step
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    push_field(
+        fields,
+        "generated_source_range_column",
+        request
+            .generated_range_column
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
     );
 }
 
@@ -781,6 +1088,20 @@ fn execution_attachment_fields(
             request.allow_overwrite.to_string(),
         ),
         (
+            "public_workflow_generated_source_kind".to_string(),
+            normalized_generated_source_kind(request)
+                .unwrap_or("none")
+                .to_string(),
+        ),
+        (
+            "public_workflow_generated_source_schema_present".to_string(),
+            request.generated_schema.is_some().to_string(),
+        ),
+        (
+            "public_workflow_generated_source_rows_present".to_string(),
+            request.generated_rows.is_some().to_string(),
+        ),
+        (
             "public_workflow_blocker_id".to_string(),
             plan.blocker_id.to_string(),
         ),
@@ -843,6 +1164,82 @@ fn generated_source_runtime_args(
         args.push("--allow-overwrite".to_string());
     }
     args
+}
+
+fn generated_user_rows_runtime_args(
+    request: &PublicWorkflowRouteRequest,
+    output_ref: String,
+) -> Result<Vec<String>, ShardLoomError> {
+    let kind = normalized_generated_source_kind(request).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public workflow generated-source run requires a supported generated source kind"
+                .to_string(),
+        )
+    })?;
+    let schema = request.generated_schema.clone().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public workflow generated-source user rows run requires --generated-schema"
+                .to_string(),
+        )
+    })?;
+    let rows = request.generated_rows.clone().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public workflow generated-source user rows run requires --generated-rows".to_string(),
+        )
+    })?;
+    let mut args = vec![
+        output_ref,
+        schema,
+        rows,
+        "--source-kind".to_string(),
+        kind.to_string(),
+        "--output-format".to_string(),
+        local_output_format_for_request(request)?.to_string(),
+    ];
+    if request.allow_overwrite {
+        args.push("--allow-overwrite".to_string());
+    }
+    Ok(args)
+}
+
+fn generated_range_runtime_args(
+    request: &PublicWorkflowRouteRequest,
+    output_ref: String,
+) -> Result<Vec<String>, ShardLoomError> {
+    let start = request.generated_range_start.clone().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public workflow generated-source range run requires --generated-range-start"
+                .to_string(),
+        )
+    })?;
+    let end = request.generated_range_end.clone().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public workflow generated-source range run requires --generated-range-end".to_string(),
+        )
+    })?;
+    let step = request
+        .generated_range_step
+        .clone()
+        .unwrap_or_else(|| "1".to_string());
+    let column = request
+        .generated_range_column
+        .clone()
+        .unwrap_or_else(|| "value".to_string());
+    let mut args = vec![
+        output_ref,
+        start,
+        end,
+        "--step".to_string(),
+        step,
+        "--column".to_string(),
+        column,
+        "--output-format".to_string(),
+        local_output_format_for_request(request)?.to_string(),
+    ];
+    if request.allow_overwrite {
+        args.push("--allow-overwrite".to_string());
+    }
+    Ok(args)
 }
 
 fn local_output_format_for_request(
@@ -1105,8 +1502,95 @@ fn plan_summary_has_limit(summary: &str) -> bool {
 }
 
 fn is_source_free_sql_statement(statement: &str) -> bool {
-    let lower = statement.trim().to_ascii_lowercase();
-    lower.starts_with("select ") && !lower.contains(" from ")
+    let normalized = statement.trim().trim_end_matches(';').trim();
+    if sql_keyword_prefix(normalized, "VALUES") {
+        return true;
+    }
+    if !sql_keyword_prefix(normalized, "SELECT") {
+        return false;
+    }
+
+    let select_body = normalized["SELECT".len()..].trim();
+    let Some(from_position) = find_sql_keyword_outside_quotes_and_parens(select_body, "FROM")
+    else {
+        return true;
+    };
+    let source_ref = select_body[from_position + "FROM".len()..].trim();
+    is_source_free_generator_source_ref(source_ref)
+}
+
+fn is_source_free_generator_source_ref(source_ref: &str) -> bool {
+    let trimmed = trim_sql_tail_clauses(source_ref).trim();
+    let lower = trimmed.to_ascii_lowercase();
+    (lower.starts_with("range(")
+        || lower.starts_with("range (")
+        || lower.starts_with("generate_series(")
+        || lower.starts_with("generate_series ("))
+        && lower.ends_with(')')
+}
+
+fn trim_sql_tail_clauses(raw: &str) -> &str {
+    let tail_position = ["WHERE", "ORDER BY", "LIMIT"]
+        .iter()
+        .filter_map(|keyword| find_sql_keyword_outside_quotes_and_parens(raw, keyword))
+        .min();
+    tail_position.map_or(raw, |position| &raw[..position])
+}
+
+fn sql_keyword_prefix(raw: &str, keyword: &str) -> bool {
+    let trimmed = raw.trim_start();
+    let Some(prefix) = trimmed.get(..keyword.len()) else {
+        return false;
+    };
+    prefix.eq_ignore_ascii_case(keyword)
+        && trimmed
+            .as_bytes()
+            .get(keyword.len())
+            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+}
+
+fn find_sql_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Option<usize> {
+    let bytes = raw.as_bytes();
+    let keyword_bytes = keyword.as_bytes();
+    let mut quote_char: Option<u8> = None;
+    let mut paren_depth = 0usize;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' | b'"' => {
+                let byte = bytes[index];
+                if quote_char == Some(byte) {
+                    if byte == b'\'' && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                        index += 2;
+                        continue;
+                    }
+                    quote_char = None;
+                } else if quote_char.is_none() {
+                    quote_char = Some(byte);
+                }
+            }
+            b'(' if quote_char.is_none() => paren_depth += 1,
+            b')' if quote_char.is_none() && paren_depth > 0 => paren_depth -= 1,
+            _ if quote_char.is_none()
+                && paren_depth == 0
+                && index + keyword_bytes.len() <= bytes.len()
+                && bytes[index..index + keyword_bytes.len()]
+                    .eq_ignore_ascii_case(keyword_bytes)
+                && index
+                    .checked_sub(1)
+                    .and_then(|before| bytes.get(before))
+                    .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+                && bytes
+                    .get(index + keyword_bytes.len())
+                    .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_') =>
+            {
+                return Some(index);
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 #[cfg(test)]

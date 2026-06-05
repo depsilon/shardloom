@@ -131,12 +131,14 @@ These fields improve interpretation only; they do not refresh route timings or a
 performance claim.
 
 The public workflow route facade, exposed as `shardloom route <sql|python|dataframe|cli> --format
-json` and Python `.route()` helpers, mirrors route-admission metadata before execution. It is a
-side-effect-free route envelope, not a benchmark timing row. It must report
-`runtime_execution=false`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+json`, `shardloom run <sql|python|dataframe|cli> --format json`, and Python `.route()` / `.run()`
+helpers, mirrors route-admission metadata before or during scoped execution. The `route` envelope is
+side-effect-free and is not a benchmark timing row. It must report `runtime_execution=false`,
+`fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status=route_inspection_only` unless a later phase intentionally changes the contract
-with new evidence. Use it to explain which route a concrete request would take; do not use it to
-refresh timing values or performance interpretation.
+with new evidence. The `run` / `prepare` facades may attach the same metadata to admitted runtime
+envelopes, but those helper envelopes still do not refresh benchmark timing values or performance
+interpretation.
 
 Readiness fields also stay separate:
 

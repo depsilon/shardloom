@@ -9994,6 +9994,13 @@ class ShardLoomClient:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        generated_source_kind: str | None = None,
+        generated_schema: str | None = None,
+        generated_rows: str | None = None,
+        generated_range_start: int | None = None,
+        generated_range_end: int | None = None,
+        generated_range_step: int | None = None,
+        generated_range_column: str | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
@@ -10015,6 +10022,20 @@ class ShardLoomClient:
         args.extend(["--evidence-level", evidence_level])
         if bounded is not None:
             args.extend(["--bounded", "true" if bounded else "false"])
+        if generated_source_kind is not None:
+            args.extend(["--generated-source-kind", generated_source_kind])
+        if generated_schema is not None:
+            args.extend(["--generated-schema", generated_schema])
+        if generated_rows is not None:
+            args.extend(["--generated-rows", generated_rows])
+        if generated_range_start is not None:
+            args.extend(["--generated-range-start", str(generated_range_start)])
+        if generated_range_end is not None:
+            args.extend(["--generated-range-end", str(generated_range_end)])
+        if generated_range_step is not None:
+            args.extend(["--generated-range-step", str(generated_range_step)])
+        if generated_range_column is not None:
+            args.extend(["--generated-range-column", generated_range_column])
         return PublicWorkflowRoute(self.run(args, check=check))
 
     def public_workflow_run(
@@ -10032,6 +10053,13 @@ class ShardLoomClient:
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
         allow_overwrite: bool = False,
+        generated_source_kind: str | None = None,
+        generated_schema: str | None = None,
+        generated_rows: str | None = None,
+        generated_range_start: int | None = None,
+        generated_range_end: int | None = None,
+        generated_range_step: int | None = None,
+        generated_range_column: str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
@@ -10050,6 +10078,13 @@ class ShardLoomClient:
             evidence_level=evidence_level,
             bounded=bounded,
             allow_overwrite=allow_overwrite,
+            generated_source_kind=generated_source_kind,
+            generated_schema=generated_schema,
+            generated_rows=generated_rows,
+            generated_range_start=generated_range_start,
+            generated_range_end=generated_range_end,
+            generated_range_step=generated_range_step,
+            generated_range_column=generated_range_column,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -10097,6 +10132,13 @@ class ShardLoomClient:
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
         allow_overwrite: bool = False,
+        generated_source_kind: str | None = None,
+        generated_schema: str | None = None,
+        generated_rows: str | None = None,
+        generated_range_start: int | None = None,
+        generated_range_end: int | None = None,
+        generated_range_step: int | None = None,
+        generated_range_column: str | None = None,
     ) -> list[CommandPart]:
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -10117,6 +10159,20 @@ class ShardLoomClient:
             args.extend(["--bounded", "true" if bounded else "false"])
         if allow_overwrite:
             args.append("--allow-overwrite")
+        if generated_source_kind is not None:
+            args.extend(["--generated-source-kind", generated_source_kind])
+        if generated_schema is not None:
+            args.extend(["--generated-schema", generated_schema])
+        if generated_rows is not None:
+            args.extend(["--generated-rows", generated_rows])
+        if generated_range_start is not None:
+            args.extend(["--generated-range-start", str(generated_range_start)])
+        if generated_range_end is not None:
+            args.extend(["--generated-range-end", str(generated_range_end)])
+        if generated_range_step is not None:
+            args.extend(["--generated-range-step", str(generated_range_step)])
+        if generated_range_column is not None:
+            args.extend(["--generated-range-column", generated_range_column])
         return args
 
     def engine_selection_plan(

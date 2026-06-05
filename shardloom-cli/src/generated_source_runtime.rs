@@ -656,8 +656,18 @@ struct GeneratedSqlSmokeReport {
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_generated_source_user_rows_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_generated_source_user_rows_smoke_with_facade(args, format, USER_ROWS_COMMAND, Vec::new())
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_generated_source_user_rows_smoke_with_facade(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
@@ -667,7 +677,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     };
     let Some(schema_raw) = args.next() else {
         return emit_error(
-            USER_ROWS_COMMAND,
+            emit_command,
             format,
             "generated-source smoke failed",
             &ShardLoomError::InvalidOperation(
@@ -677,7 +687,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     };
     let Some(rows_raw) = args.next() else {
         return emit_error(
-            USER_ROWS_COMMAND,
+            emit_command,
             format,
             "generated-source smoke failed",
             &ShardLoomError::InvalidOperation(
@@ -695,7 +705,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
             "--output-format" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        USER_ROWS_COMMAND,
+                        emit_command,
                         format,
                         "generated-source smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -707,7 +717,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            USER_ROWS_COMMAND,
+                            emit_command,
                             format,
                             "generated-source smoke failed",
                             &error,
@@ -718,7 +728,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
             "--fanout-output" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        USER_ROWS_COMMAND,
+                        emit_command,
                         format,
                         "generated-source smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -730,7 +740,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
                     Ok(target) => fanout_outputs.push(target),
                     Err(error) => {
                         return emit_error(
-                            USER_ROWS_COMMAND,
+                            emit_command,
                             format,
                             "generated-source smoke failed",
                             &error,
@@ -741,7 +751,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
             "--source-kind" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        USER_ROWS_COMMAND,
+                        emit_command,
                         format,
                         "generated-source smoke failed",
                         &ShardLoomError::InvalidOperation(
@@ -753,7 +763,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            USER_ROWS_COMMAND,
+                            emit_command,
                             format,
                             "generated-source smoke failed",
                             &error,
@@ -764,7 +774,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
             "--allow-overwrite" => allow_overwrite = true,
             extra => {
                 return emit_error(
-                    USER_ROWS_COMMAND,
+                    emit_command,
                     format,
                     "generated-source smoke failed",
                     &cli_unknown_arg_error(USER_ROWS_COMMAND, extra),
@@ -785,7 +795,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
         Ok(request) => request,
         Err(error) => {
             return emit_error(
-                USER_ROWS_COMMAND,
+                emit_command,
                 format,
                 "generated-source smoke failed",
                 &error,
@@ -797,7 +807,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
         Ok(report) => report,
         Err(error) => {
             return emit_error(
-                USER_ROWS_COMMAND,
+                emit_command,
                 format,
                 "generated-source smoke failed",
                 &error,
@@ -805,8 +815,11 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
         }
     };
 
+    let mut fields = report.fields();
+    fields.extend(extra_fields);
+
     emit(
-        USER_ROWS_COMMAND,
+        emit_command,
         format,
         CommandStatus::Success,
         format!(
@@ -815,7 +828,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
         ),
         report.to_text(),
         vec![],
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -825,14 +838,44 @@ pub(crate) fn handle_generated_source_range_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_range_like_smoke(args, format, RangeGeneratedSourceKind::Range)
+    handle_generated_source_range_smoke_with_facade(args, format, RANGE_COMMAND, Vec::new())
 }
 
 pub(crate) fn handle_generated_source_sequence_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    handle_generated_source_range_like_smoke(args, format, RangeGeneratedSourceKind::Sequence)
+    handle_generated_source_sequence_smoke_with_facade(args, format, SEQUENCE_COMMAND, Vec::new())
+}
+
+pub(crate) fn handle_generated_source_range_smoke_with_facade(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+) -> ExitCode {
+    handle_generated_source_range_like_smoke(
+        args,
+        format,
+        RangeGeneratedSourceKind::Range,
+        emit_command,
+        extra_fields,
+    )
+}
+
+pub(crate) fn handle_generated_source_sequence_smoke_with_facade(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+) -> ExitCode {
+    handle_generated_source_range_like_smoke(
+        args,
+        format,
+        RangeGeneratedSourceKind::Sequence,
+        emit_command,
+        extra_fields,
+    )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -840,6 +883,8 @@ fn handle_generated_source_range_like_smoke(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
     source_kind: RangeGeneratedSourceKind,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let command = source_kind.command();
     let noun = source_kind.summary_noun();
@@ -851,7 +896,7 @@ fn handle_generated_source_range_like_smoke(
     };
     let Some(start_raw) = args.next() else {
         return emit_error(
-            command,
+            emit_command,
             format,
             &format!("generated-source {noun} smoke failed"),
             &ShardLoomError::InvalidOperation(format!(
@@ -861,7 +906,7 @@ fn handle_generated_source_range_like_smoke(
     };
     let Some(end_raw) = args.next() else {
         return emit_error(
-            command,
+            emit_command,
             format,
             &format!("generated-source {noun} smoke failed"),
             &ShardLoomError::InvalidOperation(format!(
@@ -880,7 +925,7 @@ fn handle_generated_source_range_like_smoke(
             "--output-format" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        command,
+                        emit_command,
                         format,
                         &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation(
@@ -892,7 +937,7 @@ fn handle_generated_source_range_like_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            command,
+                            emit_command,
                             format,
                             &format!("generated-source {noun} smoke failed"),
                             &error,
@@ -903,7 +948,7 @@ fn handle_generated_source_range_like_smoke(
             "--fanout-output" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        command,
+                        emit_command,
                         format,
                         &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation(
@@ -915,7 +960,7 @@ fn handle_generated_source_range_like_smoke(
                     Ok(target) => fanout_outputs.push(target),
                     Err(error) => {
                         return emit_error(
-                            command,
+                            emit_command,
                             format,
                             &format!("generated-source {noun} smoke failed"),
                             &error,
@@ -927,7 +972,7 @@ fn handle_generated_source_range_like_smoke(
             "--step" => {
                 let Some(value) = args.next() else {
                     return emit_error(
-                        command,
+                        emit_command,
                         format,
                         &format!("generated-source {noun} smoke failed"),
                         &ShardLoomError::InvalidOperation("--step requires a value".to_string()),
@@ -937,7 +982,7 @@ fn handle_generated_source_range_like_smoke(
                     Ok(parsed) => parsed,
                     Err(error) => {
                         return emit_error(
-                            command,
+                            emit_command,
                             format,
                             &format!("generated-source {noun} smoke failed"),
                             &error,
@@ -978,7 +1023,7 @@ fn handle_generated_source_range_like_smoke(
             }
             extra => {
                 return emit_error(
-                    command,
+                    emit_command,
                     format,
                     &format!("generated-source {noun} smoke failed"),
                     &cli_unknown_arg_error(command, extra),
@@ -1023,7 +1068,7 @@ fn handle_generated_source_range_like_smoke(
         Ok(request) => request,
         Err(error) => {
             return emit_error(
-                command,
+                emit_command,
                 format,
                 &format!("generated-source {noun} smoke failed"),
                 &error,
@@ -1035,7 +1080,7 @@ fn handle_generated_source_range_like_smoke(
         Ok(report) => report,
         Err(error) => {
             return emit_error(
-                command,
+                emit_command,
                 format,
                 &format!("generated-source {noun} smoke failed"),
                 &error,
@@ -1043,8 +1088,11 @@ fn handle_generated_source_range_like_smoke(
         }
     };
 
+    let mut fields = report.fields();
+    fields.extend(extra_fields);
+
     emit(
-        command,
+        emit_command,
         format,
         CommandStatus::Success,
         format!(
@@ -1053,7 +1101,7 @@ fn handle_generated_source_range_like_smoke(
         ),
         report.to_text(),
         vec![],
-        report.fields(),
+        fields,
     );
     ExitCode::SUCCESS
 }
