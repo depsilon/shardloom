@@ -16,6 +16,78 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D 6-series checklist cleanup and HAVING row-value/quantified
+  breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/clean-6-series-checklists` / PR #1108.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`.
+    - `website-src`, `website-public`, and `website` generated static artifacts.
+  - Scope:
+    - Reworked the active 6-series runtime breadth queue into consistent parent checklist items with
+      `Current state`, execution checklist, evidence, verification, claim, fallback, and ledger
+      fields while keeping completed HOTPATH history in this ledger instead of a completed live-plan
+      section.
+    - Promoted scoped aggregate `HAVING` row-value `IN`/`NOT IN` local subquery predicates and
+      correlated quantified `HAVING` subqueries into executable admitted-semantics fixtures.
+    - Added Rust local-source runtime coverage proving result rows, row-value/source-qualified
+      subquery evidence, correlated aggregate-row evaluation, bounded materialization evidence, and
+      no fallback or external engine invocation.
+    - Updated latest admitted-semantics counts to `matrix_row_count=120`,
+      `executable_fixture_count=98`, `diagnostic_case_count=22`,
+      `unsupported_diagnostic_count=20`, `runtime_error_diagnostic_count=1`, and
+      `invalid_shape_diagnostic_count=1`.
+    - Updated the README support summary, hard release readiness gate, release metadata guard,
+      compute-flow source docs, and generated website/static pages.
+  - Evidence:
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli having_row_value -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli having_correlated_quantified -- --nocapture`
+      passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-having-row-value-correlated-quantified.json`
+      passed with `matrix_row_count=120`, `executable_fixture_count=98`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, and no performance claim reported.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-having-row-value-correlated-quantified.json --output target/release-readiness-having-row-value-correlated-quantified.json`
+      remained blocked only on existing broad release/package/checklist gates; fallback and
+      external-engine fields remained false.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-having-row-value-correlated-quantified.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-having-row-value-correlated-quantified.json`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped SQL/HAVING runtime breadth, matrix and
+      release evidence, phase-plan cleanup, and docs/static freshness work, not performance-path
+      code or timing methodology.
+  - Claim boundary:
+    - This slice admits scoped local aggregate `HAVING` row-value `IN`/`NOT IN` and correlated
+      quantified subquery predicates only. It does not claim broad ANSI subquery parity, production
+      SQL/DataFrame support, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - The admitted HAVING predicates execute through ShardLoom's bounded local-source runtime. No
+      pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame
+      backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D HAVING negative subquery breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/having-negative-subquery-breadth` / PR #1107.

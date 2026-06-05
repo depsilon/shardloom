@@ -234,13 +234,16 @@ blocker.
 
 Live plan hygiene:
 
-- Planned must contain only unchecked actionable work. Completed checklist items, completed
-  sections, and completed session details belong only in
+- Planned must keep actionable parent work unchecked until the parent is closed. Compact checked
+  status checklist rows may appear under an active parent only as pointers to existing ledger,
+  status, matrix, or validator evidence.
+- Completed session blocks, implementation narratives, and historical proof detail belong only in
   `docs/architecture/phased-execution-completed-ledger.md`.
-- If a completed item is found in Planned, remove it from this file after confirming the matching
-  ledger entry exists or adding that ledger entry.
+- If a completed parent item is found in Planned, remove it from this file after confirming the
+  matching ledger entry exists or adding that ledger entry.
 - Do not leave a completed parent section in Planned just to preserve history. Keep only active
-  child work or a short pointer to the ledger when history is needed.
+  child work, compact status checklist pointers, or a short pointer to the ledger when history is
+  needed.
 - Do not let docs-only, report-only, or claim-copy cleanup interrupt the runtime sequence above
   unless it is a release, safety, security, or claim-integrity blocker for the next runtime item.
 - A runtime item is valid only when it has a `Runtime enablement:` field that names the runnable
@@ -272,332 +275,409 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
-#### Benchmark Hotpath Queue - Completed Runtime Optimization Work
-
-This queue stays ahead of the broader 6-series breadth work for traceability. It owned the
-benchmark-driven ShardLoom compute optimization slices that had to close before the HOTPATH-14
-benchmark rerun and publication.
-These are child execution slices under the existing
-`GAR-RUNTIME-IMPL-6D:last_order.benchmark_driven_prepare_path_optimization` item, not new top-level
-phase IDs.
-Completed HOTPATH slices are recorded in
-`docs/architecture/phased-execution-completed-ledger.md`, including HOTPATH-3, HOTPATH-7,
-HOTPATH-10, HOTPATH-11, HOTPATH-9, HOTPATH-1, HOTPATH-5, and HOTPATH-14. The hotpath queue has no
-remaining unchecked items; continue with the 6-series runtime breadth queue below unless a fresh
-benchmark regression or claim-integrity blocker is promoted.
-
 #### 6-Series Runtime Breadth Queue
 
-The 6-series queue follows the now-completed benchmark HOTPATH queue and HOTPATH-14
-rerun/publication gate. It
-owns broad user-surface runtime breadth: SQL grammar, Python/DataFrame API breadth,
-object-store/lakehouse runtime, generated-output platform routes, data-quality/profile/quarantine
-runtime, effectful operations, live/hybrid runtime, distributed/spill/OOM runtime, and front-door
-benchmark publication. Each unchecked item must keep the Planned Item Detail Standard shape and move
-completed details to the ledger.
+The 6-series queue is the first active runtime queue. Completed HOTPATH implementation, freshness,
+rerun, and publication history lives only in the completed ledger; this section owns the remaining
+user-surface runtime breadth: SQL grammar, Python/DataFrame API breadth, object-store/lakehouse
+runtime, generated-output platform routes, data-quality/profile/quarantine runtime, effectful
+operations, live/hybrid runtime, distributed/spill/OOM runtime, and front-door benchmark
+publication.
+
+Each item below uses the same sub-checklist shape:
+
+- Current state: compact checked checklist rows summarize what is already proven by the ledger,
+  matrix, or validators; unchecked rows name what remains.
+- Execution checklist: unchecked implementation/validation steps for the next cohesive PR.
+- Boundaries: claim, fallback, non-goal, and ledger rules stay attached to the active item.
 
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
-  Source: SQL/Python/DataFrame front-door parity docs, admitted semantics matrix, user-route
-  capability report, completed runtime ledger entries, and remaining broad grammar blockers.
-  Current state: admitted scoped SQL syntax families and their evidence rows live in
-  `docs/status/admitted-semantics-matrix.json` and the completed ledger. Recently covered slices
-  include timezone database syntax/function/type deterministic blockers, locale/case-folding
-  blockers, scoped columnar binary source projection/predicate/order evidence, scoped complex
-  result-boundary ordering, first-class list/array plus struct access/cast blockers, complex
-  subquery membership materialization blockers, scoped scalar and row-value `NOT IN (SELECT ...)`,
-  correlated `NOT EXISTS`, projected negative subqueries, scoped scalar-expression `JOIN ON`
-  including logical `OR`, complex-key `JOIN ON` blockers, deterministic outer-reference blockers,
-  scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN/NOT IN,
-  EXISTS/NOT EXISTS, and quantified local subquery evidence with `source_qualified_subquery_*`
-  report fields plus deterministic unbound source-qualified selected-column, filter, projection,
-  and ORDER BY diagnostics for those scoped subquery surfaces, plus scoped HAVING `NOT IN` and
-  correlated `NOT EXISTS` local subquery predicates over aggregate output rows. Remaining live
-  blockers are nested
-  source decoding and flat sinks beyond scoped
-  result-boundary projections, variant/union-dtype shapes, binary sink preservation outside scoped
-  feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat
-  scalar outputs, broader binary execution beyond scoped columnar source projection/predicate/order
-  plus explicit casts/helpers, non-binary source columns compared to binary literals, ORC typed
-  decimal sinks, broad ANSI decimal coercion beyond exact exponent notation, scalar-left
-  multi-column subqueries, unbound source aliases outside admitted source-qualified subquery
-  surfaces, and remaining broad ANSI subquery families
-  outside the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`,
-  quantified, source-qualified, and predicate/CASE projection boundary.
-  Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
-  lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
-  Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers above. Likely candidates are ORC typed decimal sink preservation once ORC writer evidence
-  exists, or another front-door parity gap only after the runtime route is already admitted.
-  User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
-  capability matrices, docs, and benchmark-range route reports.
-  Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
-  lowering, SQL/DataFrame parity validators, route capability reports, and docs.
-  Evidence required: positive SQL fixtures and decoded-reference expectations for every newly
-  admitted syntax family; unsupported diagnostics for still-non-admitted shapes; Python/DataFrame
-  alias/lowering tests where a familiar user surface exists; parity docs; no-fallback fields; and
-  claim gates for every newly admitted syntax family.
-  Acceptance: admitted SQL grammar reaches an existing ShardLoom runtime route; non-admitted grammar
-  fails deterministically without external engines.
-  Verification: focused Rust CLI tests, Python parity tests, `scripts/check_sql_python_dataframe_parity.py`,
-  `scripts/check_user_route_capability_report.py`, and `git diff --check`.
-  Non-goals: no external SQL engine, no broad optimizer/performance claim, no object-store/table SQL
-  runtime.
-  Dependencies/blockers: parser/binder coverage, expression capability mapping, runtime operator
-  evidence, and deterministic diagnostics.
-  Claim boundary: scoped grammar/runtime admission only; no production SQL, performance,
-  Spark-replacement, or external-fallback claim.
-  Fallback boundary: no external SQL, DataFusion, DuckDB, Spark, Polars, Velox, or query-engine
-  fallback execution; external engines may appear only as tests or benchmark baselines.
-  Ledger rule: when the chosen grammar slice is complete, move the completed details to the ledger
-  and leave the next unchecked 6-series item or residual grammar blocker in Planned.
+  - Source: SQL/Python/DataFrame front-door parity docs, admitted semantics matrix, user-route
+    capability report, completed runtime ledger entries, and remaining broad grammar blockers.
+  - Current state:
+    - [x] Scoped grammar evidence lives in `docs/status/admitted-semantics-matrix.json` and the
+      completed ledger.
+    - [x] Timezone syntax/function/type, locale/case-folding, complex boundary, list/array/struct,
+      binary source, decimal literal, scalar-expression `JOIN ON`, complex-key join blockers, and
+      set-operation slices are no longer the next active 6D grammar blockers.
+    - [x] Local-source scalar and row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`, quantified,
+      projected, correlated, source-qualified, predicate-projection, CASE-projection, and scoped
+      HAVING `NOT IN` / correlated `NOT EXISTS` subquery surfaces have admitted evidence or
+      deterministic blockers where scoped.
+    - [x] HAVING-level row-value `IN`/`NOT IN` and correlated quantified variants now have matrix
+      fixtures, Rust smokes, docs, and no-fallback report fields.
+    - [ ] Remaining: nested source decoding and flat sinks beyond scoped result-boundary
+      projections.
+    - [ ] Remaining: variant/union dtype shapes, broader binary execution/preservation,
+      non-binary-source-to-binary-literal comparisons, ORC typed decimal sinks, broad ANSI decimal
+      coercion, scalar-left multi-column subqueries, and unbound source aliases outside admitted
+      source-qualified surfaces.
+  - Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
+    lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
+  - Next slice outcome: choose the next coherent grammar family from the unchecked remaining rows;
+    current candidates are nested source decoding/flat sinks, ORC typed decimal sink preservation
+    once writer evidence exists, broader binary preservation, broad ANSI decimal coercion, or
+    scalar-left multi-column subquery diagnostics depending on the next runtime route evidence.
+  - Execution checklist:
+    - [ ] Derive the exact admitted and unsupported shapes from the matrix, parser/runtime code, and
+      existing CLI smokes before editing.
+    - [ ] Add positive SQL fixtures and decoded-reference expectations for every newly admitted
+      shape.
+    - [ ] Add deterministic unsupported diagnostics for still-non-admitted shapes.
+    - [ ] Update matrix/status/release docs, route/capability reports, and Python/DataFrame parity
+      docs when a familiar user surface exists.
+    - [ ] Validate no-fallback fields: `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
+    capability matrices, docs, and benchmark-range route reports.
+  - Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
+    lowering, SQL/DataFrame parity validators, route capability reports, and docs.
+  - Evidence required: positive SQL fixtures, decoded-reference expectations, unsupported
+    diagnostics for non-admitted shapes, parity docs where relevant, no-fallback fields, and claim
+    gates for every newly admitted syntax family.
+  - Acceptance: admitted SQL grammar reaches an existing ShardLoom runtime route; non-admitted
+    grammar fails deterministically without external engines.
+  - Verification: focused Rust CLI tests, Python parity tests where relevant,
+    `scripts/check_sql_python_dataframe_parity.py`, `scripts/check_user_route_capability_report.py`,
+    and `git diff --check`.
+  - Non-goals: no external SQL engine, no broad optimizer/performance claim, no object-store/table
+    SQL runtime.
+  - Dependencies/blockers: parser/binder coverage, expression capability mapping, runtime operator
+    evidence, and deterministic diagnostics.
+  - Claim boundary: scoped grammar/runtime admission only; no production SQL, performance,
+    Spark-replacement, or external-fallback claim.
+  - Fallback boundary: no external SQL, DataFusion, DuckDB, Spark, Polars, Velox, or query-engine
+    fallback execution; external engines may appear only as tests or benchmark baselines.
+  - Ledger rule: when the chosen grammar slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual grammar blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth: Full Python/DataFrame API
   breadth.
-  Source: Python query/session API docs, SQL/Python/DataFrame parity docs, user-route capability
-  report, completed Python surface ledger entries, and remaining DataFrame parity blockers.
-  Current state: familiar aliases lower to admitted ShardLoom runtime paths where available;
-  `schema_contract(...)`, `profile(...)`, and scoped `quarantine(...)` have bounded local-source
-  evidence, and Python SQL result reports expose parsed typed decimal sink support for the latest
-  Parquet/Arrow IPC/Avro/Vortex admitted and ORC-blocked boundary. `LazyFrame.join(condition=...)`
-  now accepts ShardLoom predicate objects for scoped scalar-expression and logical `OR` join
-  predicates over qualified local-source columns, and Python SQL smoke reports expose runtime
-  unsupported `status`, `diagnostics`, and `unsupported_reasons` for non-admitted correlated
-  subquery shapes while preserving no-fallback fields; broad DataFrame parity remains gated.
-  Runtime enablement: Python/DataFrame-style API call -> deterministic ShardLoom query lowering ->
-  admitted runtime route or explicit unsupported diagnostic -> no-fallback evidence row.
-  Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
-  existing ShardLoom runtime evidence or returns deterministic unsupported diagnostics.
-  User-visible surface: `shardloom` Python package, session/query builders, docs, parity matrix, and
-  route capability report.
-  Implementation scope: `python/src/shardloom/query.py`, `context.py`, `session.py`, Python tests,
-  CLI lowering where needed, and docs.
-  Evidence required: Python tests proving alias/canonical equivalence, no hidden pandas/Polars
-  execution, fallback/external-engine false fields, and capability rows.
-  Acceptance: the new API family is intuitive from Python while still mapping to real ShardLoom
-  runtime or explicit unsupported output.
-  Verification: `python3 -m unittest python/tests/test_query_builder.py`,
-  `python3 -m unittest python/tests/test_sql_python_dataframe_parity.py`,
-  `scripts/check_python_user_surface_completion.py`, and `git diff --check`.
-  Non-goals: no broad pandas/Polars backend, no production DataFrame claim, no unbounded
-  materialization convenience.
-  Dependencies/blockers: SQL/runtime capability coverage, output-plan support, and typed Python
-  result models.
-  Claim boundary: scoped Python ergonomic surface only; no performance, production DataFrame, or
-  external-fallback claim.
-  Fallback boundary: no hidden pandas, Polars, DuckDB, DataFusion, Spark, or external DataFrame
-  backend execution; Python remains a front door into ShardLoom runtime or explicit blockers.
-  Ledger rule: when the chosen Python/DataFrame slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual Python blocker in Planned.
+  - Source: Python query/session API docs, SQL/Python/DataFrame parity docs, user-route capability
+    report, completed Python surface ledger entries, and remaining DataFrame parity blockers.
+  - Current state:
+    - [x] Familiar aliases lower to admitted ShardLoom runtime paths where evidence exists.
+    - [x] `schema_contract(...)`, `profile(...)`, and scoped `quarantine(...)` have bounded
+      local-source evidence.
+    - [x] Python SQL result reports expose parsed typed decimal sink support for admitted
+      Parquet/Arrow IPC/Avro/Vortex paths and the ORC-blocked boundary.
+    - [x] `LazyFrame.join(condition=...)` accepts ShardLoom predicate objects for scoped
+      scalar-expression and logical `OR` join predicates over qualified local-source columns.
+    - [x] Python SQL smoke reports expose runtime unsupported `status`, `diagnostics`, and
+      `unsupported_reasons` for non-admitted correlated subquery shapes while preserving
+      no-fallback fields.
+    - [ ] Remaining: promote the next coherent API family that lowers to an admitted runtime route
+      or deterministic unsupported diagnostic.
+    - [ ] Remaining: broad DataFrame parity remains gated.
+  - Runtime enablement: Python/DataFrame-style API call -> deterministic ShardLoom query lowering ->
+    admitted runtime route or explicit unsupported diagnostic -> no-fallback evidence row.
+  - Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
+    existing ShardLoom runtime evidence or returns deterministic unsupported diagnostics.
+  - Execution checklist:
+    - [ ] Add alias/canonical equivalence tests for the chosen API family.
+    - [ ] Preserve no hidden pandas/Polars execution.
+    - [ ] Update capability rows and user-facing docs for admitted or blocked behavior.
+  - User-visible surface: `shardloom` Python package, session/query builders, docs, parity matrix,
+    and route capability report.
+  - Implementation scope: `python/src/shardloom/query.py`, `context.py`, `session.py`, Python tests,
+    CLI lowering where needed, and docs.
+  - Evidence required: Python tests proving alias/canonical equivalence, no hidden pandas/Polars
+    execution, fallback/external-engine false fields, and capability rows.
+  - Acceptance: the new API family is intuitive from Python while still mapping to real ShardLoom
+    runtime or explicit unsupported output.
+  - Verification: `python3 -m unittest python/tests/test_query_builder.py`,
+    `python3 -m unittest python/tests/test_sql_python_dataframe_parity.py`,
+    `scripts/check_python_user_surface_completion.py`, and `git diff --check`.
+  - Non-goals: no broad pandas/Polars backend, no production DataFrame claim, no unbounded
+    materialization convenience.
+  - Dependencies/blockers: SQL/runtime capability coverage, output-plan support, and typed Python
+    result models.
+  - Claim boundary: scoped Python ergonomic surface only; no performance, production DataFrame, or
+    external-fallback claim.
+  - Fallback boundary: no hidden pandas, Polars, DuckDB, DataFusion, Spark, or external DataFrame
+    backend execution; Python remains a front door into ShardLoom runtime or explicit blockers.
+  - Ledger rule: when the chosen Python/DataFrame slice is complete, move the completed details to
+    the ledger and leave the next unchecked 6-series item or residual Python blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime: Object-store,
   lakehouse/table, catalog, partition discovery, commit, rollback, recovery, and remote result
   delivery runtime.
-  Source: Native I/O contracts, object-store/runtime docs, table/lakehouse boundary reports,
-  credential/effect policy docs, and completed object-store fixture ledger entries.
-  Current state: object-store URI parsing, public/no-credential fixture reads, local-emulator
-  read/write smokes, and table/lakehouse boundary reports exist; live providers and table commits are
-  gated.
-  Runtime enablement: credential-safe object/table request -> ShardLoom Native I/O admission ->
-  bounded read/write/commit/recovery proof or deterministic blocker -> no-fallback evidence row.
-  Next slice outcome: add the next local or credential-safe runtime promotion with explicit
-  admission, commit/recovery evidence, and no-fallback diagnostics.
-  User-visible surface: CLI object-store/table commands, Python helpers, capability matrices,
-  docs, and release gates.
-  Implementation scope: object-store runtime modules, table boundary reports, credential policy,
-  output/replay validators, and docs.
-  Evidence required: local or isolated provider fixture, commit/rollback/recovery proof,
-  credential/effect policy fields, Native I/O evidence, and no-fallback status.
-  Acceptance: one previously gated object-store/table workflow executes through ShardLoom-native
-  boundaries or fails with deterministic diagnostics.
-  Verification: object-store/table smoke tests, credential/effect validators, release readiness
-  checks, and `git diff --check`.
-  Non-goals: no live cloud write by default, no hidden credential probing, no table production claim.
-  Dependencies/blockers: credential policy, commit protocol, replay verification, cleanup semantics,
-  and Native I/O certificates.
-  Claim boundary: scoped fixture/local runtime only; no production lakehouse/object-store,
-  performance, or fallback claim.
-  Fallback boundary: no Spark, DataFusion, DuckDB, Polars, external lakehouse engine, warehouse, or
-  catalog service may execute ShardLoom work; external platforms remain explicit boundaries only.
-  Ledger rule: when the chosen object/table slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual object-store blocker in Planned.
+  - Source: Native I/O contracts, object-store/runtime docs, table/lakehouse boundary reports,
+    credential/effect policy docs, and completed object-store fixture ledger entries.
+  - Current state:
+    - [x] Object-store URI parsing exists.
+    - [x] Public/no-credential fixture reads exist.
+    - [x] Local-emulator read/write smokes exist.
+    - [x] Table/lakehouse boundary reports exist.
+    - [ ] Remaining: live providers remain gated.
+    - [ ] Remaining: table commits, rollback, recovery, partition discovery, catalog integration, and
+      remote result delivery need scoped admission or deterministic blockers.
+  - Runtime enablement: credential-safe object/table request -> ShardLoom Native I/O admission ->
+    bounded read/write/commit/recovery proof or deterministic blocker -> no-fallback evidence row.
+  - Next slice outcome: add the next local or credential-safe runtime promotion with explicit
+    admission, commit/recovery evidence, and no-fallback diagnostics.
+  - Execution checklist:
+    - [ ] Use a local, isolated, or credential-safe fixture.
+    - [ ] Record credential/effect policy fields and Native I/O evidence.
+    - [ ] Prove commit/rollback/recovery or keep the path explicitly blocked.
+  - User-visible surface: CLI object-store/table commands, Python helpers, capability matrices,
+    docs, and release gates.
+  - Implementation scope: object-store runtime modules, table boundary reports, credential policy,
+    output/replay validators, and docs.
+  - Evidence required: local or isolated provider fixture, commit/rollback/recovery proof where the
+    path writes state, credential/effect policy fields, Native I/O evidence, and no-fallback status.
+  - Acceptance: one previously gated object-store/table workflow executes through ShardLoom-native
+    boundaries or fails with deterministic diagnostics.
+  - Verification: object-store/table smoke tests, credential/effect validators, release readiness
+    checks, and `git diff --check`.
+  - Non-goals: no live cloud write by default, no hidden credential probing, no table production
+    claim.
+  - Dependencies/blockers: credential policy, commit protocol, replay verification, cleanup
+    semantics, and Native I/O certificates.
+  - Claim boundary: scoped fixture/local runtime only; no production lakehouse/object-store,
+    performance, or fallback claim.
+  - Fallback boundary: no Spark, DataFusion, DuckDB, Polars, external lakehouse engine, warehouse, or
+    catalog service may execute ShardLoom work; external platforms remain explicit boundaries only.
+  - Ledger rule: when the chosen object/table slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual object-store blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime: Promote the remaining
   generated-output platform routes only after their effect boundary is real.
-  Source: generated-source runtime docs, output/fanout contracts, platform proof docs, effect policy,
-  replay/fidelity evidence, and completed generated-output ledger entries.
-  Current state: generated rows can write local outputs; local-emulator object-store and
-  Foundry-style dev-stack proofs exist, while live platform APIs remain gated.
-  Runtime enablement: generated-output request -> explicit effect/output admission -> local or
-  platform-bound output proof plus replay/fidelity evidence or deterministic blocker.
-  Next slice outcome: promote the next generated-output platform route only with explicit effect,
-  credential, output, and replay evidence.
-  User-visible surface: Python generated-output helpers, CLI generated-source commands, Foundry and
-  object-store proof docs, capability rows, and release checks.
-  Implementation scope: generated-source runtime, output/fanout helpers, platform boundary reports,
-  validators, and docs.
-  Evidence required: generated-source certificate, output artifact proof, replay/fidelity evidence,
-  effect policy, and no-fallback fields.
-  Acceptance: promoted generated-output route writes through an admitted ShardLoom boundary and
-  reports the exact platform/effect scope.
-  Verification: generated-source runtime smokes, platform proof scripts, production usability gate,
-  and `git diff --check`.
-  Non-goals: no real Foundry/cloud write without explicit approval, no Marketplace/package claim.
-  Dependencies/blockers: effect budget, credential policy, output-plan support, and platform-specific
-  boundary reports.
-  Claim boundary: scoped generated-output proof only; no production platform, performance, or
-  fallback claim.
-  Fallback boundary: no external platform, Spark, warehouse, or integration runtime may perform
-  hidden execution; effectful writes require explicit admission and evidence.
-  Ledger rule: when the chosen generated-output slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual platform blocker in Planned.
+  - Source: generated-source runtime docs, output/fanout contracts, platform proof docs, effect
+    policy, replay/fidelity evidence, and completed generated-output ledger entries.
+  - Current state:
+    - [x] Generated rows can write local outputs.
+    - [x] Local-emulator object-store proofs exist.
+    - [x] Foundry-style dev-stack proofs exist.
+    - [ ] Remaining: live platform APIs remain gated.
+    - [ ] Remaining: platform routes need explicit effect, credential, output, replay, and fidelity
+      evidence before promotion.
+  - Runtime enablement: generated-output request -> explicit effect/output admission -> local or
+    platform-bound output proof plus replay/fidelity evidence or deterministic blocker.
+  - Next slice outcome: promote the next generated-output platform route only with explicit effect,
+    credential, output, and replay evidence.
+  - Execution checklist:
+    - [ ] Attach generated-source certificate and output artifact proof.
+    - [ ] Add replay/fidelity evidence and no-fallback fields.
+    - [ ] Keep live platform writes blocked unless explicitly approved.
+  - User-visible surface: Python generated-output helpers, CLI generated-source commands, Foundry
+    and object-store proof docs, capability rows, and release checks.
+  - Implementation scope: generated-source runtime, output/fanout helpers, platform boundary
+    reports, validators, and docs.
+  - Evidence required: generated-source certificate, output artifact proof, replay/fidelity
+    evidence, effect policy, credential policy where relevant, and no-fallback fields.
+  - Acceptance: promoted generated-output route writes through an admitted ShardLoom boundary and
+    reports the exact platform/effect scope.
+  - Verification: generated-source runtime smokes, platform proof scripts, production usability gate,
+    and `git diff --check`.
+  - Non-goals: no real Foundry/cloud write without explicit approval, no Marketplace/package claim.
+  - Dependencies/blockers: effect budget, credential policy, output-plan support, and
+    platform-specific boundary reports.
+  - Claim boundary: scoped generated-output proof only; no production platform, performance, or
+    fallback claim.
+  - Fallback boundary: no external platform, Spark, warehouse, or integration runtime may perform
+    hidden execution; effectful writes require explicit admission and evidence.
+  - Ledger rule: when the chosen generated-output slice is complete, move the completed details to
+    the ledger and leave the next unchecked 6-series item or residual platform blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.data_quality_quarantine_profile_runtime: Promote
   remaining data-quality observability and quarantine surfaces only where they are backed by
   ShardLoom runtime evidence.
-  Source: data-quality/profile/quarantine docs, Python query builder parity docs, output/fanout
-  reports, capability matrices, and completed data-quality ledger entries.
-  Current state: bounded local-source `profile(...)` and scoped `quarantine(...)` use admitted
-  local-source runtime evidence; broader table/object-store remediation remains gated.
-  Runtime enablement: data-quality/profile/quarantine request -> admitted bounded ShardLoom runtime
-  check or explicit unsupported diagnostic -> output/replay evidence when a sink is written.
-  Next slice outcome: add the next bounded data-quality check or quarantine action with ShardLoom
-  runtime proof and explicit unsupported diagnostics for non-admitted checks.
-  User-visible surface: Python query builder, CLI local-source smoke, output/fanout reports, docs,
-  and capability matrices.
-  Implementation scope: Python query API, CLI runtime fields, local sink outputs, validators, and
-  docs.
-  Evidence required: positive bounded checks, no-fallback fields, output/replay evidence where a sink
-  is written, and report-only classification for blocked checks.
-  Acceptance: users can run the promoted check without external profiling engines, and unsupported
-  checks remain explicit.
-  Verification: Python query tests, SQL/DataFrame parity validator, user-surface completion checker,
-  and `git diff --check`.
-  Non-goals: no production governance workflow, no object-store/table quarantine, no broad profiling
-  claim.
-  Dependencies/blockers: expression capability mapping, output-plan replay proof, and data-quality
-  diagnostic vocabulary.
-  Claim boundary: scoped bounded data-quality runtime only; no production governance, performance,
-  or fallback claim.
-  Fallback boundary: no hidden pandas/Polars profiling, DuckDB SQL, Spark quality engine, or
-  external remediation runtime; unsupported checks fail explicitly.
-  Ledger rule: when the chosen data-quality slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual data-quality blocker in Planned.
+  - Source: data-quality/profile/quarantine docs, Python query builder parity docs, output/fanout
+    reports, capability matrices, and completed data-quality ledger entries.
+  - Current state:
+    - [x] Bounded local-source `profile(...)` uses admitted local-source runtime evidence.
+    - [x] Scoped `quarantine(...)` uses admitted local-source runtime evidence.
+    - [ ] Remaining: broader table/object-store remediation remains gated.
+    - [ ] Remaining: the next check or quarantine action needs bounded ShardLoom runtime proof and
+      deterministic unsupported diagnostics for non-admitted checks.
+  - Runtime enablement: data-quality/profile/quarantine request -> admitted bounded ShardLoom
+    runtime check or explicit unsupported diagnostic -> output/replay evidence when a sink is
+    written.
+  - Next slice outcome: add the next bounded data-quality check or quarantine action with ShardLoom
+    runtime proof and explicit unsupported diagnostics for non-admitted checks.
+  - Execution checklist:
+    - [ ] Add positive bounded checks and negative unsupported diagnostics.
+    - [ ] Attach output/replay evidence when a sink is written.
+    - [ ] Keep no-fallback fields visible in reports.
+  - User-visible surface: Python query builder, CLI local-source smoke, output/fanout reports, docs,
+    and capability matrices.
+  - Implementation scope: Python query API, CLI runtime fields, local sink outputs, validators, and
+    docs.
+  - Evidence required: positive bounded checks, no-fallback fields, output/replay evidence where a
+    sink is written, and report-only or unsupported classification for blocked checks.
+  - Acceptance: users can run the promoted check without external profiling engines, and unsupported
+    checks remain explicit.
+  - Verification: Python query tests, SQL/DataFrame parity validator, user-surface completion
+    checker, and `git diff --check`.
+  - Non-goals: no production governance workflow, no object-store/table quarantine, no broad
+    profiling claim.
+  - Dependencies/blockers: expression capability mapping, output-plan replay proof, and data-quality
+    diagnostic vocabulary.
+  - Claim boundary: scoped bounded data-quality runtime only; no production governance, performance,
+    or fallback claim.
+  - Fallback boundary: no hidden pandas/Polars profiling, DuckDB SQL, Spark quality engine, or
+    external remediation runtime; unsupported checks fail explicitly.
+  - Ledger rule: when the chosen data-quality slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual data-quality blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.effectful_operations: Effectful operations: UDFs, LLM/API
   calls, embeddings, vector search, external writes, credentials, sandboxing, and deterministic
   effect budgets.
-  Source: modular extensibility RFCs, extension/plugin safety docs, effect policy docs,
-  security/release validators, and completed effectful-operation ledger entries.
-  Current state: effectful-operation admission reports and local deterministic UDF/SQLite fixture
-  boundaries exist; arbitrary effects remain blocked.
-  Runtime enablement: effectful operation declaration -> capability/permission/effect-budget
-  admission -> sandboxed local proof or deterministic blocker -> no-fallback evidence row.
-  Next slice outcome: promote one effect family through explicit policy, capability, sandbox, and
-  no-fallback evidence.
-  User-visible surface: CLI effect/extension reports, Python helpers, docs, capability matrices, and
-  security/release validators.
-  Implementation scope: effect budget plan, extension/UDF boundaries, credential policy, diagnostics,
-  tests, and docs.
-  Evidence required: side-effect declaration, permission policy, deterministic diagnostics, sandbox
-  status, no-fallback fields, and security review where needed.
-  Acceptance: admitted effects are explicit and inspectable; non-admitted effects cannot execute
-  silently.
-  Verification: effect-budget tests, security/effect validators, relevant Python/CLI tests, and
-  `git diff --check`.
-  Non-goals: no hidden network/API calls, no arbitrary plugin execution, no credential discovery by
-  default.
-  Dependencies/blockers: sandbox policy, credential governance, extension manifests, and security
-  review.
-  Claim boundary: scoped effect admission only; no production UDF/LLM/vector/platform claim.
-  Fallback boundary: no hidden external service call, plugin execution, query engine fallback, or
-  credential probing; all effects require explicit user/policy admission.
-  Ledger rule: when the chosen effectful slice is complete, move the completed details to the ledger
-  and leave the next unchecked 6-series item or residual effect blocker in Planned.
+  - Source: modular extensibility RFCs, extension/plugin safety docs, effect policy docs,
+    security/release validators, and completed effectful-operation ledger entries.
+  - Current state:
+    - [x] Effectful-operation admission reports exist.
+    - [x] Local deterministic UDF and SQLite fixture boundaries exist.
+    - [ ] Remaining: arbitrary effects remain blocked.
+    - [ ] Remaining: one effect family needs explicit policy, capability, sandbox, and no-fallback
+      evidence before admission.
+  - Runtime enablement: effectful operation declaration -> capability/permission/effect-budget
+    admission -> sandboxed local proof or deterministic blocker -> no-fallback evidence row.
+  - Next slice outcome: promote one effect family through explicit policy, capability, sandbox, and
+    no-fallback evidence.
+  - Execution checklist:
+    - [ ] Add side-effect declaration and permission policy evidence.
+    - [ ] Add deterministic diagnostics for non-admitted effects.
+    - [ ] Record sandbox status and security review evidence where needed.
+  - User-visible surface: CLI effect/extension reports, Python helpers, docs, capability matrices,
+    and security/release validators.
+  - Implementation scope: effect budget plan, extension/UDF boundaries, credential policy,
+    diagnostics, tests, and docs.
+  - Evidence required: side-effect declaration, permission policy, deterministic diagnostics,
+    sandbox status, no-fallback fields, and security review where needed.
+  - Acceptance: admitted effects are explicit and inspectable; non-admitted effects cannot execute
+    silently.
+  - Verification: effect-budget tests, security/effect validators, relevant Python/CLI tests, and
+    `git diff --check`.
+  - Non-goals: no hidden network/API calls, no arbitrary plugin execution, no credential discovery
+    by default.
+  - Dependencies/blockers: sandbox policy, credential governance, extension manifests, and security
+    review.
+  - Claim boundary: scoped effect admission only; no production UDF/LLM/vector/platform claim.
+  - Fallback boundary: no hidden external service call, plugin execution, query engine fallback, or
+    credential probing; all effects require explicit user/policy admission.
+  - Ledger rule: when the chosen effectful slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual effect blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime: Live/hybrid runtime state, incremental
   processing, CDC beyond scoped overlay fixtures, freshness/snapshot contracts, state cleanup,
   cancellation, retry, and recovery.
-  Source: three-engine execution fabric RFC, fault-tolerance/recovery docs, live/hybrid state
-  reports, CDC overlay evidence, and completed hybrid-runtime ledger entries.
-  Current state: engine-selection and hybrid overlay reports exist with fixture-scoped evidence; no
-  production broker/state-store or exactly-once runtime is admitted.
-  Runtime enablement: bounded live/hybrid request -> freshness/snapshot admission -> state
-  transition/retry/cancellation/cleanup proof or deterministic blocker -> no-fallback evidence row.
-  Next slice outcome: promote the next bounded live/hybrid state transition with freshness,
-  cancellation/retry, cleanup, and no-fallback evidence.
-  User-visible surface: engine capability matrix, Python/CLI hybrid reports, docs, and release gates.
-  Implementation scope: hybrid runtime reports, state cleanup/recovery logic, diagnostics, tests, and
-  docs.
-  Evidence required: bounded state fixture, freshness/snapshot proof, retry/cancellation evidence,
-  cleanup proof, and fallback/external-engine false fields.
-  Acceptance: one live/hybrid workflow has explicit runtime state and deterministic failure behavior.
-  Verification: hybrid/runtime tests, capability validators, release readiness checks, and
-  `git diff --check`.
-  Non-goals: no broker-backed production runtime, no exactly-once claim, no object-store/table commit
-  promotion.
-  Dependencies/blockers: state store semantics, commit/recovery model, cleanup policy, and
-  correctness fixtures.
-  Claim boundary: fixture-scoped live/hybrid evidence only; no production streaming or Spark
-  replacement claim.
-  Fallback boundary: no Kafka/Flink/Spark/Ray/Dask/state-store delegation, no hidden broker runtime,
-  and no external streaming fallback; live/hybrid gaps remain deterministic blockers.
-  Ledger rule: when the chosen live/hybrid slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual state blocker in Planned.
+  - Source: three-engine execution fabric RFC, fault-tolerance/recovery docs, live/hybrid state
+    reports, CDC overlay evidence, and completed hybrid-runtime ledger entries.
+  - Current state:
+    - [x] Engine-selection and hybrid overlay reports exist with fixture-scoped evidence.
+    - [ ] Remaining: production broker/state-store runtime is not admitted.
+    - [ ] Remaining: exactly-once runtime is not admitted.
+    - [ ] Remaining: the next bounded live/hybrid state transition needs freshness, snapshot,
+      retry/cancellation, cleanup, and no-fallback evidence.
+  - Runtime enablement: bounded live/hybrid request -> freshness/snapshot admission -> state
+    transition/retry/cancellation/cleanup proof or deterministic blocker -> no-fallback evidence
+    row.
+  - Next slice outcome: promote the next bounded live/hybrid state transition with freshness,
+    cancellation/retry, cleanup, and no-fallback evidence.
+  - Execution checklist:
+    - [ ] Add bounded state fixture and freshness/snapshot proof.
+    - [ ] Add retry/cancellation and cleanup evidence.
+    - [ ] Keep broker-backed or production semantics blocked unless explicitly admitted.
+  - User-visible surface: engine capability matrix, Python/CLI hybrid reports, docs, and release
+    gates.
+  - Implementation scope: hybrid runtime reports, state cleanup/recovery logic, diagnostics, tests,
+    and docs.
+  - Evidence required: bounded state fixture, freshness/snapshot proof, retry/cancellation evidence,
+    cleanup proof, and fallback/external-engine false fields.
+  - Acceptance: one live/hybrid workflow has explicit runtime state and deterministic failure
+    behavior.
+  - Verification: hybrid/runtime tests, capability validators, release readiness checks, and
+    `git diff --check`.
+  - Non-goals: no broker-backed production runtime, no exactly-once claim, no object-store/table
+    commit promotion.
+  - Dependencies/blockers: state store semantics, commit/recovery model, cleanup policy, and
+    correctness fixtures.
+  - Claim boundary: fixture-scoped live/hybrid evidence only; no production streaming or Spark
+    replacement claim.
+  - Fallback boundary: no Kafka/Flink/Spark/Ray/Dask/state-store delegation, no hidden broker
+    runtime, and no external streaming fallback; live/hybrid gaps remain deterministic blockers.
+  - Ledger rule: when the chosen live/hybrid slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual state blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime: Distributed/shuffle/spill/OOM
   production runtime, including resource governance and deterministic pre-OOM diagnostics.
-  Source: memory/spill/OOM RFCs, optimizer/adaptive execution docs, resource governance reports,
-  release-readiness gates, and completed memory/spill ledger entries.
-  Current state: spill/OOM plans, memory declarations, and blocked diagnostics exist; real query-data
-  spill and distributed execution remain gated.
-  Runtime enablement: bounded resource-pressure request -> memory/spill admission or pre-OOM
-  diagnostic -> cleanup evidence and no-fallback evidence row.
-  Next slice outcome: promote the next local bounded memory/spill guard that fails before process OOM
-  or writes admitted ShardLoom-native spill evidence.
-  User-visible surface: CLI diagnostics, benchmark rows, memory/spill reports, docs, and release
-  readiness gates.
-  Implementation scope: memory reservation, spill diagnostics, operator declarations, tests,
-  validators, and docs.
-  Evidence required: bounded-memory fixture, deterministic pre-OOM/blocker evidence, cleanup proof,
-  and no-fallback fields.
-  Acceptance: memory pressure is explicit and deterministic for the promoted path.
-  Verification: memory/spill tests, release readiness checks, focused benchmark artifact validators
-  when rows change, and `git diff --check`.
-  Non-goals: no distributed runtime, no broad shuffle support, no performance claim.
-  Dependencies/blockers: reservation model, spill format/persistence policy, cleanup semantics, and
-  correctness parity.
-  Claim boundary: scoped memory/spill safety only; no production distributed/spill or performance
-  claim.
-  Fallback boundary: no Spark/Dask/Ray/Trino/warehouse shuffle, spill, or distributed execution
-  fallback; unsupported memory pressure fails before hidden delegation.
-  Ledger rule: when the chosen memory/spill slice is complete, move the completed details to the
-  ledger and leave the next unchecked 6-series item or residual resource blocker in Planned.
+  - Source: memory/spill/OOM RFCs, optimizer/adaptive execution docs, resource governance reports,
+    release-readiness gates, and completed memory/spill ledger entries.
+  - Current state:
+    - [x] Spill/OOM plans exist.
+    - [x] Memory declarations exist.
+    - [x] Blocked diagnostics exist.
+    - [ ] Remaining: real query-data spill remains gated.
+    - [ ] Remaining: distributed execution remains gated.
+    - [ ] Remaining: the next local bounded memory/spill guard must fail before process OOM or write
+      admitted ShardLoom-native spill evidence.
+  - Runtime enablement: bounded resource-pressure request -> memory/spill admission or pre-OOM
+    diagnostic -> cleanup evidence and no-fallback evidence row.
+  - Next slice outcome: promote the next local bounded memory/spill guard that fails before process
+    OOM or writes admitted ShardLoom-native spill evidence.
+  - Execution checklist:
+    - [ ] Add bounded-memory fixture or admitted spill proof.
+    - [ ] Attach deterministic pre-OOM/blocker evidence and cleanup proof.
+    - [ ] Avoid distributed/shuffle claims unless the runtime is explicitly admitted.
+  - User-visible surface: CLI diagnostics, benchmark rows, memory/spill reports, docs, and release
+    readiness gates.
+  - Implementation scope: memory reservation, spill diagnostics, operator declarations, tests,
+    validators, and docs.
+  - Evidence required: bounded-memory fixture, deterministic pre-OOM/blocker evidence, cleanup
+    proof, and no-fallback fields.
+  - Acceptance: memory pressure is explicit and deterministic for the promoted path.
+  - Verification: memory/spill tests, release readiness checks, focused benchmark artifact validators
+    when rows change, and `git diff --check`.
+  - Non-goals: no distributed runtime, no broad shuffle support, no performance claim.
+  - Dependencies/blockers: reservation model, spill format/persistence policy, cleanup semantics,
+    and correctness parity.
+  - Claim boundary: scoped memory/spill safety only; no production distributed/spill or performance
+    claim.
+  - Fallback boundary: no Spark/Dask/Ray/Trino/warehouse shuffle, spill, or distributed execution
+    fallback; unsupported memory pressure fails before hidden delegation.
+  - Ledger rule: when the chosen memory/spill slice is complete, move the completed details to the
+    ledger and leave the next unchecked 6-series item or residual resource blocker in Planned.
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication: Claim-grade
   performance-equivalence benchmark publication across equivalent SQL, Python, and DataFrame
   workloads.
-  Source: benchmark suite catalog, front-door parity docs, benchmark publication validators,
-  website benchmark page, and completed benchmark-publication ledger entries.
-  Current state: route-first benchmark artifacts and publication validators exist, but front-door
-  performance equivalence remains not claim-grade.
-  Runtime enablement: route-parity evidence -> approved benchmark rerun/promotion -> validated
-  website artifact -> claim-gated front-door benchmark publication.
-  Next slice outcome: publish a laptop-safe, reproducible front-door equivalence artifact only after
-  SQL/Python/DataFrame route parity and benchmark safety gates are satisfied.
-  User-visible surface: benchmark artifacts, website benchmark page, README/docs, Python examples,
-  and release gates.
-  Implementation scope: benchmark harness, promotion scripts, website data/components, docs, and
-  validators.
-  Evidence required: reproducible artifact, route parity, correctness digests, hardware/runtime
-  context, sequential/safety controls, and no-fallback fields.
-  Acceptance: published rows distinguish runtime support, evidence grade, and performance claims
-  without unsupported ShardLoom gaps or external fallback.
-  Verification: benchmark artifact validators, website readiness/static checks, focused benchmark
-  smoke when approved, and `git diff --check`.
-  Non-goals: no broad benchmark suite on an unsafe laptop path, no superiority/Spark-replacement
-  claim without CG-5/CG-6 evidence.
-  Dependencies/blockers: route parity, claim gates, benchmark safety redesign, current generated
-  artifacts, and documentation alignment.
-  Claim boundary: no performance-equivalence claim until the artifact is claim-grade and published
-  through approved gates.
-  Fallback boundary: ShardLoom rows must retain no-fallback/no-external-engine evidence; external
-  engines remain baselines only and cannot satisfy ShardLoom route parity.
-  Ledger rule: when the benchmark-publication slice is complete, move the completed details to the
-  ledger and continue to the residual backstop or release closeout only if the 6-series blockers are
-  reduced for the claimed scope.
+  - Source: benchmark suite catalog, front-door parity docs, benchmark publication validators,
+    website benchmark page, and completed benchmark-publication ledger entries.
+  - Current state:
+    - [x] Route-first benchmark artifacts exist.
+    - [x] Benchmark publication validators exist.
+    - [x] HOTPATH-14 promoted artifact is the current evidence surface, with
+      `performance_claim_allowed=false`.
+    - [ ] Remaining: front-door performance equivalence remains not claim-grade.
+    - [ ] Remaining: SQL/Python/DataFrame route parity and benchmark safety gates must pass before
+      any approved rerun/promotion.
+    - [ ] Remaining: website benchmark publication must distinguish runtime support, evidence
+      grade, and performance claims.
+  - Runtime enablement: route-parity evidence -> approved benchmark rerun/promotion -> validated
+    website artifact -> claim-gated front-door benchmark publication.
+  - Next slice outcome: publish a laptop-safe, reproducible front-door equivalence artifact only
+    after SQL/Python/DataFrame route parity and benchmark safety gates are satisfied.
+  - Execution checklist:
+    - [ ] Confirm benchmark rerun approval and laptop-safe sequential controls before running.
+    - [ ] Attach reproducible artifact, correctness digests, hardware/runtime context, and
+      no-fallback fields.
+    - [ ] Update website data/components, docs, and validators together.
+  - User-visible surface: benchmark artifacts, website benchmark page, README/docs, Python examples,
+    and release gates.
+  - Implementation scope: benchmark harness, promotion scripts, website data/components, docs, and
+    validators.
+  - Evidence required: reproducible artifact, route parity, correctness digests, hardware/runtime
+    context, sequential/safety controls, and no-fallback fields.
+  - Acceptance: published rows distinguish runtime support, evidence grade, and performance claims
+    without unsupported ShardLoom gaps or external fallback.
+  - Verification: benchmark artifact validators, website readiness/static checks, focused benchmark
+    smoke when approved, and `git diff --check`.
+  - Non-goals: no broad benchmark suite on an unsafe laptop path, no superiority/Spark-replacement
+    claim without CG-5/CG-6 evidence.
+  - Dependencies/blockers: route parity, claim gates, benchmark safety redesign, current generated
+    artifacts, and documentation alignment.
+  - Claim boundary: no performance-equivalence claim until the artifact is claim-grade and published
+    through approved gates.
+  - Fallback boundary: ShardLoom rows must retain no-fallback/no-external-engine evidence; external
+    engines remain baselines only and cannot satisfy ShardLoom route parity.
+  - Ledger rule: when the benchmark-publication slice is complete, move the completed details to the
+    ledger and continue to the residual backstop or release closeout only if the 6-series blockers
+    are reduced for the claimed scope.
 
 Shared 6-series completion criteria:
 
@@ -734,7 +814,8 @@ validators, docs/website parity, and a completed-ledger entry.
 
 Ordering note: this cross-cutting context intentionally follows the active runtime implementation
 queue. Use it to verify and mirror runtime work as each section lands; do not let it reorder the
-next session ahead of 6E/6F unless it identifies a concrete release, safety, security, or
+next session ahead of the active 6D runtime breadth queue unless it identifies a concrete release,
+safety, security, or
 claim-integrity blocker for the next runtime item.
 
 Source: `docs/architecture/global-architecture-review.md`.
@@ -780,18 +861,9 @@ not runtime-enabling. These items must not add runtime behavior or support claim
 unchecked item here only when a new documentation, website, security, release, or claim-gate blocker
 must interrupt runtime work.
 
-Current non-runtime sequence: deferred behind 6E/6F and the runtime-readiness queue unless a
-specific blocker must be pulled forward with explicit justification. Completed non-runtime history
-belongs in `docs/architecture/phased-execution-completed-ledger.md`.
-
-## Completed
-
-Detailed completed session and historical phase ledgers live in
+Current non-runtime sequence: deferred behind the active runtime-readiness queue unless a specific
+blocker must be pulled forward with explicit justification. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
-
-Keep this section as a pointer only so this file remains the compact autonomous Planned queue. After
-a session or merge completes, add the detailed completed block to the ledger file, not below this
-pointer.
 
 ## Final Pre-Release Sequential Closeout Queue
 
@@ -1124,3 +1196,12 @@ after the hard gate and channel-specific evidence pass.
   Non-goals: Codex agents must not publish packages, create tags, sign artifacts, push containers,
   upload SBOMs, submit feedstocks, or create public release assets unless the user explicitly gives
   that approval for the active release step.
+
+## Completed
+
+Detailed completed session and historical phase ledgers live in
+`docs/architecture/phased-execution-completed-ledger.md`.
+
+Keep this section as a pointer only so this file remains the compact autonomous Planned queue. After
+a session or merge completes, add the detailed completed block to the ledger file, not below this
+pointer.
