@@ -3652,8 +3652,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "local file joins, grouped/scalar aggregates, top-N, computed columns, and windows",
         "scoped_runtime_supported",
         sql_surface="ctx.sql(\"SELECT ... JOIN/GROUP BY/ORDER BY/window ... FROM 'local.csv'\")",
-        python_surface="ctx.sql(...), LazyFrame.join/group_by/agg/sort/window",
-        dataframe_surface="ctx.read(...).join(...).group_by(...).agg(...).sort(...).window(...)",
+        python_surface="ctx.sql(...), LazyFrame.join(condition=predicate)/group_by/agg/sort/window",
+        dataframe_surface="ctx.read(...).join(condition=predicate).group_by(...).agg(...).sort(...).window(...)",
         shared_runtime_path="sql-local-source-smoke",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_runtime_path_no_benchmark_claim",
@@ -3672,7 +3672,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Scoped local SQL and DataFrame-style expressions share ShardLoom's local-source "
-            "runtime for admitted join, aggregate, sort, computed-column, and window shapes. "
+            "runtime for admitted join, predicate-object join condition, aggregate, sort, "
+            "computed-column, and window shapes. "
             "The route must become explicit about its Vortex-normalized execution boundary before "
             "broader runtime claims. Unsupported SQL grammar, arbitrary expressions, remote "
             "sources, and production semantic completeness remain outside this row."

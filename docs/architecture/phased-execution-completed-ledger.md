@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D Python predicate-object join condition
+  - Date: 2026-06-05
+  - Branch/PR: `codex/python-join-condition-predicate` / PR #1098.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/query.py`.
+    - `python/src/shardloom/session.py`.
+    - `python/tests/test_query_builder.py`.
+    - `scripts/check_sql_python_dataframe_parity.py`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Promoted Python/DataFrame `LazyFrame.join(condition=...)` from string-only join-condition
+      input to the same ShardLoom predicate-object surface used by filters and computed local-source
+      expressions.
+    - Added a query-builder smoke fixture that lowers a Python predicate-object logical `OR` join
+      over qualified local-source columns into the admitted scoped `JOIN ON` expression route.
+    - Preserved the existing ambiguous join API blocker: callers still cannot mix `on=...` and
+      `condition=...`.
+    - Refreshed Python README, front-door parity docs, active phase-plan state, and generated public
+      website output so the latest support boundary is visible from code, docs, and website artifacts.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_predicate_or_join_condition_invokes_sql_smoke` passed.
+    - `python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/session.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-join-condition.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-join-condition.json` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-join-condition.json` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is Python front-door parity,
+      documentation freshness, and website static-output freshness work, not a speedup or
+      performance-superiority claim.
+  - Claim boundary:
+    - This slice admits Python predicate-object lowering for scoped local-source expression join
+      conditions, including logical `OR` over admitted qualified scalar leaves. It does not admit
+      complex-key joins, broad non-scalar join predicates, arbitrary SQL/DataFrame expression
+      parity, benchmark performance claims, package release, or production support.
+  - Fallback boundary:
+    - Python remains a front door into ShardLoom CLI/runtime evidence. No pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, or other external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped JOIN ON OR admission
   - Date: 2026-06-05
   - Branch/PR: `codex/6d-join-or-boundary` / PR #1097.

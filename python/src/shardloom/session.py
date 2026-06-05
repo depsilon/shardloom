@@ -979,7 +979,7 @@ class SessionLazyFrame:
         other: "SessionLazyFrame | LazyFrame | str",
         *,
         on: str | Sequence[str] | None = None,
-        condition: str | None = None,
+        condition: object | None = None,
         how: str = "inner",
         check: bool = False,
     ) -> "SessionLazyFrame | UnsupportedWorkflowOperationReport":

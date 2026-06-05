@@ -365,8 +365,9 @@ completed details to the ledger.
   Current state: familiar aliases lower to admitted ShardLoom runtime paths where available;
   `schema_contract(...)`, `profile(...)`, and scoped `quarantine(...)` have bounded local-source
   evidence, and Python SQL result reports expose parsed typed decimal sink support for the latest
-  Parquet/Arrow IPC/Avro/Vortex admitted and ORC-blocked boundary, while broad DataFrame parity
-  remains gated.
+  Parquet/Arrow IPC/Avro/Vortex admitted and ORC-blocked boundary. `LazyFrame.join(condition=...)`
+  now accepts ShardLoom predicate objects for scoped scalar-expression and logical `OR` join
+  predicates over qualified local-source columns, while broad DataFrame parity remains gated.
   Runtime enablement: Python/DataFrame-style API call -> deterministic ShardLoom query lowering ->
   admitted runtime route or explicit unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to

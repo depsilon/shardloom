@@ -6173,6 +6173,79 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_predicate_or_join_condition_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON (f.customer_id = d.customer_id OR f.region = d.region) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source logical OR join",
+                    "human_text": "sql local source logical OR join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":1,\\"d.segment\\":\\"by_customer\\"}\\n{\\"f.id\\":1,\\"d.segment\\":\\"cross_match\\"}\\n{\\"f.id\\":2,\\"d.segment\\":\\"by_region\\"}\\n{\\"f.id\\":2,\\"d.segment\\":\\"cross_match\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"both\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_expression_join_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_expression"},
+                        {"key": "join_on_predicate_runtime_execution", "value": "true"},
+                        {"key": "join_on_predicate_operator_family", "value": "logical"},
+                        {"key": "join_on_predicate_source_column", "value": "f.customer_id,d.customer_id,f.region,d.region"},
+                        {"key": "join_key_arity", "value": "0"},
+                        {"key": "join_candidate_row_count", "value": "12"},
+                        {"key": "join_matched_row_count", "value": "5"},
+                        {"key": "join_rows_output", "value": "5"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        condition = (sl.col("f.customer_id") == sl.col("d.customer_id")) | (
+            sl.col("f.region") == sl.col("d.region")
+        )
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), condition=condition)
+            .select("f.id", "d.segment")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "inner_expression")
+        self.assertTrue(report.join_on_predicate_runtime_execution)
+        self.assertEqual(report.join_on_predicate_operator_family, "logical")
+        self.assertEqual(
+            report.join_on_predicate_source_columns,
+            ("f.customer_id", "d.customer_id", "f.region", "d.region"),
+        )
+        self.assertEqual(report.join_key_arity, 0)
+        self.assertEqual(report.join_candidate_row_count, 12)
+        self.assertEqual(report.join_matched_row_count, 5)
+        self.assertEqual(report.join_rows_output, 5)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_rejects_ambiguous_join_condition_api(self) -> None:
         ctx = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
         frame = ctx.read_csv("target/fact.csv")
