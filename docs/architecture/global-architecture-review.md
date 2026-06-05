@@ -666,9 +666,10 @@ plan before coding.
   boundary only, plus scoped `SELECT DISTINCT` and `UNION DISTINCT` structural equality over those
   already-materialized projection values, and scoped canonical structural `ORDER BY` over those
   complex result-boundary values, and scoped scalar-expression `JOIN ON` predicates over qualified
-  local-source rows. Complex accessors, casts, subquery membership, broad nested ordering, nested
-  source decoding, flat nested sinks, complex-key joins, disjunctive `JOIN ON OR` predicates, and
-  broader variant/union semantics still fail before fallback.
+  local-source rows, including scoped logical `OR` over admitted qualified scalar leaves. Complex
+  accessors, casts, subquery membership, broad nested ordering, nested source decoding, flat nested
+  sinks, complex-key joins, broader non-scalar join predicates, and broader variant/union semantics
+  still fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit

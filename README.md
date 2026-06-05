@@ -73,8 +73,9 @@ Current runtime support is intentionally scoped and evidence-gated:
   `EXISTS (SELECT ...)` / `NOT EXISTS (...)` presence predicates, scoped quantified
   `ANY` / `ALL (SELECT ...)` predicates over bounded local scalar sources, scoped local-source
   inner/outer/semi/anti equi-joins, cross joins, scoped
-  column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
-  over joined rows, scoped scalar/grouped join aggregates, and post-aggregate `HAVING` filters over
+  column-comparison/generic numeric expression ON joins, scoped logical `OR` over admitted
+  qualified scalar ON leaves, computed projections and single-key top-N over joined rows, scoped
+  scalar/grouped join aggregates, and post-aggregate `HAVING` filters over
   aggregate output rows including admitted bounded `IN`, `EXISTS`, and quantified `ANY`/`ALL`
   subqueries;
 - source-free generated local outputs through user rows, ranges, sequences, calendars, SQL `VALUES`,

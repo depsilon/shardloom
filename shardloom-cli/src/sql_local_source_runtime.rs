@@ -32049,10 +32049,9 @@ fn parse_join_on_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError>
 }
 
 fn parse_join_on_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    if find_keyword_outside_quotes_and_parentheses(raw, "or")?.is_some() {
-        return Err(unsupported_sql_error(
-            "JOIN ON OR predicates are not admitted by the current join profile; use AND-conjoined scalar join predicates or a later dedicated disjunctive join slice",
-        ));
+    if let Some(or_index) = find_keyword_outside_quotes_and_parentheses(raw, "or")? {
+        return parse_join_on_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
+            .map(Some);
     }
     if let Some(and_index) = find_keyword_outside_quotes_and_parentheses(raw, "and")? {
         return parse_join_on_logical_binary_predicate(
@@ -44686,6 +44685,93 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_join_logical_or_on_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 5",
+        )
+        .expect("logical OR join statement parses");
+
+        let join = parsed.join.as_ref().expect("join parsed");
+        assert!(join.uses_expression_on());
+        assert_eq!(join.key_arity(), 0);
+        assert_eq!(join.on_predicate_family(), "logical");
+        assert_eq!(
+            join.on_predicate_source_columns(),
+            "f.customer_id,d.customer_id,f.region,d.region"
+        );
+        assert_eq!(join.kind(), "inner_expression");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_expression_join_limit"
+        );
+        assert!(matches!(
+            join.on_predicate.as_ref().expect("ON predicate"),
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn runs_scoped_join_logical_or_on_csv_statement_without_fallback() {
+        let fact_path = sql_local_source_test_path("join-or-fact.csv");
+        let dim_path = sql_local_source_test_path("join-or-dim.csv");
+        fs::write(
+            &fact_path,
+            "id,customer_id,region\n1,10,east\n2,20,west\n3,30,north\n",
+        )
+        .expect("write fact source");
+        fs::write(
+            &dim_path,
+            "id,customer_id,region,segment\n100,10,south,by_customer\n101,99,west,by_region\n102,30,north,both\n103,20,east,cross_match\n",
+        )
+        .expect("write dim source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request).expect("run OR join smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"f.id\":1,\"d.segment\":\"by_customer\"}\n{\"f.id\":1,\"d.segment\":\"cross_match\"}\n{\"f.id\":2,\"d.segment\":\"by_region\"}\n{\"f.id\":2,\"d.segment\":\"cross_match\"}\n{\"f.id\":3,\"d.segment\":\"both\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "sql_statement_kind",
+            "local_source_inner_expression_join_limit",
+        );
+        assert_field_eq(&fields, "join_runtime_execution", "true");
+        assert_field_eq(&fields, "join_type", "inner_expression");
+        assert_field_eq(&fields, "join_on_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "join_on_predicate_operator_family", "logical");
+        assert_field_eq(
+            &fields,
+            "join_on_predicate_source_column",
+            "f.customer_id,d.customer_id,f.region,d.region",
+        );
+        assert_field_eq(&fields, "join_key_arity", "0");
+        assert_field_eq(&fields, "join_candidate_row_count", "12");
+        assert_field_eq(&fields, "join_matched_row_count", "5");
+        assert_field_eq(&fields, "join_rows_output", "5");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(fact_path).expect("remove fact source");
+        fs::remove_file(dim_path).expect("remove dim source");
+    }
+
+    #[test]
     fn parses_scoped_join_group_by_aggregate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT d.segment,sum(f.amount) AS total_amount,count(*) AS rows FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
@@ -44737,22 +44823,6 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
-    }
-
-    #[test]
-    fn join_parser_blocks_or_on_predicates_without_fallback() {
-        let error = parse_sql_local_source_statement(
-            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 5",
-        )
-        .expect_err("OR join ON predicate remains blocked");
-
-        assert!(
-            error
-                .to_string()
-                .contains("JOIN ON OR predicates are not admitted"),
-            "unexpected error: {error}"
-        );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]
