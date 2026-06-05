@@ -18,7 +18,7 @@ from .errors import (
     ShardLoomCommandError,
     ShardLoomProtocolError,
 )
-from .models import ClaimSummary, EvidenceSummary, OutputEnvelope
+from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
 CommandPart = Union[str, os.PathLike[str]]
 Binary = Union[CommandPart, Sequence[CommandPart]]
@@ -2085,6 +2085,44 @@ class SqlLocalSourceSmokeReport:
     """Typed view over scoped local-source SQL smoke reports."""
 
     envelope: OutputEnvelope
+
+    @property
+    def status(self) -> str:
+        """Return the command status, including deterministic unsupported/error statuses."""
+
+        return self.envelope.status
+
+    @property
+    def is_error(self) -> bool:
+        """Whether the command status is an error or unsupported runtime diagnostic."""
+
+        return self.envelope.is_error
+
+    @property
+    def has_error_diagnostics(self) -> bool:
+        """Whether the runtime returned error/fatal diagnostics."""
+
+        return self.envelope.has_error_diagnostics
+
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        """Return deterministic runtime diagnostics emitted by the SQL smoke command."""
+
+        return self.envelope.diagnostics
+
+    @property
+    def unsupported_reasons(self) -> tuple[str, ...]:
+        """Return stable unsupported diagnostic reasons/messages for Python callers."""
+
+        reasons: list[str] = []
+        for diagnostic in self.diagnostics:
+            if diagnostic.reason:
+                reasons.append(diagnostic.reason)
+            elif diagnostic.message:
+                reasons.append(diagnostic.message)
+        if not reasons and self.envelope.is_error and self.envelope.human_text:
+            reasons.append(self.envelope.human_text)
+        return tuple(dict.fromkeys(reasons))
 
     @property
     def result_jsonl(self) -> str:
