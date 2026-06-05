@@ -201,15 +201,16 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 2 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 3 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 4 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 5 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 6 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 7 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 8 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 9 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `6D:public_workflow_route_facade` | Finish native Vortex primitive helper routing, multi-output fanout payload contract, future helper facade routing, and smoke-command reclassification or explicitly defer each residual with evidence. |
+| 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 5 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 6 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 7 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 8 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 9 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 10 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -315,16 +316,20 @@ Each item below uses the same sub-checklist shape:
     - [x] Lazy DataFrame `write_parquet(...)` and `write_vortex(...)` now route through the shared
       public `run` facade with attached route metadata while preserving the existing typed sink
       report views.
-    - [ ] Remaining: route broad `collect`, general `write(...)` / `write_csv(...)`, source-free
-      generated-output write helpers, and future execution helpers through the shared
-      planner/evidence envelope so no public runtime helper bypasses visible admission metadata.
+    - [x] Broad bounded local-source `collect()`, general `write(...)` / `write_csv(...)`, and
+      direct generated-source write helpers for user rows, range, sequence, DataFrame generated
+      rows, and source-free SQL now route through the shared public `run` facade while preserving
+      typed report views.
+    - [ ] Remaining: route native Vortex primitive collect/write helpers, multi-output fanout, and
+      future execution helpers through the shared planner/evidence envelope where the facade has a
+      matching payload contract, so public runtime helpers do not bypass visible admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
     no-fallback fields.
-  - Next slice outcome: finish the shared facade wrapper spine by keeping `route` side-effect-free,
-    running admitted `run`/`prepare` paths with attached route evidence, routing the highest-signal
-    Vortex/Parquet write helpers through the facade, and leaving broad collect/general write helper
-    rerouting as the next explicit residual.
+  - Next slice outcome: close the helper-facade breadth slice by routing bounded local-source
+    collect, general local-source writes, generated-source direct writes, and source-free SQL writes
+    through `shardloom run` with attached route evidence while leaving native Vortex primitive
+    helpers, multi-output fanout, and future helper families as explicit residuals.
   - Execution checklist:
     - [x] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
       query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
@@ -345,9 +350,12 @@ Each item below uses the same sub-checklist shape:
       `route()` methods that call the shared CLI planner rather than a Python-only planner.
     - [x] Route lazy DataFrame `write_vortex` and `write_parquet` helpers through the shared
       planner/evidence envelope rather than only exposing route inspection.
-    - [ ] Route broad `collect`, general `write(...)` / `write_csv(...)`, source-free
-      generated-output write helpers, and future execution wrappers through the shared
-      planner/evidence envelope rather than only exposing route inspection.
+    - [x] Route broad bounded local-source `collect`, general `write(...)` / `write_csv(...)`, and
+      source-free generated-output write helpers through the shared planner/evidence envelope
+      rather than only exposing route inspection.
+    - [ ] Route native Vortex primitive collect/write helpers, multi-output fanout, and future
+      execution wrappers through the shared planner/evidence envelope once each has an explicit
+      facade payload contract.
     - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
       bounded/materialized path is present.
     - [x] Keep unbounded `collect()` blocked in the public `run` facade and keep
@@ -358,9 +366,11 @@ Each item below uses the same sub-checklist shape:
       phase plan, and website/static pages for route/run/prepare.
     - [x] Update status/gap docs and website/static pages for the scoped Vortex/Parquet write helper
       rerouting slice.
-    - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method
-      matrix, release readiness/status matrices, and website/static pages again for broad
-      collect/general write helper rerouting when that residual lands.
+    - [x] Update route/status docs, runtime-gap inventory, Python docs, tests, and website/static
+      pages for broad bounded collect/general write/generated-output helper rerouting.
+    - [ ] Update `front_door_parity_matrix`, DataFrame method matrix, release readiness/status
+      matrices, and website/static pages again when native Vortex primitive helpers, fanout, or
+      future helper families are promoted.
   - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
     DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
   - Implementation scope: `shardloom-cli/src/command_registry.rs`,
@@ -414,8 +424,9 @@ Each item below uses the same sub-checklist shape:
       fixtures, Rust smokes, docs, and no-fallback report fields.
     - [x] Scoped `ARRAY[...]` / `STRUCT(...)` result-boundary projections can write local CSV as
       JSON text cells with replay/no-fallback evidence.
-    - [ ] Remaining: shared public workflow route facade should land before widening additional SQL
-      surface area beyond the already-admitted slices.
+    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive,
+      multi-output fanout, and future-helper residuals before widening SQL surface area that depends
+      on those helper payload contracts.
     - [ ] Remaining: nested source decoding and typed structured sinks beyond scoped
       JSONL/result-boundary and CSV JSON-text projections.
     - [ ] Remaining: variant/union dtype shapes, broader binary execution/preservation,
@@ -425,11 +436,12 @@ Each item below uses the same sub-checklist shape:
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.
-  - Next slice outcome: choose the next coherent grammar family from the unchecked remaining rows;
-    current candidates are nested source decoding, typed nested sinks beyond CSV JSON text, ORC
-    typed decimal sink preservation once writer evidence exists, broader binary preservation, broad
-    ANSI decimal coercion, or scalar-left multi-column subquery diagnostics depending on the next
-    runtime route evidence.
+  - Next slice outcome: after the active route-facade residuals are closed or explicitly deferred,
+    choose the next coherent grammar family from the unchecked remaining rows; current candidates are
+    nested source decoding, typed nested sinks beyond CSV JSON text, ORC typed decimal sink
+    preservation once writer evidence exists, broader binary preservation, broad ANSI decimal
+    coercion, or scalar-left multi-column subquery diagnostics depending on the next runtime route
+    evidence.
   - Execution checklist:
     - [ ] Derive the exact admitted and unsupported shapes from the matrix, parser/runtime code, and
       existing CLI smokes before editing.
@@ -477,17 +489,18 @@ Each item below uses the same sub-checklist shape:
     - [x] Python SQL smoke reports expose runtime unsupported `status`, `diagnostics`, and
       `unsupported_reasons` for non-admitted correlated subquery shapes while preserving
       no-fallback fields.
-    - [ ] Remaining: shared public workflow route facade should land before promoting another broad
-      Python/DataFrame API family.
+    - [ ] Remaining: finish or explicitly defer the route-facade native Vortex primitive,
+      multi-output fanout, and future-helper residuals before promoting another broad
+      Python/DataFrame API family that depends on those payload contracts.
     - [ ] Remaining: promote the next coherent API family that lowers to an admitted runtime route
       or deterministic unsupported diagnostic.
     - [ ] Remaining: broad DataFrame parity remains gated.
   - Runtime enablement: Python/DataFrame-style API call -> shared public route facade ->
     deterministic ShardLoom query lowering -> admitted runtime route or explicit unsupported
     diagnostic -> no-fallback evidence row.
-  - Next slice outcome: after the shared route facade lands, promote the next coherent
-    Python/DataFrame API family only when it lowers to existing ShardLoom runtime evidence or returns
-    deterministic unsupported diagnostics.
+  - Next slice outcome: after the active route-facade residuals are closed or explicitly deferred,
+    promote the next coherent Python/DataFrame API family only when it lowers to existing ShardLoom
+    runtime evidence or returns deterministic unsupported diagnostics.
   - Execution checklist:
     - [ ] Add alias/canonical equivalence tests for the chosen API family.
     - [ ] Preserve no hidden pandas/Polars execution.

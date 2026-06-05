@@ -1036,15 +1036,26 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
     ) -> GeneratedSourceWriteReport:
         """Write generated user rows to a scoped local output sink with evidence."""
 
-        return self.client.generated_source_user_rows_smoke(
-            target_uri,
-            self.schema_arg,
-            self.rows_arg,
-            source_kind=self.source_kind,
-            output_format=output_format,
+        surface = (
+            "dataframe"
+            if self.source_kind.startswith("dataframe_")
+            else "python"
+        )
+        execution = self.client.public_workflow_run(
+            surface,
+            plan_summary=f"generated_source({self.source_kind}) -> write({target_uri})",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=target_uri,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            generated_source_kind=self.source_kind,
+            generated_schema=self.schema_arg,
+            generated_rows=self.rows_arg,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def write_jsonl(
         self,
@@ -1238,27 +1249,26 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
     ) -> GeneratedSourceWriteReport:
         """Write the generated integer source to a scoped local output sink with evidence."""
 
-        if self.source_kind == "sequence":
-            return self.client.generated_source_sequence_smoke(
-                target_uri,
-                self.start,
-                self.end,
-                step=self.step,
-                column=self.column,
-                output_format=output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            )
-        return self.client.generated_source_range_smoke(
-            target_uri,
-            self.start,
-            self.end,
-            step=self.step,
-            column=self.column,
-            output_format=output_format,
+        execution = self.client.public_workflow_run(
+            "python",
+            plan_summary=(
+                f"generated_{self.source_kind}({self.start},{self.end},{self.step}) "
+                f"-> write({target_uri})"
+            ),
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=target_uri,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
+            generated_source_kind=self.source_kind,
+            generated_range_start=self.start,
+            generated_range_end=self.end,
+            generated_range_step=self.step,
+            generated_range_column=self.column,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def write_jsonl(
         self,
@@ -1539,13 +1549,20 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
     ) -> GeneratedSourceWriteReport:
         """Write the admitted generated-range SQL query to a local output sink."""
 
-        return self.client.generated_source_sql_smoke(
-            target_uri,
-            self._statement(),
-            output_format=output_format,
+        statement = self._statement()
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=statement,
+            plan_summary=f"generated_range_query -> write({target_uri})",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=target_uri,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def write_jsonl(
         self,
@@ -1639,13 +1656,19 @@ class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
     ) -> GeneratedSourceWriteReport:
         """Write admitted source-free SQL generated rows to a scoped local output sink."""
 
-        return self.client.generated_source_sql_smoke(
-            target_uri,
-            self.statement,
-            output_format=output_format,
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=self.statement,
+            plan_summary=f"source_free_sql -> write({target_uri})",
+            requested_output=_public_write_request_for_format(output_format),
+            output_ref=target_uri,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
             allow_overwrite=allow_overwrite,
             check=check,
         )
+        return GeneratedSourceWriteReport(execution.envelope)
 
     def write_jsonl(
         self,
@@ -1814,7 +1837,17 @@ class SqlWorkflow:
         ):
             return report
         if statement := self._bounded_local_source_statement(default_limit=None):
-            return self.client.sql_local_source_smoke(statement, check=check)
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=statement,
+                plan_summary=self.operation_summary,
+                requested_output="collect",
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                check=check,
+            )
+            return SqlLocalSourceSmokeReport(execution.envelope)
         if _is_local_source_sql_statement(self.statement):
             return self._unsupported_operation(
                 "sql-local-source-collect",
@@ -2155,23 +2188,12 @@ class SqlWorkflow:
         """Write an admitted SQL result to a scoped local output."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
-        if _is_source_free_sql_statement(self.statement):
-            return self.client.generated_source_sql_smoke(
-                target_uri,
-                self.statement,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            )
-        if _is_local_source_sql_statement(self.statement):
-            return self.client.sql_local_source_smoke(
-                self.statement,
-                output_path=target_uri,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            )
-        return self._unsupported_operation("sql", self.statement, check=check)
+        return self._public_workflow_write_report(
+            target_uri,
+            requested_output=_public_write_request_for_format(normalized_output_format),
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
     def write_jsonl(
         self,
@@ -3710,7 +3732,19 @@ class LazyFrame:
         ):
             return report
         if statement := self._sql_local_source_statement():
-            return self.client.sql_local_source_smoke(statement, check=check)
+            execution = self.client.public_workflow_run(
+                "dataframe",
+                input_uri=self.source.uri,
+                input_format=self.source.source_format,
+                sql_statement=statement,
+                plan_summary=self.operation_summary,
+                requested_output="collect",
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                check=check,
+            )
+            return SqlLocalSourceSmokeReport(execution.envelope)
         return self._unsupported_operation("collect", check=check)
 
     def count(
@@ -3764,10 +3798,9 @@ class LazyFrame:
                 "select(...), optional filter(...), window(...), and limit(...) operations, or "
                 "a scoped local-source join with select(...), optional filter(...), and limit(...)"
             )
-        return self.client.sql_local_source_smoke(
-            statement,
-            output_path=target_uri,
-            output_format=normalized_output_format,
+        return self._public_workflow_write_report(
+            target_uri,
+            requested_output=_public_write_request_for_format(normalized_output_format),
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -9276,6 +9309,19 @@ def _normalize_local_output_format(value: str) -> str:
         "scoped local writes currently support local JSONL, CSV, and feature-gated "
         "Parquet/Arrow IPC/Avro/ORC/Vortex only"
     )
+
+
+def _public_write_request_for_format(output_format: str) -> str:
+    normalized = _normalize_local_output_format(output_format)
+    return {
+        "jsonl": "write_jsonl",
+        "csv": "write_csv",
+        "parquet": "write_parquet",
+        "arrow-ipc": "write_arrow_ipc",
+        "avro": "write_avro",
+        "orc": "write_orc",
+        "vortex": "write_vortex",
+    }[normalized]
 
 
 def _normalize_fanout_outputs(

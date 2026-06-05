@@ -16,9 +16,82 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow helper facade breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-helper-facade-breadth` / PR #1113.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/src/shardloom/query.py`.
+    - `python/tests/test_query_builder.py`.
+    - `python/tests/test_release_scripts.py`.
+    - `scripts/check_user_surface_runtime_gap_inventory.py`.
+    - `shardloom-cli/src/generated_source_runtime.rs`.
+    - `shardloom-cli/src/public_workflow_route.rs`.
+    - `shardloom-cli/tests/public_workflow_route.rs`.
+    - `website-src`, `website-public`, and `website` generated static artifacts.
+  - Scope:
+    - Extended the public workflow `route`/`run` request contract with explicit generated-source
+      payload fields for user rows, DataFrame generated rows, range, and sequence direct-output
+      helpers.
+    - Routed lazy DataFrame bounded `collect()`, general `write(...)`, `write_jsonl(...)`,
+      `write_csv(...)`, and structured write aliases through `shardloom run` with attached route
+      evidence while preserving the existing `SqlLocalSourceSmokeReport` typed view.
+    - Routed SQL workflow bounded local-source `collect()` and general local/source-free
+      `write(...)` helpers through `shardloom run`, preserving deterministic unsupported behavior
+      for unbounded collect and unsupported source-free collect.
+    - Routed generated rows, generated range/sequence, DataFrame generated rows, generated range
+      SQL queries, and source-free SQL writes through `shardloom run` while preserving the existing
+      `GeneratedSourceWriteReport` typed view.
+    - Added generated-source runtime wrapper entry points that can emit public facade command names
+      and attach route metadata without changing the lower-level generated-source smoke command
+      contract used by tests and benchmark evidence.
+    - Kept native Vortex primitive collect/write helper routing, multi-output fanout, future helper
+      families, and smoke-command reclassification as explicit residuals in the phase plan.
+  - Evidence:
+    - `python3 -m unittest python.tests.test_query_builder` passed with 202 tests.
+    - `python3 -m unittest python.tests.test_query_builder
+      python.tests.test_user_surface_graduation_matrix python.tests.test_cli_client
+      python.tests.test_sql_python_dataframe_parity` passed with 351 tests.
+    - `python3 -m unittest discover -s python/tests` passed with 433 tests and 2 skipped.
+    - `python3 scripts/check_user_surface_graduation_matrix.py --output
+      target/user-surface-graduation-matrix.json` passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output
+      target/sql-python-dataframe-parity-gate.json`,
+      `python3 scripts/check_user_surface_runtime_gap_inventory.py --output
+      target/user-surface-runtime-gap-inventory.json`, and
+      `python3 scripts/check_user_route_capability_report.py --output
+      target/user-route-capability-report.json` passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py
+      python/tests/test_query_builder.py python/tests/test_cli_client.py
+      scripts/check_user_surface_runtime_gap_inventory.py` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-cli --test public_workflow_route` passed with 10 tests.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      website-src/scripts/sync-content.mjs`, Astro `check`, Astro `build`,
+      `website-src/scripts/postbuild-static.mjs`, and `node website/validate_static_assets.js`
+      passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is public facade/evidence-routing breadth, not a
+      timing-methodology or performance-claim change.
+  - Claim boundary:
+    - This slice claims only scoped helper routing through the public workflow `run` facade for
+      admitted bounded local-source and generated-source write/collect helpers. It does not claim
+      broad SQL/DataFrame support, production API stability, native Vortex primitive helper
+      completion, fanout facade completion, performance superiority, or Spark replacement.
+  - Fallback boundary:
+    - The facade preserves `fallback_attempted=false` and `external_engine_invoked=false`; no pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend
+      execution is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow Parquet/Vortex write helper facade
   - Date: 2026-06-05
-  - Branch/PR: `codex/public-workflow-collect-write-facade` / PR pending.
+  - Branch/PR: `codex/public-workflow-collect-write-facade` / PR #1112.
   - Source:
     - `docs/architecture/phased-execution-plan.md`.
     - `docs/status/cli-command-registry.md`.

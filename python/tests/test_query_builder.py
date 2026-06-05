@@ -17,6 +17,7 @@ from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
     import json as _shardloom_json
+    import sys as _shardloom_sys
 
     _shardloom_original_json_dumps = _shardloom_json.dumps
 
@@ -41,16 +42,129 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         )
 
     _shardloom_json.dumps = _shardloom_json_dumps
+
+    def _shardloom_public_request_output_format(requested_output):
+        return {
+            "collect": "inline-jsonl",
+            "write_jsonl": "jsonl",
+            "write_csv": "csv",
+            "write_parquet": "parquet",
+            "write_arrow_ipc": "arrow-ipc",
+            "write_avro": "avro",
+            "write_orc": "orc",
+            "write_vortex": "vortex",
+        }[requested_output]
+
+    def _shardloom_take_flag(args, flag):
+        if flag not in args:
+            return None
+        index = args.index(flag)
+        if index + 1 >= len(args):
+            return None
+        return args[index + 1]
+
+    def _shardloom_has_flag(args, flag):
+        return flag in args
+
+    def _shardloom_without_format(args):
+        if "--format" not in args:
+            return args, []
+        index = args.index("--format")
+        return args[:index] + args[index + 2 :], args[index : index + 2]
+
+    def _shardloom_rewrite_public_run_argv():
+        args = _shardloom_sys.argv[1:]
+        if len(args) < 2 or args[0] != "run":
+            return
+        args, format_tail = _shardloom_without_format(args)
+        surface = args[1]
+        requested_output = _shardloom_take_flag(args, "--request") or "collect"
+        output_format = _shardloom_public_request_output_format(requested_output)
+        output_ref = _shardloom_take_flag(args, "--output")
+        sql = _shardloom_take_flag(args, "--sql")
+        generated_kind = _shardloom_take_flag(args, "--generated-source-kind")
+        allow_overwrite = _shardloom_has_flag(args, "--allow-overwrite")
+
+        if generated_kind is not None:
+            if generated_kind in {
+                "user_rows",
+                "literal_table",
+                "calendar",
+                "dataframe_source_free_projection",
+                "dataframe_generated_with_column",
+            }:
+                rewritten = [
+                    "generated-source-user-rows-smoke",
+                    output_ref,
+                    _shardloom_take_flag(args, "--generated-schema"),
+                    _shardloom_take_flag(args, "--generated-rows"),
+                    "--source-kind",
+                    generated_kind,
+                    "--output-format",
+                    output_format,
+                ]
+            else:
+                command = (
+                    "generated-source-sequence-smoke"
+                    if generated_kind == "sequence"
+                    else "generated-source-range-smoke"
+                )
+                rewritten = [
+                    command,
+                    output_ref,
+                    _shardloom_take_flag(args, "--generated-range-start"),
+                    _shardloom_take_flag(args, "--generated-range-end"),
+                    "--step",
+                    _shardloom_take_flag(args, "--generated-range-step") or "1",
+                    "--column",
+                    _shardloom_take_flag(args, "--generated-range-column") or "value",
+                    "--output-format",
+                    output_format,
+                ]
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+            return
+
+        if sql is not None and surface == "sql" and output_ref is not None and " FROM '" not in sql:
+            rewritten = [
+                "generated-source-sql-smoke",
+                output_ref,
+                sql,
+                "--output-format",
+                output_format,
+            ]
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+            return
+
+        if sql is not None:
+            rewritten = [
+                "sql-local-source-smoke",
+                sql,
+                "--output-format",
+                output_format,
+            ]
+            if output_ref is not None:
+                rewritten.extend(["--output", output_ref])
+            if allow_overwrite:
+                rewritten.append("--allow-overwrite")
+            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
+
+    if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
+        _shardloom_rewrite_public_run_argv()
     """
 )
 
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
-    def fake_cli(self, body: str) -> list[str]:
+    def fake_cli(self, body: str, *, rewrite_public_run: bool = True) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        path.write_text(_FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
+        prefix = "" if rewrite_public_run else "_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE = True\n"
+        path.write_text(prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
     def test_top_level_readers_are_lazy_and_build_operation_summary(self) -> None:
@@ -395,7 +509,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -585,6 +700,89 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.claim_summary.external_engine_invoked)
         self.assertEqual(report.claim_summary.claim_gate_status, "fixture_smoke_only")
         self.assertFalse(report.claim_summary.public_performance_claim_allowed)
+
+    def test_from_rows_write_routes_through_public_run_facade(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "python",
+                    "--plan",
+                    "generated_source(user_rows) -> write(target/generated-public.jsonl)",
+                    "--request",
+                    "write_jsonl",
+                    "--output",
+                    "target/generated-public.jsonl",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--allow-overwrite",
+                    "--generated-source-kind",
+                    "user_rows",
+                    "--generated-schema",
+                    "id:int64,label:utf8",
+                    "--generated-rows",
+                    "id=1,label=alpha",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "generated source through public workflow facade",
+                    "human_text": "generated source through public workflow facade",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/generated-public.jsonl"},
+                        {"key": "output_format", "value": "jsonl"},
+                        {"key": "generated_source_kind", "value": "user_rows"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "generated_user_rows_direct_output"},
+                        {"key": "public_workflow_requested_output", "value": "write_jsonl"},
+                        {"key": "public_workflow_generated_source_kind", "value": "user_rows"},
+                        {"key": "public_workflow_allow_overwrite", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.from_rows([{"id": 1, "label": "alpha"}]).write(
+            "target/generated-public.jsonl",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "generated_user_rows_direct_output",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_jsonl")
+        self.assertEqual(report.envelope.field("public_workflow_generated_source_kind"), "user_rows")
+        self.assertEqual(report.output_path, "target/generated-public.jsonl")
+        self.assertEqual(report.generated_source_kind, "user_rows")
+        self.assertEqual(report.generated_source_row_count, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_generated_rows_select_and_with_column_write_transformed_rows(self) -> None:
         binary = self.fake_cli(
@@ -9932,6 +10130,158 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_collect_routes_through_public_run_facade(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "local source collect through public workflow facade",
+                    "human_text": "local source collect through public workflow facade",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "local_file_direct_query"},
+                        {"key": "public_workflow_requested_output", "value": "collect"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_query")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "collect")
+        self.assertEqual(report.result_rows[0]["label"], "alpha")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_csv_routes_through_public_run_facade(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "--request",
+                    "write_csv",
+                    "--output",
+                    "target/out-public.csv",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "local source write through public workflow facade",
+                    "human_text": "local source write through public workflow facade",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_path", "value": "target/out-public.csv"},
+                        {"key": "output_format", "value": "csv"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_csv_sink"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_requested_output", "value": "write_csv"},
+                        {"key": "public_workflow_allow_overwrite", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .write_csv("target/out-public.csv", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.output_path, "target/out-public.csv")
+        self.assertEqual(report.output_format, "csv")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_csv")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_fanout_invokes_sql_smoke_outputs(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -10127,7 +10477,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -10289,7 +10640,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -10441,7 +10793,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 

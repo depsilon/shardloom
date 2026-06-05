@@ -182,6 +182,249 @@ fn public_run_forwards_local_write_output_and_overwrite_intent() {
 }
 
 #[test]
+fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let output = workspace.join("user-rows.jsonl");
+    let _ = std::fs::remove_file(&output);
+    let stdout = run_route(&[
+        "run",
+        "python",
+        "--request",
+        "write_jsonl",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--bounded",
+        "true",
+        "--allow-overwrite",
+        "--generated-source-kind",
+        "user_rows",
+        "--generated-schema",
+        "id:int64,label:utf8",
+        "--generated-rows",
+        "id=1,label=alpha",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "generated_user_rows_direct_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-user-rows-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
+    assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
+    assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
+    assert!(stdout.contains(&field("generated_source_kind", "user_rows")));
+    assert!(stdout.contains(&field("generated_source_row_count", "1")));
+    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field(
+        "output_path",
+        output.to_str().expect("utf8 output path")
+    )));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_executes_generated_range_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let output = workspace.join("range.csv");
+    let _ = std::fs::remove_file(&output);
+    let stdout = run_route(&[
+        "run",
+        "python",
+        "--request",
+        "write_csv",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--bounded",
+        "true",
+        "--allow-overwrite",
+        "--generated-source-kind",
+        "range",
+        "--generated-range-start",
+        "1",
+        "--generated-range-end",
+        "4",
+        "--generated-range-step",
+        "1",
+        "--generated-range-column",
+        "id",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "generated_range_direct_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-range-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "range")));
+    assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
+    assert!(stdout.contains(&field("generated_source_kind", "range")));
+    assert!(stdout.contains(&field("generated_source_range_start", "1")));
+    assert!(stdout.contains(&field("generated_source_range_end", "4")));
+    assert!(stdout.contains(&field("generated_source_range_step", "1")));
+    assert!(stdout.contains(&field("generated_source_range_column", "id")));
+    assert!(stdout.contains(&field("generated_source_row_count", "3")));
+    assert!(stdout.contains(&field("output_format", "csv")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_executes_generated_sequence_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let output = workspace.join("sequence.jsonl");
+    let _ = std::fs::remove_file(&output);
+    let stdout = run_route(&[
+        "run",
+        "python",
+        "--request",
+        "write_jsonl",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--bounded",
+        "true",
+        "--allow-overwrite",
+        "--generated-source-kind",
+        "sequence",
+        "--generated-range-start",
+        "1",
+        "--generated-range-end",
+        "6",
+        "--generated-range-step",
+        "2",
+        "--generated-range-column",
+        "seq",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "generated_sequence_direct_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-sequence-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "sequence")));
+    assert!(stdout.contains(&field("generated_source_kind", "sequence")));
+    assert!(stdout.contains(&field("generated_source_range_start", "1")));
+    assert!(stdout.contains(&field("generated_source_range_end", "6")));
+    assert!(stdout.contains(&field("generated_source_range_step", "2")));
+    assert!(stdout.contains(&field("generated_source_range_column", "seq")));
+    assert!(stdout.contains(&field("generated_source_row_count", "3")));
+    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_executes_source_free_values_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let output = workspace.join("values.jsonl");
+    let _ = std::fs::remove_file(&output);
+    let stdout = run_route(&[
+        "run",
+        "sql",
+        "--sql",
+        "VALUES (1, 'alpha')",
+        "--request",
+        "write_jsonl",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--allow-overwrite",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "source_free_generated_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-sql-smoke"
+    )));
+    assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_values")));
+    assert!(stdout.contains(&field("generated_source_row_count", "1")));
+    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_executes_source_free_range_sql_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let output = workspace.join("range-sql.jsonl");
+    let _ = std::fs::remove_file(&output);
+    let stdout = run_route(&[
+        "run",
+        "sql",
+        "--sql",
+        "SELECT value AS id FROM range(1, 5, 1) WHERE value >= 2 LIMIT 2",
+        "--request",
+        "write_jsonl",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--allow-overwrite",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "source_free_generated_output"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_resolved_internal_command",
+        "generated-source-sql-smoke"
+    )));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_row_count", "2")));
+    assert!(stdout.contains(&field("generated_source_sql_generator_function", "range")));
+    assert!(stdout.contains(&field("sql_source_free_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     let workspace = std::path::Path::new("target/public-workflow-prepare-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");

@@ -317,10 +317,11 @@ envelope. The equivalent CLI surfaces are
 `shardloom route <sql|python|dataframe|cli> --format json`,
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`.
-Lazy DataFrame `write_parquet(...)` and `write_vortex(...)` route through the same public `run`
-facade and return the existing typed sink reports with attached `public_workflow_*` route fields.
-Broad `collect()` and general `write(...)` helper rerouting remains lower-level until the next
-facade slice lands.
+Lazy DataFrame bounded `collect()`, general `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
+structured write aliases, generated-source direct writes, and source-free SQL writes route through
+the same public `run` facade and return existing typed reports with attached `public_workflow_*`
+route fields. Native Vortex primitive helpers and multi-output fanout still use their lower-level
+evidence commands until the facade has explicit payload contracts for those shapes.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -830,21 +831,23 @@ admit scalar and grouped aggregates, including scalar top-N
 ordering over aggregate output aliases and group keys, when the workflow keeps the
 same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
 `limit(...)`; joined aggregate rows can use the same aggregate-output `HAVING` filter before
-ordering/limit. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
+ordering/limit. `collect()` returns bounded inline JSONL through the public workflow `run` facade;
+`write()` writes a local JSONL/CSV file through that same facade
 by default, and local-source workflows can use `write(..., output_format="csv")`
 or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
 feature-gated flat scalar Parquet sink when the CLI is built with
 `--features universal-format-io`; default binaries return ShardLoom's
-deterministic Parquet sink blocker. The `write_parquet(...)` alias routes through
-the public workflow `run` facade and attaches route metadata to the returned sink report.
+deterministic Parquet sink blocker. The structured write aliases attach route metadata to the
+returned sink report.
 `write_vortex(...)` writes a scoped local flat scalar `.vortex` result when the CLI is built with
-`--features vortex-write`; default binaries return a deterministic Vortex sink blocker. The
-`write_vortex(...)` alias also routes through the public workflow `run` facade. The scoped
+`--features vortex-write`; default binaries return a deterministic Vortex sink blocker. The scoped
 `.fanout(...)` helper can reuse one computed result for multiple admitted local
 compatibility sinks such as JSONL and CSV, feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,
-and feature-gated local Vortex when built with `--features vortex-write`. Written local sinks emit
+and feature-gated local Vortex when built with `--features vortex-write`; fanout still uses the
+lower-level fanout evidence command until the public facade has a multi-output payload contract.
+Written local sinks emit
 format-specific output Native I/O certificate fields plus scoped local replay/fidelity fields such
 as `result_replay_verified`, `output_replay_status`, `output_fidelity_report_status`, and
 `output_fidelity_loss`. Generated-source helpers use the same format-neutral rule: SQL/Python
@@ -2008,9 +2011,9 @@ Source-free top-N reports
 `sql_source_free_order_by_runtime_execution`, `sql_source_free_top_n_runtime_execution`,
 `sql_source_free_sort_keys`, `sql_source_free_sort_direction`,
 `sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
-filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms to the
-same generated-source SQL smoke, and `ctx.sql(...).fanout(...)` dispatches source-free generated
-forms to the same generated-source fanout contract. Generated-source fanout reports
+filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms through the
+public workflow `run` facade to the generated-source SQL runtime, and `ctx.sql(...).fanout(...)`
+dispatches source-free generated forms to the same generated-source fanout contract. Generated-source fanout reports
 `output_route=local_sink_and_fanout`, `result_reuse_for_fanout=true`,
 `fanout_result_reuse_hit=true`, per-fanout output formats/paths/digests, workspace path-safety,
 certificate, replay, and fidelity fields. Source-free `ctx.sql(...).collect()` remains a
@@ -2030,16 +2033,18 @@ The contract separates three cases:
   Parquet/Arrow IPC/Avro/ORC local sinks are available through `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when the CLI is built with
   `--features universal-format-io`, and feature-gated local Vortex output is available through
-  `write_vortex(...)` when the CLI is built with `--features vortex-write`; `.fanout(...)` reuses
-  the computed generated rows for primary plus fanout local sinks. Broader generated-source APIs
+  `write_vortex(...)` when the CLI is built with `--features vortex-write`; direct writes route
+  through the public workflow `run` facade, while `.fanout(...)` reuses the computed generated rows
+  through the lower-level generated-source fanout evidence command. Broader generated-source APIs
   remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
   `generate_series`/`range` JSONL/CSV fixture smokes are supported through
   `ctx.range(...).write(...)`, `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`,
   `ctx.sequence(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`;
-  `.fanout(...)` is available for generated range/sequence and source-free SQL, and the same
-  feature-gated flat scalar structured and Vortex sinks are available through the generated-source
-  write helpers.
+  direct writes route through the public workflow `run` facade. `.fanout(...)` is available for
+  generated range/sequence and source-free SQL through the lower-level generated-source fanout
+  evidence command, and the same feature-gated flat scalar structured and Vortex sinks are available
+  through the generated-source write helpers.
   Engine-native `values` and deterministic synthetic profiles remain report-only.
 
 Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture
