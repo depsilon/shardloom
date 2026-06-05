@@ -476,12 +476,12 @@ def main() -> int:
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("diagnostic_case_count") != 16:
+        if admitted_semantics.get("diagnostic_case_count") != 18:
             admitted_semantics_blockers.append(
                 "admitted semantics diagnostic_case_count="
                 + str(admitted_semantics.get("diagnostic_case_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 14:
+        if admitted_semantics.get("unsupported_diagnostic_count") != 16:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))

@@ -44487,6 +44487,45 @@ mod tests {
     }
 
     #[test]
+    fn correlated_subquery_outer_references_outside_column_comparisons_block_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.amount > 10) LIMIT 5",
+                "correlated IN subquery predicates admit outer.<column> references only in column-to-column comparisons",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE outer.id = outer.amount) LIMIT 5",
+                "correlated IN subquery predicates require exactly one outer.<column> reference per column comparison",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE EXISTS (SELECT * FROM 'target/allowed.csv' WHERE outer.amount IS NOT NULL LIMIT 1) LIMIT 5",
+                "correlated EXISTS subquery predicates admit outer.<column> references only in column-to-column comparisons",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE (id,label) IN (SELECT id,label FROM 'target/allowed.csv' WHERE outer.amount > 10) LIMIT 5",
+                "correlated IN subquery predicates admit outer.<column> references only in column-to-column comparisons",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE amount > ALL (SELECT min_amount FROM 'target/thresholds.csv' WHERE outer.amount > 10 LIMIT 5) LIMIT 5",
+                "correlated IN subquery predicates admit outer.<column> references only in column-to-column comparisons",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/grouped.csv' GROUP BY id HAVING outer.amount > 10 LIMIT 5) LIMIT 5",
+                "correlated IN subquery predicates admit outer.<column> references only in column-to-column comparisons",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement).expect_err(
+                "outer correlation outside admitted column comparisons remains blocked",
+            );
+            assert!(
+                error.to_string().contains(expected),
+                "error {error:?} did not contain {expected:?}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
     fn row_value_in_predicate_blocks_malformed_literal_tuples_without_fallback() {
         for (statement, expected) in [
             (
