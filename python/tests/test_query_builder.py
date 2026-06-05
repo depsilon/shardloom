@@ -66,6 +66,21 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     def _shardloom_has_flag(args, flag):
         return flag in args
 
+    def _shardloom_values_after_flag(args, flag):
+        values = []
+        index = 0
+        while index < len(args):
+            if args[index] == flag and index + 1 < len(args):
+                values.append(args[index + 1])
+                index += 2
+            else:
+                index += 1
+        return values
+
+    def _shardloom_append_fanout_outputs(rewritten, args):
+        for fanout_output in _shardloom_values_after_flag(args, "--fanout-output"):
+            rewritten.extend(["--fanout-output", fanout_output])
+
     def _shardloom_without_format(args):
         if "--format" not in args:
             return args, []
@@ -121,6 +136,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                     "--output-format",
                     output_format,
                 ]
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -134,6 +150,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "--output-format",
                 output_format,
             ]
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -148,6 +165,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
             ]
             if output_ref is not None:
                 rewritten.extend(["--output", output_ref])
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -527,6 +545,186 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(execution.public_workflow_fallback_attempted)
         self.assertFalse(execution.public_workflow_external_engine_invoked)
         self.assertIsNone(execution.blocker_id)
+
+    def test_lazyframe_fanout_uses_public_run_facade_payload(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
+                    "SELECT id FROM 'target/input.csv' LIMIT 10",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id) -> limit(10)",
+                    "--request",
+                    "write_jsonl",
+                    "--output",
+                    "target/input.jsonl",
+                    "--fanout-output",
+                    "csv=target/input.csv.out",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_route_id", "local_file_direct_sink"],
+                    ["public_workflow_route_status", "admitted"],
+                    ["public_workflow_resolved_internal_command", "sql-local-source-smoke"],
+                    ["public_workflow_requested_output", "write_jsonl"],
+                    ["public_workflow_output_ref", "target/input.jsonl"],
+                    ["public_workflow_fanout_output_count", "1"],
+                    ["public_workflow_fanout_outputs", "csv=target/input.csv.out"],
+                    ["runtime_execution", "true"],
+                    ["output_io_performed", "true"],
+                    ["output_fanout_performed", "true"],
+                    ["fanout_output_count", "1"],
+                    ["fanout_output_formats", "csv"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["public_workflow_fallback_attempted", "false"],
+                    ["public_workflow_external_engine_invoked", "false"],
+                    ["public_workflow_blocker_id", "none"],
+                    ["claim_gate_status", "fixture_smoke_only"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "public workflow fanout",
+                    "human_text": "fanout",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .limit(10)
+            .fanout(
+                {
+                    "jsonl": "target/input.jsonl",
+                    "csv": "target/input.csv.out",
+                },
+                allow_overwrite=True,
+            )
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_fanout_output_count"), "1")
+        self.assertEqual(
+            report.envelope.field("public_workflow_fanout_outputs"),
+            "csv=target/input.csv.out",
+        )
+        self.assertTrue(report.output_fanout_performed)
+        self.assertEqual(report.fanout_output_count, 1)
+        self.assertEqual(report.fanout_output_formats, ("csv",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_source_free_sql_fanout_uses_public_run_facade_payload(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "sql",
+                    "--sql",
+                    "SELECT 1 AS id, 'alpha' AS label",
+                    "--plan",
+                    "sql(statement)",
+                    "--request",
+                    "write_jsonl",
+                    "--output",
+                    "target/sql-select.jsonl",
+                    "--fanout-output",
+                    "csv=target/sql-select.csv",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_route_id", "source_free_generated_output"],
+                    ["public_workflow_route_status", "admitted"],
+                    ["public_workflow_resolved_internal_command", "generated-source-sql-smoke"],
+                    ["public_workflow_requested_output", "write_jsonl"],
+                    ["public_workflow_output_ref", "target/sql-select.jsonl"],
+                    ["public_workflow_fanout_output_count", "1"],
+                    ["public_workflow_fanout_outputs", "csv=target/sql-select.csv"],
+                    ["output_fanout_performed", "true"],
+                    ["fanout_output_count", "1"],
+                    ["fanout_output_formats", "csv"],
+                    ["generated_source_kind", "sql_literal_select"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["claim_gate_status", "fixture_smoke_only"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "public workflow generated fanout",
+                    "human_text": "generated fanout",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql("SELECT 1 AS id, 'alpha' AS label", check=False).fanout(
+            (("jsonl", "target/sql-select.jsonl"), ("csv", "target/sql-select.csv")),
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "source_free_generated_output")
+        self.assertEqual(report.envelope.field("public_workflow_fanout_output_count"), "1")
+        self.assertTrue(report.output_fanout_performed)
+        self.assertEqual(report.fanout_output_count, 1)
+        self.assertEqual(report.fanout_output_formats, ("csv",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_workflow_prepare_uses_public_facade_with_attached_route(self) -> None:
         binary = self.fake_cli(
@@ -10292,9 +10490,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-local-source-smoke",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
                     "--output-format",
-                    "inline-jsonl",
-                    "--fanout-output",
-                    "jsonl=target/out.jsonl",
+                    "jsonl",
+                    "--output",
+                    "target/out.jsonl",
                     "--fanout-output",
                     "csv=target/out.csv",
                     "--allow-overwrite",
@@ -10311,22 +10509,23 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "diagnostics": [],
                     "fields": [
                         {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
-                        {"key": "output_route", "value": "local_fanout"},
+                        {"key": "output_route", "value": "local_sink_and_fanout"},
                         {"key": "output_format", "value": "jsonl"},
+                        {"key": "output_path", "value": "target/out.jsonl"},
                         {"key": "output_row_count", "value": "2"},
                         {"key": "selected_row_count", "value": "3"},
                         {"key": "output_io_performed", "value": "true"},
                         {"key": "output_fanout_performed", "value": "true"},
-                        {"key": "fanout_output_count", "value": "2"},
-                        {"key": "fanout_output_formats", "value": "jsonl,csv"},
-                        {"key": "fanout_output_paths", "value": "target/out.jsonl,target/out.csv"},
-                        {"key": "fanout_output_digests", "value": "jsonl:abc,csv:def"},
-                        {"key": "fanout_output_workspace_path_safety_statuses", "value": "jsonl:true,csv:true"},
-                        {"key": "fanout_output_commit_modes", "value": "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"},
-                        {"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_jsonl_sink,csv:certified_local_csv_sink"},
-                        {"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"},
-                        {"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"},
-                        {"key": "fanout_output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"},
+                        {"key": "fanout_output_count", "value": "1"},
+                        {"key": "fanout_output_formats", "value": "csv"},
+                        {"key": "fanout_output_paths", "value": "target/out.csv"},
+                        {"key": "fanout_output_digests", "value": "csv:def"},
+                        {"key": "fanout_output_workspace_path_safety_statuses", "value": "csv:true"},
+                        {"key": "fanout_output_commit_modes", "value": "csv:atomic_rename_same_directory"},
+                        {"key": "fanout_output_native_io_certificate_statuses", "value": "csv:certified_local_csv_sink"},
+                        {"key": "fanout_output_replay_statuses", "value": "csv:verified_local_file_digest"},
+                        {"key": "fanout_output_fidelity_statuses", "value": "csv:logical_rows_replay_verified_type_metadata_not_preserved"},
+                        {"key": "fanout_output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"},
                         {"key": "sink_artifact_count", "value": "2"},
                         {"key": "sink_artifact_ref", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
                         {"key": "sink_artifact_refs", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
@@ -10357,16 +10556,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(report.envelope.field("output_route"), "local_fanout")
+        self.assertEqual(report.envelope.field("output_route"), "local_sink_and_fanout")
         self.assertTrue(report.output_io_performed)
         self.assertTrue(report.output_fanout_performed)
-        self.assertEqual(report.fanout_output_count, 2)
-        self.assertEqual(report.fanout_output_formats, ("jsonl", "csv"))
+        self.assertEqual(report.fanout_output_count, 1)
+        self.assertEqual(report.fanout_output_formats, ("csv",))
         self.assertEqual(
             report.fanout_output_paths,
-            ("target/out.jsonl", "target/out.csv"),
+            ("target/out.csv",),
         )
-        self.assertEqual(report.fanout_output_digests, ("jsonl:abc", "csv:def"))
+        self.assertEqual(report.fanout_output_digests, ("csv:def",))
         self.assertEqual(report.sink_artifact_count, 2)
         self.assertEqual(
             report.sink_artifact_refs,
@@ -10379,34 +10578,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             report.fanout_output_workspace_path_safety_statuses,
-            ("jsonl:true", "csv:true"),
+            ("csv:true",),
         )
         self.assertEqual(
             report.fanout_output_commit_modes,
-            (
-                "jsonl:atomic_rename_same_directory",
-                "csv:atomic_rename_same_directory",
-            ),
+            ("csv:atomic_rename_same_directory",),
         )
         self.assertTrue(report.result_replay_verified)
         self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
         self.assertEqual(
             report.fanout_output_replay_statuses,
-            ("jsonl:verified_local_file_digest", "csv:verified_local_file_digest"),
+            ("csv:verified_local_file_digest",),
         )
         self.assertEqual(
             report.fanout_output_fidelity_statuses,
-            (
-                "jsonl:logical_rows_replay_verified",
-                "csv:logical_rows_replay_verified_type_metadata_not_preserved",
-            ),
+            ("csv:logical_rows_replay_verified_type_metadata_not_preserved",),
         )
         self.assertEqual(
             report.fanout_output_fidelity_loss,
-            (
-                "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity",
-                "csv:csv_text_roundtrip_loses_static_type_metadata",
-            ),
+            ("csv:csv_text_roundtrip_loses_static_type_metadata",),
         )
         self.assertTrue(report.fanout_result_reuse_hit)
         self.assertEqual(

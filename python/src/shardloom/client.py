@@ -6419,6 +6419,19 @@ class PublicWorkflowRoute:
         )
 
     @property
+    def fanout_output_count(self) -> int:
+        """Return the number of fanout outputs declared on the route."""
+
+        return self.envelope.field_int("fanout_output_count", 0) or 0
+
+    @property
+    def fanout_outputs(self) -> tuple[str, ...]:
+        """Return declared fanout targets as ``format=path`` entries."""
+
+        value = self.envelope.field("fanout_outputs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the route inspection attempted fallback execution."""
 
@@ -6459,6 +6472,8 @@ class PublicWorkflowRoute:
             "execution_mode": self.execution_mode,
             "preparation_included": self.preparation_included,
             "query_timing_starts_after_preparation": self.query_timing_starts_after_preparation,
+            "fanout_output_count": self.fanout_output_count,
+            "fanout_outputs": self.fanout_outputs,
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "blocker_id": self.blocker_id,
@@ -6536,6 +6551,19 @@ class PublicWorkflowExecution:
         )
 
     @property
+    def fanout_output_count(self) -> int:
+        """Return the number of fanout outputs declared on the public workflow."""
+
+        return self.envelope.field_int("public_workflow_fanout_output_count", 0) or 0
+
+    @property
+    def fanout_outputs(self) -> tuple[str, ...]:
+        """Return declared public workflow fanout targets as ``format=path`` entries."""
+
+        value = self.envelope.field("public_workflow_fanout_outputs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether fallback execution was attempted."""
 
@@ -6588,6 +6616,8 @@ class PublicWorkflowExecution:
             "execution_mode": self.execution_mode,
             "runtime_execution": self.runtime_execution,
             "preparation_included": self.preparation_included,
+            "fanout_output_count": self.fanout_output_count,
+            "fanout_outputs": self.fanout_outputs,
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "public_workflow_fallback_attempted": self.public_workflow_fallback_attempted,
@@ -10001,6 +10031,7 @@ class ShardLoomClient:
         generated_range_end: int | None = None,
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
+        fanout_outputs: FanoutOutputs | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
@@ -10017,6 +10048,8 @@ class ShardLoomClient:
         args.extend(["--request", requested_output])
         if output_ref is not None:
             args.extend(["--output", str(output_ref)])
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            args.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         args.extend(["--execution-policy", execution_policy])
         args.extend(["--materialization-policy", materialization_policy])
         args.extend(["--evidence-level", evidence_level])
@@ -10060,6 +10093,7 @@ class ShardLoomClient:
         generated_range_end: int | None = None,
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
+        fanout_outputs: FanoutOutputs | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
@@ -10085,6 +10119,7 @@ class ShardLoomClient:
             generated_range_end=generated_range_end,
             generated_range_step=generated_range_step,
             generated_range_column=generated_range_column,
+            fanout_outputs=fanout_outputs,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -10139,6 +10174,7 @@ class ShardLoomClient:
         generated_range_end: int | None = None,
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
+        fanout_outputs: FanoutOutputs | None = None,
     ) -> list[CommandPart]:
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -10152,6 +10188,8 @@ class ShardLoomClient:
         args.extend(["--request", requested_output])
         if output_ref is not None:
             args.extend(["--output", str(output_ref)])
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            args.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         args.extend(["--execution-policy", execution_policy])
         args.extend(["--materialization-policy", materialization_policy])
         args.extend(["--evidence-level", evidence_level])

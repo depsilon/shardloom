@@ -46,6 +46,7 @@ struct PublicWorkflowRouteRequest {
     generated_range_end: Option<String>,
     generated_range_step: Option<String>,
     generated_range_column: Option<String>,
+    fanout_outputs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,7 +284,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>]"
                     .to_string(),
             ));
         };
@@ -319,6 +320,7 @@ impl PublicWorkflowRouteRequest {
             generated_range_end: None,
             generated_range_step: None,
             generated_range_column: None,
+            fanout_outputs: Vec::new(),
         }
     }
 
@@ -357,6 +359,9 @@ impl PublicWorkflowRouteRequest {
                 self.bounded = parse_bool_flag("--bounded", &required_value(args, "--bounded")?)?;
             }
             "--allow-overwrite" => self.allow_overwrite = true,
+            "--fanout-output" => self
+                .fanout_outputs
+                .push(required_value(args, "--fanout-output")?),
             "--generated-source-kind" => {
                 self.generated_source_kind = Some(required_value(args, "--generated-source-kind")?);
             }
@@ -812,6 +817,12 @@ fn add_route_request_fields(
         "output_ref",
         optional_or_none(request.output_ref.as_ref()),
     );
+    push_field(
+        fields,
+        "fanout_output_count",
+        request.fanout_outputs.len().to_string(),
+    );
+    push_field(fields, "fanout_outputs", fanout_outputs_field(request));
     push_field(fields, "execution_policy", request.execution_policy.clone());
     push_field(
         fields,
@@ -930,6 +941,14 @@ fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: impl Into<St
 
 fn optional_or_none(value: Option<&String>) -> String {
     value.cloned().unwrap_or_else(|| "none".to_string())
+}
+
+fn fanout_outputs_field(request: &PublicWorkflowRouteRequest) -> String {
+    if request.fanout_outputs.is_empty() {
+        "none".to_string()
+    } else {
+        request.fanout_outputs.join(";")
+    }
 }
 
 fn route_human_text(
@@ -1076,6 +1095,14 @@ fn execution_attachment_fields(
             optional_or_none(request.output_ref.as_ref()),
         ),
         (
+            "public_workflow_fanout_output_count".to_string(),
+            request.fanout_outputs.len().to_string(),
+        ),
+        (
+            "public_workflow_fanout_outputs".to_string(),
+            fanout_outputs_field(request),
+        ),
+        (
             "public_workflow_evidence_level".to_string(),
             request.evidence_level.clone(),
         ),
@@ -1141,6 +1168,7 @@ fn sql_local_source_runtime_args(
             local_output_format_for_request(request)?.to_string(),
         ]);
     }
+    append_fanout_args(&mut args, request);
     if request.allow_overwrite {
         args.push("--allow-overwrite".to_string());
     }
@@ -1160,6 +1188,7 @@ fn generated_source_runtime_args(
             .unwrap_or("jsonl")
             .to_string(),
     ];
+    append_fanout_args(&mut args, request);
     if request.allow_overwrite {
         args.push("--allow-overwrite".to_string());
     }
@@ -1196,6 +1225,7 @@ fn generated_user_rows_runtime_args(
         "--output-format".to_string(),
         local_output_format_for_request(request)?.to_string(),
     ];
+    append_fanout_args(&mut args, request);
     if request.allow_overwrite {
         args.push("--allow-overwrite".to_string());
     }
@@ -1236,10 +1266,17 @@ fn generated_range_runtime_args(
         "--output-format".to_string(),
         local_output_format_for_request(request)?.to_string(),
     ];
+    append_fanout_args(&mut args, request);
     if request.allow_overwrite {
         args.push("--allow-overwrite".to_string());
     }
     Ok(args)
+}
+
+fn append_fanout_args(args: &mut Vec<String>, request: &PublicWorkflowRouteRequest) {
+    for fanout_output in &request.fanout_outputs {
+        args.extend(["--fanout-output".to_string(), fanout_output.clone()]);
+    }
 }
 
 fn local_output_format_for_request(

@@ -127,6 +127,21 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     def _shardloom_has_flag(args, flag):
         return flag in args
 
+    def _shardloom_values_after_flag(args, flag):
+        values = []
+        index = 0
+        while index < len(args):
+            if args[index] == flag and index + 1 < len(args):
+                values.append(args[index + 1])
+                index += 2
+            else:
+                index += 1
+        return values
+
+    def _shardloom_append_fanout_outputs(rewritten, args):
+        for fanout_output in _shardloom_values_after_flag(args, "--fanout-output"):
+            rewritten.extend(["--fanout-output", fanout_output])
+
     def _shardloom_without_format(args):
         if "--format" not in args:
             return args, []
@@ -182,6 +197,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                     "--output-format",
                     output_format,
                 ]
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -195,6 +211,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "--output-format",
                 output_format,
             ]
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -209,6 +226,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
             ]
             if output_ref is not None:
                 rewritten.extend(["--output", output_ref])
+            _shardloom_append_fanout_outputs(rewritten, args)
             if allow_overwrite:
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
@@ -4156,13 +4174,25 @@ class ShardLoomClientTests(unittest.TestCase):
                     count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
                     count += 1
                     count_path.write_text(str(count), encoding="utf-8")
-                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
-                    fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
-                    assert len(fanout_args) == 2, sys.argv
                     outputs = {{}}
-                    for item in fanout_args:
-                        fmt, path = item.split("=", 1)
+                    if sys.argv[1] == "run":
+                        output_index = sys.argv.index("--output")
+                        outputs["jsonl"] = Path(sys.argv[output_index + 1])
+                        fanout_index = sys.argv.index("--fanout-output")
+                        fmt, path = sys.argv[fanout_index + 1].split("=", 1)
                         outputs[fmt] = Path(path)
+                    else:
+                        assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                        fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
+                        if "--output" in sys.argv:
+                            output_index = sys.argv.index("--output")
+                            outputs["jsonl"] = Path(sys.argv[output_index + 1])
+                            assert len(fanout_args) == 1, sys.argv
+                        else:
+                            assert len(fanout_args) == 2, sys.argv
+                        for item in fanout_args:
+                            fmt, path = item.split("=", 1)
+                            outputs[fmt] = Path(path)
                     outputs["jsonl"].write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
                     outputs["csv"].write_text("id,count\\n1," + str(count) + "\\n", encoding="utf-8")
                     print(json.dumps({{
