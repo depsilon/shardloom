@@ -278,11 +278,13 @@ Runtime completion rule:
 #### 6-Series Runtime Breadth Queue
 
 The 6-series queue is the first active runtime queue. Completed HOTPATH implementation, freshness,
-rerun, and publication history lives only in the completed ledger; this section owns the remaining
-user-surface runtime breadth: SQL grammar, Python/DataFrame API breadth, object-store/lakehouse
-runtime, generated-output platform routes, data-quality/profile/quarantine runtime, effectful
-operations, live/hybrid runtime, distributed/spill/OOM runtime, and front-door benchmark
-publication.
+rerun, and publication history lives only in the completed ledger. Before widening more surface
+area, the next priority is the shared public workflow route facade/narrow waist so SQL, Python,
+DataFrame, and CLI entry points lower through one route/admission/evidence contract. After that
+facade slice lands, this section owns the remaining user-surface runtime breadth: SQL grammar,
+Python/DataFrame API breadth, object-store/lakehouse runtime, generated-output platform routes,
+data-quality/profile/quarantine runtime, effectful operations, live/hybrid runtime,
+distributed/spill/OOM runtime, and front-door benchmark publication.
 
 Each item below uses the same sub-checklist shape:
 
@@ -290,6 +292,85 @@ Each item below uses the same sub-checklist shape:
   matrix, or validators; unchecked rows name what remains.
 - Execution checklist: unchecked implementation/validation steps for the next cohesive PR.
 - Boundaries: claim, fallback, non-goal, and ledger rules stay attached to the active item.
+
+- [ ] GAR-RUNTIME-IMPL-6D:public_workflow_route_facade: Shared user-surface facade and route
+  narrow waist before further surface widening.
+  - Source: RFC 0033 user workflow contracts, SQL/Python/DataFrame front-door parity docs, user-route
+    capability report, command registry metadata, admitted semantics matrix, Python query/session
+    API docs, and completed runtime ledger entries.
+  - Current state:
+    - [x] Lower-level SQL local-source, Python query/session, DataFrame aliases, CLI smoke/runtime,
+      parity, and user-route validators exist as separate evidence surfaces.
+    - [x] Existing public and smoke paths already preserve `fallback_attempted=false` and
+      `external_engine_invoked=false` where admitted.
+    - [ ] Remaining: add a shared public workflow route contract before execution so SQL, Python,
+      DataFrame, and CLI do not independently choose runtime paths.
+    - [ ] Remaining: expose route metadata and blockers consistently across CLI JSON first, then
+      typed Python accessors.
+    - [ ] Remaining: keep lower-level smoke/runtime commands available for evidence while making
+      high-level facade commands the normal user/agent route.
+  - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
+    internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
+    no-fallback fields.
+  - Next slice outcome: implement the small shared route planner/facade contract first, then use it
+    as the admission spine for the next SQL/Python/DataFrame breadth slices.
+  - Execution checklist:
+    - [ ] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
+      query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
+      `prepare_once`, `direct`, or blocked), materialization/decode policy, and evidence level.
+    - [ ] Ensure the route planner returns `route_id`, `resolved_internal_command`, `start_state`,
+      `vortex_normalization_point`, `execution_mode`, `preparation_included`,
+      `query_timing_starts_after_preparation`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and deterministic blockers before execution.
+    - [ ] Add high-level CLI facade commands or JSON paths for `route`, `run`, and `prepare` while
+      preserving existing internal smoke/runtime commands for tests and benchmark evidence.
+    - [ ] Mark public facade commands as `high_level_context` and smoke/benchmark primitive commands
+      as `client_only` or `not_user_facing` in the command registry.
+    - [ ] Route `ShardLoomContext`, Python SQL, and lazy DataFrame workflow methods through the shared
+      planner rather than Python-only one-off helpers.
+    - [ ] Add `workflow.explain()`, `workflow.route()`, `workflow.collect(limit=...)`,
+      `workflow.write_vortex(...)`, `workflow.write_parquet(...)`, and `workflow.evidence()` only
+      where they lower to admitted ShardLoom routes or deterministic unsupported envelopes.
+    - [ ] Keep unbounded `collect()` blocked unless an explicit bounded/materialized path is present;
+      keep pandas/Arrow/NumPy conversion explicit and evidence-bearing.
+    - [ ] Add route parity tests proving equivalent SQL/Python/DataFrame workflows resolve to the
+      same route metadata and unsupported workflows fail at admission.
+    - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method matrix,
+      command registry metadata, release readiness/status matrices, and website/static pages.
+  - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
+    DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
+  - Implementation scope: `shardloom-cli/src/command_registry.rs`,
+    `shardloom-cli/src/sql_local_source_runtime.rs`, Python `context.py`, `query.py`,
+    `session.py`, `client.py`, parity validators, user-route capability report, docs, and website
+    generated artifacts.
+  - Evidence required: Rust CLI route/command tests, Python query-builder and parity tests,
+    route-capability validator output, deterministic unsupported diagnostics, no hidden pandas/Polars
+    execution, no-fallback/external-engine false fields, and docs/static freshness.
+  - Acceptance: equivalent SQL/Python/DataFrame workflows resolve to the same route metadata;
+    unsupported workflows fail at admission with deterministic diagnostics; no runtime path executes
+    without a visible route/evidence envelope.
+  - Verification:
+    ```bash
+    python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json
+    python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json
+    python3 -m unittest python/tests/test_query_builder.py
+    python3 -m unittest python/tests/test_sql_python_dataframe_parity.py
+    cargo test -p shardloom-cli --test capability_discovery_snapshots
+    cargo fmt --all -- --check
+    cargo clippy --workspace --all-targets -- -D warnings
+    cargo test --workspace --all-targets
+    ```
+  - Non-goals: no broad SQL/DataFrame support, no production package/API stability claim, no hidden
+    Python-only planner, no unbounded materialization convenience, no benchmark/performance claim.
+  - Dependencies/blockers: route/evidence schema stability, command registry categories, existing
+    SQL local-source runtime evidence, Python query/session wrappers, and user-route/parity
+    validators.
+  - Claim boundary: simplified public facade over admitted ShardLoom routes only; no production
+    readiness, broad SQL/DataFrame claim, performance superiority, or Spark replacement.
+  - Fallback boundary: no pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or
+    external DataFrame backend execution; external engines remain baselines or test oracles only.
+  - Ledger rule: when this facade slice is complete, move the completed details to the ledger and
+    leave residual SQL/Python/DataFrame breadth items in Planned behind the shared route contract.
 
 - [ ] GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar: Broad SQL grammar over
   Vortex-normalized runtime paths.
@@ -307,18 +388,24 @@ Each item below uses the same sub-checklist shape:
       deterministic blockers where scoped.
     - [x] HAVING-level row-value `IN`/`NOT IN` and correlated quantified variants now have matrix
       fixtures, Rust smokes, docs, and no-fallback report fields.
-    - [ ] Remaining: nested source decoding and flat sinks beyond scoped result-boundary
-      projections.
+    - [x] Scoped `ARRAY[...]` / `STRUCT(...)` result-boundary projections can write local CSV as
+      JSON text cells with replay/no-fallback evidence.
+    - [ ] Remaining: shared public workflow route facade should land before widening additional SQL
+      surface area beyond the already-admitted slices.
+    - [ ] Remaining: nested source decoding and typed structured sinks beyond scoped
+      JSONL/result-boundary and CSV JSON-text projections.
     - [ ] Remaining: variant/union dtype shapes, broader binary execution/preservation,
       non-binary-source-to-binary-literal comparisons, ORC typed decimal sinks, broad ANSI decimal
       coercion, scalar-left multi-column subqueries, and unbound source aliases outside admitted
       source-qualified surfaces.
-  - Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
-    lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
+  - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
+    admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
+    evidence row.
   - Next slice outcome: choose the next coherent grammar family from the unchecked remaining rows;
-    current candidates are nested source decoding/flat sinks, ORC typed decimal sink preservation
-    once writer evidence exists, broader binary preservation, broad ANSI decimal coercion, or
-    scalar-left multi-column subquery diagnostics depending on the next runtime route evidence.
+    current candidates are nested source decoding, typed nested sinks beyond CSV JSON text, ORC
+    typed decimal sink preservation once writer evidence exists, broader binary preservation, broad
+    ANSI decimal coercion, or scalar-left multi-column subquery diagnostics depending on the next
+    runtime route evidence.
   - Execution checklist:
     - [ ] Derive the exact admitted and unsupported shapes from the matrix, parser/runtime code, and
       existing CLI smokes before editing.
@@ -343,8 +430,8 @@ Each item below uses the same sub-checklist shape:
     and `git diff --check`.
   - Non-goals: no external SQL engine, no broad optimizer/performance claim, no object-store/table
     SQL runtime.
-  - Dependencies/blockers: parser/binder coverage, expression capability mapping, runtime operator
-    evidence, and deterministic diagnostics.
+  - Dependencies/blockers: shared public route facade, parser/binder coverage, expression capability
+    mapping, runtime operator evidence, and deterministic diagnostics.
   - Claim boundary: scoped grammar/runtime admission only; no production SQL, performance,
     Spark-replacement, or external-fallback claim.
   - Fallback boundary: no external SQL, DataFusion, DuckDB, Spark, Polars, Velox, or query-engine
@@ -366,13 +453,17 @@ Each item below uses the same sub-checklist shape:
     - [x] Python SQL smoke reports expose runtime unsupported `status`, `diagnostics`, and
       `unsupported_reasons` for non-admitted correlated subquery shapes while preserving
       no-fallback fields.
+    - [ ] Remaining: shared public workflow route facade should land before promoting another broad
+      Python/DataFrame API family.
     - [ ] Remaining: promote the next coherent API family that lowers to an admitted runtime route
       or deterministic unsupported diagnostic.
     - [ ] Remaining: broad DataFrame parity remains gated.
-  - Runtime enablement: Python/DataFrame-style API call -> deterministic ShardLoom query lowering ->
-    admitted runtime route or explicit unsupported diagnostic -> no-fallback evidence row.
-  - Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
-    existing ShardLoom runtime evidence or returns deterministic unsupported diagnostics.
+  - Runtime enablement: Python/DataFrame-style API call -> shared public route facade ->
+    deterministic ShardLoom query lowering -> admitted runtime route or explicit unsupported
+    diagnostic -> no-fallback evidence row.
+  - Next slice outcome: after the shared route facade lands, promote the next coherent
+    Python/DataFrame API family only when it lowers to existing ShardLoom runtime evidence or returns
+    deterministic unsupported diagnostics.
   - Execution checklist:
     - [ ] Add alias/canonical equivalence tests for the chosen API family.
     - [ ] Preserve no hidden pandas/Polars execution.
@@ -390,8 +481,8 @@ Each item below uses the same sub-checklist shape:
     `scripts/check_python_user_surface_completion.py`, and `git diff --check`.
   - Non-goals: no broad pandas/Polars backend, no production DataFrame claim, no unbounded
     materialization convenience.
-  - Dependencies/blockers: SQL/runtime capability coverage, output-plan support, and typed Python
-    result models.
+  - Dependencies/blockers: shared public route facade, SQL/runtime capability coverage, output-plan
+    support, and typed Python result models.
   - Claim boundary: scoped Python ergonomic surface only; no performance, production DataFrame, or
     external-fallback claim.
   - Fallback boundary: no hidden pandas, Polars, DuckDB, DataFusion, Spark, or external DataFrame

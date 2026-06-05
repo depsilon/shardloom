@@ -16,6 +16,89 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D complex CSV JSON-text output breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/complex-csv-flat-sink-breadth` / PR #1109.
+  - Source:
+    - `README.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/rfc-phase-traceability.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`.
+    - `website-src`, `website-public`, and `website` generated static artifacts.
+  - Scope:
+    - Admitted scoped `ARRAY[...]` and `STRUCT(...)` result-boundary projections to write local CSV
+      outputs as JSON text cells while preserving JSONL result evidence and no-fallback fields.
+    - Kept typed structured sinks blocked for complex result batches, including Parquet, Arrow IPC,
+      Avro, ORC, and Vortex output boundaries.
+    - Added shared JSONL plus CSV complex fanout support while still blocking mixed logical-text and
+      typed flat-sink fanout for complex batches.
+    - Extended the admitted-semantics validator with output-backed fixture execution and artifact
+      digest checks for complex CSV output.
+    - Updated latest admitted-semantics counts to `matrix_row_count=121`,
+      `executable_fixture_count=99`, `diagnostic_case_count=22`,
+      `unsupported_diagnostic_count=20`, `runtime_error_diagnostic_count=1`, and
+      `invalid_shape_diagnostic_count=1`.
+    - Updated the README support summary, phase plan, traceability docs, hard release readiness
+      gate, release metadata guard, compute-flow source docs, admitted-semantics matrix docs, and
+      generated website/static pages.
+    - Promoted the shared public workflow route facade/narrow-waist slice to the first active 6D
+      priority before further SQL/Python/DataFrame surface widening, with route/evidence acceptance
+      criteria attached to the live phase plan.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli complex_projection -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_output_capillary_skips_small_local_csv_output -- --nocapture`
+      passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-complex-csv-output.json`
+      passed with `matrix_row_count=121`, `executable_fixture_count=99`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, no performance claim reported, and matching complex CSV output
+      artifact digest `sha256:8070ecd193d0ce8c233d890f1fb2042127a95e9a166c3e77fbe689a738334f43`.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-complex-csv-output.json --output target/release-readiness-complex-csv-output.json`
+      remained blocked only on existing broad release/package/checklist gates; fallback and
+      external-engine fields remained false.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-complex-csv-output.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-complex-csv-output.json`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped output-admission breadth,
+      matrix/release evidence, docs/static freshness, and CSV JSON-text serialization work, not a
+      timed benchmark hot path, benchmark methodology change, or new performance claim.
+  - Claim boundary:
+    - This slice admits scoped complex projection values at the JSONL result boundary and local CSV
+      JSON-text output boundary only. It does not claim nested source decoding, typed nested
+      structured sink support, production SQL/DataFrame support, performance equivalence, or Spark
+      replacement.
+  - Fallback boundary:
+    - Complex projection CSV output executes through ShardLoom's bounded local-source runtime. No
+      pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame
+      backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D 6-series checklist cleanup and HAVING row-value/quantified
   breadth
   - Date: 2026-06-05

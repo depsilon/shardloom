@@ -73,6 +73,9 @@ class SqlFixtureCase:
     expected_fields: dict[str, str]
     property_seed: int | None = None
     auxiliary_sources: tuple[tuple[str, str, str], ...] = ()
+    output_format: str | None = None
+    output_name: str | None = None
+    expected_output_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -597,6 +600,46 @@ def complex_struct_source_projection_case() -> SqlFixtureCase:
             "projected_columns": "id,payload",
             "claim_gate_status": "fixture_smoke_only",
         },
+    )
+
+
+def complex_csv_output_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="complex_csv_output_projection",
+        source_name="complex-csv-output.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,\n",
+        statement_template=(
+            "SELECT id,ARRAY[1,2] AS values,STRUCT(label, amount) AS payload "
+            "FROM '{source}' LIMIT 2"
+        ),
+        expected_jsonl=(
+            '{"id":1,"values":[1,2],"payload":{"label":"alpha","amount":8}}\n'
+            '{"id":2,"values":[1,2],"payload":{"label":"beta","amount":null}}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_complex_projection_limit",
+            "complex_projection_runtime_execution": "true",
+            "complex_projection_columns": "values,payload",
+            "complex_projection_count": "2",
+            "complex_projection_kind": "array_literal,struct_source_columns",
+            "complex_projection_output_dtype": "list,struct",
+            "complex_projection_source_column": "label,amount",
+            "complex_projection_output_boundary": "csv_json_text_output_with_result_jsonl_evidence",
+            "output_format": "csv",
+            "output_plan_conversion_blocker": "none",
+            "output_plan_type_nullability_support": "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
+            "output_fidelity_loss": "csv:csv_text_roundtrip_loses_static_and_nested_type_metadata",
+            "result_replay_verified": "true",
+            "projected_columns": "id,values,payload",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        output_format="csv",
+        output_name="complex-csv-output-result.csv",
+        expected_output_text=(
+            'id,values,payload\n'
+            '1,"[1,2]","{""label"":""alpha"",""amount"":8}"\n'
+            '2,"[1,2]","{""label"":""beta"",""amount"":null}"\n'
+        ),
     )
 
 
@@ -4411,6 +4454,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         binary_text_literal_projection_case(),
         complex_array_literal_projection_case(),
         complex_struct_source_projection_case(),
+        complex_csv_output_projection_case(),
         complex_distinct_projection_equality_case(),
         complex_order_by_projection_case(),
         sql_union_complex_distinct_equality_case(),
@@ -4878,10 +4922,25 @@ def run_executable_case(
         format_paths[placeholder] = auxiliary_path
         auxiliary_refs.append(auxiliary_path)
     statement = case.statement_template.format(**format_paths)
+    cli_args = ["sql-local-source-smoke", statement]
+    output_path: Path | None = None
+    if case.output_format is not None:
+        output_name = case.output_name or f"{case.case_id}.{case.output_format}"
+        output_path = work_dir / case.case_id / output_name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        cli_args.extend(
+            [
+                "--output-format",
+                case.output_format,
+                "--output",
+                str(output_path),
+                "--allow-overwrite",
+            ]
+        )
     completed = run_cli_json(
         repo_root=repo_root,
         binary=binary,
-        args=["sql-local-source-smoke", statement],
+        args=cli_args,
     )
     payload, blockers = parse_json_output(completed, case.case_id)
     artifact_ref = work_dir / "artifacts" / f"{case.case_id}.json"
@@ -4895,6 +4954,20 @@ def run_executable_case(
         },
     )
     expected_digest = digest_text(case.expected_jsonl)
+    expected_output_digest = (
+        digest_text(case.expected_output_text)
+        if case.expected_output_text is not None
+        else None
+    )
+    observed_output_digest = ""
+    if output_path is not None:
+        if not output_path.exists():
+            blockers.append(f"{case.case_id}: expected output artifact was not written")
+        else:
+            observed_output_text = output_path.read_text(encoding="utf-8")
+            observed_output_digest = digest_text(observed_output_text)
+            if case.expected_output_text is not None and observed_output_text != case.expected_output_text:
+                blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
     if completed.returncode != 0:
         blockers.append(f"{case.case_id}: returncode={completed.returncode}")
     if payload:
@@ -4935,13 +5008,16 @@ def run_executable_case(
     return {
         "case_id": case.case_id,
         "kind": "sql_local_source_decoded_reference",
-        "command": command_text([str(binary), "sql-local-source-smoke", statement, "--format", "json"]),
+        "command": command_text([str(binary), *cli_args, "--format", "json"]),
         "returncode": completed.returncode,
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),
         "source_ref": rel(repo_root, source_path),
         "auxiliary_source_refs": [rel(repo_root, path) for path in auxiliary_refs],
+        "output_ref": rel(repo_root, output_path) if output_path is not None else "",
         "decoded_reference_digest": expected_digest,
+        "expected_output_digest": expected_output_digest or "",
+        "observed_output_digest": observed_output_digest,
         "correctness_digest": fields.get("correctness_digest", "") if payload else "",
         "result_digest": fields.get("result_digest", "") if payload else "",
         "property_seed": case.property_seed,

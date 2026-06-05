@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=120
-executable_fixture_count=98
+matrix_row_count=121
+executable_fixture_count=99
 diagnostic_case_count=22
 unsupported_diagnostic_count=20
 runtime_error_diagnostic_count=1
@@ -71,6 +71,7 @@ Covered fixture rows:
 - `binary_text_literal_projection`
 - `complex_array_literal_projection`
 - `complex_struct_source_projection`
+- `complex_csv_output_projection`
 - `complex_distinct_projection_equality`
 - `complex_order_by_projection`
 - `sql_union_complex_distinct_equality`
@@ -196,13 +197,14 @@ fallback. Scoped
 scalar-expression `JOIN ON` predicates over qualified local sources are executable through the
 bounded expression-join route, including scoped logical `OR` over admitted qualified scalar leaves;
 complex `ARRAY[...]`/`STRUCT(...)` join keys still block deterministically. Scoped `ARRAY[...]`
-literal projection and `STRUCT(<source column>, ...)` projection are
-executable through the JSONL result boundary only. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
+literal projection and `STRUCT(<source column>, ...)` projection are executable through the JSONL
+result boundary and local CSV JSON-text output cells. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
 over those already-materialized ARRAY/STRUCT projection values are executable through structural
 result-row equality, and scoped `ORDER BY` over those complex projection values is executable
 through canonical structural result-boundary sort keys. Nested source decoding, broad ANSI nested
 ordering, complex subquery membership materialization, complex-key joins, broader non-scalar join
-predicates, and flat/structured sink persistence remain outside the claim boundary.
+predicates, and typed structured nested sink persistence beyond CSV JSON text remain outside the
+claim boundary.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
