@@ -942,7 +942,7 @@ fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
             DataType::Decimal128(_, _) | DataType::Decimal256(_, _)
         ) {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries in this scoped runtime slice; no fallback execution was attempted",
+                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns, so ShardLoom blocks before provider conversion instead of allowing a writer panic; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries and scoped local Vortex typed decimal output in this runtime slice; no fallback execution was attempted",
                 field.name()
             )));
         }
@@ -1835,6 +1835,12 @@ mod tests {
             error.to_string().contains(
                 "local ORC output does not yet admit typed decimal128 preservation for column 'amount'"
             ),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns"),
             "{error}"
         );
         assert!(

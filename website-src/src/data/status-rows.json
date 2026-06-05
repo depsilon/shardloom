@@ -356,8 +356,8 @@
       "runtime_execution",
       "claim_gate_status"
     ],
-    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, joins, local sink fanout, and scoped binary sink preservation, including non-null Vortex binary output.",
-    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, broad subqueries, generalized joins, Vortex SQL sources, nullable/all-null Vortex binary rows and other NULL-bearing Vortex output batches, broad structured-format semantics, and production semantics remain blocked.",
+    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, joins, local sink fanout, and scoped binary/typed decimal sink preservation, including nullable/all-null local Vortex binary and decimal output when dtype/family evidence is present.",
+    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, broad subqueries, generalized joins, Vortex SQL sources, other NULL-bearing Vortex output batches, broad structured-format semantics, and production semantics remain blocked.",
     "references": [
       "python/README.md",
       "docs/architecture/compute-engine-flow-reference.md"

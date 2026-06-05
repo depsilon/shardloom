@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped nullable Vortex binary/decimal sink admission
+      follow-through
+  - Date: 2026-06-04
+  - Branch/PR: `codex/6d-vortex-nullable-sinks` / PR #1092.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/architecture/global-architecture-review.md`.
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
+    - `docs/use-cases/use-case-index.yml`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/benchmarking.md`.
+    - `docs/skills/license-provenance.md`.
+  - Scope:
+    - Admitted scoped nullable/all-null local Vortex binary output when dtype/family evidence is
+      present.
+    - Admitted scoped nullable/all-null local Vortex `decimal128(p,s)` output when dtype evidence is
+      present, preserving precision/scale through the feature-gated Vortex writer/reopen path.
+    - Threaded `ResultBatchState` logical dtype hints through SQL Vortex output planning into
+      `VortexPreparedStateWriteRequest` so all-null columns can select the correct Vortex native
+      array builder without guessing from values.
+    - Kept other NULL-bearing Vortex output families blocked before writer conversion with the
+      deterministic `vortex_null_family_not_admitted` diagnostic and no fallback execution.
+    - Rechecked ORC typed decimal output against `orc-rust 0.8.0`; because the current provider can
+      read decimal128 but its Arrow writer does not support decimal128 columns, ShardLoom keeps ORC
+      typed decimal sinks blocked before provider conversion instead of allowing a writer panic.
+    - Updated active phase docs, admitted semantics, source use-case records, status wording, and
+      generated website/static assets so benchmark/status pages reflect the latest boundary.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_scalar_all_null_binary_rows_write_reopens_binary -- --nocapture` passed.
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_scalar_all_null_decimal_rows_write_reopens_decimal128 -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write decimal_cast_all_null_typed_hint_writes_vortex_sink -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write binary_cast_all_null_typed_hint_writes_vortex_sink -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --features vortex-write decimal_generic_expression_preserves_all_null_typed_hint -- --nocapture` passed.
+    - `cargo test -p shardloom-cli scoped_binary_decimal_nulls_are_admitted_for_vortex_sink -- --nocapture` passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io orc_decimal_output_blocks_before_writer_conversion -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_use_case_index.py scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_use_case_index.py` passed with 24 use cases and 16 families.
+    - `python3 scripts/check_use_case_coverage.py` passed.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-vortex-nullable-sinks.json` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --features vortex-write,universal-format-io --all-targets -- -D warnings` passed.
+    - `cargo clippy -p shardloom-cli --features vortex-write --all-targets -- -D warnings` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. The change admits scoped nullable Vortex
+      binary/decimal sink preservation and docs/site freshness only; it does not make a speedup,
+      superiority, or claim-grade performance statement.
+  - Claim boundary:
+    - This slice admits only scoped flat scalar local Vortex binary and `decimal128(p,s)` result
+      columns, including nullable/all-null columns when dtype/family evidence is present. It does not
+      admit other NULL-bearing Vortex output families, ORC typed decimal sinks, broad ANSI decimal
+      coercion, decimal/float comparison, broad SQL/DataFrame parity, production support, benchmark
+      speedup, public performance superiority, or release readiness.
+  - Fallback boundary:
+    - The admitted path stays inside ShardLoom local SQL/Python output planning plus feature-gated
+      upstream Vortex-native array/write/reopen APIs. No Spark, DataFusion, DuckDB, Polars, Velox,
+      or Vortex query-engine integration is used or reported as ShardLoom execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D non-null local Vortex typed decimal sink admission
       follow-through
   - Date: 2026-06-04
