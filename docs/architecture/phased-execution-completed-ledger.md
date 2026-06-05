@@ -16,6 +16,125 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-4 compact evidence and tiered result-sink modes for hot lanes
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-prepared-state-contract` / current benchmark optimization PR
+    batch.
+  - Source:
+    - `shardloom-cli/src/benchmark_runtime.rs`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - Promoted benchmark website/public artifact data.
+  - Scope:
+    - Verified and closed the compact evidence/sink tier contract for hot prepared/native lanes.
+      The runtime exposes `runtime_minimal`, `metadata_sink`, `full_vortex_replay`, and
+      `publication_full` tiers and maps them to `minimal_runtime`, `certified`, or `full_replay`
+      evidence levels without changing execution semantics.
+    - Ensured batch reports and promoted benchmark rows carry requested tier, actual tier,
+      selected tier, sink tier, replay-required status, sink-timing route-inclusion status/reason,
+      result-sink replay skip reason, human evidence render skip reason, no-fallback fields, and
+      no-external-engine fields.
+    - Preserved publication behavior: `publication_full` and `full_vortex_replay` require result
+      sink replay proof, while `runtime_minimal` and `metadata_sink` can skip full replay or human
+      rendering only through explicit non-claim-grade fields.
+    - Left the current promoted artifact as a publication-full artifact. The static rows prove
+      publication evidence posture, while Rust/CLI tests cover compact hot-lane tier selection and
+      conflict rejection.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_runtime_evidence_level`
+      passed.
+    - `cargo test -p shardloom-cli benchmark_runtime` passed.
+    - Static artifact inspection of `website/assets/benchmarks/latest/published-benchmark-rows-001.json`
+      and `website/assets/benchmarks/latest/published-benchmark-rows-004.json` found no successful
+      ShardLoom prepared/native rows missing `requested_evidence_tier`, `actual_evidence_tier`,
+      `selected_evidence_tier`, `sink_tier`, `evidence_tier_result_sink_replay_required`,
+      `sink_timing_included_in_route_total`, `sink_timing_inclusion_reason`,
+      `result_sink_replay_skip_reason`, `human_evidence_render_skip_reason`,
+      `fallback_attempted`, or `external_engine_invoked`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete` and no blockers.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - This closeout does not rerun the full benchmark suite and does not make a new performance
+      claim. The current static artifact remains publication-full evidence; compact non-publication
+      tier behavior is covered by focused runtime and CLI tests.
+  - Claim boundary:
+    - Compact evidence tiers are non-publication/non-claim-grade unless full replay/certificate
+      proof and validators explicitly permit claim-grade status. Tiering explains proof overhead; it
+      does not establish superiority, production readiness, SQL/DataFrame breadth, or
+      Spark-displacement.
+  - Fallback boundary:
+    - Evidence/sink tiering cannot hide or introduce fallback execution. ShardLoom rows keep
+      `fallback_attempted=false` and `external_engine_invoked=false`; no pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, Dask, or Vortex query-engine integration executes or verifies hot
+      lane work.
+
+- [x] Session label: PERF-INNOV-3 prepared-state optimization contract
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-prepared-state-contract` / current benchmark optimization PR
+    batch.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `python/tests/test_release_scripts.py`.
+    - Promoted benchmark website/public artifact data.
+  - Scope:
+    - Added the unified `shardloom.traditional_analytics.prepared_state_optimization.v1`
+      evidence contract for successful `shardloom-prepare-batch` rows so manifest reuse,
+      full prepare/register, role-scoped repair, and append-only delta overlay paths report
+      through one schema.
+    - Threaded prepared-state optimization strategy/status, index/manifest/source digests,
+      changed/reused/repaired roles, invalidation reason, manifest/cache/artifact/repair/overlay
+      timings, replay proof, stale-artifact posture, and explicit no-fallback/no-external-engine
+      fields through Rust reports, Python benchmark rows, artifact promotion, static artifact
+      completeness checks, and website/public benchmark data.
+    - Normalized strategy values to `full_prepare_register`, `manifest_reuse`,
+      `role_scoped_repair`, and `append_only_delta_overlay`, with deterministic failure posture for
+      missing success evidence, stale artifact reuse, overlay admission mismatches, and external
+      engine/fallback flags.
+    - Backfilled promoted benchmark rows from existing prepared-state index, dependency, repair,
+      and delta-overlay evidence so checked-in static artifacts satisfy the new contract without a
+      full benchmark rerun.
+    - Updated release-script fixture coverage for the newer source-read and Vortex write-plan
+      fields so the Python package smoke tests validate the current benchmark evidence schema
+      rather than a stale pre-`PERF-INNOV-3` row shape.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 438 tests and 2 skipped.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m build python`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+      passed with `proof_status=passed`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete` and no blockers.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed with 600 ShardLoom rows validated, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - This slice repromotes the existing `full_local` benchmark artifact to expose the unified
+      prepared-state optimization schema. It does not rerun the full benchmark suite, does not
+      change route geomeans, and does not make a new speed, superiority, or Spark-displacement
+      claim.
+  - Claim boundary:
+    - The claim is scoped to evidence/schema unification for local prepared-state
+      reuse/repair/overlay paths and release/package validation of that schema. Broader
+      prepared-state performance, CDC/table transaction, persistent cache, object-store/table, and
+      production readiness claims remain gated by later benchmark and release evidence.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, DataFusion, Spark, Velox, Dask, external repair engine, or Vortex
+      query-engine integration executes, validates, repairs, or merges prepared-state optimization
+      paths for ShardLoom rows. Successful ShardLoom rows keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PERF-INNOV-2 Capillary Vortex write-plan batching attribution
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-vortex-write-batching` / current benchmark optimization PR

@@ -369,6 +369,10 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "vortex_scan_open_micros",
     "vortex_scenario_scan_millis",
     "vortex_scenario_scan_micros",
+    "scan_chunk_iter_micros",
+    "vortex_chunk_iteration_micros",
+    "vortex_projected_field_extract_micros",
+    "vortex_encoded_kernel_evidence_micros",
     "exclusive_vortex_scan_millis",
     "vortex_scan_bytes_touched",
     "vortex_scan_segments_touched",
@@ -376,6 +380,9 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "vortex_scan_columns_touched",
     "vortex_scan_decoded_values",
     "exclusive_operator_compute_millis",
+    "operator_kernel_micros",
+    "operator_finalize_micros",
+    "result_assembly_micros",
     "exclusive_result_sink_write_millis",
     "exclusive_stage_sum_millis",
     "exclusive_stage_residual_millis",
@@ -493,6 +500,13 @@ VORTEX_SCAN_SPLIT_MICROS_FIELDS = (
     "vortex_metadata_verify_micros",
     "vortex_scan_open_micros",
     "vortex_scenario_scan_micros",
+    "scan_chunk_iter_micros",
+    "vortex_chunk_iteration_micros",
+    "vortex_projected_field_extract_micros",
+    "vortex_encoded_kernel_evidence_micros",
+    "operator_kernel_micros",
+    "operator_finalize_micros",
+    "result_assembly_micros",
 )
 VORTEX_SCAN_COUNTER_FIELDS = (
     "vortex_scan_bytes_touched",
@@ -955,6 +969,34 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_boundary",
 )
 PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
+    "prepare_batch_prepared_state_optimization_schema_version",
+    "prepare_batch_prepared_state_optimization_status",
+    "prepare_batch_prepared_state_optimization_strategy",
+    "prepare_batch_prepared_state_optimization_index_digest",
+    "prepare_batch_prepared_state_optimization_manifest_digest",
+    "prepare_batch_prepared_state_optimization_source_packet_digest",
+    "prepare_batch_prepared_state_optimization_changed_roles",
+    "prepare_batch_prepared_state_optimization_reused_roles",
+    "prepare_batch_prepared_state_optimization_repaired_roles",
+    "prepare_batch_prepared_state_optimization_invalidated_derived_states",
+    "prepare_batch_prepared_state_optimization_invalidation_reason",
+    "prepare_batch_prepared_state_optimization_manifest_lookup_micros",
+    "prepare_batch_prepared_state_optimization_manifest_match_micros",
+    "prepare_batch_prepared_state_optimization_cache_miss_create_micros",
+    "prepare_batch_prepared_state_optimization_artifact_write_micros",
+    "prepare_batch_prepared_state_optimization_repair_micros",
+    "prepare_batch_prepared_state_optimization_delta_overlay_micros",
+    "prepare_batch_prepared_state_optimization_replay_verification_micros",
+    "prepare_batch_prepared_state_optimization_delta_overlay_admitted",
+    "prepare_batch_prepared_state_optimization_base_artifact_reused",
+    "prepare_batch_prepared_state_optimization_proof_digest",
+    "prepare_batch_prepared_state_optimization_replay_proof",
+    "prepare_batch_prepared_state_optimization_blocker_id",
+    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed",
+    "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
+    "prepare_batch_prepared_state_optimization_fallback_attempted",
+    "prepare_batch_prepared_state_optimization_external_engine_invoked",
+    "prepare_batch_prepared_state_optimization_claim_boundary",
     "prepare_batch_prepared_state_index_schema_version",
     "prepare_batch_prepared_state_index_lookup_status",
     "prepare_batch_prepared_state_index_digest",
@@ -993,6 +1035,9 @@ PREPARED_STATE_INDEX_SCHEMA_VERSION = (
 )
 PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
+)
+PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_optimization.v1"
 )
 PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy"
 VORTEX_SCOUT_INGRESS_SCHEMA_VERSION = (
@@ -6071,8 +6116,12 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "vortex_open_footer_micros",
         "scan_open_micros",
         "scan_chunk_iter_micros",
+        "vortex_chunk_iteration_micros",
+        "vortex_projected_field_extract_micros",
+        "vortex_encoded_kernel_evidence_micros",
         "operator_kernel_micros",
         "operator_finalize_micros",
+        "result_assembly_micros",
         "result_sink_plan_micros",
         "result_sink_write_micros",
         "result_sink_replay_micros",
@@ -6223,7 +6272,267 @@ def prepare_batch_dependency_repair_fields(
         return {}
     evidence = evidence or {}
     default_status = "missing_success_evidence" if status == "success" else "not_executed"
+    optimization_strategy = first_meaningful_field(
+        evidence.get("prepare_batch_prepared_state_optimization_strategy"),
+        "not_reported" if status == "success" else "not_executed",
+    )
+    if optimization_strategy == "not_reported" and status == "success":
+        lookup_status = str(
+            evidence.get("prepare_batch_prepared_state_lookup_status") or ""
+        )
+        repair_status = str(
+            evidence.get("prepare_batch_prepared_state_partial_repair_status") or ""
+        )
+        delta_admitted = parse_optional_bool(
+            evidence.get("prepare_batch_prepared_state_delta_overlay_admitted")
+        )
+        if lookup_status == "workspace_manifest_hit":
+            optimization_strategy = "manifest_reuse"
+        elif delta_admitted is True:
+            optimization_strategy = "append_only_delta_overlay"
+        elif repair_status == "admitted_role_repair_completed":
+            optimization_strategy = "role_scoped_repair"
+        elif lookup_status == "cache_miss_created_and_registered":
+            optimization_strategy = "full_prepare_register"
+    optimization_status = first_meaningful_field(
+        evidence.get("prepare_batch_prepared_state_optimization_status"),
+        "missing_success_evidence" if status == "success" else "not_executed",
+    )
+    if optimization_status == "missing_success_evidence" and status == "success":
+        optimization_status = {
+            "manifest_reuse": "prepared_state_manifest_hit",
+            "append_only_delta_overlay": "prepared_state_delta_overlay_admitted",
+            "role_scoped_repair": "prepared_state_role_repair_admitted",
+            "full_prepare_register": "prepared_state_full_prepare_registered",
+        }.get(optimization_strategy, optimization_status)
     return {
+        "prepare_batch_prepared_state_optimization_schema_version": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_schema_version"),
+            PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION,
+        ),
+        "prepare_batch_prepared_state_optimization_status": optimization_status,
+        "prepare_batch_prepared_state_optimization_strategy": optimization_strategy,
+        "prepare_batch_prepared_state_optimization_index_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_index_digest"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_index_digest"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_manifest_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_manifest_digest"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_dependency_manifest_digest"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_source_packet_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_source_packet_digest"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_dependency_source_packet_digest"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_changed_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_changed_roles"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_dependency_changed_roles"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_reused_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_reused_roles"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_partial_repair_reused_roles"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_repaired_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_repaired_roles"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_partial_repair_repaired_roles"),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_invalidated_derived_states": first_meaningful_field(
+            evidence.get(
+                "prepare_batch_prepared_state_optimization_invalidated_derived_states"
+            ),
+            first_meaningful_field(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_invalidated_derived_states"
+                ),
+                "not_reported" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_invalidation_reason": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_invalidation_reason"),
+            "none" if optimization_strategy == "manifest_reuse" else default_status,
+        ),
+        "prepare_batch_prepared_state_optimization_manifest_lookup_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_manifest_lookup_micros"
+                )
+            )
+            or parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_manifest_lookup_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_manifest_match_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_manifest_match_micros"
+                )
+            )
+            or parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_cache_hit_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_cache_miss_create_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_cache_miss_create_micros"
+                )
+            )
+            or parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_cache_miss_create_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_artifact_write_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_artifact_write_micros"
+                )
+            )
+            or parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_artifact_write_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_repair_micros": (
+            parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_optimization_repair_micros")
+            )
+            or (
+                parse_optional_float(
+                    evidence.get("prepare_batch_prepared_state_partial_repair_micros")
+                )
+                if optimization_strategy == "role_scoped_repair"
+                else 0.0
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_delta_overlay_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_delta_overlay_micros"
+                )
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_replay_verification_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_replay_verification_micros"
+                )
+            )
+            or parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_replay_verification_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_optimization_delta_overlay_admitted": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
+                )
+            )
+            is True
+            or parse_optional_bool(
+                evidence.get("prepare_batch_prepared_state_delta_overlay_admitted")
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_optimization_base_artifact_reused": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_base_artifact_reused"
+                )
+            )
+            is True
+            or optimization_strategy
+            in {"manifest_reuse", "role_scoped_repair", "append_only_delta_overlay"}
+        ),
+        "prepare_batch_prepared_state_optimization_proof_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_proof_digest"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_delta_overlay_correctness_digest"),
+                first_meaningful_field(
+                    evidence.get("prepare_batch_prepared_state_partial_repair_replay_proof"),
+                    "not_reported" if status == "success" else "not_executed",
+                ),
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_replay_proof": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_replay_proof"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_delta_overlay_replay_proof"),
+                first_meaningful_field(
+                    evidence.get("prepare_batch_prepared_state_partial_repair_replay_proof"),
+                    "not_reported" if status == "success" else "not_executed",
+                ),
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_blocker_id": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_blocker_id"),
+            first_meaningful_field(
+                evidence.get("prepare_batch_prepared_state_partial_repair_blocker_id"),
+                "none" if status == "success" else "not_executed",
+            ),
+        ),
+        "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_optimization_no_fallback_policy_status": first_meaningful_field(
+            evidence.get(
+                "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
+            ),
+            "passed_fallback_false_external_engine_false"
+            if status == "success"
+            else "not_executed",
+        ),
+        "prepare_batch_prepared_state_optimization_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_fallback_attempted"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_optimization_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_optimization_external_engine_invoked"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_optimization_claim_boundary": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_optimization_claim_boundary"),
+            (
+                "Unified prepared-state optimization contract only; no stale reuse, "
+                "external-engine execution, or performance superiority claim is authorized"
+            ),
+        ),
         "prepare_batch_prepared_state_index_schema_version": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_index_schema_version"),
             PREPARED_STATE_INDEX_SCHEMA_VERSION,
@@ -14128,6 +14437,88 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError(
                     "prepared-state index evidence cannot report external engine execution"
                 )
+            if (
+                metrics.get("prepare_batch_prepared_state_optimization_fallback_attempted")
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state optimization evidence cannot report fallback attempts"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_optimization_external_engine_invoked"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state optimization evidence cannot report external engine execution"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state optimization cannot allow stale artifact reuse"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
+                )
+                != "passed_fallback_false_external_engine_false"
+            ):
+                raise RuntimeError(
+                    "prepared-state optimization must report passed no-fallback policy"
+                )
+            optimization_strategy = str(
+                metrics.get("prepare_batch_prepared_state_optimization_strategy") or ""
+            )
+            optimization_status = str(
+                metrics.get("prepare_batch_prepared_state_optimization_status") or ""
+            )
+            if optimization_strategy not in {
+                "full_prepare_register",
+                "manifest_reuse",
+                "role_scoped_repair",
+                "append_only_delta_overlay",
+            }:
+                raise RuntimeError(
+                    "prepared-state optimization strategy is not in the supported vocabulary"
+                )
+            if optimization_status in {"", "missing_success_evidence", "not_reported"}:
+                raise RuntimeError(
+                    "ShardLoom prepare/batch success row omitted prepared-state optimization status"
+                )
+            if not metrics.get("prepare_batch_prepared_state_optimization_proof_digest"):
+                raise RuntimeError(
+                    "prepared-state optimization must report a proof digest"
+                )
+            if optimization_strategy == "append_only_delta_overlay":
+                if (
+                    metrics.get(
+                        "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
+                    )
+                    is not True
+                ):
+                    raise RuntimeError(
+                        "append-only prepared-state optimization requires admitted delta overlay"
+                    )
+                if (
+                    metrics.get(
+                        "prepare_batch_prepared_state_optimization_base_artifact_reused"
+                    )
+                    is not True
+                ):
+                    raise RuntimeError(
+                        "append-only prepared-state optimization must reuse the base artifact"
+                    )
+            if optimization_strategy == "role_scoped_repair" and not metrics.get(
+                "prepare_batch_prepared_state_optimization_repaired_roles"
+            ):
+                raise RuntimeError(
+                    "role-scoped prepared-state optimization must report repaired roles"
+                )
             repair_status = str(
                 metrics.get("prepare_batch_prepared_state_partial_repair_status") or ""
             )
@@ -18515,6 +18906,7 @@ def vortex_scan_attribution_stage_metrics(
     evidence: dict[str, Any] | None = None,
     *,
     micros_to_millis: Callable[[str], float | None] | None = None,
+    micros_to_int: Callable[[str], int | None] | None = None,
 ) -> dict[str, Any]:
     evidence = evidence or {}
 
@@ -18523,23 +18915,31 @@ def vortex_scan_attribution_stage_metrics(
             return micros_to_millis(field)
         return micros_to_millis_field(evidence.get(field))
 
+    def micros(field: str) -> int | None:
+        if micros_to_int is not None:
+            return micros_to_int(field)
+        return parse_optional_int(evidence.get(field))
+
     metrics = {
         "vortex_footer_open_millis": millis("vortex_footer_open_micros"),
-        "vortex_footer_open_micros": parse_optional_int(
-            evidence.get("vortex_footer_open_micros")
-        ),
+        "vortex_footer_open_micros": micros("vortex_footer_open_micros"),
         "vortex_metadata_verify_millis": millis("vortex_metadata_verify_micros"),
-        "vortex_metadata_verify_micros": parse_optional_int(
-            evidence.get("vortex_metadata_verify_micros")
-        ),
+        "vortex_metadata_verify_micros": micros("vortex_metadata_verify_micros"),
         "vortex_scan_open_millis": millis("vortex_scan_open_micros"),
-        "vortex_scan_open_micros": parse_optional_int(
-            evidence.get("vortex_scan_open_micros")
-        ),
+        "vortex_scan_open_micros": micros("vortex_scan_open_micros"),
         "vortex_scenario_scan_millis": millis("vortex_scenario_scan_micros"),
-        "vortex_scenario_scan_micros": parse_optional_int(
-            evidence.get("vortex_scenario_scan_micros")
+        "vortex_scenario_scan_micros": micros("vortex_scenario_scan_micros"),
+        "scan_chunk_iter_micros": micros("scan_chunk_iter_micros"),
+        "vortex_chunk_iteration_micros": micros("vortex_chunk_iteration_micros"),
+        "vortex_projected_field_extract_micros": micros(
+            "vortex_projected_field_extract_micros"
         ),
+        "vortex_encoded_kernel_evidence_micros": micros(
+            "vortex_encoded_kernel_evidence_micros"
+        ),
+        "operator_kernel_micros": micros("operator_kernel_micros"),
+        "operator_finalize_micros": micros("operator_finalize_micros"),
+        "result_assembly_micros": micros("result_assembly_micros"),
     }
     metrics.update(
         {
@@ -18960,6 +19360,16 @@ def successful_result_from_iterations(
             if parsed is not None
         ]
         return None if not values else round(statistics.mean(values) / 1000.0, 4)
+
+    def mean_evidence_micros_int(field: str) -> int | None:
+        values = [
+            parsed
+            for row in evidence_rows
+            if row
+            for parsed in [parse_optional_int(row.get(field))]
+            if parsed is not None
+        ]
+        return None if not values else int(round(statistics.mean(values)))
 
     def mean_evidence_float(field: str) -> float | None:
         values = [
@@ -19659,6 +20069,7 @@ def successful_result_from_iterations(
         vortex_scan_attribution_stage_metrics(
             evidence,
             micros_to_millis=mean_evidence_micros,
+            micros_to_int=mean_evidence_micros_int,
         )
     )
     metrics.update(prepared_native_vortex_lifecycle_metrics(evidence))

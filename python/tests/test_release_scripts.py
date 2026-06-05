@@ -399,6 +399,10 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_read_header_scout_ms": 0.0 if cold_route else None,
             "source_read_byte_acquisition_ms": 0.0 if cold_route else None,
             "source_read_full_body_ms": 0.0 if cold_route else None,
+            "source_read_typed_decode_ms": 0.0 if cold_route else None,
+            "source_read_row_assembly_ms": 0.0 if cold_route else None,
+            "source_read_anomaly_quarantine_ms": 0.0 if cold_route else None,
+            "source_read_columnar_handoff_ms": 0.0 if cold_route else None,
             "source_read_scout_residual_ms": 0.0 if cold_route else None,
             "source_read_scout_reuse_status": (
                 "not_reused_fresh_source_read" if cold_route else "not_applicable"
@@ -460,6 +464,49 @@ class ReleaseScriptTests(unittest.TestCase):
                 "distinct_fact_dim_cdc_artifact_contract_preserved_while_reusing_vortex_runtime_session"
                 if cold_route
                 else "not_applicable"
+            ),
+            "vortex_write_plan_schema_version": (
+                "shardloom.traditional_analytics.vortex_write_plan.v1"
+            ),
+            "vortex_write_plan_status": (
+                "bounded_capillary_write_plan_derived_from_writer_context"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "vortex_write_plan_artifact_count": 2 if cold_route else 0,
+            "vortex_write_plan_artifact_roles": (
+                "fact,dim" if cold_route else "not_applicable_non_cold_route"
+            ),
+            "vortex_write_plan_total_artifact_bytes": 1024 if cold_route else 0,
+            "vortex_write_plan_total_artifact_rows": 100 if cold_route else 0,
+            "vortex_write_plan_writer_context_count": 1 if cold_route else 0,
+            "vortex_write_plan_shared_writer_context": bool(cold_route),
+            "vortex_write_plan_writer_context_write_count": 2 if cold_route else 0,
+            "vortex_write_plan_writer_context_reuse_hit_count": 1 if cold_route else 0,
+            "vortex_write_plan_context_open_ms": 0.0 if cold_route else None,
+            "vortex_write_plan_segment_write_ms": 0.0 if cold_route else None,
+            "vortex_write_plan_workspace_stage_ms": 0.0 if cold_route else None,
+            "vortex_write_plan_digest_ms": 0.0 if cold_route else None,
+            "vortex_write_plan_verification_ms": 0.0 if cold_route else None,
+            "vortex_write_plan_coalescing_status": (
+                "scheduled_multi_artifact_writes_on_shared_context"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "vortex_write_plan_coalescing_reason": (
+                "distinct_fact_dim_cdc_artifact_contract_preserved_while_reusing_vortex_runtime_session"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "vortex_write_plan_digest_status": (
+                "streaming_workspace_writer_digest_no_post_write_digest_pass"
+                if cold_route
+                else "not_applicable_non_cold_route"
+            ),
+            "vortex_write_plan_verification_status": (
+                "local_reopen_verification_completed"
+                if cold_route
+                else "not_applicable_non_cold_route"
             ),
             "source_split_count": 1,
             "source_open_count": 1,
@@ -619,6 +666,10 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_read_header_scout_ms": None,
             "source_read_byte_acquisition_ms": None,
             "source_read_full_body_ms": None,
+            "source_read_typed_decode_ms": None,
+            "source_read_row_assembly_ms": None,
+            "source_read_anomaly_quarantine_ms": None,
+            "source_read_columnar_handoff_ms": None,
             "source_read_scout_residual_ms": None,
             "source_read_scout_reuse_status": "external_baseline_only",
             "source_read_decode_status": "external_baseline_only",
@@ -643,6 +694,25 @@ class ReleaseScriptTests(unittest.TestCase):
             "vortex_workspace_stage_ms": None,
             "vortex_write_coalescing_status": "external_baseline_only",
             "vortex_write_coalescing_reason": "external_baseline_only",
+            "vortex_write_plan_schema_version": "external_baseline_only",
+            "vortex_write_plan_status": "external_baseline_only",
+            "vortex_write_plan_artifact_count": 0,
+            "vortex_write_plan_artifact_roles": "external_baseline_only",
+            "vortex_write_plan_total_artifact_bytes": 0,
+            "vortex_write_plan_total_artifact_rows": 0,
+            "vortex_write_plan_writer_context_count": 0,
+            "vortex_write_plan_shared_writer_context": False,
+            "vortex_write_plan_writer_context_write_count": 0,
+            "vortex_write_plan_writer_context_reuse_hit_count": 0,
+            "vortex_write_plan_context_open_ms": None,
+            "vortex_write_plan_segment_write_ms": None,
+            "vortex_write_plan_workspace_stage_ms": None,
+            "vortex_write_plan_digest_ms": None,
+            "vortex_write_plan_verification_ms": None,
+            "vortex_write_plan_coalescing_status": "external_baseline_only",
+            "vortex_write_plan_coalescing_reason": "external_baseline_only",
+            "vortex_write_plan_digest_status": "external_baseline_only",
+            "vortex_write_plan_verification_status": "external_baseline_only",
             "source_state_fingerprint": "external_baseline_only",
             "source_schema_fingerprint": "external_baseline_only",
             "source_parse_plan_id": "external_baseline_only",
@@ -1144,7 +1214,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_reopen_verify_millis": 5.0,
                 "vortex_scan_millis": 1.0,
                 "operator_compute_millis": 2.0,
-                "operator_kernel_micros": 0,
+                "operator_kernel_micros": 2000,
                 "result_sink_write_millis": 3.0,
                 "evidence_render_millis": 4.0,
                 "total_runtime_millis": 130.0,
@@ -1171,6 +1241,8 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["inclusive_compatibility_to_vortex_import_ms"], 95.0)
         self.assertEqual(published["exclusive_source_read_ms"], 0.0)
         self.assertEqual(published["exclusive_source_parse_or_decode_ms"], 16.0)
+        self.assertEqual(published["vortex_scan_ms"], 1.0)
+        self.assertEqual(published["operator_compute_ms"], 2.0)
         self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 125.0)
         self.assertEqual(published["route_timing_exclusive_residual_ms"], 5.0)
         self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
@@ -1547,6 +1619,39 @@ class ReleaseScriptTests(unittest.TestCase):
                 )
                 if one_sided_field is not None:
                     self.assertEqual(stage_fields[one_sided_field], one_sided_value)
+
+    def test_benchmark_promoter_keeps_query_runtime_as_warm_route_stage(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_warm_query_substage_route_sum_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "route_lane_id": "native_vortex_query",
+            "status": "success",
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "total_runtime_millis": 1.0,
+                "result_sink_write_millis": 2.0,
+                "evidence_render_millis": 3.0,
+                "vortex_scan_open_micros": 10_000,
+                "scan_chunk_iter_micros": 20_000,
+                "vortex_projected_field_extract_micros": 5_000,
+                "vortex_encoded_kernel_evidence_micros": 15_000,
+                "operator_kernel_micros": 75_000,
+                "operator_finalize_micros": 0,
+                "result_assembly_micros": 0,
+            },
+        }
+
+        stage_fields = module.route_stage_fields_for_row(row)
+
+        self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
+        self.assertEqual(stage_fields["operator_compute_ms"], 75.0)
+        self.assertEqual(stage_fields["exclusive_prepared_query_ms"], 1.0)
+        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 6.0)
+        self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 0.0)
 
     def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
         module = self._load_script_module(
@@ -2774,7 +2879,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-SPLIT-6", packet["next_implementation_slice"])
+        self.assertIn("PERF-INNOV-5", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:

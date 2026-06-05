@@ -323,6 +323,36 @@ VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS = {
     "vortex_write_plan_digest_status",
     "vortex_write_plan_verification_status",
 }
+PREPARED_STATE_OPTIMIZATION_REQUIRED_FIELDS = {
+    "prepare_batch_prepared_state_optimization_schema_version",
+    "prepare_batch_prepared_state_optimization_status",
+    "prepare_batch_prepared_state_optimization_strategy",
+    "prepare_batch_prepared_state_optimization_index_digest",
+    "prepare_batch_prepared_state_optimization_manifest_digest",
+    "prepare_batch_prepared_state_optimization_source_packet_digest",
+    "prepare_batch_prepared_state_optimization_changed_roles",
+    "prepare_batch_prepared_state_optimization_reused_roles",
+    "prepare_batch_prepared_state_optimization_repaired_roles",
+    "prepare_batch_prepared_state_optimization_invalidated_derived_states",
+    "prepare_batch_prepared_state_optimization_invalidation_reason",
+    "prepare_batch_prepared_state_optimization_manifest_lookup_ms",
+    "prepare_batch_prepared_state_optimization_manifest_match_ms",
+    "prepare_batch_prepared_state_optimization_cache_miss_create_ms",
+    "prepare_batch_prepared_state_optimization_artifact_write_ms",
+    "prepare_batch_prepared_state_optimization_repair_ms",
+    "prepare_batch_prepared_state_optimization_delta_overlay_ms",
+    "prepare_batch_prepared_state_optimization_replay_verification_ms",
+    "prepare_batch_prepared_state_optimization_delta_overlay_admitted",
+    "prepare_batch_prepared_state_optimization_base_artifact_reused",
+    "prepare_batch_prepared_state_optimization_proof_digest",
+    "prepare_batch_prepared_state_optimization_replay_proof",
+    "prepare_batch_prepared_state_optimization_blocker_id",
+    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed",
+    "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
+    "prepare_batch_prepared_state_optimization_fallback_attempted",
+    "prepare_batch_prepared_state_optimization_external_engine_invoked",
+    "prepare_batch_prepared_state_optimization_claim_boundary",
+}
 REQUIRED_ROUTE_FIELDS = {
     "route_lane_id",
     "route_display_name",
@@ -936,6 +966,55 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 if not _certified_status(row.get("runtime_execution_certificate_status")):
                     blockers.append(
                         f"ShardLoom claim-grade row {index} missing certified runtime certificate"
+                    )
+            if engine == "shardloom-prepare-batch" and row.get("status") == "success":
+                for field in PREPARED_STATE_OPTIMIZATION_REQUIRED_FIELDS:
+                    value = row.get(field)
+                    if value is None or (isinstance(value, str) and not value.strip()):
+                        blockers.append(
+                            f"ShardLoom prepare-batch row {index} is missing prepared-state optimization field {field}"
+                        )
+                if row.get("prepare_batch_prepared_state_optimization_strategy") not in {
+                    "full_prepare_register",
+                    "manifest_reuse",
+                    "role_scoped_repair",
+                    "append_only_delta_overlay",
+                }:
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} has invalid prepared-state optimization strategy"
+                    )
+                if row.get(
+                    "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
+                ) != "passed_fallback_false_external_engine_false":
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} must pass prepared-state no-fallback policy"
+                    )
+                if row.get("prepare_batch_prepared_state_optimization_fallback_attempted"):
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} cannot report prepared-state optimization fallback"
+                    )
+                if row.get(
+                    "prepare_batch_prepared_state_optimization_external_engine_invoked"
+                ):
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} cannot report prepared-state optimization external engine"
+                    )
+                if row.get(
+                    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
+                ):
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} cannot allow stale prepared artifacts"
+                    )
+                if (
+                    row.get("prepare_batch_prepared_state_optimization_strategy")
+                    == "append_only_delta_overlay"
+                    and row.get(
+                        "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
+                    )
+                    is not True
+                ):
+                    blockers.append(
+                        f"ShardLoom prepare-batch row {index} overlay strategy must admit delta overlay"
                     )
             if not str(row.get("nearest_runnable_route") or "").strip():
                 blockers.append(f"ShardLoom row {index} is missing nearest_runnable_route")
