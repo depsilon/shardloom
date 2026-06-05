@@ -725,7 +725,7 @@ const artifactFreshnessRows = [
     <div class="table-wrap compact-table secondary-table">
       <p class="table-note"><strong>{vortexWriterContextTable.heading ?? "Vortex Writer Context Attribution"}</strong></p>
       <table>
-        <thead><tr>{(vortexWriterContextHeaders.length ? vortexWriterContextHeaders : ["Route", "Context reuse", "Coalescing", "Writes", "Reuse hits", "Context open", "Segment write", "Workspace stage", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{(vortexWriterContextHeaders.length ? vortexWriterContextHeaders : ["Route", "Write plan", "Context reuse", "Coalescing", "Artifacts", "Shared rows", "Writes", "Reuse hits", "Context open", "Segment write", "Workspace stage", "Digest", "Verify", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {vortexWriterContextRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>

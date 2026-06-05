@@ -203,20 +203,19 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
-| 2 | `PERF-INNOV-3` | Fold completed index, repair, and delta-overlay evidence into one prepared-state optimization contract. |
-| 3 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
-| 4 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
-| 5 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
-| 6 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 7 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 8 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 9 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 10 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 11 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 12 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 13 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 14 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-INNOV-3` | Fold completed index, repair, and delta-overlay evidence into one prepared-state optimization contract. |
+| 2 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
+| 3 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
+| 4 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
+| 5 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 6 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 7 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 8 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 9 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 10 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 11 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 12 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 13 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -295,50 +294,6 @@ must preserve no-fallback evidence and claim gates.
 This queue runs after `PERF-SPLIT-7` through `PERF-SPLIT-9` are merged. Some items deliberately
 extend already-landed PERF-SPLIT foundations; their checked current-state rows point to the
 completed base slice, while unchecked rows define the remaining optimization work.
-
-- [ ] PERF-INNOV-2 Capillary Vortex write batching and segment/workspace attribution:
-  - Source: `shardloom-vortex/src/vortex_ingest.rs`,
-    `shardloom-vortex/src/traditional_analytics.rs`, Vortex layout strategy docs, benchmark Vortex
-    write rows, and completed `PERF-SPLIT-5` writer-context reuse evidence.
-  - Current state:
-    - [x] `PERF-SPLIT-5` added shared writer context timing, write count, reuse count, segment
-      write, workspace-safe staging/commit timing, and Vortex digest/path evidence for scoped
-      write routes.
-    - [ ] Remaining: promote bounded Capillary write planning/coalescing where legal and decompose
-      every cold/prepare write cell into writer-open, segment-write, workspace-stage, digest, and
-      verification substages.
-  - Runtime enablement: cold/prepare write route -> bounded Capillary write plan -> shared Vortex
-    writer context -> workspace-safe artifact commit with Native I/O evidence.
-  - Objective: reduce cold/prepare Vortex write cost by turning separate fact/dim/CDC writes into a
-    bounded Capillary write plan with shared context, coalescing, and precise substage timings.
-  - Implementation scope: promote shared writer context into the cold and prepare-once routes. Emit
-    `vortex_writer_context_open_micros`, `vortex_segment_write_micros`,
-    `vortex_workspace_stage_micros`, `vortex_digest_micros`, write count, reuse count, coalescing
-    status, and coalescing reason for every artifact row. Evaluate Vortex layout strategy/provider
-    hooks before inventing ShardLoom-specific segment layout behavior.
-  - User-visible surface: benchmark Vortex write attribution rows, website write-stage table,
-    artifact manifests, and Native I/O certificate fields.
-  - Evidence required: writer-open timing, segment-write timing, workspace-stage timing, digest
-    timing, verification timing, coalescing status/reason, per-artifact digest/path/row count,
-    Native I/O posture, and no-fallback fields.
-  - Acceptance: published rows no longer show `vortex_writer_context_status=not_reported` for
-    ShardLoom write routes. The 44-103 ms write cells can be decomposed into writer open, segment
-    write, workspace staging, digest, and verification. Per-artifact digests, row counts, paths,
-    Native I/O posture, and no-fallback evidence remain intact.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex vortex_ingest
-    cargo test -p shardloom-vortex traditional_analytics_vortex_write
-    cargo test -p shardloom-core workspace_safe_local_write
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    git diff --check
-    ```
-  - Non-goals: no bypass of Vortex writer APIs, no unsafe output path handling, no hidden fast mode.
-  - Claim boundary: scoped Vortex write planning/attribution only until refreshed benchmark
-    evidence supports timing claims.
-  - Fallback boundary: no external writer or query engine can perform ShardLoom Vortex writes.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
 
 - [ ] PERF-INNOV-3 content-addressed prepared-state index with role repair and delta overlays:
   - Source: prepared-batch reuse logic in `shardloom-vortex/src/traditional_analytics.rs`,
