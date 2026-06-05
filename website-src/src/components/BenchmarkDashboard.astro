@@ -103,6 +103,11 @@ const evidenceRenderProofRows = publishedRows.filter((row: any) =>
   row.evidence_render_proof_schema_version
   || row.evidence_render_proof_status
 );
+const evidenceSinkTierRows = shardloomRows.filter((row: any) =>
+  row.evidence_sink_tier_schema_version
+  || row.actual_evidence_tier
+  || row.sink_tier
+);
 const manifestAny = manifest as any;
 const supportCounts = (runsTodayMatrix as any).support_state_counts ?? {};
 const supportRowCount = (runsTodayMatrix as any).row_count ?? 0;
@@ -822,6 +827,50 @@ const artifactFreshnessRows = [
       </table>
     </div>
     <p class="table-note">Schema: {fastPathTable.schema_version ?? "not reported"}. Boundary: {fastPathTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Evidence and sink tiers</p>
+    <h2>Hot lanes can stay compact without weakening publication proof.</h2>
+    <p class="narrow">
+      Prepared/native benchmark rows report the requested evidence tier, actual tier, sink tier, route-total sink inclusion, and skip reasons. Compact local rows can avoid human rendering and replay work only when the row is non-publication/non-claim-grade.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="strip mini-strip embedded-strip">
+      {countEntries(countBy(evidenceSinkTierRows, "actual_evidence_tier")).map(([tier, count]) => (
+        <div class="metric"><strong>{count}</strong><span>{tier}</span></div>
+      ))}
+      {evidenceSinkTierRows.length === 0 && (
+        <div class="metric"><strong>0</strong><span>tiered rows in artifact</span></div>
+      )}
+    </div>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Scenario</th><th>Requested</th><th>Actual</th><th>Sink tier</th><th>Sink timing</th><th>Replay skip</th><th>Human render skip</th></tr>
+        </thead>
+        <tbody>
+          {evidenceSinkTierRows.length > 0 ? evidenceSinkTierRows.slice(0, 16).map((row: any) => (
+            <tr>
+              <td>{textValue(row.route_display_name, textValue(row.engine))}</td>
+              <td>{textValue(row.scenario_name)}</td>
+              <td>{textValue(row.requested_evidence_tier)}</td>
+              <td>{textValue(row.actual_evidence_tier)}</td>
+              <td>{textValue(row.sink_tier)}</td>
+              <td>{String(row.sink_timing_included_in_route_total ?? "not reported")}</td>
+              <td>{textValue(row.result_sink_replay_skip_reason)}</td>
+              <td>{textValue(row.human_evidence_render_skip_reason)}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="8">Awaiting refreshed benchmark artifact with evidence/sink tier fields.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Tier rows in current artifact: {evidenceSinkTierRows.length}. Schema: {firstValue(evidenceSinkTierRows, "evidence_sink_tier_schema_version", "not reported")}. Route totals remain the comparison surface; this table explains whether sink replay or human evidence rendering was intentionally included or skipped.</p>
   </div>
 </section>
 

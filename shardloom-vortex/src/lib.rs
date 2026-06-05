@@ -522,7 +522,8 @@ pub use traditional_analytics::{
     TraditionalAnalyticsVortexBatchReport, TraditionalAnalyticsVortexBatchRequest,
     TraditionalAnalyticsVortexReport, TraditionalAnalyticsVortexRequest,
     TraditionalDirectTransientReport, TraditionalRuntimeEvidenceLevel,
-    run_traditional_analytics_benchmark, run_traditional_analytics_prepared_batch_benchmark,
+    TraditionalRuntimeEvidenceTier, run_traditional_analytics_benchmark,
+    run_traditional_analytics_prepared_batch_benchmark,
     run_traditional_analytics_vortex_batch_benchmark, run_traditional_analytics_vortex_benchmark,
     run_traditional_direct_transient_csv_smoke, run_traditional_direct_transient_local_input_smoke,
 };

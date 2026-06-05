@@ -16,10 +16,12 @@ use shardloom_core::{
     ShardLoomError, ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
     ShardLoomExecutionModeSelectionRequest, WorkloadClass,
 };
-use shardloom_vortex::{TraditionalRuntimeEvidenceLevel, VortexLocalExecutionReport};
+use shardloom_vortex::{
+    TraditionalRuntimeEvidenceLevel, TraditionalRuntimeEvidenceTier, VortexLocalExecutionReport,
+};
 
 use crate::{
-    cli_output::{emit, emit_error},
+    cli_output::{emit, emit_error, emit_timed},
     cli_time::{duration_micros, micros_to_millis, saturating_u128_to_u64},
     cli_unknown_arg_error,
     vortex_primitive_execution::local_encoded_count_correctness_fixture_for_target,
@@ -35,9 +37,15 @@ fn upsert_report_field(fields: &mut Vec<(String, String)>, key: &str, value: &st
     }
 }
 
-fn record_evidence_render_timing(fields: &mut Vec<(String, String)>, elapsed: Duration) {
-    let micros = duration_micros(elapsed).to_string();
-    let status = "rust_cli_report_fields_and_human_text_measured";
+fn record_evidence_render_timing(
+    fields: &mut Vec<(String, String)>,
+    human_elapsed: Duration,
+    report_fields_elapsed: Duration,
+) {
+    let human_micros = duration_micros(human_elapsed).to_string();
+    let report_fields_micros = duration_micros(report_fields_elapsed).to_string();
+    let total_micros = duration_micros(human_elapsed + report_fields_elapsed).to_string();
+    let status = "rust_cli_report_fields_and_human_text_measured_separately";
     let mut status_keys = Vec::new();
     let mut saw_top_level = false;
     for (key, value) in fields.iter_mut() {
@@ -45,7 +53,7 @@ fn record_evidence_render_timing(fields: &mut Vec<(String, String)>, elapsed: Du
             if key == "evidence_render_micros" {
                 saw_top_level = true;
             }
-            value.clone_from(&micros);
+            value.clone_from(&total_micros);
             let status_key = if key == "evidence_render_micros" {
                 "evidence_render_timing_status".to_string()
             } else {
@@ -59,12 +67,31 @@ fn record_evidence_render_timing(fields: &mut Vec<(String, String)>, elapsed: Du
         }
     }
     if !saw_top_level {
-        fields.push(("evidence_render_micros".to_string(), micros));
+        fields.push(("evidence_render_micros".to_string(), total_micros));
         status_keys.push("evidence_render_timing_status".to_string());
     }
+    upsert_report_field(fields, "human_evidence_render_micros", &human_micros);
+    upsert_report_field(fields, "report_fields_build_micros", &report_fields_micros);
     for key in status_keys {
         upsert_report_field(fields, &key, status);
     }
+}
+
+fn compact_benchmark_human_text(command: &str, tier: &str) -> String {
+    format!(
+        "{command}: compact machine-readable benchmark evidence emitted; evidence_tier={tier}; human evidence rendering deferred"
+    )
+}
+
+fn render_human_text_for_tier(
+    format: OutputFormat,
+    tier: Option<TraditionalRuntimeEvidenceTier>,
+) -> bool {
+    matches!(format, OutputFormat::Text)
+        || match tier {
+            Some(tier) => tier.publication_human_render_required(),
+            None => true,
+        }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -320,11 +347,14 @@ pub(crate) fn handle_traditional_analytics_run(
                     );
                 }
             };
-        let evidence_render_start = Instant::now();
+        let human_render_start = Instant::now();
         let human_text = report.to_human_text();
+        let human_render_elapsed = human_render_start.elapsed();
+        let report_fields_start = Instant::now();
         let mut fields = report.fields();
-        record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
-        emit(
+        let report_fields_elapsed = report_fields_start.elapsed();
+        record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
+        emit_timed(
             "traditional-analytics-run",
             format,
             CommandStatus::Success,
@@ -346,11 +376,14 @@ pub(crate) fn handle_traditional_analytics_run(
             );
         }
     };
-    let evidence_render_start = Instant::now();
+    let human_render_start = Instant::now();
     let human_text = report.to_human_text();
+    let human_render_elapsed = human_render_start.elapsed();
+    let report_fields_start = Instant::now();
     let mut fields = report.fields();
-    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
-    emit(
+    let report_fields_elapsed = report_fields_start.elapsed();
+    record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
+    emit_timed(
         "traditional-analytics-run",
         format,
         CommandStatus::Success,
@@ -631,11 +664,14 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
             );
         }
     };
-    let evidence_render_start = Instant::now();
+    let human_render_start = Instant::now();
     let human_text = report.to_human_text();
+    let human_render_elapsed = human_render_start.elapsed();
+    let report_fields_start = Instant::now();
     let mut fields = report.fields();
-    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
-    emit(
+    let report_fields_elapsed = report_fields_start.elapsed();
+    record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
+    emit_timed(
         "traditional-analytics-vortex-run",
         format,
         CommandStatus::Success,
@@ -652,7 +688,7 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
-    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay] [--memory-gb <cap>] [--max-parallelism <cap>]";
+    const USAGE: &str = "usage: shardloom traditional-analytics-vortex-batch-run <scenario_csv> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--evidence-level minimal_runtime|certified|full_replay] [--evidence-tier runtime_minimal|metadata_sink|full_vortex_replay|publication_full] [--memory-gb <cap>] [--max-parallelism <cap>]";
     let Some(scenario_list) = args.next() else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
@@ -667,6 +703,7 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     };
     let mut requested_execution_mode = ShardLoomExecutionMode::NativeVortex;
     let mut requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel> = None;
+    let mut requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier> = None;
     let mut workspace_dir: Option<PathBuf> = None;
     let mut cdc_delta_vortex: Option<PathBuf> = None;
     let mut write_result_vortex = false;
@@ -738,6 +775,25 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
                 match TraditionalRuntimeEvidenceLevel::parse(&value) {
                     Ok(level) => {
                         requested_evidence_level = Some(level);
+                    }
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-vortex-batch-run",
+                            format,
+                            "traditional analytics native Vortex batch run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--evidence-tier" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                match TraditionalRuntimeEvidenceTier::parse(&value) {
+                    Ok(tier) => {
+                        requested_evidence_tier = Some(tier);
                     }
                     Err(error) => {
                         return emit_error(
@@ -828,11 +884,14 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
             max_parallelism,
         ),
     );
-    let request = if let Some(evidence_level) = requested_evidence_level {
+    let mut request = if let Some(evidence_level) = requested_evidence_level {
         request.with_evidence_level(evidence_level)
     } else {
         request
     };
+    if let Some(evidence_tier) = requested_evidence_tier {
+        request = request.with_evidence_tier(evidence_tier);
+    }
     let report = match shardloom_vortex::run_traditional_analytics_vortex_batch_benchmark(request) {
         Ok(report) => report,
         Err(error) => {
@@ -844,11 +903,21 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
             );
         }
     };
-    let evidence_render_start = Instant::now();
-    let human_text = report.to_human_text();
+    let human_render_start = Instant::now();
+    let human_text = if render_human_text_for_tier(format, Some(report.selected_evidence_tier)) {
+        report.to_human_text()
+    } else {
+        compact_benchmark_human_text(
+            "traditional-analytics-vortex-batch-run",
+            report.selected_evidence_tier.as_str(),
+        )
+    };
+    let human_render_elapsed = human_render_start.elapsed();
+    let report_fields_start = Instant::now();
     let mut fields = report.fields();
-    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
-    emit(
+    let report_fields_elapsed = report_fields_start.elapsed();
+    record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
+    emit_timed(
         "traditional-analytics-vortex-batch-run",
         format,
         CommandStatus::Success,
@@ -865,7 +934,7 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
-    const USAGE: &str = "usage: shardloom traditional-analytics-prepare-batch-run <scenario_csv> <fact_input> <dim_input> --workspace <dir> [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <path>] [--result-workspace <dir>] [--write-result-vortex] [--evidence-level minimal_runtime|certified|full_replay] [--memory-gb <cap>] [--max-parallelism <cap>]";
+    const USAGE: &str = "usage: shardloom traditional-analytics-prepare-batch-run <scenario_csv> <fact_input> <dim_input> --workspace <dir> [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <path>] [--result-workspace <dir>] [--write-result-vortex] [--evidence-level minimal_runtime|certified|full_replay] [--evidence-tier runtime_minimal|metadata_sink|full_vortex_replay|publication_full] [--memory-gb <cap>] [--max-parallelism <cap>]";
     let Some(scenario_list) = args.next() else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
@@ -883,6 +952,7 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
     let mut cdc_delta_input: Option<PathBuf> = None;
     let mut result_workspace_dir: Option<PathBuf> = None;
     let mut requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel> = None;
+    let mut requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier> = None;
     let mut write_result_vortex = false;
     let mut memory_gb: Option<u32> = None;
     let mut max_parallelism: Option<usize> = None;
@@ -938,6 +1008,23 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
                 };
                 match TraditionalRuntimeEvidenceLevel::parse(&value) {
                     Ok(level) => requested_evidence_level = Some(level),
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-prepare-batch-run",
+                            format,
+                            "traditional analytics prepare/batch run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--evidence-tier" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                match TraditionalRuntimeEvidenceTier::parse(&value) {
+                    Ok(tier) => requested_evidence_tier = Some(tier),
                     Err(error) => {
                         return emit_error(
                             "traditional-analytics-prepare-batch-run",
@@ -1042,6 +1129,9 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
     if let Some(evidence_level) = requested_evidence_level {
         request = request.with_evidence_level(evidence_level);
     }
+    if let Some(evidence_tier) = requested_evidence_tier {
+        request = request.with_evidence_tier(evidence_tier);
+    }
     let report = match shardloom_vortex::run_traditional_analytics_prepared_batch_benchmark(request)
     {
         Ok(report) => report,
@@ -1054,11 +1144,22 @@ pub(crate) fn handle_traditional_analytics_prepare_batch_run(
             );
         }
     };
-    let evidence_render_start = Instant::now();
-    let human_text = report.to_human_text();
+    let human_render_start = Instant::now();
+    let selected_evidence_tier = report.batch_report.selected_evidence_tier;
+    let human_text = if render_human_text_for_tier(format, Some(selected_evidence_tier)) {
+        report.to_human_text()
+    } else {
+        compact_benchmark_human_text(
+            "traditional-analytics-prepare-batch-run",
+            selected_evidence_tier.as_str(),
+        )
+    };
+    let human_render_elapsed = human_render_start.elapsed();
+    let report_fields_start = Instant::now();
     let mut fields = report.fields();
-    record_evidence_render_timing(&mut fields, evidence_render_start.elapsed());
-    emit(
+    let report_fields_elapsed = report_fields_start.elapsed();
+    record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
+    emit_timed(
         "traditional-analytics-prepare-batch-run",
         format,
         CommandStatus::Success,
@@ -2025,4 +2126,76 @@ fn push_u64_field(fields: &mut Vec<(String, String)>, key: &str, value: u64) {
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn field_value<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
+        fields
+            .iter()
+            .find_map(|(field_key, value)| (field_key == key).then_some(value.as_str()))
+            .unwrap_or_else(|| panic!("missing field {key}"))
+    }
+
+    #[test]
+    fn benchmark_runtime_compact_human_render_policy_tracks_evidence_tier() {
+        assert!(render_human_text_for_tier(
+            OutputFormat::Text,
+            Some(TraditionalRuntimeEvidenceTier::RuntimeMinimal)
+        ));
+        assert!(!render_human_text_for_tier(
+            OutputFormat::Json,
+            Some(TraditionalRuntimeEvidenceTier::RuntimeMinimal)
+        ));
+        assert!(!render_human_text_for_tier(
+            OutputFormat::Json,
+            Some(TraditionalRuntimeEvidenceTier::MetadataSink)
+        ));
+        assert!(!render_human_text_for_tier(
+            OutputFormat::Json,
+            Some(TraditionalRuntimeEvidenceTier::FullVortexReplay)
+        ));
+        assert!(render_human_text_for_tier(
+            OutputFormat::Json,
+            Some(TraditionalRuntimeEvidenceTier::PublicationFull)
+        ));
+        assert_eq!(
+            compact_benchmark_human_text("traditional-analytics-vortex-batch-run", "metadata_sink"),
+            "traditional-analytics-vortex-batch-run: compact machine-readable benchmark evidence emitted; evidence_tier=metadata_sink; human evidence rendering deferred",
+        );
+    }
+
+    #[test]
+    fn benchmark_runtime_records_split_evidence_render_timing_fields() {
+        let mut fields = vec![
+            ("evidence_render_micros".to_string(), "0".to_string()),
+            (
+                "computed_evidence_render_micros".to_string(),
+                "0".to_string(),
+            ),
+        ];
+        record_evidence_render_timing(
+            &mut fields,
+            Duration::from_micros(7),
+            Duration::from_micros(11),
+        );
+
+        assert_eq!(field_value(&fields, "evidence_render_micros"), "18");
+        assert_eq!(
+            field_value(&fields, "computed_evidence_render_micros"),
+            "18"
+        );
+        assert_eq!(field_value(&fields, "human_evidence_render_micros"), "7");
+        assert_eq!(field_value(&fields, "report_fields_build_micros"), "11");
+        assert_eq!(
+            field_value(&fields, "evidence_render_timing_status"),
+            "rust_cli_report_fields_and_human_text_measured_separately"
+        );
+        assert_eq!(
+            field_value(&fields, "computed_evidence_render_timing_status"),
+            "rust_cli_report_fields_and_human_text_measured_separately"
+        );
+    }
 }

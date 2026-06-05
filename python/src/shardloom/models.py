@@ -1121,6 +1121,26 @@ def _result_replay_verified(envelope: OutputEnvelope) -> bool:
     return False
 
 
+def _evidence_tier_requires_result_sink_replay(envelope: OutputEnvelope) -> bool:
+    explicit = _safe_field_bool(envelope, "evidence_tier_result_sink_replay_required")
+    if explicit is not None:
+        return explicit
+    tier = (
+        envelope.field("actual_evidence_tier")
+        or envelope.field("selected_evidence_tier")
+        or envelope.field("sink_tier")
+    )
+    normalized_tier = "" if tier is None else tier.strip().lower()
+    if normalized_tier in {"runtime_minimal", "metadata_sink"}:
+        return False
+    if normalized_tier in {"full_vortex_replay", "publication_full"}:
+        return True
+    evidence_level = envelope.field("evidence_level")
+    if evidence_level is not None:
+        return evidence_level.strip().lower() == "full_replay"
+    return True
+
+
 def _add_invalid_issue(
     issues: list[RuntimeEnvelopeValidationIssue],
     field: str,
@@ -1173,11 +1193,19 @@ def _validate_prepared_vortex_split_operator_runtime(
         "prepared_vortex_scale_split_operator_backpressure_status": (
             "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
         ),
-        "prepared_vortex_scale_split_operator_output_commit_proof_status": (
-            "result_sink_replay_verified_for_split_operator"
-        ),
     }
     for field, expected in required_values.items():
+        value = envelope.field(field)
+        if value is not None and value != expected:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"certified prepared Vortex split-operator runtime requires {field}={expected}",
+            )
+
+    if _evidence_tier_requires_result_sink_replay(envelope):
+        expected = "result_sink_replay_verified_for_split_operator"
+        field = "prepared_vortex_scale_split_operator_output_commit_proof_status"
         value = envelope.field(field)
         if value is not None and value != expected:
             _add_invalid_issue(

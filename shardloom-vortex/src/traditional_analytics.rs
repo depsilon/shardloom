@@ -282,7 +282,7 @@ impl TraditionalRuntimeEvidenceLevel {
     pub const fn result_sink_replay_refs(self) -> &'static str {
         match self {
             Self::FullReplay => {
-                "computed_result_sink_requested,computed_result_sink_written,computed_result_sink_replay_verified,computed_result_sink_write_micros"
+                "computed_result_sink_requested,computed_result_sink_written,computed_result_sink_replay_verified,computed_result_sink_plan_micros,computed_result_sink_write_micros,computed_result_sink_replay_micros"
             }
             Self::MinimalRuntime | Self::Certified => "not_requested",
         }
@@ -300,6 +300,112 @@ impl TraditionalRuntimeEvidenceLevel {
             Self::FullReplay => {
                 "certificate-bearing local prepared/native batch evidence plus result-sink replay proof; still fixture-smoke evidence only and no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, package, or Spark-displacement claim is allowed"
             }
+        }
+    }
+}
+
+/// Explicit evidence/sink tier used by hot benchmark lanes to separate compact
+/// machine evidence from replay-heavy and publication-grade surfaces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraditionalRuntimeEvidenceTier {
+    RuntimeMinimal,
+    MetadataSink,
+    FullVortexReplay,
+    PublicationFull,
+}
+
+impl TraditionalRuntimeEvidenceTier {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RuntimeMinimal => "runtime_minimal",
+            Self::MetadataSink => "metadata_sink",
+            Self::FullVortexReplay => "full_vortex_replay",
+            Self::PublicationFull => "publication_full",
+        }
+    }
+
+    /// # Errors
+    /// Returns an error when the evidence/sink tier label is not recognized.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "runtime_minimal" | "runtime-minimal" | "minimal_runtime" | "minimal-runtime" => {
+                Ok(Self::RuntimeMinimal)
+            }
+            "metadata_sink" | "metadata-sink" | "certified" => Ok(Self::MetadataSink),
+            "full_vortex_replay" | "full-vortex-replay" | "full_replay" | "full-replay" => {
+                Ok(Self::FullVortexReplay)
+            }
+            "publication_full" | "publication-full" => Ok(Self::PublicationFull),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "unknown traditional analytics evidence tier {other}; expected runtime_minimal, metadata_sink, full_vortex_replay, or publication_full; fallback execution was not attempted"
+            ))),
+        }
+    }
+
+    #[must_use]
+    pub const fn from_evidence_level(level: TraditionalRuntimeEvidenceLevel) -> Self {
+        match level {
+            TraditionalRuntimeEvidenceLevel::MinimalRuntime => Self::RuntimeMinimal,
+            TraditionalRuntimeEvidenceLevel::Certified => Self::MetadataSink,
+            TraditionalRuntimeEvidenceLevel::FullReplay => Self::FullVortexReplay,
+        }
+    }
+
+    #[must_use]
+    pub const fn evidence_level(self) -> TraditionalRuntimeEvidenceLevel {
+        match self {
+            Self::RuntimeMinimal => TraditionalRuntimeEvidenceLevel::MinimalRuntime,
+            Self::MetadataSink => TraditionalRuntimeEvidenceLevel::Certified,
+            Self::FullVortexReplay | Self::PublicationFull => {
+                TraditionalRuntimeEvidenceLevel::FullReplay
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn supported_tiers() -> &'static str {
+        "runtime_minimal,metadata_sink,full_vortex_replay,publication_full"
+    }
+
+    #[must_use]
+    pub const fn result_sink_replay_required(self) -> bool {
+        matches!(self, Self::FullVortexReplay | Self::PublicationFull)
+    }
+
+    #[must_use]
+    pub const fn publication_human_render_required(self) -> bool {
+        matches!(self, Self::PublicationFull)
+    }
+
+    #[must_use]
+    pub const fn result_sink_replay_skip_reason(self) -> &'static str {
+        match self {
+            Self::RuntimeMinimal => "skipped_runtime_minimal_tier_non_publication_non_claim_grade",
+            Self::MetadataSink => {
+                "skipped_metadata_sink_tier_digest_count_path_proof_without_replay"
+            }
+            Self::FullVortexReplay | Self::PublicationFull => "not_skipped_replay_required",
+        }
+    }
+
+    #[must_use]
+    pub const fn human_render_skip_reason(self) -> &'static str {
+        match self {
+            Self::PublicationFull => "not_skipped_publication_full_requires_human_render",
+            Self::RuntimeMinimal | Self::MetadataSink | Self::FullVortexReplay => {
+                "skipped_compact_machine_evidence_human_render_deferred"
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn route_inclusion_reason(self) -> &'static str {
+        match self {
+            Self::RuntimeMinimal => "no_result_sink_timing_for_runtime_minimal_tier",
+            Self::MetadataSink => "metadata_sink_has_no_replay_write_timing",
+            Self::FullVortexReplay => "full_vortex_replay_write_timing_in_cli_route_wall",
+            Self::PublicationFull => "publication_full_write_and_human_evidence_in_cli_route_wall",
         }
     }
 }
@@ -1008,6 +1114,7 @@ pub struct TraditionalAnalyticsVortexBatchRequest {
     pub cdc_delta_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    pub requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
@@ -1027,6 +1134,7 @@ impl TraditionalAnalyticsVortexBatchRequest {
             cdc_delta_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
             requested_evidence_level: None,
+            requested_evidence_tier: None,
             resource_policy: TraditionalAnalyticsResourcePolicy::default(),
             result_workspace_dir: None,
             write_result_vortex: false,
@@ -1042,6 +1150,12 @@ impl TraditionalAnalyticsVortexBatchRequest {
     #[must_use]
     pub const fn with_evidence_level(mut self, value: TraditionalRuntimeEvidenceLevel) -> Self {
         self.requested_evidence_level = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_evidence_tier(mut self, value: TraditionalRuntimeEvidenceTier) -> Self {
+        self.requested_evidence_tier = Some(value);
         self
     }
 
@@ -1081,6 +1195,7 @@ pub struct TraditionalAnalyticsPreparedBatchRequest {
     pub input_format: TraditionalAnalyticsInputFormat,
     pub cdc_delta_input: Option<PathBuf>,
     pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    pub requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
     pub resource_policy: TraditionalAnalyticsResourcePolicy,
@@ -1102,6 +1217,7 @@ impl TraditionalAnalyticsPreparedBatchRequest {
             input_format: TraditionalAnalyticsInputFormat::Csv,
             cdc_delta_input: None,
             requested_evidence_level: None,
+            requested_evidence_tier: None,
             result_workspace_dir: None,
             write_result_vortex: false,
             resource_policy: TraditionalAnalyticsResourcePolicy::default(),
@@ -1127,6 +1243,12 @@ impl TraditionalAnalyticsPreparedBatchRequest {
     }
 
     #[must_use]
+    pub const fn with_evidence_tier(mut self, value: TraditionalRuntimeEvidenceTier) -> Self {
+        self.requested_evidence_tier = Some(value);
+        self
+    }
+
+    #[must_use]
     pub fn with_result_workspace_dir(mut self, value: Option<PathBuf>) -> Self {
         self.result_workspace_dir = value;
         self
@@ -1143,6 +1265,21 @@ impl TraditionalAnalyticsPreparedBatchRequest {
         self.resource_policy = value;
         self
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn apply_traditional_batch_evidence_request(
+    mut request: TraditionalAnalyticsVortexBatchRequest,
+    requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
+) -> TraditionalAnalyticsVortexBatchRequest {
+    if let Some(evidence_level) = requested_evidence_level {
+        request = request.with_evidence_level(evidence_level);
+    }
+    if let Some(evidence_tier) = requested_evidence_tier {
+        request = request.with_evidence_tier(evidence_tier);
+    }
+    request
 }
 
 /// File metadata and digest evidence shared by child scenarios in one
@@ -3061,7 +3198,9 @@ pub struct TraditionalAnalyticsReport {
     pub query_timing_starts_after_preparation: bool,
     pub certification_level: String,
     pub scenario_compute_micros: u64,
+    pub computed_result_sink_plan_micros: Option<u64>,
     pub computed_result_sink_write_micros: Option<u64>,
+    pub computed_result_sink_replay_micros: Option<u64>,
     pub computed_result_sink_replay_result_json: Option<String>,
     pub computed_result_sink_native_io_certificate_id: Option<String>,
     pub computed_result_sink_native_io_certificate_status: Option<String>,
@@ -4327,9 +4466,19 @@ impl TraditionalDirectTransientReport {
                 "scenario_compute_micros".to_string(),
                 self.scenario_compute_micros.to_string(),
             ),
+            ("result_sink_plan_micros".to_string(), "none".to_string()),
             ("result_sink_write_micros".to_string(), "none".to_string()),
+            ("result_sink_replay_micros".to_string(), "none".to_string()),
+            (
+                "computed_result_sink_plan_micros".to_string(),
+                "none".to_string(),
+            ),
             (
                 "computed_result_sink_write_micros".to_string(),
+                "none".to_string(),
+            ),
+            (
+                "computed_result_sink_replay_micros".to_string(),
                 "none".to_string(),
             ),
             (
@@ -4974,8 +5123,12 @@ impl TraditionalAnalyticsReport {
         let exclusive_source_read_micros = self
             .source_read_micros
             .saturating_sub(exclusive_source_parse_or_decode_micros);
+        let exclusive_result_sink_plan_micros =
+            self.computed_result_sink_plan_micros.unwrap_or_default();
         let exclusive_result_sink_write_micros =
             self.computed_result_sink_write_micros.unwrap_or_default();
+        let exclusive_result_sink_replay_micros =
+            self.computed_result_sink_replay_micros.unwrap_or_default();
         let exclusive_stage_sum_micros = [
             self.source_stat_micros,
             exclusive_source_read_micros,
@@ -4986,7 +5139,9 @@ impl TraditionalAnalyticsReport {
             self.vortex_reopen_verify_micros,
             self.vortex_scan_micros,
             self.operator_compute_micros,
+            exclusive_result_sink_plan_micros,
             exclusive_result_sink_write_micros,
+            exclusive_result_sink_replay_micros,
         ]
         .into_iter()
         .fold(0_u64, u64::saturating_add);
@@ -4995,6 +5150,12 @@ impl TraditionalAnalyticsReport {
         let exclusive_stage_total_delta_micros = exclusive_stage_residual_micros.unsigned_abs();
         let exclusive_result_sink_write_micros_text = self
             .computed_result_sink_write_micros
+            .map_or_else(|| "none".to_string(), |value| value.to_string());
+        let exclusive_result_sink_plan_micros_text = self
+            .computed_result_sink_plan_micros
+            .map_or_else(|| "none".to_string(), |value| value.to_string());
+        let exclusive_result_sink_replay_micros_text = self
+            .computed_result_sink_replay_micros
             .map_or_else(|| "none".to_string(), |value| value.to_string());
         let mut fields = vec![
             (
@@ -5550,8 +5711,16 @@ impl TraditionalAnalyticsReport {
                 self.operator_compute_micros.to_string(),
             ),
             (
+                "exclusive_result_sink_plan_micros".to_string(),
+                exclusive_result_sink_plan_micros_text,
+            ),
+            (
                 "exclusive_result_sink_write_micros".to_string(),
                 exclusive_result_sink_write_micros_text,
+            ),
+            (
+                "exclusive_result_sink_replay_micros".to_string(),
+                exclusive_result_sink_replay_micros_text,
             ),
             (
                 "exclusive_stage_sum_micros".to_string(),
@@ -5856,8 +6025,18 @@ impl TraditionalAnalyticsReport {
                 "included_in_vortex_scan_micros_for_current_streaming_loop".to_string(),
             ),
             (
+                "result_sink_plan_micros".to_string(),
+                self.computed_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
                 "result_sink_write_micros".to_string(),
                 self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "result_sink_replay_micros".to_string(),
+                self.computed_result_sink_replay_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
             ),
             (
@@ -5877,8 +6056,18 @@ impl TraditionalAnalyticsReport {
                 self.scenario_compute_micros.to_string(),
             ),
             (
+                "computed_result_sink_plan_micros".to_string(),
+                self.computed_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
                 "computed_result_sink_write_micros".to_string(),
                 self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "computed_result_sink_replay_micros".to_string(),
+                self.computed_result_sink_replay_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
             ),
             (
@@ -6439,7 +6628,9 @@ pub struct TraditionalAnalyticsVortexReport {
     pub computed_result_sink_rows: u64,
     pub computed_result_sink_rows_materialized: u64,
     pub computed_result_sink_schema_summary: String,
+    pub computed_result_sink_plan_micros: Option<u64>,
     pub computed_result_sink_write_micros: Option<u64>,
+    pub computed_result_sink_replay_micros: Option<u64>,
     pub computed_result_sink_replay_result_json: Option<String>,
     pub computed_result_sink_native_io_certificate_id: Option<String>,
     pub computed_result_sink_native_io_certificate_status: Option<String>,
@@ -6517,6 +6708,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
     pub selected_evidence_level: TraditionalRuntimeEvidenceLevel,
+    pub requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
+    pub selected_evidence_tier: TraditionalRuntimeEvidenceTier,
     pub result_sink_requested: bool,
     pub session_evidence: TraditionalPreparedNativeSessionEvidence,
     pub source_state_prepare_micros: u64,
@@ -6546,7 +6739,9 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub date_null_metric_state_recompute_avoided_count: usize,
     pub total_scenario_compute_micros: u64,
     pub total_vortex_scan_micros: u64,
+    pub total_result_sink_plan_micros: Option<u64>,
     pub total_result_sink_write_micros: Option<u64>,
+    pub total_result_sink_replay_micros: Option<u64>,
     pub total_rows_scanned: u64,
     pub total_rows_materialized: u64,
     pub all_native_io_certificates_certified: bool,
@@ -8324,13 +8519,38 @@ impl TraditionalAnalyticsVortexBatchReport {
                 TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION.to_string(),
             ),
             (
+                "evidence_sink_tier_schema_version".to_string(),
+                "shardloom.traditional_analytics.evidence_sink_tier.v1".to_string(),
+            ),
+            (
                 "requested_evidence_level".to_string(),
                 self.requested_evidence_level
                     .map_or_else(|| "auto".to_string(), |level| level.as_str().to_string()),
             ),
             (
+                "requested_evidence_tier".to_string(),
+                self.requested_evidence_tier
+                    .map_or_else(|| "auto".to_string(), |tier| tier.as_str().to_string()),
+            ),
+            (
                 "selected_evidence_level".to_string(),
                 self.selected_evidence_level.as_str().to_string(),
+            ),
+            (
+                "actual_evidence_tier".to_string(),
+                self.selected_evidence_tier.as_str().to_string(),
+            ),
+            (
+                "selected_evidence_tier".to_string(),
+                self.selected_evidence_tier.as_str().to_string(),
+            ),
+            (
+                "sink_tier".to_string(),
+                self.selected_evidence_tier.as_str().to_string(),
+            ),
+            (
+                "evidence_tier_supported_tiers".to_string(),
+                TraditionalRuntimeEvidenceTier::supported_tiers().to_string(),
             ),
             (
                 "evidence_level".to_string(),
@@ -8353,6 +8573,12 @@ impl TraditionalAnalyticsVortexBatchReport {
                     .to_string(),
             ),
             (
+                "evidence_tier_result_sink_replay_required".to_string(),
+                self.selected_evidence_tier
+                    .result_sink_replay_required()
+                    .to_string(),
+            ),
+            (
                 "evidence_level_result_sink_replay_requested".to_string(),
                 self.result_sink_requested.to_string(),
             ),
@@ -8364,6 +8590,27 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "evidence_level_native_io_certificate_required".to_string(),
                 self.selected_evidence_level
                     .native_io_certificate_required()
+                    .to_string(),
+            ),
+            (
+                "sink_timing_included_in_route_total".to_string(),
+                (self.result_sink_requested && self.total_result_sink_write_micros.is_some())
+                    .to_string(),
+            ),
+            (
+                "sink_timing_inclusion_reason".to_string(),
+                self.selected_evidence_tier.route_inclusion_reason().to_string(),
+            ),
+            (
+                "result_sink_replay_skip_reason".to_string(),
+                self.selected_evidence_tier
+                    .result_sink_replay_skip_reason()
+                    .to_string(),
+            ),
+            (
+                "human_evidence_render_skip_reason".to_string(),
+                self.selected_evidence_tier
+                    .human_render_skip_reason()
                     .to_string(),
             ),
             (
@@ -9128,8 +9375,33 @@ impl TraditionalAnalyticsVortexBatchReport {
                 self.total_vortex_scan_micros.to_string(),
             ),
             (
+                "total_result_sink_plan_micros".to_string(),
+                self.total_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
                 "total_result_sink_write_micros".to_string(),
                 self.total_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "total_result_sink_replay_micros".to_string(),
+                self.total_result_sink_replay_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "result_sink_plan_micros".to_string(),
+                self.total_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "result_sink_write_micros".to_string(),
+                self.total_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "result_sink_replay_micros".to_string(),
+                self.total_result_sink_replay_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
             ),
             (
@@ -9856,13 +10128,33 @@ impl TraditionalAnalyticsVortexReport {
                 self.vortex_scan_decoded_values.to_string(),
             ),
             (
+                "result_sink_plan_micros".to_string(),
+                self.computed_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
                 "result_sink_write_micros".to_string(),
                 self.computed_result_sink_write_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
             ),
             (
+                "result_sink_replay_micros".to_string(),
+                self.computed_result_sink_replay_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "computed_result_sink_plan_micros".to_string(),
+                self.computed_result_sink_plan_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
                 "computed_result_sink_write_micros".to_string(),
                 self.computed_result_sink_write_micros
+                    .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            ),
+            (
+                "computed_result_sink_replay_micros".to_string(),
+                self.computed_result_sink_replay_micros
                     .map_or_else(|| "none".to_string(), |value| value.to_string()),
             ),
             (
@@ -15802,7 +16094,9 @@ struct TraditionalComputedResultSinkVerification {
     path: PathBuf,
     bytes: u64,
     digest: String,
+    plan_micros: u64,
     write_micros: u64,
+    replay_micros: u64,
     rows_written: u64,
     rows_materialized: u64,
     replay_result_json: String,
@@ -18883,9 +19177,15 @@ fn run_traditional_analytics_benchmark_enabled(
             "ingest_certified".to_string()
         },
         scenario_compute_micros,
+        computed_result_sink_plan_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.plan_micros),
         computed_result_sink_write_micros: computed_result_sink
             .as_ref()
             .map(|sink| sink.write_micros),
+        computed_result_sink_replay_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.replay_micros),
         computed_result_sink_replay_result_json: computed_result_sink
             .as_ref()
             .map(|sink| sink.replay_result_json.clone()),
@@ -19066,8 +19366,10 @@ fn write_and_verify_computed_result_sink(
     workspace_dir: &std::path::Path,
     vortex_io: &TraditionalVortexIoContext,
 ) -> Result<TraditionalComputedResultSinkVerification> {
+    let plan_start = std::time::Instant::now();
     let capillary_plan =
         TraditionalComputedResultCapillaryPlan::build(scenario, result_json, rows_materialized)?;
+    let plan_micros = duration_to_micros(plan_start.elapsed());
     let result_vortex_path = workspace_dir.join("result.vortex");
     let write_start = std::time::Instant::now();
     let write_outcome = write_computed_result_vortex_with_io(
@@ -19080,6 +19382,7 @@ fn write_and_verify_computed_result_sink(
     let write_micros = duration_to_micros(write_start.elapsed());
     let digest = write_outcome.artifact_digest;
     let bytes = write_outcome.artifact_bytes;
+    let replay_start = std::time::Instant::now();
     let replay = read_computed_result_vortex_with_io(vortex_io, &result_vortex_path)?;
     if replay.scenario != scenario.as_str() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -19125,11 +19428,14 @@ fn write_and_verify_computed_result_sink(
             "computed result sink NativeIoCertificate was not certified".to_string(),
         ));
     }
+    let replay_micros = duration_to_micros(replay_start.elapsed());
     Ok(TraditionalComputedResultSinkVerification {
         path: result_vortex_path,
         bytes,
         digest,
+        plan_micros,
         write_micros,
+        replay_micros,
         rows_written: write_outcome.rows_written,
         rows_materialized,
         replay_result_json: replay.result_json,
@@ -19838,6 +20144,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         input_format,
         cdc_delta_input,
         requested_evidence_level,
+        requested_evidence_tier,
         result_workspace_dir,
         write_result_vortex,
         resource_policy,
@@ -19914,11 +20221,11 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
                 .with_resource_policy(resource_policy)
                 .with_result_workspace_dir(result_workspace_dir)
                 .with_result_vortex_write(write_result_vortex);
-        let batch_request = if let Some(evidence_level) = requested_evidence_level {
-            batch_request.with_evidence_level(evidence_level)
-        } else {
-            batch_request
-        };
+        let batch_request = apply_traditional_batch_evidence_request(
+            batch_request,
+            requested_evidence_level,
+            requested_evidence_tier,
+        );
         let batch_report = run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
         return Ok(TraditionalAnalyticsPreparedBatchReport {
             preparation_scenario,
@@ -19996,11 +20303,11 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
                     .with_resource_policy(resource_policy)
                     .with_result_workspace_dir(result_workspace_dir)
                     .with_result_vortex_write(write_result_vortex);
-            let batch_request = if let Some(evidence_level) = requested_evidence_level {
-                batch_request.with_evidence_level(evidence_level)
-            } else {
-                batch_request
-            };
+            let batch_request = apply_traditional_batch_evidence_request(
+                batch_request,
+                requested_evidence_level,
+                requested_evidence_tier,
+            );
             let batch_report =
                 run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
             return Ok(TraditionalAnalyticsPreparedBatchReport {
@@ -20064,11 +20371,11 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     .with_resource_policy(resource_policy)
     .with_result_workspace_dir(result_workspace_dir)
     .with_result_vortex_write(write_result_vortex);
-    let batch_request = if let Some(evidence_level) = requested_evidence_level {
-        batch_request.with_evidence_level(evidence_level)
-    } else {
-        batch_request
-    };
+    let batch_request = apply_traditional_batch_evidence_request(
+        batch_request,
+        requested_evidence_level,
+        requested_evidence_tier,
+    );
     let batch_report = run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
 
     Ok(TraditionalAnalyticsPreparedBatchReport {
@@ -20091,12 +20398,16 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         cdc_delta_vortex,
         requested_execution_mode,
         requested_evidence_level,
+        requested_evidence_tier,
         resource_policy,
         result_workspace_dir,
         write_result_vortex,
     } = request;
-    let selected_evidence_level =
-        selected_batch_evidence_level(requested_evidence_level, write_result_vortex)?;
+    let (selected_evidence_level, selected_evidence_tier) = selected_batch_evidence_posture(
+        requested_evidence_level,
+        requested_evidence_tier,
+        write_result_vortex,
+    )?;
     if scenarios.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
             "traditional analytics native Vortex batch run requires at least one scenario; fallback execution was not attempted".to_string(),
@@ -20205,12 +20516,32 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         reports.iter().map(|report| report.vortex_scan_micros),
         "native Vortex batch scan micros",
     )?;
+    let total_result_sink_plan_micros = if write_result_vortex {
+        Some(checked_u64_values_sum(
+            reports
+                .iter()
+                .map(|report| report.computed_result_sink_plan_micros.unwrap_or(0)),
+            "native Vortex batch result sink plan micros",
+        )?)
+    } else {
+        None
+    };
     let total_result_sink_write_micros = if write_result_vortex {
         Some(checked_u64_values_sum(
             reports
                 .iter()
                 .map(|report| report.computed_result_sink_write_micros.unwrap_or(0)),
             "native Vortex batch result sink write micros",
+        )?)
+    } else {
+        None
+    };
+    let total_result_sink_replay_micros = if write_result_vortex {
+        Some(checked_u64_values_sum(
+            reports
+                .iter()
+                .map(|report| report.computed_result_sink_replay_micros.unwrap_or(0)),
+            "native Vortex batch result sink replay micros",
         )?)
     } else {
         None
@@ -20240,6 +20571,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         requested_execution_mode,
         requested_evidence_level,
         selected_evidence_level,
+        requested_evidence_tier,
+        selected_evidence_tier,
         result_sink_requested: write_result_vortex,
         session_evidence,
         source_state_prepare_micros,
@@ -20269,7 +20602,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         date_null_metric_state_recompute_avoided_count,
         total_scenario_compute_micros,
         total_vortex_scan_micros,
+        total_result_sink_plan_micros,
         total_result_sink_write_micros,
+        total_result_sink_replay_micros,
         total_rows_scanned,
         total_rows_materialized,
         all_native_io_certificates_certified,
@@ -20303,6 +20638,37 @@ fn selected_batch_evidence_level(
         (None, true) => Ok(TraditionalRuntimeEvidenceLevel::FullReplay),
         (None, false) => Ok(TraditionalRuntimeEvidenceLevel::Certified),
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selected_batch_evidence_posture(
+    requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    requested_evidence_tier: Option<TraditionalRuntimeEvidenceTier>,
+    write_result_vortex: bool,
+) -> Result<(
+    TraditionalRuntimeEvidenceLevel,
+    TraditionalRuntimeEvidenceTier,
+)> {
+    if let Some(tier) = requested_evidence_tier {
+        let tier_level = tier.evidence_level();
+        if let Some(level) = requested_evidence_level {
+            if level != tier_level {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "traditional-analytics-vortex-batch-run evidence_level={} conflicts with evidence_tier={}; fallback execution was not attempted",
+                    level.as_str(),
+                    tier.as_str()
+                )));
+            }
+        }
+        let selected_level = selected_batch_evidence_level(Some(tier_level), write_result_vortex)?;
+        return Ok((selected_level, tier));
+    }
+    let selected_level =
+        selected_batch_evidence_level(requested_evidence_level, write_result_vortex)?;
+    Ok((
+        selected_level,
+        TraditionalRuntimeEvidenceTier::from_evidence_level(selected_level),
+    ))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -20540,9 +20906,15 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
             .as_ref()
             .map_or(0, |sink| sink.rows_materialized),
         computed_result_sink_schema_summary: COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY.to_string(),
+        computed_result_sink_plan_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.plan_micros),
         computed_result_sink_write_micros: computed_result_sink
             .as_ref()
             .map(|sink| sink.write_micros),
+        computed_result_sink_replay_micros: computed_result_sink
+            .as_ref()
+            .map(|sink| sink.replay_micros),
         computed_result_sink_replay_result_json: computed_result_sink
             .as_ref()
             .map(|sink| sink.replay_result_json.clone()),
@@ -35595,7 +35967,24 @@ mod tests {
         let certified_fields = field_map(certified_report.fields());
         assert_field_eq(&certified_fields, "claim_gate_status", "fixture_smoke_only");
         assert_field_eq(&certified_fields, "requested_evidence_level", "certified");
+        assert_field_eq(&certified_fields, "requested_evidence_tier", "auto");
         assert_field_eq(&certified_fields, "selected_evidence_level", "certified");
+        assert_field_eq(&certified_fields, "actual_evidence_tier", "metadata_sink");
+        assert_field_eq(&certified_fields, "selected_evidence_tier", "metadata_sink");
+        assert_field_eq(&certified_fields, "sink_tier", "metadata_sink");
+        assert_field_eq(
+            &certified_fields,
+            "sink_timing_included_in_route_total",
+            "false",
+        );
+        assert_field_eq(&certified_fields, "result_sink_plan_micros", "none");
+        assert_field_eq(&certified_fields, "result_sink_write_micros", "none");
+        assert_field_eq(&certified_fields, "result_sink_replay_micros", "none");
+        assert_field_eq(
+            &certified_fields,
+            "result_sink_replay_skip_reason",
+            "skipped_metadata_sink_tier_digest_count_path_proof_without_replay",
+        );
         assert_field_eq(&certified_fields, "evidence_level", "certified");
         assert_field_eq(
             &certified_fields,
@@ -35651,6 +36040,9 @@ mod tests {
             "requested_evidence_level",
             "minimal_runtime",
         );
+        assert_field_eq(&minimal_fields, "actual_evidence_tier", "runtime_minimal");
+        assert_field_eq(&minimal_fields, "selected_evidence_tier", "runtime_minimal");
+        assert_field_eq(&minimal_fields, "sink_tier", "runtime_minimal");
         assert_field_eq(
             &minimal_fields,
             "selected_evidence_level",
@@ -35689,6 +36081,14 @@ mod tests {
         );
         assert_field_eq(&minimal_fields, "result_sink_requested", "false");
         assert_field_eq(&minimal_fields, "all_result_sink_replays_verified", "false");
+        assert_field_eq(&minimal_fields, "result_sink_plan_micros", "none");
+        assert_field_eq(&minimal_fields, "result_sink_write_micros", "none");
+        assert_field_eq(&minimal_fields, "result_sink_replay_micros", "none");
+        assert_field_eq(
+            &minimal_fields,
+            "result_sink_replay_skip_reason",
+            "skipped_runtime_minimal_tier_non_publication_non_claim_grade",
+        );
         assert_field_eq(
             &minimal_fields,
             "evidence_level_fallback_attempted",
@@ -35698,6 +36098,148 @@ mod tests {
             &minimal_fields,
             "evidence_level_external_engine_invoked",
             "false",
+        );
+
+        let publication_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_evidence_tier(TraditionalRuntimeEvidenceTier::PublicationFull)
+            .with_result_workspace_dir(Some(root.join("publication-result-sink")))
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+        assert_eq!(
+            publication_report.selected_evidence_level,
+            TraditionalRuntimeEvidenceLevel::FullReplay
+        );
+        assert_eq!(
+            publication_report.selected_evidence_tier,
+            TraditionalRuntimeEvidenceTier::PublicationFull
+        );
+        let publication_fields = field_map(publication_report.fields());
+        assert_field_eq(
+            &publication_fields,
+            "requested_evidence_tier",
+            "publication_full",
+        );
+        assert_field_eq(
+            &publication_fields,
+            "actual_evidence_tier",
+            "publication_full",
+        );
+        assert_field_eq(&publication_fields, "evidence_level", "full_replay");
+        assert_field_eq(
+            &publication_fields,
+            "sink_timing_included_in_route_total",
+            "true",
+        );
+        assert_ne!(
+            publication_fields
+                .get("result_sink_plan_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_ne!(
+            publication_fields
+                .get("result_sink_write_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_ne!(
+            publication_fields
+                .get("result_sink_replay_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_field_eq(
+            &publication_fields,
+            "result_sink_replay_skip_reason",
+            "not_skipped_replay_required",
+        );
+        assert_field_eq(
+            &publication_fields,
+            "human_evidence_render_skip_reason",
+            "not_skipped_publication_full_requires_human_render",
+        );
+
+        let full_replay_tier_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+            .with_evidence_tier(TraditionalRuntimeEvidenceTier::FullVortexReplay)
+            .with_result_workspace_dir(Some(root.join("full-replay-tier-result-sink")))
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+        assert_eq!(
+            full_replay_tier_report.selected_evidence_level,
+            TraditionalRuntimeEvidenceLevel::FullReplay
+        );
+        assert_eq!(
+            full_replay_tier_report.selected_evidence_tier,
+            TraditionalRuntimeEvidenceTier::FullVortexReplay
+        );
+        let full_replay_tier_fields = field_map(full_replay_tier_report.fields());
+        assert_field_eq(
+            &full_replay_tier_fields,
+            "requested_evidence_tier",
+            "full_vortex_replay",
+        );
+        assert_field_eq(
+            &full_replay_tier_fields,
+            "actual_evidence_tier",
+            "full_vortex_replay",
+        );
+        assert_field_eq(
+            &full_replay_tier_fields,
+            "sink_timing_included_in_route_total",
+            "true",
+        );
+        assert_ne!(
+            full_replay_tier_fields
+                .get("result_sink_plan_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_ne!(
+            full_replay_tier_fields
+                .get("result_sink_write_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_ne!(
+            full_replay_tier_fields
+                .get("result_sink_replay_micros")
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_field_eq(
+            &full_replay_tier_fields,
+            "human_evidence_render_skip_reason",
+            "skipped_compact_machine_evidence_human_render_deferred",
+        );
+
+        let conflicting_tier_error = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified)
+            .with_evidence_tier(TraditionalRuntimeEvidenceTier::RuntimeMinimal),
+        )
+        .unwrap_err();
+        assert!(
+            conflicting_tier_error
+                .to_string()
+                .contains("evidence_level=certified conflicts with evidence_tier=runtime_minimal")
         );
 
         let full_replay_error = run_traditional_analytics_vortex_batch_benchmark(
@@ -35716,6 +36258,59 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn traditional_runtime_evidence_level_tier_policy_maps_and_rejects_conflicts() {
+        assert_eq!(
+            TraditionalRuntimeEvidenceTier::parse("runtime_minimal").unwrap(),
+            TraditionalRuntimeEvidenceTier::RuntimeMinimal
+        );
+        assert_eq!(
+            TraditionalRuntimeEvidenceTier::parse("certified").unwrap(),
+            TraditionalRuntimeEvidenceTier::MetadataSink
+        );
+        assert_eq!(
+            TraditionalRuntimeEvidenceTier::parse("full_replay").unwrap(),
+            TraditionalRuntimeEvidenceTier::FullVortexReplay
+        );
+        assert_eq!(
+            TraditionalRuntimeEvidenceTier::PublicationFull.evidence_level(),
+            TraditionalRuntimeEvidenceLevel::FullReplay
+        );
+        assert_eq!(
+            selected_batch_evidence_posture(
+                Some(TraditionalRuntimeEvidenceLevel::Certified),
+                None,
+                false,
+            )
+            .unwrap(),
+            (
+                TraditionalRuntimeEvidenceLevel::Certified,
+                TraditionalRuntimeEvidenceTier::MetadataSink,
+            )
+        );
+        assert!(
+            selected_batch_evidence_posture(
+                Some(TraditionalRuntimeEvidenceLevel::Certified),
+                Some(TraditionalRuntimeEvidenceTier::RuntimeMinimal),
+                false,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("evidence_level=certified conflicts with evidence_tier=runtime_minimal")
+        );
+        assert!(
+            selected_batch_evidence_posture(
+                None,
+                Some(TraditionalRuntimeEvidenceTier::PublicationFull),
+                false,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("evidence_level=full_replay requires --write-result-vortex")
+        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

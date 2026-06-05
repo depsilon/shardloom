@@ -221,6 +221,17 @@ WEBSITE_ROW_KEYS = (
     "human_evidence_render_micros",
     "json_envelope_emit_micros",
     "report_fields_build_micros",
+    "evidence_sink_tier_schema_version",
+    "requested_evidence_tier",
+    "actual_evidence_tier",
+    "selected_evidence_tier",
+    "sink_tier",
+    "evidence_tier_supported_tiers",
+    "evidence_tier_result_sink_replay_required",
+    "sink_timing_included_in_route_total",
+    "sink_timing_inclusion_reason",
+    "result_sink_replay_skip_reason",
+    "human_evidence_render_skip_reason",
     "cli_process_wall_micros",
     "route_timing_stage_inclusion_schema_version",
     "route_timing_stage_inclusion_status",
@@ -714,7 +725,18 @@ PUBLISHED_METRIC_KEYS = (
     "execution_certificate_refs",
     "evidence_level_certificate_refs",
     "requested_evidence_level",
+    "requested_evidence_tier",
     "selected_evidence_level",
+    "selected_evidence_tier",
+    "actual_evidence_tier",
+    "sink_tier",
+    "evidence_sink_tier_schema_version",
+    "evidence_tier_supported_tiers",
+    "evidence_tier_result_sink_replay_required",
+    "sink_timing_included_in_route_total",
+    "sink_timing_inclusion_reason",
+    "result_sink_replay_skip_reason",
+    "human_evidence_render_skip_reason",
     "evidence_level",
     "prepared_vortex_scale_split_runtime_status",
     "prepared_vortex_scale_split_execution_certificate_status",
@@ -5577,6 +5599,110 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
         return row
 
     adjusted = dict(row)
+    evidence_level = str(
+        adjusted.get("evidence_level") or adjusted.get("selected_evidence_level") or ""
+    )
+    sink_timing_present = any(
+        adjusted.get(field) not in {None, "", "none", "not_requested"}
+        for field in (
+            "computed_result_sink_write_micros",
+            "result_sink_write_micros",
+            "computed_result_sink_write_millis",
+        )
+    )
+    replay_verified = any(
+        field_bool(adjusted, field, default=False)
+        or "replay_verified" in str(adjusted.get(field) or "").strip().lower()
+        for field in (
+            "computed_result_sink_replay_verified",
+            "evidence_level_result_sink_replay_verified",
+            "result_sink_replay_verified",
+            "prepared_vortex_scale_split_operator_output_commit_proof_status",
+        )
+    )
+    claim_grade_publication = (
+        adjusted.get("claim_gate_status") == "claim_grade"
+        or adjusted.get("claim_grade_requirements_met") is True
+    )
+    if evidence_level == "minimal_runtime":
+        default_tier = "runtime_minimal"
+    elif evidence_level == "full_replay":
+        default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
+    elif replay_verified or sink_timing_present:
+        default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
+    else:
+        default_tier = "metadata_sink"
+    adjusted.setdefault(
+        "evidence_sink_tier_schema_version",
+        "shardloom.traditional_analytics.evidence_sink_tier.v1",
+    )
+    adjusted.setdefault("requested_evidence_tier", "auto")
+    current_tier = str(adjusted.get("actual_evidence_tier") or "").strip()
+    tier_adjusted = False
+    if not current_tier:
+        adjusted["actual_evidence_tier"] = default_tier
+    elif (
+        adjusted.get("requested_evidence_tier") == "auto"
+        and (
+            current_tier == "metadata_sink"
+            or (current_tier == "full_vortex_replay" and default_tier == "publication_full")
+        )
+        and default_tier in {"full_vortex_replay", "publication_full"}
+    ):
+        adjusted["actual_evidence_tier"] = default_tier
+        tier_adjusted = True
+    adjusted.setdefault("selected_evidence_tier", adjusted["actual_evidence_tier"])
+    adjusted.setdefault("sink_tier", adjusted["actual_evidence_tier"])
+    if tier_adjusted:
+        adjusted["selected_evidence_tier"] = adjusted["actual_evidence_tier"]
+        adjusted["sink_tier"] = adjusted["actual_evidence_tier"]
+    adjusted.setdefault(
+        "evidence_tier_supported_tiers",
+        "runtime_minimal,metadata_sink,full_vortex_replay,publication_full",
+    )
+    replay_required = adjusted["actual_evidence_tier"] in {
+        "full_vortex_replay",
+        "publication_full",
+    }
+    if tier_adjusted or "evidence_tier_result_sink_replay_required" not in adjusted:
+        adjusted["evidence_tier_result_sink_replay_required"] = replay_required
+    if tier_adjusted or "sink_timing_included_in_route_total" not in adjusted:
+        adjusted["sink_timing_included_in_route_total"] = bool(
+            replay_required and sink_timing_present
+        )
+    if adjusted["actual_evidence_tier"] == "runtime_minimal":
+        if tier_adjusted or "sink_timing_inclusion_reason" not in adjusted:
+            adjusted[
+                "sink_timing_inclusion_reason"
+            ] = "no_result_sink_timing_for_runtime_minimal_tier"
+        if tier_adjusted or "result_sink_replay_skip_reason" not in adjusted:
+            adjusted[
+                "result_sink_replay_skip_reason"
+            ] = "skipped_runtime_minimal_tier_non_publication_non_claim_grade"
+    elif adjusted["actual_evidence_tier"] == "metadata_sink":
+        if tier_adjusted or "sink_timing_inclusion_reason" not in adjusted:
+            adjusted[
+                "sink_timing_inclusion_reason"
+            ] = "metadata_sink_has_no_replay_write_timing"
+        if tier_adjusted or "result_sink_replay_skip_reason" not in adjusted:
+            adjusted[
+                "result_sink_replay_skip_reason"
+            ] = "skipped_metadata_sink_tier_digest_count_path_proof_without_replay"
+    else:
+        if tier_adjusted or "sink_timing_inclusion_reason" not in adjusted:
+            adjusted["sink_timing_inclusion_reason"] = (
+                "publication_full_write_and_human_evidence_in_cli_route_wall"
+                if adjusted["actual_evidence_tier"] == "publication_full"
+                else "full_vortex_replay_write_timing_in_cli_route_wall"
+            )
+        if tier_adjusted or "result_sink_replay_skip_reason" not in adjusted:
+            adjusted["result_sink_replay_skip_reason"] = "not_skipped_replay_required"
+    if tier_adjusted or "human_evidence_render_skip_reason" not in adjusted:
+        adjusted["human_evidence_render_skip_reason"] = (
+            "not_skipped_publication_full_requires_human_render"
+            if adjusted["actual_evidence_tier"] == "publication_full"
+            else "skipped_compact_machine_evidence_human_render_deferred"
+        )
     if adjusted.get("source_state_status") == "report_only":
         adjusted["source_state_status"] = "source_state_recorded"
     adjusted["source_state_claim_gate_status"] = "claim_grade"
