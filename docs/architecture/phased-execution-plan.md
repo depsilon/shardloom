@@ -202,19 +202,18 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-SPLIT-6` | Make prepared-state identity content-addressed and role-repairable. |
-| 2 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
-| 3 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
-| 4 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
-| 5 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 6 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 7 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 8 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 9 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 10 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 11 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 12 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 13 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-SPLIT-7` | Refresh benchmark artifacts only after split counters are actionable and claim gates remain safe. |
+| 2 | `PERF-SPLIT-8` | Add compact evidence and tiered result-sink modes for hot prepared/native benchmark lanes. |
+| 3 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
+| 4 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 5 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 6 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 7 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 8 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 9 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 10 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 11 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 12 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -287,44 +286,6 @@ the completed ledger; the items below are the remaining implementation slices ne
 timings actionable and then reduce the ShardLoom hot/cold overheads they expose. Benchmark reruns
 belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
 must preserve no-fallback evidence and claim gates.
-
-- [ ] PERF-SPLIT-6 content-addressed prepared-state index and role-scoped partial repair:
-  - Source: prepared-batch reuse logic in `shardloom-vortex/src/traditional_analytics.rs` and
-    Python prepared route manifests in `python/src/shardloom/prepared_route.py`.
-  - Current state:
-    - [x] Workspace-manifest reuse and dependency/invalidation fields exist.
-    - [x] Partial-repair guard fields exist.
-    - [ ] Remaining: content-addressed prepared-state identity and role-scoped partial repair need
-      admitted repair behavior rather than report-only guard posture.
-  - Runtime enablement: prepared-state index lookup -> changed-role detection -> admitted role
-    repair or deterministic full invalidation -> prepared/native execution with no-fallback fields.
-  - Objective: reduce first-query prepared lookup/create cost by making prepared-state identity
-    content-addressed and repairable at fact/dim/CDC role granularity.
-  - Implementation scope: create a prepared-state index keyed by source-admission packet digest,
-    schema hash, route family, layout policy, Native I/O status, artifact refs/digests, and prepare
-    policy. On cache miss, emit the exact changed role. Add partial repair for admitted changes:
-    unchanged roles reuse existing Vortex artifacts; changed role is re-prepared; dependent derived
-    state is invalidated deterministically. Add delta/overlay hooks for append-only fact changes
-    where existing prefix verification succeeds.
-  - User-visible surface: prepare-once first-query and prepare-batch benchmark lanes, Python
-    prepared route manifests, reuse diagnostics, and website attribution.
-  - Evidence required: reused roles, repaired roles, invalidated derived states, repair timing,
-    replay proof, index digest, and `external_engine_invoked=false`.
-  - Acceptance: cache misses no longer force full rebuild when only one role changed and partial
-    repair is certified. Manifest fields show reused roles, repaired roles, invalidated derived
-    states, repair timing, replay proof, and `external_engine_invoked=false`.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex traditional_prepared_batch_workspace_reuse
-    cargo test -p shardloom-vortex traditional_prepared_partial_repair
-    $env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare
-    git diff --check
-    ```
-  - Non-goals: no broad CDC/table-transaction claim, no stale artifact reuse, no
-    DataFusion/Spark/etc. fallback.
-  - Claim boundary: scoped prepared-state repair only; no benchmark/performance claim until rerun.
-  - Fallback boundary: no external engine may repair, validate, or execute prepared-state misses.
-  - Ledger rule: after merge, move completed details and validator evidence to the completed ledger.
 
 - [ ] PERF-SPLIT-7 benchmark refresh and optimization-readiness gate:
   - Source: benchmark harness, website benchmark artifact, publication claim validators, and the
