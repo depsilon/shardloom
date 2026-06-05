@@ -977,6 +977,18 @@ Every row also carries the stage timing fields
 `null`, `n/a`, or `not_measured` rather than being omitted. In particular,
 `compatibility_import_certified` rows time the ingest/stage/certification
 workflow; do not read those rows as pure ShardLoom query-speed rows.
+Promoted rows also expose normalized timing and inclusion fields such as
+`source_admission_policy_micros`, `source_state_open_micros`,
+`prepared_manifest_read_micros`, `vortex_open_footer_micros`,
+`scan_open_micros`, `operator_kernel_micros`,
+`result_sink_write_micros`, `result_sink_replay_micros`,
+`human_evidence_render_micros`, `json_envelope_emit_micros`,
+`report_fields_build_micros`, `cli_process_wall_micros`, and
+`route_timing_stage_inclusion_*`. Those fields classify every canonical stage as
+`included`, `excluded_shared_preparation`, `excluded_harness`, or
+`diagnostic_only`. Broad shared setup such as `source_state_prepare_micros` is
+not a source-admission timer and must not be promoted into `source_admission_ms`
+without a direct admission/stat timer.
 Current certified cold rows scope `compatibility_to_vortex_import_millis`
 as source read/parse plus Vortex array build plus Vortex write. If scan and
 operator work are still fused in the current streaming loop, the row keeps

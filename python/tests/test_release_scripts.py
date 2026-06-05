@@ -58,6 +58,28 @@ class ReleaseScriptTests(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def _canonical_route_timing_stage_ids(self) -> tuple[str, ...]:
+        return (
+            "source_admission",
+            "source_read",
+            "source_parse_or_decode",
+            "source_to_vortex_array",
+            "vortex_write",
+            "vortex_digest",
+            "vortex_reopen_verify",
+            "prepared_state_lookup_or_create",
+            "vortex_scan",
+            "operator_compute",
+            "result_sink_write",
+            "evidence_render",
+            "cli_process_wall",
+        )
+
+    def _packed_route_stage_map(self, value: str) -> str:
+        return ";".join(
+            f"{stage_id}:{value}" for stage_id in self._canonical_route_timing_stage_ids()
+        )
+
     def _shardloom_benchmark_route_fields(
         self,
         engine: str = "shardloom-prepare-batch",
@@ -171,6 +193,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 ),
                 "prepared_state_invalidation_reason": "not_applicable_no_reuse_attempt",
             }
+        canonical_stage_ids = ",".join(self._canonical_route_timing_stage_ids())
         return {
             "route_lane_id": lane_id,
             "route_display_name": display_name,
@@ -194,6 +217,46 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_excluded_stage_ids": "none",
             "route_timing_included_stage_total_ms": 1.0,
             "route_timing_total_delta_ms": 0.0,
+            "timing_normalization_schema_version": (
+                "shardloom.traditional_analytics.timing_normalization.v1"
+            ),
+            "timing_normalization_status": "complete_with_unmeasured_optional_fields",
+            "source_admission_policy_micros": 0,
+            "source_stat_micros": 0,
+            "source_state_open_micros": None,
+            "source_state_digest_micros": None,
+            "prepared_manifest_read_micros": None,
+            "prepared_manifest_match_micros": None,
+            "vortex_open_footer_micros": None,
+            "scan_open_micros": None,
+            "scan_chunk_iter_micros": None,
+            "operator_kernel_micros": 100,
+            "operator_finalize_micros": None,
+            "result_sink_plan_micros": None,
+            "result_sink_write_micros": 100,
+            "result_sink_replay_micros": None,
+            "human_evidence_render_micros": 100,
+            "json_envelope_emit_micros": None,
+            "report_fields_build_micros": None,
+            "cli_process_wall_micros": None,
+            "route_timing_stage_inclusion_schema_version": (
+                "shardloom.route_timing_stage_inclusion.v1"
+            ),
+            "route_timing_stage_inclusion_status": "complete",
+            "route_timing_stage_inclusion_stage_ids": canonical_stage_ids,
+            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
+                "included"
+            ),
+            "route_timing_stage_inclusion_stage_owners": self._packed_route_stage_map(
+                "fixture"
+            ),
+            "route_timing_stage_inclusion_timing_scopes": self._packed_route_stage_map(
+                "fixture_route_total"
+            ),
+            "route_timing_stage_inclusion_skip_reasons": self._packed_route_stage_map(
+                "included_in_route_total"
+            ),
+            "route_timing_stage_inclusion_claim_boundary": "fixture_no_claim",
             "exclusive_stage_timing_schema_version": (
                 "shardloom.traditional_analytics.exclusive_stage_timing.v1"
             ),
@@ -330,6 +393,7 @@ class ReleaseScriptTests(unittest.TestCase):
         }
 
     def _external_benchmark_route_fields(self, engine: str) -> dict[str, object]:
+        canonical_stage_ids = ",".join(self._canonical_route_timing_stage_ids())
         return {
             "route_lane_id": "external_baseline_end_to_end",
             "route_display_name": f"{engine} End-to-End",
@@ -353,6 +417,38 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_excluded_stage_ids": "none",
             "route_timing_included_stage_total_ms": 1.0,
             "route_timing_total_delta_ms": 0.0,
+            "timing_normalization_schema_version": (
+                "shardloom.traditional_analytics.timing_normalization.v1"
+            ),
+            "timing_normalization_status": "external_baseline_only",
+            "source_admission_policy_micros": None,
+            "source_stat_micros": None,
+            "source_state_open_micros": None,
+            "source_state_digest_micros": None,
+            "prepared_manifest_read_micros": None,
+            "prepared_manifest_match_micros": None,
+            "vortex_open_footer_micros": None,
+            "scan_open_micros": None,
+            "scan_chunk_iter_micros": None,
+            "operator_kernel_micros": None,
+            "operator_finalize_micros": None,
+            "result_sink_plan_micros": None,
+            "result_sink_write_micros": None,
+            "result_sink_replay_micros": None,
+            "human_evidence_render_micros": None,
+            "json_envelope_emit_micros": None,
+            "report_fields_build_micros": None,
+            "cli_process_wall_micros": None,
+            "route_timing_stage_inclusion_schema_version": (
+                "shardloom.route_timing_stage_inclusion.v1"
+            ),
+            "route_timing_stage_inclusion_status": "external_baseline_only",
+            "route_timing_stage_inclusion_stage_ids": canonical_stage_ids,
+            "route_timing_stage_inclusion_classes": "external_baseline_only",
+            "route_timing_stage_inclusion_stage_owners": "external_baseline_only",
+            "route_timing_stage_inclusion_timing_scopes": "external_baseline_only",
+            "route_timing_stage_inclusion_skip_reasons": "external_baseline_only",
+            "route_timing_stage_inclusion_claim_boundary": "external_baseline_only",
             "exclusive_stage_timing_schema_version": (
                 "shardloom.traditional_analytics.exclusive_stage_timing.v1"
             ),
@@ -906,6 +1002,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_reopen_verify_millis": 5.0,
                 "vortex_scan_millis": 1.0,
                 "operator_compute_millis": 2.0,
+                "operator_kernel_micros": 0,
                 "result_sink_write_millis": 3.0,
                 "evidence_render_millis": 4.0,
                 "total_runtime_millis": 130.0,
@@ -946,6 +1043,88 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(published["total_route_ms"], 130.0)
         self.assertFalse(published["performance_claim_allowed"])
+
+    def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_timing_normalization_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "source state timing split",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "source_state_id": "source-state://timing-normalization-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://timing-normalization-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.timing-normalization-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "source_state_prepare_micros": 2500,
+                "source_read_millis": 10.0,
+                "compatibility_parse_millis": 12.0,
+                "source_to_columnar_millis": 4.0,
+                "vortex_write_millis": 70.0,
+                "vortex_reopen_verify_millis": 5.0,
+                "vortex_scan_millis": 1.0,
+                "operator_compute_millis": 2.0,
+                "operator_kernel_micros": 0,
+                "result_sink_write_millis": 3.0,
+                "evidence_render_millis": 4.0,
+                "total_runtime_millis": 130.0,
+                "cli_process_wall_millis": 135.0,
+                "python_harness_overhead_millis": 5.0,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertIsNone(published["source_admission_ms"])
+        self.assertIsNone(published["exclusive_source_admission_ms"])
+        self.assertIsNone(published["source_admission_policy_micros"])
+        self.assertEqual(published["source_state_open_micros"], 2500)
+        self.assertEqual(published["operator_kernel_micros"], 0)
+        self.assertEqual(
+            published["timing_normalization_schema_version"],
+            "shardloom.traditional_analytics.timing_normalization.v1",
+        )
+        self.assertEqual(
+            published["timing_normalization_status"],
+            "complete_with_unmeasured_optional_fields",
+        )
+        self.assertEqual(
+            published["route_timing_stage_inclusion_schema_version"],
+            "shardloom.route_timing_stage_inclusion.v1",
+        )
+        self.assertEqual(published["route_timing_stage_inclusion_status"], "complete")
+        self.assertIn(
+            "source_admission:diagnostic_only",
+            published["route_timing_stage_inclusion_classes"],
+        )
+        self.assertIn(
+            "cli_process_wall:excluded_harness",
+            published["route_timing_stage_inclusion_classes"],
+        )
 
     def test_benchmark_promoter_emits_source_scout_and_scan_attribution(self) -> None:
         module = self._load_script_module(
@@ -2437,7 +2616,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("last_order.broad_sql_grammar", packet["next_implementation_slice"])
+        self.assertIn("PERF-SPLIT-1", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
@@ -2520,6 +2699,34 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "check_benchmark_artifact_completeness.py",
             report["nearest_next_validation_command"],
+        )
+
+    def test_benchmark_artifact_completeness_rejects_source_state_prepare_as_admission(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_artifact_completeness.py",
+            "benchmark_artifact_timing_contract_for_test",
+        )
+        row = {
+            "engine": "shardloom",
+            "status": "success",
+            **self._shardloom_benchmark_route_fields("shardloom"),
+            "source_state_prepare_micros": 2500,
+            "source_admission_ms": 2.5,
+            "source_admission_policy_micros": None,
+        }
+        blockers: list[str] = []
+
+        module.validate_rows({"published_benchmark_rows": [row]}, blockers)
+
+        self.assertTrue(
+            any(
+                "maps broad source_state_prepare_micros to source_admission_ms"
+                in blocker
+                for blocker in blockers
+            ),
+            blockers,
         )
 
     def test_benchmark_publish_doctor_route_packet_markdown_is_compact(self) -> None:

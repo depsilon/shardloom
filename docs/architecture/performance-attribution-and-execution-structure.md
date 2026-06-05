@@ -684,6 +684,23 @@ vortex_write_millis
 vortex_reopen_millis
 vortex_scan_millis
 evidence_render_millis
+source_admission_policy_micros
+source_state_open_micros
+source_state_digest_micros
+prepared_manifest_read_micros
+prepared_manifest_match_micros
+vortex_open_footer_micros
+scan_open_micros
+scan_chunk_iter_micros
+operator_kernel_micros
+operator_finalize_micros
+result_sink_plan_micros
+result_sink_replay_micros
+human_evidence_render_micros
+json_envelope_emit_micros
+report_fields_build_micros
+cli_process_wall_micros
+route_timing_stage_inclusion_*
 build_time_excluded
 compatibility_to_vortex_included
 vortex_reopen_scan_included
@@ -696,7 +713,11 @@ persistent_runner_status
 ```
 
 Unknown or not-yet-isolated fields should be explicit `null`, `not_measured`, or
-`included_in_total_runtime` values rather than silently omitted.
+`included_in_total_runtime` values rather than silently omitted. Every canonical
+stage should also be classified as `included`, `excluded_shared_preparation`,
+`excluded_harness`, or `diagnostic_only`. Broad shared setup timers such as
+`source_state_prepare_micros` are not source-admission timers; promotion must not
+map them into `source_admission_ms` without a direct admission/stat timing field.
 
 ## Benchmark Artifact Contract
 
@@ -734,6 +755,9 @@ operator_compute_millis
 result_sink_write_millis
 evidence_render_millis
 total_runtime_millis
+timing_normalization_schema_version
+route_timing_stage_inclusion_schema_version
+route_timing_stage_inclusion_classes
 ```
 
 The harness validates those fields before writing the artifact. External

@@ -61,6 +61,12 @@ ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
 EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.exclusive_stage_timing.v1"
 )
+TIMING_NORMALIZATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.timing_normalization.v1"
+)
+ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
+    "shardloom.route_timing_stage_inclusion.v1"
+)
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
 OPERATOR_EXECUTION_MODES = {
@@ -143,6 +149,53 @@ EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS = {
     "inclusive_compatibility_to_vortex_import_timing_scope",
     "exclusive_stage_timing_claim_boundary",
 }
+TIMING_NORMALIZATION_REQUIRED_FIELDS = {
+    "timing_normalization_schema_version",
+    "timing_normalization_status",
+    "source_admission_policy_micros",
+    "source_stat_micros",
+    "source_state_open_micros",
+    "source_state_digest_micros",
+    "prepared_manifest_read_micros",
+    "prepared_manifest_match_micros",
+    "vortex_open_footer_micros",
+    "scan_open_micros",
+    "scan_chunk_iter_micros",
+    "operator_kernel_micros",
+    "operator_finalize_micros",
+    "result_sink_plan_micros",
+    "result_sink_write_micros",
+    "result_sink_replay_micros",
+    "human_evidence_render_micros",
+    "json_envelope_emit_micros",
+    "report_fields_build_micros",
+    "cli_process_wall_micros",
+}
+ROUTE_TIMING_STAGE_INCLUSION_REQUIRED_FIELDS = {
+    "route_timing_stage_inclusion_schema_version",
+    "route_timing_stage_inclusion_status",
+    "route_timing_stage_inclusion_stage_ids",
+    "route_timing_stage_inclusion_classes",
+    "route_timing_stage_inclusion_stage_owners",
+    "route_timing_stage_inclusion_timing_scopes",
+    "route_timing_stage_inclusion_skip_reasons",
+    "route_timing_stage_inclusion_claim_boundary",
+}
+CANONICAL_ROUTE_TIMING_STAGE_IDS = {
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_to_vortex_array",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_state_lookup_or_create",
+    "vortex_scan",
+    "operator_compute",
+    "result_sink_write",
+    "evidence_render",
+    "cli_process_wall",
+}
 PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
 PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
     "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
@@ -221,6 +274,8 @@ REQUIRED_ROUTE_FIELDS = {
     "route_timing_excluded_stage_ids",
     "route_timing_included_stage_total_ms",
     "route_timing_total_delta_ms",
+    *TIMING_NORMALIZATION_REQUIRED_FIELDS,
+    *ROUTE_TIMING_STAGE_INCLUSION_REQUIRED_FIELDS,
     *EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS,
     "preparation_timing_included_in_total",
     "query_timing_included_in_total",
@@ -457,6 +512,25 @@ def _boolish_true(value: Any) -> bool:
     return str(value).strip().lower() == "true"
 
 
+def _csv_set(value: Any) -> set[str]:
+    if not isinstance(value, str):
+        return set()
+    return {part.strip() for part in value.split(",") if part.strip()}
+
+
+def _packed_stage_keys(value: Any) -> set[str]:
+    if not isinstance(value, str):
+        return set()
+    keys: set[str] = set()
+    for token in value.split(";"):
+        if ":" not in token:
+            continue
+        key, _ = token.split(":", 1)
+        if key.strip():
+            keys.add(key.strip())
+    return keys
+
+
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
     route_lane_counts: Counter[str] = Counter()
     for index, row in enumerate(result_rows(payload)):
@@ -489,6 +563,13 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             )
         if row.get("route_timing_ledger_status") != "valid":
             blockers.append(f"benchmark row {index} route timing ledger is not valid")
+        if row.get("timing_normalization_schema_version") != TIMING_NORMALIZATION_SCHEMA_VERSION:
+            blockers.append(f"benchmark row {index} has invalid timing normalization schema")
+        if (
+            row.get("route_timing_stage_inclusion_schema_version")
+            != ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
+        ):
+            blockers.append(f"benchmark row {index} has invalid stage inclusion schema")
         if not str(row.get("route_total_formula") or "").strip():
             blockers.append(f"benchmark row {index} is missing route_total_formula")
         if not str(row.get("route_timing_scope") or "").strip():
@@ -566,6 +647,51 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 f"benchmark row {index} evidence render inclusion disagrees with route ledger"
             )
         if engine.startswith("shardloom"):
+            if row.get("timing_normalization_status") not in {
+                "complete_with_unmeasured_optional_fields",
+                "not_executed",
+            }:
+                blockers.append(
+                    f"ShardLoom row {index} has invalid timing_normalization_status"
+                )
+            if row.get("route_timing_stage_inclusion_status") not in {
+                "complete",
+                "not_executed",
+            }:
+                blockers.append(
+                    f"ShardLoom row {index} has invalid stage inclusion status"
+                )
+            stage_ids = _csv_set(row.get("route_timing_stage_inclusion_stage_ids"))
+            if stage_ids != CANONICAL_ROUTE_TIMING_STAGE_IDS:
+                blockers.append(
+                    f"ShardLoom row {index} stage inclusion ids are incomplete"
+                )
+            for field in (
+                "route_timing_stage_inclusion_classes",
+                "route_timing_stage_inclusion_stage_owners",
+                "route_timing_stage_inclusion_timing_scopes",
+                "route_timing_stage_inclusion_skip_reasons",
+            ):
+                if _packed_stage_keys(row.get(field)) != CANONICAL_ROUTE_TIMING_STAGE_IDS:
+                    blockers.append(
+                        f"ShardLoom row {index} stage inclusion field {field} "
+                        "does not cover every canonical stage"
+                    )
+            source_state_prepare = _numeric_value(row.get("source_state_prepare_micros"))
+            source_admission = _numeric_value(row.get("source_admission_ms"))
+            direct_source_admission = _numeric_value(
+                row.get("source_admission_policy_micros")
+            )
+            if (
+                source_state_prepare is not None
+                and direct_source_admission is None
+                and source_admission is not None
+                and abs(source_admission - source_state_prepare / 1000.0) <= 0.001
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} maps broad source_state_prepare_micros "
+                    "to source_admission_ms without a direct admission timing field"
+                )
             if _boolish_true(row.get("includes_output")) and row.get(
                 "output_timing_included_in_total"
             ) is not True:
@@ -578,6 +704,10 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"benchmark row {index} includes evidence but excludes evidence timing"
                 )
+        elif row.get("route_timing_stage_inclusion_status") != "external_baseline_only":
+            blockers.append(
+                f"external row {index} must keep stage inclusion external-baseline-only"
+            )
         for claim_field in (
             "performance_claim_allowed",
             "production_claim_allowed",

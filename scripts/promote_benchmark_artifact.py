@@ -39,6 +39,12 @@ ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
 EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.exclusive_stage_timing.v1"
 )
+TIMING_NORMALIZATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.timing_normalization.v1"
+)
+ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
+    "shardloom.route_timing_stage_inclusion.v1"
+)
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 EVIDENCE_RENDER_PROOF_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.evidence_render_proof.v1"
@@ -150,6 +156,34 @@ WEBSITE_ROW_KEYS = (
     "route_timing_excluded_stage_ids",
     "route_timing_included_stage_total_ms",
     "route_timing_total_delta_ms",
+    "timing_normalization_schema_version",
+    "timing_normalization_status",
+    "source_admission_policy_micros",
+    "source_stat_micros",
+    "source_state_open_micros",
+    "source_state_digest_micros",
+    "prepared_manifest_read_micros",
+    "prepared_manifest_match_micros",
+    "vortex_open_footer_micros",
+    "scan_open_micros",
+    "scan_chunk_iter_micros",
+    "operator_kernel_micros",
+    "operator_finalize_micros",
+    "result_sink_plan_micros",
+    "result_sink_write_micros",
+    "result_sink_replay_micros",
+    "human_evidence_render_micros",
+    "json_envelope_emit_micros",
+    "report_fields_build_micros",
+    "cli_process_wall_micros",
+    "route_timing_stage_inclusion_schema_version",
+    "route_timing_stage_inclusion_status",
+    "route_timing_stage_inclusion_stage_ids",
+    "route_timing_stage_inclusion_classes",
+    "route_timing_stage_inclusion_stage_owners",
+    "route_timing_stage_inclusion_timing_scopes",
+    "route_timing_stage_inclusion_skip_reasons",
+    "route_timing_stage_inclusion_claim_boundary",
     "exclusive_stage_timing_schema_version",
     "exclusive_stage_timing_status",
     "exclusive_stage_timing_scope",
@@ -330,6 +364,8 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "certificate",
     "route",
     "timing_scope",
+    "timing_normalization",
+    "stage_inclusion",
     "claim_boundary",
     "runtime_execution_validation",
     "runtime_execution",
@@ -387,6 +423,61 @@ ROUTE_STAGE_DISPLAY_NAMES = {
     "operator_compute_ms": "Operator compute",
     "result_sink_write_ms": "Result sink",
     "evidence_render_ms": "Evidence render",
+}
+CANONICAL_ROUTE_TIMING_STAGES = (
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_to_vortex_array",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_state_lookup_or_create",
+    "vortex_scan",
+    "operator_compute",
+    "result_sink_write",
+    "evidence_render",
+    "cli_process_wall",
+)
+PREPARATION_STAGE_IDS = {
+    "source_admission",
+    "source_read",
+    "source_parse_or_decode",
+    "source_to_vortex_array",
+    "vortex_write",
+    "vortex_digest",
+    "vortex_reopen_verify",
+    "prepared_state_lookup_or_create",
+}
+STAGE_VALUE_FIELD_BY_ID = {
+    "source_admission": "source_admission_ms",
+    "source_read": "source_read_ms",
+    "source_parse_or_decode": "source_parse_or_columnar_decode_ms",
+    "source_to_vortex_array": "source_to_vortex_array_ms",
+    "vortex_write": "vortex_write_ms",
+    "vortex_digest": "exclusive_vortex_digest_ms",
+    "vortex_reopen_verify": "vortex_reopen_or_verify_ms",
+    "prepared_state_lookup_or_create": "prepared_state_lookup_or_create_ms",
+    "vortex_scan": "vortex_scan_ms",
+    "operator_compute": "operator_compute_ms",
+    "result_sink_write": "result_sink_write_ms",
+    "evidence_render": "evidence_render_ms",
+    "cli_process_wall": "cli_process_wall_millis",
+}
+STAGE_OWNER_BY_ID = {
+    "source_admission": "shardloom_source_admission",
+    "source_read": "shardloom_source_reader",
+    "source_parse_or_decode": "shardloom_compatibility_adapter",
+    "source_to_vortex_array": "shardloom_vortex_ingest",
+    "vortex_write": "vortex_sink",
+    "vortex_digest": "shardloom_certificate_digest",
+    "vortex_reopen_verify": "shardloom_native_io_replay",
+    "prepared_state_lookup_or_create": "shardloom_prepared_state_manifest",
+    "vortex_scan": "shardloom_vortex_scan",
+    "operator_compute": "shardloom_operator_runtime",
+    "result_sink_write": "shardloom_result_sink",
+    "evidence_render": "shardloom_evidence_renderer",
+    "cli_process_wall": "benchmark_harness",
 }
 ROUTE_IDENTITY_KEYS = (
     "route_lane_id",
@@ -873,6 +964,13 @@ def micros_to_millis(value: Any) -> float | None:
     return None if parsed is None else parsed / 1000.0
 
 
+def millis_to_micros(value: Any) -> int | None:
+    parsed = numeric_value(value)
+    if parsed is None:
+        return None
+    return int(round(parsed * 1000.0))
+
+
 def first_numeric_stage_millis(
     fields: dict[str, Any],
     millis_keys: tuple[str, ...] = (),
@@ -890,7 +988,7 @@ def first_numeric_stage_millis(
 
 
 def source_admission_millis(fields: dict[str, Any]) -> float | None:
-    direct = first_numeric_stage_millis(
+    return first_numeric_stage_millis(
         fields,
         millis_keys=(
             "exclusive_source_admission_millis",
@@ -900,9 +998,156 @@ def source_admission_millis(fields: dict[str, Any]) -> float | None:
         ),
         micros_keys=("exclusive_source_admission_micros", "source_stat_micros"),
     )
-    if direct is not None:
-        return direct
-    return micros_to_millis(fields.get("source_state_prepare_micros"))
+
+
+def first_numeric_micros(
+    fields: dict[str, Any],
+    *,
+    micros_keys: tuple[str, ...] = (),
+    millis_keys: tuple[str, ...] = (),
+) -> int | None:
+    for key in micros_keys:
+        parsed = numeric_value(fields.get(key))
+        if parsed is not None:
+            return int(round(parsed))
+    for key in millis_keys:
+        parsed = millis_to_micros(fields.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def timing_normalization_fields_for_row(
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    result_sink_write_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "result_sink_write_micros",
+            "computed_result_sink_write_micros",
+            "exclusive_result_sink_write_micros",
+            "total_result_sink_write_micros",
+            "batch_total_result_sink_write_micros",
+        ),
+        millis_keys=("result_sink_write_millis", "exclusive_result_sink_write_ms"),
+    )
+    operator_kernel_micros = first_numeric_micros(
+        fields,
+        micros_keys=("operator_kernel_micros", "operator_compute_micros"),
+        millis_keys=("operator_kernel_millis", "operator_compute_millis"),
+    )
+    if operator_kernel_micros is None:
+        operator_kernel_micros = millis_to_micros(stage_fields.get("operator_compute_ms"))
+    normalized = {
+        "source_admission_policy_micros": first_numeric_micros(
+            fields,
+            micros_keys=("exclusive_source_admission_micros", "source_stat_micros"),
+            millis_keys=(
+                "exclusive_source_admission_millis",
+                "source_admission_millis",
+                "source_metadata_snapshot_millis",
+            ),
+        ),
+        "source_stat_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_stat_micros",),
+            millis_keys=("source_stat_millis", "source_metadata_snapshot_millis"),
+        ),
+        "source_state_open_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_open_micros", "source_state_prepare_micros"),
+            millis_keys=("source_state_open_millis",),
+        ),
+        "source_state_digest_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_digest_micros",),
+            millis_keys=("source_state_digest_millis",),
+        ),
+        "prepared_manifest_read_micros": first_numeric_micros(
+            fields,
+            micros_keys=(
+                "prepared_manifest_read_micros",
+                "prepare_batch_prepared_state_manifest_lookup_micros",
+            ),
+            millis_keys=("prepared_manifest_read_millis",),
+        ),
+        "prepared_manifest_match_micros": first_numeric_micros(
+            fields,
+            micros_keys=("prepared_manifest_match_micros",),
+            millis_keys=("prepared_manifest_match_millis",),
+        ),
+        "vortex_open_footer_micros": first_numeric_micros(
+            fields,
+            micros_keys=("vortex_open_footer_micros", "vortex_footer_open_micros"),
+            millis_keys=("vortex_footer_open_millis", "vortex_footer_open_ms"),
+        ),
+        "scan_open_micros": first_numeric_micros(
+            fields,
+            micros_keys=("scan_open_micros", "vortex_scan_open_micros"),
+            millis_keys=("vortex_scan_open_millis", "vortex_scan_open_ms"),
+        ),
+        "scan_chunk_iter_micros": first_numeric_micros(
+            fields,
+            micros_keys=("scan_chunk_iter_micros", "vortex_scenario_scan_micros"),
+            millis_keys=("vortex_scenario_scan_millis", "vortex_scenario_scan_ms"),
+        ),
+        "operator_kernel_micros": operator_kernel_micros,
+        "operator_finalize_micros": first_numeric_micros(
+            fields,
+            micros_keys=("operator_finalize_micros",),
+            millis_keys=("operator_finalize_millis",),
+        ),
+        "result_sink_plan_micros": first_numeric_micros(
+            fields,
+            micros_keys=("result_sink_plan_micros",),
+            millis_keys=("result_sink_plan_millis",),
+        ),
+        "result_sink_write_micros": result_sink_write_micros,
+        "result_sink_replay_micros": first_numeric_micros(
+            fields,
+            micros_keys=("result_sink_replay_micros",),
+            millis_keys=("result_sink_replay_millis",),
+        ),
+        "human_evidence_render_micros": first_numeric_micros(
+            fields,
+            micros_keys=("human_evidence_render_micros", "evidence_render_micros"),
+            millis_keys=("human_evidence_render_millis", "evidence_render_millis"),
+        ),
+        "json_envelope_emit_micros": first_numeric_micros(
+            fields,
+            micros_keys=("json_envelope_emit_micros",),
+            millis_keys=("json_envelope_emit_millis",),
+        ),
+        "report_fields_build_micros": first_numeric_micros(
+            fields,
+            micros_keys=("report_fields_build_micros",),
+            millis_keys=("report_fields_build_millis",),
+        ),
+        "cli_process_wall_micros": first_numeric_micros(
+            fields,
+            micros_keys=("cli_process_wall_micros",),
+            millis_keys=(
+                "cli_process_wall_millis",
+                "batch_cli_process_wall_millis",
+                "preparation_cli_process_wall_millis",
+            ),
+        ),
+    }
+    if not is_shardloom_engine(str(row.get("engine") or "")):
+        status = "external_baseline_only"
+    elif row.get("status") != "success":
+        status = "not_executed"
+    elif any(value is not None for value in normalized.values()):
+        status = "complete_with_unmeasured_optional_fields"
+    else:
+        status = "blocked_missing_normalized_timing"
+    return {
+        "timing_normalization_schema_version": TIMING_NORMALIZATION_SCHEMA_VERSION,
+        "timing_normalization_status": status,
+        **normalized,
+    }
 
 
 def route_runtime_status_for_row(row: dict[str, Any], fields: dict[str, Any]) -> str:
@@ -1756,6 +2001,136 @@ def route_timing_ledger_fields_for_row(
         "query_timing_included_in_total": query_included,
         "output_timing_included_in_total": output_included,
         "evidence_timing_included_in_total": evidence_included,
+    }
+
+
+def stage_inclusion_class(
+    stage_id: str,
+    *,
+    preparation_included: bool,
+    query_included: bool,
+    output_included: bool,
+    evidence_included: bool,
+    stage_value_present: bool,
+) -> str:
+    if stage_id == "cli_process_wall":
+        return "excluded_harness"
+    if not stage_value_present:
+        return "diagnostic_only"
+    if stage_id in PREPARATION_STAGE_IDS:
+        return "included" if preparation_included else "excluded_shared_preparation"
+    if stage_id in {"vortex_scan", "operator_compute"}:
+        return "included" if query_included else "diagnostic_only"
+    if stage_id == "result_sink_write":
+        return "included" if output_included else "diagnostic_only"
+    if stage_id == "evidence_render":
+        return "included" if evidence_included else "diagnostic_only"
+    return "diagnostic_only"
+
+
+def stage_inclusion_skip_reason(stage_class: str) -> str:
+    return {
+        "included": "included_in_route_total",
+        "excluded_shared_preparation": "shared_preparation_outside_route_total",
+        "excluded_harness": "harness_process_wall_not_part_of_route_total",
+        "diagnostic_only": "not_measured_or_not_part_of_this_route",
+    }.get(stage_class, "unknown")
+
+
+def pack_stage_map(values: dict[str, str]) -> str:
+    return ";".join(
+        f"{stage_id}:{values.get(stage_id, 'missing')}"
+        for stage_id in CANONICAL_ROUTE_TIMING_STAGES
+    )
+
+
+def route_timing_stage_inclusion_fields_for_row(
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+    timing_ledger: dict[str, Any],
+) -> dict[str, Any]:
+    engine = str(row.get("engine") or "")
+    if not is_shardloom_engine(engine):
+        external = "external_baseline_only"
+        return {
+            "route_timing_stage_inclusion_schema_version": (
+                ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
+            ),
+            "route_timing_stage_inclusion_status": external,
+            "route_timing_stage_inclusion_stage_ids": ",".join(
+                CANONICAL_ROUTE_TIMING_STAGES
+            ),
+            "route_timing_stage_inclusion_classes": external,
+            "route_timing_stage_inclusion_stage_owners": external,
+            "route_timing_stage_inclusion_timing_scopes": external,
+            "route_timing_stage_inclusion_skip_reasons": external,
+            "route_timing_stage_inclusion_claim_boundary": (
+                "external baseline rows are comparison-only and cannot satisfy ShardLoom "
+                "stage inclusion evidence"
+            ),
+        }
+
+    preparation_included = timing_ledger.get("preparation_timing_included_in_total") is True
+    query_included = timing_ledger.get("query_timing_included_in_total") is True
+    output_included = timing_ledger.get("output_timing_included_in_total") is True
+    evidence_included = timing_ledger.get("evidence_timing_included_in_total") is True
+    scope = str(timing_ledger.get("route_timing_scope") or "unknown")
+    classes: dict[str, str] = {}
+    owners: dict[str, str] = {}
+    scopes: dict[str, str] = {}
+    reasons: dict[str, str] = {}
+    for stage_id in CANONICAL_ROUTE_TIMING_STAGES:
+        value_field = STAGE_VALUE_FIELD_BY_ID[stage_id]
+        stage_value_present = numeric_value(stage_fields.get(value_field)) is not None
+        if stage_id == "cli_process_wall":
+            runtime_fields = runtime_validation_field_map(row)
+            stage_value_present = first_numeric_micros(
+                runtime_fields,
+                millis_keys=(
+                    "cli_process_wall_millis",
+                    "batch_cli_process_wall_millis",
+                    "preparation_cli_process_wall_millis",
+                ),
+            ) is not None
+        stage_class = stage_inclusion_class(
+            stage_id,
+            preparation_included=preparation_included,
+            query_included=query_included,
+            output_included=output_included,
+            evidence_included=evidence_included,
+            stage_value_present=stage_value_present,
+        )
+        classes[stage_id] = stage_class
+        owners[stage_id] = STAGE_OWNER_BY_ID[stage_id]
+        scopes[stage_id] = scope if stage_class == "included" else stage_class
+        reasons[stage_id] = stage_inclusion_skip_reason(stage_class)
+    missing = [
+        stage_id
+        for stage_id, stage_class in classes.items()
+        if stage_class == "diagnostic_only"
+    ]
+    status = (
+        "complete"
+        if row.get("status") == "success" and len(missing) < len(CANONICAL_ROUTE_TIMING_STAGES)
+        else "not_executed"
+    )
+    return {
+        "route_timing_stage_inclusion_schema_version": (
+            ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
+        ),
+        "route_timing_stage_inclusion_status": status,
+        "route_timing_stage_inclusion_stage_ids": ",".join(CANONICAL_ROUTE_TIMING_STAGES),
+        "route_timing_stage_inclusion_classes": pack_stage_map(classes),
+        "route_timing_stage_inclusion_stage_owners": pack_stage_map(owners),
+        "route_timing_stage_inclusion_timing_scopes": pack_stage_map(scopes),
+        "route_timing_stage_inclusion_skip_reasons": pack_stage_map(reasons),
+        "route_timing_stage_inclusion_claim_boundary": (
+            "stage inclusion fields explain whether each timing component is included in "
+            "the comparable route total, excluded shared preparation, excluded harness "
+            "overhead, or diagnostic-only evidence; route totals remain authoritative and "
+            "no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, "
+            "package, release, or Spark-displacement claim is authorized"
+        ),
     }
 
 
@@ -2994,6 +3369,81 @@ def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "claim_boundary": (
             "stage attribution explains why a ShardLoom route took time; stage pieces are "
             "not competing product lanes"
+        ),
+    }
+
+
+def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        first = group_rows[0]
+        class_tokens = str(
+            first.get("route_timing_stage_inclusion_classes") or ""
+        ).split(";")
+        classes: dict[str, str] = {}
+        for token in class_tokens:
+            if ":" not in token:
+                continue
+            stage_id, stage_class = token.split(":", 1)
+            classes[stage_id] = stage_class
+        included = [
+            stage_id for stage_id, stage_class in classes.items() if stage_class == "included"
+        ]
+        shared = [
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class == "excluded_shared_preparation"
+        ]
+        harness = [
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class == "excluded_harness"
+        ]
+        diagnostic = [
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class == "diagnostic_only"
+        ]
+        statuses = Counter(
+            str(row.get("route_timing_stage_inclusion_status") or "missing")
+            for row in group_rows
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                ", ".join(included) or "none",
+                ", ".join(shared) or "none",
+                ", ".join(harness) or "none",
+                ", ".join(diagnostic) or "none",
+                str(first.get("route_timing_scope") or "missing"),
+                "; ".join(f"{status}={count}" for status, count in sorted(statuses.items())),
+            ]
+        )
+    return {
+        "heading": "Stage Inclusion Contract",
+        "headers": [
+            "Route",
+            "Rows",
+            "Included in route total",
+            "Excluded shared preparation",
+            "Excluded harness",
+            "Diagnostic only",
+            "Timing scope",
+            "Status",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION,
+        "claim_boundary": (
+            "stage inclusion metadata makes route totals auditable; it does not convert "
+            "diagnostic stage fields into comparable route totals or authorize speed claims"
         ),
     }
 
@@ -4845,6 +5295,15 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_identity,
             route_stage_fields,
         )
+        timing_normalization_fields = timing_normalization_fields_for_row(
+            adjusted_row,
+            route_stage_fields,
+        )
+        stage_inclusion_fields = route_timing_stage_inclusion_fields_for_row(
+            adjusted_row,
+            route_stage_fields,
+            route_timing_ledger,
+        )
         fast_path_fields = route_fast_path_attribution_fields_for_row(
             adjusted_row,
             route_identity,
@@ -4892,6 +5351,8 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(source_read_scout_fields)
         rendered_row.update(vortex_reopen_scan_fields)
         rendered_row.update(route_timing_ledger)
+        rendered_row.update(timing_normalization_fields)
+        rendered_row.update(stage_inclusion_fields)
         rendered_row.update(fast_path_fields)
         rendered_row.update(evidence_render_proof_fields)
         rendered_row.update(cold_lane_fields)
@@ -4951,6 +5412,14 @@ def published_rows_with_current_route_timing_ledger(
             updated, route_identity, route_stage_fields
         )
         updated.update(timing_ledger)
+        updated.update(timing_normalization_fields_for_row(updated, route_stage_fields))
+        updated.update(
+            route_timing_stage_inclusion_fields_for_row(
+                updated,
+                route_stage_fields,
+                timing_ledger,
+            )
+        )
         fast_path_fields = route_fast_path_attribution_fields_for_row(
             updated,
             route_identity,
@@ -5024,6 +5493,7 @@ def comparative_summary(
             claim_adjusted_rows
         ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
+        "stage_inclusion_contract": stage_inclusion_contract_table(claim_adjusted_rows),
         "route_share_amdahl": route_share_amdahl_table(claim_adjusted_rows),
         "source_read_scout": source_read_scout_table(claim_adjusted_rows),
         "vortex_reopen_scan_attribution": vortex_reopen_scan_table(claim_adjusted_rows),
