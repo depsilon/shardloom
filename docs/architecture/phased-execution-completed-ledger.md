@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified subquery diagnostics
+  - Date: 2026-06-05
+  - Branch/PR: `codex/source-qualified-subquery-diagnostics` / PR #1105.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`.
+  - Scope:
+    - Added executable admitted-semantics diagnostic fixtures for unbound source-qualified scalar IN
+      selected-column references, row-value IN subquery filter references, EXISTS projection
+      references, and quantified subquery ORDER BY references.
+    - Promoted those existing fail-closed runtime diagnostics into first-class matrix rows with
+      `support_state=unsupported_diagnostic`, no fallback, no external engine invocation, and
+      deterministic `SL_INVALID_INPUT` evidence.
+    - Updated latest admitted-semantics counts to `matrix_row_count=113`,
+      `executable_fixture_count=91`, `diagnostic_case_count=22`,
+      `unsupported_diagnostic_count=20`, `runtime_error_diagnostic_count=1`, and
+      `invalid_shape_diagnostic_count=1`.
+    - Updated the phase plan, hard release readiness gate, release metadata guard, compute-flow
+      source docs, and generated website/static pages.
+  - Evidence:
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-source-qualified-diagnostics.json`
+      passed with `matrix_row_count=113`, `executable_fixture_count=91`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, and `performance_claim_allowed=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-source-qualified-diagnostics.json --output target/release-readiness-source-qualified-diagnostics.json`
+      remained blocked only on existing broad release/package/checklist gates; admitted-semantics
+      blockers were absent and fallback/external-engine fields remained false.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is deterministic diagnostic and release-gate
+      evidence work, not performance evidence.
+  - Claim boundary:
+    - This slice proves fail-closed source-qualified diagnostics for scoped local subquery selected,
+      filter, projection, and ORDER BY references. It does not claim broad ANSI subquery parity,
+      production SQL/DataFrame support, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - Unsupported source-qualified references fail before execution through ShardLoom diagnostics.
+      No pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external
+      DataFrame backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified subquery breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/source-qualified-subquery-breadth` / PR #1104.

@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=109
+matrix_row_count=113
 executable_fixture_count=91
-diagnostic_case_count=18
-unsupported_diagnostic_count=16
+diagnostic_case_count=22
+unsupported_diagnostic_count=20
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -154,6 +154,10 @@ Covered fixture rows:
 - `unsupported_arbitrary_interval_arithmetic`
 - `unsupported_complex_join_key`
 - `invalid_shape_scalar_multi_column_in_subquery`
+- `unsupported_unbound_source_qualified_in_subquery_select`
+- `unsupported_unbound_source_qualified_row_value_subquery_filter`
+- `unsupported_unbound_source_qualified_exists_projection`
+- `unsupported_unbound_source_qualified_quantified_order_by`
 - `unsupported_outer_reference_non_column_comparison`
 - `unsupported_outer_to_outer_subquery_comparison`
 - `source_qualified_in_subquery_semantics`

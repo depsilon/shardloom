@@ -310,13 +310,16 @@ completed details to the ledger.
   including logical `OR`, complex-key `JOIN ON` blockers, deterministic outer-reference blockers,
   scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN,
   EXISTS/NOT EXISTS, and quantified local subquery evidence with `source_qualified_subquery_*`
-  report fields. Remaining live blockers are nested source decoding and flat sinks beyond scoped
+  report fields plus deterministic unbound source-qualified selected-column, filter, projection,
+  and ORDER BY diagnostics for those scoped subquery surfaces. Remaining live blockers are nested
+  source decoding and flat sinks beyond scoped
   result-boundary projections, variant/union-dtype shapes, binary sink preservation outside scoped
   feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat
   scalar outputs, broader binary execution beyond scoped columnar source projection/predicate/order
   plus explicit casts/helpers, non-binary source columns compared to binary literals, ORC typed
   decimal sinks, broad ANSI decimal coercion beyond exact exponent notation, scalar-left
-  multi-column subqueries, unbound source aliases, and remaining broad ANSI subquery families
+  multi-column subqueries, unbound source aliases outside admitted source-qualified subquery
+  surfaces, and remaining broad ANSI subquery families
   outside the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`,
   quantified, source-qualified, and predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
