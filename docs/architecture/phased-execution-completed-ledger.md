@@ -16,6 +16,86 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D projected negative subquery semantics admission
+  - Date: 2026-06-05
+  - Branch/PR: `codex/projected-negative-subquery-semantics` / PR #1100.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_release_readiness.py`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+    - `website-src/scripts/postbuild-static.mjs`.
+  - Scope:
+    - Added ShardLoom-native local-source runtime smokes for projected scalar `NOT IN`, projected
+      row-value `NOT IN`, and projected `NOT EXISTS` subqueries across joined, grouped/HAVING, and
+      correlated projected local-source plans.
+    - Promoted twelve projected negative-subquery fixtures into the admitted-semantics validator and
+      matrix as executable decoded-reference rows.
+    - Updated latest release-readiness admitted-semantics counts to `matrix_row_count=101`,
+      `executable_fixture_count=85`, `diagnostic_case_count=16`, and
+      `unsupported_diagnostic_count=14`.
+    - Refreshed active phase-plan state, status docs, release-readiness docs, architecture
+      references, use-case source content, and public website source content so projected negative
+      subquery semantics are listed in the current admitted boundary.
+    - Hardened the website static postbuild step so generated legacy pages, managed public
+      benchmark/data assets, and duplicate-suffix cleanup are enforced by the source-to-static build
+      path.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli projected_not -- --nocapture` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli row_value_not_in_subquery -- --nocapture`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-projected-negative-subqueries.json`
+      passed with `matrix_row_count=101`, `executable_fixture_count=85`,
+      `diagnostic_case_count=16`, `unsupported_diagnostic_count=14`, no fallback, and no external
+      engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-projected-negative-subqueries.json --output target/hard-release-readiness-projected-negative-subqueries.json`
+      remained blocked only by broader hard-release blockers; admitted-semantics blockers were not
+      reported.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-projected-negative-subqueries.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-projected-negative-subqueries.json`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build`
+      passed.
+    - `cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs`
+      passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed; `website/assets/benchmarks/latest` still contains `benchmark-results.json`,
+      `manifest.json`, and published benchmark rows `000` through `004`.
+    - `cargo fmt --all -- --check` passed after formatting the new Rust tests.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is SQL semantics admission,
+      documentation freshness, and website static-output freshness work, not a speedup or
+      performance-superiority claim.
+  - Claim boundary:
+    - This slice admits scoped projected scalar `NOT IN`, projected row-value `NOT IN`, and
+      projected `NOT EXISTS` subqueries across joined, grouped/HAVING, and correlated projected
+      local-source plans. It does not admit broad ANSI subquery parity, object-store/table sources,
+      benchmark performance claims, package release, or production support.
+  - Fallback boundary:
+    - Parsing, projected subquery materialization, predicate lowering, and result rendering remain
+      inside ShardLoom SQL local-source runtime. No pandas, Polars, DuckDB, DataFusion, Spark,
+      Velox, or other external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D negative subquery semantics admission
   - Date: 2026-06-05
   - Branch/PR: `codex/sql-negative-subquery-semantics` / PR #1099.

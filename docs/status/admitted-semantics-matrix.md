@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=89
-executable_fixture_count=73
+matrix_row_count=101
+executable_fixture_count=85
 diagnostic_case_count=16
 unsupported_diagnostic_count=14
 runtime_error_diagnostic_count=1
@@ -91,25 +91,36 @@ Covered fixture rows:
 - `in_subquery_scalar_semantics`
 - `in_subquery_filtered_ordered_limited_semantics`
 - `correlated_in_subquery_semantics`
-- `source_qualified_in_subquery_semantics`
 - `correlated_row_value_in_subquery_semantics`
 - `correlated_exists_subquery_semantics`
 - `correlated_not_exists_subquery_semantics`
 - `correlated_quantified_subquery_semantics`
 - `joined_projected_in_subquery_semantics`
+- `joined_projected_not_in_subquery_semantics`
 - `joined_projected_row_value_in_subquery_semantics`
+- `joined_projected_row_value_not_in_subquery_semantics`
 - `grouped_having_projected_in_subquery_semantics`
+- `grouped_having_projected_not_in_subquery_semantics`
+- `grouped_having_projected_row_value_not_in_subquery_semantics`
 - `joined_projected_exists_subquery_semantics`
+- `joined_projected_not_exists_subquery_semantics`
 - `grouped_having_projected_exists_subquery_semantics`
+- `grouped_having_projected_not_exists_subquery_semantics`
 - `joined_projected_quantified_subquery_semantics`
 - `correlated_joined_projected_in_subquery_semantics`
+- `correlated_joined_projected_not_in_subquery_semantics`
 - `correlated_joined_projected_row_value_in_subquery_semantics`
+- `correlated_joined_projected_row_value_not_in_subquery_semantics`
 - `correlated_joined_projected_quantified_subquery_semantics`
 - `correlated_joined_projected_exists_subquery_semantics`
+- `correlated_joined_projected_not_exists_subquery_semantics`
 - `correlated_grouped_having_projected_in_subquery_semantics`
+- `correlated_grouped_having_projected_not_in_subquery_semantics`
 - `correlated_grouped_having_projected_row_value_in_subquery_semantics`
+- `correlated_grouped_having_projected_row_value_not_in_subquery_semantics`
 - `correlated_grouped_having_projected_quantified_subquery_semantics`
 - `correlated_grouped_having_projected_exists_subquery_semantics`
+- `correlated_grouped_having_projected_not_exists_subquery_semantics`
 - `nested_in_subquery_semantics`
 - `having_in_subquery_semantics`
 - `having_exists_subquery_semantics`
@@ -141,16 +152,14 @@ Covered fixture rows:
 - `unsupported_arbitrary_interval_arithmetic`
 - `unsupported_complex_join_key`
 - `invalid_shape_scalar_multi_column_in_subquery`
+- `source_qualified_in_subquery_semantics`
 
-Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local scalar
-IN/NOT IN subquery, nested scalar IN-subquery, row-value IN/NOT IN subquery,
-source-qualified local subquery, scoped correlated `outer.<column>` local subquery filter,
-scoped subquery-backed predicate/CASE projections, joined/grouped projected IN/EXISTS subqueries,
-projected row-value/quantified subquery, correlated joined and grouped/HAVING projected
-scalar/row-value/quantified/EXISTS subqueries, scoped EXISTS/NOT EXISTS, scoped quantified
-ANY/ALL, and HAVING-level local subquery fixtures;
-external-oracle result artifact population; and fuzz execution beyond the deterministic seeded
-property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
+Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local
+scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
+projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
+correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection, and
+HAVING-level scoped variants; external-oracle result artifact population; and fuzz execution beyond
+the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
 deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
 timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source

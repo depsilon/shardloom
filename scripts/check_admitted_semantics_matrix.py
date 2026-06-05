@@ -1698,6 +1698,281 @@ def grouped_having_projected_in_subquery_case() -> SqlFixtureCase:
     )
 
 
+PROJECTED_NEGATIVE_SOURCE_TEXT = "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n"
+
+PROJECTED_NEGATIVE_ALLOWED_TEXT = (
+    "id,label,active,score\n"
+    "1,alpha,true,30\n"
+    "2,beta,false,20\n"
+    "3,gamma,true,40\n"
+    "5,epsilon,true,50\n"
+)
+
+PROJECTED_NEGATIVE_GROUPED_TEXT = (
+    "id,label,amount\n"
+    "1,alpha,10\n"
+    "1,alpha,20\n"
+    "2,beta,5\n"
+    "3,gamma,7\n"
+    "3,gamma,9\n"
+    "4,delta,1\n"
+)
+
+
+def joined_projected_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="joined_projected_not_in_subquery_semantics",
+        source_name="joined-projected-not-in-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id NOT IN ("
+            "SELECT a.id FROM '{source}' AS s INNER JOIN '{allowed}' AS a "
+            "ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "a.id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "4",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialized_value_count": "2",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "false",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            ("allowed", "joined-projected-not-in-allowed.csv", PROJECTED_NEGATIVE_ALLOWED_TEXT),
+        ),
+    )
+
+
+def grouped_having_projected_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="grouped_having_projected_not_in_subquery_semantics",
+        source_name="grouped-projected-not-in-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id NOT IN ("
+            "SELECT id FROM '{grouped}' GROUP BY id HAVING count(*) >= 2 "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "6",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialized_value_count": "2",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            ("grouped", "grouped-projected-not-in-values.csv", PROJECTED_NEGATIVE_GROUPED_TEXT),
+        ),
+    )
+
+
+def joined_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="joined_projected_row_value_not_in_subquery_semantics",
+        source_name="joined-projected-row-value-not-in-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) NOT IN ("
+            "SELECT s.id,s.label FROM '{source}' AS s INNER JOIN '{allowed}' AS a "
+            "ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "row_value_in_tuple_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "s.id,s.label",
+            "in_subquery_input_row_count": "4",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialized_value_count": "2",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "2",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "joined-projected-row-value-not-in-allowed.csv",
+                PROJECTED_NEGATIVE_ALLOWED_TEXT,
+            ),
+        ),
+    )
+
+
+def grouped_having_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="grouped_having_projected_row_value_not_in_subquery_semantics",
+        source_name="grouped-projected-row-value-not-in-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) NOT IN ("
+            "SELECT id,label FROM '{grouped}' GROUP BY id,label HAVING count(*) >= 2 "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "id,label",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "2",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "grouped-projected-row-value-not-in-values.csv",
+                PROJECTED_NEGATIVE_GROUPED_TEXT,
+            ),
+        ),
+    )
+
+
+def joined_projected_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="joined_projected_not_exists_subquery_semantics",
+        source_name="joined-projected-not-exists-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT a.id FROM '{source}' AS s INNER JOIN '{allowed}' AS a "
+            "ON s.id = a.id WHERE a.active IS TRUE AND a.score > 100 "
+            "ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "a.id",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "exists_subquery_input_row_count": "4",
+            "exists_subquery_filtered_row_count": "0",
+            "exists_subquery_bounded_row_count": "0",
+            "exists_subquery_result": "false",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "4",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "joined-projected-not-exists-allowed.csv",
+                PROJECTED_NEGATIVE_ALLOWED_TEXT,
+            ),
+        ),
+    )
+
+
+def grouped_having_projected_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="grouped_having_projected_not_exists_subquery_semantics",
+        source_name="grouped-projected-not-exists-source.csv",
+        source_text=PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT id FROM '{grouped}' GROUP BY id HAVING count(*) >= 3 "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n'
+            '{"id":4,"label":"delta"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "id",
+            "exists_subquery_filter_runtime_execution": "false",
+            "exists_subquery_input_row_count": "6",
+            "exists_subquery_filtered_row_count": "0",
+            "exists_subquery_bounded_row_count": "0",
+            "exists_subquery_result": "false",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "selected_row_count": "4",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "grouped-projected-not-exists-values.csv",
+                PROJECTED_NEGATIVE_GROUPED_TEXT,
+            ),
+        ),
+    )
+
+
 def joined_projected_exists_subquery_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="joined_projected_exists_subquery_semantics",
@@ -2047,6 +2322,171 @@ def correlated_joined_projected_exists_subquery_case() -> SqlFixtureCase:
     )
 
 
+CORRELATED_JOINED_PROJECTED_NEGATIVE_SOURCE_TEXT = (
+    "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n"
+)
+
+CORRELATED_JOINED_PROJECTED_NEGATIVE_CANDIDATES_TEXT = (
+    "id,label,min_amount\n"
+    "1,alpha,5\n"
+    "1,alpha,99\n"
+    "2,beta,25\n"
+    "3,gamma,20\n"
+    "5,epsilon,1\n"
+)
+
+CORRELATED_JOINED_PROJECTED_NEGATIVE_ALLOWED_TEXT = (
+    "id,active,score\n1,true,30\n2,true,20\n3,true,40\n5,false,50\n"
+)
+
+
+def correlated_joined_projected_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_not_in_subquery_semantics",
+        source_name="correlated-joined-projected-not-in-source.csv",
+        source_text=CORRELATED_JOINED_PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id NOT IN ("
+            "SELECT c.id FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_source_column": "c.id",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-not-in-candidates.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_CANDIDATES_TEXT,
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-not-in-allowed.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_ALLOWED_TEXT,
+            ),
+        ),
+    )
+
+
+def correlated_joined_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_row_value_not_in_subquery_semantics",
+        source_name="correlated-joined-projected-row-value-not-in-source.csv",
+        source_text=CORRELATED_JOINED_PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) NOT IN ("
+            "SELECT c.id,c.label FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_source_column": "c.id,c.label",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "2",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-row-value-not-in-candidates.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_CANDIDATES_TEXT,
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-row-value-not-in-allowed.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_ALLOWED_TEXT,
+            ),
+        ),
+    )
+
+
+def correlated_joined_projected_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_joined_projected_not_exists_subquery_semantics",
+        source_name="correlated-joined-projected-not-exists-source.csv",
+        source_text=CORRELATED_JOINED_PROJECTED_NEGATIVE_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT c.id FROM '{candidates}' AS c INNER JOIN '{allowed}' AS a "
+            "ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id "
+            "AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "c.id",
+            "exists_subquery_filter_runtime_execution": "true",
+            "exists_subquery_order_by_runtime_execution": "true",
+            "exists_subquery_limit_runtime_execution": "true",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_join_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "candidates",
+                "correlated-joined-projected-not-exists-candidates.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_CANDIDATES_TEXT,
+            ),
+            (
+                "allowed",
+                "correlated-joined-projected-not-exists-allowed.csv",
+                CORRELATED_JOINED_PROJECTED_NEGATIVE_ALLOWED_TEXT,
+            ),
+        ),
+    )
+
+
 CORRELATED_GROUPED_PROJECTED_SOURCE_TEXT = (
     "id,label,amount\n1,alpha,10\n2,beta,20\n3,gamma,30\n4,delta,40\n"
 )
@@ -2230,6 +2670,139 @@ def correlated_grouped_having_projected_exists_subquery_case() -> SqlFixtureCase
             (
                 "grouped",
                 "correlated-grouped-projected-exists-values.csv",
+                CORRELATED_GROUPED_PROJECTED_VALUES_TEXT,
+            ),
+        ),
+    )
+
+
+def correlated_grouped_having_projected_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_grouped_having_projected_not_in_subquery_semantics",
+        source_name="correlated-grouped-projected-not-in-source.csv",
+        source_text=CORRELATED_GROUPED_PROJECTED_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id NOT IN ("
+            "SELECT id FROM '{grouped}' GROUP BY id HAVING count(*) >= 2 "
+            "AND id = outer.id AND min(min_amount) <= outer.amount "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "in_predicate_runtime_execution": "true",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "false",
+            "in_subquery_source_column": "id",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "correlated-grouped-projected-not-in-values.csv",
+                CORRELATED_GROUPED_PROJECTED_VALUES_TEXT,
+            ),
+        ),
+    )
+
+
+def correlated_grouped_having_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_grouped_having_projected_row_value_not_in_subquery_semantics",
+        source_name="correlated-grouped-projected-row-value-not-in-source.csv",
+        source_text=CORRELATED_GROUPED_PROJECTED_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE (id,label) NOT IN ("
+            "SELECT id,label FROM '{grouped}' GROUP BY id,label HAVING count(*) >= 2 "
+            "AND id = outer.id AND min(min_amount) <= outer.amount "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "row_value_in_predicate_runtime_execution": "true",
+            "row_value_in_source_columns": "id,label",
+            "row_value_in_column_count": "2",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "false",
+            "in_subquery_source_column": "id,label",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "2",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "correlated-grouped-projected-row-value-not-in-values.csv",
+                CORRELATED_GROUPED_PROJECTED_VALUES_TEXT,
+            ),
+        ),
+    )
+
+
+def correlated_grouped_having_projected_not_exists_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="correlated_grouped_having_projected_not_exists_subquery_semantics",
+        source_name="correlated-grouped-projected-not-exists-source.csv",
+        source_text=CORRELATED_GROUPED_PROJECTED_SOURCE_TEXT,
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE NOT EXISTS ("
+            "SELECT id FROM '{grouped}' GROUP BY id HAVING count(*) >= 2 "
+            "AND id = outer.id AND min(min_amount) <= outer.amount "
+            "ORDER BY id ASC LIMIT 10"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "logical_predicate_runtime_execution": "true",
+            "logical_predicate_operator": "not",
+            "logical_predicate_leaf_count": "1",
+            "exists_subquery_runtime_execution": "true",
+            "exists_subquery_projection_kind": "column_list",
+            "exists_subquery_source_column": "id",
+            "exists_subquery_filter_runtime_execution": "false",
+            "projected_subquery_runtime_execution": "true",
+            "projected_subquery_group_by_runtime_execution": "true",
+            "projected_subquery_having_runtime_execution": "true",
+            "projected_subquery_output_column_count": "1",
+            "correlated_subquery_runtime_execution": "true",
+            "correlated_subquery_outer_alias": "outer",
+            "correlated_subquery_outer_column": "amount,id",
+            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
+            "correlated_subquery_outer_row_evaluation_count": "4",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "grouped",
+                "correlated-grouped-projected-not-exists-values.csv",
                 CORRELATED_GROUPED_PROJECTED_VALUES_TEXT,
             ),
         ),
@@ -3177,19 +3750,31 @@ def executable_cases() -> list[SqlFixtureCase]:
         correlated_not_exists_subquery_case(),
         correlated_quantified_subquery_case(),
         joined_projected_in_subquery_case(),
+        joined_projected_not_in_subquery_case(),
         joined_projected_row_value_in_subquery_case(),
+        joined_projected_row_value_not_in_subquery_case(),
         grouped_having_projected_in_subquery_case(),
+        grouped_having_projected_not_in_subquery_case(),
+        grouped_having_projected_row_value_not_in_subquery_case(),
         joined_projected_exists_subquery_case(),
+        joined_projected_not_exists_subquery_case(),
         grouped_having_projected_exists_subquery_case(),
+        grouped_having_projected_not_exists_subquery_case(),
         joined_projected_quantified_subquery_case(),
         correlated_joined_projected_in_subquery_case(),
+        correlated_joined_projected_not_in_subquery_case(),
         correlated_joined_projected_row_value_in_subquery_case(),
+        correlated_joined_projected_row_value_not_in_subquery_case(),
         correlated_joined_projected_quantified_subquery_case(),
         correlated_joined_projected_exists_subquery_case(),
+        correlated_joined_projected_not_exists_subquery_case(),
         correlated_grouped_having_projected_in_subquery_case(),
+        correlated_grouped_having_projected_not_in_subquery_case(),
         correlated_grouped_having_projected_row_value_in_subquery_case(),
+        correlated_grouped_having_projected_row_value_not_in_subquery_case(),
         correlated_grouped_having_projected_quantified_subquery_case(),
         correlated_grouped_having_projected_exists_subquery_case(),
+        correlated_grouped_having_projected_not_exists_subquery_case(),
         nested_in_subquery_case(),
         having_in_subquery_case(),
         having_exists_subquery_case(),

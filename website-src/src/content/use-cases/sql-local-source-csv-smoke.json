@@ -1,6 +1,6 @@
 {
   "id": "sql-local-source-csv-smoke",
-  "title": "SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke",
+  "title": "SQL local source projection/optional-filter/IN/NOT IN/EXISTS/NOT EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke",
   "capability_family": "sql_dataframe_report_only",
   "audience": "user who wants to try one tiny SQL query over an admitted local file from CLI or ctx.sql without fallback",
   "status": "smoke_supported",

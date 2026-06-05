@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
+# SQL local source projection/optional-filter/IN/NOT IN/EXISTS/NOT EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke
 
 ## Quick Answer
 
@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-SQL local source projection/optional-filter/IN/EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local source projection/optional-filter/IN/NOT IN/EXISTS/NOT EXISTS/limit, aggregate, group-by, top-N, join, join-computed-top-N, and join-aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
