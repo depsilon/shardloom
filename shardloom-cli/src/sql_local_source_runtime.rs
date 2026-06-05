@@ -28703,6 +28703,25 @@ fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool
     false
 }
 
+fn contains_array_literal_outside_quotes(raw: &str) -> bool {
+    let mut search_start = 0;
+    while search_start < raw.len() {
+        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], "array")
+        else {
+            return false;
+        };
+        let name_index = search_start + relative_index;
+        let after_name = &raw[name_index + "array".len()..];
+        let leading_whitespace = after_name.len() - after_name.trim_start().len();
+        let bracket_index = name_index + "array".len() + leading_whitespace;
+        if raw.as_bytes().get(bracket_index) == Some(&b'[') {
+            return true;
+        }
+        search_start = name_index + "array".len();
+    }
+    false
+}
+
 fn rewrite_having_aggregate_predicate(
     raw: &str,
     mut reserved_aliases: BTreeSet<String>,
@@ -31871,6 +31890,7 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
 }
 
 fn parse_join_on(raw: &str) -> Result<ParsedJoinOn, ShardLoomError> {
+    parse_join_on_complex_key_blocker(raw)?;
     match parse_join_on_key_pairs(raw) {
         Ok(key_pairs) => Ok(ParsedJoinOn {
             key_pairs,
@@ -31890,6 +31910,18 @@ fn parse_join_on(raw: &str) -> Result<ParsedJoinOn, ShardLoomError> {
             })
         }
     }
+}
+
+fn parse_join_on_complex_key_blocker(raw: &str) -> Result<(), ShardLoomError> {
+    if contains_array_literal_outside_quotes(raw)
+        || contains_function_call_outside_quotes(raw, "struct")
+        || contains_function_call_outside_quotes(raw, "row")
+    {
+        return Err(unsupported_sql_error(
+            "JOIN ON complex key expressions are not admitted by the current join profile; use scalar qualified columns or admitted scalar expression predicates",
+        ));
+    }
+    Ok(())
 }
 
 fn parse_join_on_key_pairs(raw: &str) -> Result<Vec<ParsedJoinKeyPair>, ShardLoomError> {
@@ -31950,9 +31982,10 @@ fn parse_join_on_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError>
 }
 
 fn parse_join_on_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    if let Some(or_index) = find_keyword_outside_quotes_and_parentheses(raw, "or")? {
-        return parse_join_on_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
-            .map(Some);
+    if find_keyword_outside_quotes_and_parentheses(raw, "or")?.is_some() {
+        return Err(unsupported_sql_error(
+            "JOIN ON OR predicates are not admitted by the current join profile; use AND-conjoined scalar join predicates or a later dedicated disjunctive join slice",
+        ));
     }
     if let Some(and_index) = find_keyword_outside_quotes_and_parentheses(raw, "and")? {
         return parse_join_on_logical_binary_predicate(
@@ -44494,6 +44527,84 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_join_scalar_expression_on_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.amount + d.discount >= 25 LIMIT 5",
+        )
+        .expect("scalar expression join statement parses");
+
+        let join = parsed.join.as_ref().expect("join parsed");
+        assert!(join.uses_expression_on());
+        assert_eq!(join.key_arity(), 0);
+        assert_eq!(join.on_predicate_family(), "generic_expression");
+        assert_eq!(join.on_predicate_source_columns(), "d.discount,f.amount");
+        assert_eq!(join.kind(), "inner_expression");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_expression_join_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "inner-expression-join-limit"
+        );
+    }
+
+    #[test]
+    fn runs_scoped_join_scalar_expression_on_csv_statement_without_fallback() {
+        let fact_path = sql_local_source_test_path("join-expression-fact.csv");
+        let dim_path = sql_local_source_test_path("join-expression-dim.csv");
+        fs::write(&fact_path, "id,amount\n1,8\n2,15\n3,21\n").expect("write fact source");
+        fs::write(&dim_path, "segment,discount\nsmall,4\nlarge,10\n").expect("write dim source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.amount + d.discount >= 25 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run expression join smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"f.id\":2,\"d.segment\":\"large\"}\n{\"f.id\":3,\"d.segment\":\"small\"}\n{\"f.id\":3,\"d.segment\":\"large\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "sql_statement_kind",
+            "local_source_inner_expression_join_limit",
+        );
+        assert_field_eq(&fields, "join_runtime_execution", "true");
+        assert_field_eq(&fields, "join_type", "inner_expression");
+        assert_field_eq(&fields, "join_on_predicate_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "join_on_predicate_operator_family",
+            "generic_expression",
+        );
+        assert_field_eq(
+            &fields,
+            "join_on_predicate_source_column",
+            "d.discount,f.amount",
+        );
+        assert_field_eq(&fields, "join_key_arity", "0");
+        assert_field_eq(&fields, "join_candidate_row_count", "6");
+        assert_field_eq(&fields, "join_matched_row_count", "3");
+        assert_field_eq(&fields, "join_rows_output", "3");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(fact_path).expect("remove fact source");
+        fs::remove_file(dim_path).expect("remove dim source");
+    }
+
+    #[test]
     fn parses_scoped_join_group_by_aggregate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT d.segment,sum(f.amount) AS total_amount,count(*) AS rows FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
@@ -44526,6 +44637,41 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "inner-equi-join-group-by-aggregate-filter-limit"
         );
+    }
+
+    #[test]
+    fn join_parser_blocks_complex_on_keys_without_fallback() {
+        for statement in [
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON ARRAY[f.customer_id] = ARRAY[d.customer_id] LIMIT 5",
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON STRUCT(f.customer_id, f.region) = STRUCT(d.customer_id, d.region) LIMIT 5",
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("complex join ON keys remain blocked");
+
+            assert!(
+                error
+                    .to_string()
+                    .contains("JOIN ON complex key expressions are not admitted"),
+                "unexpected error for {statement}: {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn join_parser_blocks_or_on_predicates_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 5",
+        )
+        .expect_err("OR join ON predicate remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("JOIN ON OR predicates are not admitted"),
+            "unexpected error: {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

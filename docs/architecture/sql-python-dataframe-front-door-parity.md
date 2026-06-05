@@ -202,7 +202,10 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   direct SQL predicate and CASE projections can now reuse those admitted subquery predicates.
   Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
   division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
-  helpers; arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
+  helpers. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
+  the bounded expression-join route; complex-key and disjunctive join predicates remain
+  deterministic blockers. Arbitrary expression/DataFrame breadth remains pending until its runtime
+  evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.
