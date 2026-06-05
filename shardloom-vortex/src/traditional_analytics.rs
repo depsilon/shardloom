@@ -1455,7 +1455,7 @@ impl TraditionalCategoryMetricState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalGroupCategoryMetricState {
-    group_key_groups: std::collections::HashMap<u32, TraditionalGroupAccum>,
+    group_key_groups: std::collections::BTreeMap<u32, TraditionalGroupAccum>,
     group_category_groups: std::collections::HashMap<(u32, u32), TraditionalGroupAccum>,
     category_interner: TraditionalStringInterner,
     stats: TraditionalStreamingScanStats,
@@ -1464,7 +1464,7 @@ struct TraditionalGroupCategoryMetricState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalGroupCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
-        let mut group_key_groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
+        let mut group_key_groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
         let mut group_category_groups =
             std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
         let mut category_interner = TraditionalStringInterner::default();
@@ -30271,7 +30271,7 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
+    let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
     let mut dictionary_group_by_pair = TraditionalDictionaryGroupByPairAccumulator::new();
     let stats = scan_fact_vortex_projected_with_encoded_inputs(
         fact_path,
