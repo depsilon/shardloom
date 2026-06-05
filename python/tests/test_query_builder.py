@@ -14814,27 +14814,50 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 args = sys.argv[1:]
                 assert args == [
-                    "vortex-filter-project",
+                    "run",
+                    "cli",
+                    "--input",
                     "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--vortex-primitive",
+                    "filter_project",
+                    "--vortex-predicate",
                     "gte:value:3",
+                    "--vortex-columns",
                     "metric,value",
-                    "--limit",
+                    "--vortex-source-order-limit",
                     "5",
-                    "--execute-local-primitive",
+                    "--memory-gb",
                     "6",
+                    "--max-parallelism",
                     "3",
                     "--format",
                     "json",
                 ], args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-filter-project",
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_filter_project"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "filter_project"},
                         {"key": "mode", "value": "vortex_filter_project"},
                         {"key": "primitive", "value": "filter_and_project"},
                         {"key": "execution", "value": "local_vortex_filter_project_primitive_performed"},
@@ -14894,27 +14917,50 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 args = sys.argv[1:]
                 assert args == [
-                    "vortex-filter-project",
+                    "run",
+                    "cli",
+                    "--input",
                     "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--vortex-primitive",
+                    "filter_project",
+                    "--vortex-predicate",
                     "gte:value:3",
+                    "--vortex-columns",
                     "metric,value",
-                    "--limit",
+                    "--vortex-source-order-limit",
                     "5",
-                    "--execute-local-primitive",
+                    "--memory-gb",
                     "6",
+                    "--max-parallelism",
                     "3",
                     "--format",
                     "json",
                 ], args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-filter-project",
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_filter_project"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "filter_project"},
                         {"key": "mode", "value": "vortex_filter_project"},
                         {"key": "primitive", "value": "filter_and_project"},
                         {"key": "execution", "value": "local_vortex_filter_project_primitive_performed"},
@@ -14966,7 +15012,28 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == ["vortex-run", "orders.vortex", "count", "4", "2", "--format", "json"]:
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
+                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--max-parallelism") + 1] == "2", args
+                if primitive == "count":
                     command = "vortex-run"
                     fields = [
                         {"key": "mode", "value": "vortex_run"},
@@ -14979,7 +15046,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-count-where", "orders.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_count_all"
+                elif primitive == "count_where":
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
                     command = "vortex-count-where"
                     fields = [
                         {"key": "mode", "value": "vortex_count_where"},
@@ -14991,7 +15060,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "filtered_count_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-project", "orders.vortex", "metric", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_count_where"
+                elif primitive == "project":
+                    assert args[args.index("--vortex-columns") + 1] == "metric", args
                     command = "vortex-project"
                     fields = [
                         {"key": "mode", "value": "vortex_project"},
@@ -15004,7 +15075,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "project_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-filter", "orders.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_project"
+                elif primitive == "filter":
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
                     command = "vortex-filter"
                     fields = [
                         {"key": "mode", "value": "vortex_filter"},
@@ -15016,12 +15089,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "filter_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
+                    route_id = "native_vortex_filter"
                 else:
                     raise AssertionError(args)
+                fields = [
+                    {"key": "public_workflow_route_attached", "value": "true"},
+                    {"key": "public_workflow_route_id", "value": route_id},
+                    {"key": "public_workflow_resolved_internal_command", "value": command},
+                    {"key": "public_workflow_vortex_primitive", "value": primitive},
+                ] + fields
 
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -15078,7 +15158,28 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == ["vortex-run", "orders.vortex", "count", "4", "2", "--format", "json"]:
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
+                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--max-parallelism") + 1] == "2", args
+                if primitive == "count":
                     command = "vortex-run"
                     fields = [
                         {"key": "mode", "value": "vortex_run"},
@@ -15091,7 +15192,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-count-where", "orders.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_count_all"
+                elif primitive == "count_where":
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
                     command = "vortex-count-where"
                     fields = [
                         {"key": "mode", "value": "vortex_count_where"},
@@ -15103,7 +15206,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "filtered_count_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-project", "orders.vortex", "metric", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_count_where"
+                elif primitive == "project":
+                    assert args[args.index("--vortex-columns") + 1] == "metric", args
                     command = "vortex-project"
                     fields = [
                         {"key": "mode", "value": "vortex_project"},
@@ -15116,7 +15221,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "project_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-filter-project", "orders.vortex", "gte:value:3", "*", "--execute-local-primitive", "4", "2", "--format", "json"]:
+                    route_id = "native_vortex_project"
+                elif primitive == "filter_project":
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                    assert args[args.index("--vortex-columns") + 1] == "*", args
                     command = "vortex-filter-project"
                     fields = [
                         {"key": "mode", "value": "vortex_filter_project"},
@@ -15130,12 +15238,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "filter_project_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
+                    route_id = "native_vortex_filter_project"
                 else:
                     raise AssertionError(args)
+                fields = [
+                    {"key": "public_workflow_route_attached", "value": "true"},
+                    {"key": "public_workflow_route_id", "value": route_id},
+                    {"key": "public_workflow_resolved_internal_command", "value": command},
+                    {"key": "public_workflow_vortex_primitive", "value": primitive},
+                ] + fields
 
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -15188,7 +15303,28 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == ["vortex-run", "orders.vortex", "count", "5", "2", "--format", "json"]:
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
+                assert args[args.index("--memory-gb") + 1] == "5", args
+                assert args[args.index("--max-parallelism") + 1] == "2", args
+                if primitive == "count":
                     command = "vortex-run"
                     fields = [
                         {"key": "mode", "value": "vortex_run"},
@@ -15200,7 +15336,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-project", "orders.vortex", "metric", "--execute-local-primitive", "5", "2", "--format", "json"]:
+                    route_id = "native_vortex_count_all"
+                elif primitive == "project":
+                    assert args[args.index("--vortex-columns") + 1] == "metric", args
                     command = "vortex-project"
                     fields = [
                         {"key": "mode", "value": "vortex_project"},
@@ -15212,12 +15350,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "project_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
+                    route_id = "native_vortex_project"
                 else:
                     raise AssertionError(args)
+                fields = [
+                    {"key": "public_workflow_route_attached", "value": "true"},
+                    {"key": "public_workflow_route_id", "value": route_id},
+                    {"key": "public_workflow_resolved_internal_command", "value": command},
+                    {"key": "public_workflow_vortex_primitive", "value": primitive},
+                ] + fields
 
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
@@ -15258,24 +15403,46 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "vortex-project",
+                    "run",
+                    "cli",
+                    "--input",
                     "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--vortex-primitive",
+                    "project",
+                    "--vortex-columns",
                     "metric",
-                    "--execute-local-primitive",
+                    "--memory-gb",
                     "7",
+                    "--max-parallelism",
                     "2",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-project",
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_project"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "project"},
                         {"key": "mode", "value": "vortex_project"},
                         {"key": "primitive", "value": "project_columns"},
                         {"key": "project_local_execution_data_read", "value": "true"},
@@ -15416,26 +15583,48 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "vortex-filter",
+                    "run",
+                    "cli",
+                    "--input",
                     "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--vortex-primitive",
+                    "filter",
+                    "--vortex-predicate",
                     "gte:value:3",
-                    "--limit",
+                    "--vortex-source-order-limit",
                     "5",
-                    "--execute-local-primitive",
+                    "--memory-gb",
                     "4",
+                    "--max-parallelism",
                     "1",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-filter",
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_filter"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter"},
+                        {"key": "public_workflow_vortex_primitive", "value": "filter"},
                         {"key": "mode", "value": "vortex_filter"},
                         {"key": "primitive", "value": "filter_predicate"},
                         {"key": "filter_local_execution_data_read", "value": "true"},
@@ -15471,21 +15660,43 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == ["vortex-project", "orders.vortex", "metric", "--limit", "5", "--execute-local-primitive", "4", "1", "--format", "json"]:
-                    columns = "metric"
-                elif args == ["vortex-project", "orders.vortex", "*", "--limit", "5", "--execute-local-primitive", "4", "1", "--format", "json"]:
-                    columns = "*"
-                else:
-                    raise AssertionError(args)
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                assert args[args.index("--vortex-primitive") + 1] == "project", args
+                columns = args[args.index("--vortex-columns") + 1]
+                assert columns in {"metric", "*"}, args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--max-parallelism") + 1] == "1", args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "vortex-project",
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": "native_vortex_project"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "project"},
                         {"key": "mode", "value": "vortex_project"},
                         {"key": "primitive", "value": "project_columns"},
                         {"key": "project_local_execution_data_read", "value": "true"},
@@ -15521,8 +15732,32 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == ["vortex-project", "orders.vortex", "*", "--limit", "5", "--execute-local-primitive", "4", "1", "--format", "json"]:
+                assert args[:16] == [
+                    "run",
+                    "cli",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                ], args
+                primitive = args[args.index("--vortex-primitive") + 1]
+                if primitive == "project":
+                    assert args[args.index("--vortex-columns") + 1] == "*", args
+                    assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                    assert args[args.index("--memory-gb") + 1] == "4", args
+                    assert args[args.index("--max-parallelism") + 1] == "1", args
                     command = "vortex-project"
+                    route_id = "native_vortex_project"
                     fields = [
                         {"key": "mode", "value": "vortex_project"},
                         {"key": "primitive", "value": "project_columns"},
@@ -15533,8 +15768,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "project_local_execution_fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ]
-                elif args == ["vortex-filter-project", "orders.vortex", "gte:value:3", "metric", "--limit", "5", "--execute-local-primitive", "6", "2", "--format", "json"]:
+                elif primitive == "filter_project":
+                    assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                    assert args[args.index("--vortex-columns") + 1] == "metric", args
+                    assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                    assert args[args.index("--memory-gb") + 1] == "6", args
+                    assert args[args.index("--max-parallelism") + 1] == "2", args
                     command = "vortex-filter-project"
+                    route_id = "native_vortex_filter_project"
                     fields = [
                         {"key": "mode", "value": "vortex_filter_project"},
                         {"key": "primitive", "value": "filter_and_project"},
@@ -15549,9 +15790,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ]
                 else:
                     raise AssertionError(args)
+                fields = [
+                    {"key": "public_workflow_route_attached", "value": "true"},
+                    {"key": "public_workflow_route_id", "value": route_id},
+                    {"key": "public_workflow_resolved_internal_command", "value": command},
+                    {"key": "public_workflow_vortex_primitive", "value": primitive},
+                ] + fields
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "run",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",

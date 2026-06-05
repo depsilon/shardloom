@@ -15,6 +15,7 @@ use shardloom_core::{
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error, generated_source_runtime, sql_local_source_runtime,
+    vortex_primitive_execution,
 };
 
 const ROUTE_SCHEMA_VERSION: &str = "shardloom.public_workflow_route.v1";
@@ -47,6 +48,12 @@ struct PublicWorkflowRouteRequest {
     generated_range_step: Option<String>,
     generated_range_column: Option<String>,
     fanout_outputs: Vec<String>,
+    vortex_primitive: Option<String>,
+    vortex_predicate: Option<String>,
+    vortex_columns: Option<String>,
+    vortex_source_order_limit: Option<String>,
+    memory_gb: Option<String>,
+    max_parallelism: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,9 +136,78 @@ pub(crate) fn handle_public_workflow_run(
         | "generated_sequence_direct_output" => {
             execute_generated_source_run(&request, &plan, format)
         }
+        "native_vortex_count_all"
+        | "native_vortex_count_where"
+        | "native_vortex_filter"
+        | "native_vortex_project"
+        | "native_vortex_filter_project" => {
+            execute_native_vortex_primitive_run(&request, &plan, format)
+        }
         _ => {
             let blocked = run_route_not_executable_yet(&plan);
             emit_blocked_facade("run", format, &request, &blocked)
+        }
+    }
+}
+
+fn execute_native_vortex_primitive_run(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(primitive) = normalized_vortex_primitive(request) else {
+        let blocked = native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_primitive",
+            "public native Vortex run requires a primitive payload",
+            "pass --vortex-primitive with count, count_where, filter, project, or filter_project",
+        );
+        return emit_blocked_facade("run", format, request, &blocked);
+    };
+    let runtime_args = match native_vortex_primitive_runtime_args(request, primitive) {
+        Ok(args) => args,
+        Err(error) => {
+            return emit_error("run", format, "public native Vortex run failed", &error);
+        }
+    };
+    let extra_fields = execution_attachment_fields("run", request, plan);
+    match primitive {
+        PublicVortexPrimitive::Count => vortex_primitive_execution::handle_vortex_run_with_facade(
+            runtime_args.into_iter(),
+            format,
+            "run",
+            extra_fields,
+        ),
+        PublicVortexPrimitive::CountWhere => {
+            vortex_primitive_execution::handle_vortex_count_where_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                extra_fields,
+            )
+        }
+        PublicVortexPrimitive::Filter => {
+            vortex_primitive_execution::handle_vortex_filter_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                extra_fields,
+            )
+        }
+        PublicVortexPrimitive::Project => {
+            vortex_primitive_execution::handle_vortex_project_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                extra_fields,
+            )
+        }
+        PublicVortexPrimitive::FilterProject => {
+            vortex_primitive_execution::handle_vortex_filter_project_with_facade(
+                runtime_args.into_iter(),
+                format,
+                "run",
+                extra_fields,
+            )
         }
     }
 }
@@ -284,7 +360,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--vortex-primitive <count|count_where|filter|project|filter_project>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -321,6 +397,12 @@ impl PublicWorkflowRouteRequest {
             generated_range_step: None,
             generated_range_column: None,
             fanout_outputs: Vec::new(),
+            vortex_primitive: None,
+            vortex_predicate: None,
+            vortex_columns: None,
+            vortex_source_order_limit: None,
+            memory_gb: None,
+            max_parallelism: None,
         }
     }
 
@@ -384,6 +466,25 @@ impl PublicWorkflowRouteRequest {
                 self.generated_range_column =
                     Some(required_value(args, "--generated-range-column")?);
             }
+            "--vortex-primitive" => {
+                self.vortex_primitive = Some(required_value(args, "--vortex-primitive")?);
+            }
+            "--vortex-predicate" => {
+                self.vortex_predicate = Some(required_value(args, "--vortex-predicate")?);
+            }
+            "--vortex-columns" => {
+                self.vortex_columns = Some(required_value(args, "--vortex-columns")?);
+            }
+            "--vortex-source-order-limit" => {
+                self.vortex_source_order_limit =
+                    Some(required_value(args, "--vortex-source-order-limit")?);
+            }
+            "--memory-gb" => {
+                self.memory_gb = Some(required_value(args, "--memory-gb")?);
+            }
+            "--max-parallelism" => {
+                self.max_parallelism = Some(required_value(args, "--max-parallelism")?);
+            }
             extra => return Err(cli_unknown_arg_error("route", extra)),
         }
         Ok(())
@@ -426,7 +527,7 @@ fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWor
     }
 
     if is_native_vortex_route(request) {
-        return native_vortex_route();
+        return native_vortex_route(request);
     }
 
     match request.input_format.as_deref() {
@@ -456,16 +557,191 @@ fn is_native_vortex_route(request: &PublicWorkflowRouteRequest) -> bool {
     request.input_format.as_deref() == Some("vortex") || request.execution_policy == "native_vortex"
 }
 
-fn native_vortex_route() -> PublicWorkflowRoutePlan {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PublicVortexPrimitive {
+    Count,
+    CountWhere,
+    Filter,
+    Project,
+    FilterProject,
+}
+
+impl PublicVortexPrimitive {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "count" | "count_all" => Some(Self::Count),
+            "count_where" | "count-where" | "filter_count" | "filtered_count" => {
+                Some(Self::CountWhere)
+            }
+            "filter" | "filter_predicate" => Some(Self::Filter),
+            "project" | "project_columns" => Some(Self::Project),
+            "filter_project" | "filter-project" | "filter_and_project" => Some(Self::FilterProject),
+            _ => None,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Count => "count",
+            Self::CountWhere => "count_where",
+            Self::Filter => "filter",
+            Self::Project => "project",
+            Self::FilterProject => "filter_project",
+        }
+    }
+
+    const fn route_id(self) -> &'static str {
+        match self {
+            Self::Count => "native_vortex_count_all",
+            Self::CountWhere => "native_vortex_count_where",
+            Self::Filter => "native_vortex_filter",
+            Self::Project => "native_vortex_project",
+            Self::FilterProject => "native_vortex_filter_project",
+        }
+    }
+
+    const fn resolved_internal_command(self) -> &'static str {
+        match self {
+            Self::Count => "vortex-run",
+            Self::CountWhere => "vortex-count-where",
+            Self::Filter => "vortex-filter",
+            Self::Project => "vortex-project",
+            Self::FilterProject => "vortex-filter-project",
+        }
+    }
+
+    const fn requires_predicate(self) -> bool {
+        matches!(self, Self::CountWhere | Self::Filter | Self::FilterProject)
+    }
+
+    const fn requires_columns(self) -> bool {
+        matches!(self, Self::Project | Self::FilterProject)
+    }
+
+    const fn allows_source_order_limit(self) -> bool {
+        matches!(self, Self::Filter | Self::Project | Self::FilterProject)
+    }
+}
+
+fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
+    if request.input_uri.is_none() {
+        return input_not_declared_route();
+    }
+    let Some(primitive) = normalized_vortex_primitive(request) else {
+        if request.vortex_primitive.is_some() {
+            return native_vortex_payload_blocked_route(
+                "public_workflow_route.vortex_primitive",
+                "unsupported native Vortex primitive",
+                "use count, count_where, filter, project, or filter_project",
+            );
+        }
+        return admitted_route(
+            "native_vortex_direct_query",
+            "vortex-run",
+            "native_vortex_file",
+            "native_vortex_boundary",
+            "native_vortex",
+            false,
+            true,
+        );
+    };
+    if primitive.requires_predicate() && request.vortex_predicate.is_none() {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_predicate",
+            "native Vortex primitive requires a predicate payload",
+            "pass --vortex-predicate with the scoped tiny predicate expression",
+        );
+    }
+    if primitive.requires_columns() && request.vortex_columns.is_none() {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_columns",
+            "native Vortex primitive requires a projection payload",
+            "pass --vortex-columns with comma-separated projected columns",
+        );
+    }
+    if request.vortex_source_order_limit.is_some() && !primitive.allows_source_order_limit() {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex primitive does not admit a source-order limit",
+            "use --vortex-source-order-limit only with filter, project, or filter_project",
+        );
+    }
+    if let Some(error) = positive_u64_option_error("--memory-gb", request.memory_gb.as_deref()) {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.memory_gb",
+            error,
+            "pass --memory-gb with an integer >= 1",
+        );
+    }
+    if let Some(error) =
+        positive_usize_option_error("--max-parallelism", request.max_parallelism.as_deref())
+    {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.max_parallelism",
+            error,
+            "pass --max-parallelism with an integer >= 1",
+        );
+    }
+    if let Some(error) = positive_usize_option_error(
+        "--vortex-source-order-limit",
+        request.vortex_source_order_limit.as_deref(),
+    ) {
+        return native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            error,
+            "pass --vortex-source-order-limit with an integer >= 1",
+        );
+    }
     admitted_route(
-        "native_vortex_direct_query",
-        "vortex-run",
+        primitive.route_id(),
+        primitive.resolved_internal_command(),
         "native_vortex_file",
         "native_vortex_boundary",
         "native_vortex",
         false,
         true,
     )
+}
+
+fn normalized_vortex_primitive(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<PublicVortexPrimitive> {
+    request
+        .vortex_primitive
+        .as_deref()
+        .and_then(PublicVortexPrimitive::parse)
+}
+
+fn positive_u64_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
+    let value = value?;
+    match value.parse::<u64>() {
+        Ok(parsed) if parsed >= 1 => None,
+        Ok(_) => Some(match flag {
+            "--memory-gb" => "memory_gb must be >= 1",
+            _ => "value must be >= 1",
+        }),
+        Err(_) => Some(match flag {
+            "--memory-gb" => "memory_gb must be an unsigned integer",
+            _ => "value must be an unsigned integer",
+        }),
+    }
+}
+
+fn positive_usize_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
+    let value = value?;
+    match value.parse::<usize>() {
+        Ok(parsed) if parsed >= 1 => None,
+        Ok(_) => Some(match flag {
+            "--max-parallelism" => "max_parallelism must be >= 1",
+            "--vortex-source-order-limit" => "source-order limit must be >= 1",
+            _ => "value must be >= 1",
+        }),
+        Err(_) => Some(match flag {
+            "--max-parallelism" => "max_parallelism must be an unsigned integer",
+            "--vortex-source-order-limit" => "source-order limit must be an unsigned integer",
+            _ => "value must be an unsigned integer",
+        }),
+    }
 }
 
 fn is_local_file_format(format: &str) -> bool {
@@ -662,6 +938,27 @@ fn generated_source_payload_blocked_route(
     )
 }
 
+fn native_vortex_payload_blocked_route(
+    field: &'static str,
+    reason: &'static str,
+    remediation: &'static str,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.native_vortex_payload_invalid",
+        reason,
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            reason,
+            Some(field.to_string()),
+            Some(reason.to_string()),
+            Some(remediation.to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
 fn input_format_not_admitted_route(format: &str) -> PublicWorkflowRoutePlan {
     blocked_route(
         "cg21.route.input_format_not_admitted",
@@ -837,6 +1134,7 @@ fn add_route_request_fields(
         request.allow_overwrite.to_string(),
     );
     add_route_generated_source_request_fields(fields, request);
+    add_route_native_vortex_request_fields(fields, request);
 }
 
 fn add_route_generated_source_request_fields(
@@ -891,6 +1189,45 @@ fn add_route_generated_source_request_fields(
             .generated_range_column
             .clone()
             .unwrap_or_else(|| "none".to_string()),
+    );
+}
+
+fn add_route_native_vortex_request_fields(
+    fields: &mut Vec<(String, String)>,
+    request: &PublicWorkflowRouteRequest,
+) {
+    push_field(
+        fields,
+        "vortex_primitive",
+        normalized_vortex_primitive(request).map_or("none", PublicVortexPrimitive::as_str),
+    );
+    push_field(
+        fields,
+        "vortex_predicate",
+        optional_or_none(request.vortex_predicate.as_ref()),
+    );
+    push_field(
+        fields,
+        "vortex_columns",
+        optional_or_none(request.vortex_columns.as_ref()),
+    );
+    push_field(
+        fields,
+        "vortex_source_order_limit",
+        optional_or_none(request.vortex_source_order_limit.as_ref()),
+    );
+    push_field(
+        fields,
+        "memory_gb",
+        request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
+    );
+    push_field(
+        fields,
+        "max_parallelism",
+        request
+            .max_parallelism
+            .clone()
+            .unwrap_or_else(|| "1".to_string()),
     );
 }
 
@@ -1129,6 +1466,35 @@ fn execution_attachment_fields(
             request.generated_rows.is_some().to_string(),
         ),
         (
+            "public_workflow_vortex_primitive".to_string(),
+            normalized_vortex_primitive(request)
+                .map_or("none", PublicVortexPrimitive::as_str)
+                .to_string(),
+        ),
+        (
+            "public_workflow_vortex_predicate".to_string(),
+            optional_or_none(request.vortex_predicate.as_ref()),
+        ),
+        (
+            "public_workflow_vortex_columns".to_string(),
+            optional_or_none(request.vortex_columns.as_ref()),
+        ),
+        (
+            "public_workflow_vortex_source_order_limit".to_string(),
+            optional_or_none(request.vortex_source_order_limit.as_ref()),
+        ),
+        (
+            "public_workflow_memory_gb".to_string(),
+            request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
+        ),
+        (
+            "public_workflow_max_parallelism".to_string(),
+            request
+                .max_parallelism
+                .clone()
+                .unwrap_or_else(|| "1".to_string()),
+        ),
+        (
             "public_workflow_blocker_id".to_string(),
             plan.blocker_id.to_string(),
         ),
@@ -1277,6 +1643,107 @@ fn append_fanout_args(args: &mut Vec<String>, request: &PublicWorkflowRouteReque
     for fanout_output in &request.fanout_outputs {
         args.extend(["--fanout-output".to_string(), fanout_output.clone()]);
     }
+}
+
+fn native_vortex_primitive_runtime_args(
+    request: &PublicWorkflowRouteRequest,
+    primitive: PublicVortexPrimitive,
+) -> Result<Vec<String>, ShardLoomError> {
+    let input_uri = request.input_uri.clone().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "public native Vortex run requires --input with a Vortex dataset".to_string(),
+        )
+    })?;
+    let memory_gb = positive_u64_arg("memory_gb", request.memory_gb.as_deref().unwrap_or("1"))?;
+    let max_parallelism = positive_usize_arg(
+        "max_parallelism",
+        request.max_parallelism.as_deref().unwrap_or("1"),
+    )?;
+    let mut args = match primitive {
+        PublicVortexPrimitive::Count => vec![
+            input_uri,
+            "count".to_string(),
+            memory_gb.to_string(),
+            max_parallelism.to_string(),
+        ],
+        PublicVortexPrimitive::CountWhere => vec![
+            input_uri,
+            required_native_vortex_payload(request.vortex_predicate.as_ref(), "vortex predicate")?,
+            "--execute-local-primitive".to_string(),
+            memory_gb.to_string(),
+            max_parallelism.to_string(),
+        ],
+        PublicVortexPrimitive::Filter => vec![
+            input_uri,
+            required_native_vortex_payload(request.vortex_predicate.as_ref(), "vortex predicate")?,
+        ],
+        PublicVortexPrimitive::Project => vec![
+            input_uri,
+            required_native_vortex_payload(request.vortex_columns.as_ref(), "vortex columns")?,
+        ],
+        PublicVortexPrimitive::FilterProject => vec![
+            input_uri,
+            required_native_vortex_payload(request.vortex_predicate.as_ref(), "vortex predicate")?,
+            required_native_vortex_payload(request.vortex_columns.as_ref(), "vortex columns")?,
+        ],
+    };
+    if primitive.allows_source_order_limit() {
+        if let Some(limit) = request.vortex_source_order_limit.as_ref() {
+            args.extend([
+                "--limit".to_string(),
+                positive_usize_arg("source-order limit", limit)?.to_string(),
+            ]);
+        }
+    }
+    if !matches!(
+        primitive,
+        PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere
+    ) {
+        args.extend([
+            "--execute-local-primitive".to_string(),
+            memory_gb.to_string(),
+            max_parallelism.to_string(),
+        ]);
+    }
+    Ok(args)
+}
+
+fn required_native_vortex_payload(
+    value: Option<&String>,
+    label: &str,
+) -> Result<String, ShardLoomError> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "public native Vortex run requires {label}; fallback execution was not attempted"
+            ))
+        })
+}
+
+fn positive_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError> {
+    let parsed = value.parse::<u64>().map_err(|_| {
+        ShardLoomError::InvalidOperation(format!("{label} must be an unsigned integer"))
+    })?;
+    if parsed == 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} must be >= 1"
+        )));
+    }
+    Ok(parsed)
+}
+
+fn positive_usize_arg(label: &str, value: &str) -> Result<usize, ShardLoomError> {
+    let parsed = value.parse::<usize>().map_err(|_| {
+        ShardLoomError::InvalidOperation(format!("{label} must be an unsigned integer"))
+    })?;
+    if parsed == 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} must be >= 1"
+        )));
+    }
+    Ok(parsed)
 }
 
 fn local_output_format_for_request(

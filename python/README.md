@@ -302,6 +302,22 @@ sql_route = ctx.sql("SELECT id FROM 'target/orders.csv' LIMIT 10").route()
 df_route = ctx.read("target/orders.csv").select("id").limit(10).route()
 execution = ctx.read("target/orders.csv").select("id").limit(10).run()
 prepared = ctx.read_csv("target/orders.csv").prepare("target/orders.vortex")
+native_vortex = ctx.client.public_workflow_run(
+    "cli",
+    input_uri="shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+    input_format="vortex",
+    requested_output="collect",
+    execution_policy="native_vortex",
+    materialization_policy="zero_decode",
+    evidence_level="runtime_smoke",
+    bounded=True,
+    vortex_primitive="filter_project",
+    vortex_predicate="gte:value:3",
+    vortex_columns=("metric",),
+    vortex_source_order_limit=2,
+    memory_gb=1,
+    max_parallelism=2,
+)
 
 print(sql_route.route_id, sql_route.resolved_internal_command)
 print(df_route.route_id, df_route.resolved_internal_command)
@@ -309,6 +325,7 @@ print(sql_route.fallback_attempted, sql_route.external_engine_invoked)
 print(sql_route.side_effect_free, sql_route.blocker_id)
 print(execution.facade_command, execution.route_id, execution.runtime_execution)
 print(prepared.facade_command, prepared.route_id, prepared.preparation_included)
+print(native_vortex.command, native_vortex.route_id, native_vortex.vortex_primitive)
 ```
 
 Unbounded collect requests block at route admission and keep
@@ -2392,12 +2409,16 @@ print(result.filter_project.field("filter_project_local_execution_rows_projected
 print(result.fallback_attempted)
 ```
 
-Count-all uses the explicit `vortex-run <fixture> count <memory_gb>
-<max_parallelism>` runtime command. Count-where, filter, project, and
-filter-project use their `--execute-local-primitive <memory_gb>
-<max_parallelism>` flags. Calls without those explicit execution paths use the
-existing metadata/plan evidence surfaces where the CLI supports them; local
-primitive execution also requires explicit resource caps.
+The Python helper path uses the public `run` facade for explicit local primitive
+execution, so envelopes have `command=run` plus
+`public_workflow_resolved_internal_command` set to `vortex-run`,
+`vortex-count-where`, `vortex-filter`, `vortex-project`, or
+`vortex-filter-project`. Count-all maps to `--vortex-primitive count`.
+Count-where, filter, project, and filter-project map to explicit predicate,
+projection, source-order limit, `memory_gb`, and `max_parallelism` payloads.
+The lower `vortex-*` commands remain available for direct diagnostics, tests,
+and benchmark evidence. Calls without explicit local primitive execution use
+the existing metadata/plan evidence surfaces where the CLI supports them.
 
 The repository smoke script prints command, status, certificate, Native I/O,
 materialization, work-metric, evidence-artifact, and no-fallback fields:

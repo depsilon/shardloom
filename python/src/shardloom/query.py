@@ -2655,7 +2655,7 @@ class VortexWorkflowExecutionReport:
     def command(self) -> str:
         """Return the CLI command used for the admitted Vortex primitive."""
 
-        return self.envelope.command
+        return self.envelope.field("public_workflow_resolved_internal_command") or self.envelope.command
 
     @property
     def status(self) -> str:
