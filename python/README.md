@@ -611,14 +611,15 @@ bounded scalar column or row-value tuple set from another admitted local source.
 `EXISTS`/`NOT EXISTS` subqueries evaluate a two-valued bounded presence test over another admitted
 local source. Scoped local
 quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
-source and apply SQL three-valued comparison semantics. Scoped correlated `outer.<column>`
+source and apply SQL three-valued comparison semantics. Source-qualified scalar IN, row-value IN,
+EXISTS, NOT EXISTS, and quantified local subquery references are admitted when they bind to an
+explicit subquery `AS <alias>` or SQL-identifier file stem; Python helpers can set that binding with
+`source_alias=` and render the qualified column with `sl.col("alias.column")`. Scoped correlated `outer.<column>`
 subquery filters are admitted for scalar `IN`/`NOT IN`, row-value `IN`/`NOT IN`,
 `EXISTS`/`NOT EXISTS`, and quantified `ANY` / `ALL` predicates through the reserved outer-row alias.
 Direct SQL predicate projections and CASE
 predicates can now reuse admitted scalar `IN` subqueries, including scoped correlated
-`outer.<column>` filters, over bounded local sources. Source-qualified local subquery references are
-admitted for the subquery's explicit `AS <alias>` or SQL-identifier file stem and can be bound from
-Python with `source_alias=` and rendered with `sl.col("alias.column")`. Scalar-left multi-column,
+`outer.<column>` filters, over bounded local sources. Scalar-left multi-column,
 unbound qualified, broad projected correlated joins/aggregates, and broader arbitrary subquery
 shapes remain deterministic blockers.
 Typed reports expose `in_predicate_runtime_execution`,
@@ -632,6 +633,8 @@ Typed reports expose `in_predicate_runtime_execution`,
 `exists_subquery_result`, `quantified_subquery_runtime_execution`,
 `quantified_subquery_quantifiers`, `quantified_subquery_source_columns`,
 `quantified_subquery_materialized_value_count`, `quantified_subquery_null_semantics`,
+`source_qualified_subquery_runtime_execution`, `source_qualified_subquery_source_qualifiers`,
+`source_qualified_subquery_operator_families`, `source_qualified_subquery_source_columns`,
 `correlated_subquery_runtime_execution`, `correlated_subquery_outer_aliases`,
 `correlated_subquery_outer_columns`, `correlated_subquery_evaluation_strategy`, and
 `correlated_subquery_outer_row_evaluation_count`, plus
@@ -1438,6 +1441,7 @@ That path is still fixture-smoke evidence only. Broader grouped aggregate genera
 null ordering, collation parity,
 broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
 IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, scoped
+source-qualified scalar/row-value IN, EXISTS/NOT EXISTS, and quantified local subquery refs, scoped
 correlated `outer.<column>` source-subquery filters, scoped subquery-backed predicate/CASE
 projections, and grouped/HAVING projected source-subquery tails for those families, arbitrary
 predicate-tree completeness beyond the admitted

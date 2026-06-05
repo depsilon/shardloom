@@ -92,6 +92,8 @@ REQUIRED_SOURCE_MARKERS = {
         "def decimal_cast_blocked_typed_decimal_sink_formats(",
         "def unsupported_reasons(",
         "def sql_set_operation_runtime_execution(",
+        "def source_qualified_subquery_runtime_execution(",
+        "def source_qualified_subquery_source_qualifiers(",
     ],
     "python/tests/test_query_builder.py": [
         "test_local_csv_query_builder_join_invokes_sql_smoke",
@@ -107,6 +109,7 @@ REQUIRED_SOURCE_MARKERS = {
         "test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke",
         "test_local_csv_query_builder_quantified_subquery_filter_invokes_sql_smoke",
         "test_local_csv_query_builder_correlated_subquery_invokes_sql_smoke",
+        "test_context_sql_source_qualified_exists_subquery_exposes_report_fields",
         "test_local_csv_query_builder_outer_correlation_unsupported_diagnostics_passthrough",
         "test_local_csv_query_builder_grouped_projected_subquery_helpers_invoke_sql_smoke",
         "test_local_csv_query_builder_with_column_cast_invokes_sql_smoke",

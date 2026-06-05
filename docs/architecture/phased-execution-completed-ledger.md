@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D source-qualified subquery breadth
+  - Date: 2026-06-05
+  - Branch/PR: `codex/source-qualified-subquery-breadth` / PR #1104.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `shardloom-cli/src/sql_local_source_runtime.rs`.
+    - `python/src/shardloom/client.py`.
+    - `python/tests/test_query_builder.py`.
+  - Scope:
+    - Promoted scoped source-qualified local row-value IN, EXISTS, NOT EXISTS, and quantified
+      ANY/ALL subquery predicates in addition to the existing scalar source-qualified IN subquery
+      path.
+    - Threaded source qualifiers into scalar, row-value, EXISTS, and quantified subquery plan digest
+      fragments so qualified and unqualified subquery shapes remain distinct.
+    - Added `source_qualified_subquery_*` report fields for runtime execution, bound source
+      qualifiers, operator families, and normalized source columns.
+    - Added Python `SqlLocalSourceSmokeReport` accessors for the same source-qualified subquery
+      evidence and a Python `ctx.sql(...)` report-field regression test.
+    - Updated the admitted-semantics matrix, release-readiness expected counts, phase plan, parity
+      docs, Python README, compute-flow reference, and release metadata tests for the latest
+      109-row / 91-executable matrix.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli source_qualified -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_source_qualified_exists_subquery_exposes_report_fields`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-source-qualified.json`
+      passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-source-qualified.json`
+      passed with `matrix_row_count=109`, `executable_fixture_count=91`,
+      `diagnostic_case_count=18`, `unsupported_diagnostic_count=16`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`, no fallback, no
+      external engine invocation, and `performance_claim_allowed=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-source-qualified.json --output target/release-readiness-source-qualified.json`
+      remained blocked only on existing broad release/package/checklist gates; admitted-semantics
+      blockers were absent and fallback/external-engine fields remained false.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-source-qualified.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-source-qualified.json`
+      passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py scripts/check_release_readiness.py`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - Website/static checks passed:
+      `website-src/scripts/sync-content.mjs`, `astro check`, `astro build`,
+      `website-src/scripts/postbuild-static.mjs`, and `website/validate_static_assets.js`.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is scoped SQL subquery runtime breadth,
+      matrix/release evidence, and docs/static freshness work, not performance evidence.
+  - Claim boundary:
+    - This slice admits scoped source-qualified local subquery predicates for scalar IN, row-value
+      IN, EXISTS, NOT EXISTS, and quantified ANY/ALL only. It does not claim broad ANSI subquery
+      parity, object-store/table SQL, production SQL/DataFrame support, performance equivalence, or
+      Spark replacement.
+  - Fallback boundary:
+    - Source-qualified subqueries execute through ShardLoom's bounded local-source runtime. No
+      pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame
+      backend is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL set-operation breadth
   - Date: 2026-06-05
   - Branch/PR: `codex/sql-set-operation-breadth` / PR #1103.

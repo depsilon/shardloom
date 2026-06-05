@@ -301,50 +301,29 @@ completed details to the ledger.
   Source: SQL/Python/DataFrame front-door parity docs, admitted semantics matrix, user-route
   capability report, completed runtime ledger entries, and remaining broad grammar blockers.
   Current state: admitted scoped SQL syntax families and their evidence rows live in
-  `docs/status/admitted-semantics-matrix.json` and the completed ledger. The live remaining
-  blockers are the non-admitted broad grammar families that still need ShardLoom-owned runtime
-  promotion or additional deterministic diagnostics beyond the now-covered timezone database
-  syntax/function/type spellings, locale/case-folding operators, scoped columnar binary source
-  projection plus direct bytewise binary source predicates and source-column ordering through the
-  feature-gated local materialization boundary, scoped complex
-  result-boundary ordering, first-class list/array plus struct access/cast unsupported
-  diagnostics, complex subquery membership materialization unsupported diagnostics, scoped
-  scalar and row-value `NOT IN (SELECT ...)` subquery evidence, correlated `NOT EXISTS`
-  evidence, projected scalar/row-value `NOT IN` and projected `NOT EXISTS` evidence across joined,
-  grouped/HAVING, and correlated projected local-source plans, scoped
-  scalar-expression `JOIN ON` predicate evidence including scoped logical `OR` over admitted
-  qualified scalar leaves, complex-key `JOIN ON` blockers, deterministic outer-reference blockers
-  for non-column-comparison and outer-to-outer subquery predicates, and arbitrary interval
-  arithmetic blockers outside scoped temporal helpers:
-  nested source decoding and flat sinks beyond scoped result-boundary projections, scoped
-  DISTINCT/UNION/INTERSECT/EXCEPT DISTINCT result-row equality, and scoped result-boundary ORDER BY,
-  variant/union-dtype shapes, binary sink preservation outside scoped feature-gated Parquet/Arrow
-  IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat scalar outputs, broader binary execution
-  beyond scoped columnar source projection/predicate/order plus explicit casts/helpers, non-binary
-  source columns compared to binary literals, ORC typed decimal sinks, broad ANSI decimal coercion
-  beyond exact exponent notation,
-  scalar-left multi-column subqueries, unbound source aliases, and remaining broad ANSI subquery
-  families outside
-  the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`, quantified,
-  and predicate/CASE projection boundary.
+  `docs/status/admitted-semantics-matrix.json` and the completed ledger. Recently covered slices
+  include timezone database syntax/function/type deterministic blockers, locale/case-folding
+  blockers, scoped columnar binary source projection/predicate/order evidence, scoped complex
+  result-boundary ordering, first-class list/array plus struct access/cast blockers, complex
+  subquery membership materialization blockers, scoped scalar and row-value `NOT IN (SELECT ...)`,
+  correlated `NOT EXISTS`, projected negative subqueries, scoped scalar-expression `JOIN ON`
+  including logical `OR`, complex-key `JOIN ON` blockers, deterministic outer-reference blockers,
+  scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN,
+  EXISTS/NOT EXISTS, and quantified local subquery evidence with `source_qualified_subquery_*`
+  report fields. Remaining live blockers are nested source decoding and flat sinks beyond scoped
+  result-boundary projections, variant/union-dtype shapes, binary sink preservation outside scoped
+  feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar outputs and scoped local Vortex known flat
+  scalar outputs, broader binary execution beyond scoped columnar source projection/predicate/order
+  plus explicit casts/helpers, non-binary source columns compared to binary literals, ORC typed
+  decimal sinks, broad ANSI decimal coercion beyond exact exponent notation, scalar-left
+  multi-column subqueries, unbound source aliases, and remaining broad ANSI subquery families
+  outside the admitted local-source scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`,
+  quantified, source-qualified, and predicate/CASE projection boundary.
   Runtime enablement: SQL parse/bind request -> ShardLoom capability admission -> native runtime
   lowering or deterministic unsupported diagnostic -> no-fallback evidence row.
   Next slice outcome: continue with the next broad SQL grammar family from the remaining runtime
-  blockers after the scoped columnar binary source predicate/order, Parquet/Arrow IPC/Avro/ORC
-  binary sink slices, local Vortex binary sink follow-through including nullable/all-null binary rows
-  with dtype/family evidence, Parquet/Arrow IPC/Avro typed decimal sink preservation, exact decimal
-  exponent notation, and scoped local Vortex known flat scalar output for boolean, int64, uint64,
-  float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/all-null rows
-  when dtype/family evidence is present, plus scoped scalar-expression `JOIN ON` predicate evidence
-  including logical `OR` over admitted qualified scalar leaves and deterministic blockers for
-  complex-key join predicates plus arbitrary interval arithmetic outside scoped temporal helpers,
-  plus scoped scalar and row-value `NOT IN (SELECT ...)`, correlated `NOT EXISTS`, and projected
-  negative-subquery evidence, plus deterministic blockers for outer references outside admitted
-  column-to-column subquery comparisons and outer-to-outer subquery comparisons, plus scoped
-  local-source `INTERSECT` and `EXCEPT` over already-admitted branch `SELECT` plans;
-  likely candidates are ORC typed decimal sink
-  preservation once ORC writer evidence exists, or another front-door parity gap only after the
-  runtime route is already admitted.
+  blockers above. Likely candidates are ORC typed decimal sink preservation once ORC writer evidence
+  exists, or another front-door parity gap only after the runtime route is already admitted.
   User-visible surface: CLI SQL local-source runtime, Python `sql(...)`, DataFrame aliases,
   capability matrices, docs, and benchmark-range route reports.
   Implementation scope: `shardloom-cli/src/sql_local_source_runtime.rs`, Python query/session
