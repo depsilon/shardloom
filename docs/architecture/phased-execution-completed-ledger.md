@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D public workflow Parquet/Vortex write helper facade
+  - Date: 2026-06-05
+  - Branch/PR: `codex/public-workflow-collect-write-facade` / PR pending.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/cli-command-registry.md`.
+    - `python/README.md`.
+    - `python/src/shardloom/client.py`.
+    - `python/src/shardloom/query.py`.
+    - `scripts/check_user_surface_runtime_gap_inventory.py`.
+    - `shardloom-cli/src/public_workflow_route.rs`.
+    - `shardloom-cli/tests/public_workflow_route.rs`.
+    - `website-src`, `website-public`, and `website` generated static artifacts.
+  - Scope:
+    - Added `--allow-overwrite` to the public workflow facade argument contract and forwarded it to
+      scoped SQL local-source and source-free generated-output runtime wrappers.
+    - Extended public requested-output normalization and route planning for feature-gated
+      compatibility sink outputs beyond JSONL/CSV/Parquet/Vortex while preserving explicit output
+      format mapping.
+    - Routed lazy DataFrame `write_parquet(...)` and `write_vortex(...)` through the public
+      `shardloom run` facade while preserving the existing `SqlLocalSourceSmokeReport` typed sink
+      report view.
+    - Kept broad `collect()`, general `write(...)` / `write_csv(...)`, source-free generated-output
+      write helpers, fanout, and native Vortex primitive collect rerouting as explicit residuals
+      because those helper families have broader fixture and payload-shape blast radius.
+    - Updated phase-plan, CLI status, Python docs, runtime-gap inventory, and website status source
+      wording for the scoped write helper reroute.
+  - Evidence:
+    - `python3 -m unittest python.tests.test_query_builder
+      python.tests.test_user_surface_graduation_matrix python.tests.test_cli_client` passed.
+    - `python3 scripts/check_user_surface_graduation_matrix.py --output
+      target/user-surface-graduation-matrix.json` passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output
+      target/sql-python-dataframe-parity-gate.json` passed.
+    - `python3 scripts/check_user_surface_runtime_gap_inventory.py --output
+      target/user-surface-runtime-gap-inventory.json` passed.
+    - `python3 scripts/check_user_route_capability_report.py --output
+      target/user-route-capability-report.json` passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py
+      python/tests/test_query_builder.py scripts/check_user_surface_runtime_gap_inventory.py`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed after cleaning polluted local
+      `target` build artifacts.
+    - `cargo test --workspace --all-targets` passed after cleaning polluted local `target` build
+      artifacts.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node
+      website-src/scripts/sync-content.mjs`, Astro `check`, Astro `build`, `scripts/postbuild-static.mjs`,
+      and `node website/validate_static_assets.js` passed.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. This is a public facade/evidence-routing slice, not a
+      timing-methodology or performance-claim change.
+  - Claim boundary:
+    - This slice claims only scoped lazy DataFrame Parquet/Vortex write helper routing through the
+      public workflow `run` facade. It does not claim broad collect/general write rerouting, broad
+      SQL/DataFrame support, production API stability, performance superiority, or Spark
+      replacement.
+  - Fallback boundary:
+    - The facade preserves `fallback_attempted=false` and `external_engine_invoked=false`; no pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or external DataFrame backend
+      execution is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow run/prepare facade
   - Date: 2026-06-05
   - Branch/PR: `codex/public-workflow-run-prepare-facade` / PR #1111.

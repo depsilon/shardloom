@@ -317,6 +317,10 @@ envelope. The equivalent CLI surfaces are
 `shardloom route <sql|python|dataframe|cli> --format json`,
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`.
+Lazy DataFrame `write_parquet(...)` and `write_vortex(...)` route through the same public `run`
+facade and return the existing typed sink reports with attached `public_workflow_*` route fields.
+Broad `collect()` and general `write(...)` helper rerouting remains lower-level until the next
+facade slice lands.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -832,9 +836,11 @@ or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
 feature-gated flat scalar Parquet sink when the CLI is built with
 `--features universal-format-io`; default binaries return ShardLoom's
-deterministic Parquet sink blocker. `write_vortex(...)` writes a scoped local
-flat scalar `.vortex` result when the CLI is built with `--features vortex-write`;
-default binaries return a deterministic Vortex sink blocker. The scoped
+deterministic Parquet sink blocker. The `write_parquet(...)` alias routes through
+the public workflow `run` facade and attaches route metadata to the returned sink report.
+`write_vortex(...)` writes a scoped local flat scalar `.vortex` result when the CLI is built with
+`--features vortex-write`; default binaries return a deterministic Vortex sink blocker. The
+`write_vortex(...)` alias also routes through the public workflow `run` facade. The scoped
 `.fanout(...)` helper can reuse one computed result for multiple admitted local
 compatibility sinks such as JSONL and CSV, feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,

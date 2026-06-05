@@ -312,15 +312,19 @@ Each item below uses the same sub-checklist shape:
       high-level facade commands become the normal user/agent route.
     - [x] High-level `run` and `prepare` facade wrappers exist and attach route metadata to admitted
       runtime or preparation envelopes.
-    - [ ] Remaining: route `collect`, `write_vortex`, `write_parquet`, and future execution helpers
-      through the shared planner/evidence envelope so no public runtime helper bypasses visible
-      admission metadata.
+    - [x] Lazy DataFrame `write_parquet(...)` and `write_vortex(...)` now route through the shared
+      public `run` facade with attached route metadata while preserving the existing typed sink
+      report views.
+    - [ ] Remaining: route broad `collect`, general `write(...)` / `write_csv(...)`, source-free
+      generated-output write helpers, and future execution helpers through the shared
+      planner/evidence envelope so no public runtime helper bypasses visible admission metadata.
   - Runtime enablement: public workflow request -> shared route/admission planner -> resolved
     internal ShardLoom command or deterministic blocker -> execution/evidence envelope with
     no-fallback fields.
   - Next slice outcome: finish the shared facade wrapper spine by keeping `route` side-effect-free,
-    running admitted `run`/`prepare` paths with attached route evidence, and leaving collect/write
-    helper rerouting as the next explicit residual.
+    running admitted `run`/`prepare` paths with attached route evidence, routing the highest-signal
+    Vortex/Parquet write helpers through the facade, and leaving broad collect/general write helper
+    rerouting as the next explicit residual.
   - Execution checklist:
     - [x] Add a Rust/CLI JSON route contract representing declared inputs, optional SQL or
       query-builder plan summary, requested output, execution policy (`auto`, `native_vortex`,
@@ -339,8 +343,11 @@ Each item below uses the same sub-checklist shape:
       paths.
     - [x] Add `ShardLoomContext.route(...)`, SQL workflow `route()`, and lazy DataFrame workflow
       `route()` methods that call the shared CLI planner rather than a Python-only planner.
-    - [ ] Route `collect`, `write_vortex`, `write_parquet`, and future execution wrappers through
-      the shared planner/evidence envelope rather than only exposing route inspection.
+    - [x] Route lazy DataFrame `write_vortex` and `write_parquet` helpers through the shared
+      planner/evidence envelope rather than only exposing route inspection.
+    - [ ] Route broad `collect`, general `write(...)` / `write_csv(...)`, source-free
+      generated-output write helpers, and future execution wrappers through the shared
+      planner/evidence envelope rather than only exposing route inspection.
     - [x] Keep unbounded `collect()` blocked at route admission unless an explicit
       bounded/materialized path is present.
     - [x] Keep unbounded `collect()` blocked in the public `run` facade and keep
@@ -349,9 +356,11 @@ Each item below uses the same sub-checklist shape:
       same route metadata and unsupported workflows fail at admission.
     - [x] Update command registry metadata, user-surface graduation/gap validators, Python docs,
       phase plan, and website/static pages for route/run/prepare.
+    - [x] Update status/gap docs and website/static pages for the scoped Vortex/Parquet write helper
+      rerouting slice.
     - [ ] Update `front_door_parity_matrix`, `user_route_capability_report`, DataFrame method
-      matrix, release readiness/status matrices, and website/static pages again for collect/write
-      helper rerouting when that residual lands.
+      matrix, release readiness/status matrices, and website/static pages again for broad
+      collect/general write helper rerouting when that residual lands.
   - User-visible surface: high-level CLI JSON, Python `ShardLoomContext`, SQL workflows, lazy
     DataFrame workflows, route/capability reports, docs, and future REST/agent envelope contracts.
   - Implementation scope: `shardloom-cli/src/command_registry.rs`,

@@ -2219,9 +2219,9 @@ class SqlWorkflow:
         deterministic Parquet sink blocker.
         """
 
-        return self.write(
+        return self._public_workflow_write_report(
             target_uri,
-            output_format="parquet",
+            requested_output="write_parquet",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -2304,9 +2304,9 @@ class SqlWorkflow:
         return deterministic Vortex sink blockers.
         """
 
-        return self.write(
+        return self._public_workflow_write_report(
             target_uri,
-            output_format="vortex",
+            requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -2343,6 +2343,44 @@ class SqlWorkflow:
                 check=check,
             )
         return self._unsupported_operation("fanout", self.statement, check=check)
+
+    def _public_workflow_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        requested_output: str,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        if _is_source_free_sql_statement(self.statement):
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output=requested_output,
+                output_ref=target_uri,
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+            return GeneratedSourceWriteReport(execution.envelope)
+        if _is_local_source_sql_statement(self.statement):
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output=requested_output,
+                output_ref=target_uri,
+                materialization_policy="bounded",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+            return SqlLocalSourceSmokeReport(execution.envelope)
+        return self._unsupported_operation("sql", self.statement, check=check)
 
     def _unsupported_operation(
         self,
@@ -3781,9 +3819,9 @@ class LazyFrame:
 
         if self._sql_local_source_statement() is None:
             return self._unsupported_operation("write-parquet", str(target_uri), check=check)
-        return self.write(
+        return self._public_workflow_write_report(
             target_uri,
-            output_format="parquet",
+            requested_output="write_parquet",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -4113,12 +4151,41 @@ class LazyFrame:
 
         if self._sql_local_source_statement() is None:
             return self._unsupported_operation("write-vortex", str(target_uri), check=check)
-        return self.write(
+        return self._public_workflow_write_report(
             target_uri,
-            output_format="vortex",
+            requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
             check=check,
         )
+
+    def _public_workflow_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        requested_output: str,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport:
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            raise ValueError(
+                "public workflow write facade requires an admitted local-source statement"
+            )
+        execution = self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=self.source.source_format,
+            sql_statement=statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=target_uri,
+            materialization_policy="bounded",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(execution.envelope)
 
     def sql(
         self,

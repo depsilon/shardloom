@@ -38,6 +38,7 @@ struct PublicWorkflowRouteRequest {
     materialization_policy: String,
     evidence_level: String,
     bounded: bool,
+    allow_overwrite: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -183,7 +184,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|claim_grade>] [--bounded true|false] [--allow-overwrite]"
                     .to_string(),
             ));
         };
@@ -200,6 +201,7 @@ impl PublicWorkflowRouteRequest {
             materialization_policy: "bounded".to_string(),
             evidence_level: "runtime_smoke".to_string(),
             bounded: false,
+            allow_overwrite: false,
         };
 
         while let Some(flag) = args.next() {
@@ -236,6 +238,7 @@ impl PublicWorkflowRouteRequest {
                     request.bounded =
                         parse_bool_flag("--bounded", &required_value(&mut args, "--bounded")?)?;
                 }
+                "--allow-overwrite" => request.allow_overwrite = true,
                 extra => {
                     return Err(cli_unknown_arg_error("route", extra));
                 }
@@ -372,7 +375,13 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
 fn is_write_request(request: &PublicWorkflowRouteRequest) -> bool {
     matches!(
         request.requested_output.as_str(),
-        "write_vortex" | "write_parquet" | "write_csv" | "write_jsonl"
+        "write_vortex"
+            | "write_parquet"
+            | "write_arrow_ipc"
+            | "write_avro"
+            | "write_orc"
+            | "write_csv"
+            | "write_jsonl"
     )
 }
 
@@ -560,6 +569,11 @@ fn add_route_request_fields(
     );
     push_field(fields, "evidence_level", request.evidence_level.clone());
     push_field(fields, "bounded_request", request.bounded.to_string());
+    push_field(
+        fields,
+        "allow_overwrite",
+        request.allow_overwrite.to_string(),
+    );
 }
 
 fn add_route_execution_fields(fields: &mut Vec<(String, String)>, plan: &PublicWorkflowRoutePlan) {
@@ -763,6 +777,10 @@ fn execution_attachment_fields(
             request.bounded.to_string(),
         ),
         (
+            "public_workflow_allow_overwrite".to_string(),
+            request.allow_overwrite.to_string(),
+        ),
+        (
             "public_workflow_blocker_id".to_string(),
             plan.blocker_id.to_string(),
         ),
@@ -802,6 +820,9 @@ fn sql_local_source_runtime_args(
             local_output_format_for_request(request)?.to_string(),
         ]);
     }
+    if request.allow_overwrite {
+        args.push("--allow-overwrite".to_string());
+    }
     Ok(args)
 }
 
@@ -810,14 +831,18 @@ fn generated_source_runtime_args(
     output_ref: String,
     statement: String,
 ) -> Vec<String> {
-    vec![
+    let mut args = vec![
         output_ref,
         statement,
         "--output-format".to_string(),
         local_output_format_for_request(request)
             .unwrap_or("jsonl")
             .to_string(),
-    ]
+    ];
+    if request.allow_overwrite {
+        args.push("--allow-overwrite".to_string());
+    }
+    args
 }
 
 fn local_output_format_for_request(
@@ -827,6 +852,9 @@ fn local_output_format_for_request(
         "collect" => Ok("inline-jsonl"),
         "write_vortex" => Ok("vortex"),
         "write_parquet" => Ok("parquet"),
+        "write_arrow_ipc" => Ok("arrow-ipc"),
+        "write_avro" => Ok("avro"),
+        "write_orc" => Ok("orc"),
         "write_csv" => Ok("csv"),
         "write_jsonl" => Ok("jsonl"),
         other => Err(ShardLoomError::InvalidOperation(format!(
@@ -956,8 +984,9 @@ fn normalize_input_format(value: &str) -> Result<String, ShardLoomError> {
 fn normalize_requested_output(value: &str) -> Result<String, ShardLoomError> {
     let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
     match normalized.as_str() {
-        "collect" | "prepare" | "write_vortex" | "write_parquet" | "write_csv" | "write_jsonl"
-        | "explain" | "route" | "evidence" | "profile" => Ok(normalized),
+        "collect" | "prepare" | "write_vortex" | "write_parquet" | "write_arrow_ipc"
+        | "write_avro" | "write_orc" | "write_csv" | "write_jsonl" | "explain" | "route"
+        | "evidence" | "profile" => Ok(normalized),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route requested output: {value}"
         ))),

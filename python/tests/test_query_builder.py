@@ -10073,19 +10073,35 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--output-format",
-                    "parquet",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "--request",
+                    "write_parquet",
                     "--output",
                     "target/out.parquet",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
                     "--allow-overwrite",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "run",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -10100,6 +10116,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_io_performed", "value": "true"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_parquet_sink"},
                         {"key": "output_certificate_ref", "value": "sql-local-source.local-parquet-output.native-io.v1"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_requested_output", "value": "write_parquet"},
+                        {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -10128,6 +10149,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.envelope.field("output_certificate_ref"),
             "sql-local-source.local-parquet-output.native-io.v1",
         )
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -10203,19 +10227,35 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--output-format",
-                    "vortex",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "--request",
+                    "write_vortex",
                     "--output",
                     "target/out.vortex",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
                     "--allow-overwrite",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "run",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -10238,6 +10278,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_fidelity_loss", "value": "vortex:flat_scalar_only_no_broad_vortex_writer_fidelity_claim"},
                         {"key": "upstream_vortex_write_called", "value": "true"},
                         {"key": "upstream_vortex_scan_called", "value": "true"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_requested_output", "value": "write_vortex"},
+                        {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -10274,6 +10319,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertTrue(report.upstream_vortex_write_called)
         self.assertTrue(report.upstream_vortex_scan_called)
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_vortex")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -10351,19 +10399,35 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
                     "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--output-format",
-                    "parquet",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "--request",
+                    "write_parquet",
                     "--output",
                     "target/out.parquet",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
                     "--allow-overwrite",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
+                    "command": "run",
                     "status": "error",
                     "summary": "Parquet sink blocked",
                     "human_text": "Parquet sink blocked",
