@@ -308,7 +308,7 @@ completed details to the ledger.
   subquery membership materialization blockers, scoped scalar and row-value `NOT IN (SELECT ...)`,
   correlated `NOT EXISTS`, projected negative subqueries, scoped scalar-expression `JOIN ON`
   including logical `OR`, complex-key `JOIN ON` blockers, deterministic outer-reference blockers,
-  scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN,
+  scoped local-source `INTERSECT`/`EXCEPT`, and scoped source-qualified scalar/row-value IN/NOT IN,
   EXISTS/NOT EXISTS, and quantified local subquery evidence with `source_qualified_subquery_*`
   report fields plus deterministic unbound source-qualified selected-column, filter, projection,
   and ORDER BY diagnostics for those scoped subquery surfaces. Remaining live blockers are nested
