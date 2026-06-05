@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-9 append-only delta overlay prepared-state path
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-delta-overlays` / current benchmark optimization PR batch.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/phased-execution-completed-ledger.md`.
+  - Scope:
+    - Added a scoped local CSV/JSONL append-only fact-source overlay path for prepared-batch
+      reuse. When a prior prepared manifest proves the base source content digest and a later local
+      fact source is larger with the same prefix digest, ShardLoom writes a delta source artifact, a
+      delta Vortex artifact, and a refinement manifest without rewriting the base fact artifact.
+    - Threaded optional fact delta overlay artifacts through `TraditionalPreparedNativeSession`,
+      native Vortex batch requests, source snapshots, split/runtime evidence, prepared-artifact
+      refs/digests, lifecycle fields, and benchmark-facing prepared-batch rows.
+    - Admitted only scalar metric-sum consumers (`csv/file ingest` and `many-small-files scan`) that
+      can compose base and delta Vortex scans exactly. Other scenarios keep deterministic
+      `consumer-family-not-overlay-mergeable` blockers and proceed through the existing
+      ShardLoom-native partial repair path instead of stale reuse.
+    - Added prefix digest, record-boundary, source-growth, artifact-integrity, no-fallback, and
+      external-engine guards before overlay admission. Update/delete/schema-like prefix mismatch
+      cases fail closed to partial repair with explicit blocker evidence.
+    - Added benchmark row fields including `delta_overlay_admitted`, base artifact reuse,
+      delta-source/delta-artifact refs and digests, changed byte/row ranges, correctness digest,
+      replay proof, full-content-digest timing, and no-fallback/external-engine flags.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-vortex --all-targets --features vortex-traditional-analytics-benchmark -- -D warnings`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_delta_overlay`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_batch_workspace_reuse`
+      passed.
+    - `node website/validate_static_assets.js` passed.
+    - `node node_modules/.bin/astro check` passed from `website-src` with the bundled Node runtime.
+    - `node node_modules/.bin/astro build` passed from `website-src` with the bundled Node runtime.
+    - `git diff --check` passed.
+  - Benchmark boundary:
+    - This slice adds runtime behavior and attribution fields but does not rerun the full benchmark
+      suite or make a new timing claim. A later approved benchmark rerun can measure the append-only
+      prepared route against the prior full role-repair behavior.
+  - Claim boundary:
+    - The claim is scoped to single local CSV/JSONL fact-file append-only prepared-state overlays
+      with prefix SHA proof and scalar mergeable prepared/native consumers. Broad CDC/table
+      transactions, object-store append semantics, update/delete support, schema changes,
+      stacked/multi-overlay compaction, production claims, and performance superiority claims
+      remain gated.
+  - Fallback boundary:
+    - No Spark/DataFusion/DuckDB/Polars/Velox/Dask or Vortex query-engine integration detects,
+      merges, repairs, or executes the overlay. ShardLoom rows keep `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PERF-SPLIT-8 compact evidence and tiered result-sink modes
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-split-evidence-sink-tiers` / PR #1124.

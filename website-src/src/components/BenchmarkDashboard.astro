@@ -87,6 +87,11 @@ const preparedLookupRows = [...batchRows, ...publishedRows].filter((row: any) =>
   || row.prepare_batch_prepared_state_index_schema_version
   || row.prepare_batch_prepared_state_partial_repair_status
 );
+const preparedDeltaOverlayRows = [...batchRows, ...publishedRows].filter((row: any) =>
+  row.prepare_batch_prepared_state_delta_overlay_schema_version
+  || row.prepare_batch_prepared_state_delta_overlay_status
+  || row.delta_overlay_admitted
+);
 const resultSinkCapillaryRows = publishedRows.filter((row: any) =>
   row.result_sink_capillary_schema_version
   || row.result_sink_capillary_status
@@ -1034,7 +1039,33 @@ const artifactFreshnessRows = [
         </tbody>
       </table>
     </div>
-    <p class="table-note">Lookup rows in current artifact: {preparedLookupRows.length}. Prepared-state lookup fields are emitted by the Rust benchmark route; public timing values remain tied to the latest promoted artifact.</p>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>Append-only delta overlay evidence</strong></p>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Admitted</th><th>Blocker</th><th>Base reused</th><th>Delta rows</th><th>Byte range</th><th>Consumer</th><th>Correctness</th><th>Replay proof</th><th>No external engine</th></tr>
+        </thead>
+        <tbody>
+          {preparedDeltaOverlayRows.length > 0 ? preparedDeltaOverlayRows.map((row: any) => (
+            <tr>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_status)}</td>
+              <td>{textValue(row.delta_overlay_admitted, textValue(row.prepare_batch_prepared_state_delta_overlay_admitted))}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_blocker_id)}</td>
+              <td>{textValue(row.base_artifact_reused, textValue(row.prepare_batch_prepared_state_delta_overlay_base_artifact_reused))}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_delta_row_count)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_changed_byte_range)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_consumer_status)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_correctness_digest)}</td>
+              <td>{textValue(row.prepare_batch_prepared_state_delta_overlay_replay_proof)}</td>
+              <td>{String(row.prepare_batch_prepared_state_delta_overlay_external_engine_invoked === false || row.prepare_batch_prepared_state_delta_overlay_external_engine_invoked === "false")}</td>
+            </tr>
+          )) : (
+            <tr><td colspan="10">Awaiting refreshed benchmark artifact with append-only delta overlay fields.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Lookup rows in current artifact: {preparedLookupRows.length}. Delta overlay rows: {preparedDeltaOverlayRows.length}. Prepared-state lookup and overlay fields are emitted by the Rust benchmark route; public timing values remain tied to the latest promoted artifact.</p>
   </div>
 </section>
 
@@ -1049,6 +1080,7 @@ const artifactFreshnessRows = [
     <div class="metric"><strong>{metrics.claimGrade}</strong><span>evidence claim-grade rows</span></div>
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
     <div class="metric"><strong>{preparedLookupRows.length}</strong><span>prepared lookup rows</span></div>
+    <div class="metric"><strong>{preparedDeltaOverlayRows.length}</strong><span>delta overlay rows</span></div>
     <div class="metric"><strong>{resultSinkCapillaryRows.length}</strong><span>sink capillary rows</span></div>
     <div class="metric"><strong>{routeShapeRows.length}</strong><span>route-shape rows</span></div>
     <div class="metric"><strong>{sourceToArrayGuardRows.length}</strong><span>source-array guard rows</span></div>

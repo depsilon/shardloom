@@ -203,22 +203,21 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-SPLIT-9` | Admit scoped append-only delta overlays without full prepared-state rebuild. |
-| 2 | `PERF-INNOV-1` | Deepen projection-aware scout and typed decode for cold CSV/JSONL ingest beyond the completed base split. |
-| 3 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
-| 4 | `PERF-INNOV-3` | Complete prepared-state index repair plus append-only delta overlays after `PERF-SPLIT-9`. |
-| 5 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
-| 6 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
-| 7 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
-| 8 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 9 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 10 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 11 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 12 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 13 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 14 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 15 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 16 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `PERF-INNOV-1` | Deepen projection-aware scout and typed decode for cold CSV/JSONL ingest beyond the completed base split. |
+| 2 | `PERF-INNOV-2` | Deepen Capillary Vortex write batching and segment/workspace attribution beyond the completed base split. |
+| 3 | `PERF-INNOV-3` | Fold completed index, repair, and delta-overlay evidence into one prepared-state optimization contract. |
+| 4 | `PERF-INNOV-4` | Extend compact evidence and tiered result-sink modes across any remaining hot-lane surfaces after the core `PERF-SPLIT-8` tier contract. |
+| 5 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
+| 6 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
+| 7 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 8 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 9 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 10 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 11 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 12 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 13 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 14 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 15 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -291,46 +290,6 @@ the completed ledger; the items below are the remaining implementation slices ne
 timings actionable and then reduce the ShardLoom hot/cold overheads they expose. Benchmark reruns
 belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
 must preserve no-fallback evidence and claim gates.
-
-- [ ] PERF-SPLIT-9 append-only delta overlay prepared-state path:
-  - Source: prepared-batch reuse manifests, `TraditionalPreparedNativeSession`, cold
-    `vortex_ingest` preparation paths, and the completed differential-preparation ledger entry.
-  - Current state:
-    - [x] Scoped append-only differential-preparation evidence exists in the `vortex_ingest` route.
-    - [x] Update/delete/upsert/schema-drift blockers emit deterministic no-fallback diagnostics.
-    - [ ] Remaining: prepared/native consumers need the prepared-state overlay path tied into
-      reuse/admission so local CSV/JSONL append-only changes can avoid full rebuild when safe.
-  - Runtime enablement: local append-only source change -> prefix digest proof -> base prepared
-    artifact reuse plus delta artifact/refinement manifest -> scoped prepared/native consumer.
-  - Objective: avoid full prepared-state rebuild when a local CSV/JSONL fact source only appended
-    bytes/rows and the existing prepared artifact remains a valid prefix.
-  - Implementation scope: detect append-only source changes by size/mtime plus prefix digest proof;
-    write a delta source-state artifact and delta Vortex artifact; attach a refinement manifest
-    linking base prepared-state digest, delta digest, changed byte range, row range, schema hash, and
-    route family. Admit only scoped consumers that can combine base row count/state plus delta
-    overlay without rewriting base artifacts.
-  - User-visible surface: prepare-once first-query and prepare-batch rows, Python prepared route
-    manifests, differential preparation evidence, and benchmark attribution.
-  - Evidence required: `delta_overlay_admitted=true`, base artifact reused, delta artifact written,
-    replay/correctness digest, invalidation reasons, no-fallback fields, and update/delete/schema
-    blockers.
-  - Acceptance: append-only changes report `delta_overlay_admitted=true`, base artifact reused,
-    delta artifact written, replay/correctness digest matched, and unsupported update/delete/schema
-    changes fail closed with deterministic invalidation reasons.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex traditional_prepared_delta_overlay
-    cargo test -p shardloom-vortex traditional_prepared_batch_workspace_reuse
-    git diff --check
-    ```
-  - Non-goals: no broad CDC/table transaction claim, no in-place mutation of prepared artifacts, no
-    stale base artifact reuse.
-  - Claim boundary: scoped local append-only prepared-state overlay only; no broad CDC, table,
-    object-store, production, or performance claim until benchmark/release gates pass.
-  - Fallback boundary: no external engine may detect, merge, repair, or execute delta overlays for
-    ShardLoom rows.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
 
 #### Performance Innovation Follow-Up Queue
 
@@ -431,12 +390,15 @@ completed base slice, while unchecked rows define the remaining optimization wor
 - [ ] PERF-INNOV-3 content-addressed prepared-state index with role repair and delta overlays:
   - Source: prepared-batch reuse logic in `shardloom-vortex/src/traditional_analytics.rs`,
     `python/src/shardloom/prepared_route.py`, prepared-state manifest evidence, completed
-    `PERF-SPLIT-6` prepared-state index repair, and planned `PERF-SPLIT-9` delta overlays.
+    `PERF-SPLIT-6` prepared-state index repair, and completed `PERF-SPLIT-9` delta overlays.
   - Current state:
     - [x] `PERF-SPLIT-6` added content-addressed prepared-state index entries and scoped
       role-repair admission for fact/dim/CDC artifacts.
-    - [ ] Remaining: complete append-only delta overlays through `PERF-SPLIT-9`, then fold the
-      index, repair, and overlay evidence into one prepared-state optimization contract.
+    - [x] `PERF-SPLIT-9` added scoped local CSV/JSONL append-only fact-source delta overlays with
+      prefix proof, delta Vortex artifacts, replay verification, and fail-closed blockers.
+    - [ ] Remaining: fold index, role-repair, and overlay evidence into one prepared-state
+      optimization contract, then remove duplicated report/status wording across CLI, Python,
+      benchmark rows, and website tables.
   - Runtime enablement: prepared route lookup -> content-addressed prepared-state index ->
     role-scoped repair or append-only delta overlay -> prepared/native query consumer.
   - Objective: reduce first-query prepared lookup/create by avoiding full prepared-state rebuilds
@@ -444,9 +406,10 @@ completed base slice, while unchecked rows define the remaining optimization wor
   - Implementation scope: keep the prepared-state index keyed by source-admission packet digest,
     schema hash, route family, layout policy, Native I/O status, prepare policy, and artifact
     refs/digests. Split timing into manifest read, manifest match, cache-hit extract,
-    cache-miss prepare, artifact write, replay verification, manifest register, and Python
-    fingerprint cost. Add role-scoped repair for fact/dim/CDC and an append-only delta overlay path
-    with prefix verification.
+    cache-miss prepare, artifact write, replay verification, manifest register, Python
+    fingerprint cost, role repair, and delta overlay proof. Normalize the status fields so index
+    hit, role repair, overlay admission, and fail-closed blockers share one prepared-state evidence
+    model.
   - User-visible surface: prepared-route manifests, prepare-once first-query rows, prepare-batch
     rows, Python prepared-route reports, and website prepared-state evidence tables.
   - Evidence required: cache-hit/miss status, changed roles, invalidation reasons, repaired roles,
