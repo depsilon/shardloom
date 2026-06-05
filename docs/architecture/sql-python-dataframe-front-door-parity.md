@@ -205,9 +205,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   helpers, and Python result reports expose parsed typed decimal sink support for Parquet,
   Arrow IPC, Avro, and Vortex while leaving ORC typed decimals as the deterministic provider-backed
   blocker. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
-  the bounded expression-join route; complex-key and disjunctive join predicates remain
-  deterministic blockers. Arbitrary expression/DataFrame breadth remains pending until its runtime
-  evidence lands.
+  the bounded expression-join route, including logical `OR` over admitted qualified scalar leaves;
+  complex-key and broader non-scalar join predicates remain deterministic blockers. Arbitrary
+  expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

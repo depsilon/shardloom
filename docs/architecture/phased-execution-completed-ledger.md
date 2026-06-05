@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped JOIN ON OR admission
+  - Date: 2026-06-05
+  - Branch/PR: `codex/6d-join-or-boundary` / PR #1097.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/architecture/sql-python-dataframe-front-door-parity.md`.
+    - `docs/architecture/compute-engine-flow-reference.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+    - `docs/skills/rust-systems-engineering.md`.
+    - `docs/skills/planner-optimizer.md`.
+    - `docs/skills/testing-correctness.md`.
+  - Scope:
+    - Admitted scoped logical `OR` predicates inside local SQL `JOIN ON` clauses when both branches
+      lower to admitted qualified scalar predicates.
+    - Reused the existing bounded ShardLoom expression-join evaluator; no external engine,
+      fallback, or new dependency was introduced.
+    - Added parser and runtime tests for disjunctive join matching, including native candidate,
+      matched-row, output-row, no-fallback, and no-external-engine evidence fields.
+    - Moved the admitted-semantics row from `unsupported_join_or_predicate` to the executable
+      `join_logical_or_condition` fixture and refreshed latest release-readiness counts to
+      `matrix_row_count=86`, `executable_fixture_count=70`, `diagnostic_case_count=16`, and
+      `unsupported_diagnostic_count=14`.
+    - Updated active phase docs, current status docs, release readiness docs, README, and
+      front-door/compute-flow references so current public surfaces no longer report scoped
+      scalar disjunctive joins as blocked.
+  - Evidence:
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli join_logical_or -- --nocapture` passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-join-or-boundary.json` passed with `matrix_row_count=86`, `executable_fixture_count=70`, `diagnostic_case_count=16`, `unsupported_diagnostic_count=14`, no fallback, and no external engine invocation.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-join-or-boundary.json --output target/hard-release-readiness-join-or-boundary.json` exited with the expected blocked release status and no admitted-semantics count blockers.
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_release_readiness.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-join-or-boundary.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-join-or-boundary.json` passed.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture` passed.
+    - `git diff --check` passed.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/sync-content.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/postbuild-static.mjs` passed from `website-src`.
+    - `PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `CARGO_INCREMENTAL=0 cargo test --workspace --all-targets` passed.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed in this slice. This is a correctness/admission and
+      documentation freshness change, not a speedup or performance-superiority claim.
+  - Claim boundary:
+    - This slice admits scoped inner expression joins with logical `OR` over admitted qualified
+      scalar leaves. It does not admit complex-key joins, broad non-scalar join predicates, nested
+      source joins, production SQL parity, benchmark performance claims, or package release.
+  - Fallback boundary:
+    - The implementation stays inside ShardLoom SQL parsing, predicate lowering, and local
+      expression-join runtime. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, or other
+      external engine fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D Python decimal sink boundary parsing follow-through
   - Date: 2026-06-05
   - Branch/PR: `codex/python-decimal-boundary-latest` / PR #1096.

@@ -2614,6 +2614,57 @@ def join_scalar_expression_condition_case() -> SqlFixtureCase:
     )
 
 
+def join_logical_or_condition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="join_logical_or_condition",
+        source_name="join-or-fact.csv",
+        source_text=(
+            "id,customer_id,region\n"
+            "1,10,east\n"
+            "2,20,west\n"
+            "3,30,north\n"
+        ),
+        statement_template=(
+            "SELECT f.id,d.segment FROM '{source}' AS f INNER JOIN '{dim}' AS d "
+            "ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"f.id":1,"d.segment":"by_customer"}\n'
+            '{"f.id":1,"d.segment":"cross_match"}\n'
+            '{"f.id":2,"d.segment":"by_region"}\n'
+            '{"f.id":2,"d.segment":"cross_match"}\n'
+            '{"f.id":3,"d.segment":"both"}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_inner_expression_join_limit",
+            "join_runtime_execution": "true",
+            "join_type": "inner_expression",
+            "join_on_predicate_runtime_execution": "true",
+            "join_on_predicate_operator_family": "logical",
+            "join_on_predicate_source_column": "f.customer_id,d.customer_id,f.region,d.region",
+            "join_key_arity": "0",
+            "join_candidate_row_count": "12",
+            "join_matched_row_count": "5",
+            "join_rows_output": "5",
+            "projected_columns": "f.id,d.segment",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "dim",
+                "join-or-dim.csv",
+                (
+                    "id,customer_id,region,segment\n"
+                    "100,10,south,by_customer\n"
+                    "101,99,west,by_region\n"
+                    "102,30,north,both\n"
+                    "103,20,east,cross_match\n"
+                ),
+            ),
+        ),
+    )
+
+
 def select_distinct_join_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="select_distinct_join",
@@ -3004,6 +3055,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         select_distinct_window_case(),
         join_multi_key_case(),
         join_scalar_expression_condition_case(),
+        join_logical_or_condition_case(),
         select_distinct_join_case(),
     ]
 
@@ -3167,17 +3219,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             ),
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="JOIN ON complex key expressions are not admitted",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_join_or_predicate",
-            source_name="join-or-predicate-fact.csv",
-            source_text="id,customer_id,region\n1,10,east\n",
-            statement_template=(
-                "SELECT f.id,d.id FROM '{source}' AS f JOIN '{source}' AS d "
-                "ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="JOIN ON OR predicates are not admitted",
         ),
         UnsupportedCase(
             case_id="invalid_shape_scalar_multi_column_in_subquery",
