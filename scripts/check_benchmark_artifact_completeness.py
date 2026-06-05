@@ -288,6 +288,18 @@ SOURCE_READ_SCOUT_REQUIRED_FIELDS = {
     "source_read_unsupported_shape_diagnostic",
     "source_read_scout_claim_boundary",
 }
+VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS = {
+    "vortex_writer_context_schema_version",
+    "vortex_writer_context_status",
+    "vortex_writer_context_open_ms",
+    "vortex_writer_context_write_count",
+    "vortex_writer_context_reuse_hit_count",
+    "vortex_writer_context_reuse_status",
+    "vortex_segment_write_ms",
+    "vortex_workspace_stage_ms",
+    "vortex_write_coalescing_status",
+    "vortex_write_coalescing_reason",
+}
 REQUIRED_ROUTE_FIELDS = {
     "route_lane_id",
     "route_display_name",
@@ -325,6 +337,7 @@ REQUIRED_ROUTE_FIELDS = {
     *FAST_PATH_REQUIRED_FIELDS,
     *OPERATOR_MODE_REQUIRED_FIELDS,
     *SOURCE_READ_SCOUT_REQUIRED_FIELDS,
+    *VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS,
 }
 
 
@@ -751,6 +764,25 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 if not str(row.get(field) or "").strip():
                     blockers.append(
                         f"ShardLoom row {index} is missing source-read field {field}"
+                    )
+            for field in (
+                "vortex_writer_context_write_count",
+                "vortex_writer_context_reuse_hit_count",
+            ):
+                value = _numeric_value(row.get(field))
+                if value is None or value < 0:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid Vortex writer context count field {field}"
+                    )
+            for field in (
+                "vortex_writer_context_status",
+                "vortex_writer_context_reuse_status",
+                "vortex_write_coalescing_status",
+                "vortex_write_coalescing_reason",
+            ):
+                if not str(row.get(field) or "").strip():
+                    blockers.append(
+                        f"ShardLoom row {index} is missing Vortex writer context field {field}"
                     )
             source_state_prepare = _numeric_value(row.get("source_state_prepare_micros"))
             source_admission = _numeric_value(row.get("source_admission_ms"))

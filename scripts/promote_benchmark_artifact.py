@@ -302,6 +302,16 @@ WEBSITE_ROW_KEYS = (
     "source_read_row_materialization_status",
     "source_read_unsupported_shape_diagnostic",
     "source_read_scout_claim_boundary",
+    "vortex_writer_context_schema_version",
+    "vortex_writer_context_status",
+    "vortex_writer_context_open_ms",
+    "vortex_writer_context_write_count",
+    "vortex_writer_context_reuse_hit_count",
+    "vortex_writer_context_reuse_status",
+    "vortex_segment_write_ms",
+    "vortex_workspace_stage_ms",
+    "vortex_write_coalescing_status",
+    "vortex_write_coalescing_reason",
     "vortex_reopen_scan_attribution_schema_version",
     "vortex_reopen_verify_split_status",
     "vortex_footer_open_ms",
@@ -1666,6 +1676,47 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "source_parse_or_columnar_decode_ms": source_parse_or_decode,
         "source_to_vortex_array_ms": source_to_vortex_array,
         "vortex_write_ms": vortex_write,
+        "vortex_writer_context_schema_version": first_meaningful_field(
+            fields, ("vortex_writer_context_schema_version",)
+        )
+        or "shardloom.traditional_analytics.vortex_writer_context.v1",
+        "vortex_writer_context_status": first_meaningful_field(
+            fields, ("vortex_writer_context_status",)
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_writer_context_open_ms": micros_to_millis(
+            first_meaningful_field(fields, ("vortex_writer_context_open_micros",))
+        ),
+        "vortex_writer_context_write_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("vortex_writer_context_write_count",))
+            )
+            or 0
+        ),
+        "vortex_writer_context_reuse_hit_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("vortex_writer_context_reuse_hit_count",))
+            )
+            or 0
+        ),
+        "vortex_writer_context_reuse_status": first_meaningful_field(
+            fields, ("vortex_writer_context_reuse_status",)
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_segment_write_ms": micros_to_millis(
+            first_meaningful_field(fields, ("vortex_segment_write_micros",))
+        ),
+        "vortex_workspace_stage_ms": micros_to_millis(
+            first_meaningful_field(fields, ("vortex_workspace_stage_micros",))
+        ),
+        "vortex_write_coalescing_status": first_meaningful_field(
+            fields, ("vortex_write_coalescing_status",)
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
+        "vortex_write_coalescing_reason": first_meaningful_field(
+            fields, ("vortex_write_coalescing_reason",)
+        )
+        or ("not_reported" if is_shardloom else "external_baseline_only"),
         "vortex_reopen_or_verify_ms": vortex_reopen_or_verify,
         "prepared_state_lookup_or_create_ms": prepared_state_lookup,
         "vortex_scan_ms": vortex_scan,
@@ -3991,6 +4042,85 @@ def source_read_scout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def vortex_writer_context_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        route = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        reuse = str(row.get("vortex_writer_context_reuse_status") or "missing")
+        coalescing = str(row.get("vortex_write_coalescing_status") or "missing")
+        groups[(route, reuse, coalescing)].append(row)
+    rendered_rows: list[list[Any]] = []
+    for (route, reuse, coalescing), group_rows in sorted(groups.items()):
+        write_count = sum(
+            int(numeric_value(row.get("vortex_writer_context_write_count")) or 0)
+            for row in group_rows
+        )
+        reuse_hits = sum(
+            int(numeric_value(row.get("vortex_writer_context_reuse_hit_count")) or 0)
+            for row in group_rows
+        )
+        open_ms = geomean_non_negative(
+            [
+                value
+                for row in group_rows
+                for value in [numeric_value(row.get("vortex_writer_context_open_ms"))]
+                if value is not None and value >= 0.0
+            ]
+        )
+        segment_ms = geomean_non_negative(
+            [
+                value
+                for row in group_rows
+                for value in [numeric_value(row.get("vortex_segment_write_ms"))]
+                if value is not None and value >= 0.0
+            ]
+        )
+        workspace_ms = geomean_non_negative(
+            [
+                value
+                for row in group_rows
+                for value in [numeric_value(row.get("vortex_workspace_stage_ms"))]
+                if value is not None and value >= 0.0
+            ]
+        )
+        rendered_rows.append(
+            [
+                route,
+                reuse,
+                coalescing,
+                write_count,
+                reuse_hits,
+                fmt_ms(open_ms),
+                fmt_ms(segment_ms),
+                fmt_ms(workspace_ms),
+                len(group_rows),
+            ]
+        )
+    return {
+        "heading": "Vortex Writer Context Attribution",
+        "headers": [
+            "Route",
+            "Context reuse",
+            "Coalescing",
+            "Writes",
+            "Reuse hits",
+            "Context open",
+            "Segment write",
+            "Workspace stage",
+            "Rows",
+        ],
+        "rows": rendered_rows,
+        "schema_version": "shardloom.website.vortex_writer_context.v1",
+        "claim_boundary": (
+            "writer-context attribution distinguishes Vortex runtime/session open, upstream "
+            "segment write, and workspace-safe staging/commit cost; it is optimization evidence "
+            "only and does not authorize speed or production claims"
+        ),
+    }
+
+
 def vortex_reopen_scan_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     counts: Counter[tuple[str, str, str]] = Counter()
     for row in route_table_rows(rows):
@@ -5873,6 +6003,7 @@ def comparative_summary(
         "source_state_lazy_family": source_state_lazy_family_table(claim_adjusted_rows),
         "route_share_amdahl": route_share_amdahl_table(claim_adjusted_rows),
         "source_read_scout": source_read_scout_table(claim_adjusted_rows),
+        "vortex_writer_context": vortex_writer_context_table(claim_adjusted_rows),
         "vortex_reopen_scan_attribution": vortex_reopen_scan_table(claim_adjusted_rows),
         "fast_path_attribution": fast_path_attribution_table(claim_adjusted_rows),
         "evidence_render_proof": evidence_render_proof_table(claim_adjusted_rows),

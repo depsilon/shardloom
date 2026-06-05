@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-4 projection-aware CSV/JSONL scout and typed column decode
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-projection-aware-scout` / PR #1120, squash merge
+    `750a48d8503950ead6a15f280852e39fe81bf4bb`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `python/tests/test_release_scripts.py`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, and
+      generated benchmark static pages.
+  - Scope:
+    - Added source-read projection and filter masks, decoded/skipped column evidence, decode status,
+      row-materialization status, and unsupported-shape diagnostics for traditional analytics text
+      provider paths.
+    - Skipped unselected optional fields in CSV selected-field parsing and JSONL generic fallback
+      while preserving deterministic errors for selected malformed fields.
+    - Carried the new source-read evidence through benchmark harness rows, artifact promotion,
+      completeness validation, release-script fixtures, and the benchmark dashboard/source-read
+      attribution table.
+    - Repromoted the existing latest benchmark artifact and rebuilt static benchmark assets so the
+      website and validators accept the additive fields before the next full benchmark rerun.
+  - Evidence:
+    - Local validation passed for workspace baseline clippy, benchmark-feature clippy, focused
+      source-read/projection Rust tests, Python release-script tests, artifact completeness and
+      publication claim gates, static website asset validation, generated benchmark HTML text checks,
+      and `git diff --check`.
+    - PR #1120 CI passed before merge: Rust baseline, Rust feature matrix, Python/package smoke,
+      website/docs validation, dependency/security gates, release readiness, workers build, and
+      CodeQL checks.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. Current promoted rows report `not_reported`/zero
+      defaults for the new projection evidence fields until a later full benchmark run produces fresh
+      timing values.
+  - Claim boundary:
+    - This slice claims scoped text-source decode work avoidance and evidence plumbing only. It does
+      not claim benchmark superiority, production readiness, broad SQL/DataFrame support,
+      object-store/lakehouse support, package-release readiness, or Spark replacement.
+  - Fallback boundary:
+    - CSV/JSONL decode remains inside ShardLoom text-provider paths. No pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, or external parser/query engine is invoked as a fallback.
+
 - [x] Session label: PERF-SPLIT-3 lazy source-state family construction for prepared/native
   sessions
   - Date: 2026-06-05

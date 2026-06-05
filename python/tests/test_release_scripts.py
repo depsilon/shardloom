@@ -437,6 +437,30 @@ class ReleaseScriptTests(unittest.TestCase):
                 "none_admitted_text_shape" if cold_route else "not_applicable"
             ),
             "source_read_scout_claim_boundary": "fixture_no_claim",
+            "vortex_writer_context_schema_version": (
+                "shardloom.traditional_analytics.vortex_writer_context.v1"
+            ),
+            "vortex_writer_context_status": "reported" if cold_route else "not_applicable",
+            "vortex_writer_context_open_ms": 0.0 if cold_route else None,
+            "vortex_writer_context_write_count": 2 if cold_route else 0,
+            "vortex_writer_context_reuse_hit_count": 1 if cold_route else 0,
+            "vortex_writer_context_reuse_status": (
+                "single_vortex_runtime_session_reused_across_artifacts"
+                if cold_route
+                else "not_applicable"
+            ),
+            "vortex_segment_write_ms": 0.0 if cold_route else None,
+            "vortex_workspace_stage_ms": 0.0 if cold_route else None,
+            "vortex_write_coalescing_status": (
+                "scheduled_multi_artifact_writes_on_shared_context"
+                if cold_route
+                else "not_applicable"
+            ),
+            "vortex_write_coalescing_reason": (
+                "distinct_fact_dim_cdc_artifact_contract_preserved_while_reusing_vortex_runtime_session"
+                if cold_route
+                else "not_applicable"
+            ),
             "source_split_count": 1,
             "source_open_count": 1,
             "source_bytes_read": 1024,
@@ -607,6 +631,18 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_read_row_materialization_status": "external_baseline_only",
             "source_read_unsupported_shape_diagnostic": "external_baseline_only",
             "source_read_scout_claim_boundary": "external_baseline_only",
+            "vortex_writer_context_schema_version": (
+                "shardloom.traditional_analytics.vortex_writer_context.v1"
+            ),
+            "vortex_writer_context_status": "external_baseline_only",
+            "vortex_writer_context_open_ms": None,
+            "vortex_writer_context_write_count": 0,
+            "vortex_writer_context_reuse_hit_count": 0,
+            "vortex_writer_context_reuse_status": "external_baseline_only",
+            "vortex_segment_write_ms": None,
+            "vortex_workspace_stage_ms": None,
+            "vortex_write_coalescing_status": "external_baseline_only",
+            "vortex_write_coalescing_reason": "external_baseline_only",
             "source_state_fingerprint": "external_baseline_only",
             "source_schema_fingerprint": "external_baseline_only",
             "source_parse_plan_id": "external_baseline_only",
@@ -2738,7 +2774,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-SPLIT-4", packet["next_implementation_slice"])
+        self.assertIn("PERF-SPLIT-5", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:

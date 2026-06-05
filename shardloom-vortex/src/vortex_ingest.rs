@@ -5353,6 +5353,10 @@ pub struct VortexPreparedStateWriteReport {
     pub reopen_row_count: u64,
     pub array_build_micros: u128,
     pub write_micros: u128,
+    pub writer_context_open_micros: u128,
+    pub writer_context_reuse_status: String,
+    pub vortex_segment_write_micros: u128,
+    pub workspace_stage_micros: u128,
     pub reopen_scan_micros: u128,
     pub reopen_verification_status: String,
     pub timing_scope: String,
@@ -5810,6 +5814,10 @@ fn finalize_vortex_prepared_state_write(
         reopen_row_count,
         array_build_micros: input.array_build_micros,
         write_micros: write_result.write_micros,
+        writer_context_open_micros: write_result.writer_context_open_micros,
+        writer_context_reuse_status: write_result.writer_context_reuse_status,
+        vortex_segment_write_micros: write_result.vortex_segment_write_micros,
+        workspace_stage_micros: write_result.workspace_stage_micros,
         reopen_scan_micros,
         reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
@@ -6898,7 +6906,98 @@ struct LocalVortexWriteResult {
     artifact_digest: String,
     digest_micros: u128,
     write_micros: u128,
+    writer_context_open_micros: u128,
+    writer_context_reuse_status: String,
+    vortex_segment_write_micros: u128,
+    workspace_stage_micros: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
+}
+
+#[cfg(feature = "vortex-write")]
+struct LocalVortexWriteContext {
+    runtime: vortex::io::runtime::single::SingleThreadRuntime,
+    session: vortex::session::VortexSession,
+    open_micros: u128,
+}
+
+#[cfg(feature = "vortex-write")]
+impl LocalVortexWriteContext {
+    fn open() -> Self {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let open_start = Instant::now();
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        Self {
+            runtime,
+            session,
+            open_micros: open_start.elapsed().as_micros(),
+        }
+    }
+
+    fn write_array(
+        &self,
+        path: &Path,
+        array: &vortex::array::ArrayRef,
+        allow_overwrite: bool,
+        writer_context_reuse_status: impl Into<String>,
+    ) -> Result<LocalVortexWriteResult> {
+        use vortex::file::WriteOptionsSessionExt as _;
+
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        let write_start = Instant::now();
+        let expected_rows = usize_to_u64(array.len())?;
+        let mut vortex_segment_write_micros = 0;
+        let (summary, workspace_write_report) =
+            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+                workspace_root,
+                path,
+                allow_overwrite,
+                "local vortex_ingest artifact",
+                |writer| {
+                    let segment_write_start = Instant::now();
+                    let result = self
+                        .session
+                        .write_options()
+                        .blocking(&self.runtime)
+                        .write(writer, array.to_array_iterator())
+                        .map_err(vortex_error);
+                    vortex_segment_write_micros = segment_write_start.elapsed().as_micros();
+                    result
+                },
+                |summary| {
+                    if summary.row_count() != expected_rows {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local vortex_ingest writer row count mismatch: wrote {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
+                            summary.row_count(),
+                            expected_rows
+                        )));
+                    }
+                    Ok(())
+                },
+            )?;
+        let artifact_digest = workspace_write_report.output_digest.clone();
+        let digest_micros = 0;
+        let bytes_written = workspace_write_report.bytes_written;
+        let write_micros = write_start.elapsed().as_micros();
+        let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
+        Ok(LocalVortexWriteResult {
+            writer_row_count: summary.row_count(),
+            bytes_written,
+            artifact_digest,
+            digest_micros,
+            write_micros,
+            writer_context_open_micros: self.open_micros,
+            writer_context_reuse_status: writer_context_reuse_status.into(),
+            vortex_segment_write_micros,
+            workspace_stage_micros,
+            workspace_write_report,
+        })
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -6907,53 +7006,13 @@ fn write_vortex_array(
     array: &vortex::array::ArrayRef,
     allow_overwrite: bool,
 ) -> Result<LocalVortexWriteResult> {
-    use vortex::VortexSessionDefault as _;
-    use vortex::file::WriteOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::runtime::single::SingleThreadRuntime;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
-
-    let runtime = SingleThreadRuntime::default();
-    let session = VortexSession::default().with_handle(runtime.handle());
-    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
-    let write_start = Instant::now();
-    let expected_rows = usize_to_u64(array.len())?;
-    let (summary, workspace_write_report) =
-        shardloom_core::write_workspace_safe_bytes_with_validated_producer(
-            workspace_root,
-            path,
-            allow_overwrite,
-            "local vortex_ingest artifact",
-            |writer| {
-                session
-                    .write_options()
-                    .blocking(&runtime)
-                    .write(writer, array.to_array_iterator())
-                    .map_err(vortex_error)
-            },
-            |summary| {
-                if summary.row_count() != expected_rows {
-                    return Err(ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest writer row count mismatch: wrote {}, expected {}; staging cleanup attempted; no fallback execution was attempted",
-                        summary.row_count(),
-                        expected_rows
-                    )));
-                }
-                Ok(())
-            },
-        )?;
-    let artifact_digest = workspace_write_report.output_digest.clone();
-    let digest_micros = 0;
-    let bytes_written = workspace_write_report.bytes_written;
-    Ok(LocalVortexWriteResult {
-        writer_row_count: summary.row_count(),
-        bytes_written,
-        artifact_digest,
-        digest_micros,
-        write_micros: write_start.elapsed().as_micros(),
-        workspace_write_report,
-    })
+    let context = LocalVortexWriteContext::open();
+    context.write_array(
+        path,
+        array,
+        allow_overwrite,
+        "single_write_context_opened_for_artifact",
+    )
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7155,6 +7214,17 @@ mod tests {
         assert_eq!(
             report.workspace_write_report.commit_mode,
             "atomic_rename_same_directory"
+        );
+        assert_eq!(
+            report.writer_context_reuse_status,
+            "single_write_context_opened_for_artifact"
+        );
+        assert!(report.write_micros >= report.vortex_segment_write_micros);
+        assert_eq!(
+            report.workspace_stage_micros,
+            report
+                .write_micros
+                .saturating_sub(report.vortex_segment_write_micros)
         );
         assert!(!report.workspace_write_report.staging_path.exists());
         assert!(report.workspace_write_report.no_fallback_invariant_holds());
