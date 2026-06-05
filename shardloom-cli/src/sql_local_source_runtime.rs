@@ -28519,6 +28519,7 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
 
 const TIMEZONE_DATABASE_POLICY_MESSAGE: &str = "timezone database semantics are not admitted; scoped timestamp_micros literals admit UTC Z or fixed numeric offsets only";
 const LOCALE_COLLATION_POLICY_MESSAGE: &str = "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice";
+const ARBITRARY_INTERVAL_ARITHMETIC_POLICY_MESSAGE: &str = "arbitrary ANSI INTERVAL arithmetic is not admitted; use DATE_ADD_DAYS/DATE_SUB_DAYS or TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS with scoped INTERVAL literals";
 
 fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
     if contains_timezone_database_policy_construct(statement)? {
@@ -28527,7 +28528,73 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
     if contains_locale_collation_policy_construct(statement) {
         return Err(unsupported_sql_error(LOCALE_COLLATION_POLICY_MESSAGE));
     }
+    if contains_arbitrary_interval_literal_outside_scoped_temporal_helpers(statement)? {
+        return Err(unsupported_sql_error(
+            ARBITRARY_INTERVAL_ARITHMETIC_POLICY_MESSAGE,
+        ));
+    }
     Ok(())
+}
+
+fn contains_arbitrary_interval_literal_outside_scoped_temporal_helpers(
+    statement: &str,
+) -> Result<bool, ShardLoomError> {
+    let helper_ranges = scoped_temporal_helper_argument_ranges(statement)?;
+    let mut search_start = 0;
+    while search_start < statement.len() {
+        let Some(relative_index) =
+            find_keyword_outside_quotes(&statement[search_start..], "interval")
+        else {
+            return Ok(false);
+        };
+        let interval_index = search_start + relative_index;
+        let after_keyword = &statement[interval_index + "interval".len()..];
+        if after_keyword.trim_start().starts_with('\'')
+            && !helper_ranges
+                .iter()
+                .any(|(start, end)| interval_index >= *start && interval_index < *end)
+        {
+            return Ok(true);
+        }
+        search_start = interval_index + "interval".len();
+    }
+    Ok(false)
+}
+
+fn scoped_temporal_helper_argument_ranges(
+    statement: &str,
+) -> Result<Vec<(usize, usize)>, ShardLoomError> {
+    let mut ranges = Vec::new();
+    for helper in [
+        "date_add_days",
+        "date_sub_days",
+        "timestamp_add_seconds",
+        "timestamp_sub_seconds",
+    ] {
+        let mut search_start = 0;
+        while search_start < statement.len() {
+            let Some(relative_index) =
+                find_keyword_outside_quotes(&statement[search_start..], helper)
+            else {
+                break;
+            };
+            let helper_index = search_start + relative_index;
+            let after_helper = &statement[helper_index + helper.len()..];
+            let leading_whitespace = after_helper.len() - after_helper.trim_start().len();
+            let open_index = helper_index + helper.len() + leading_whitespace;
+            if statement.as_bytes().get(open_index) != Some(&b'(') {
+                search_start = helper_index + helper.len();
+                continue;
+            }
+            if let Some(close_index) = matching_closing_parenthesis(statement, open_index)? {
+                ranges.push((open_index + 1, close_index));
+                search_start = close_index + 1;
+            } else {
+                search_start = helper_index + helper.len();
+            }
+        }
+    }
+    Ok(ranges)
 }
 
 fn contains_timezone_database_policy_construct(statement: &str) -> Result<bool, ShardLoomError> {
@@ -43756,6 +43823,14 @@ mod tests {
     fn parser_blocks_unscoped_interval_literal_shapes_without_fallback() {
         for (statement, expected) in [
             (
+                "SELECT id,event_date + INTERVAL '1' DAY AS next_day FROM 'target/input.csv' LIMIT 5",
+                "arbitrary ANSI INTERVAL arithmetic is not admitted",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE event_ts >= TIMESTAMP '2026-05-19T12:00:00Z' - INTERVAL '1' HOUR LIMIT 5",
+                "arbitrary ANSI INTERVAL arithmetic is not admitted",
+            ),
+            (
                 "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' HOUR) AS next_hour FROM 'target/input.csv' LIMIT 5",
                 "date arithmetic interval literals admit DAY units only",
             ),
@@ -43781,6 +43856,12 @@ mod tests {
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
         }
+
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,interval FROM 'target/input.csv' WHERE interval = 1 LIMIT 5",
+        )
+        .expect("interval is allowed as an ordinary column name");
+        assert_eq!(parsed.projections, vec!["id", "interval"]);
     }
 
     #[test]

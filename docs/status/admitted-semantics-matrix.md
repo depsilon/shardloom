@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=85
+matrix_row_count=86
 executable_fixture_count=69
-diagnostic_case_count=16
-unsupported_diagnostic_count=14
+diagnostic_case_count=17
+unsupported_diagnostic_count=15
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -134,6 +134,7 @@ Covered fixture rows:
 - `unsupported_complex_subquery_membership`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
+- `unsupported_arbitrary_interval_arithmetic`
 - `unsupported_complex_join_key`
 - `unsupported_join_or_predicate`
 - `invalid_shape_scalar_multi_column_in_subquery`
@@ -177,10 +178,11 @@ IPC/Avro compatibility outputs and scoped local Vortex known flat scalar output,
 decimal sinks remain outside the claim boundary.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
-`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic remains outside
-the claim boundary. Scoped SQL `X'<hex>'` binary literal projections are executable with exact
-hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'` text byte literal projections are
-executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to `binary`/`blob`/`varbinary`
+`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic now blocks with
+a deterministic unsupported diagnostic before fallback. Scoped SQL `X'<hex>'` binary literal
+projections are executable with exact hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'`
+text byte literal projections are executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to
+`binary`/`blob`/`varbinary`
 projects admitted scalar values as UTF-8 bytes, and scoped binary cast equality/inequality
 predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 byte literals, or
 `NULL`. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons against
