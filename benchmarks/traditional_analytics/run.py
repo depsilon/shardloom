@@ -330,7 +330,15 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "timing_normalization_schema_version",
     "timing_normalization_status",
     "source_admission_policy_micros",
+    "source_admission_digest_policy_schema_version",
+    "source_admission_digest_policy_status",
+    "source_admission_full_content_digest_requested",
+    "source_admission_full_content_digest_micros",
     "source_state_open_micros",
+    "source_state_metadata_snapshot_micros",
+    "source_state_manifest_validation_micros",
+    "source_state_row_count_metadata_micros",
+    "source_state_family_build_micros",
     "source_state_digest_micros",
     "prepared_manifest_read_micros",
     "prepared_manifest_match_micros",
@@ -374,6 +382,9 @@ EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
 )
 TIMING_NORMALIZATION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.timing_normalization.v1"
+)
+SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_admission_digest_policy.v1"
 )
 ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
@@ -5787,8 +5798,13 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         return None
     if field in {
         "source_admission_policy_micros",
+        "source_admission_full_content_digest_micros",
         "source_stat_micros",
         "source_state_open_micros",
+        "source_state_metadata_snapshot_micros",
+        "source_state_manifest_validation_micros",
+        "source_state_row_count_metadata_micros",
+        "source_state_family_build_micros",
         "source_state_digest_micros",
         "prepared_manifest_read_micros",
         "prepared_manifest_match_micros",
@@ -5812,6 +5828,16 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         return EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
     if field == "timing_normalization_schema_version":
         return TIMING_NORMALIZATION_SCHEMA_VERSION
+    if field == "source_admission_digest_policy_schema_version":
+        return SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
+    if field == "source_admission_digest_policy_status":
+        return (
+            "not_reported_by_engine"
+            if row_status == "success"
+            else "not_executed"
+        )
+    if field == "source_admission_full_content_digest_requested":
+        return False if row_status == "success" else None
     if field == "route_timing_stage_inclusion_schema_version":
         return ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
     if field == "route_timing_stage_inclusion_stage_ids":

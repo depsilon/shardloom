@@ -133,6 +133,13 @@ Every promoted row also carries a stage inclusion contract. The fields
 must not be remapped into `source_admission_ms`; it is exposed through
 normalized timing fields such as `source_state_open_micros` unless a direct
 admission/stat timer exists.
+PERF-SPLIT-2 adds `source_admission_digest_policy_*`,
+`source_admission_full_content_digest_requested`, `prepared_manifest_read_micros`,
+`prepared_manifest_match_micros`, `source_state_metadata_snapshot_micros`,
+`source_state_family_build_micros`, and `source_state_digest_micros`. Local warm reuse rows can
+report metadata-first admission when normalized path, size, and mtime are sufficient for
+non-publication evidence; publication or claim-grade rows must request full content digest proof
+when required.
 
 HOTPATH-1 adds `route_shape_stratification_*` fields to every benchmark row so route lane, route
 family, start/end state, row-count class, source-file shape, timing-total field, and diagnostic

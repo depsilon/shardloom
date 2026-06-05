@@ -668,6 +668,14 @@ artifact reuse, provider attribution, and no-fallback/claim-boundary evidence. P
 outside child query timing, and the route is still scoped local evidence only: it is not a hidden
 fast mode, persistent cache, performance claim, SQL/DataFrame support, object-store/lakehouse
 support, package-readiness claim, or Spark-displacement claim.
+PERF-SPLIT-2 adds metadata-first admission fields to this route:
+`source_admission_digest_policy_*`, `source_admission_full_content_digest_requested`,
+`prepare_batch_source_admission_digest_policy_*`, `prepared_manifest_read_micros`,
+`prepared_manifest_match_micros`, `source_state_open_micros`,
+`source_state_metadata_snapshot_micros`, `source_state_family_build_micros`, and
+`source_state_digest_micros`. Normal local warm reuse probes compare normalized path, size, and
+mtime metadata instead of re-hashing full local files; claim-grade/publication rows must request
+full content digest verification when that proof is required.
 
 The same route now carries local scale evidence in the Vortex processing step rather than through a
 separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and child rows expose
@@ -979,8 +987,10 @@ Every row also carries the stage timing fields
 workflow; do not read those rows as pure ShardLoom query-speed rows.
 Promoted rows also expose normalized timing and inclusion fields such as
 `source_admission_policy_micros`, `source_state_open_micros`,
-`prepared_manifest_read_micros`, `vortex_open_footer_micros`,
-`scan_open_micros`, `operator_kernel_micros`,
+`source_state_metadata_snapshot_micros`, `source_state_manifest_validation_micros`,
+`source_state_row_count_metadata_micros`, `source_state_family_build_micros`,
+`source_state_digest_micros`, `prepared_manifest_read_micros`,
+`vortex_open_footer_micros`, `scan_open_micros`, `operator_kernel_micros`,
 `result_sink_write_micros`, `result_sink_replay_micros`,
 `human_evidence_render_micros`, `json_envelope_emit_micros`,
 `report_fields_build_micros`, `cli_process_wall_micros`, and

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import json
+import importlib
 import os
 import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+shardloom_session_module = importlib.import_module("shardloom.session")
 
 from shardloom import (
     __version__,
@@ -3589,6 +3593,24 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.batch.field("prepare_batch_preparation_timing_scope"),
                 "workspace_manifest_reuse_skips_compatibility_prepare",
             )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_source_admission_digest_policy_schema_version"
+                ),
+                "shardloom.traditional_analytics.source_admission_digest_policy.v1",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_source_admission_digest_policy_status"
+                ),
+                "metadata_fingerprint_reuse_hit",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_source_admission_full_content_digest_requested"
+                ),
+                "false",
+            )
             self.assertEqual(second.batch.field("prepare_batch_preparation_micros"), "0")
             self.assertEqual(second.batch.field("prepare_batch_prepared_state_created"), "false")
             self.assertEqual(second.batch.field("prepare_batch_prepared_state_reused"), "true")
@@ -3693,34 +3715,42 @@ class ShardLoomClientTests(unittest.TestCase):
             ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
             session = ctx.session(session_id="test-session")
 
-            first = session.prepare_vortex(
-                source_path,
-                target_path,
-                allow_overwrite=True,
-            )
-            second = session.prepare_vortex(source_path, target_path)
+            with mock.patch.object(
+                shardloom_session_module,
+                "_file_content_digest",
+                wraps=shardloom_session_module._file_content_digest,
+            ) as digest_mock:
+                first = session.prepare_vortex(
+                    source_path,
+                    target_path,
+                    allow_overwrite=True,
+                )
+                self.assertEqual(digest_mock.call_count, 2)
+                second = session.prepare_vortex(source_path, target_path)
+                self.assertEqual(digest_mock.call_count, 2)
 
-            self.assertIsInstance(session, ShardLoomSession)
-            self.assertIsInstance(first, SessionPreparedState)
-            self.assertFalse(first.reuse_hit)
-            self.assertEqual(first.reuse_reason, "no_cached_prepared_state")
-            self.assertTrue(second.reuse_hit)
-            self.assertEqual(
-                second.reuse_reason,
-                "source_and_prepared_artifact_fingerprints_match",
-            )
-            self.assertEqual(second.prepared_state_id, first.prepared_state_id)
-            self.assertEqual(second.source_state_id, "source-state-1")
-            self.assertFalse(second.fallback_attempted)
-            self.assertFalse(second.external_engine_invoked)
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+                self.assertIsInstance(session, ShardLoomSession)
+                self.assertIsInstance(first, SessionPreparedState)
+                self.assertFalse(first.reuse_hit)
+                self.assertEqual(first.reuse_reason, "no_cached_prepared_state")
+                self.assertTrue(second.reuse_hit)
+                self.assertEqual(
+                    second.reuse_reason,
+                    "source_and_prepared_artifact_fingerprints_match",
+                )
+                self.assertEqual(second.prepared_state_id, first.prepared_state_id)
+                self.assertEqual(second.source_state_id, "source-state-1")
+                self.assertFalse(second.fallback_attempted)
+                self.assertFalse(second.external_engine_invoked)
+                self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
-            source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
-            third = session.prepare_vortex(
-                source_path,
-                target_path,
-                allow_overwrite=True,
-            )
+                source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
+                third = session.prepare_vortex(
+                    source_path,
+                    target_path,
+                    allow_overwrite=True,
+                )
+                self.assertEqual(digest_mock.call_count, 4)
             self.assertFalse(third.reuse_hit)
             self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
             self.assertEqual(third.prepared_state_id, "vortex-prepared-state-2")

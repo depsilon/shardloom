@@ -64,6 +64,9 @@ EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
 TIMING_NORMALIZATION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.timing_normalization.v1"
 )
+SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+)
 ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
 )
@@ -153,8 +156,16 @@ TIMING_NORMALIZATION_REQUIRED_FIELDS = {
     "timing_normalization_schema_version",
     "timing_normalization_status",
     "source_admission_policy_micros",
+    "source_admission_digest_policy_schema_version",
+    "source_admission_digest_policy_status",
+    "source_admission_full_content_digest_requested",
+    "source_admission_full_content_digest_micros",
     "source_stat_micros",
     "source_state_open_micros",
+    "source_state_metadata_snapshot_micros",
+    "source_state_manifest_validation_micros",
+    "source_state_row_count_metadata_micros",
+    "source_state_family_build_micros",
     "source_state_digest_micros",
     "prepared_manifest_read_micros",
     "prepared_manifest_match_micros",
@@ -565,6 +576,17 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(f"benchmark row {index} route timing ledger is not valid")
         if row.get("timing_normalization_schema_version") != TIMING_NORMALIZATION_SCHEMA_VERSION:
             blockers.append(f"benchmark row {index} has invalid timing normalization schema")
+        if (
+            row.get("source_admission_digest_policy_schema_version")
+            != SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
+        ):
+            blockers.append(
+                f"benchmark row {index} has invalid source admission digest policy schema"
+            )
+        if not str(row.get("source_admission_digest_policy_status") or "").strip():
+            blockers.append(
+                f"benchmark row {index} is missing source admission digest policy status"
+            )
         if (
             row.get("route_timing_stage_inclusion_schema_version")
             != ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION

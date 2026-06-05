@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-1 benchmark lane/route timing split and inclusion contract
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-split-evidence-tiers` / PR #1117, squash merge
+    `b6819f8bfc501d160cbaef52d2ec7ef0d0e7a60d`.
+  - Source:
+    - `docs/architecture/phased-execution-plan.md`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_artifact_completeness.py`.
+    - `benchmarks/traditional_analytics/run.py`.
+    - `python/tests/test_release_scripts.py`.
+    - `benchmarks/traditional_analytics/README.md`.
+    - `docs/benchmarks/local-taxonomy-benchmark.md`.
+    - `docs/architecture/performance-attribution-and-execution-structure.md`.
+    - `website-src/src/components/BenchmarkDashboard.astro`.
+    - `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, and
+      benchmark evidence JSON/static pages.
+  - Scope:
+    - Added PERF-SPLIT-1 through PERF-SPLIT-9 ahead of the 6-series runtime breadth queue so
+      benchmark-driven optimization is worked in dependency order.
+    - Added the timing normalization schema and route timing stage inclusion contract to promoted
+      benchmark rows.
+    - Split published timing fields into explicit stage/scope fields such as
+      `source_admission_policy_micros`, `source_state_open_micros`,
+      `source_state_digest_micros`, `prepared_manifest_read_micros`,
+      `vortex_open_footer_micros`, `scan_open_micros`, `operator_kernel_micros`,
+      `result_sink_write_micros`, `result_sink_replay_micros`,
+      `human_evidence_render_micros`, `json_envelope_emit_micros`,
+      `report_fields_build_micros`, and `cli_process_wall_micros`.
+    - Stopped promoting broad `source_state_prepare_micros` into user-facing source-admission
+      timing without a direct admission/stat field.
+    - Added validator coverage for timing normalization, route stage inclusion classes, canonical
+      stage IDs, external-baseline handling, and the source-state/source-admission split.
+    - Updated the benchmark dashboard with a Stage Inclusion Contract table while preserving route
+      totals as the primary comparison surface.
+    - Repromoted the current benchmark artifact with the new contract fields and rebuilt the
+      benchmark static pages.
+  - Evidence:
+    - `python3 -m py_compile scripts/promote_benchmark_artifact.py
+      scripts/check_benchmark_artifact_completeness.py benchmarks/traditional_analytics/run.py
+      python/tests/test_release_scripts.py` passed.
+    - `python3 -m unittest python.tests.test_release_scripts` passed.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output
+      target/pre-5j-dependency-freshness-gate.json` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest
+      website/assets/benchmarks/latest/manifest.json` passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest
+      website/assets/benchmarks/latest/manifest.json --allow-incomplete --allow-dirty-worktree
+      --output target/benchmark-publication-claim-gate-perf-split-1.json` passed.
+    - Website validation passed locally with bundled Node: `astro build`,
+      `scripts/postbuild-static.mjs`, `astro check`, and `website/validate_static_assets.js`.
+    - `git diff --check` passed.
+    - PR #1117 CI passed: Rust baseline, Rust feature matrix, Python/package smoke, website/docs
+      validation, dependency/security gates, release readiness, and CodeQL.
+  - Benchmark boundary:
+    - No benchmark-suite rerun was performed. The PR repromoted the existing current artifact with
+      new timing contract fields and did not change timed runtime execution paths.
+  - Claim boundary:
+    - This slice claims only benchmark timing attribution/schema clarity. It does not claim
+      performance superiority, production readiness, broad SQL/DataFrame support,
+      object-store/lakehouse support, Foundry support, package release readiness, or Spark
+      replacement.
+  - Fallback boundary:
+    - ShardLoom rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+      External engines remain benchmark baselines only and are not runtime fallback paths.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D public workflow route facade closeout
   - Date: 2026-06-05
   - Branch/PR: `codex/public-workflow-facade-closeout` / PR #1116.

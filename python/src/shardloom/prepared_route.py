@@ -31,6 +31,12 @@ _FORMAT_ALIASES = {
     "feather": "arrow-ipc",
 }
 _REUSE_MANIFEST_SCHEMA_VERSION = "shardloom.python.prepared_vortex_reuse_manifest.v1"
+_SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+)
+_SOURCE_ADMISSION_PACKET_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_admission_packet.v1"
+)
 _REUSE_MANIFEST_DIR = ".shardloom"
 _REUSE_MANIFEST_FILE = "prepared-vortex-reuse-manifest.json"
 
@@ -128,10 +134,12 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
         return {
             "path": normalized,
             "exists": True,
-            "kind": "local_file_sha256_size_mtime",
+            "kind": "local_file_size_mtime",
             "size_bytes": stat.st_size,
             "mtime_ns": stat.st_mtime_ns,
-            "content_digest": _file_content_digest(path),
+            "content_digest": None,
+            "content_digest_status": "not_requested_metadata_fingerprint_fast_path",
+            "digest_policy": "metadata_size_mtime_normal_warm_reuse",
         }
     if path.is_dir():
         total_size = 0
@@ -158,6 +166,8 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
             "size_bytes": total_size,
             "mtime_ns": max_mtime,
             "content_digest": "sha256:" + digest.hexdigest(),
+            "content_digest_status": "computed_for_directory_tree_fingerprint",
+            "digest_policy": "directory_tree_digest_required_until_metadata_tree_policy_exists",
         }
     return {
         "path": normalized,
@@ -166,6 +176,8 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
         "size_bytes": None,
         "mtime_ns": None,
         "content_digest": None,
+        "content_digest_status": "not_available_path_missing",
+        "digest_policy": "metadata_size_mtime_normal_warm_reuse",
     }
 
 
@@ -589,16 +601,64 @@ class CompatibilityPreparedVortexRoute:
             "external_engine_invoked": False,
         }
 
+    def _source_admission_packet(
+        self,
+        fact_input: Mapping[str, Any] | None,
+        dim_input: Mapping[str, Any] | None,
+        cdc_delta_input: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Return the metadata-first source-admission packet for manifest reuse."""
+
+        packet: dict[str, Any] = {
+            "schema_version": _SOURCE_ADMISSION_PACKET_SCHEMA_VERSION,
+            "packet_kind": "local_source_admission_prediction",
+            "route_family": "compatibility_prepare_to_prepared_native_vortex",
+            "route_id": self.route_id,
+            "batch_route_id": self.batch_route_id,
+            "input_format": self.input_format,
+            "source_path_fingerprint_kind": "local_path_size_mtime_metadata",
+            "digest_policy": {
+                "schema_version": _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
+                "status": "metadata_fingerprint_fast_path",
+                "normal_warm_reuse_content_digest_requested": False,
+                "claim_grade_content_digest_required": True,
+                "full_content_digest_status": "not_requested_for_local_non_publication_row",
+                "claim_boundary": (
+                    "metadata fingerprint admission is valid only for local non-publication "
+                    "benchmark rows; claim-grade publication rows must request full content "
+                    "digest verification"
+                ),
+            },
+            "fact_input": fact_input,
+            "dim_input": dim_input,
+            "cdc_delta_input": cdc_delta_input,
+            "artifact_root": _normalized_path(self.workspace),
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+        packet["packet_digest"] = _stable_json_digest(packet)
+        return packet
+
     def _reuse_request_payload(self) -> dict[str, Any]:
         """Return a fingerprint-backed prepared-state reuse request payload."""
 
+        fact_input = _local_path_fingerprint(self.fact_input)
+        dim_input = _local_path_fingerprint(self.dim_input)
+        cdc_delta_input = _local_path_fingerprint(self.cdc_delta_input)
+        source_admission_packet = self._source_admission_packet(
+            fact_input,
+            dim_input,
+            cdc_delta_input,
+        )
         payload = {
             "schema_version": _REUSE_MANIFEST_SCHEMA_VERSION,
             "route_id": self.route_id,
             "batch_route_id": self.batch_route_id,
-            "fact_input": _local_path_fingerprint(self.fact_input),
-            "dim_input": _local_path_fingerprint(self.dim_input),
-            "cdc_delta_input": _local_path_fingerprint(self.cdc_delta_input),
+            "fact_input": fact_input,
+            "dim_input": dim_input,
+            "cdc_delta_input": cdc_delta_input,
+            "source_admission_packet": source_admission_packet,
+            "source_admission_packet_digest": source_admission_packet["packet_digest"],
             "prepare_policy": self._prepare_policy(),
         }
         payload["route_request_digest"] = _stable_json_digest(payload)
@@ -709,6 +769,10 @@ class CompatibilityPreparedVortexRoute:
                 return f"{key}_fingerprint_changed"
         if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy"):
             return "prepare_policy_changed"
+        if manifest_payload.get("source_admission_packet_digest") != request_payload.get(
+            "source_admission_packet_digest"
+        ):
+            return "source_admission_packet_changed"
         return "route_request_digest_mismatch"
 
     def _artifact_invalidation_reason(self, manifest_payload: Mapping[str, Any]) -> str:
@@ -838,6 +902,9 @@ class CompatibilityPreparedVortexRoute:
                     default=str(cdc_artifact.get("content_digest") or ""),
                 ),
             }
+        source_admission_packet_artifact_manifest_hash = _stable_json_digest(
+            prepared_artifacts
+        )
         manifest_payload: dict[str, Any] = {
             **request_payload,
             "created_unix_seconds": int(time.time()),
@@ -845,6 +912,19 @@ class CompatibilityPreparedVortexRoute:
             "prepare_command": envelope.command,
             "prepare_fields": manifest_prepare_fields,
             "prepared_artifacts": prepared_artifacts,
+            "source_admission_packet_artifact_manifest_hash": (
+                source_admission_packet_artifact_manifest_hash
+            ),
+            "source_admission_digest_policy_schema_version": (
+                _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
+            ),
+            "source_admission_digest_policy_status": "metadata_fingerprint_fast_path",
+            "source_admission_full_content_digest_requested": False,
+            "source_admission_full_content_digest_required_for_claim_grade": True,
+            "source_admission_digest_policy_claim_boundary": (
+                "normal local warm reuse compares normalized path, size, and mtime; "
+                "claim-grade publication evidence must request full content digest verification"
+            ),
             "source_state_id": _field_any(
                 fields,
                 "prepare_batch_source_state_id",
@@ -1040,6 +1120,27 @@ class CompatibilityPreparedVortexRoute:
                 "prepare_batch_source_state_digest": str(
                     manifest_payload.get("source_state_digest") or ""
                 ),
+                "prepare_batch_source_admission_packet_schema_version": (
+                    _SOURCE_ADMISSION_PACKET_SCHEMA_VERSION
+                ),
+                "prepare_batch_source_admission_packet_status": "packet_reuse",
+                "prepare_batch_source_admission_packet_digest": str(
+                    manifest_payload.get("source_admission_packet_digest") or ""
+                ),
+                "prepare_batch_source_admission_packet_artifact_manifest_hash": str(
+                    manifest_payload.get(
+                        "source_admission_packet_artifact_manifest_hash"
+                    )
+                    or ""
+                ),
+                "prepare_batch_source_admission_digest_policy_schema_version": (
+                    _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
+                ),
+                "prepare_batch_source_admission_digest_policy_status": (
+                    "metadata_fingerprint_reuse_hit"
+                ),
+                "prepare_batch_source_admission_full_content_digest_requested": "false",
+                "prepare_batch_source_admission_full_content_digest_micros": "0",
                 "prepare_batch_prepared_artifact_reuse_count": "1",
                 "prepare_batch_prepared_artifact_cleanup_policy": "caller_owned_workspace_cleanup",
                 "prepare_batch_prepared_artifact_reuse_eligible": "true",

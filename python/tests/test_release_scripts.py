@@ -222,8 +222,20 @@ class ReleaseScriptTests(unittest.TestCase):
             ),
             "timing_normalization_status": "complete_with_unmeasured_optional_fields",
             "source_admission_policy_micros": 0,
+            "source_admission_digest_policy_schema_version": (
+                "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+            ),
+            "source_admission_digest_policy_status": (
+                "metadata_fingerprint_fast_path"
+            ),
+            "source_admission_full_content_digest_requested": False,
+            "source_admission_full_content_digest_micros": 0,
             "source_stat_micros": 0,
             "source_state_open_micros": None,
+            "source_state_metadata_snapshot_micros": None,
+            "source_state_manifest_validation_micros": None,
+            "source_state_row_count_metadata_micros": None,
+            "source_state_family_build_micros": None,
             "source_state_digest_micros": None,
             "prepared_manifest_read_micros": None,
             "prepared_manifest_match_micros": None,
@@ -422,8 +434,18 @@ class ReleaseScriptTests(unittest.TestCase):
             ),
             "timing_normalization_status": "external_baseline_only",
             "source_admission_policy_micros": None,
+            "source_admission_digest_policy_schema_version": (
+                "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+            ),
+            "source_admission_digest_policy_status": "external_baseline_only",
+            "source_admission_full_content_digest_requested": False,
+            "source_admission_full_content_digest_micros": None,
             "source_stat_micros": None,
             "source_state_open_micros": None,
+            "source_state_metadata_snapshot_micros": None,
+            "source_state_manifest_validation_micros": None,
+            "source_state_row_count_metadata_micros": None,
+            "source_state_family_build_micros": None,
             "source_state_digest_micros": None,
             "prepared_manifest_read_micros": None,
             "prepared_manifest_match_micros": None,
@@ -1103,6 +1125,16 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIsNone(published["exclusive_source_admission_ms"])
         self.assertIsNone(published["source_admission_policy_micros"])
         self.assertEqual(published["source_state_open_micros"], 2500)
+        self.assertEqual(
+            published["source_admission_digest_policy_schema_version"],
+            "shardloom.traditional_analytics.source_admission_digest_policy.v1",
+        )
+        self.assertEqual(
+            published["source_admission_digest_policy_status"],
+            "not_reported_by_engine",
+        )
+        self.assertFalse(published["source_admission_full_content_digest_requested"])
+        self.assertIsNone(published["source_state_family_build_micros"])
         self.assertEqual(published["operator_kernel_micros"], 0)
         self.assertEqual(
             published["timing_normalization_schema_version"],
@@ -2616,7 +2648,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-SPLIT-1", packet["next_implementation_slice"])
+        self.assertIn("PERF-SPLIT-2", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
@@ -2715,6 +2747,16 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_state_prepare_micros": 2500,
             "source_admission_ms": 2.5,
             "source_admission_policy_micros": None,
+            "source_admission_digest_policy_schema_version": (
+                "shardloom.traditional_analytics.source_admission_digest_policy.v1"
+            ),
+            "source_admission_digest_policy_status": "metadata_fingerprint_fast_path",
+            "source_admission_full_content_digest_requested": False,
+            "source_admission_full_content_digest_micros": 0,
+            "source_state_metadata_snapshot_micros": None,
+            "source_state_manifest_validation_micros": None,
+            "source_state_row_count_metadata_micros": None,
+            "source_state_family_build_micros": None,
         }
         blockers: list[str] = []
 
