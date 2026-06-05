@@ -145,12 +145,12 @@ def _local_path_fingerprint(value: str | os.PathLike[str] | None) -> dict[str, A
         return {
             "path": normalized,
             "exists": True,
-            "kind": "local_file_size_mtime",
+            "kind": "local_file_sha256_size_mtime",
             "size_bytes": stat.st_size,
             "mtime_ns": stat.st_mtime_ns,
-            "content_digest": None,
-            "content_digest_status": "not_requested_metadata_fingerprint_fast_path",
-            "digest_policy": "metadata_size_mtime_normal_warm_reuse",
+            "content_digest": _file_content_digest(path),
+            "content_digest_status": "computed_for_local_file_fingerprint",
+            "digest_policy": "content_digest_size_mtime_normal_warm_reuse",
         }
     if path.is_dir():
         total_size = 0
@@ -733,17 +733,17 @@ class CompatibilityPreparedVortexRoute:
             "route_id": self.route_id,
             "batch_route_id": self.batch_route_id,
             "input_format": self.input_format,
-            "source_path_fingerprint_kind": "local_path_size_mtime_metadata",
+            "source_path_fingerprint_kind": "local_path_sha256_size_mtime",
             "digest_policy": {
                 "schema_version": _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
-                "status": "metadata_fingerprint_fast_path",
-                "normal_warm_reuse_content_digest_requested": False,
+                "status": "content_digest_fingerprint",
+                "normal_warm_reuse_content_digest_requested": True,
                 "claim_grade_content_digest_required": True,
-                "full_content_digest_status": "not_requested_for_local_non_publication_row",
+                "full_content_digest_status": "computed_for_local_source_fingerprint",
                 "claim_boundary": (
-                    "metadata fingerprint admission is valid only for local non-publication "
-                    "benchmark rows; claim-grade publication rows must request full content "
-                    "digest verification"
+                    "local warm reuse compares normalized path, size, mtime, and content "
+                    "digest; claim-grade publication rows still require the full benchmark "
+                    "publication evidence gate"
                 ),
             },
             "fact_input": fact_input,
@@ -1035,12 +1035,13 @@ class CompatibilityPreparedVortexRoute:
             "source_admission_digest_policy_schema_version": (
                 _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
             ),
-            "source_admission_digest_policy_status": "metadata_fingerprint_fast_path",
-            "source_admission_full_content_digest_requested": False,
+            "source_admission_digest_policy_status": "content_digest_fingerprint",
+            "source_admission_full_content_digest_requested": True,
             "source_admission_full_content_digest_required_for_claim_grade": True,
             "source_admission_digest_policy_claim_boundary": (
-                "normal local warm reuse compares normalized path, size, and mtime; "
-                "claim-grade publication evidence must request full content digest verification"
+                "normal local warm reuse compares normalized path, size, mtime, and content "
+                "digest; claim-grade publication evidence must still pass the publication "
+                "evidence gate"
             ),
             "prepared_state_dependency_schema_version": _field_any(
                 fields,
@@ -1352,9 +1353,9 @@ class CompatibilityPreparedVortexRoute:
                     _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
                 ),
                 "prepare_batch_source_admission_digest_policy_status": (
-                    "metadata_fingerprint_reuse_hit"
+                    "content_digest_fingerprint_reuse_hit"
                 ),
-                "prepare_batch_source_admission_full_content_digest_requested": "false",
+                "prepare_batch_source_admission_full_content_digest_requested": "true",
                 "prepare_batch_source_admission_full_content_digest_micros": "0",
                 "prepare_batch_prepared_state_lookup_timing_schema_version": (
                     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1"
