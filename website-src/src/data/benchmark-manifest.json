@@ -6,28 +6,38 @@
     "row_chunks": [
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
-        "row_count": 300,
-        "sha256": "84742d792aea9a7d8ff64e81b57d2efa13592cf202fecfa62fbbbfcf8425df72"
+        "row_count": 200,
+        "sha256": "f3d9330b5512ef070c9a8b6843862b402367d9d7378f3e64c13a81904731b90b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
-        "row_count": 300,
-        "sha256": "6722fb54b1d9557b33b94be7c3bfaf2aeb2a3f6f1ec100529239105265fe5be6"
+        "row_count": 200,
+        "sha256": "3e12feef43883cb3baf4216576b0b117d4f8dd7e81b67e0a136a52e3682501dd"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
-        "row_count": 300,
-        "sha256": "60a465407c855798c50029ae1b9d13a5b4f96b9f2e233ac4fc2919adf4abe7ec"
+        "row_count": 200,
+        "sha256": "76e949de66736979dec0edac21a5f6f780b96983d21f1bead2368f0ebe72cc4b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
-        "row_count": 300,
-        "sha256": "fe4bcfc4054c7cac7de1e23387fb5f67b43c1a9bd2524c0281f9a6c87844085a"
+        "row_count": 200,
+        "sha256": "805b90e3294fa11eef139df73ddd50670f775d4bb924e931fb3628c1709457ad"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
+        "row_count": 200,
+        "sha256": "50823a0ba282cb480de0eb1f0fa552902bc97e6c87401ca9d59a4ba670617b63"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
+        "row_count": 200,
+        "sha256": "5d8caab9de57f60d43f0edbb9424a3e6360c8835b2ea4ecae81481b2ba7acdcd"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
         "row_count": 120,
-        "sha256": "f653cd8752046475169e1c6255e0940862eb0213eaad1928a61921cd42d09919"
+        "sha256": "6413fd498761154e7cc9245eb7925af75fbdcf5f218904596a6b54717a740d75"
       }
     ]
   },
@@ -68,7 +78,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "d94d30b056e3b2ddefa8a4d7d14017446443610e",
+  "benchmark_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -760,5 +770,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "d94d30b056e3b2ddefa8a4d7d14017446443610e"
+  "shardloom_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883"
 }
