@@ -314,6 +314,16 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "exclusive_source_parse_or_decode_millis",
     "exclusive_source_to_vortex_array_millis",
     "exclusive_vortex_write_millis",
+    "vortex_writer_context_schema_version",
+    "vortex_writer_context_status",
+    "vortex_writer_context_open_micros",
+    "vortex_writer_context_write_count",
+    "vortex_writer_context_reuse_hit_count",
+    "vortex_writer_context_reuse_status",
+    "vortex_segment_write_micros",
+    "vortex_workspace_stage_micros",
+    "vortex_write_coalescing_status",
+    "vortex_write_coalescing_reason",
     "exclusive_vortex_digest_millis",
     "exclusive_vortex_reopen_verify_millis",
     "vortex_footer_open_millis",
@@ -5929,8 +5939,15 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
     if field in {
         "source_read_decoded_column_count",
         "source_read_skipped_column_count",
+        "vortex_writer_context_open_micros",
+        "vortex_writer_context_write_count",
+        "vortex_writer_context_reuse_hit_count",
+        "vortex_segment_write_micros",
+        "vortex_workspace_stage_micros",
     }:
         return 0
+    if field == "vortex_writer_context_schema_version":
+        return "shardloom.traditional_analytics.vortex_writer_context.v1"
     if field == "timing_normalization_status":
         return (
             "complete_with_unmeasured_optional_fields"
@@ -5951,6 +5968,10 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "source_read_decode_status",
         "source_read_row_materialization_status",
         "source_read_unsupported_shape_diagnostic",
+        "vortex_writer_context_status",
+        "vortex_writer_context_reuse_status",
+        "vortex_write_coalescing_status",
+        "vortex_write_coalescing_reason",
         "operator_compute_timing_scope",
         "evidence_render_timing_status",
         "exclusive_stage_timing_claim_boundary",

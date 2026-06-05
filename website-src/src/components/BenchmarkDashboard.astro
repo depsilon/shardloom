@@ -30,6 +30,9 @@ const routeShareHeaders = Array.isArray(routeShareTable.headers) ? routeShareTab
 const sourceReadScoutTable = dashboard.source_read_scout ?? {};
 const sourceReadScoutRows = Array.isArray(sourceReadScoutTable.rows) ? sourceReadScoutTable.rows : [];
 const sourceReadScoutHeaders = Array.isArray(sourceReadScoutTable.headers) ? sourceReadScoutTable.headers : [];
+const vortexWriterContextTable = dashboard.vortex_writer_context ?? {};
+const vortexWriterContextRows = Array.isArray(vortexWriterContextTable.rows) ? vortexWriterContextTable.rows : [];
+const vortexWriterContextHeaders = Array.isArray(vortexWriterContextTable.headers) ? vortexWriterContextTable.headers : [];
 const vortexReopenScanTable = dashboard.vortex_reopen_scan_attribution ?? {};
 const vortexReopenScanRows = Array.isArray(vortexReopenScanTable.rows) ? vortexReopenScanTable.rows : [];
 const vortexReopenScanHeaders = Array.isArray(vortexReopenScanTable.headers) ? vortexReopenScanTable.headers : [];
@@ -593,7 +596,7 @@ const routeCards = [
     <p class="eyebrow">Route-share attribution</p>
     <h2>Optimization targets follow route share.</h2>
     <p class="narrow">
-      Route totals remain the comparison surface. The Amdahl table identifies the largest measured stage per ShardLoom route, while source-read scout, projection-aware decode, and Vortex reopen/scan tables show which split evidence is complete or still blocked before stronger optimization claims.
+      Route totals remain the comparison surface. The Amdahl table identifies the largest measured stage per ShardLoom route, while source-read scout, projection-aware decode, Vortex writer-context, and Vortex reopen/scan tables show which split evidence is complete or still blocked before stronger optimization claims.
     </p>
   </div>
   <div class="artifact-panel">
@@ -620,6 +623,17 @@ const routeCards = [
       </table>
     </div>
     <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{vortexWriterContextTable.heading ?? "Vortex Writer Context Attribution"}</strong></p>
+      <table>
+        <thead><tr>{(vortexWriterContextHeaders.length ? vortexWriterContextHeaders : ["Route", "Context reuse", "Coalescing", "Writes", "Reuse hits", "Context open", "Segment write", "Workspace stage", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {vortexWriterContextRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
       <p class="table-note"><strong>{vortexReopenScanTable.heading ?? "Vortex Reopen And Scan Attribution"}</strong></p>
       <table>
         <thead><tr>{(vortexReopenScanHeaders.length ? vortexReopenScanHeaders : ["Route", "Reopen/verify split", "Scan counters", "Rows"]).map((header: string) => <th>{header}</th>)}</tr></thead>
@@ -631,7 +645,7 @@ const routeCards = [
       </table>
     </div>
     <p class="table-note">
-      Schema: {routeShareTable.schema_version ?? "not reported"}. Source scout status: <strong>{sourceReadScoutTable.status ?? "not reported"}</strong>. Vortex reopen/scan status: <strong>{vortexReopenScanTable.status ?? "not reported"}</strong>. Current public route timing values come from the latest promoted artifact only.
+      Schema: {routeShareTable.schema_version ?? "not reported"}. Source scout status: <strong>{sourceReadScoutTable.status ?? "not reported"}</strong>. Writer-context schema: <strong>{vortexWriterContextTable.schema_version ?? "not reported"}</strong>. Vortex reopen/scan status: <strong>{vortexReopenScanTable.status ?? "not reported"}</strong>. Current public route timing values come from the latest promoted artifact only.
     </p>
   </div>
 </section>

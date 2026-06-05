@@ -72,6 +72,8 @@ const ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.route_shape_stratification.v1";
 const SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_to_vortex_array_guard.v1";
+const VORTEX_WRITER_CONTEXT_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.vortex_writer_context.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
@@ -3027,6 +3029,14 @@ pub struct TraditionalAnalyticsReport {
     pub vortex_array_build_record_batch_count: usize,
     pub vortex_array_build_manual_scalar_copy_avoided: bool,
     pub vortex_write_micros: u64,
+    pub vortex_writer_context_open_micros: u64,
+    pub vortex_writer_context_write_count: usize,
+    pub vortex_writer_context_reuse_hit_count: usize,
+    pub vortex_writer_context_reuse_status: String,
+    pub vortex_segment_write_micros: u64,
+    pub vortex_workspace_stage_micros: u64,
+    pub vortex_write_coalescing_status: String,
+    pub vortex_write_coalescing_reason: String,
     pub vortex_digest_micros: u64,
     pub vortex_reopen_verify_micros: u64,
     pub vortex_reopen_scan_micros: u64,
@@ -3144,6 +3154,11 @@ pub struct TraditionalAnalyticsReport {
 struct TraditionalVortexWriteTiming {
     array_build_micros: u64,
     vortex_write_micros: u64,
+    writer_context_open_micros: u64,
+    writer_context_write_count: usize,
+    writer_context_reuse_hit_count: usize,
+    segment_write_micros: u64,
+    workspace_stage_micros: u64,
     artifact_digest: Option<String>,
     artifact_bytes: Option<u64>,
     artifact_rows: Option<u64>,
@@ -3215,6 +3230,11 @@ impl TraditionalVortexWriteTiming {
         Self {
             array_build_micros,
             vortex_write_micros,
+            writer_context_open_micros: 0,
+            writer_context_write_count: 0,
+            writer_context_reuse_hit_count: 0,
+            segment_write_micros: 0,
+            workspace_stage_micros: 0,
             artifact_digest: None,
             artifact_bytes: None,
             artifact_rows: None,
@@ -3233,6 +3253,36 @@ impl TraditionalVortexWriteTiming {
             vortex_write_micros: checked_u64_sum(
                 self.vortex_write_micros,
                 other.vortex_write_micros,
+            )?,
+            writer_context_open_micros: checked_u64_sum(
+                self.writer_context_open_micros,
+                other.writer_context_open_micros,
+            )?,
+            writer_context_write_count: self
+                .writer_context_write_count
+                .checked_add(other.writer_context_write_count)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "traditional analytics Vortex writer context write count overflow"
+                            .to_string(),
+                    )
+                })?,
+            writer_context_reuse_hit_count: self
+                .writer_context_reuse_hit_count
+                .checked_add(other.writer_context_reuse_hit_count)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "traditional analytics Vortex writer context reuse hit count overflow"
+                            .to_string(),
+                    )
+                })?,
+            segment_write_micros: checked_u64_sum(
+                self.segment_write_micros,
+                other.segment_write_micros,
+            )?,
+            workspace_stage_micros: checked_u64_sum(
+                self.workspace_stage_micros,
+                other.workspace_stage_micros,
             )?,
             artifact_digest: None,
             artifact_bytes: merge_optional_vortex_write_u64(
@@ -3275,6 +3325,36 @@ impl TraditionalVortexWriteTiming {
             manual_scalar_copy_avoided: self.manual_scalar_copy_avoided
                 && other.manual_scalar_copy_avoided,
         })
+    }
+
+    fn writer_context_reuse_status(&self) -> &'static str {
+        if self.writer_context_write_count == 0 {
+            "not_reported"
+        } else if self.writer_context_reuse_hit_count > 0 {
+            "single_vortex_runtime_session_reused_across_artifacts"
+        } else {
+            "single_artifact_no_reuse_hit"
+        }
+    }
+
+    fn write_coalescing_status(&self) -> &'static str {
+        if self.writer_context_write_count == 0 {
+            "not_reported"
+        } else if self.writer_context_write_count > 1 {
+            "scheduled_multi_artifact_writes_on_shared_context"
+        } else {
+            "single_artifact_write"
+        }
+    }
+
+    fn write_coalescing_reason(&self) -> &'static str {
+        if self.writer_context_write_count == 0 {
+            "not_reported"
+        } else if self.writer_context_write_count > 1 {
+            "distinct_fact_dim_cdc_artifact_contract_preserved_while_reusing_vortex_runtime_session"
+        } else {
+            "coalescing_not_applicable_single_artifact"
+        }
     }
 }
 
@@ -5654,6 +5734,46 @@ impl TraditionalAnalyticsReport {
             (
                 "vortex_write_micros".to_string(),
                 self.vortex_write_micros.to_string(),
+            ),
+            (
+                "vortex_writer_context_schema_version".to_string(),
+                VORTEX_WRITER_CONTEXT_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "vortex_writer_context_status".to_string(),
+                "reported".to_string(),
+            ),
+            (
+                "vortex_writer_context_open_micros".to_string(),
+                self.vortex_writer_context_open_micros.to_string(),
+            ),
+            (
+                "vortex_writer_context_write_count".to_string(),
+                self.vortex_writer_context_write_count.to_string(),
+            ),
+            (
+                "vortex_writer_context_reuse_hit_count".to_string(),
+                self.vortex_writer_context_reuse_hit_count.to_string(),
+            ),
+            (
+                "vortex_writer_context_reuse_status".to_string(),
+                self.vortex_writer_context_reuse_status.clone(),
+            ),
+            (
+                "vortex_segment_write_micros".to_string(),
+                self.vortex_segment_write_micros.to_string(),
+            ),
+            (
+                "vortex_workspace_stage_micros".to_string(),
+                self.vortex_workspace_stage_micros.to_string(),
+            ),
+            (
+                "vortex_write_coalescing_status".to_string(),
+                self.vortex_write_coalescing_status.clone(),
+            ),
+            (
+                "vortex_write_coalescing_reason".to_string(),
+                self.vortex_write_coalescing_reason.clone(),
             ),
             (
                 "vortex_write_artifact_metadata_source".to_string(),
@@ -17318,6 +17438,16 @@ fn run_traditional_analytics_benchmark_enabled(
         source_read_evidence.row_assembly_strategy().to_string();
     let vortex_array_build_micros = vortex_write_timing.array_build_micros;
     let vortex_write_micros = vortex_write_timing.vortex_write_micros;
+    let vortex_writer_context_open_micros = vortex_write_timing.writer_context_open_micros;
+    let vortex_writer_context_write_count = vortex_write_timing.writer_context_write_count;
+    let vortex_writer_context_reuse_hit_count = vortex_write_timing.writer_context_reuse_hit_count;
+    let vortex_writer_context_reuse_status = vortex_write_timing
+        .writer_context_reuse_status()
+        .to_string();
+    let vortex_segment_write_micros = vortex_write_timing.segment_write_micros;
+    let vortex_workspace_stage_micros = vortex_write_timing.workspace_stage_micros;
+    let vortex_write_coalescing_status = vortex_write_timing.write_coalescing_status().to_string();
+    let vortex_write_coalescing_reason = vortex_write_timing.write_coalescing_reason().to_string();
     let compatibility_to_vortex_import_micros = checked_u64_sum(
         checked_u64_sum(source_read_micros, vortex_array_build_micros)?,
         vortex_write_micros,
@@ -17571,6 +17701,14 @@ fn run_traditional_analytics_benchmark_enabled(
         vortex_array_build_manual_scalar_copy_avoided: vortex_write_timing
             .manual_scalar_copy_avoided,
         vortex_write_micros,
+        vortex_writer_context_open_micros,
+        vortex_writer_context_write_count,
+        vortex_writer_context_reuse_hit_count,
+        vortex_writer_context_reuse_status,
+        vortex_segment_write_micros,
+        vortex_workspace_stage_micros,
+        vortex_write_coalescing_status,
+        vortex_write_coalescing_reason,
         vortex_digest_micros,
         vortex_reopen_verify_micros,
         vortex_reopen_scan_micros,
@@ -20068,11 +20206,17 @@ impl VortexCdcDeltaTable {
 struct TraditionalVortexIoContext {
     runtime: vortex::io::runtime::single::SingleThreadRuntime,
     session: vortex::session::VortexSession,
+    open_micros: u64,
+    write_count: std::cell::Cell<usize>,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 struct TraditionalVortexWriteOutcome {
     write_micros: u64,
+    writer_context_open_micros: u64,
+    writer_context_reuse_hit: bool,
+    segment_write_micros: u64,
+    workspace_stage_micros: u64,
     artifact_digest: String,
     artifact_bytes: u64,
     rows_written: u64,
@@ -20087,9 +20231,15 @@ impl TraditionalVortexIoContext {
         use vortex::io::session::RuntimeSessionExt as _;
         use vortex::session::VortexSession;
 
+        let open_start = std::time::Instant::now();
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
-        Self { runtime, session }
+        Self {
+            runtime,
+            session,
+            open_micros: duration_to_micros(open_start.elapsed()),
+            write_count: std::cell::Cell::new(0),
+        }
     }
 
     fn write_array(
@@ -20099,9 +20249,16 @@ impl TraditionalVortexIoContext {
     ) -> Result<TraditionalVortexWriteOutcome> {
         use vortex::file::WriteOptionsSessionExt as _;
 
+        let write_ordinal = self.write_count.get().checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "traditional analytics Vortex writer context write count overflow".to_string(),
+            )
+        })?;
+        self.write_count.set(write_ordinal);
         let write_start = std::time::Instant::now();
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let expected_rows = usize_to_u64(array.len())?;
+        let mut segment_write_micros = 0;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -20109,11 +20266,15 @@ impl TraditionalVortexIoContext {
                 true,
                 "traditional analytics Vortex artifact",
                 |writer| {
-                    self.session
+                    let segment_write_start = std::time::Instant::now();
+                    let result = self
+                        .session
                         .write_options()
                         .blocking(&self.runtime)
                         .write(writer, array.to_array_iterator())
-                        .map_err(vortex_error)
+                        .map_err(vortex_error);
+                    segment_write_micros = duration_to_micros(segment_write_start.elapsed());
+                    result
                 },
                 |summary| {
                     if summary.row_count() != expected_rows {
@@ -20127,8 +20288,19 @@ impl TraditionalVortexIoContext {
                 },
             )?;
         let artifact_digest = traditional_digest_from_workspace_write(&workspace_write_report)?;
+        let write_micros = duration_to_micros(write_start.elapsed());
+        let writer_context_open_micros = if write_ordinal == 1 {
+            self.open_micros
+        } else {
+            0
+        };
+        let workspace_stage_micros = write_micros.saturating_sub(segment_write_micros);
         Ok(TraditionalVortexWriteOutcome {
-            write_micros: duration_to_micros(write_start.elapsed()),
+            write_micros,
+            writer_context_open_micros,
+            writer_context_reuse_hit: write_ordinal > 1,
+            segment_write_micros,
+            workspace_stage_micros,
             artifact_digest,
             artifact_bytes: workspace_write_report.bytes_written,
             rows_written: summary.row_count(),
@@ -20271,6 +20443,12 @@ fn write_vortex_record_batch_with_io(
     let array_build_micros = duration_to_micros(array_build_start.elapsed());
     let write_outcome = vortex_io.write_array(path, &array)?;
     let mut write_timing = timing(array_build_micros, write_outcome.write_micros);
+    write_timing.writer_context_open_micros = write_outcome.writer_context_open_micros;
+    write_timing.writer_context_write_count = 1;
+    write_timing.writer_context_reuse_hit_count =
+        usize::from(write_outcome.writer_context_reuse_hit);
+    write_timing.segment_write_micros = write_outcome.segment_write_micros;
+    write_timing.workspace_stage_micros = write_outcome.workspace_stage_micros;
     write_timing.artifact_digest = Some(write_outcome.artifact_digest);
     write_timing.artifact_bytes = Some(write_outcome.artifact_bytes);
     write_timing.artifact_rows = Some(write_outcome.rows_written);
@@ -29308,10 +29486,23 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     fn record_batch_strategy_merge_preserves_mixed_provider_evidence() {
-        let row_timing = TraditionalVortexWriteTiming::vortex_record_batch_provider(7, 11);
-        let direct_timing =
+        let mut row_timing = TraditionalVortexWriteTiming::vortex_record_batch_provider(7, 11);
+        row_timing.writer_context_open_micros = 5;
+        row_timing.writer_context_write_count = 1;
+        row_timing.segment_write_micros = 8;
+        row_timing.workspace_stage_micros = 3;
+        let mut direct_timing =
             TraditionalVortexWriteTiming::direct_columnar_record_batch_provider(13, 17);
-        let text_timing = TraditionalVortexWriteTiming::direct_text_record_batch_provider(19, 23);
+        direct_timing.writer_context_write_count = 1;
+        direct_timing.writer_context_reuse_hit_count = 1;
+        direct_timing.segment_write_micros = 12;
+        direct_timing.workspace_stage_micros = 5;
+        let mut text_timing =
+            TraditionalVortexWriteTiming::direct_text_record_batch_provider(19, 23);
+        text_timing.writer_context_write_count = 1;
+        text_timing.writer_context_reuse_hit_count = 1;
+        text_timing.segment_write_micros = 18;
+        text_timing.workspace_stage_micros = 5;
 
         let merged = row_timing
             .add(&direct_timing)
@@ -29329,6 +29520,19 @@ mod tests {
         );
         assert_eq!(merged.array_build_micros, 39);
         assert_eq!(merged.vortex_write_micros, 51);
+        assert_eq!(merged.writer_context_open_micros, 5);
+        assert_eq!(merged.writer_context_write_count, 3);
+        assert_eq!(merged.writer_context_reuse_hit_count, 2);
+        assert_eq!(
+            merged.writer_context_reuse_status(),
+            "single_vortex_runtime_session_reused_across_artifacts"
+        );
+        assert_eq!(
+            merged.write_coalescing_status(),
+            "scheduled_multi_artifact_writes_on_shared_context"
+        );
+        assert_eq!(merged.segment_write_micros, 38);
+        assert_eq!(merged.workspace_stage_micros, 13);
         assert_eq!(merged.array_build_record_batch_count, 3);
         assert!(merged.manual_scalar_copy_avoided);
     }
@@ -30650,6 +30854,9 @@ mod tests {
             "source_read_full_body_micros",
             "vortex_array_build_micros",
             "vortex_write_micros",
+            "vortex_writer_context_open_micros",
+            "vortex_segment_write_micros",
+            "vortex_workspace_stage_micros",
             "vortex_digest_micros",
             "vortex_reopen_verify_micros",
             "vortex_scan_micros",
@@ -30684,6 +30891,32 @@ mod tests {
                 "{field} must be emitted as a numeric timing field"
             );
         }
+        assert_field_eq(
+            &fields,
+            "vortex_writer_context_schema_version",
+            VORTEX_WRITER_CONTEXT_SCHEMA_VERSION,
+        );
+        assert_field_eq(&fields, "vortex_writer_context_status", "reported");
+        assert_field_eq(
+            &fields,
+            "vortex_writer_context_write_count",
+            if report.cdc_delta_rows > 0 { "3" } else { "2" },
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_context_reuse_hit_count",
+            if report.cdc_delta_rows > 0 { "2" } else { "1" },
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_writer_context_reuse_status",
+            "single_vortex_runtime_session_reused_across_artifacts",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_coalescing_status",
+            "scheduled_multi_artifact_writes_on_shared_context",
+        );
         assert_field_eq(
             &fields,
             "source_read_scout_status",
