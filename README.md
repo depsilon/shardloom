@@ -66,7 +66,7 @@ Current runtime support is intentionally scoped and evidence-gated:
   fixed-scale division projections plus feature-gated Parquet/Arrow IPC/Avro typed decimal sink
   preservation, scoped binary casts/literals and binary equality/inequality cast predicates, scoped
   `ARRAY[...]` literal and `STRUCT(<source column>, ...)` projections through the JSONL/result
-  boundary, scoped
+  boundary and CSV JSON-text output cells, scoped
   `INTERVAL '<n>' DAY|HOUR|MINUTE|SECOND` literals inside temporal helper functions, scalar and
   row-value literal `IN`/`NOT IN`, bounded scalar and row-value local-source
   `IN (SELECT ...)` / `NOT IN (SELECT ...)`, scoped local-source
@@ -165,7 +165,8 @@ predicates, interval-backed temporal helper predicates, scoped `CAST`/`TRY_CAST`
 projections, and `binary`/`blob`/`varbinary`, scoped SQL
 `BINARY`/`BLOB` byte literal evidence,
 scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper projections, join/window,
-scoped `ARRAY[...]` / `STRUCT(<source column>, ...)` complex projections through JSONL/result rows,
+scoped `ARRAY[...]` / `STRUCT(<source column>, ...)` complex projections through JSONL/result rows
+and CSV JSON-text output cells,
 source-backed `IN` /
 `EXISTS` / `ANY` / `ALL` including grouped/HAVING projected source-subquery tails, row-level
 `SELECT DISTINCT`, scoped subquery-backed predicate/CASE projections, scoped SQL `UNION` /
@@ -341,10 +342,10 @@ method or command is a runtime workflow. The matrix assigns each grouped CLI/Pyt
 `high_level_context` means a scoped ergonomic context route exists with evidence; `client_only`
 keeps an explicit low-level CLI/client surface available. `diagnostic_only` and `feature_gated`
 mark planning, unsafe, or gated commands as outside the admitted high-level runtime path.
-Scoped complex projection rows are result-boundary evidence only: they prove ShardLoom can carry
-bounded `ARRAY[...]` and `STRUCT(...)` values to JSONL/user-facing rows without fallback, not that
-flat compatibility sinks, complex equality, accessors, casts, or nested source decoding are broadly
-runtime-ready.
+Scoped complex projection rows are result-boundary and CSV JSON-text evidence only: they prove
+ShardLoom can carry bounded `ARRAY[...]` and `STRUCT(...)` values to JSONL/user-facing rows or CSV
+text cells without fallback, not that typed compatibility sinks, complex accessors, casts, or nested
+source decoding are broadly runtime-ready.
 Scoped binary cast predicates now admit bytewise lexicographic ordering against explicit binary
 literals, and feature-gated Arrow IPC binary source columns admit direct projection, bytewise binary
 literal predicates, and source-column ordering. Feature-gated Parquet/Arrow IPC/Avro/ORC flat scalar

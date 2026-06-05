@@ -316,6 +316,34 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "status matrix route explanation",
         "GAR-RUNTIME-IMPL-6D:last_order.runtime_expansion",
     ),
+    (
+        "python exposes the cli status",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "Python/CLI deterministic unsupported diagnostics for non-admitted runtime shapes",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    ),
+    (
+        "diagnostics, and deduplicated `unsupported_reasons`",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "Python/CLI deterministic unsupported diagnostics for non-admitted runtime shapes",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    ),
+    (
+        "runtime unsupported diagnostics",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "Python/CLI deterministic unsupported diagnostics for non-admitted runtime shapes",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    ),
+    (
+        "correlated subquery shapes directly as `status`",
+        "true_runtime_expansion_item",
+        "route_specific_vortex_boundary_required",
+        "Python/CLI deterministic unsupported diagnostics for non-admitted runtime shapes",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    ),
 )
 
 

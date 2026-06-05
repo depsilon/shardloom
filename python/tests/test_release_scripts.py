@@ -2437,7 +2437,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("broad_sql_grammar", packet["next_implementation_slice"])
+        self.assertIn("public_workflow_route_facade", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:

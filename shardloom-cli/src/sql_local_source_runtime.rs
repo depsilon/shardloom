@@ -1220,7 +1220,7 @@ impl SqlLocalSourceOutputFormat {
     const fn type_nullability_support(self) -> &'static str {
         match self {
             Self::InlineJsonl => "logical_values_including_nested_json_boundary",
-            Self::Csv => "flat_scalar_text_values_null_as_empty_boundary",
+            Self::Csv => "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "flat_scalar_nullable_values_required"
             }
@@ -1294,7 +1294,7 @@ impl SqlLocalSourceOutputFormat {
                 "schema=flat_scalar_preserved,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
             }
             Self::Csv => {
-                "column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"
+                "column_names=preserved,row_order=preserved,row_count=digest_replay_verified,nested_values=json_text_when_present,static_types=dropped"
             }
             Self::InlineJsonl => {
                 "field_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=logical_json_boundary"
@@ -1308,7 +1308,9 @@ impl SqlLocalSourceOutputFormat {
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "vortex_layout_encoding_statistics_intent_not_claimed"
             }
-            Self::Csv => "static_types_nullability_and_vortex_layout_metadata_lost",
+            Self::Csv => {
+                "static_types_nullability_nested_type_metadata_and_vortex_layout_metadata_lost_json_text_values_preserved"
+            }
             Self::InlineJsonl => "static_types_and_vortex_layout_metadata_not_fully_preserved",
         }
     }
@@ -1321,7 +1323,7 @@ impl SqlLocalSourceOutputFormat {
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
-        if !matches!(self, Self::InlineJsonl | Self::Vortex) {
+        if !matches!(self, Self::InlineJsonl | Self::Csv | Self::Vortex) {
             validate_flat_scalar_result_batch(batch, self)?;
         }
         let columns = batch.column_names();
@@ -13156,15 +13158,19 @@ fn prepare_sql_outputs(
     }
     validate_shared_fanout_materialization(output_plan, batch)?;
     let shared_start = Instant::now();
-    let flat_scalar_format = output_plan
+    let non_jsonl_sink_format = output_plan
         .sinks
         .iter()
         .find(|sink| !matches!(sink.format, SqlLocalSourceOutputFormat::InlineJsonl))
         .map(|sink| sink.format);
-    if let Some(format) = flat_scalar_format {
+    if let Some(format) = non_jsonl_sink_format {
         validate_flat_scalar_result_batch(batch, format)?;
     }
-    let shared_stage_count = if flat_scalar_format.is_some() { 3 } else { 2 };
+    let shared_stage_count = if non_jsonl_sink_format.is_some() {
+        3
+    } else {
+        2
+    };
     let columns = batch.column_names();
     let column_dtypes = batch.column_dtypes();
     let rows = batch.to_rows();
@@ -13748,15 +13754,21 @@ fn validate_shared_fanout_materialization_formats(
     if formats.len() <= 1 || !batch.contains_complex_values() {
         return Ok(());
     }
-    let logical_json_sink_requested = formats
-        .iter()
-        .any(|format| matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
-    let flat_sink_requested = formats
-        .iter()
-        .any(|format| !matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
-    if logical_json_sink_requested && flat_sink_requested {
+    let logical_text_sink_requested = formats.iter().any(|format| {
+        matches!(
+            format,
+            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+        )
+    });
+    let typed_flat_sink_requested = formats.iter().any(|format| {
+        !matches!(
+            format,
+            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+        )
+    });
+    if logical_text_sink_requested && typed_flat_sink_requested {
         return Err(unsupported_sql_error(
-            "fanout_conversion_dag_status=blocked_incompatible_materialization; logical JSONL nested result materialization cannot currently share a fanout conversion DAG with flat-scalar sink materialization; no partial fanout writes or fallback execution were attempted",
+            "fanout_conversion_dag_status=blocked_incompatible_materialization; logical JSONL/CSV nested text materialization cannot currently share a fanout conversion DAG with typed flat-scalar sink materialization; no partial fanout writes or fallback execution were attempted",
         ));
     }
     Ok(())
@@ -14048,7 +14060,9 @@ fn output_fidelity_loss(format: SqlLocalSourceOutputFormat) -> &'static str {
         SqlLocalSourceOutputFormat::InlineJsonl => {
             "jsonl_text_roundtrip_not_full_type_metadata_fidelity"
         }
-        SqlLocalSourceOutputFormat::Csv => "csv_text_roundtrip_loses_static_type_metadata",
+        SqlLocalSourceOutputFormat::Csv => {
+            "csv_text_roundtrip_loses_static_and_nested_type_metadata"
+        }
         SqlLocalSourceOutputFormat::Parquet
         | SqlLocalSourceOutputFormat::ArrowIpc
         | SqlLocalSourceOutputFormat::Avro
@@ -26221,11 +26235,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "complex_projection_output_boundary".to_string(),
-                if self.parsed.has_complex_projection() {
-                    "jsonl_nested_result_boundary_only".to_string()
-                } else {
-                    "not_applicable".to_string()
-                },
+                self.complex_projection_output_boundary(),
             ),
             (
                 "complex_projection_equality_semantics".to_string(),
@@ -27177,6 +27187,30 @@ impl SqlLocalSourceReport {
 
     fn result_batch_state_materialization_required(&self) -> String {
         result_batch_state_materialization_required_value(&self.request)
+    }
+
+    fn complex_projection_output_boundary(&self) -> String {
+        if !self.parsed.has_complex_projection() {
+            return "not_applicable".to_string();
+        }
+        let mut formats = vec![self.request.output_format];
+        formats.extend(
+            self.request
+                .fanout_outputs
+                .iter()
+                .map(|target| target.format),
+        );
+        let csv_requested = formats
+            .iter()
+            .any(|format| matches!(format, SqlLocalSourceOutputFormat::Csv));
+        let jsonl_requested = formats
+            .iter()
+            .any(|format| matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
+        match (jsonl_requested, csv_requested) {
+            (true, true) => "jsonl_nested_result_boundary_and_csv_json_text_sink".to_string(),
+            (false, true) => "csv_json_text_output_with_result_jsonl_evidence".to_string(),
+            _ => "jsonl_nested_result_boundary_only".to_string(),
+        }
     }
 
     fn fanout_conversion_dag_status(&self) -> &'static str {
@@ -29078,7 +29112,7 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
         || contains_cast_target_matching(statement, "try_cast", target_is_list_dtype)?
     {
         return Err(unsupported_sql_error(
-            "list and array accessors, function constructors, casts, and equality semantics are not admitted by the current complex dtype profile; scoped ARRAY[...] projection literals are admitted through the JSONL result boundary only",
+            "list and array accessors, function constructors, casts, and equality semantics are not admitted by the current complex dtype profile; scoped ARRAY[...] projection literals are admitted through the JSONL result boundary and CSV JSON-text output boundary",
         ));
     }
     if contains_function_call_outside_quotes(statement, "row")
@@ -29086,7 +29120,7 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
         || contains_cast_target_matching(statement, "try_cast", target_is_struct_dtype)?
     {
         return Err(unsupported_sql_error(
-            "row constructors plus struct casts, equality, and access semantics are not admitted by the current complex dtype profile; scoped STRUCT(<source column>, ...) projection construction is admitted through the JSONL result boundary only",
+            "row constructors plus struct casts, equality, and access semantics are not admitted by the current complex dtype profile; scoped STRUCT(<source column>, ...) projection construction is admitted through the JSONL result boundary and CSV JSON-text output boundary",
         ));
     }
     if contains_function_call_outside_quotes(statement, "variant")
@@ -36729,9 +36763,9 @@ fn validate_flat_scalar_result_batch(
     batch: &SqlResultBatchState,
     format: SqlLocalSourceOutputFormat,
 ) -> Result<(), ShardLoomError> {
-    if batch.contains_complex_values() {
+    if batch.contains_complex_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
         return Err(unsupported_sql_error(&format!(
-            "local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
+            "local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary and CSV JSON-text output boundary in this scoped runtime slice",
             format.sink_format()
         )));
     }
@@ -36753,7 +36787,7 @@ fn validate_sql_output_plan_sink(
 ) -> Result<(), ShardLoomError> {
     match sql_output_plan_conversion_blocker(format, batch) {
         Some("flat_scalar_result_batch_required") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=flat_scalar_result_batch_required; local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary in this scoped runtime slice",
+            "output_plan_conversion_blocker=flat_scalar_result_batch_required; local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary and CSV JSON-text output boundary in this scoped runtime slice",
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
@@ -36817,7 +36851,10 @@ fn sql_output_plan_conversion_blocker(
     format: SqlLocalSourceOutputFormat,
     batch: &SqlResultBatchState,
 ) -> Option<&'static str> {
-    if matches!(format, SqlLocalSourceOutputFormat::InlineJsonl) {
+    if matches!(
+        format,
+        SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+    ) {
         return None;
     }
     if batch.contains_complex_values() {
@@ -39972,14 +40009,14 @@ mod tests {
     }
 
     #[test]
-    fn complex_projection_blocks_flat_scalar_sinks_without_fallback() {
+    fn runs_scoped_complex_projection_csv_output_without_fallback() {
         let path = sql_local_source_test_path("csv");
         let output_path = sql_local_source_test_path("csv");
-        fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
+        fs::write(&path, "id,label,amount\n1,alpha,8\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
             statement: format!(
-                "SELECT id,ARRAY[1,2] AS values FROM '{}' LIMIT 1",
+                "SELECT id,ARRAY[1,2] AS values,STRUCT(label, amount) AS payload FROM '{}' LIMIT 1",
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::Csv,
@@ -39987,27 +40024,54 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("complex rows cannot be rendered as flat CSV");
+        let report = run_sql_local_source_smoke_single(&request).expect("write complex csv output");
+        let fields = field_map(report.fields());
 
-        assert!(
-            error
-                .to_string()
-                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required")
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"values\":[1,2],\"payload\":{\"label\":\"alpha\",\"amount\":8}}\n"
         );
-        assert!(
-            error
-                .to_string()
-                .contains("local csv output currently admits flat scalar rows only")
+        assert_eq!(
+            fs::read_to_string(&output_path).expect("read complex csv output"),
+            "id,values,payload\n1,\"[1,2]\",\"{\"\"label\"\":\"\"alpha\"\",\"\"amount\"\":8}\"\n"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
-        assert!(!output_path.exists());
+        assert_field_eq(&fields, "output_format", "csv");
+        assert_field_eq(&fields, "output_plan_conversion_blocker", "none");
+        assert_field_eq(
+            &fields,
+            "output_plan_type_nullability_support",
+            "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
+        );
+        assert_field_eq(
+            &fields,
+            "complex_projection_output_boundary",
+            "csv_json_text_output_with_result_jsonl_evidence",
+        );
+        assert_field_eq(
+            &fields,
+            "result_batch_state_status",
+            "shared_logical_columnar_boundary_available",
+        );
+        assert_field_eq(
+            &fields,
+            "result_batch_state_layout",
+            "logical_mixed_column_vectors_v1",
+        );
+        assert_field_eq(
+            &fields,
+            "output_fidelity_loss",
+            "csv:csv_text_roundtrip_loses_static_and_nested_type_metadata",
+        );
+        assert_field_eq(&fields, "result_replay_verified", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
 
         fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove csv output");
     }
 
     #[test]
-    fn complex_projection_blocks_zero_row_flat_scalar_sinks_without_fallback() {
+    fn runs_zero_row_complex_projection_csv_output_without_fallback() {
         let path = sql_local_source_test_path("csv");
         let output_path = sql_local_source_test_path("csv");
         fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
@@ -40022,19 +40086,162 @@ mod tests {
             fanout_outputs: Vec::new(),
             allow_overwrite: false,
         };
-        let error = run_sql_local_source_smoke_single(&request)
-            .expect_err("zero-row complex schema cannot be rendered as flat CSV");
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write zero-row complex csv output");
+        let fields = field_map(report.fields());
 
-        assert!(
-            error
-                .to_string()
-                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required"),
-            "got {error}"
+        assert_eq!(report.result_jsonl, "");
+        assert_eq!(
+            fs::read_to_string(&output_path).expect("read zero-row csv output"),
+            "id,values\n"
         );
-        assert!(error.to_string().contains("external_engine_invoked=false"));
-        assert!(!output_path.exists());
+        assert_field_eq(&fields, "selected_row_count", "0");
+        assert_field_eq(&fields, "output_plan_conversion_blocker", "none");
+        assert_field_eq(
+            &fields,
+            "complex_projection_output_boundary",
+            "csv_json_text_output_with_result_jsonl_evidence",
+        );
+        assert_field_eq(&fields, "result_replay_verified", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
 
         fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove csv output");
+    }
+
+    #[test]
+    fn runs_complex_projection_jsonl_csv_fanout_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        let jsonl_output_path = sql_local_source_test_path("jsonl");
+        let csv_output_path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,ARRAY[1,2] AS values,STRUCT(label) AS payload FROM '{}' LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: Some(jsonl_output_path.clone()),
+            fanout_outputs: vec![SqlLocalSourceOutputTarget {
+                format: SqlLocalSourceOutputFormat::Csv,
+                path: csv_output_path.clone(),
+            }],
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write jsonl plus csv fanout");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            fs::read_to_string(&jsonl_output_path).expect("read jsonl output"),
+            "{\"id\":1,\"values\":[1,2],\"payload\":{\"label\":\"alpha\"}}\n{\"id\":2,\"values\":[1,2],\"payload\":{\"label\":\"beta\"}}\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&csv_output_path).expect("read csv fanout output"),
+            "id,values,payload\n1,\"[1,2]\",\"{\"\"label\"\":\"\"alpha\"\"}\"\n2,\"[1,2]\",\"{\"\"label\"\":\"\"beta\"\"}\"\n"
+        );
+        assert_field_eq(
+            &fields,
+            "complex_projection_output_boundary",
+            "jsonl_nested_result_boundary_and_csv_json_text_sink",
+        );
+        assert_field_eq(
+            &fields,
+            "fanout_conversion_dag_status",
+            "shared_fanout_conversion_dag_applied",
+        );
+        assert_field_eq(&fields, "fanout_output_count", "1");
+        assert_field_eq(&fields, "fanout_output_formats", "csv");
+        assert_field_eq(&fields, "result_replay_verified", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&jsonl_output_path).expect("remove jsonl output");
+        fs::remove_file(&csv_output_path).expect("remove csv output");
+    }
+
+    #[test]
+    fn complex_projection_result_batch_still_blocks_typed_structured_sinks_without_fallback() {
+        let complex_batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["values".to_string()],
+            &[Some(LogicalDType::List)],
+            &[vec![(
+                "values".to_string(),
+                ScalarValue::List(vec![ScalarValue::Int64(1), ScalarValue::Int64(2)]),
+            )]],
+        )
+        .expect("complex result batch");
+
+        assert_eq!(
+            sql_output_plan_conversion_blocker(
+                SqlLocalSourceOutputFormat::InlineJsonl,
+                &complex_batch
+            ),
+            None
+        );
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Csv, &complex_batch),
+            None
+        );
+        for format in [
+            SqlLocalSourceOutputFormat::Parquet,
+            SqlLocalSourceOutputFormat::ArrowIpc,
+            SqlLocalSourceOutputFormat::Avro,
+            SqlLocalSourceOutputFormat::Orc,
+            SqlLocalSourceOutputFormat::Vortex,
+        ] {
+            assert_eq!(
+                sql_output_plan_conversion_blocker(format, &complex_batch),
+                Some("flat_scalar_result_batch_required"),
+                "expected {} to keep blocking complex batches",
+                format.sink_format()
+            );
+        }
+
+        validate_shared_fanout_materialization_formats(
+            &[
+                SqlLocalSourceOutputFormat::InlineJsonl,
+                SqlLocalSourceOutputFormat::Csv,
+            ],
+            &complex_batch,
+        )
+        .expect("JSONL and CSV nested text fanout is compatible");
+
+        let fanout_error = validate_shared_fanout_materialization_formats(
+            &[
+                SqlLocalSourceOutputFormat::InlineJsonl,
+                SqlLocalSourceOutputFormat::Parquet,
+            ],
+            &complex_batch,
+        )
+        .expect_err("typed structured sink fanout remains blocked");
+        assert!(
+            fanout_error
+                .to_string()
+                .contains("blocked_incompatible_materialization")
+        );
+        assert!(
+            fanout_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
+
+        let sink_error =
+            validate_sql_output_plan_sink(SqlLocalSourceOutputFormat::Parquet, &complex_batch)
+                .expect_err("typed structured sink remains blocked");
+        assert!(
+            sink_error
+                .to_string()
+                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required")
+        );
+        assert!(
+            sink_error
+                .to_string()
+                .contains("external_engine_invoked=false")
+        );
     }
 
     #[test]

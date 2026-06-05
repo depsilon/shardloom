@@ -4595,7 +4595,7 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
     assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
     assert!(stdout.contains(&field(
         "output_plan_type_nullability_support",
-        "flat_scalar_text_values_null_as_empty_boundary"
+        "flat_scalar_and_nested_json_text_values_null_as_empty_boundary"
     )));
     assert!(stdout.contains(&field(
         "output_plan_compression_encoding_posture",
@@ -4628,9 +4628,11 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
         )
     );
     assert!(stdout.contains(
-        "csv:column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"
+        "csv:column_names=preserved,row_order=preserved,row_count=digest_replay_verified,nested_values=json_text_when_present,static_types=dropped"
     ));
-    assert!(stdout.contains("csv:static_types_nullability_and_vortex_layout_metadata_lost"));
+    assert!(stdout.contains(
+        "csv:static_types_nullability_nested_type_metadata_and_vortex_layout_metadata_lost_json_text_values_preserved"
+    ));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains(&field(
         "output_replay_status",
@@ -4640,7 +4642,7 @@ fn sql_local_source_output_capillary_skips_small_local_csv_output() {
         "output_fidelity_report_status",
         "scoped_local_output_fidelity_reported"
     )));
-    assert!(stdout.contains("csv:csv_text_roundtrip_loses_static_type_metadata"));
+    assert!(stdout.contains("csv:csv_text_roundtrip_loses_static_and_nested_type_metadata"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("sink_artifact_count", "1")));
     assert!(stdout.contains(&field(
@@ -4870,10 +4872,10 @@ fn sql_local_source_output_capillary_writes_local_jsonl_csv_fanout_with_evidence
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_incompatible_complex_fanout_without_partial_writes() {
-    let source_path = unique_path("sql-local-source-complex-fanout-blocked", "csv");
-    let jsonl_output_path = unique_path("sql-local-source-complex-fanout-blocked", "jsonl");
-    let csv_output_path = unique_path("sql-local-source-complex-fanout-blocked", "csv");
+fn sql_local_source_smoke_writes_complex_jsonl_csv_fanout_without_fallback() {
+    let source_path = unique_path("sql-local-source-complex-fanout", "csv");
+    let jsonl_output_path = unique_path("sql-local-source-complex-fanout", "jsonl");
+    let csv_output_path = unique_path("sql-local-source-complex-fanout", "csv");
     fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
 
     let statement = format!(
@@ -4897,20 +4899,48 @@ fn sql_local_source_smoke_blocks_incompatible_complex_fanout_without_partial_wri
         .expect("sql-local-source-smoke command runs");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("fanout_conversion_dag_status=blocked_incompatible_materialization"));
-    assert!(stdout.contains("no partial fanout writes or fallback execution were attempted"));
-    assert!(stdout.contains("external_engine_invoked=false"));
-    assert!(!jsonl_output_path.exists());
-    assert!(!csv_output_path.exists());
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "complex_projection_output_boundary",
+        "jsonl_nested_result_boundary_and_csv_json_text_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_type_nullability_support",
+        "jsonl:logical_values_including_nested_json_boundary,csv:flat_scalar_and_nested_json_text_values_null_as_empty_boundary"
+    )));
+    assert!(stdout.contains(&field(
+        "output_plan_conversion_blocker",
+        "jsonl:none,csv:none"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_conversion_dag_status",
+        "shared_fanout_conversion_dag_applied"
+    )));
+    assert!(stdout.contains(&field(
+        "output_fidelity_loss",
+        "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_and_nested_type_metadata"
+    )));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert_eq!(
+        fs::read_to_string(&jsonl_output_path).expect("read jsonl fanout"),
+        "{\"id\":1,\"values\":[1,2,null]}\n"
+    );
+    assert_eq!(
+        fs::read_to_string(&csv_output_path).expect("read csv fanout"),
+        "id,values\n1,\"[1,2,null]\"\n"
+    );
 
     fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(jsonl_output_path).expect("remove jsonl fanout");
+    fs::remove_file(csv_output_path).expect("remove csv fanout");
 }
 
 #[cfg(feature = "universal-format-io")]
