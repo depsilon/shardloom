@@ -166,6 +166,12 @@ TIMING_NORMALIZATION_REQUIRED_FIELDS = {
     "source_state_manifest_validation_micros",
     "source_state_row_count_metadata_micros",
     "source_state_family_build_micros",
+    "source_state_lazy_family_construction",
+    "source_state_family_build_timing_scope",
+    "source_state_family_build_count",
+    "source_state_family_reuse_hit_count",
+    "source_state_family_reuse_hit",
+    "source_state_family_recompute_avoided",
     "source_state_digest_micros",
     "prepared_manifest_read_micros",
     "prepared_manifest_match_micros",
@@ -1021,6 +1027,24 @@ def validate_cold_lane_attribution(
         blockers.append("cold_lane_attribution has no cold rows with primary bottleneck stages")
 
 
+def validate_source_state_lazy_family_table(
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    dashboard = payload.get("comparative_dashboard")
+    table = dashboard.get("source_state_lazy_family") if isinstance(dashboard, dict) else None
+    if not isinstance(table, dict):
+        blockers.append("comparative_dashboard missing source_state_lazy_family table")
+        return
+    if table.get("schema_version") != "shardloom.website.source_state_lazy_family.v1":
+        blockers.append("source_state_lazy_family schema_version mismatch")
+    headers = table.get("headers")
+    if not isinstance(headers, list) or "Family builds" not in headers:
+        blockers.append("source_state_lazy_family table must include Family builds")
+    if not isinstance(table.get("rows"), list):
+        blockers.append("source_state_lazy_family rows must be a list")
+
+
 def validate_public_front_door_rows(
     payload: dict[str, Any],
     manifest: dict[str, Any],
@@ -1201,6 +1225,7 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
             if isinstance(payload, dict):
                 validate_rows(payload, blockers)
                 validate_prepared_route_amortization(payload, blockers)
+                validate_source_state_lazy_family_table(payload, blockers)
                 validate_cold_lane_attribution(payload, blockers)
                 validate_public_front_door_rows(payload, manifest, blockers)
                 validate_profile_scope(payload, profile, blockers)

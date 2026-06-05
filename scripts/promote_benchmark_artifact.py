@@ -172,6 +172,12 @@ WEBSITE_ROW_KEYS = (
     "source_state_manifest_validation_micros",
     "source_state_row_count_metadata_micros",
     "source_state_family_build_micros",
+    "source_state_lazy_family_construction",
+    "source_state_family_build_timing_scope",
+    "source_state_family_build_count",
+    "source_state_family_reuse_hit_count",
+    "source_state_family_reuse_hit",
+    "source_state_family_recompute_avoided",
     "source_state_digest_micros",
     "prepared_manifest_read_micros",
     "prepared_manifest_match_micros",
@@ -1150,6 +1156,29 @@ def timing_normalization_fields_for_row(
             fields,
             micros_keys=("source_state_family_build_micros",),
             millis_keys=("source_state_family_build_millis",),
+        ),
+        "source_state_lazy_family_construction": first_bool_field(
+            fields,
+            ("source_state_lazy_family_construction",),
+        ),
+        "source_state_family_build_timing_scope": fields.get(
+            "source_state_family_build_timing_scope"
+        ),
+        "source_state_family_build_count": first_numeric_field(
+            fields,
+            ("source_state_family_build_count",),
+        ),
+        "source_state_family_reuse_hit_count": first_numeric_field(
+            fields,
+            ("source_state_family_reuse_hit_count",),
+        ),
+        "source_state_family_reuse_hit": first_bool_field(
+            fields,
+            ("source_state_family_reuse_hit",),
+        ),
+        "source_state_family_recompute_avoided": first_bool_field(
+            fields,
+            ("source_state_family_recompute_avoided",),
         ),
         "source_state_digest_micros": first_numeric_micros(
             fields,
@@ -3623,6 +3652,95 @@ def source_admission_digest_policy_table(rows: list[dict[str, Any]]) -> dict[str
     }
 
 
+def source_state_lazy_family_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for display_name, group_rows in groups.items():
+        lazy_rows = sum(
+            1
+            for row in group_rows
+            if first_bool_field(
+                row,
+                ("source_state_lazy_family_construction",),
+                default=False,
+            )
+        )
+        build_count = sum(
+            int(numeric_value(row.get("source_state_family_build_count")) or 0)
+            for row in group_rows
+        )
+        reuse_hit_count = sum(
+            int(numeric_value(row.get("source_state_family_reuse_hit_count")) or 0)
+            for row in group_rows
+        )
+        recompute_avoided_rows = sum(
+            1
+            for row in group_rows
+            if first_bool_field(
+                row,
+                ("source_state_family_recompute_avoided",),
+                default=False,
+            )
+        )
+        source_open_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("source_state_open_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("source_state_open_micros")) is not None
+            ]
+        )
+        family_build_ms = geomean_non_negative(
+            [
+                micros_to_millis(row.get("source_state_family_build_micros"))
+                for row in group_rows
+                if micros_to_millis(row.get("source_state_family_build_micros")) is not None
+            ]
+        )
+        timing_scopes = Counter(
+            str(row.get("source_state_family_build_timing_scope") or "not_reported")
+            for row in group_rows
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                len(group_rows),
+                lazy_rows,
+                build_count,
+                reuse_hit_count,
+                recompute_avoided_rows,
+                fmt_ms(source_open_ms),
+                fmt_ms(family_build_ms),
+                "; ".join(f"{scope}={count}" for scope, count in sorted(timing_scopes.items())),
+            ]
+        )
+    return {
+        "heading": "Lazy Source-State Family Construction",
+        "headers": [
+            "Route",
+            "Rows",
+            "Lazy rows",
+            "Family builds",
+            "Reuse hits",
+            "Recompute avoided rows",
+            "Source-state open geomean",
+            "Family build geomean",
+            "Timing scope",
+        ],
+        "rows": rendered_rows,
+        "schema_version": "shardloom.website.source_state_lazy_family.v1",
+        "claim_boundary": (
+            "source-state family construction evidence is runtime work-avoidance attribution only; "
+            "it is not a performance or superiority claim until benchmark rerun and claim gates pass"
+        ),
+    }
+
+
 def route_share_next_step(stage_field: str, route_display: str) -> str:
     if stage_field == "source_read_ms":
         return "finish_source_read_scout_split_before_reader_tuning"
@@ -5672,6 +5790,7 @@ def comparative_summary(
         "source_admission_digest_policy": source_admission_digest_policy_table(
             claim_adjusted_rows
         ),
+        "source_state_lazy_family": source_state_lazy_family_table(claim_adjusted_rows),
         "route_share_amdahl": route_share_amdahl_table(claim_adjusted_rows),
         "source_read_scout": source_read_scout_table(claim_adjusted_rows),
         "vortex_reopen_scan_attribution": vortex_reopen_scan_table(claim_adjusted_rows),

@@ -21,6 +21,9 @@ const stageInclusionHeaders = Array.isArray(stageInclusionTable.headers) ? stage
 const sourceAdmissionPolicyTable = dashboard.source_admission_digest_policy ?? {};
 const sourceAdmissionPolicyRows = Array.isArray(sourceAdmissionPolicyTable.rows) ? sourceAdmissionPolicyTable.rows : [];
 const sourceAdmissionPolicyHeaders = Array.isArray(sourceAdmissionPolicyTable.headers) ? sourceAdmissionPolicyTable.headers : [];
+const sourceStateLazyFamilyTable = dashboard.source_state_lazy_family ?? {};
+const sourceStateLazyFamilyRows = Array.isArray(sourceStateLazyFamilyTable.rows) ? sourceStateLazyFamilyTable.rows : [];
+const sourceStateLazyFamilyHeaders = Array.isArray(sourceStateLazyFamilyTable.headers) ? sourceStateLazyFamilyTable.headers : [];
 const routeShareTable = dashboard.route_share_amdahl ?? {};
 const routeShareRows = Array.isArray(routeShareTable.rows) ? routeShareTable.rows : [];
 const routeShareHeaders = Array.isArray(routeShareTable.headers) ? routeShareTable.headers : [];
@@ -567,9 +570,21 @@ const routeCards = [
         </tbody>
       </table>
     </div>
+    <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{sourceStateLazyFamilyTable.heading ?? "Lazy Source-State Family Construction"}</strong></p>
+      <table>
+        <thead><tr>{(sourceStateLazyFamilyHeaders.length ? sourceStateLazyFamilyHeaders : ["Route", "Rows", "Lazy rows", "Family builds", "Reuse hits", "Recompute avoided rows", "Source-state open geomean", "Family build geomean", "Timing scope"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {sourceStateLazyFamilyRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
     <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
     <p class="table-note">Inclusion schema: {stageInclusionTable.schema_version ?? "not reported"}. Boundary: {stageInclusionTable.claim_boundary ?? "not reported"}.</p>
     <p class="table-note">Digest policy schema: {sourceAdmissionPolicyTable.schema_version ?? "not reported"}. Boundary: {sourceAdmissionPolicyTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Lazy family schema: {sourceStateLazyFamilyTable.schema_version ?? "not reported"}. Boundary: {sourceStateLazyFamilyTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 
