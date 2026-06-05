@@ -137,6 +137,51 @@ fn public_run_executes_local_sql_with_attached_route_envelope() {
 }
 
 #[test]
+fn public_run_forwards_local_write_output_and_overwrite_intent() {
+    let workspace = std::path::Path::new("target/public-workflow-write-facade");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let input = workspace.join("fact.csv");
+    let output = workspace.join("out.csv");
+    let _ = std::fs::remove_file(&output);
+    std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 2", input.display());
+    let stdout = run_route(&[
+        "run",
+        "dataframe",
+        "--input",
+        input.to_str().expect("utf8 input path"),
+        "--input-format",
+        "csv",
+        "--sql",
+        &statement,
+        "--plan",
+        "read_csv(fact.csv) -> select(id,label) -> limit(2)",
+        "--request",
+        "write_csv",
+        "--output",
+        output.to_str().expect("utf8 output path"),
+        "--allow-overwrite",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "local_file_direct_sink")));
+    assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
+    assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
+    assert!(stdout.contains(&field("output_format", "csv")));
+    assert!(stdout.contains(&field(
+        "output_path",
+        output.to_str().expect("utf8 output path")
+    )));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     let workspace = std::path::Path::new("target/public-workflow-prepare-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");

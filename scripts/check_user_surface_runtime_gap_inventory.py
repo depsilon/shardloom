@@ -178,11 +178,12 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
         "vortex_normalization_point": "route_specific_or_public_prepare_vortex_target",
         "runtime_route": (
             "side-effect-free route admission plus scoped run/prepare wrappers attach route "
-            "metadata to admitted runtime envelopes"
+            "metadata to admitted runtime envelopes; lazy DataFrame write_parquet/write_vortex "
+            "helpers now use the public run facade"
         ),
         "output_or_evidence_route": (
-            "typed public route and execution-facade envelopes today; collect and write helper "
-            "rerouting remains pending"
+            "typed public route and execution-facade envelopes today; broad collect, general "
+            "write/csv, source-free generated-output helper rerouting remains pending"
         ),
         "owner": "GAR-RUNTIME-IMPL-6D:public_workflow_route_facade",
     },

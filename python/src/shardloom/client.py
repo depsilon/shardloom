@@ -10031,6 +10031,7 @@ class ShardLoomClient:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        allow_overwrite: bool = False,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
@@ -10048,6 +10049,7 @@ class ShardLoomClient:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,
+            allow_overwrite=allow_overwrite,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -10094,6 +10096,7 @@ class ShardLoomClient:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        allow_overwrite: bool = False,
     ) -> list[CommandPart]:
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -10112,6 +10115,8 @@ class ShardLoomClient:
         args.extend(["--evidence-level", evidence_level])
         if bounded is not None:
             args.extend(["--bounded", "true" if bounded else "false"])
+        if allow_overwrite:
+            args.append("--allow-overwrite")
         return args
 
     def engine_selection_plan(

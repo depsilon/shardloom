@@ -21,6 +21,10 @@ Public workflow facade commands: `shardloom route <sql|python|dataframe|cli> --f
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`
 
+Scoped public helper coverage: Python lazy DataFrame `write_parquet(...)` and `write_vortex(...)`
+route through `shardloom run` and preserve typed sink report views. Broad `collect()` and general
+`write(...)` helper rerouting remains planned.
+
 Help aliases: shardloom --help; shardloom -h; shardloom <command> --help
 
 Capability surface: `shardloom capabilities api-surfaces --format json`
