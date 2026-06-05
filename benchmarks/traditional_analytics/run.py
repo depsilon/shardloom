@@ -912,6 +912,12 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_boundary",
 )
 PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
+    "prepare_batch_prepared_state_index_schema_version",
+    "prepare_batch_prepared_state_index_lookup_status",
+    "prepare_batch_prepared_state_index_digest",
+    "prepare_batch_prepared_state_index_key_components",
+    "prepare_batch_prepared_state_index_source_packet_digest",
+    "prepare_batch_prepared_state_index_external_engine_invoked",
     "prepare_batch_prepared_state_dependency_schema_version",
     "prepare_batch_prepared_state_dependency_status",
     "prepare_batch_prepared_state_dependency_checked_roles",
@@ -926,6 +932,11 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
     "prepare_batch_prepared_state_partial_repair_status",
     "prepare_batch_prepared_state_partial_repair_blocker_id",
     "prepare_batch_prepared_state_partial_repair_changed_roles",
+    "prepare_batch_prepared_state_partial_repair_reused_roles",
+    "prepare_batch_prepared_state_partial_repair_repaired_roles",
+    "prepare_batch_prepared_state_partial_repair_invalidated_derived_states",
+    "prepare_batch_prepared_state_partial_repair_micros",
+    "prepare_batch_prepared_state_partial_repair_replay_proof",
     "prepare_batch_prepared_state_partial_repair_repairable_segment_count",
     "prepare_batch_prepared_state_partial_repair_regeneration_performed",
     "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed",
@@ -933,6 +944,9 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
 )
 PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_dependency.v1"
+)
+PREPARED_STATE_INDEX_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_index.v1"
 )
 PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
@@ -5991,6 +6005,36 @@ def prepare_batch_dependency_repair_fields(
     evidence = evidence or {}
     default_status = "missing_success_evidence" if status == "success" else "not_executed"
     return {
+        "prepare_batch_prepared_state_index_schema_version": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_index_schema_version"),
+            PREPARED_STATE_INDEX_SCHEMA_VERSION,
+        ),
+        "prepare_batch_prepared_state_index_lookup_status": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_index_lookup_status"),
+            default_status,
+        ),
+        "prepare_batch_prepared_state_index_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_index_digest"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_index_key_components": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_index_key_components"),
+            (
+                "source_admission_packet_digest,schema_hash,route_family,"
+                "layout_policy,native_io_status,artifact_refs,artifact_digests,"
+                "prepare_policy_digest"
+            ),
+        ),
+        "prepare_batch_prepared_state_index_source_packet_digest": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_index_source_packet_digest"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_index_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("prepare_batch_prepared_state_index_external_engine_invoked")
+            )
+            is True
+        ),
         "prepare_batch_prepared_state_dependency_schema_version": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_dependency_schema_version"),
             PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION,
@@ -6051,6 +6095,30 @@ def prepare_batch_dependency_repair_fields(
         ),
         "prepare_batch_prepared_state_partial_repair_changed_roles": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_partial_repair_changed_roles"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_reused_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_reused_roles"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_repaired_roles": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_repaired_roles"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_invalidated_derived_states": first_meaningful_field(
+            evidence.get(
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states"
+            ),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_partial_repair_micros": (
+            parse_optional_float(
+                evidence.get("prepare_batch_prepared_state_partial_repair_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_replay_proof": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_partial_repair_replay_proof"),
             "not_reported" if status == "success" else "not_executed",
         ),
         "prepare_batch_prepared_state_partial_repair_repairable_segment_count": (
@@ -13812,6 +13880,8 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 == "missing_success_evidence"
                 or metrics.get("prepare_batch_prepared_state_partial_repair_status")
                 == "missing_success_evidence"
+                or metrics.get("prepare_batch_prepared_state_index_lookup_status")
+                == "missing_success_evidence"
             ):
                 raise RuntimeError(
                     "ShardLoom prepare/batch success row omitted prepared-state repair evidence"
@@ -13833,14 +13903,48 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                     "prepared-state dependency evidence cannot report external engine execution"
                 )
             if (
+                metrics.get("prepare_batch_prepared_state_index_external_engine_invoked")
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state index evidence cannot report external engine execution"
+                )
+            repair_status = str(
+                metrics.get("prepare_batch_prepared_state_partial_repair_status") or ""
+            )
+            repair_regenerated = (
+                metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
+                )
+                is True
+            )
+            if (
                 metrics.get(
                     "prepare_batch_prepared_state_partial_repair_regeneration_performed"
                 )
                 is not False
+                and repair_status != "admitted_role_repair_completed"
             ):
                 raise RuntimeError(
-                    "prepare/batch partial prepared-state repair must remain blocked in this route"
+                    "prepare/batch partial prepared-state repair regeneration requires admitted repair status"
                 )
+            if repair_status == "admitted_role_repair_completed":
+                if not repair_regenerated:
+                    raise RuntimeError(
+                        "admitted partial repair must report regeneration_performed=true"
+                    )
+                if not metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_repaired_roles"
+                ):
+                    raise RuntimeError("admitted partial repair must report repaired roles")
+                if not metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_reused_roles"
+                ):
+                    raise RuntimeError("admitted partial repair must report reused roles")
+                if not metrics.get(
+                    "prepare_batch_prepared_state_partial_repair_replay_proof"
+                ):
+                    raise RuntimeError("admitted partial repair must report replay proof")
             if (
                 metrics.get(
                     "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"

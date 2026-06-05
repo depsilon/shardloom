@@ -86,6 +86,8 @@ const SOURCE_STATE_OPEN_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_open_timing.v1";
 const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
+const PREPARED_STATE_INDEX_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_index.v1";
 const PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_dependency.v1";
 const PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION: &str =
@@ -124,6 +126,8 @@ const PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES: &str = "fact_input,dim_input,cdc_
 const PREPARED_STATE_REUSE_MANIFEST_DIR: &str = ".shardloom";
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const PREPARED_STATE_REUSE_MANIFEST_FILE: &str = "prepared-vortex-reuse-manifest.json";
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const PREPARED_STATE_INDEX_FILE: &str = "prepared-state-index.json";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
@@ -6560,14 +6564,31 @@ pub struct TraditionalAnalyticsPreparedBatchReport {
     prepared_state_reuse: TraditionalPreparedBatchReuseReport,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TraditionalPreparedBatchReuseMode {
+    FullPrepare,
+    ManifestHit,
+    PartialRepair,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TraditionalPreparedBatchReuseReport {
+    mode: TraditionalPreparedBatchReuseMode,
     hit: bool,
     reason: String,
     invalidation_reason: String,
     manifest_digest: String,
     source_admission_packet_digest: String,
     source_admission_packet_artifact_manifest_hash: String,
+    index_digest: String,
+    index_lookup_status: String,
+    repair_reused_roles: String,
+    repair_repaired_roles: String,
+    repair_invalidated_derived_states: String,
+    repair_replay_proof: String,
+    repairable_segment_count: usize,
+    repair_regeneration_performed: bool,
     manifest_actual_path: PathBuf,
     manifest_written: bool,
     prepare_fields: Vec<(String, String)>,
@@ -6592,15 +6613,25 @@ impl TraditionalPreparedBatchReuseReport {
         manifest_digest: String,
         source_admission_packet_digest: String,
         source_admission_packet_artifact_manifest_hash: String,
+        index_digest: String,
         prior_reason: String,
     ) -> Self {
         Self {
+            mode: TraditionalPreparedBatchReuseMode::FullPrepare,
             hit: false,
             reason: prior_reason.clone(),
             invalidation_reason: prior_reason,
             manifest_digest,
             source_admission_packet_digest,
             source_admission_packet_artifact_manifest_hash,
+            index_digest,
+            index_lookup_status: "index_created_after_full_prepare".to_string(),
+            repair_reused_roles: "none".to_string(),
+            repair_repaired_roles: "none".to_string(),
+            repair_invalidated_derived_states: "all_prepared_state_derived_indexes".to_string(),
+            repair_replay_proof: "not_applicable_full_prepare_replay_fields".to_string(),
+            repairable_segment_count: 0,
+            repair_regeneration_performed: false,
             manifest_actual_path: manifest_path,
             manifest_written: true,
             prepare_fields: Vec::new(),
@@ -6610,12 +6641,21 @@ impl TraditionalPreparedBatchReuseReport {
 
     fn no_manifest_yet(manifest_path: PathBuf, reason: String) -> Self {
         Self {
+            mode: TraditionalPreparedBatchReuseMode::FullPrepare,
             hit: false,
             reason,
             invalidation_reason: PREPARED_STATE_REUSE_INVALIDATION_FIRST_PREPARATION.to_string(),
             manifest_digest: "none".to_string(),
             source_admission_packet_digest: "none".to_string(),
             source_admission_packet_artifact_manifest_hash: "none".to_string(),
+            index_digest: "none".to_string(),
+            index_lookup_status: "index_miss_no_manifest".to_string(),
+            repair_reused_roles: "none".to_string(),
+            repair_repaired_roles: "none".to_string(),
+            repair_invalidated_derived_states: "all_prepared_state_derived_indexes".to_string(),
+            repair_replay_proof: "not_applicable_missing_base_manifest".to_string(),
+            repairable_segment_count: 0,
+            repair_regeneration_performed: false,
             manifest_actual_path: manifest_path,
             manifest_written: false,
             prepare_fields: Vec::new(),
@@ -6628,17 +6668,64 @@ impl TraditionalPreparedBatchReuseReport {
         manifest_digest: String,
         source_admission_packet_digest: String,
         source_admission_packet_artifact_manifest_hash: String,
+        index_digest: String,
         prepare_fields: Vec<(String, String)>,
     ) -> Self {
         Self {
+            mode: TraditionalPreparedBatchReuseMode::ManifestHit,
             hit: true,
             reason: "manifest_fingerprints_match".to_string(),
             invalidation_reason: "none".to_string(),
             manifest_digest,
             source_admission_packet_digest,
             source_admission_packet_artifact_manifest_hash,
+            index_digest,
+            index_lookup_status: "workspace_index_manifest_hit".to_string(),
+            repair_reused_roles: "fact_input,dim_input,cdc_delta_input".to_string(),
+            repair_repaired_roles: "none".to_string(),
+            repair_invalidated_derived_states: "none".to_string(),
+            repair_replay_proof: "not_needed_manifest_hit".to_string(),
+            repairable_segment_count: 0,
+            repair_regeneration_performed: false,
             manifest_actual_path: manifest_path,
             manifest_written: false,
+            prepare_fields,
+            lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn partial_repair(
+        manifest_path: PathBuf,
+        manifest_digest: String,
+        source_admission_packet_digest: String,
+        source_admission_packet_artifact_manifest_hash: String,
+        index_digest: String,
+        reason: String,
+        prepare_fields: Vec<(String, String)>,
+        repair_reused_roles: String,
+        repair_repaired_roles: String,
+        repair_invalidated_derived_states: String,
+        repair_replay_proof: String,
+    ) -> Self {
+        Self {
+            mode: TraditionalPreparedBatchReuseMode::PartialRepair,
+            hit: false,
+            reason: reason.clone(),
+            invalidation_reason: reason,
+            manifest_digest,
+            source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash,
+            index_digest,
+            index_lookup_status: "workspace_index_partial_repair".to_string(),
+            repair_reused_roles,
+            repair_repaired_roles,
+            repair_invalidated_derived_states,
+            repair_replay_proof,
+            repairable_segment_count: 1,
+            repair_regeneration_performed: true,
+            manifest_actual_path: manifest_path,
+            manifest_written: true,
             prepare_fields,
             lifecycle_timing: TraditionalPreparedBatchLifecycleTiming::default(),
         }
@@ -6670,6 +6757,18 @@ impl TraditionalAnalyticsPreparedBatchReport {
 
     fn workspace_reuse_hit(&self) -> bool {
         self.prepared_state_reuse.hit
+    }
+
+    fn workspace_partial_repair_performed(&self) -> bool {
+        self.prepared_state_reuse.mode == TraditionalPreparedBatchReuseMode::PartialRepair
+    }
+
+    fn workspace_manifest_path_used(&self) -> bool {
+        matches!(
+            self.prepared_state_reuse.mode,
+            TraditionalPreparedBatchReuseMode::ManifestHit
+                | TraditionalPreparedBatchReuseMode::PartialRepair
+        )
     }
 
     #[must_use]
@@ -6950,8 +7049,13 @@ impl TraditionalAnalyticsPreparedBatchReport {
         let prepare_batch_lifecycle_output_status = self.prepare_batch_lifecycle_output_status();
         let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
         let workspace_reuse_hit = self.workspace_reuse_hit();
+        let workspace_partial_repair_performed = self.workspace_partial_repair_performed();
+        let workspace_manifest_path_used = self.workspace_manifest_path_used();
+        let lifecycle_timing = &self.prepared_state_reuse.lifecycle_timing;
         let source_admission_packet_status = if workspace_reuse_hit {
             "packet_reuse"
+        } else if workspace_partial_repair_performed {
+            "packet_mismatch_role_repaired"
         } else if self.prepared_state_reuse.reason == "no_reuse_manifest" {
             "fresh_probe_created"
         } else {
@@ -6959,50 +7063,73 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let source_admission_packet_row_estimate_status = if workspace_reuse_hit {
             "reused_from_manifest_prepare_fields"
+        } else if workspace_partial_repair_performed {
+            "partially_repaired_from_manifest_prepare_fields"
         } else {
             "observed_after_prepare_materialized_source"
         };
         let prepared_state_lookup_status = if workspace_reuse_hit {
             "workspace_manifest_hit"
+        } else if workspace_partial_repair_performed {
+            "workspace_manifest_partial_repair"
         } else {
             "cache_miss_created_and_registered"
         };
-        let prepared_state_dependency_status = prepared_batch_dependency_status(
-            workspace_reuse_hit,
-            &self.prepared_state_reuse.reason,
-        );
+        let prepared_state_dependency_status = if workspace_partial_repair_performed {
+            "source_dependency_changed_partial_repair"
+        } else {
+            prepared_batch_dependency_status(workspace_reuse_hit, &self.prepared_state_reuse.reason)
+        };
         let prepared_state_dependency_changed_roles =
             prepared_batch_dependency_changed_roles(&self.prepared_state_reuse.reason);
-        let prepared_state_partial_repair_status = prepared_batch_partial_repair_status(
-            workspace_reuse_hit,
-            &self.prepared_state_reuse.reason,
-        );
-        let prepared_state_partial_repair_blocker_id = prepared_batch_partial_repair_blocker_id(
-            workspace_reuse_hit,
-            &self.prepared_state_reuse.reason,
-        );
+        let prepared_state_partial_repair_status = if workspace_partial_repair_performed {
+            "admitted_role_repair_completed"
+        } else {
+            prepared_batch_partial_repair_status(
+                workspace_reuse_hit,
+                &self.prepared_state_reuse.reason,
+            )
+        };
+        let prepared_state_partial_repair_blocker_id = if workspace_partial_repair_performed {
+            "not_applicable_partial_repair_admitted"
+        } else {
+            prepared_batch_partial_repair_blocker_id(
+                workspace_reuse_hit,
+                &self.prepared_state_reuse.reason,
+            )
+        };
         let prepare_batch_runtime_status = if workspace_reuse_hit {
             "workspace_prepared_state_reused_then_prepared_batch_supported"
+        } else if workspace_partial_repair_performed {
+            "workspace_prepared_state_partially_repaired_then_prepared_batch_supported"
         } else {
             "single_process_compatibility_prepare_then_prepared_batch_supported"
         };
         let prepare_batch_route = if workspace_reuse_hit {
             "compatibility_import_certified_manifest_reuse_to_prepared_vortex_batch"
+        } else if workspace_partial_repair_performed {
+            "compatibility_import_certified_manifest_partial_repair_to_prepared_vortex_batch"
         } else {
             "compatibility_import_certified_to_prepared_vortex_batch"
         };
         let prepare_batch_lifecycle_route = if workspace_reuse_hit {
             "UniversalIngress->SourceState->workspace_manifest_reuse->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
+        } else if workspace_partial_repair_performed {
+            "UniversalIngress->SourceState->workspace_manifest_partial_repair->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
         } else {
             "UniversalIngress->SourceState->vortex_ingest->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested"
         };
         let prepare_batch_lifecycle_preparation_status = if workspace_reuse_hit {
             "prepared_state_reused_from_workspace_manifest"
+        } else if workspace_partial_repair_performed {
+            "prepared_state_partially_repaired_from_workspace_manifest"
         } else {
             "source_state_created_and_vortex_prepared_state_written"
         };
         let prepare_batch_lifecycle_write_reopen_status = if workspace_reuse_hit {
             "prepared_artifacts_reused_manifest_fingerprints_verified"
+        } else if workspace_partial_repair_performed {
+            "changed_prepared_artifact_repaired_replay_verified_unchanged_artifacts_reused"
         } else if prepare_field_bool("vortex_file_written")
             && prepare_field_bool("vortex_file_read")
             && prepare_field_bool("upstream_vortex_scan_called")
@@ -7013,16 +7140,26 @@ impl TraditionalAnalyticsPreparedBatchReport {
         };
         let prepare_batch_preparation_command = if workspace_reuse_hit {
             "prepared-vortex-reuse-manifest"
+        } else if workspace_partial_repair_performed {
+            "prepared-vortex-partial-repair-manifest"
         } else {
             "traditional-analytics-run"
         };
         let prepare_batch_preparation_timing_scope = if workspace_reuse_hit {
             "workspace_manifest_reuse_skips_compatibility_prepare".to_string()
+        } else if workspace_partial_repair_performed {
+            "workspace_manifest_partial_repair_role_scoped".to_string()
         } else {
             prepare_field("timing_scope")
         };
         let prepare_batch_preparation_micros = if workspace_reuse_hit {
             "0".to_string()
+        } else if workspace_partial_repair_performed {
+            lifecycle_timing
+                .cache_miss_create_micros
+                .saturating_add(lifecycle_timing.artifact_write_micros)
+                .saturating_add(lifecycle_timing.replay_verification_micros)
+                .to_string()
         } else {
             prepare_field("total_runtime_micros")
         };
@@ -7078,6 +7215,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
         let prepared_state_attractor_route_family =
             "compatibility_prepare_to_prepared_native_vortex";
         let prepared_state_schema_hash = traditional_source_admission_schema_hash();
+        let prepared_state_input_format = prepare_field("input_format");
         let prepared_state_layout_strategy = prepare_field("vortex_array_build_strategy");
         let prepared_state_input_layout = prepare_field("vortex_array_build_input_layout");
         let prepared_state_native_io_certificate_status =
@@ -7094,7 +7232,6 @@ impl TraditionalAnalyticsPreparedBatchReport {
             prepared_state_native_io_certificate_status.as_str(),
             prepared_state_attractor_route_family,
         ]);
-        let lifecycle_timing = &self.prepared_state_reuse.lifecycle_timing;
         set_field(
             &mut fields,
             "source_admission_policy_micros",
@@ -7444,6 +7581,76 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepared_state_lookup_status.to_string(),
             ),
             (
+                "prepare_batch_prepared_state_index_schema_version".to_string(),
+                PREPARED_STATE_INDEX_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_lookup_status".to_string(),
+                self.prepared_state_reuse.index_lookup_status.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_digest".to_string(),
+                self.prepared_state_reuse.index_digest.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_key_components".to_string(),
+                "source_admission_packet_digest,schema_hash,route_family,layout_policy,native_io_status,artifact_refs,artifact_digests,prepare_policy_digest".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_route_family".to_string(),
+                prepared_state_attractor_route_family.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_schema_hash".to_string(),
+                prepared_state_schema_hash.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_source_packet_digest".to_string(),
+                self.prepared_state_reuse
+                    .source_admission_packet_digest
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_layout_policy".to_string(),
+                format!("{prepared_state_layout_strategy}:{prepared_state_input_layout}"),
+            ),
+            (
+                "prepare_batch_prepared_state_index_native_io_status".to_string(),
+                prepared_state_native_io_certificate_status.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_index_artifact_refs".to_string(),
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    prepare_field("fact_vortex_path"),
+                    prepare_field("dim_vortex_path"),
+                    empty_to_none(&prepare_field("cdc_delta_vortex_path"))
+                ),
+            ),
+            (
+                "prepare_batch_prepared_state_index_artifact_digests".to_string(),
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    prepare_field("fact_vortex_digest"),
+                    prepare_field("dim_vortex_digest"),
+                    empty_to_none(&prepare_field("cdc_delta_vortex_digest"))
+                ),
+            ),
+            (
+                "prepare_batch_prepared_state_index_prepare_policy_digest".to_string(),
+                route_evidence_digest(&[
+                    "prepare_policy",
+                    prepared_state_input_format.as_str(),
+                    prepared_state_layout_strategy.as_str(),
+                    prepared_state_input_layout.as_str(),
+                    prepared_state_native_io_certificate_status.as_str(),
+                ]),
+            ),
+            (
+                "prepare_batch_prepared_state_index_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
                 "prepare_batch_prepared_state_manifest_lookup_micros".to_string(),
                 lifecycle_timing.manifest_lookup_micros.to_string(),
             ),
@@ -7548,12 +7755,43 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepared_state_dependency_changed_roles.to_string(),
             ),
             (
+                "prepare_batch_prepared_state_partial_repair_reused_roles".to_string(),
+                self.prepared_state_reuse.repair_reused_roles.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_repaired_roles".to_string(),
+                self.prepared_state_reuse.repair_repaired_roles.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states"
+                    .to_string(),
+                self.prepared_state_reuse
+                    .repair_invalidated_derived_states
+                    .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_micros".to_string(),
+                lifecycle_timing
+                    .cache_miss_create_micros
+                    .saturating_add(lifecycle_timing.artifact_write_micros)
+                    .saturating_add(lifecycle_timing.replay_verification_micros)
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_replay_proof".to_string(),
+                self.prepared_state_reuse.repair_replay_proof.clone(),
+            ),
+            (
                 "prepare_batch_prepared_state_partial_repair_repairable_segment_count".to_string(),
-                "0".to_string(),
+                self.prepared_state_reuse
+                    .repairable_segment_count
+                    .to_string(),
             ),
             (
                 "prepare_batch_prepared_state_partial_repair_regeneration_performed".to_string(),
-                "false".to_string(),
+                self.prepared_state_reuse
+                    .repair_regeneration_performed
+                    .to_string(),
             ),
             (
                 "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
@@ -7562,11 +7800,16 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_prepared_state_partial_repair_claim_boundary".to_string(),
-                "HOTPATH-9 evidence only; partial prepared-state repair is not admitted for this prepare/batch workspace manifest path, so changed dependencies force full reprepare and stale prepared segments cannot be reused silently".to_string(),
+                if workspace_partial_repair_performed {
+                    "PERF-SPLIT-6 certified role-scoped prepared-state repair; only one changed local source role was regenerated, unchanged prepared artifacts were fingerprint-verified and reused, stale changed-role artifacts were not reused, and external engine invocation remained false"
+                } else {
+                    "HOTPATH-9 evidence only; partial prepared-state repair is not admitted for this prepare/batch workspace manifest path unless a single source role change passes role-scoped repair admission, so stale prepared segments cannot be reused silently"
+                }
+                .to_string(),
             ),
             (
                 "prepare_batch_prepared_state_created".to_string(),
-                (!workspace_reuse_hit).to_string(),
+                (!workspace_manifest_path_used).to_string(),
             ),
             (
                 "prepare_batch_prepared_state_reused".to_string(),
@@ -7672,6 +7915,8 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "prepare_batch_source_admission_digest_policy_status".to_string(),
                 if workspace_reuse_hit {
                     "metadata_fingerprint_reuse_hit"
+                } else if workspace_partial_repair_performed {
+                    "metadata_fingerprint_role_repair_admitted"
                 } else {
                     "metadata_fingerprint_recorded_with_fresh_prepare"
                 }
@@ -7797,7 +8042,7 @@ impl TraditionalAnalyticsPreparedBatchReport {
             reuse_reason,
             reuse_digest,
             reuse_invalidation,
-        ) = if workspace_reuse_hit {
+        ) = if workspace_manifest_path_used {
             (
                 PREPARED_STATE_REUSE_SCOPE_WORKSPACE,
                 PREPARED_STATE_REUSE_PATH_WORKSPACE,
@@ -13156,6 +13401,110 @@ fn traditional_prepared_batch_reuse_manifest_path(workspace_dir: &std::path::Pat
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_batch_index_path(workspace_dir: &std::path::Path) -> PathBuf {
+    workspace_dir
+        .join(PREPARED_STATE_REUSE_MANIFEST_DIR)
+        .join(PREPARED_STATE_INDEX_FILE)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_state_index_digest_from_manifest(manifest_payload: &serde_json::Value) -> String {
+    json_string_field(manifest_payload, "prepared_state_index_digest")
+        .unwrap_or_else(|| prepared_state_index_payload(manifest_payload).1)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_state_index_payload(
+    manifest_payload: &serde_json::Value,
+) -> (serde_json::Value, String) {
+    let prepare_fields = manifest_payload
+        .get("prepare_fields")
+        .and_then(serde_json::Value::as_object);
+    let prepare_field = |key: &str| -> String {
+        prepare_fields
+            .and_then(|fields| fields.get(key))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    let artifact_path = |role: &str| -> String {
+        manifest_payload
+            .get("prepared_artifacts")
+            .and_then(|artifacts| artifacts.get(role))
+            .and_then(|artifact| artifact.get("path"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("none")
+            .to_string()
+    };
+    let artifact_digest = |role: &str| -> String {
+        manifest_payload
+            .get("prepared_artifacts")
+            .and_then(|artifacts| artifacts.get(role))
+            .and_then(|artifact| artifact.get("digest"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("none")
+            .to_string()
+    };
+    let prepare_policy_digest = manifest_payload.get("prepare_policy").map_or_else(
+        || "missing_prepare_policy".to_string(),
+        stable_json_value_digest,
+    );
+    let key = serde_json::json!({
+        "schema_version": PREPARED_STATE_INDEX_SCHEMA_VERSION,
+        "source_admission_packet_digest": json_string_field(
+            manifest_payload,
+            "source_admission_packet_digest",
+        )
+        .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string()),
+        "schema_hash": traditional_source_admission_schema_hash(),
+        "route_family": "compatibility_prepare_to_prepared_native_vortex",
+        "layout_policy": {
+            "strategy": prepare_field("vortex_array_build_strategy"),
+            "input_layout": prepare_field("vortex_array_build_input_layout"),
+        },
+        "native_io_status": prepare_field("native_io_certificate_status"),
+        "artifact_refs": {
+            "fact": artifact_path("fact"),
+            "dim": artifact_path("dim"),
+            "cdc_delta": artifact_path("cdc_delta"),
+        },
+        "artifact_digests": {
+            "fact": artifact_digest("fact"),
+            "dim": artifact_digest("dim"),
+            "cdc_delta": artifact_digest("cdc_delta"),
+        },
+        "prepare_policy_digest": prepare_policy_digest,
+    });
+    let index_digest = stable_json_value_digest(&key);
+    let payload = serde_json::json!({
+        "schema_version": PREPARED_STATE_INDEX_SCHEMA_VERSION,
+        "index_digest": index_digest,
+        "index_key": key,
+        "manifest_digest": json_string_field(manifest_payload, "manifest_digest")
+            .unwrap_or_else(|| "missing_manifest_digest".to_string()),
+        "manifest_path": json_string_field(manifest_payload, "manifest_path")
+            .unwrap_or_else(|| PREPARED_STATE_REUSE_PATH_WORKSPACE.to_string()),
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "claim_boundary": "workspace-local prepared-state index only; lookup never bypasses manifest digest, source fingerprint, artifact fingerprint, replay proof, Native I/O certificate, or no-fallback checks",
+    });
+    (payload, index_digest)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn write_prepared_state_index(
+    workspace_dir: &std::path::Path,
+    manifest_payload: &serde_json::Value,
+) -> Result<String> {
+    let (index_payload, index_digest) = prepared_state_index_payload(manifest_payload);
+    write_json_manifest_atomically(
+        &traditional_prepared_batch_index_path(workspace_dir),
+        &index_payload,
+    )?;
+    Ok(index_digest)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn evaluate_traditional_prepared_batch_workspace_reuse(
     fact_input: &std::path::Path,
@@ -13619,12 +13968,299 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
         serde_json::Value::String(manifest_digest.clone()),
     );
     write_json_manifest_atomically(&manifest_path, &manifest_payload)?;
+    let index_digest = write_prepared_state_index(workspace_dir, &manifest_payload)?;
     Ok(TraditionalPreparedBatchReuseReport::first_preparation(
         manifest_path,
         manifest_digest,
         source_admission_packet_digest,
         source_admission_packet_artifact_manifest_hash,
+        index_digest,
         prior_reuse_reason.to_string(),
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_reused_roles_for_repair(
+    repaired_role: TraditionalPreparedRepairRole,
+    cdc_delta_present: bool,
+) -> String {
+    [
+        TraditionalPreparedRepairRole::Fact,
+        TraditionalPreparedRepairRole::Dim,
+        TraditionalPreparedRepairRole::CdcDelta,
+    ]
+    .into_iter()
+    .filter(|role| *role != repaired_role)
+    .filter(|role| *role != TraditionalPreparedRepairRole::CdcDelta || cdc_delta_present)
+    .map(TraditionalPreparedRepairRole::source_role)
+    .collect::<Vec<_>>()
+    .join(",")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_invalidated_derived_states_for_repair(
+    repaired_role: TraditionalPreparedRepairRole,
+) -> &'static str {
+    match repaired_role {
+        TraditionalPreparedRepairRole::Fact => {
+            "fact_source_state_families,prepared_state_digest,source_state_digest"
+        }
+        TraditionalPreparedRepairRole::Dim => {
+            "dimension_label_state,join_derived_state,prepared_state_digest,source_state_digest"
+        }
+        TraditionalPreparedRepairRole::CdcDelta => {
+            "cdc_delta_state,small_change_overlay_state,prepared_state_digest,source_state_digest"
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn write_traditional_prepared_batch_partial_repair_manifest(
+    prior_manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+    role_repair: &TraditionalPreparedRoleRepairReport,
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    reason: &str,
+) -> Result<TraditionalPreparedBatchReuseReport> {
+    let manifest_path = traditional_prepared_batch_reuse_manifest_path(workspace_dir);
+    let mut prepare_fields = prepared_batch_reuse_prepare_fields(prior_manifest_payload);
+    apply_prepared_role_repair_fields(
+        &mut prepare_fields,
+        role_repair,
+        request_payload,
+        fact_input,
+        dim_input,
+        cdc_delta_input,
+        input_format,
+    )?;
+    let Some(prior_artifacts) = prior_manifest_payload
+        .get("prepared_artifacts")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return Err(ShardLoomError::InvalidOperation(
+            "prepared-state partial repair requires prepared_artifacts in the base manifest; fallback execution was not attempted"
+                .to_string(),
+        ));
+    };
+    let mut prepared_artifacts = prior_artifacts.clone();
+    prepared_artifacts.insert(
+        role_repair.role.artifact_role().to_string(),
+        prepared_batch_artifact_manifest(
+            &role_repair.artifact_path,
+            role_repair.role.artifact_role(),
+            &role_repair.artifact_digest,
+        )?,
+    );
+    let prepared_artifacts = serde_json::Value::Object(prepared_artifacts);
+    let source_admission_packet_artifact_manifest_hash =
+        stable_json_value_digest(&prepared_artifacts);
+    let source_admission_packet_digest =
+        json_string_field(request_payload, "source_admission_packet_digest")
+            .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string());
+    let mut manifest_payload = prior_manifest_payload.clone();
+    if let Some(request_object) = request_payload.as_object() {
+        for (key, value) in request_object {
+            json_object_insert(&mut manifest_payload, key, value.clone());
+        }
+    }
+    if let Some(object) = manifest_payload.as_object_mut() {
+        object.remove("manifest_digest");
+    }
+    json_object_insert(
+        &mut manifest_payload,
+        "created_unix_seconds",
+        serde_json::Value::Number(serde_json::Number::from(current_unix_seconds())),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "manifest_path",
+        serde_json::Value::String(manifest_path.display().to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepare_command",
+        serde_json::Value::String("traditional-analytics-partial-repair".to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepare_fields",
+        field_pairs_to_json_object(&prepare_fields),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_artifacts",
+        prepared_artifacts,
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_row_estimate_status",
+        serde_json::Value::String(
+            "observed_after_partial_repair_materialized_changed_role".to_string(),
+        ),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_fact_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "fact_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_dim_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "dim_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_cdc_delta_row_estimate",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "cdc_delta_rows")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_admission_packet_artifact_manifest_hash",
+        serde_json::Value::String(source_admission_packet_artifact_manifest_hash.clone()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_dependency_schema_version",
+        serde_json::Value::String(PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_dependency_checked_roles",
+        serde_json::Value::String(PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_dependency_recheck_policy",
+        serde_json::Value::String(
+            "validate_manifest_digest_route_request_source_fingerprints_artifact_fingerprints_no_fallback_before_reuse"
+                .to_string(),
+        ),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_schema_version",
+        serde_json::Value::String(PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_status",
+        serde_json::Value::String("admitted_role_repair_completed".to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_changed_roles",
+        serde_json::Value::String(role_repair.role.source_role().to_string()),
+    );
+    let cdc_delta_present = cdc_delta_input.is_some();
+    let reused_roles = prepared_batch_reused_roles_for_repair(role_repair.role, cdc_delta_present);
+    let invalidated_derived_states =
+        prepared_batch_invalidated_derived_states_for_repair(role_repair.role);
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_reused_roles",
+        serde_json::Value::String(reused_roles.clone()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_repaired_roles",
+        serde_json::Value::String(role_repair.role.source_role().to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_invalidated_derived_states",
+        serde_json::Value::String(invalidated_derived_states.to_string()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_micros",
+        serde_json::Value::String(
+            role_repair
+                .write_timing
+                .array_build_micros
+                .saturating_add(role_repair.write_timing.vortex_write_micros)
+                .saturating_add(role_repair.replay_verification_micros)
+                .to_string(),
+        ),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_replay_proof",
+        serde_json::Value::String(role_repair.replay_proof.clone()),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_regeneration_performed",
+        serde_json::Value::Bool(true),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_partial_repair_stale_segment_reuse_allowed",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_state_id",
+        serde_json::Value::String(prepare_field_from_slice(&prepare_fields, "source_state_id")),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "source_state_digest",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "source_state_digest",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_id",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "prepared_state_id",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "prepared_state_digest",
+        serde_json::Value::String(prepare_field_from_slice(
+            &prepare_fields,
+            "prepared_state_digest",
+        )),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "fallback_attempted",
+        serde_json::Value::Bool(false),
+    );
+    json_object_insert(
+        &mut manifest_payload,
+        "external_engine_invoked",
+        serde_json::Value::Bool(false),
+    );
+    let manifest_digest = stable_json_value_digest(&manifest_payload);
+    json_object_insert(
+        &mut manifest_payload,
+        "manifest_digest",
+        serde_json::Value::String(manifest_digest.clone()),
+    );
+    write_json_manifest_atomically(&manifest_path, &manifest_payload)?;
+    let index_digest = write_prepared_state_index(workspace_dir, &manifest_payload)?;
+    Ok(TraditionalPreparedBatchReuseReport::partial_repair(
+        manifest_path,
+        manifest_digest,
+        source_admission_packet_digest,
+        source_admission_packet_artifact_manifest_hash,
+        index_digest,
+        reason.to_string(),
+        prepare_fields,
+        reused_roles,
+        role_repair.role.source_role().to_string(),
+        invalidated_derived_states.to_string(),
+        role_repair.replay_proof.clone(),
     ))
 }
 
@@ -13759,6 +14395,510 @@ fn prepared_batch_artifact_invalidation_reason(
         }
     }
     Ok("none".to_string())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TraditionalPreparedRepairRole {
+    Fact,
+    Dim,
+    CdcDelta,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedRepairRole {
+    const fn source_role(self) -> &'static str {
+        match self {
+            Self::Fact => "fact_input",
+            Self::Dim => "dim_input",
+            Self::CdcDelta => "cdc_delta_input",
+        }
+    }
+
+    const fn artifact_role(self) -> &'static str {
+        match self {
+            Self::Fact => "fact",
+            Self::Dim => "dim",
+            Self::CdcDelta => "cdc_delta",
+        }
+    }
+
+    const fn path_filename(self) -> &'static str {
+        match self {
+            Self::Fact => "fact.vortex",
+            Self::Dim => "dim.vortex",
+            Self::CdcDelta => "cdc_delta.vortex",
+        }
+    }
+
+    const fn row_field(self) -> &'static str {
+        match self {
+            Self::Fact => "fact_rows",
+            Self::Dim => "dim_rows",
+            Self::CdcDelta => "cdc_delta_rows",
+        }
+    }
+
+    const fn digest_field(self) -> &'static str {
+        match self {
+            Self::Fact => "fact_vortex_digest",
+            Self::Dim => "dim_vortex_digest",
+            Self::CdcDelta => "cdc_delta_vortex_digest",
+        }
+    }
+
+    const fn bytes_field(self) -> &'static str {
+        match self {
+            Self::Fact => "fact_vortex_bytes",
+            Self::Dim => "dim_vortex_bytes",
+            Self::CdcDelta => "cdc_delta_vortex_bytes",
+        }
+    }
+
+    const fn path_field(self) -> &'static str {
+        match self {
+            Self::Fact => "fact_vortex_path",
+            Self::Dim => "dim_vortex_path",
+            Self::CdcDelta => "cdc_delta_vortex_path",
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalPreparedRoleRepairReport {
+    role: TraditionalPreparedRepairRole,
+    artifact_path: PathBuf,
+    artifact_digest: String,
+    artifact_bytes: u64,
+    row_count: u64,
+    source_read_evidence: TraditionalSourceReadEvidence,
+    write_timing: TraditionalVortexWriteTiming,
+    replay_verification_micros: u64,
+    replay_proof: String,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_source_changed_roles(
+    manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+) -> Vec<TraditionalPreparedRepairRole> {
+    [
+        (TraditionalPreparedRepairRole::Fact, "fact_input"),
+        (TraditionalPreparedRepairRole::Dim, "dim_input"),
+        (TraditionalPreparedRepairRole::CdcDelta, "cdc_delta_input"),
+    ]
+    .into_iter()
+    .filter_map(|(role, key)| {
+        (manifest_payload.get(key) != request_payload.get(key)).then_some(role)
+    })
+    .collect()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_batch_single_role_repair_admission(
+    manifest_payload: &serde_json::Value,
+    request_payload: &serde_json::Value,
+) -> Result<Option<TraditionalPreparedRepairRole>> {
+    if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy") {
+        return Ok(None);
+    }
+    if json_bool_field(manifest_payload, "fallback_attempted")
+        || json_bool_field(manifest_payload, "external_engine_invoked")
+    {
+        return Ok(None);
+    }
+    let artifact_reason = prepared_batch_artifact_invalidation_reason(manifest_payload)?;
+    if artifact_reason != "none" {
+        return Ok(None);
+    }
+    let changed_roles = prepared_batch_source_changed_roles(manifest_payload, request_payload);
+    Ok(match changed_roles.as_slice() {
+        [TraditionalPreparedRepairRole::CdcDelta]
+            if manifest_payload
+                .get("cdc_delta_input")
+                .is_none_or(serde_json::Value::is_null)
+                || request_payload
+                    .get("cdc_delta_input")
+                    .is_none_or(serde_json::Value::is_null) =>
+        {
+            None
+        }
+        [role] => Some(*role),
+        _ => None,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn repair_traditional_prepared_role(
+    role: TraditionalPreparedRepairRole,
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    workspace_dir: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalPreparedRoleRepairReport> {
+    let fact_source_bytes = fact_source_len(fact_input, input_format, "fact input")?;
+    let dim_source_bytes = file_len(dim_input, "dimension input")?;
+    let cdc_delta_source_bytes =
+        cdc_delta_input.map_or(Ok(0), |path| file_len(path, "CDC delta input"))?;
+    let total_source_bytes = checked_u64_sum(
+        checked_u64_sum(fact_source_bytes, dim_source_bytes)?,
+        cdc_delta_source_bytes,
+    )?;
+    let resolved_policy = resource_policy.resolve_for_sources(total_source_bytes);
+    let vortex_io = TraditionalVortexIoContext::new();
+    let artifact_path = workspace_dir.join(role.path_filename());
+    let (source_read_evidence, row_count, write_timing) = match role {
+        TraditionalPreparedRepairRole::Fact if input_format.is_columnar() => {
+            let source = read_traditional_fact_vortex_provider_batch_with_evidence(
+                fact_input,
+                input_format,
+                resolved_policy,
+            )?;
+            let row_count = usize_to_u64(source.row_count)?;
+            let timing = write_vortex_provider_record_batch_with_io(
+                &vortex_io,
+                source.batch,
+                "traditional fact table",
+                &artifact_path,
+            )?;
+            (source.evidence, row_count, timing)
+        }
+        TraditionalPreparedRepairRole::Fact => {
+            let source = read_traditional_fact_text_vortex_provider_batch_with_evidence(
+                fact_input,
+                input_format,
+                fact_source_bytes,
+                TraditionalAnalyticsScenario::CsvFileIngest,
+                TraditionalFactTextColumnSelection::full(),
+            )?;
+            let row_count = usize_to_u64(source.row_count)?;
+            let timing = write_vortex_text_record_batch_with_io(
+                &vortex_io,
+                source.batch,
+                "traditional fact table",
+                &artifact_path,
+            )?;
+            (source.evidence, row_count, timing)
+        }
+        TraditionalPreparedRepairRole::Dim if input_format.is_columnar() => {
+            let source = read_traditional_dim_vortex_provider_batch_with_evidence(
+                dim_input,
+                input_format,
+                resolved_policy,
+            )?;
+            let row_count = usize_to_u64(source.row_count)?;
+            let timing = write_vortex_provider_record_batch_with_io(
+                &vortex_io,
+                source.batch,
+                "traditional dimension table",
+                &artifact_path,
+            )?;
+            (source.evidence, row_count, timing)
+        }
+        TraditionalPreparedRepairRole::Dim => {
+            let source = read_traditional_dim_text_vortex_provider_batch_with_evidence(
+                dim_input,
+                input_format,
+                dim_source_bytes,
+            )?;
+            let row_count = usize_to_u64(source.row_count)?;
+            let timing = write_vortex_text_record_batch_with_io(
+                &vortex_io,
+                source.batch,
+                "traditional dimension table",
+                &artifact_path,
+            )?;
+            (source.evidence, row_count, timing)
+        }
+        TraditionalPreparedRepairRole::CdcDelta => {
+            let cdc_delta_input = cdc_delta_input.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "CDC delta prepared-state partial repair requires an explicit CDC delta input; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+            let source = read_traditional_cdc_delta_csv_with_evidence(cdc_delta_input)?;
+            let row_count = usize_to_u64(source.rows.len())?;
+            let timing = write_cdc_delta_vortex_with_io(&vortex_io, &source.rows, &artifact_path)?;
+            (source.evidence, row_count, timing)
+        }
+    };
+    let artifact_digest = vortex_write_artifact_digest(&write_timing, role.artifact_role())?;
+    let artifact_bytes = vortex_write_artifact_bytes(&write_timing, role.artifact_role())?;
+    let replay_start = std::time::Instant::now();
+    match role {
+        TraditionalPreparedRepairRole::Fact => {
+            std::mem::drop(read_fact_vortex(&artifact_path)?);
+        }
+        TraditionalPreparedRepairRole::Dim => {
+            std::mem::drop(read_dim_vortex(&artifact_path)?);
+        }
+        TraditionalPreparedRepairRole::CdcDelta => {
+            std::mem::drop(read_cdc_delta_vortex(&artifact_path)?);
+        }
+    }
+    let replay_verification_micros = duration_to_micros(replay_start.elapsed());
+    let replay_proof = route_evidence_digest(&[
+        "prepared_state_partial_repair_replay",
+        role.source_role(),
+        artifact_digest.as_str(),
+        &row_count.to_string(),
+    ]);
+    Ok(TraditionalPreparedRoleRepairReport {
+        role,
+        artifact_path,
+        artifact_digest,
+        artifact_bytes,
+        row_count,
+        source_read_evidence,
+        write_timing,
+        replay_verification_micros,
+        replay_proof,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn apply_prepared_role_repair_fields(
+    prepare_fields: &mut Vec<(String, String)>,
+    role_repair: &TraditionalPreparedRoleRepairReport,
+    request_payload: &serde_json::Value,
+    fact_input: &std::path::Path,
+    dim_input: &std::path::Path,
+    cdc_delta_input: Option<&std::path::Path>,
+    input_format: TraditionalAnalyticsInputFormat,
+) -> Result<()> {
+    set_field(
+        prepare_fields,
+        role_repair.role.path_field(),
+        role_repair.artifact_path.display().to_string(),
+    );
+    set_field(
+        prepare_fields,
+        role_repair.role.digest_field(),
+        role_repair.artifact_digest.clone(),
+    );
+    set_field(
+        prepare_fields,
+        role_repair.role.bytes_field(),
+        role_repair.artifact_bytes.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        role_repair.role.row_field(),
+        role_repair.row_count.to_string(),
+    );
+    set_field(prepare_fields, "input_format", input_format.as_str());
+    set_field(
+        prepare_fields,
+        "source_read_micros",
+        role_repair.source_read_evidence.read_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "source_parse_micros",
+        role_repair.source_read_evidence.parse_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "source_to_columnar_micros",
+        role_repair.source_read_evidence.columnar_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_micros",
+        role_repair.write_timing.array_build_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_write_micros",
+        role_repair.write_timing.vortex_write_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_reopen_verify_micros",
+        role_repair.replay_verification_micros.to_string(),
+    );
+    set_field(prepare_fields, "vortex_reopen_scan_micros", "0");
+    set_field(
+        prepare_fields,
+        "vortex_writer_context_open_micros",
+        role_repair
+            .write_timing
+            .writer_context_open_micros
+            .to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_writer_context_write_count",
+        role_repair
+            .write_timing
+            .writer_context_write_count
+            .to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_writer_context_reuse_hit_count",
+        role_repair
+            .write_timing
+            .writer_context_reuse_hit_count
+            .to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_writer_context_reuse_status",
+        role_repair.write_timing.writer_context_reuse_status(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_segment_write_micros",
+        role_repair.write_timing.segment_write_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_workspace_stage_micros",
+        role_repair.write_timing.workspace_stage_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_write_coalescing_status",
+        role_repair.write_timing.write_coalescing_status(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_write_coalescing_reason",
+        role_repair.write_timing.write_coalescing_reason(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_strategy",
+        role_repair.write_timing.array_build_strategy,
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_input_layout",
+        role_repair.write_timing.array_build_input_layout,
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_provider_kind",
+        role_repair.write_timing.array_build_provider_kind,
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_provider_surface",
+        role_repair.write_timing.array_build_provider_surface,
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_record_batch_count",
+        role_repair
+            .write_timing
+            .array_build_record_batch_count
+            .to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "vortex_array_build_manual_scalar_copy_avoided",
+        role_repair
+            .write_timing
+            .manual_scalar_copy_avoided
+            .to_string(),
+    );
+    let total_runtime_micros = role_repair
+        .source_read_evidence
+        .read_micros
+        .saturating_add(role_repair.source_read_evidence.parse_micros)
+        .saturating_add(role_repair.source_read_evidence.columnar_micros)
+        .saturating_add(role_repair.write_timing.array_build_micros)
+        .saturating_add(role_repair.write_timing.vortex_write_micros)
+        .saturating_add(role_repair.replay_verification_micros);
+    set_field(
+        prepare_fields,
+        "total_runtime_micros",
+        total_runtime_micros.to_string(),
+    );
+    set_field(
+        prepare_fields,
+        "timing_scope",
+        "workspace_manifest_partial_repair_role_scoped",
+    );
+    let fact_source_bytes = fact_source_len(fact_input, input_format, "fact input")?;
+    let dim_source_bytes = file_len(dim_input, "dimension input")?;
+    let cdc_delta_source_bytes =
+        cdc_delta_input.map_or(Ok(0), |path| file_len(path, "CDC delta input"))?;
+    let fact_source_bytes_text = fact_source_bytes.to_string();
+    let dim_source_bytes_text = dim_source_bytes.to_string();
+    let cdc_delta_source_bytes_text = cdc_delta_source_bytes.to_string();
+    let source_state_digest = route_evidence_digest(&[
+        "source_state",
+        input_format.as_str(),
+        &fact_input.display().to_string(),
+        &dim_input.display().to_string(),
+        &fact_source_bytes_text,
+        &dim_source_bytes_text,
+        &cdc_delta_source_bytes_text,
+        TRADITIONAL_FACT_SCHEMA_SUMMARY,
+        TRADITIONAL_DIM_SCHEMA_SUMMARY,
+    ]);
+    set_field(
+        prepare_fields,
+        "source_state_id",
+        format!("source-state://traditional-analytics/{source_state_digest}"),
+    );
+    set_field(
+        prepare_fields,
+        "source_state_digest",
+        source_state_digest.clone(),
+    );
+    let fact_digest = prepare_field_from_slice(prepare_fields, "fact_vortex_digest");
+    let dim_digest = prepare_field_from_slice(prepare_fields, "dim_vortex_digest");
+    let cdc_delta_digest = prepare_field_from_slice(prepare_fields, "cdc_delta_vortex_digest");
+    let prepared_state_digest = route_evidence_digest(&[
+        "prepared_state",
+        fact_digest.as_str(),
+        dim_digest.as_str(),
+        if cdc_delta_digest.is_empty() {
+            "none"
+        } else {
+            cdc_delta_digest.as_str()
+        },
+    ]);
+    set_field(
+        prepare_fields,
+        "prepared_state_id",
+        format!("prepared-state://traditional-analytics/{prepared_state_digest}"),
+    );
+    set_field(
+        prepare_fields,
+        "prepared_state_digest",
+        prepared_state_digest.clone(),
+    );
+    let combined_output_digest = combined_artifact_digest(
+        fact_digest.as_str(),
+        dim_digest.as_str(),
+        (!cdc_delta_digest.is_empty()).then_some(cdc_delta_digest.as_str()),
+        None,
+    );
+    set_field(
+        prepare_fields,
+        "combined_output_digest",
+        combined_output_digest,
+    );
+    let request_digest =
+        json_string_field(request_payload, "route_request_digest").unwrap_or_default();
+    set_field(
+        prepare_fields,
+        "prepared_state_partial_repair_request_digest",
+        request_digest,
+    );
+    set_field(prepare_fields, "fallback_attempted", "false");
+    set_field(prepare_fields, "external_engine_invoked", "false");
+    Ok(())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -13932,6 +15072,16 @@ fn prepare_field_from_slice(fields: &[(String, String)], key: &str) -> String {
         .iter()
         .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
         .unwrap_or_default()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn non_empty_prepare_field_path(fields: &[(String, String)], key: &str) -> Option<PathBuf> {
+    let value = prepare_field_from_slice(fields, key);
+    if value.trim().is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(value))
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18741,6 +19891,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             source_admission_packet_digest_from_manifest(manifest_payload);
         let source_admission_packet_artifact_manifest_hash =
             source_admission_packet_artifact_manifest_hash_from_manifest(manifest_payload);
+        let index_digest = prepared_state_index_digest_from_manifest(manifest_payload);
         let prepare_fields = prepared_batch_reuse_prepare_fields(manifest_payload);
         let cache_hit_micros = duration_to_micros(cache_hit_start.elapsed());
         let prepared_state_reuse = TraditionalPreparedBatchReuseReport::hit(
@@ -18748,6 +19899,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             reuse_decision.manifest_digest,
             source_admission_packet_digest,
             source_admission_packet_artifact_manifest_hash,
+            index_digest,
             prepare_fields,
         )
         .with_lifecycle_timing(TraditionalPreparedBatchLifecycleTiming {
@@ -18774,6 +19926,90 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             batch_report,
             prepared_state_reuse,
         });
+    }
+
+    if let Some(manifest_payload) = reuse_decision.manifest_payload.as_ref() {
+        let request_payload = traditional_prepared_batch_reuse_request_payload(
+            &fact_input,
+            &dim_input,
+            cdc_delta_input.as_deref(),
+            &workspace_dir,
+            input_format,
+            resource_policy,
+        )?;
+        if let Some(repair_role) =
+            prepared_batch_single_role_repair_admission(manifest_payload, &request_payload)?
+        {
+            let repair_start = std::time::Instant::now();
+            let role_repair = repair_traditional_prepared_role(
+                repair_role,
+                &fact_input,
+                &dim_input,
+                cdc_delta_input.as_deref(),
+                &workspace_dir,
+                input_format,
+                resource_policy,
+            )?;
+            let repair_elapsed_micros = duration_to_micros(repair_start.elapsed());
+            let artifact_register_start = std::time::Instant::now();
+            let mut prepared_state_reuse =
+                write_traditional_prepared_batch_partial_repair_manifest(
+                    manifest_payload,
+                    &request_payload,
+                    &role_repair,
+                    &fact_input,
+                    &dim_input,
+                    cdc_delta_input.as_deref(),
+                    &workspace_dir,
+                    input_format,
+                    &reuse_decision.reason,
+                )?;
+            let artifact_register_micros = duration_to_micros(artifact_register_start.elapsed());
+            prepared_state_reuse = prepared_state_reuse.with_lifecycle_timing(
+                TraditionalPreparedBatchLifecycleTiming {
+                    manifest_lookup_micros,
+                    cache_miss_create_micros: repair_elapsed_micros
+                        .saturating_sub(role_repair.write_timing.vortex_write_micros)
+                        .saturating_sub(role_repair.replay_verification_micros),
+                    artifact_write_micros: role_repair.write_timing.vortex_write_micros,
+                    artifact_register_micros,
+                    replay_verification_micros: role_repair.replay_verification_micros,
+                    ..TraditionalPreparedBatchLifecycleTiming::default()
+                },
+            );
+            let fact_vortex = PathBuf::from(prepare_field_from_slice(
+                &prepared_state_reuse.prepare_fields,
+                "fact_vortex_path",
+            ));
+            let dim_vortex = PathBuf::from(prepare_field_from_slice(
+                &prepared_state_reuse.prepare_fields,
+                "dim_vortex_path",
+            ));
+            let cdc_delta_vortex = non_empty_prepare_field_path(
+                &prepared_state_reuse.prepare_fields,
+                "cdc_delta_vortex_path",
+            );
+            let batch_request =
+                TraditionalAnalyticsVortexBatchRequest::new(scenarios, fact_vortex, dim_vortex)
+                    .with_cdc_delta_vortex(cdc_delta_vortex)
+                    .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+                    .with_resource_policy(resource_policy)
+                    .with_result_workspace_dir(result_workspace_dir)
+                    .with_result_vortex_write(write_result_vortex);
+            let batch_request = if let Some(evidence_level) = requested_evidence_level {
+                batch_request.with_evidence_level(evidence_level)
+            } else {
+                batch_request
+            };
+            let batch_report =
+                run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
+            return Ok(TraditionalAnalyticsPreparedBatchReport {
+                preparation_scenario,
+                prepare_report: None,
+                batch_report,
+                prepared_state_reuse,
+            });
+        }
     }
 
     let cache_miss_create_start = std::time::Instant::now();
@@ -32814,7 +34050,7 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn prepared_batch_run_reuses_workspace_manifest_on_second_run() {
+    fn traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair() {
         use std::io::Write as _;
 
         let root = traditional_analytics_test_root("prepared-batch-workspace-reuse");
@@ -33346,6 +34582,14 @@ mod tests {
         );
         assert_field_eq(&second_fields, "fallback_attempted", "false");
         assert_field_eq(&second_fields, "external_engine_invoked", "false");
+        let second_fact_digest = second_fields
+            .get("prepare_batch_fact_vortex_digest")
+            .expect("second fact digest")
+            .clone();
+        let second_dim_digest = second_fields
+            .get("prepare_batch_dim_vortex_digest")
+            .expect("second dim digest")
+            .clone();
 
         std::fs::OpenOptions::new()
             .append(true)
@@ -33354,13 +34598,18 @@ mod tests {
             .write_all(b"999,1,10,7,1.0,1,alpha,2024-01-01,,{},2024-01-01T00:00:00Z,7,true\n")
             .unwrap();
         let third = run_traditional_analytics_prepared_batch_benchmark(
-            TraditionalAnalyticsPreparedBatchRequest::new(scenarios, fact_csv, dim_csv, workspace)
-                .with_input_format(TraditionalAnalyticsInputFormat::Csv)
-                .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                scenarios,
+                fact_csv,
+                dim_csv,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
         )
         .unwrap();
         let third_fields = field_map(third.fields());
-        assert!(third.prepare_report.is_some());
+        assert!(third.prepare_report.is_none());
         assert_field_eq(
             &third_fields,
             "workspace_prepared_state_reuse_manifest_written",
@@ -33374,7 +34623,7 @@ mod tests {
         assert_field_eq(
             &third_fields,
             "prepare_batch_source_admission_packet_status",
-            "packet_mismatch_refreshed",
+            "packet_mismatch_role_repaired",
         );
         assert_field_eq(
             &third_fields,
@@ -33389,12 +34638,32 @@ mod tests {
         assert_field_eq(
             &third_fields,
             "prepare_batch_prepared_state_lookup_status",
-            "cache_miss_created_and_registered",
+            "workspace_manifest_partial_repair",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_index_schema_version",
+            PREPARED_STATE_INDEX_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_index_lookup_status",
+            "workspace_index_partial_repair",
+        );
+        assert!(
+            third_fields
+                .get("prepare_batch_prepared_state_index_digest")
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_index_external_engine_invoked",
+            "false",
         );
         assert_field_eq(
             &third_fields,
             "prepare_batch_prepared_state_dependency_status",
-            "source_dependency_changed_full_reprepare",
+            "source_dependency_changed_partial_repair",
         );
         assert_field_eq(
             &third_fields,
@@ -33404,17 +34673,32 @@ mod tests {
         assert_field_eq(
             &third_fields,
             "prepare_batch_prepared_state_partial_repair_status",
-            "blocked_source_dependency_changed_full_reprepare_required",
+            "admitted_role_repair_completed",
         );
         assert_field_eq(
             &third_fields,
             "prepare_batch_prepared_state_partial_repair_blocker_id",
-            "hotpath-9.source-dependency-changed-no-partial-repair",
+            "not_applicable_partial_repair_admitted",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_reused_roles",
+            "dim_input",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_repaired_roles",
+            "fact_input",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_repairable_segment_count",
+            "1",
         );
         assert_field_eq(
             &third_fields,
             "prepare_batch_prepared_state_partial_repair_regeneration_performed",
-            "false",
+            "true",
         );
         assert_field_eq(
             &third_fields,
@@ -33424,8 +34708,33 @@ mod tests {
         assert_field_eq(
             &third_fields,
             "prepared_state_reuse_scope",
-            PREPARED_STATE_REUSE_SCOPE_IN_PROCESS,
+            PREPARED_STATE_REUSE_SCOPE_WORKSPACE,
         );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_source_admission_digest_policy_status",
+            "metadata_fingerprint_role_repair_admitted",
+        );
+        assert_ne!(
+            third_fields
+                .get("prepare_batch_fact_vortex_digest")
+                .expect("third fact digest"),
+            &second_fact_digest
+        );
+        assert_eq!(
+            third_fields
+                .get("prepare_batch_dim_vortex_digest")
+                .expect("third dim digest"),
+            &second_dim_digest
+        );
+        assert!(
+            third_fields
+                .get("prepare_batch_prepared_state_partial_repair_replay_proof")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(&third_fields, "fallback_attempted", "false");
+        assert_field_eq(&third_fields, "external_engine_invoked", "false");
+        assert!(traditional_prepared_batch_index_path(&workspace).exists());
 
         let _ = std::fs::remove_dir_all(root);
     }

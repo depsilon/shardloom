@@ -3606,6 +3606,33 @@ class ShardLoomClientTests(unittest.TestCase):
                 "metadata_fingerprint_reuse_hit",
             )
             self.assertEqual(
+                second.batch.field("prepare_batch_prepared_state_index_schema_version"),
+                "shardloom.traditional_analytics.prepared_state_index.v1",
+            )
+            self.assertEqual(
+                second.batch.field("prepare_batch_prepared_state_index_lookup_status"),
+                "workspace_index_manifest_hit",
+            )
+            self.assertTrue(
+                str(second.batch.field("prepare_batch_prepared_state_index_digest")).startswith(
+                    "sha256:"
+                )
+            )
+            self.assertEqual(
+                second.batch.field("prepare_batch_prepared_state_dependency_status"),
+                "manifest_dependencies_matched",
+            )
+            self.assertEqual(
+                second.batch.field("prepare_batch_prepared_state_partial_repair_status"),
+                "not_needed_manifest_hit",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
+                ),
+                "false",
+            )
+            self.assertEqual(
                 second.batch.field(
                     "prepare_batch_source_admission_full_content_digest_requested"
                 ),
@@ -3639,6 +3666,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 json.loads(count_path.read_text(encoding="utf-8")),
                 {"prepare": 1, "batch": 1},
             )
+            self.assertTrue((workspace / ".shardloom" / "prepared-state-index.json").exists())
 
             fact.write_text(
                 "id,group_key,dim_key,value,metric,flag,category\n"
