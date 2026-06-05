@@ -302,6 +302,15 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_read_full_body_micros",
     "source_read_scout_status",
     "source_read_scout_reuse_status",
+    "source_read_decode_status",
+    "source_read_projected_field_mask",
+    "source_read_filter_field_mask",
+    "source_read_decoded_columns",
+    "source_read_skipped_columns",
+    "source_read_decoded_column_count",
+    "source_read_skipped_column_count",
+    "source_read_row_materialization_status",
+    "source_read_unsupported_shape_diagnostic",
     "exclusive_source_parse_or_decode_millis",
     "exclusive_source_to_vortex_array_millis",
     "exclusive_vortex_write_millis",
@@ -5907,6 +5916,21 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
             "stage inclusion fields classify timing components as included, excluded shared "
             "preparation, excluded harness, or diagnostic-only; route totals remain authoritative"
         )
+    if field in {
+        "source_read_projected_field_mask",
+        "source_read_filter_field_mask",
+    }:
+        return "0x00000000"
+    if field in {
+        "source_read_decoded_columns",
+        "source_read_skipped_columns",
+    }:
+        return "none"
+    if field in {
+        "source_read_decoded_column_count",
+        "source_read_skipped_column_count",
+    }:
+        return 0
     if field == "timing_normalization_status":
         return (
             "complete_with_unmeasured_optional_fields"
@@ -5924,6 +5948,9 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "exclusive_stage_timing_scope",
         "source_read_scout_status",
         "source_read_scout_reuse_status",
+        "source_read_decode_status",
+        "source_read_row_materialization_status",
+        "source_read_unsupported_shape_diagnostic",
         "operator_compute_timing_scope",
         "evidence_render_timing_status",
         "exclusive_stage_timing_claim_boundary",
@@ -18065,6 +18092,35 @@ def source_read_scout_stage_metrics(
         ),
         "source_read_scout_reuse_status": evidence.get(
             "source_read_scout_reuse_status", default_status
+        ),
+        "source_read_decode_status": evidence.get(
+            "source_read_decode_status", default_status
+        ),
+        "source_read_projected_field_mask": evidence.get(
+            "source_read_projected_field_mask", "0x00000000"
+        ),
+        "source_read_filter_field_mask": evidence.get(
+            "source_read_filter_field_mask", "0x00000000"
+        ),
+        "source_read_decoded_columns": evidence.get(
+            "source_read_decoded_columns", "none"
+        ),
+        "source_read_skipped_columns": evidence.get(
+            "source_read_skipped_columns", "none"
+        ),
+        "source_read_decoded_column_count": parse_optional_int(
+            evidence.get("source_read_decoded_column_count")
+        )
+        or 0,
+        "source_read_skipped_column_count": parse_optional_int(
+            evidence.get("source_read_skipped_column_count")
+        )
+        or 0,
+        "source_read_row_materialization_status": evidence.get(
+            "source_read_row_materialization_status", default_status
+        ),
+        "source_read_unsupported_shape_diagnostic": evidence.get(
+            "source_read_unsupported_shape_diagnostic", default_status
         ),
     }
 

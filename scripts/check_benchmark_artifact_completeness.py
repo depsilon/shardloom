@@ -268,6 +268,26 @@ OPERATOR_MODE_REQUIRED_FIELDS = {
     "operator_hot_path_next_step",
     "operator_mode_claim_boundary",
 }
+SOURCE_READ_SCOUT_REQUIRED_FIELDS = {
+    "source_read_scout_schema_version",
+    "source_read_scout_status",
+    "source_read_scout_timing_split_status",
+    "source_read_header_scout_ms",
+    "source_read_byte_acquisition_ms",
+    "source_read_full_body_ms",
+    "source_read_scout_residual_ms",
+    "source_read_scout_reuse_status",
+    "source_read_decode_status",
+    "source_read_projected_field_mask",
+    "source_read_filter_field_mask",
+    "source_read_decoded_columns",
+    "source_read_skipped_columns",
+    "source_read_decoded_column_count",
+    "source_read_skipped_column_count",
+    "source_read_row_materialization_status",
+    "source_read_unsupported_shape_diagnostic",
+    "source_read_scout_claim_boundary",
+}
 REQUIRED_ROUTE_FIELDS = {
     "route_lane_id",
     "route_display_name",
@@ -304,6 +324,7 @@ REQUIRED_ROUTE_FIELDS = {
     *ROUTE_DIAGNOSTIC_REQUIRED_FIELDS,
     *FAST_PATH_REQUIRED_FIELDS,
     *OPERATOR_MODE_REQUIRED_FIELDS,
+    *SOURCE_READ_SCOUT_REQUIRED_FIELDS,
 }
 
 
@@ -704,6 +725,32 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     blockers.append(
                         f"ShardLoom row {index} stage inclusion field {field} "
                         "does not cover every canonical stage"
+                    )
+            for field in (
+                "source_read_projected_field_mask",
+                "source_read_filter_field_mask",
+            ):
+                if not str(row.get(field) or "").startswith("0x"):
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid source-read mask field {field}"
+                    )
+            for field in (
+                "source_read_decoded_column_count",
+                "source_read_skipped_column_count",
+            ):
+                value = _numeric_value(row.get(field))
+                if value is None or value < 0:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid source-read count field {field}"
+                    )
+            for field in (
+                "source_read_decode_status",
+                "source_read_row_materialization_status",
+                "source_read_unsupported_shape_diagnostic",
+            ):
+                if not str(row.get(field) or "").strip():
+                    blockers.append(
+                        f"ShardLoom row {index} is missing source-read field {field}"
                     )
             source_state_prepare = _numeric_value(row.get("source_state_prepare_micros"))
             source_admission = _numeric_value(row.get("source_admission_ms"))

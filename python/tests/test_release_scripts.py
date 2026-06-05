@@ -385,6 +385,58 @@ class ReleaseScriptTests(unittest.TestCase):
             ),
             "cold_route_optimization_hint_scope": "diagnostic_only_no_runtime_policy_change",
             "cold_route_bottleneck_claim_boundary": "diagnostic_only_no_claim",
+            "source_read_scout_schema_version": (
+                "shardloom.traditional_analytics.source_read_scout.v1"
+            ),
+            "source_read_scout_status": (
+                "source_read_scout_split_recorded"
+                if cold_route
+                else "not_applicable_no_source_read_stage"
+            ),
+            "source_read_scout_timing_split_status": (
+                "complete" if cold_route else "not_applicable"
+            ),
+            "source_read_header_scout_ms": 0.0 if cold_route else None,
+            "source_read_byte_acquisition_ms": 0.0 if cold_route else None,
+            "source_read_full_body_ms": 0.0 if cold_route else None,
+            "source_read_scout_residual_ms": 0.0 if cold_route else None,
+            "source_read_scout_reuse_status": (
+                "not_reused_fresh_source_read" if cold_route else "not_applicable"
+            ),
+            "source_read_decode_status": (
+                "projection_aware_text_column_decode"
+                if cold_route
+                else "not_applicable"
+            ),
+            "source_read_projected_field_mask": (
+                "0x0000e07f" if cold_route else "0x00000000"
+            ),
+            "source_read_filter_field_mask": (
+                "0x00000028" if cold_route else "0x00000000"
+            ),
+            "source_read_decoded_columns": (
+                "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|"
+                "fact.category|dim.dim_key|dim.dim_label|dim.weight"
+                if cold_route
+                else "none"
+            ),
+            "source_read_skipped_columns": (
+                "fact.event_date|fact.nullable_metric_00|fact.nested_payload|"
+                "fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+                if cold_route
+                else "none"
+            ),
+            "source_read_decoded_column_count": 10 if cold_route else 0,
+            "source_read_skipped_column_count": 6 if cold_route else 0,
+            "source_read_row_materialization_status": (
+                "typed_text_column_builders_without_row_structs"
+                if cold_route
+                else "not_applicable"
+            ),
+            "source_read_unsupported_shape_diagnostic": (
+                "none_admitted_text_shape" if cold_route else "not_applicable"
+            ),
+            "source_read_scout_claim_boundary": "fixture_no_claim",
             "source_split_count": 1,
             "source_open_count": 1,
             "source_bytes_read": 1024,
@@ -535,6 +587,26 @@ class ReleaseScriptTests(unittest.TestCase):
             "operator_hot_path_next_step": "external_baseline_only",
             "operator_mode_claim_boundary": "external rows are comparison baselines only",
             "total_route_ms": 1.0,
+            "source_read_scout_schema_version": (
+                "shardloom.traditional_analytics.source_read_scout.v1"
+            ),
+            "source_read_scout_status": "external_baseline_only",
+            "source_read_scout_timing_split_status": "external_baseline_only",
+            "source_read_header_scout_ms": None,
+            "source_read_byte_acquisition_ms": None,
+            "source_read_full_body_ms": None,
+            "source_read_scout_residual_ms": None,
+            "source_read_scout_reuse_status": "external_baseline_only",
+            "source_read_decode_status": "external_baseline_only",
+            "source_read_projected_field_mask": "0x00000000",
+            "source_read_filter_field_mask": "0x00000000",
+            "source_read_decoded_columns": "none",
+            "source_read_skipped_columns": "none",
+            "source_read_decoded_column_count": 0,
+            "source_read_skipped_column_count": 0,
+            "source_read_row_materialization_status": "external_baseline_only",
+            "source_read_unsupported_shape_diagnostic": "external_baseline_only",
+            "source_read_scout_claim_boundary": "external_baseline_only",
             "source_state_fingerprint": "external_baseline_only",
             "source_schema_fingerprint": "external_baseline_only",
             "source_parse_plan_id": "external_baseline_only",
@@ -2666,7 +2738,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-SPLIT-3", packet["next_implementation_slice"])
+        self.assertIn("PERF-SPLIT-4", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
