@@ -20,6 +20,7 @@ use std::{
     time::Instant,
 };
 
+use arrow_schema::DataType;
 use regex::Regex;
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
@@ -833,6 +834,7 @@ impl SqlOutputPlanSinkRequirement {
 struct SqlResultBatchColumnState {
     name: String,
     dtype: Option<LogicalDType>,
+    arrow_dtype: Option<DataType>,
     values: Vec<ScalarValue>,
 }
 
@@ -850,6 +852,16 @@ impl SqlResultBatchState {
         column_dtypes: &[Option<LogicalDType>],
         rows: &[SqlOutputRow],
     ) -> Result<Self, ShardLoomError> {
+        let column_arrow_dtypes = vec![None; columns.len()];
+        Self::from_rows_with_schema_hints(columns, column_dtypes, &column_arrow_dtypes, rows)
+    }
+
+    fn from_rows_with_schema_hints(
+        columns: &[String],
+        column_dtypes: &[Option<LogicalDType>],
+        column_arrow_dtypes: &[Option<DataType>],
+        rows: &[SqlOutputRow],
+    ) -> Result<Self, ShardLoomError> {
         let build_start = Instant::now();
         if column_dtypes.len() != columns.len() {
             return Err(unsupported_sql_error(&format!(
@@ -858,12 +870,21 @@ impl SqlResultBatchState {
                 columns.len()
             )));
         }
+        if column_arrow_dtypes.len() != columns.len() {
+            return Err(unsupported_sql_error(&format!(
+                "SQL result batch state requires one Arrow dtype hint per output column; got {} hints for {} columns",
+                column_arrow_dtypes.len(),
+                columns.len()
+            )));
+        }
         let mut batch_columns = columns
             .iter()
             .zip(column_dtypes.iter())
-            .map(|(name, dtype)| SqlResultBatchColumnState {
+            .zip(column_arrow_dtypes.iter())
+            .map(|((name, dtype), arrow_dtype)| SqlResultBatchColumnState {
                 name: name.clone(),
                 dtype: dtype.clone(),
+                arrow_dtype: arrow_dtype.clone(),
                 values: Vec::with_capacity(rows.len()),
             })
             .collect::<Vec<_>>();
@@ -905,6 +926,16 @@ impl SqlResultBatchState {
                     .as_ref()
                     .map_or("inferred", LogicalDType::as_str),
             );
+            digest_input.push(':');
+            digest_input.push_str(
+                column
+                    .arrow_dtype
+                    .as_ref()
+                    .map_or("arrow_inferred", |_dtype| "arrow_hint"),
+            );
+            if let Some(dtype) = &column.arrow_dtype {
+                write!(digest_input, "({dtype:?})").expect("write to string");
+            }
             digest_input.push('=');
             for value in &column.values {
                 digest_input.push_str(&scalar_to_json(value));
@@ -934,6 +965,13 @@ impl SqlResultBatchState {
             .collect()
     }
 
+    fn column_arrow_dtypes(&self) -> Vec<Option<DataType>> {
+        self.columns
+            .iter()
+            .map(|column| column.arrow_dtype.clone())
+            .collect()
+    }
+
     fn column_count(&self) -> usize {
         self.columns.len()
     }
@@ -956,6 +994,24 @@ impl SqlResultBatchState {
     fn contains_all_null_complex_dtype_without_child_schema(&self) -> bool {
         self.columns.iter().any(|column| {
             column.dtype.as_ref().is_some_and(logical_dtype_is_complex)
+                && !column
+                    .arrow_dtype
+                    .as_ref()
+                    .is_some_and(arrow_dtype_is_complex)
+                && column
+                    .values
+                    .iter()
+                    .all(|value| matches!(value, ScalarValue::Null))
+        })
+    }
+
+    fn contains_all_null_complex_dtype_with_child_schema(&self) -> bool {
+        self.columns.iter().any(|column| {
+            column.dtype.as_ref().is_some_and(logical_dtype_is_complex)
+                && column
+                    .arrow_dtype
+                    .as_ref()
+                    .is_some_and(arrow_dtype_is_complex)
                 && column
                     .values
                     .iter()
@@ -984,6 +1040,9 @@ impl SqlResultBatchState {
 
     fn contains_vortex_unadmitted_null_values(&self) -> bool {
         self.columns.iter().any(|column| {
+            if column.dtype.as_ref().is_some_and(logical_dtype_is_complex) {
+                return false;
+            }
             if !column
                 .values
                 .iter()
@@ -1098,6 +1157,7 @@ impl SqlRenderedOutput {
             SqlOutputPayload::Vortex {
                 columns,
                 column_dtypes: _,
+                column_arrow_dtypes: _,
                 rows,
             } => u64::try_from(rows.len())
                 .unwrap_or(u64::MAX)
@@ -1118,6 +1178,7 @@ enum SqlOutputPayload {
     Vortex {
         columns: Vec<String>,
         column_dtypes: Vec<Option<LogicalDType>>,
+        column_arrow_dtypes: Vec<Option<DataType>>,
         rows: SqlOutputRows,
     },
 }
@@ -1375,23 +1436,31 @@ impl SqlLocalSourceOutputFormat {
         }
         let columns = batch.column_names();
         let column_dtypes = batch.column_dtypes();
+        let column_arrow_dtypes = batch.column_arrow_dtypes();
         let rows = batch.to_rows();
-        self.render_normalized_rows(&columns, &column_dtypes, &rows)
+        self.render_normalized_rows(&columns, &column_dtypes, &column_arrow_dtypes, &rows)
     }
 
     fn render_normalized_rows(
         self,
         columns: &[String],
         column_dtypes: &[Option<LogicalDType>],
+        column_arrow_dtypes: &[Option<DataType>],
         rows: &[SqlOutputRow],
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
             Self::InlineJsonl => Ok(render_jsonl_output_rows(columns, rows).into_bytes()),
             Self::Csv => Ok(render_csv_output_rows(columns, rows).into_bytes()),
-            Self::Parquet => encode_parquet_output_rows(columns, column_dtypes, rows),
-            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, column_dtypes, rows),
-            Self::Avro => encode_avro_output_rows(columns, column_dtypes, rows),
-            Self::Orc => encode_orc_output_rows(columns, column_dtypes, rows),
+            Self::Parquet => {
+                encode_parquet_output_rows(columns, column_dtypes, column_arrow_dtypes, rows)
+            }
+            Self::ArrowIpc => {
+                encode_arrow_ipc_output_rows(columns, column_dtypes, column_arrow_dtypes, rows)
+            }
+            Self::Avro => {
+                encode_avro_output_rows(columns, column_dtypes, column_arrow_dtypes, rows)
+            }
+            Self::Orc => encode_orc_output_rows(columns, column_dtypes, column_arrow_dtypes, rows),
             Self::Vortex => Err(unsupported_sql_error(
                 "local Vortex SQL output uses the Vortex writer path, not byte rendering",
             )),
@@ -2913,6 +2982,7 @@ impl LocalSourceProjectionPushdownStatus {
 struct LocalSourceReadContent {
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
     rows: Vec<ExpressionInputRow>,
     reader_projection_columns: Option<Vec<String>>,
     source_to_columnar_millis: u128,
@@ -2929,9 +2999,11 @@ impl LocalSourceReadContent {
         rows: Vec<ExpressionInputRow>,
     ) -> Self {
         let column_dtypes = vec![None; header.len()];
+        let column_arrow_dtypes = vec![None; header.len()];
         Self {
             header,
             column_dtypes,
+            column_arrow_dtypes,
             rows,
             reader_projection_columns: None,
             source_to_columnar_millis: 0,
@@ -2946,6 +3018,7 @@ impl LocalSourceReadContent {
     fn columnar_then_scalar(
         header: Vec<String>,
         column_dtypes: Vec<Option<LogicalDType>>,
+        column_arrow_dtypes: Vec<Option<DataType>>,
         rows: Vec<ExpressionInputRow>,
         reader_projection_columns: Vec<String>,
         source_to_columnar_millis: u128,
@@ -2954,6 +3027,7 @@ impl LocalSourceReadContent {
         Self {
             header,
             column_dtypes,
+            column_arrow_dtypes,
             rows,
             reader_projection_columns: Some(reader_projection_columns),
             source_to_columnar_millis,
@@ -2971,6 +3045,7 @@ struct CsvSourceData {
     source_format: LocalSourceFormat,
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
     rows: Vec<ExpressionInputRow>,
     read_plan: LocalSourceReadPlan,
     materialized_columns: Vec<String>,
@@ -5431,6 +5506,13 @@ fn output_column_dtypes(
     parsed.output_column_dtypes(&source.header, &source.column_dtypes)
 }
 
+fn output_column_arrow_dtypes(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Vec<Option<DataType>> {
+    parsed.output_column_arrow_dtypes(&source.header, &source.column_arrow_dtypes)
+}
+
 fn scoped_flat_scalar_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
     vortex_flat_scalar_family_from_dtype(dtype).map(|_| dtype.clone())
 }
@@ -5453,6 +5535,20 @@ fn source_column_output_dtype_hint(
         .and_then(|index| source_dtypes.get(index))
         .and_then(Option::as_ref)
         .and_then(scoped_source_output_dtype_hint)
+}
+
+fn source_column_output_arrow_dtype_hint(
+    header: &[String],
+    source_arrow_dtypes: &[Option<DataType>],
+    column: &str,
+) -> Option<DataType> {
+    header
+        .iter()
+        .position(|candidate| candidate == column)
+        .and_then(|index| source_arrow_dtypes.get(index))
+        .and_then(Option::as_ref)
+        .filter(|dtype| arrow_dtype_is_complex(dtype))
+        .cloned()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8115,9 +8211,11 @@ fn run_sql_local_source_smoke_single(
     let evidence_start = Instant::now();
     let output_columns = output_column_names(&parsed, &source);
     let output_column_dtypes = output_column_dtypes(&parsed, &source);
-    let result_batch_state = SqlResultBatchState::from_rows_with_dtypes(
+    let output_column_arrow_dtypes = output_column_arrow_dtypes(&parsed, &source);
+    let result_batch_state = SqlResultBatchState::from_rows_with_schema_hints(
         &output_columns,
         &output_column_dtypes,
+        &output_column_arrow_dtypes,
         &evaluated_output.output_rows,
     )?;
     let output_plan = SqlOutputPlanRequirements::plan(request, &result_batch_state)?;
@@ -13515,6 +13613,7 @@ fn prepare_sql_outputs(
     };
     let columns = batch.column_names();
     let column_dtypes = batch.column_dtypes();
+    let column_arrow_dtypes = batch.column_arrow_dtypes();
     let rows = batch.to_rows();
     let shared_conversion_millis = shared_start.elapsed().as_millis();
     let mut terminal_conversion_millis = 0;
@@ -13522,7 +13621,13 @@ fn prepare_sql_outputs(
         .sinks
         .iter()
         .map(|sink| {
-            let rendered = prepare_sql_output_from_shared(sink, &columns, &column_dtypes, &rows)?;
+            let rendered = prepare_sql_output_from_shared(
+                sink,
+                &columns,
+                &column_dtypes,
+                &column_arrow_dtypes,
+                &rows,
+            )?;
             terminal_conversion_millis += rendered.conversion_millis;
             Ok(rendered)
         })
@@ -13545,6 +13650,7 @@ fn prepare_sql_output_from_shared(
     sink: &SqlOutputPlanSinkRequirement,
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[SqlOutputRow],
 ) -> Result<SqlRenderedOutput, ShardLoomError> {
     let conversion_start = Instant::now();
@@ -13552,12 +13658,16 @@ fn prepare_sql_output_from_shared(
         SqlOutputPayload::Vortex {
             columns: columns.to_vec(),
             column_dtypes: column_dtypes.to_vec(),
+            column_arrow_dtypes: column_arrow_dtypes.to_vec(),
             rows: rows.to_vec(),
         }
     } else {
-        let content = sink
-            .format
-            .render_normalized_rows(columns, column_dtypes, rows)?;
+        let content = sink.format.render_normalized_rows(
+            columns,
+            column_dtypes,
+            column_arrow_dtypes,
+            rows,
+        )?;
         let digest = fnv64_digest_bytes(&content);
         let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
         SqlOutputPayload::Bytes {
@@ -14285,6 +14395,7 @@ fn write_sql_output(
         SqlOutputPayload::Vortex {
             columns,
             column_dtypes,
+            column_arrow_dtypes,
             rows,
         } => write_sql_vortex_output(
             SqlVortexOutputWriteRequest {
@@ -14292,6 +14403,7 @@ fn write_sql_output(
                 path: rendered.path,
                 columns,
                 column_dtypes,
+                column_arrow_dtypes,
                 rows,
                 plan_conversion_millis: rendered.conversion_millis,
                 allow_overwrite,
@@ -14306,6 +14418,7 @@ struct SqlVortexOutputWriteRequest {
     path: PathBuf,
     columns: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
     rows: SqlOutputRows,
     plan_conversion_millis: u128,
     allow_overwrite: bool,
@@ -14320,6 +14433,7 @@ fn write_sql_vortex_output(
         path,
         columns,
         column_dtypes,
+        column_arrow_dtypes,
         rows,
         plan_conversion_millis,
         allow_overwrite,
@@ -14329,6 +14443,12 @@ fn write_sql_vortex_output(
     let mut request = shardloom_vortex::VortexPreparedStateWriteRequest::new(&path, columns, rows)
         .column_dtypes(column_dtypes)
         .allow_overwrite(allow_overwrite);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        request = request.column_arrow_dtypes(column_arrow_dtypes);
+    }
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    let _ = column_arrow_dtypes;
     if let Some(advisor) = output_layout_write_advisor.vortex_writer_advisor() {
         request = request.layout_write_advisor(advisor.clone());
     }
@@ -16803,6 +16923,20 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn output_column_arrow_dtypes(
+        &self,
+        header: &[String],
+        source_arrow_dtypes: &[Option<DataType>],
+    ) -> Vec<Option<DataType>> {
+        if self.is_grouped_aggregate() {
+            std::iter::repeat_n(None, self.output_columns(header).len()).collect()
+        } else if self.is_aggregate() {
+            std::iter::repeat_n(None, self.aggregates.len()).collect()
+        } else {
+            self.projection_output_arrow_dtypes(header, source_arrow_dtypes)
+        }
+    }
+
     fn having_evaluation_columns(&self, header: &[String]) -> Vec<String> {
         let mut columns = self.output_columns(header);
         columns.extend(
@@ -16914,6 +17048,55 @@ impl ParsedSqlLocalSource {
                 ParsedProjectionOutput::BinaryHelper(_) => {
                     output_dtypes.push(Some(LogicalDType::Binary));
                 }
+            }
+        }
+        output_dtypes
+    }
+
+    fn projection_output_arrow_dtypes(
+        &self,
+        header: &[String],
+        source_arrow_dtypes: &[Option<DataType>],
+    ) -> Vec<Option<DataType>> {
+        let mut output_dtypes = Vec::new();
+        for output in &self.projection_order {
+            match output {
+                ParsedProjectionOutput::Raw(column) if column == "*" => {
+                    output_dtypes.extend(header.iter().enumerate().map(|(index, _column)| {
+                        source_arrow_dtypes
+                            .get(index)
+                            .and_then(Option::as_ref)
+                            .filter(|dtype| arrow_dtype_is_complex(dtype))
+                            .cloned()
+                    }));
+                }
+                ParsedProjectionOutput::Raw(column) => {
+                    output_dtypes.push(source_column_output_arrow_dtype_hint(
+                        header,
+                        source_arrow_dtypes,
+                        column,
+                    ));
+                }
+                ParsedProjectionOutput::Literal(_)
+                | ParsedProjectionOutput::Complex(_)
+                | ParsedProjectionOutput::Cast(_)
+                | ParsedProjectionOutput::NullCoalesce(_)
+                | ParsedProjectionOutput::NullIf(_)
+                | ParsedProjectionOutput::Conditional(_)
+                | ParsedProjectionOutput::Predicate(_)
+                | ParsedProjectionOutput::NumericArithmetic(_)
+                | ParsedProjectionOutput::NumericAbs(_)
+                | ParsedProjectionOutput::NumericRounding(_)
+                | ParsedProjectionOutput::GenericExpression(_)
+                | ParsedProjectionOutput::DateArithmetic(_)
+                | ParsedProjectionOutput::TimestampArithmetic(_)
+                | ParsedProjectionOutput::StringLength(_)
+                | ParsedProjectionOutput::StringTransform(_)
+                | ParsedProjectionOutput::StringFunction(_)
+                | ParsedProjectionOutput::BinaryHelper(_)
+                | ParsedProjectionOutput::DateExtract(_)
+                | ParsedProjectionOutput::TimestampExtract(_)
+                | ParsedProjectionOutput::Window(_) => output_dtypes.push(None),
             }
         }
         output_dtypes
@@ -27618,6 +27801,11 @@ impl SqlLocalSourceReport {
             .contains_all_null_complex_dtype_without_child_schema()
         {
             "blocked_missing_child_schema_evidence_for_all_null_typed_nested_column"
+        } else if self
+            .result_batch_state
+            .contains_all_null_complex_dtype_with_child_schema()
+        {
+            "present_from_source_schema_child_fields_for_all_null_typed_nested_column"
         } else {
             "present_from_non_null_nested_values_or_source_schema"
         }
@@ -28271,6 +28459,7 @@ fn read_local_source_with_plan_and_adapter(
     let LocalSourceReadContent {
         header,
         column_dtypes,
+        column_arrow_dtypes,
         mut rows,
         reader_projection_columns,
         source_to_columnar_millis,
@@ -28289,6 +28478,7 @@ fn read_local_source_with_plan_and_adapter(
         source_format,
         header,
         column_dtypes,
+        column_arrow_dtypes,
         rows,
         read_plan: read_plan.clone(),
         materialized_columns,
@@ -28365,6 +28555,7 @@ where
     Ok(LocalSourceReadContent::columnar_then_scalar(
         table.header,
         table.column_dtypes,
+        table.column_arrow_dtypes,
         table.rows,
         table.reader_projection_columns,
         source_to_columnar_millis,
@@ -37065,15 +37256,22 @@ fn is_identifier_char(ch: char) -> bool {
 fn encode_parquet_output_rows(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_parquet_rows_with_dtypes(columns, column_dtypes, rows)
+    shardloom_vortex::encode_flat_parquet_rows_with_arrow_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_parquet_output_rows(
     _columns: &[String],
     _column_dtypes: &[Option<LogicalDType>],
+    _column_arrow_dtypes: &[Option<DataType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -37085,15 +37283,22 @@ fn encode_parquet_output_rows(
 fn encode_arrow_ipc_output_rows(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_arrow_ipc_rows_with_dtypes(columns, column_dtypes, rows)
+    shardloom_vortex::encode_flat_arrow_ipc_rows_with_arrow_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_arrow_ipc_output_rows(
     _columns: &[String],
     _column_dtypes: &[Option<LogicalDType>],
+    _column_arrow_dtypes: &[Option<DataType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -37105,15 +37310,22 @@ fn encode_arrow_ipc_output_rows(
 fn encode_avro_output_rows(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_avro_rows_with_dtypes(columns, column_dtypes, rows)
+    shardloom_vortex::encode_flat_avro_rows_with_arrow_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_avro_output_rows(
     _columns: &[String],
     _column_dtypes: &[Option<LogicalDType>],
+    _column_arrow_dtypes: &[Option<DataType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -37125,15 +37337,22 @@ fn encode_avro_output_rows(
 fn encode_orc_output_rows(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
-    shardloom_vortex::encode_flat_orc_rows_with_dtypes(columns, column_dtypes, rows)
+    shardloom_vortex::encode_flat_orc_rows_with_arrow_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn encode_orc_output_rows(
     _columns: &[String],
     _column_dtypes: &[Option<LogicalDType>],
+    _column_arrow_dtypes: &[Option<DataType>],
     _rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
@@ -37226,7 +37445,7 @@ fn validate_flat_scalar_result_batch(
         && !format.preserves_typed_complex()
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred",
+            "local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred from non-null values or carried from source-schema child fields",
             format.sink_format()
         )));
     }
@@ -37252,7 +37471,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_complex_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred",
+            "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred from non-null values or carried from source-schema child fields",
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
@@ -37360,6 +37579,16 @@ fn scalar_value_is_complex(value: &ScalarValue) -> bool {
 
 fn logical_dtype_is_complex(dtype: &LogicalDType) -> bool {
     matches!(dtype, LogicalDType::List | LogicalDType::Struct)
+}
+
+fn arrow_dtype_is_complex(dtype: &DataType) -> bool {
+    matches!(
+        dtype,
+        DataType::List(_)
+            | DataType::LargeList(_)
+            | DataType::FixedSizeList(_, _)
+            | DataType::Struct(_)
+    )
 }
 
 fn json_escape(value: &str) -> String {
@@ -40876,6 +41105,52 @@ mod tests {
                     .contains("external_engine_invoked=false")
             );
         }
+    }
+
+    #[test]
+    fn all_null_typed_nested_sink_with_child_schema_admits_structured_writers_except_orc() {
+        use std::sync::Arc;
+
+        use arrow_schema::Field;
+
+        let all_null_complex_batch = SqlResultBatchState::from_rows_with_schema_hints(
+            &["values".to_string()],
+            &[Some(LogicalDType::List)],
+            &[Some(DataType::List(Arc::new(Field::new_list_field(
+                DataType::Int64,
+                true,
+            ))))],
+            &[
+                vec![("values".to_string(), ScalarValue::Null)],
+                vec![("values".to_string(), ScalarValue::Null)],
+            ],
+        )
+        .expect("all-null typed complex result batch with child schema");
+
+        assert!(all_null_complex_batch.contains_complex_values());
+        assert!(all_null_complex_batch.contains_all_null_complex_dtype_with_child_schema());
+        assert!(!all_null_complex_batch.contains_all_null_complex_dtype_without_child_schema());
+        for format in [
+            SqlLocalSourceOutputFormat::Parquet,
+            SqlLocalSourceOutputFormat::ArrowIpc,
+            SqlLocalSourceOutputFormat::Avro,
+        ] {
+            assert_eq!(
+                sql_output_plan_conversion_blocker(format, &all_null_complex_batch),
+                None,
+                "expected {} to admit all-null nested output with source child-schema evidence",
+                format.sink_format()
+            );
+            validate_sql_output_plan_sink(format, &all_null_complex_batch)
+                .expect("all-null nested sink with child schema is admitted");
+        }
+        assert_eq!(
+            sql_output_plan_conversion_blocker(
+                SqlLocalSourceOutputFormat::Orc,
+                &all_null_complex_batch
+            ),
+            Some("typed_complex_preservation_not_admitted")
+        );
     }
 
     #[test]

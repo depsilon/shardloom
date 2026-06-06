@@ -683,12 +683,13 @@ plan before coding.
   GAR-RUNTIME-IMPL-6D evidence also admits scoped feature-gated Arrow list/large-list/
   fixed-size-list and struct source decoding into JSONL and CSV JSON-text result boundaries, plus
   scoped typed nested compatibility sink preservation through Parquet, Arrow IPC, Avro, and scoped
-  local Vortex when one stable nested Arrow dtype can be inferred. All-null typed nested structured
-  sinks without child-schema evidence now fail closed with
+  local Vortex when one stable nested Arrow dtype can be inferred from non-null values or carried
+  from raw source-column child-schema evidence. All-null typed nested structured sinks without
+  child-schema evidence now fail closed with
   `typed_complex_child_schema_not_admitted`; complex accessors, casts, subquery membership, broad
-  nested ordering, ORC nested output, all-null typed nested Vortex output without child-schema
-  evidence, complex-key joins, broader non-scalar join predicates, and broader variant/union
-  semantics still fail before fallback.
+  nested ordering, ORC nested output, all-null typed nested output without child-schema evidence,
+  complex-key joins, broader non-scalar join predicates, and broader variant/union semantics still
+  fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit

@@ -24,6 +24,8 @@ use arrow_array::{
     LargeStringArray, StringArray, StringViewArray, TimestampMicrosecondArray, UInt8Array,
     UInt16Array, UInt32Array, UInt64Array,
 };
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use arrow_schema::DataType as ArrowDataType;
 use shardloom_core::{
     LogicalDType, Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport,
 };
@@ -1859,6 +1861,8 @@ pub struct VortexPreparedStateWriteRequest {
     pub target_path: PathBuf,
     pub columns: Vec<String>,
     pub column_dtypes: Vec<Option<LogicalDType>>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub column_arrow_dtypes: Vec<Option<ArrowDataType>>,
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
@@ -1935,10 +1939,14 @@ impl VortexPreparedStateWriteRequest {
         rows: Vec<Vec<(String, ScalarValue)>>,
     ) -> Self {
         let column_dtypes = vec![None; columns.len()];
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        let column_arrow_dtypes = vec![None; columns.len()];
         Self {
             target_path: target_path.into(),
             columns,
             column_dtypes,
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            column_arrow_dtypes,
             rows,
             allow_overwrite: false,
             certification_level: VortexIngestCertificationLevel::IngestCertified,
@@ -1951,6 +1959,15 @@ impl VortexPreparedStateWriteRequest {
     #[must_use]
     pub fn column_dtypes(mut self, column_dtypes: Vec<Option<LogicalDType>>) -> Self {
         self.column_dtypes = column_dtypes;
+        self
+    }
+
+    /// Attach source-schema Arrow dtype hints for scoped typed nested output
+    /// columns.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[must_use]
+    pub fn column_arrow_dtypes(mut self, column_arrow_dtypes: Vec<Option<ArrowDataType>>) -> Self {
+        self.column_arrow_dtypes = column_arrow_dtypes;
         self
     }
 
@@ -5486,6 +5503,8 @@ pub fn write_flat_scalar_vortex_prepared_state(
     let array_build = flat_rows_to_vortex_struct(
         &request.columns,
         &request.column_dtypes,
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        &request.column_arrow_dtypes,
         &request.rows,
         &column_families,
     )?;
@@ -6633,6 +6652,8 @@ fn unexpected_columnar_array(column: &str, family: &str, array: &dyn Array) -> S
 fn flat_rows_to_vortex_struct(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    column_arrow_dtypes: &[Option<ArrowDataType>],
     rows: &[Vec<(String, ScalarValue)>],
     column_families: &[(String, String)],
 ) -> Result<ScalarVortexArrayBuild> {
@@ -6642,7 +6663,13 @@ fn flat_rows_to_vortex_struct(
     use vortex::array::validity::Validity;
 
     if scalar_column_families_include_typed_complex(column_families) {
-        let array = scalar_rows_to_vortex_from_arrow_provider(columns, column_dtypes, rows)?;
+        let array = scalar_rows_to_vortex_from_arrow_provider(
+            columns,
+            column_dtypes,
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            column_arrow_dtypes,
+            rows,
+        )?;
         return Ok(ScalarVortexArrayBuild {
             array,
             provider_kind: "vortex_array_kernel",
@@ -6695,6 +6722,7 @@ fn flat_rows_to_vortex_struct(
 fn scalar_rows_to_vortex_from_arrow_provider(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<ArrowDataType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::arrow::FromArrowArray as _;
@@ -6702,6 +6730,7 @@ fn scalar_rows_to_vortex_from_arrow_provider(
     let batch = crate::universal_format_io::flat_rows_to_record_batch_with_dtypes(
         columns,
         column_dtypes,
+        column_arrow_dtypes,
         rows,
         "local Vortex typed nested output",
     )?;
@@ -8211,6 +8240,7 @@ mod tests {
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
             column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -8326,6 +8356,7 @@ mod tests {
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
             column_dtypes: vec![None, Some(LogicalDType::Binary)],
+            column_arrow_dtypes: vec![None, Some(arrow_schema::DataType::Binary)],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -8564,6 +8595,7 @@ mod tests {
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
             column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -8608,6 +8640,7 @@ mod tests {
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
             column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
@@ -8661,6 +8694,7 @@ mod tests {
         let source = FlatLocalColumnarSource {
             header: columns.clone(),
             column_dtypes: vec![None; columns.len()],
+            column_arrow_dtypes: vec![None; columns.len()],
             materialized_columns: columns.clone(),
             reader_projection_columns: columns,
             batches: vec![batch],
