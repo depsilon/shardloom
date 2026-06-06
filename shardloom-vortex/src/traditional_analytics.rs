@@ -76,6 +76,8 @@ const VORTEX_WRITER_CONTEXT_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_writer_context.v1";
 const VORTEX_WRITE_PLAN_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_write_plan.v1";
+const VORTEX_WRITE_STRATEGY_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.vortex_write_strategy.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.allocation_buffer_pool.v1";
 const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
@@ -6367,6 +6369,47 @@ impl TraditionalAnalyticsReport {
             (
                 "vortex_write_micros".to_string(),
                 self.vortex_write_micros.to_string(),
+            ),
+            (
+                "vortex_write_strategy_schema_version".to_string(),
+                VORTEX_WRITE_STRATEGY_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "vortex_write_strategy_status".to_string(),
+                "reported".to_string(),
+            ),
+            (
+                "vortex_write_strategy".to_string(),
+                "upstream_vortex_table_flat_leaf_strategy".to_string(),
+            ),
+            (
+                "vortex_write_strategy_provider_surface".to_string(),
+                "VortexWriteOptions::with_strategy(TableStrategy<FlatLayoutStrategy>)".to_string(),
+            ),
+            (
+                "vortex_write_strategy_compression".to_string(),
+                "disabled_for_local_benchmark_preparation_latency".to_string(),
+            ),
+            (
+                "vortex_write_strategy_metadata_status".to_string(),
+                "native_vortex_file_statistics_and_writer_summary_preserved".to_string(),
+            ),
+            (
+                "vortex_write_strategy_payload_tradeoff".to_string(),
+                "larger_uncompressed_payload_accepted_for_local_preparation_latency_probe"
+                    .to_string(),
+            ),
+            (
+                "vortex_write_strategy_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_write_strategy_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "vortex_write_strategy_claim_boundary".to_string(),
+                "native Vortex writer-strategy evidence explains local benchmark preparation latency and payload-size tradeoffs only; no production layout, superiority, or Spark-displacement claim is authorized".to_string(),
             ),
             (
                 "vortex_writer_context_schema_version".to_string(),
@@ -24104,6 +24147,16 @@ struct TraditionalVortexWriteOutcome {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_vortex_write_strategy() -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    let flat_strategy: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
+        std::sync::Arc::new(vortex::layout::layouts::flat::writer::FlatLayoutStrategy::default());
+    std::sync::Arc::new(vortex::layout::layouts::table::TableStrategy::new(
+        std::sync::Arc::clone(&flat_strategy),
+        flat_strategy,
+    ))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalVortexIoContext {
     fn new() -> Self {
         use vortex::VortexSessionDefault as _;
@@ -24151,6 +24204,7 @@ impl TraditionalVortexIoContext {
                     let result = self
                         .session
                         .write_options()
+                        .with_strategy(traditional_vortex_write_strategy())
                         .blocking(&self.runtime)
                         .write(writer, array.to_array_iterator())
                         .map_err(vortex_error);
@@ -35323,6 +35377,38 @@ mod tests {
             &fields,
             "vortex_write_row_count_source",
             "vortex_writer_summary_row_count",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy_schema_version",
+            VORTEX_WRITE_STRATEGY_SCHEMA_VERSION,
+        );
+        assert_field_eq(&fields, "vortex_write_strategy_status", "reported");
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy",
+            "upstream_vortex_table_flat_leaf_strategy",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy_provider_surface",
+            "VortexWriteOptions::with_strategy(TableStrategy<FlatLayoutStrategy>)",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy_compression",
+            "disabled_for_local_benchmark_preparation_latency",
+        );
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy_metadata_status",
+            "native_vortex_file_statistics_and_writer_summary_preserved",
+        );
+        assert_field_eq(&fields, "vortex_write_strategy_fallback_attempted", "false");
+        assert_field_eq(
+            &fields,
+            "vortex_write_strategy_external_engine_invoked",
+            "false",
         );
         for field in [
             "source_stat_micros",

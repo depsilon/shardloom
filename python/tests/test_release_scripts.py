@@ -2310,6 +2310,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_parse_micros": "1773",
                 "compatibility_to_vortex_import_micros": "25207",
                 "vortex_write_micros": "21850",
+                "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
+                "vortex_write_strategy_fallback_attempted": "false",
                 "exclusive_vortex_write_micros": "21850",
                 "total_runtime_micros": "26108",
                 "evidence_render_micros": "182",
@@ -2324,6 +2326,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_parse_micros": "1773",
                 "compatibility_to_vortex_import_micros": "25207",
                 "vortex_write_micros": "21850",
+                "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
+                "vortex_write_strategy_fallback_attempted": "false",
                 "exclusive_vortex_write_micros": "21850",
             },
         )
