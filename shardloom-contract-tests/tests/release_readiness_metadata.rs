@@ -3739,7 +3739,7 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "ShardLoom's website is a static interpretation layer",
         "The repository remains authoritative",
         "current site source is `website-src/`",
-        "PERF-INNOV-5 scoped local optimization artifacts remain phase-plan evidence",
+        "PERF-INNOV-5 hot-runtime metadata rows and full-local publication-proof rows",
     ] {
         assert!(
             website_plan.contains(required),
