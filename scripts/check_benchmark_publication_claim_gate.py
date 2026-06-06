@@ -545,6 +545,22 @@ def shardloom_claim_gate(row: dict[str, Any]) -> str:
     return "missing"
 
 
+def shardloom_publication_claim_required(row: dict[str, Any]) -> bool:
+    timing_surface = str(field_value(row, "timing_surface") or "")
+    evidence_tier = str(
+        field_value(row, "actual_evidence_tier")
+        or field_value(row, "timing_surface_evidence_tier")
+        or ""
+    )
+    return timing_surface == "publication_proof" or evidence_tier == "publication_full"
+
+
+def shardloom_runtime_envelope_required(row: dict[str, Any]) -> bool:
+    timing_surface = str(field_value(row, "timing_surface") or "")
+    claim_gate = shardloom_claim_gate(row)
+    return not (timing_surface == "hot_runtime" and claim_gate != "claim_grade")
+
+
 def independent_claim_grade_missing_evidence(row: dict[str, Any]) -> list[str]:
     missing: list[str] = []
     if (
@@ -614,18 +630,21 @@ def independent_claim_grade_missing_evidence(row: dict[str, Any]) -> list[str]:
         != field_value(row, "evidence_timing_included_in_total")
     ):
         missing.append("evidence_render_included_in_route_total mismatch")
+    timing_surface = str(field_value(row, "timing_surface") or "")
     if (
         str(field_value(row, "engine") or "").startswith("shardloom")
+        and timing_surface in {"full_replay_proof", "publication_proof"}
         and bool_value(field_value(row, "includes_output")) is True
         and bool_value(field_value(row, "output_timing_included_in_total")) is not True
     ):
-        missing.append("includes_output but output_timing_included_in_total!=true")
+        missing.append("proof timing surface includes_output but output_timing_included_in_total!=true")
     if (
         str(field_value(row, "engine") or "").startswith("shardloom")
+        and timing_surface == "publication_proof"
         and bool_value(field_value(row, "includes_evidence")) is True
         and bool_value(field_value(row, "evidence_timing_included_in_total")) is not True
     ):
-        missing.append("includes_evidence but evidence_timing_included_in_total!=true")
+        missing.append("publication_proof includes_evidence but evidence_timing_included_in_total!=true")
     if field_value(row, "evidence_required_for_claim") is not True:
         missing.append("evidence_required_for_claim!=true")
     if str(field_value(row, "certificate_link_status") or "") != "linked_certified_runtime_execution":
@@ -810,6 +829,7 @@ def validate_profile_and_rows(
     unsupported_external_examples: list[str] = []
     independent_claim_examples: list[str] = []
     reuse_evidence_examples: list[str] = []
+    shardloom_rows: list[dict[str, Any]] = []
     missing_independent_claim_proof_count = 0
 
     if profile not in PROFILES:
@@ -913,8 +933,11 @@ def validate_profile_and_rows(
                 f"{index}:{engine}:route_runtime_status={route_status!r}"
             )
         if engine.startswith("shardloom"):
+            shardloom_rows.append(row)
+            timing_surface = str(field_value(row, "timing_surface") or "")
             if (
-                bool_value(field_value(row, "includes_output")) is True
+                timing_surface in {"full_replay_proof", "publication_proof"}
+                and bool_value(field_value(row, "includes_output")) is True
                 and bool_value(field_value(row, "output_timing_included_in_total")) is not True
                 and len(invalid_route_examples) < 5
             ):
@@ -922,7 +945,8 @@ def validate_profile_and_rows(
                     f"{index}:{engine}:includes output but excludes output timing"
                 )
             if (
-                bool_value(field_value(row, "includes_evidence")) is True
+                timing_surface == "publication_proof"
+                and bool_value(field_value(row, "includes_evidence")) is True
                 and bool_value(field_value(row, "evidence_timing_included_in_total")) is not True
                 and len(invalid_route_examples) < 5
             ):
@@ -1112,27 +1136,31 @@ def validate_profile_and_rows(
                         reuse_evidence_examples.append(
                             f"{index}:{engine}:invalid_workspace_manifest_contract"
                         )
-        runtime_validation = validate_runtime_execution_fields(
-            runtime_validation_field_map(row),
-            command="published-benchmark-row",
-            status=status,
-            surface_id=(
-                "benchmark_publication."
-                f"{engine}.{storage_format or 'unknown'}.{index}"
-            ),
-            runtime_expected=status == "success",
-            execution_mode=str(row.get("selected_execution_mode") or "") or None,
-        )
-        runtime_validation_counts[runtime_validation.status] += 1
-        if runtime_validation.status != "passed" and len(runtime_validation_examples) < 5:
-            runtime_validation_examples.append(
-                f"{index}:{engine}:{storage_format}:"
-                + "; ".join(runtime_validation.blockers)
+        if shardloom_runtime_envelope_required(row):
+            runtime_validation = validate_runtime_execution_fields(
+                runtime_validation_field_map(row),
+                command="published-benchmark-row",
+                status=status,
+                surface_id=(
+                    "benchmark_publication."
+                    f"{engine}.{storage_format or 'unknown'}.{index}"
+                ),
+                runtime_expected=status == "success",
+                execution_mode=str(row.get("selected_execution_mode") or "") or None,
             )
-        if claim_gate == "claim_grade" and not runtime_validation.runtime_claim_allowed:
-            if len(runtime_claim_examples) < 5:
-                runtime_claim_examples.append(f"{index}:{engine}:{storage_format}")
-        if status == "success":
+            runtime_validation_counts[runtime_validation.status] += 1
+            if (
+                runtime_validation.status != "passed"
+                and len(runtime_validation_examples) < 5
+            ):
+                runtime_validation_examples.append(
+                    f"{index}:{engine}:{storage_format}:"
+                    + "; ".join(runtime_validation.blockers)
+                )
+            if claim_gate == "claim_grade" and not runtime_validation.runtime_claim_allowed:
+                if len(runtime_claim_examples) < 5:
+                    runtime_claim_examples.append(f"{index}:{engine}:{storage_format}")
+        if status == "success" and claim_gate == "claim_grade":
             independent_missing = independent_claim_grade_missing_evidence(row)
             if independent_missing:
                 missing_independent_claim_proof_count += 1
@@ -1144,10 +1172,14 @@ def validate_profile_and_rows(
         if status in BLOCKING_SHARDLOOM_STATUSES or status != "success":
             if len(non_success_examples) < 5:
                 non_success_examples.append(f"{index}:{engine}:{status}")
-        if claim_gate != "claim_grade":
+        publication_claim_required = shardloom_publication_claim_required(row)
+        if publication_claim_required and claim_gate != "claim_grade":
             if len(non_claim_examples) < 5:
                 non_claim_examples.append(f"{index}:{engine}:claim_gate_status={claim_gate}")
-        if field_value(row, "claim_grade_requirements_met") is not True:
+        if (
+            publication_claim_required
+            and field_value(row, "claim_grade_requirements_met") is not True
+        ):
             if len(requirements_examples) < 5:
                 requirements_examples.append(f"{index}:{engine}")
         if field_value(row, "fallback_attempted") is not False:
@@ -1223,14 +1255,19 @@ def validate_profile_and_rows(
             "ShardLoom publication rows with non-success status blocked: "
             f"{dict(sorted(non_success_statuses.items()))}; examples={non_success_examples}"
         )
+    publication_claim_counts = Counter(
+        shardloom_claim_gate(row)
+        for row in shardloom_rows
+        if shardloom_publication_claim_required(row)
+    )
     non_claim_grade = {
         claim_gate: count
-        for claim_gate, count in shardloom_claim_counts.items()
+        for claim_gate, count in publication_claim_counts.items()
         if claim_gate != "claim_grade"
     }
     if non_claim_grade:
         blockers.append(
-            "ShardLoom publication rows with non-claim-grade claim gate: "
+            "ShardLoom publication-proof rows with non-claim-grade claim gate: "
             f"{dict(sorted(non_claim_grade.items()))}; examples={non_claim_examples}"
         )
     if requirements_examples:

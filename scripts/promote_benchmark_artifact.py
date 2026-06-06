@@ -48,6 +48,7 @@ SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
 ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
 )
+ROUTE_TIMING_SURFACE_SCHEMA_VERSION = "shardloom.route_timing_surface.v1"
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 EVIDENCE_RENDER_PROOF_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.evidence_render_proof.v1"
@@ -212,6 +213,12 @@ WEBSITE_ROW_KEYS = (
     "prepared_route_observed_batch_count",
     "route_timing_ledger_schema_version",
     "route_timing_ledger_status",
+    "route_timing_surface_schema_version",
+    "timing_surface",
+    "timing_surface_label",
+    "timing_surface_evidence_tier",
+    "timing_surface_default_for_route",
+    "timing_surface_claim_boundary",
     "route_total_formula",
     "route_timing_scope",
     "stage_parent_id",
@@ -455,6 +462,11 @@ WEBSITE_ROW_KEYS = (
     "operator_compute_ms",
     "result_sink_write_ms",
     "evidence_render_ms",
+    "hot_route_total_ms",
+    "full_replay_proof_route_total_ms",
+    "publication_proof_route_total_ms",
+    "prepare_route_total_ms",
+    "prepare_cli_wall_ms",
     "total_route_ms",
     "query_runtime_millis",
     "total_runtime_millis",
@@ -497,6 +509,11 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "prepared_state_reuse_scope",
     "benchmark_timing_boundary",
     "benchmark_timing_status",
+    "route_timing_surface_schema_version",
+    "timing_surface",
+    "timing_surface_label",
+    "timing_surface_evidence_tier",
+    "timing_surface_default_for_route",
     "fallback_attempted",
     "external_engine_invoked",
     "claim_gate_status",
@@ -515,6 +532,11 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "operator_compute_ms",
     "result_sink_write_ms",
     "evidence_render_ms",
+    "hot_route_total_ms",
+    "full_replay_proof_route_total_ms",
+    "publication_proof_route_total_ms",
+    "prepare_route_total_ms",
+    "prepare_cli_wall_ms",
     "total_route_ms",
     "query_runtime_millis",
     "total_runtime_millis",
@@ -704,6 +726,21 @@ ROUTE_STAGE_DISPLAY_NAMES = {
     "result_sink_write_ms": "Result sink",
     "evidence_render_ms": "Evidence render",
 }
+TIMING_SURFACE_BY_EVIDENCE_TIER = {
+    "runtime_minimal": "hot_runtime",
+    "metadata_sink": "hot_runtime",
+    "full_vortex_replay": "full_replay_proof",
+    "publication_full": "publication_proof",
+}
+TIMING_SURFACE_LABELS = {
+    "hot_runtime": "Hot runtime",
+    "full_replay_proof": "Full replay proof",
+    "publication_proof": "Publication proof",
+    "external_baseline": "External baseline",
+    "unknown": "Unknown timing surface",
+}
+DEFAULT_ROUTE_TIMING_SURFACE = "hot_runtime"
+PROOF_TIMING_SURFACES = {"full_replay_proof", "publication_proof"}
 CANONICAL_ROUTE_TIMING_STAGES = (
     "source_admission",
     "source_read",
@@ -1056,6 +1093,14 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_BASE_SUMMARY,
         help="Existing website summary to preserve prepared/native batch evidence from.",
     )
+    parser.add_argument(
+        "--merge-existing-row-chunks",
+        action="store_true",
+        help=(
+            "Merge newly promoted rows with existing published row chunks in --output-dir. "
+            "Use for targeted hot-runtime refreshes that must preserve existing proof/publication rows."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1129,6 +1174,53 @@ def write_row_chunks(directory: Path, rows: list[dict[str, Any]]) -> list[dict[s
             }
         )
     return chunks
+
+
+def load_row_chunks(directory: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if not directory.exists():
+        return rows
+    for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
+        payload = load_json(path)
+        chunk_rows = payload.get("rows") if isinstance(payload, dict) else payload
+        if not isinstance(chunk_rows, list):
+            continue
+        rows.extend(row for row in chunk_rows if isinstance(row, dict))
+    return rows
+
+
+PUBLISHED_ROW_MERGE_KEY_FIELDS = (
+    "engine",
+    "scenario_id",
+    "scenario_name",
+    "storage_format",
+    "selected_execution_mode",
+    "route_lane_id",
+    "route_row_derivation_status",
+    "route_row_source_engine",
+    "route_row_source_lane_id",
+    "timing_surface",
+    "actual_evidence_tier",
+    "timing_surface_evidence_tier",
+)
+
+
+def published_row_merge_key(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(str(row.get(field) or "") for field in PUBLISHED_ROW_MERGE_KEY_FIELDS)
+
+
+def merge_published_rows(
+    existing_rows: list[dict[str, Any]],
+    new_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: dict[tuple[str, ...], dict[str, Any]] = {}
+    order: list[tuple[str, ...]] = []
+    for row in [*existing_rows, *new_rows]:
+        key = published_row_merge_key(row)
+        if key not in merged:
+            order.append(key)
+        merged[key] = row
+    return [merged[key] for key in order]
 
 
 def website_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1324,6 +1416,131 @@ def summed_numeric_millis_from_micros(
         total += parsed / 1000.0
         found = True
     return total if found else None
+
+
+def result_sink_timing_present(fields: dict[str, Any]) -> bool:
+    return any(
+        fields.get(field) not in {None, "", "none", "not_requested", "not_reported"}
+        for field in (
+            "computed_result_sink_write_micros",
+            "result_sink_write_micros",
+            "computed_result_sink_write_millis",
+            "result_sink_write_millis",
+            "result_sink_write_ms",
+        )
+    )
+
+
+def result_sink_replay_timing_present(fields: dict[str, Any]) -> bool:
+    return (
+        first_numeric_micros(
+            fields,
+            micros_keys=(
+                "computed_result_sink_replay_micros",
+                "result_sink_replay_micros",
+                "exclusive_result_sink_replay_micros",
+                "total_result_sink_replay_micros",
+                "batch_total_result_sink_replay_micros",
+            ),
+            millis_keys=(
+                "computed_result_sink_replay_millis",
+                "result_sink_replay_millis",
+                "exclusive_result_sink_replay_ms",
+            ),
+        )
+        is not None
+    )
+
+
+def result_sink_replay_verified(fields: dict[str, Any]) -> bool:
+    return any(
+        field_bool(fields, field, default=False)
+        or "replay_verified" in str(fields.get(field) or "").strip().lower()
+        for field in (
+            "computed_result_sink_replay_verified",
+            "evidence_level_result_sink_replay_verified",
+            "result_sink_replay_verified",
+            "prepared_vortex_scale_split_operator_output_commit_proof_status",
+        )
+    )
+
+
+def evidence_tier_for_fields(fields: dict[str, Any], engine: str) -> str:
+    if not is_shardloom_engine(engine):
+        return "external_baseline"
+    current_tier = str(fields.get("actual_evidence_tier") or "").strip()
+    requested_tier = str(fields.get("requested_evidence_tier") or "auto").strip()
+    evidence_level = str(
+        fields.get("evidence_level") or fields.get("selected_evidence_level") or ""
+    )
+    replay_timing_present = result_sink_replay_timing_present(fields)
+    sink_timing_present = result_sink_timing_present(fields)
+    claim_grade_publication = (
+        fields.get("claim_gate_status") == "claim_grade"
+        or fields.get("claim_grade_requirements_met") is True
+    )
+    if evidence_level == "minimal_runtime":
+        default_tier = "runtime_minimal"
+    elif evidence_level == "full_replay" and replay_timing_present:
+        default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
+    elif replay_timing_present and (
+        result_sink_replay_verified(fields) or sink_timing_present
+    ):
+        default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
+    else:
+        default_tier = "metadata_sink"
+    if current_tier in TIMING_SURFACE_BY_EVIDENCE_TIER:
+        replay_tier_without_timing = (
+            requested_tier == "auto"
+            and current_tier in {"full_vortex_replay", "publication_full"}
+            and not replay_timing_present
+        )
+        auto_upgrade = (
+            requested_tier == "auto"
+            and (
+                current_tier == "metadata_sink"
+                or (
+                    current_tier == "full_vortex_replay"
+                    and default_tier == "publication_full"
+                )
+            )
+            and default_tier in {"full_vortex_replay", "publication_full"}
+        )
+        if replay_tier_without_timing or auto_upgrade:
+            return default_tier
+        return current_tier
+    return default_tier
+
+
+def timing_surface_for_fields(fields: dict[str, Any], engine: str) -> str:
+    tier = evidence_tier_for_fields(fields, engine)
+    if tier == "external_baseline":
+        return "external_baseline"
+    return TIMING_SURFACE_BY_EVIDENCE_TIER.get(tier, "unknown")
+
+
+def timing_surface_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or fields.get("engine") or "")
+    evidence_tier = evidence_tier_for_fields(fields, engine)
+    surface = timing_surface_for_fields(fields, engine)
+    return {
+        "route_timing_surface_schema_version": ROUTE_TIMING_SURFACE_SCHEMA_VERSION,
+        "timing_surface": surface,
+        "timing_surface_label": TIMING_SURFACE_LABELS.get(surface, surface),
+        "timing_surface_default_for_route": (
+            surface == DEFAULT_ROUTE_TIMING_SURFACE
+            if is_shardloom_engine(engine)
+            else surface == "external_baseline"
+        ),
+        "timing_surface_evidence_tier": evidence_tier,
+        "timing_surface_claim_boundary": (
+            "hot_runtime excludes result-sink replay and human publication render; "
+            "full_replay_proof includes machine replay/output proof; publication_proof "
+            "includes result-sink and human evidence render timing. No performance claim "
+            "is valid unless the timing surface and evidence tier are stated."
+        ),
+    }
 
 
 def first_bool_field(
@@ -1752,6 +1969,8 @@ def route_identity_for_row(row: dict[str, Any]) -> dict[str, Any]:
 def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     fields = runtime_validation_field_map(row)
     identity = route_identity_for_row(row)
+    timing_surface_fields = timing_surface_fields_for_row(row)
+    timing_surface = str(timing_surface_fields["timing_surface"])
     route_lane_id = str(row.get("route_lane_id") or identity.get("route_lane_id") or "")
     is_shardloom = is_shardloom_engine(str(row.get("engine") or ""))
     total_runtime = route_total_runtime_millis(fields)
@@ -1929,8 +2148,9 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     evidence_render = (
         explicit_evidence_render if explicit_evidence_render is not None else evidence_render
     )
-    exclusive_stage_pairs = (
-        ("source_admission", source_admission_millis(fields)),
+    source_admission = source_admission_millis(fields)
+    hot_exclusive_stage_pairs = (
+        ("source_admission", source_admission),
         ("source_read", source_read),
         ("source_parse_or_decode", source_parse_or_decode),
         ("vortex_array_build", source_to_vortex_array),
@@ -1938,9 +2158,12 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ("vortex_digest", vortex_digest),
         ("vortex_reopen_verify", vortex_reopen_or_verify),
         ("prepared_query", prepared_query),
-        ("sink_output", result_sink_write),
-        ("evidence_render", evidence_render),
     )
+    exclusive_stage_pairs = list(hot_exclusive_stage_pairs)
+    if timing_surface in PROOF_TIMING_SURFACES:
+        exclusive_stage_pairs.append(("sink_output", result_sink_write))
+    if timing_surface == "publication_proof":
+        exclusive_stage_pairs.append(("evidence_render", evidence_render))
     exclusive_stage_values = (
         [
             (stage, value)
@@ -1962,19 +2185,53 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             "compatibility_to_vortex_import_micros",
         ),
     )
-    total_route = total_runtime
-    if route_lane_id == "prepare_once_batch" and query_runtime is not None:
-        total_route = (
-            query_runtime
-            + (amortized_preparation or 0.0)
-            + result_sink_write
-            + evidence_render
+    preparation_component_values = [
+        value
+        for value in (
+            source_admission,
+            source_read,
+            source_parse_or_decode,
+            source_to_vortex_array,
+            vortex_write,
+            vortex_digest,
+            vortex_reopen_or_verify,
         )
+        if value is not None and value >= 0.0
+    ]
+    preparation_component_total = (
+        sum(preparation_component_values) if preparation_component_values else None
+    )
+    hot_route_total = total_runtime
+    if route_lane_id == "prepare_once_first_query" and query_runtime is not None:
+        hot_route_total = (
+            query_runtime + preparation if preparation is not None else query_runtime
+        )
+    elif route_lane_id == "prepare_once_batch" and query_runtime is not None:
+        hot_route_total = query_runtime + (amortized_preparation or 0.0)
     elif (
         route_lane_id in {"warm_prepared_query", "native_vortex_query"}
         and query_runtime is not None
     ):
-        total_route = query_runtime + result_sink_write + evidence_render
+        hot_route_total = query_runtime
+    elif route_lane_id == "cold_certified_route":
+        if preparation_component_total is not None:
+            hot_route_total = preparation_component_total + (prepared_query or 0.0)
+    full_replay_proof_route_total = (
+        hot_route_total + result_sink_write if hot_route_total is not None else None
+    )
+    publication_proof_route_total = (
+        full_replay_proof_route_total + evidence_render
+        if full_replay_proof_route_total is not None
+        else None
+    )
+    if timing_surface == "hot_runtime":
+        total_route = hot_route_total
+    elif timing_surface == "full_replay_proof":
+        total_route = full_replay_proof_route_total
+    elif timing_surface == "publication_proof":
+        total_route = publication_proof_route_total
+    else:
+        total_route = total_runtime
     exclusive_residual = (
         round(total_route - exclusive_stage_sum, 4) if total_route is not None else None
     )
@@ -1992,10 +2249,10 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     )
     if not is_shardloom:
         exclusive_stage_timing_status = "external_baseline_only"
-    elif not exclusive_stage_values:
-        exclusive_stage_timing_status = "blocked_missing_stage_timing"
     elif requires_query_stage_split and not has_query_stage_split:
         exclusive_stage_timing_status = "blocked_missing_query_split"
+    elif not exclusive_stage_values:
+        exclusive_stage_timing_status = "blocked_missing_stage_timing"
     else:
         exclusive_stage_timing_status = "complete"
 
@@ -2088,6 +2345,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     derived_total_artifact_rows = sum(derived_artifact_rows_values)
 
     return {
+        **timing_surface_fields,
         "source_admission_ms": source_admission_millis(fields),
         "source_read_ms": source_read,
         "source_parse_or_columnar_decode_ms": source_parse_or_decode,
@@ -2293,6 +2551,20 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "operator_compute_ms": operator_compute,
         "result_sink_write_ms": result_sink_write,
         "evidence_render_ms": evidence_render,
+        "hot_route_total_ms": hot_route_total,
+        "full_replay_proof_route_total_ms": full_replay_proof_route_total,
+        "publication_proof_route_total_ms": publication_proof_route_total,
+        "prepare_route_total_ms": first_numeric_field(
+            fields, ("prepare_route_total_ms", "prepare_route_total_millis")
+        ),
+        "prepare_cli_wall_ms": first_numeric_field(
+            fields,
+            (
+                "prepare_cli_wall_ms",
+                "prepare_cli_wall_millis",
+                "preparation_cli_process_wall_millis",
+            ),
+        ),
         "total_route_ms": total_route,
         "exclusive_stage_timing_schema_version": exclusive_stage_timing_schema_version,
         "exclusive_stage_timing_status": exclusive_stage_timing_status,
@@ -3069,6 +3341,10 @@ def route_timing_ledger_fields_for_row(
     detailed_stage_ids = set(_stage_ids_with_values(stage_fields))
     output_delivery = output_delivery_millis(fields, stage_fields)
     evidence_render = evidence_render_route_millis(fields, stage_fields)
+    surface_fields = timing_surface_fields_for_row(row)
+    timing_surface = str(stage_fields.get("timing_surface") or surface_fields["timing_surface"])
+    output_for_surface = timing_surface in PROOF_TIMING_SURFACES
+    evidence_for_surface = timing_surface == "publication_proof"
 
     included_stage_ids: tuple[str, ...]
     scope: str
@@ -3079,96 +3355,109 @@ def route_timing_ledger_fields_for_row(
     evidence_included: bool
     included_total = total_route
 
+    def add_proof_stages(stage_ids: tuple[str, ...]) -> tuple[str, ...]:
+        result = list(stage_ids)
+        if output_for_surface:
+            result.append("result_sink_write_millis")
+        if evidence_for_surface:
+            result.append("evidence_render_millis")
+        return tuple(result)
+
+    def formula_suffix() -> str:
+        if timing_surface == "hot_runtime":
+            return ""
+        if timing_surface == "full_replay_proof":
+            return " + result_sink_write_millis"
+        if timing_surface == "publication_proof":
+            return " + result_sink_write_millis + evidence_render_millis"
+        return ""
+
     if lane_id == "prepare_once_first_query":
-        included_stage_ids = (
+        included_stage_ids = add_proof_stages((
             "prepare_batch_preparation_millis",
             "query_runtime_millis",
-            "result_sink_write_millis",
-            "evidence_render_millis",
-        )
-        scope = "prepare_once_first_query"
+        ))
+        scope = f"{timing_surface}:prepare_once_first_query"
         formula = (
-            "total_route_ms = prepare_batch_preparation_millis + query_runtime_millis "
-            "+ result_sink_write_millis + evidence_render_millis"
+            f"timing_surface={timing_surface}; total_route_ms = "
+            "prepare_batch_preparation_millis + query_runtime_millis"
+            f"{formula_suffix()}"
         )
         preparation_included = True
         query_included = True
-        output_included = True
-        evidence_included = True
-        included_total = (
-            preparation + query_runtime + output_delivery + evidence_render
-            if preparation is not None and query_runtime is not None
-            else total_route
-        )
+        output_included = output_for_surface
+        evidence_included = evidence_for_surface
+        included_total = total_route
     elif lane_id == "prepare_once_batch":
-        included_stage_ids = (
+        included_stage_ids = add_proof_stages((
             "amortized_prepare_batch_preparation_millis",
             "query_runtime_millis",
-            "result_sink_write_millis",
-            "evidence_render_millis",
-        )
-        scope = "prepare_once_batch_amortized"
+        ))
+        scope = f"{timing_surface}:prepare_once_batch_amortized"
         formula = (
-            "total_route_ms = amortized_prepare_batch_preparation_millis "
-            "+ query_runtime_millis + result_sink_write_millis + evidence_render_millis"
+            f"timing_surface={timing_surface}; total_route_ms = "
+            "amortized_prepare_batch_preparation_millis + query_runtime_millis"
+            f"{formula_suffix()}"
         )
         preparation_included = True
         query_included = True
-        output_included = True
-        evidence_included = True
-        included_total = (
-            amortized_preparation + query_runtime + output_delivery + evidence_render
-            if amortized_preparation is not None and query_runtime is not None
-            else total_route
-        )
+        output_included = output_for_surface
+        evidence_included = evidence_for_surface
+        included_total = total_route
     elif lane_id in {"warm_prepared_query", "native_vortex_query"}:
-        included_stage_ids = (
-            "query_runtime_millis",
-            "result_sink_write_millis",
-            "evidence_render_millis",
-        )
+        included_stage_ids = add_proof_stages(("query_runtime_millis",))
         scope = (
-            "warm_prepared_query_only"
+            f"{timing_surface}:warm_prepared_query_only"
             if lane_id == "warm_prepared_query"
-            else "native_vortex_query_only"
+            else f"{timing_surface}:native_vortex_query_only"
         )
         formula = (
-            "total_route_ms = query_runtime_millis + result_sink_write_millis "
-            "+ evidence_render_millis"
+            f"timing_surface={timing_surface}; total_route_ms = "
+            f"query_runtime_millis{formula_suffix()}"
         )
         preparation_included = False
         query_included = True
-        output_included = True
-        evidence_included = True
-        included_total = (
-            query_runtime + output_delivery + evidence_render
-            if query_runtime is not None
-            else total_route
-        )
+        output_included = output_for_surface
+        evidence_included = evidence_for_surface
+        included_total = total_route
     elif lane_id == "external_baseline_end_to_end":
         included_stage_ids = ("external_engine_reported_total_runtime_millis",)
-        scope = "external_baseline_end_to_end"
-        formula = "total_route_ms = external engine reported total_runtime_millis"
+        scope = "external_baseline:external_baseline_end_to_end"
+        formula = (
+            "timing_surface=external_baseline; total_route_ms = external engine "
+            "reported total_runtime_millis"
+        )
         preparation_included = False
         query_included = True
         output_included = True
         evidence_included = False
     elif lane_id == "direct_transient_route":
         included_stage_ids = ("total_runtime_millis",)
-        scope = "direct_transient_route_total"
-        formula = "total_route_ms = total_runtime_millis"
+        scope = f"{timing_surface}:direct_transient_route_total"
+        formula = f"timing_surface={timing_surface}; total_route_ms = total_runtime_millis"
         preparation_included = False
         query_included = True
-        output_included = True
-        evidence_included = True
+        output_included = output_for_surface
+        evidence_included = evidence_for_surface
     else:
-        included_stage_ids = ("total_runtime_millis",)
-        scope = "cold_certified_route_total"
-        formula = "total_route_ms = total_runtime_millis"
+        included_stage_ids = add_proof_stages((
+            "source_admission_ms",
+            "source_read_ms",
+            "source_parse_or_columnar_decode_ms",
+            "source_to_vortex_array_ms",
+            "vortex_write_ms",
+            "vortex_reopen_or_verify_ms",
+            "query_runtime_millis",
+        ))
+        scope = f"{timing_surface}:cold_certified_route_total"
+        formula = (
+            f"timing_surface={timing_surface}; total_route_ms = source/import "
+            f"preparation stages + query_runtime_millis{formula_suffix()}"
+        )
         preparation_included = True
         query_included = True
-        output_included = True
-        evidence_included = True
+        output_included = output_for_surface
+        evidence_included = evidence_for_surface
 
     included_detail_stage_ids = set(included_stage_ids)
     if output_included:
@@ -3189,6 +3478,16 @@ def route_timing_ledger_fields_for_row(
     return {
         "route_timing_ledger_schema_version": ROUTE_TIMING_LEDGER_SCHEMA_VERSION,
         "route_timing_ledger_status": "valid" if delta is not None else "not_numeric",
+        "route_timing_surface_schema_version": ROUTE_TIMING_SURFACE_SCHEMA_VERSION,
+        "timing_surface": timing_surface,
+        "timing_surface_label": TIMING_SURFACE_LABELS.get(timing_surface, timing_surface),
+        "timing_surface_evidence_tier": surface_fields.get("timing_surface_evidence_tier"),
+        "timing_surface_default_for_route": timing_surface == DEFAULT_ROUTE_TIMING_SURFACE
+        if is_shardloom_engine(str(row.get("engine") or ""))
+        else timing_surface == "external_baseline",
+        "timing_surface_claim_boundary": surface_fields.get(
+            "timing_surface_claim_boundary"
+        ),
         "route_total_formula": formula,
         "route_timing_scope": scope,
         "stage_parent_id": lane_id or "unknown",
@@ -3206,6 +3505,7 @@ def route_timing_ledger_fields_for_row(
 def stage_inclusion_class(
     stage_id: str,
     *,
+    timing_surface: str,
     preparation_included: bool,
     query_included: bool,
     output_included: bool,
@@ -3217,20 +3517,28 @@ def stage_inclusion_class(
         return "excluded_harness"
     if not stage_value_present or stage_excluded_from_route_total:
         return "diagnostic_only"
+    included_class = {
+        "hot_runtime": "included_hot_runtime",
+        "full_replay_proof": "included_full_replay_proof",
+        "publication_proof": "included_publication_proof",
+    }.get(timing_surface, "included")
     if stage_id in PREPARATION_STAGE_IDS:
-        return "included" if preparation_included else "excluded_shared_preparation"
+        return included_class if preparation_included else "excluded_shared_preparation"
     if stage_id in {"vortex_scan", "operator_compute"}:
-        return "included" if query_included else "diagnostic_only"
+        return included_class if query_included else "diagnostic_only"
     if stage_id == "result_sink_write":
-        return "included" if output_included else "diagnostic_only"
+        return included_class if output_included else "diagnostic_only"
     if stage_id == "evidence_render":
-        return "included" if evidence_included else "diagnostic_only"
+        return included_class if evidence_included else "diagnostic_only"
     return "diagnostic_only"
 
 
 def stage_inclusion_skip_reason(stage_class: str) -> str:
     return {
         "included": "included_in_route_total",
+        "included_hot_runtime": "included_in_hot_runtime_route_total",
+        "included_full_replay_proof": "included_in_full_replay_proof_route_total",
+        "included_publication_proof": "included_in_publication_proof_route_total",
         "excluded_shared_preparation": "shared_preparation_outside_route_total",
         "excluded_harness": "harness_process_wall_not_part_of_route_total",
         "diagnostic_only": "not_measured_or_not_part_of_this_route",
@@ -3274,6 +3582,7 @@ def route_timing_stage_inclusion_fields_for_row(
     query_included = timing_ledger.get("query_timing_included_in_total") is True
     output_included = timing_ledger.get("output_timing_included_in_total") is True
     evidence_included = timing_ledger.get("evidence_timing_included_in_total") is True
+    timing_surface = str(timing_ledger.get("timing_surface") or "unknown")
     scope = str(timing_ledger.get("route_timing_scope") or "unknown")
     excluded_stage_ids = set(
         stage_id
@@ -3300,6 +3609,7 @@ def route_timing_stage_inclusion_fields_for_row(
             ) is not None
         stage_class = stage_inclusion_class(
             stage_id,
+            timing_surface=timing_surface,
             preparation_included=preparation_included,
             query_included=query_included,
             output_included=output_included,
@@ -3311,7 +3621,9 @@ def route_timing_stage_inclusion_fields_for_row(
         )
         classes[stage_id] = stage_class
         owners[stage_id] = STAGE_OWNER_BY_ID[stage_id]
-        scopes[stage_id] = scope if stage_class == "included" else stage_class
+        scopes[stage_id] = (
+            scope if stage_class.startswith("included") else stage_class
+        )
         reasons[stage_id] = stage_inclusion_skip_reason(stage_class)
     missing = [
         stage_id
@@ -3335,10 +3647,11 @@ def route_timing_stage_inclusion_fields_for_row(
         "route_timing_stage_inclusion_skip_reasons": pack_stage_map(reasons),
         "route_timing_stage_inclusion_claim_boundary": (
             "stage inclusion fields explain whether each timing component is included in "
-            "the comparable route total, excluded shared preparation, excluded harness "
-            "overhead, or diagnostic-only evidence; route totals remain authoritative and "
-            "no performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, "
-            "package, release, or Spark-displacement claim is authorized"
+            "the hot runtime, full replay proof, or publication proof route total, or "
+            "whether it is excluded shared preparation, excluded harness overhead, or "
+            "diagnostic-only evidence; route totals remain authoritative and no performance, "
+            "production, SQL/DataFrame, object-store/lakehouse, Foundry, package, release, "
+            "or Spark-displacement claim is authorized"
         ),
     }
 
@@ -3816,16 +4129,8 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
         if base.get("route_lane_id") != "prepare_once_batch":
             continue
         fields = runtime_validation_field_map(row)
-        total_runtime = prepared_route_query_runtime_millis(fields)
         preparation = prepare_once_preparation_millis(fields, base)
-        output_delivery = output_delivery_millis(fields, base)
-        evidence_render = evidence_render_route_millis(fields, base)
         batch_count = prepared_route_observed_batch_count(fields)
-        first_query_total = (
-            total_runtime + preparation + output_delivery + evidence_render
-            if total_runtime is not None and preparation is not None
-            else total_runtime
-        )
         first_query_stage_fields = route_stage_fields_for_row(
             {**row, "route_lane_id": "prepare_once_first_query"}
         )
@@ -3851,7 +4156,7 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
                 "prepared_route_query_count": 1,
                 "prepared_route_observed_batch_count": batch_count,
                 "prepared_state_lookup_or_create_ms": preparation,
-                "total_route_ms": first_query_total,
+                "total_route_ms": first_query_stage_fields.get("total_route_ms"),
                 "route_stage_timing_scope": "prepare_once_first_query",
                 "route_claim_boundary": (
                     "raw compatibility input is prepared once into VortexPreparedState, "
@@ -4088,10 +4393,7 @@ def prepared_route_observed_batch_count(fields: dict[str, Any]) -> float | None:
 def prepared_route_query_runtime_millis(fields: dict[str, Any]) -> float | None:
     return first_numeric_field(
         fields,
-        (
-            "query_runtime_millis",
-            "total_runtime_millis",
-        ),
+        ("query_runtime_millis",),
     )
 
 
@@ -4172,6 +4474,10 @@ def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     for row in decorated_rows:
         if row.get("status") != "success":
             continue
+        if is_shardloom_engine(str(row.get("engine") or "")) and (
+            row.get("timing_surface") != DEFAULT_ROUTE_TIMING_SURFACE
+        ):
+            continue
         value = numeric_value(row.get("total_route_ms"))
         if value is not None:
             row_times[(str(row.get("engine")), *scenario_key(row))] = value
@@ -4225,8 +4531,8 @@ def engine_timing_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "Engine",
             "Available",
             "Success / total",
-            "Route geomean",
-            "CSV/Parquet route geomean",
+            "Hot route geomean",
+            "CSV/Parquet hot route geomean",
             "local fastest route count",
             "local route timing context",
         ],
@@ -4414,7 +4720,15 @@ def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     rendered_rows: list[list[Any]] = []
     for display_name, group_rows in groups.items():
         first = group_rows[0]
-        successes = [row for row in group_rows if row.get("status") == "success"]
+        default_surface = (
+            DEFAULT_ROUTE_TIMING_SURFACE
+            if is_shardloom_engine(str(first.get("engine") or ""))
+            else "external_baseline"
+        )
+        surface_rows = [
+            row for row in group_rows if str(row.get("timing_surface") or "") == default_surface
+        ]
+        successes = [row for row in surface_rows if row.get("status") == "success"]
         values = [
             value
             for row in successes
@@ -4425,14 +4739,23 @@ def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             str(row.get("route_runtime_status") or "unknown") for row in group_rows
         )
         claim_counts = Counter(str(row.get("claim_gate_status") or "unknown") for row in group_rows)
+        evidence_tiers = Counter(
+            str(row.get("actual_evidence_tier") or row.get("timing_surface_evidence_tier") or "unknown")
+            for row in group_rows
+        )
+        route_geomean = geomean(values)
         rendered_rows.append(
             [
                 display_name,
+                default_surface,
+                ", ".join(f"{key}: {count}" for key, count in sorted(evidence_tiers.items())),
                 first.get("start_state"),
                 "yes" if first.get("includes_preparation") is True else "no",
                 first.get("preparation_included_scope"),
                 f"{len(successes)}/{len(group_rows)}",
-                fmt_ms(geomean(values)),
+                fmt_ms(route_geomean)
+                if route_geomean is not None
+                else "hot runtime row missing",
                 ", ".join(f"{key}: {count}" for key, count in sorted(runtime_counts.items())),
                 ", ".join(f"{key}: {count}" for key, count in sorted(claim_counts.items())),
                 claims_cell(first),
@@ -4443,11 +4766,13 @@ def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "heading": "Route-Level Lane Comparison",
         "headers": [
             "Lane",
+            "Timing surface",
+            "Evidence tiers",
             "Starts from",
             "Includes prepare?",
             "Prepare timing scope",
             "Success / total",
-            "Route geomean",
+            "Hot route geomean",
             "Runtime",
             "Evidence",
             "Claims",
@@ -4457,8 +4782,76 @@ def route_lane_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
         "claim_boundary": (
             "route lanes are end-to-end comparison surfaces; warm/native/stage rows stay "
-            "labeled by start state and cannot imply raw-source performance, production, "
-            "or Spark-replacement claims"
+            "labeled by start state and timing surface. The primary route grid uses "
+            "hot_runtime rows only for ShardLoom lanes; proof/publication rows remain "
+            "visible separately and cannot imply hot-runtime performance, production, or "
+            "Spark-replacement claims"
+        ),
+    }
+
+
+def route_timing_surface_comparison_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    route_total_label_by_surface = {
+        "hot_runtime": "Hot route geomean",
+        "full_replay_proof": "Full replay proof route geomean",
+        "publication_proof": "Publication-proof route geomean",
+        "external_baseline": "External baseline route geomean",
+    }
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        key = (
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown"),
+            str(row.get("timing_surface") or "unknown"),
+        )
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for (display_name, surface), group_rows in sorted(groups.items()):
+        first = group_rows[0]
+        successes = [row for row in group_rows if row.get("status") == "success"]
+        values = [
+            value
+            for row in successes
+            for value in [numeric_value(row.get("total_route_ms"))]
+            if value is not None and value > 0
+        ]
+        evidence_tiers = Counter(
+            str(row.get("actual_evidence_tier") or row.get("timing_surface_evidence_tier") or "unknown")
+            for row in group_rows
+        )
+        rendered_rows.append(
+            [
+                display_name,
+                surface,
+                route_total_label_by_surface.get(surface, "Surface route geomean"),
+                ", ".join(f"{key}: {count}" for key, count in sorted(evidence_tiers.items())),
+                f"{len(successes)}/{len(group_rows)}",
+                fmt_ms(geomean(values)),
+                str(first.get("output_timing_included_in_total")),
+                str(first.get("evidence_timing_included_in_total")),
+                str(first.get("route_total_formula") or "not_reported"),
+            ]
+        )
+    return {
+        "heading": "Route Timing Surface Comparison",
+        "headers": [
+            "Route",
+            "Timing surface",
+            "Route total label",
+            "Evidence tiers",
+            "Success / total",
+            "Surface route geomean",
+            "Sink included",
+            "Evidence render included",
+            "Formula",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_TIMING_SURFACE_SCHEMA_VERSION,
+        "claim_boundary": (
+            "route timing surfaces are separate interpretation lanes. hot_runtime excludes "
+            "result-sink replay and human publication render; full_replay_proof and "
+            "publication_proof rows remain proof evidence and must not replace missing "
+            "hot-runtime rows."
         ),
     }
 
@@ -4474,33 +4867,29 @@ def prepared_route_amortization_table(rows: list[dict[str, Any]]) -> dict[str, A
         per_query_values: list[float] = []
         total_batch_values: list[float] = []
         for row in prepare_batch_rows:
+            if str(row.get("timing_surface") or "") != DEFAULT_ROUTE_TIMING_SURFACE:
+                continue
             fields = runtime_validation_field_map(row)
             preparation = prepare_once_preparation_millis(fields, row)
             query_runtime = prepared_route_query_runtime_millis(fields)
-            output_delivery = output_delivery_millis(fields, row)
-            evidence_render = evidence_render_route_millis(fields, row)
             if preparation is None or query_runtime is None:
                 continue
-            per_query_route = (
-                preparation / query_count
-                + query_runtime
-                + output_delivery
-                + evidence_render
-            )
+            per_query_route = preparation / query_count + query_runtime
             per_query_values.append(per_query_route)
-            total_batch_values.append(
-                preparation
-                + (query_runtime + output_delivery + evidence_render) * query_count
-            )
+            total_batch_values.append(preparation + query_runtime * query_count)
         rendered_rows.append(
             [
                 query_count,
                 len(per_query_values),
-                fmt_ms(geomean(per_query_values)),
-                fmt_ms(geomean(total_batch_values)),
+                fmt_ms(geomean(per_query_values))
+                if per_query_values
+                else "hot runtime row missing",
+                fmt_ms(geomean(total_batch_values))
+                if total_batch_values
+                else "hot runtime row missing",
                 (
-                    "prepare_batch_preparation_millis / N + query_runtime_millis "
-                    "+ result_sink_write_millis + evidence_render_millis"
+                    "timing_surface=hot_runtime; prepare_batch_preparation_millis / N "
+                    "+ query_runtime_millis"
                 ),
                 "raw_compat_source -> VortexPreparedState reused for N prepared executions",
             ]
@@ -4527,18 +4916,22 @@ def prepared_route_amortization_table(rows: list[dict[str, Any]]) -> dict[str, A
 
 
 def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
-        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        key = (
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown"),
+            str(row.get("timing_surface") or "unknown"),
+        )
         groups[key].append(row)
 
     rendered_rows: list[list[Any]] = []
-    for display_name, group_rows in groups.items():
+    for (display_name, timing_surface), group_rows in groups.items():
         rendered_rows.append(
             [
                 display_name,
+                timing_surface,
                 len(group_rows),
                 *[
                     fmt_ms(
@@ -4559,6 +4952,7 @@ def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "heading": "ShardLoom Stage Attribution",
         "headers": [
             "Route",
+            "Timing surface",
             "Rows",
             "Source admission",
             "Source read",
@@ -4577,21 +4971,25 @@ def stage_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
         "claim_boundary": (
             "stage attribution explains why a ShardLoom route took time; stage pieces are "
-            "not competing product lanes"
+            "not competing product lanes. Surface grouping keeps hot runtime separate from "
+            "full replay and publication proof timing."
         ),
     }
 
 
 def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
-        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        key = (
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown"),
+            str(row.get("timing_surface") or "unknown"),
+        )
         groups[key].append(row)
 
     rendered_rows: list[list[Any]] = []
-    for display_name, group_rows in groups.items():
+    for (display_name, timing_surface), group_rows in groups.items():
         first = group_rows[0]
         class_tokens = str(
             first.get("route_timing_stage_inclusion_classes") or ""
@@ -4603,7 +5001,19 @@ def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]
             stage_id, stage_class = token.split(":", 1)
             classes[stage_id] = stage_class
         included = [
-            stage_id for stage_id, stage_class in classes.items() if stage_class == "included"
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class in {"included", "included_hot_runtime"}
+        ]
+        full_replay_included = [
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class == "included_full_replay_proof"
+        ]
+        publication_included = [
+            stage_id
+            for stage_id, stage_class in classes.items()
+            if stage_class == "included_publication_proof"
         ]
         shared = [
             stage_id
@@ -4627,8 +5037,11 @@ def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]
         rendered_rows.append(
             [
                 display_name,
+                timing_surface,
                 len(group_rows),
                 ", ".join(included) or "none",
+                ", ".join(full_replay_included) or "none",
+                ", ".join(publication_included) or "none",
                 ", ".join(shared) or "none",
                 ", ".join(harness) or "none",
                 ", ".join(diagnostic) or "none",
@@ -4640,8 +5053,11 @@ def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]
         "heading": "Stage Inclusion Contract",
         "headers": [
             "Route",
+            "Timing surface",
             "Rows",
-            "Included in route total",
+            "Included hot runtime",
+            "Included full replay proof",
+            "Included publication proof",
             "Excluded shared preparation",
             "Excluded harness",
             "Diagnostic only",
@@ -4856,19 +5272,21 @@ def route_share_next_step(stage_field: str, route_display: str) -> str:
     return "use_route_share_before_selecting_next_optimization"
 
 
-def route_share_stage_fields_for_lane(lane_id: str) -> tuple[str, ...]:
-    query_and_tail = (
-        "vortex_scan_ms",
-        "operator_compute_ms",
-        "result_sink_write_ms",
-        "evidence_render_ms",
-    )
+def route_share_stage_fields_for_lane(
+    lane_id: str, timing_surface: str = DEFAULT_ROUTE_TIMING_SURFACE
+) -> tuple[str, ...]:
+    query_and_tail = ["vortex_scan_ms", "operator_compute_ms"]
+    if timing_surface in PROOF_TIMING_SURFACES:
+        query_and_tail.append("result_sink_write_ms")
+    if timing_surface == "publication_proof":
+        query_and_tail.append("evidence_render_ms")
+    query_and_tail_tuple = tuple(query_and_tail)
     if lane_id in {"warm_prepared_query", "native_vortex_query"}:
-        return query_and_tail
+        return query_and_tail_tuple
     if lane_id in {"prepare_once_first_query", "prepare_once_batch"}:
-        return ("prepared_state_lookup_or_create_ms",) + query_and_tail
+        return ("prepared_state_lookup_or_create_ms",) + query_and_tail_tuple
     if lane_id == "cold_certified_route":
-        return (
+        fields = [
             "source_read_ms",
             "source_parse_or_columnar_decode_ms",
             "source_to_vortex_array_ms",
@@ -4876,10 +5294,22 @@ def route_share_stage_fields_for_lane(lane_id: str) -> tuple[str, ...]:
             "vortex_reopen_or_verify_ms",
             "vortex_scan_ms",
             "operator_compute_ms",
-            "result_sink_write_ms",
-            "evidence_render_ms",
-        )
-    return tuple(field for field in ROUTE_STAGE_FIELD_KEYS if field != "total_route_ms")
+        ]
+        if timing_surface in PROOF_TIMING_SURFACES:
+            fields.append("result_sink_write_ms")
+        if timing_surface == "publication_proof":
+            fields.append("evidence_render_ms")
+        return tuple(fields)
+    fallback_fields = [field for field in ROUTE_STAGE_FIELD_KEYS if field != "total_route_ms"]
+    if timing_surface == DEFAULT_ROUTE_TIMING_SURFACE:
+        fallback_fields = [
+            field
+            for field in fallback_fields
+            if field not in {"result_sink_write_ms", "evidence_render_ms"}
+        ]
+    elif timing_surface == "full_replay_proof":
+        fallback_fields = [field for field in fallback_fields if field != "evidence_render_ms"]
+    return tuple(fallback_fields)
 
 
 def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -4892,21 +5322,26 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     rendered_rows: list[list[Any]] = []
     for display_name, group_rows in groups.items():
+        surface_rows = [
+            row
+            for row in group_rows
+            if str(row.get("timing_surface") or "") == DEFAULT_ROUTE_TIMING_SURFACE
+        ]
         total_geomean = geomean_non_negative(
             [
                 value
-                for row in group_rows
+                for row in surface_rows
                 for value in [numeric_value(row.get("total_route_ms"))]
                 if value is not None and value >= 0.0
             ]
         )
         stage_geomeans: dict[str, float] = {}
         lane_id = str(group_rows[0].get("route_lane_id") or "")
-        for field in route_share_stage_fields_for_lane(lane_id):
+        for field in route_share_stage_fields_for_lane(lane_id, DEFAULT_ROUTE_TIMING_SURFACE):
             value = geomean_non_negative(
                 [
                     parsed
-                    for row in group_rows
+                    for row in surface_rows
                     for parsed in [numeric_value(row.get(field))]
                     if parsed is not None and parsed >= 0.0
                 ]
@@ -4939,8 +5374,9 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         rendered_rows.append(
             [
                 display_name,
-                len(group_rows),
-                fmt_ms(total_geomean),
+                DEFAULT_ROUTE_TIMING_SURFACE,
+                f"{len(surface_rows)}/{len(group_rows)}",
+                fmt_ms(total_geomean) if total_geomean is not None else "hot runtime row missing",
                 dominant_label,
                 fmt_ms(dominant_ms),
                 fmt_percent(share * 100.0 if share is not None else None),
@@ -4952,8 +5388,9 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "heading": "Route-Share Amdahl Attribution",
         "headers": [
             "Route",
+            "Timing surface",
             "Rows",
-            "Route geomean",
+            "Hot route geomean",
             "Dominant stage",
             "Dominant stage geomean",
             "Dominant route share",
@@ -4964,7 +5401,9 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "schema_version": ROUTE_SHARE_AMDAHL_SCHEMA_VERSION,
         "claim_boundary": (
             "route-share attribution uses committed local benchmark evidence to choose the next "
-            "optimization target; it is not a public speed, production, or replacement claim"
+            "optimization target. It defaults to hot_runtime rows and does not let "
+            "full replay or publication proof timing redefine the hot route; it is not a "
+            "public speed, production, or replacement claim"
         ),
     }
 
@@ -5516,7 +5955,11 @@ def benchmark_format_order(
 
 
 def benchmark_scenario_order(
-    artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str
+    artifact: dict[str, Any],
+    rows: list[dict[str, Any]],
+    profile: str,
+    *,
+    prefer_declared: bool = True,
 ) -> list[str]:
     metadata = promoted_metadata(artifact)
     declared = [
@@ -5524,7 +5967,7 @@ def benchmark_scenario_order(
         for value in metadata.get("scenario_order", [])
         if isinstance(value, str) and value
     ]
-    if declared:
+    if prefer_declared and declared:
         return list(dict.fromkeys(declared))
     scenarios = {
         str(row.get("scenario_name"))
@@ -6701,6 +7144,7 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
             if adjusted["actual_evidence_tier"] == "publication_full"
             else "skipped_compact_machine_evidence_human_render_deferred"
         )
+    adjusted.update(timing_surface_fields_for_row(adjusted))
     if adjusted.get("source_state_status") == "report_only":
         adjusted["source_state_status"] = "source_state_recorded"
     adjusted["source_state_claim_gate_status"] = "claim_grade"
@@ -6818,7 +7262,14 @@ def runtime_validation_surface_id(row: dict[str, Any]) -> str:
 
 
 def should_validate_runtime_row(row: dict[str, Any]) -> bool:
-    return str(row.get("engine", "")).startswith("shardloom")
+    if not str(row.get("engine", "")).startswith("shardloom"):
+        return False
+    if (
+        str(row.get("timing_surface") or "") == DEFAULT_ROUTE_TIMING_SURFACE
+        and str(row.get("claim_gate_status") or "") != "claim_grade"
+    ):
+        return False
+    return True
 
 
 def runtime_validation_for_row(row: dict[str, Any]) -> dict[str, Any] | None:
@@ -7148,6 +7599,9 @@ def comparative_summary(
             engine_timing,
         ),
         "route_lane_comparison": route_lane_comparison_table(claim_adjusted_rows),
+        "route_timing_surface_comparison": route_timing_surface_comparison_table(
+            claim_adjusted_rows
+        ),
         "public_front_door_routes": public_front_door_route_table(
             public_front_door_rows
         ),
@@ -7317,12 +7771,27 @@ def main() -> int:
             if isinstance(existing_manifest, dict)
             else artifact.get("runtime_envelope_validation")
         )
+    if args.merge_existing_row_chunks:
+        existing_rows = rows_with_prepare_once_first_query(
+            published_rows_with_current_route_timing_ledger(
+                load_row_chunks(args.output_dir)
+            )
+        )
+        if existing_rows:
+            full_published_rows = merge_published_rows(
+                existing_rows,
+                full_published_rows,
+            )
+            summary_rows = full_published_rows
     public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     write_row_chunks(args.public_output_dir, full_published_rows)
     format_order = benchmark_format_order(artifact, full_published_rows, args.profile)
     scenario_order = benchmark_scenario_order(
-        artifact, full_published_rows, args.profile
+        artifact,
+        full_published_rows,
+        args.profile,
+        prefer_declared=not args.merge_existing_row_chunks,
     )
 
     manifest = manifest_for_artifact(

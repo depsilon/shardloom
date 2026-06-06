@@ -798,6 +798,10 @@ PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
 BATCH_HARNESS_OVERHEAD_STATUS = "batch_outer_harness_wall_minus_cli_process_wall_not_row_allocated"
+SHARDLOOM_GLOBAL_STARTUP_WARMUP_SCOPE = "one_time_cli_binary_prime_shared_across_shardloom_lanes"
+SHARDLOOM_LANE_STARTUP_WARMUP_SCOPE = "per_lane_cli_status_warmup_after_global_prime"
+SHARDLOOM_GLOBAL_PRIME_STARTUP_WARMUP_SCOPE = "covered_by_global_cli_binary_prime"
+SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY: dict[str, float] = {}
 BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES = {
     "batch_shared_pre_scenario",
     "batch_shared_session_open_only_deferred_family_build_reported_separately",
@@ -809,6 +813,9 @@ PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "cli_process_wall_millis",
     "python_harness_overhead_millis",
     "startup_warmup_millis",
+    "startup_warmup_scope",
+    "global_startup_warmup_millis",
+    "global_startup_warmup_scope",
     "build_time_millis",
     "build_time_excluded",
     "preparation_millis",
@@ -2620,9 +2627,12 @@ class EngineRunner:
     ) = None
     formats: tuple[str, ...] = ("csv",)
     prepare: Callable[[DatasetPaths, tuple[str, ...]], None] | None = None
-    warmup: Callable[[], None] | None = None
+    warmup: Callable[[], dict[str, Any] | None] | None = None
     close: Callable[[], None] | None = None
     startup_time_millis: float | None = None
+    startup_warmup_scope: str | None = None
+    global_startup_warmup_millis: float | None = None
+    global_startup_warmup_scope: str | None = None
     preparation_time_millis: float | None = None
     build_time_millis: float | None = None
 
@@ -4186,7 +4196,7 @@ def shardloom_runner() -> EngineRunner:
             for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
         formats=FORMAT_ORDER,
-        warmup=lambda: shardloom_cli_warmup(binary, root, env),
+        warmup=lambda: shardloom_cli_attributed_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -4370,7 +4380,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             ),
         },
         formats=FORMAT_ORDER,
-        warmup=lambda: shardloom_cli_warmup(binary, root, env),
+        warmup=lambda: shardloom_cli_attributed_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -4449,15 +4459,23 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom native Vortex setup did not produce fact/dim .vortex files"
             )
         preparation_wall_millis = round(preparation_millis, 4)
+        prepared_state_lookup_or_create_millis = preparation_engine_millis(
+            fields, preparation_wall_millis
+        )
+        prepare_route_total_millis = preparation_route_total_millis(
+            fields, preparation_wall_millis
+        )
+        prepare_cli_wall_millis = completed.get(
+            "process_wall_millis", preparation_wall_millis
+        )
         prepared_paths[data_format] = {
             "fact": fact_vortex,
             "dim": dim_vortex,
-            "preparation_millis": preparation_engine_millis(
-                fields, preparation_wall_millis
-            ),
-            "preparation_cli_process_wall_millis": completed.get(
-                "process_wall_millis", preparation_wall_millis
-            ),
+            "preparation_millis": prepared_state_lookup_or_create_millis,
+            "prepared_state_lookup_or_create_millis": prepared_state_lookup_or_create_millis,
+            "prepare_route_total_millis": prepare_route_total_millis,
+            "prepare_cli_wall_millis": prepare_cli_wall_millis,
+            "preparation_cli_process_wall_millis": prepare_cli_wall_millis,
             "fact_digest": fields.get("fact_vortex_digest", ""),
             "dim_digest": fields.get("dim_vortex_digest", ""),
             "source_native_io_certificate_status": fields.get(
@@ -4749,6 +4767,11 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "execution_mode_family": "native_vortex",
                 "preparation_millis": str(prepared["preparation_millis"]),
+                "prepared_state_lookup_or_create_millis": str(
+                    prepared["prepared_state_lookup_or_create_millis"]
+                ),
+                "prepare_route_total_millis": str(prepared["prepare_route_total_millis"]),
+                "prepare_cli_wall_millis": str(prepared["prepare_cli_wall_millis"]),
                 "preparation_cli_process_wall_millis": str(
                     prepared["preparation_cli_process_wall_millis"]
                 ),
@@ -4803,11 +4826,24 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         preparation_micros = parse_optional_int(
             fields.get("prepare_batch_preparation_micros")
         )
+        fallback_preparation_millis = round((preparation_micros or 0) / 1000.0, 4)
+        prepared_state_lookup_or_create_millis = preparation_engine_millis(
+            fields, fallback_preparation_millis
+        )
+        prepare_route_total = preparation_route_total_millis(
+            fields, fallback_preparation_millis
+        )
+        prepare_cli_wall_millis = fields.get(
+            "prepare_batch_cli_process_wall_millis", "none"
+        )
         prepared: dict[str, Path | float | str] = {
             "fact": fact_vortex,
             "dim": dim_vortex,
-            "preparation_millis": round((preparation_micros or 0) / 1000.0, 4),
-            "preparation_cli_process_wall_millis": "none",
+            "preparation_millis": prepared_state_lookup_or_create_millis,
+            "prepared_state_lookup_or_create_millis": prepared_state_lookup_or_create_millis,
+            "prepare_route_total_millis": prepare_route_total,
+            "prepare_cli_wall_millis": prepare_cli_wall_millis,
+            "preparation_cli_process_wall_millis": prepare_cli_wall_millis,
             "fact_digest": fields.get("prepare_batch_fact_vortex_digest", ""),
             "dim_digest": fields.get("prepare_batch_dim_vortex_digest", ""),
             "source_native_io_certificate_status": fields.get(
@@ -5011,6 +5047,11 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "execution_mode_family": "native_vortex",
                 "preparation_millis": str(prepared["preparation_millis"]),
+                "prepared_state_lookup_or_create_millis": str(
+                    prepared["prepared_state_lookup_or_create_millis"]
+                ),
+                "prepare_route_total_millis": str(prepared["prepare_route_total_millis"]),
+                "prepare_cli_wall_millis": str(prepared["prepare_cli_wall_millis"]),
                 "preparation_cli_process_wall_millis": str(
                     prepared["preparation_cli_process_wall_millis"]
                 ),
@@ -5962,7 +6003,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         formats=FORMAT_ORDER,
         batch_scenarios=run_batch_scenarios,
         prepare=None if single_process_prepare_batch else prepare,
-        warmup=lambda: shardloom_cli_warmup(binary, root, env),
+        warmup=lambda: shardloom_cli_attributed_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -5997,10 +6038,17 @@ def warmup_runner(runner: EngineRunner) -> EngineRunner:
     if runner.warmup is None:
         return runner
     started = time.perf_counter()
-    runner.warmup()
-    warmup_time = (time.perf_counter() - started) * 1000.0
+    warmup_result = runner.warmup() or {}
+    measured_warmup_time = (time.perf_counter() - started) * 1000.0
+    warmup_time = float(warmup_result.get("warmup_time_millis", measured_warmup_time))
     startup_time = (runner.startup_time_millis or 0.0) + warmup_time
-    return replace(runner, startup_time_millis=round(startup_time, 4))
+    return replace(
+        runner,
+        startup_time_millis=round(startup_time, 4),
+        startup_warmup_scope=warmup_result.get("startup_warmup_scope"),
+        global_startup_warmup_millis=warmup_result.get("global_startup_warmup_millis"),
+        global_startup_warmup_scope=warmup_result.get("global_startup_warmup_scope"),
+    )
 
 
 def prepare_runner(
@@ -6043,6 +6091,31 @@ def shardloom_cli_warmup(binary: Path, root: Path, env: dict[str, str]) -> None:
     fallback = payload.get("fallback") or {}
     if fallback.get("attempted") is not False:
         raise BenchmarkUnsupported("ShardLoom CLI warmup reported fallback execution")
+
+
+def shardloom_cli_attributed_warmup(
+    binary: Path, root: Path, env: dict[str, str]
+) -> dict[str, Any]:
+    binary_key = str(binary)
+    started = time.perf_counter()
+    shardloom_cli_warmup(binary, root, env)
+    warmup_time = round((time.perf_counter() - started) * 1000.0, 4)
+    if binary_key not in SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY:
+        SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY[binary_key] = warmup_time
+        return {
+            "warmup_time_millis": 0.0,
+            "startup_warmup_scope": SHARDLOOM_GLOBAL_PRIME_STARTUP_WARMUP_SCOPE,
+            "global_startup_warmup_millis": warmup_time,
+            "global_startup_warmup_scope": SHARDLOOM_GLOBAL_STARTUP_WARMUP_SCOPE,
+        }
+    return {
+        "warmup_time_millis": warmup_time,
+        "startup_warmup_scope": SHARDLOOM_LANE_STARTUP_WARMUP_SCOPE,
+        "global_startup_warmup_millis": SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY[
+            binary_key
+        ],
+        "global_startup_warmup_scope": SHARDLOOM_GLOBAL_STARTUP_WARMUP_SCOPE,
+    }
 
 
 PREPARATION_STAGE_TIMING_FIELDS = (
@@ -6102,9 +6175,44 @@ def preparation_stage_timing_fields(fields: dict[str, Any]) -> dict[str, str]:
 
 def preparation_engine_millis(fields: dict[str, Any], fallback_millis: float) -> float:
     for field in (
-        "total_runtime_micros",
+        "prepare_batch_preparation_micros",
+        "prepared_state_lookup_or_create_micros",
         "compatibility_to_vortex_import_micros",
+        "inclusive_compatibility_to_vortex_import_micros",
     ):
+        value = fields.get(field)
+        if value in (None, "", "none"):
+            continue
+        try:
+            return round(float(value) / 1000.0, 4)
+        except (TypeError, ValueError):
+            continue
+    exclusive_fields = (
+        "exclusive_source_admission_micros",
+        "exclusive_source_read_micros",
+        "exclusive_source_parse_or_decode_micros",
+        "exclusive_source_to_vortex_array_micros",
+        "exclusive_vortex_write_micros",
+        "exclusive_vortex_digest_micros",
+        "exclusive_vortex_reopen_verify_micros",
+    )
+    exclusive_values: list[float] = []
+    for field in exclusive_fields:
+        value = fields.get(field)
+        if value in (None, "", "none"):
+            continue
+        try:
+            exclusive_values.append(float(value))
+        except (TypeError, ValueError):
+            exclusive_values = []
+            break
+    if exclusive_values:
+        return round(sum(exclusive_values) / 1000.0, 4)
+    return round(fallback_millis, 4)
+
+
+def preparation_route_total_millis(fields: dict[str, Any], fallback_millis: float) -> float:
+    for field in ("total_runtime_micros", "inclusive_total_runtime_micros"):
         value = fields.get(field)
         if value in (None, "", "none"):
             continue
@@ -19113,6 +19221,9 @@ def failed_result(
         "cli_process_wall_millis": None,
         "python_harness_overhead_millis": None,
         "startup_warmup_millis": None,
+        "startup_warmup_scope": None,
+        "global_startup_warmup_millis": None,
+        "global_startup_warmup_scope": None,
         "build_time_millis": None,
         "preparation_millis": None,
         "preparation_cli_process_wall_millis": None,
@@ -19754,6 +19865,9 @@ def successful_result_from_iterations(
         "result_sink_write_millis": computed_result_sink_write_millis,
         "computed_result_sink_bytes": computed_result_sink_bytes,
         "startup_warmup_millis": runner.startup_time_millis,
+        "startup_warmup_scope": runner.startup_warmup_scope,
+        "global_startup_warmup_millis": runner.global_startup_warmup_millis,
+        "global_startup_warmup_scope": runner.global_startup_warmup_scope,
         "build_time_millis": runner.build_time_millis,
         "prepare_batch_schema_version": evidence.get(
             "prepare_batch_schema_version", "not_applicable"
@@ -22359,6 +22473,7 @@ def render_engine_overview(artifact: dict[str, Any]) -> str:
                 "yes" if version_info.get("available") else "no",
                 str(version_info.get("version") or version_info.get("reason") or "n/a"),
                 format_metric(version_info.get("startup_time_millis"), " ms"),
+                format_metric(version_info.get("global_startup_warmup_millis"), " ms"),
                 format_metric(version_info.get("build_time_millis"), " ms"),
                 str(sum(1 for result in engine_results if result["status"] == "success")),
                 str(sum(1 for result in engine_results if result["status"] != "success")),
@@ -22370,6 +22485,7 @@ def render_engine_overview(artifact: dict[str, Any]) -> str:
             "Available",
             "Version / reason",
             "Startup / warmup",
+            "Global startup prime",
             "Build time (excluded)",
             "Successful scenarios",
             "Failed scenarios",
@@ -25330,6 +25446,10 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
                 format_metric(metrics.get("operator_compute_millis"), " ms"),
                 format_metric(metrics.get("cli_process_wall_millis"), " ms"),
                 format_metric(metrics.get("python_harness_overhead_millis"), " ms"),
+                format_metric(metrics.get("startup_warmup_millis"), " ms"),
+                str(metrics.get("startup_warmup_scope", "n/a")),
+                format_metric(metrics.get("global_startup_warmup_millis"), " ms"),
+                str(metrics.get("global_startup_warmup_scope", "n/a")),
                 format_metric(metrics.get("preparation_millis"), " ms"),
                 format_metric(metrics.get("preparation_cli_process_wall_millis"), " ms"),
                 str(metrics.get("preparation_included_in_timing")),
@@ -25371,6 +25491,10 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
             "Operator compute",
             "CLI process wall",
             "Python harness overhead",
+            "Startup warmup",
+            "Startup warmup scope",
+            "Global startup prime",
+            "Global startup scope",
             "Preparation",
             "Prep CLI wall",
             "Prep in timing",
@@ -26456,6 +26580,9 @@ def main() -> int:
             "available": engine in runners,
             "version": runners[engine].version,
             "startup_time_millis": runners[engine].startup_time_millis,
+            "startup_warmup_scope": runners[engine].startup_warmup_scope,
+            "global_startup_warmup_millis": runners[engine].global_startup_warmup_millis,
+            "global_startup_warmup_scope": runners[engine].global_startup_warmup_scope,
             "preparation_time_millis": runners[engine].preparation_time_millis,
             "build_time_millis": runners[engine].build_time_millis,
             "build_time_excluded": True,
@@ -26468,6 +26595,9 @@ def main() -> int:
             "version": None,
             "reason": reason,
             "startup_time_millis": None,
+            "startup_warmup_scope": None,
+            "global_startup_warmup_millis": None,
+            "global_startup_warmup_scope": None,
             "build_time_millis": None,
             "build_time_excluded": True,
         }

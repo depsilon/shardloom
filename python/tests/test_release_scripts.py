@@ -210,6 +210,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "prepared_state_reused": lane_id in {"prepare_once_batch", "warm_prepared_query"},
             "route_timing_ledger_schema_version": "shardloom.route_timing_ledger.v1",
             "route_timing_ledger_status": "valid",
+            "route_timing_surface_schema_version": "shardloom.route_timing_surface.v1",
+            "timing_surface": "publication_proof",
+            "timing_surface_label": "Publication proof",
+            "timing_surface_evidence_tier": "publication_full",
+            "timing_surface_default_for_route": False,
+            "timing_surface_claim_boundary": "fixture_publication_proof_no_claim",
             "route_total_formula": formula,
             "route_timing_scope": timing_scope,
             "stage_parent_id": lane_id,
@@ -252,7 +258,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "operator_finalize_micros": None,
             "result_sink_plan_micros": None,
             "result_sink_write_micros": 100,
-            "result_sink_replay_micros": None,
+            "result_sink_replay_micros": 100,
             "human_evidence_render_micros": 100,
             "json_envelope_emit_micros": None,
             "report_fields_build_micros": None,
@@ -333,6 +339,26 @@ class ReleaseScriptTests(unittest.TestCase):
             "certificate_link_status": "linked_certified_runtime_execution",
             "evidence_required_for_claim": True,
             "evidence_render_included_in_route_total": True,
+            "evidence_sink_tier_schema_version": (
+                "shardloom.traditional_analytics.evidence_sink_tier.v1"
+            ),
+            "requested_evidence_tier": "publication_full",
+            "actual_evidence_tier": "publication_full",
+            "selected_evidence_tier": "publication_full",
+            "sink_tier": "publication_full",
+            "evidence_tier_supported_tiers": (
+                "runtime_minimal,metadata_sink,full_vortex_replay,publication_full"
+            ),
+            "evidence_tier_result_sink_replay_required": True,
+            "sink_timing_included_in_route_total": True,
+            "sink_timing_inclusion_reason": (
+                "publication_full_write_and_human_evidence_in_cli_route_wall"
+            ),
+            "result_sink_replay_skip_reason": "not_skipped_replay_required",
+            "human_evidence_render_skip_reason": (
+                "not_skipped_publication_full_requires_human_render"
+            ),
+            "computed_result_sink_replay_verified": True,
             "fast_path_claim_boundary": "runtime fast path fixture",
             "operator_mode_inventory_schema_version": "shardloom.operator_mode_inventory.v1",
             "operator_execution_class": "residual_native",
@@ -551,6 +577,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "prepared_state_reused": False,
             "route_timing_ledger_schema_version": "shardloom.route_timing_ledger.v1",
             "route_timing_ledger_status": "valid",
+            "route_timing_surface_schema_version": "shardloom.route_timing_surface.v1",
+            "timing_surface": "external_baseline",
+            "timing_surface_label": "External baseline",
+            "timing_surface_evidence_tier": "external_baseline",
+            "timing_surface_default_for_route": True,
+            "timing_surface_claim_boundary": "external_baseline_fixture_no_claim",
             "route_total_formula": "total_route_ms = external engine reported total_runtime_millis",
             "route_timing_scope": "external_baseline_end_to_end",
             "stage_parent_id": "external_baseline_end_to_end",
@@ -1257,8 +1289,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "operator_compute:diagnostic_only",
             published["route_timing_stage_inclusion_classes"],
         )
-        self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 125.0)
-        self.assertEqual(published["route_timing_exclusive_residual_ms"], 5.0)
+        self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 118.0)
+        self.assertEqual(published["route_timing_exclusive_residual_ms"], 0.0)
         self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
         self.assertEqual(published["source_split_count"], 8)
         self.assertEqual(published["source_open_count"], 8)
@@ -1269,7 +1301,7 @@ class ReleaseScriptTests(unittest.TestCase):
             published["cold_route_optimization_hint"],
             "batch_source_open_and_split_planning_before_parse_or_writer_tuning",
         )
-        self.assertEqual(published["total_route_ms"], 130.0)
+        self.assertEqual(published["total_route_ms"], 118.0)
         self.assertFalse(published["performance_claim_allowed"])
 
     def test_benchmark_repromotion_preserves_writer_context_ms_fields(self) -> None:
@@ -1373,6 +1405,145 @@ class ReleaseScriptTests(unittest.TestCase):
             published["result_sink_replay_skip_reason"],
             "skipped_metadata_sink_tier_digest_count_path_proof_without_replay",
         )
+
+    def test_benchmark_timing_surfaces_keep_hot_runtime_separate_from_publication(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_timing_surface_for_test",
+        )
+
+        base = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "warm prepared timing surface",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "source_state_id": "source-state://surface",
+            "source_state_digest": "sha256:surface-source",
+            "prepared_state_id": "prepared-state://surface",
+            "prepared_state_digest": "sha256:surface-prepared",
+            "data_decoded": False,
+            "data_materialized": False,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:surface",
+            "correctness_digest_stable": True,
+            "runtime_execution_certificate_id": "execution.surface",
+            "runtime_execution_certificate_status": "certified",
+            "metrics": {
+                "query_runtime_millis": 0.34,
+                "vortex_scan_millis": 0.1,
+                "operator_compute_millis": 0.2,
+                "result_sink_write_millis": 5.33,
+                "evidence_render_millis": 8.15,
+                "total_runtime_millis": 13.82,
+                "cli_process_wall_millis": 14.0,
+            },
+        }
+        hot_row = {
+            **base,
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "requested_evidence_tier": "metadata_sink",
+            "actual_evidence_tier": "metadata_sink",
+        }
+        publication_row = {
+            **base,
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "actual_evidence_tier": "publication_full",
+            "computed_result_sink_replay_verified": True,
+            "result_sink_replay_micros": 1200,
+        }
+
+        hot, publication = module.published_rows([hot_row, publication_row])
+
+        self.assertEqual(hot["timing_surface"], "hot_runtime")
+        self.assertEqual(hot["actual_evidence_tier"], "metadata_sink")
+        self.assertEqual(hot["total_route_ms"], 0.34)
+        self.assertEqual(hot["hot_route_total_ms"], 0.34)
+        self.assertEqual(hot["publication_proof_route_total_ms"], 13.82)
+        self.assertFalse(hot["output_timing_included_in_total"])
+        self.assertFalse(hot["evidence_timing_included_in_total"])
+        self.assertIn("timing_surface=hot_runtime", hot["route_total_formula"])
+        self.assertNotIn("evidence_render_millis", hot["route_total_formula"])
+
+        self.assertEqual(publication["timing_surface"], "publication_proof")
+        self.assertEqual(publication["actual_evidence_tier"], "publication_full")
+        self.assertEqual(publication["total_route_ms"], 13.82)
+        self.assertTrue(publication["output_timing_included_in_total"])
+        self.assertTrue(publication["evidence_timing_included_in_total"])
+        self.assertIn(
+            "timing_surface=publication_proof", publication["route_total_formula"]
+        )
+        self.assertIn("evidence_render_millis", publication["route_total_formula"])
+
+        [lane] = module.route_lane_comparison_table([publication])["rows"]
+        self.assertEqual(lane[1], "hot_runtime")
+        self.assertEqual(lane[6], "0/1")
+        self.assertEqual(lane[7], "hot runtime row missing")
+
+        surface_rows = module.route_timing_surface_comparison_table(
+            [hot, publication]
+        )["rows"]
+        by_surface = {row[1]: row for row in surface_rows}
+        self.assertEqual(by_surface["hot_runtime"][2], "Hot route geomean")
+        self.assertEqual(
+            by_surface["publication_proof"][2],
+            "Publication-proof route geomean",
+        )
+        self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
+        self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
+
+    def test_benchmark_promoter_merges_hot_rows_without_replacing_publication_rows(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_merge_timing_surface_rows_for_test",
+        )
+
+        base = {
+            "engine": "shardloom-prepared-vortex",
+            "scenario_id": "selective_filter",
+            "scenario_name": "csv: selective filter",
+            "storage_format": "csv",
+            "selected_execution_mode": "prepared_vortex",
+            "route_lane_id": "warm_prepared_query",
+        }
+        publication = {
+            **base,
+            "timing_surface": "publication_proof",
+            "actual_evidence_tier": "publication_full",
+            "timing_surface_evidence_tier": "publication_full",
+            "total_route_ms": 13.82,
+        }
+        hot = {
+            **base,
+            "timing_surface": "hot_runtime",
+            "actual_evidence_tier": "metadata_sink",
+            "timing_surface_evidence_tier": "metadata_sink",
+            "total_route_ms": 0.34,
+        }
+        replacement_hot = {
+            **hot,
+            "total_route_ms": 0.31,
+        }
+
+        merged = module.merge_published_rows([publication, hot], [replacement_hot])
+
+        self.assertEqual(len(merged), 2)
+        by_surface = {row["timing_surface"]: row for row in merged}
+        self.assertEqual(by_surface["publication_proof"]["total_route_ms"], 13.82)
+        self.assertEqual(by_surface["hot_runtime"]["total_route_ms"], 0.31)
 
     def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
         self,
@@ -1563,8 +1734,11 @@ class ReleaseScriptTests(unittest.TestCase):
             route_share["schema_version"],
             "shardloom.traditional_analytics.route_share_amdahl.v1",
         )
-        self.assertEqual(route_share["rows"][0][3], "Vortex write")
-        self.assertEqual(route_share["rows"][0][6], "continue_workspace_safe_writer_metadata_coalescing")
+        self.assertEqual(route_share["rows"][0][4], "Vortex write")
+        self.assertEqual(
+            route_share["rows"][0][7],
+            "continue_workspace_safe_writer_metadata_coalescing",
+        )
 
     def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
         module = self._load_script_module(
@@ -1723,11 +1897,10 @@ class ReleaseScriptTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     stage_fields["route_timing_exclusive_stage_ids"],
-                    "sink_output,evidence_render",
+                    "none",
                 )
-                self.assertEqual(
+                self.assertIsNone(
                     stage_fields["route_timing_exclusive_stage_sum_ms"],
-                    1.0,
                 )
                 self.assertEqual(
                     stage_fields["route_timing_exclusive_residual_ms"],
@@ -1767,7 +1940,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
         self.assertEqual(stage_fields["operator_compute_ms"], 75.0)
         self.assertEqual(stage_fields["exclusive_prepared_query_ms"], 1.0)
-        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 6.0)
+        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 1.0)
         self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 0.0)
 
     def test_benchmark_promoter_normalizes_scan_chunk_iteration_alias_once(self) -> None:
@@ -1941,6 +2114,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "correctness_digest_stable": True,
             "computed_result_sink_replay_verified": True,
             "metrics": {
+                "requested_evidence_tier": "metadata_sink",
+                "actual_evidence_tier": "metadata_sink",
                 "persistent_runner_status": "single_process_batch_runner_supported",
                 "prepare_batch_preparation_millis": 100.0,
                 "prepare_batch_source_to_columnar_millis": 20.0,
@@ -1964,8 +2139,8 @@ class ReleaseScriptTests(unittest.TestCase):
         rows = module.rows_with_prepare_once_first_query([prepare_batch])
         by_lane = {item["route_lane_id"]: item for item in rows}
 
-        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 10.5)
-        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 105.5)
+        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 7.0)
+        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 102.0)
         self.assertEqual(
             by_lane["prepare_once_batch"]["source_parse_or_columnar_decode_ms"],
             1.0,
@@ -1992,7 +2167,7 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_timing_included_stage_total_ms"],
-            105.5,
+            102.0,
         )
         self.assertEqual(
             by_lane["prepare_once_first_query"]["route_timing_total_delta_ms"],
@@ -2016,8 +2191,8 @@ class ReleaseScriptTests(unittest.TestCase):
         by_count = {item[0]: item for item in amortization["rows"]}
         self.assertEqual(set(by_count), {1, 5, 10, 50, 100})
         self.assertEqual(by_count[1][1], 1)
-        self.assertEqual(by_count[1][2], "105.50 ms")
-        self.assertEqual(by_count[100][2], "6.50 ms")
+        self.assertEqual(by_count[1][2], "102.00 ms")
+        self.assertEqual(by_count[100][2], "3.00 ms")
 
     def test_benchmark_promoter_emits_operator_mode_inventory(self) -> None:
         module = self._load_script_module(
@@ -2245,6 +2420,69 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(cwd, Path("/repo"))
         self.assertEqual(env["RUSTUP_TOOLCHAIN"], "stable")
 
+    def test_benchmark_runner_separates_global_startup_warmup_attribution(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        calls: list[Path] = []
+
+        def fake_shardloom_cli_warmup(
+            binary: Path, root: Path, env: dict[str, str]
+        ) -> None:
+            calls.append(binary)
+
+        ticks = iter([0.0, 0.4, 1.0, 1.1, 2.0, 2.2])
+        previous_warmup = benchmark_run.shardloom_cli_warmup
+        previous_perf_counter = benchmark_run.time.perf_counter
+        benchmark_run.SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY.clear()
+        try:
+            benchmark_run.shardloom_cli_warmup = fake_shardloom_cli_warmup
+            benchmark_run.time.perf_counter = lambda: next(ticks)
+
+            first = benchmark_run.shardloom_cli_attributed_warmup(
+                Path("/repo/target/release/shardloom"),
+                Path("/repo"),
+                {},
+            )
+            second = benchmark_run.shardloom_cli_attributed_warmup(
+                Path("/repo/target/release/shardloom"),
+                Path("/repo"),
+                {},
+            )
+            warmed = benchmark_run.warmup_runner(
+                benchmark_run.EngineRunner(
+                    "shardloom-vortex",
+                    "test",
+                    {},
+                    warmup=lambda: second,
+                    startup_time_millis=3.0,
+                )
+            )
+        finally:
+            benchmark_run.shardloom_cli_warmup = previous_warmup
+            benchmark_run.time.perf_counter = previous_perf_counter
+            benchmark_run.SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY.clear()
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(first["warmup_time_millis"], 0.0)
+        self.assertEqual(first["startup_warmup_scope"], "covered_by_global_cli_binary_prime")
+        self.assertEqual(first["global_startup_warmup_millis"], 400.0)
+        self.assertEqual(
+            first["global_startup_warmup_scope"],
+            "one_time_cli_binary_prime_shared_across_shardloom_lanes",
+        )
+        self.assertEqual(second["warmup_time_millis"], 100.0)
+        self.assertEqual(
+            second["startup_warmup_scope"],
+            "per_lane_cli_status_warmup_after_global_prime",
+        )
+        self.assertEqual(second["global_startup_warmup_millis"], 400.0)
+        self.assertEqual(warmed.startup_time_millis, 103.0)
+        self.assertEqual(
+            warmed.startup_warmup_scope,
+            "per_lane_cli_status_warmup_after_global_prime",
+        )
+        self.assertEqual(warmed.global_startup_warmup_millis, 400.0)
+
     def test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
 
@@ -2288,7 +2526,18 @@ class ReleaseScriptTests(unittest.TestCase):
                 },
                 34.5943,
             ),
-            26.108,
+            25.207,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_engine_millis(
+                {
+                    "prepare_batch_preparation_micros": "1100",
+                    "total_runtime_micros": "26108",
+                    "compatibility_to_vortex_import_micros": "25207",
+                },
+                34.5943,
+            ),
+            1.1,
         )
         self.assertEqual(
             benchmark_run.preparation_engine_millis(
@@ -2300,6 +2549,13 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             benchmark_run.preparation_engine_millis({}, 34.5943),
             34.5943,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_route_total_millis(
+                {"total_runtime_micros": "26108"},
+                34.5943,
+            ),
+            26.108,
         )
 
     def test_benchmark_runner_propagates_only_preparation_stage_timings(self) -> None:
@@ -2883,6 +3139,8 @@ class ReleaseScriptTests(unittest.TestCase):
                     "status": "blocked",
                     "claim_gate_status": "not_claim_grade",
                     "claim_grade_requirements_met": False,
+                    "timing_surface": "publication_proof",
+                    "actual_evidence_tier": "publication_full",
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
                 }
@@ -3079,6 +3337,59 @@ class ReleaseScriptTests(unittest.TestCase):
                         **runtime_fields,
                     }
                 )
+        hot_runtime_row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "csv",
+            "status": "success",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["metadata_sink_not_publication_proof"],
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "selected_execution_mode": "prepared_vortex",
+            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
+            **capillary_fields,
+            **runtime_fields,
+        }
+        hot_runtime_row.update(
+            {
+                "route_timing_surface_schema_version": (
+                    "shardloom.route_timing_surface.v1"
+                ),
+                "timing_surface": "hot_runtime",
+                "timing_surface_label": "Hot runtime",
+                "timing_surface_evidence_tier": "metadata_sink",
+                "timing_surface_default_for_route": True,
+                "requested_evidence_tier": "metadata_sink",
+                "actual_evidence_tier": "metadata_sink",
+                "selected_evidence_tier": "metadata_sink",
+                "sink_tier": "metadata_sink",
+                "includes_output": False,
+                "includes_evidence": False,
+                "output_timing_included_in_total": False,
+                "evidence_timing_included_in_total": False,
+                "evidence_render_included_in_route_total": False,
+                "evidence_tier_result_sink_replay_required": False,
+                "sink_timing_included_in_route_total": False,
+                "sink_timing_inclusion_reason": (
+                    "metadata_sink_has_no_replay_write_timing"
+                ),
+                "result_sink_replay_skip_reason": (
+                    "skipped_metadata_sink_tier_digest_count_path_proof_without_replay"
+                ),
+                "human_evidence_render_skip_reason": (
+                    "skipped_hot_runtime_metadata_sink"
+                ),
+                "route_total_formula": "timing_surface=hot_runtime; query_runtime_millis",
+                "route_timing_included_stage_ids": "prepared_query",
+                "route_timing_excluded_stage_ids": "result_sink_write,evidence_render",
+                "route_timing_included_stage_total_ms": 0.34,
+                "route_timing_total_delta_ms": 0.0,
+                "total_route_ms": 0.34,
+                "query_runtime_millis": 0.34,
+            }
+        )
+        rows.append(hot_runtime_row)
         for engine in lanes:
             if engine.startswith("shardloom"):
                 continue
@@ -3129,11 +3440,16 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             report["shardloom_row_count"],
             len(module.REQUIRED_SHARDLOOM_PUBLICATION_ENGINES)
-            * len(module.REQUIRED_PUBLICATION_FORMATS),
+            * len(module.REQUIRED_PUBLICATION_FORMATS)
+            + 1,
         )
         self.assertEqual(report["missing_capillary_activation_row_count"], 0)
         self.assertEqual(report["missing_shardloom_engine_format_cell_count"], 0)
         self.assertEqual(report["shardloom_runtime_validation_counts"], {"passed": 24})
+        self.assertEqual(
+            report["shardloom_claim_gate_counts"],
+            {"claim_grade": 24, "not_claim_grade": 1},
+        )
         self.assertEqual(report["missing_independent_claim_proof_row_count"], 0)
         self.assertEqual(report["public_front_door_benchmark_rows"]["row_count"], 2)
         self.assertEqual(

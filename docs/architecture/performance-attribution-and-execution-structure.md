@@ -720,9 +720,10 @@ persistent_runner_status
 ```
 
 Unknown or not-yet-isolated fields should be explicit `null`, `not_measured`, or
-`included_in_total_runtime` values rather than silently omitted. Every canonical
-stage should also be classified as `included`, `excluded_shared_preparation`,
-`excluded_harness`, or `diagnostic_only`. Broad shared setup timers such as
+surface-specific included values rather than silently omitted. Every canonical
+stage should also be classified as `included_hot_runtime`,
+`included_full_replay_proof`, `included_publication_proof`,
+`excluded_shared_preparation`, `excluded_harness`, or `diagnostic_only`. Broad shared setup timers such as
 `source_state_prepare_micros` are not source-admission timers; promotion must not
 map them into `source_admission_ms` without a direct admission/stat timing field.
 Metadata-first warm reuse must report the requested digest policy. Local non-publication rows may
@@ -756,6 +757,9 @@ claim_gate_status
 Every benchmark row must carry these stage timing fields:
 
 ```text
+route_timing_surface_schema_version
+timing_surface
+timing_surface_evidence_tier
 source_read_millis
 compatibility_parse_millis
 compatibility_to_vortex_import_millis
@@ -770,6 +774,16 @@ timing_normalization_schema_version
 route_timing_stage_inclusion_schema_version
 route_timing_stage_inclusion_classes
 ```
+
+`timing_surface=hot_runtime` is the default performance/perf-split surface for
+ShardLoom route cards and geomeans. It excludes result-sink replay and human
+publication render timing unless the route formula explicitly says otherwise.
+`timing_surface=full_replay_proof` includes machine replay/output proof.
+`timing_surface=publication_proof` includes replay/output and human evidence
+rendering, and its total must be labeled as a publication-proof total rather than
+the hot route total. The surface is derived from the actual evidence tier:
+`metadata_sink` maps to `hot_runtime`, `full_vortex_replay` maps to
+`full_replay_proof`, and `publication_full` maps to `publication_proof`.
 
 The harness validates those fields before writing the artifact. External
 baseline rows use `selected_execution_mode=external_baseline_only`; ShardLoom

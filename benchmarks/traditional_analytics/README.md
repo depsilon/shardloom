@@ -1022,8 +1022,14 @@ Promoted website rows also carry the route fast-path attribution schema
 `evidence_render_ms`, and `certificate_link_ms` separate query/runtime work
 from sink delivery and human-readable evidence rendering. Rows also report
 `evidence_required_for_claim` and
-`evidence_render_included_in_route_total`; a claim-grade ShardLoom row that
-excludes evidence rendering from route total must still link a certified
+`evidence_render_included_in_route_total`. Promoted rows also carry
+`route_timing_surface_schema_version`, `timing_surface`, and
+`timing_surface_evidence_tier`. `metadata_sink` rows map to the `hot_runtime`
+surface and exclude result-sink replay plus human publication rendering from the
+hot route total. `full_vortex_replay` rows map to `full_replay_proof` and include
+machine replay/output proof. `publication_full` rows map to `publication_proof`
+and include replay/output plus human evidence rendering. A claim-grade
+ShardLoom row that excludes evidence rendering from route total must still link a certified
 runtime execution through `runtime_execution_certificate_id`,
 `runtime_execution_certificate_status`, `runtime_execution_certificate_plan_ref`,
 and `certificate_link_status=linked_certified_runtime_execution`. These fields

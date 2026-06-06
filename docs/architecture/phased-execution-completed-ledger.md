@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-SPLIT-FIX-1 route timing surface separation
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-freshness-startup-optimization` / PR pending.
+  - Source:
+    - User-requested `PERF-SPLIT-FIX-1` timing-surface correction.
+    - `benchmarks/traditional_analytics/run.py`,
+      `scripts/promote_benchmark_artifact.py`,
+      `scripts/check_benchmark_artifact_completeness.py`,
+      `scripts/check_benchmark_publication_claim_gate.py`,
+      `scripts/check_runtime_execution_envelopes.py`,
+      `website-src/src/components/BenchmarkDashboard.astro`, and
+      `python/tests/test_release_scripts.py`.
+    - Current promoted website artifacts under `website/assets/benchmarks/latest` and
+      `website-public/assets/benchmarks/latest`.
+  - Scope:
+    - Added an explicit route timing surface model:
+      `metadata_sink` -> `hot_runtime`, `full_vortex_replay` -> `full_replay_proof`, and
+      `publication_full` -> `publication_proof`.
+    - Changed primary route comparison to use `hot_runtime` rows only and to report "hot runtime
+      row missing" when no hot row exists, rather than silently substituting publication-proof
+      rows.
+    - Preserved publication-proof totals as their own surface, with result sink and human evidence
+      render included and labeled as publication-proof route totals.
+    - Changed preparation attribution so `prepared_state_lookup_or_create_millis` prefers narrow
+      preparation/import fields and does not source from `total_runtime_micros`; full preparation
+      route totals and CLI wall timing remain separately emitted.
+    - Added a surface-aware merge path for targeted hot-runtime refreshes so metadata-sink hot rows
+      can be merged without replacing claim-grade publication rows.
+    - Updated website labels, evidence-tier chips, route timing surface tables, validators, and
+      benchmark docs to keep timing surface, evidence tier, and included/excluded stages explicit.
+  - Evidence:
+    - Targeted metadata-sink hot-runtime rerun:
+      `target/perf-split-hot-metadata.json` generated with the bundled Python runtime over
+      `selective filter`, `tiny_smoke`, 10,000 rows, 3 iterations, six local formats, and
+      ShardLoom route engines.
+    - The merged current artifact has 1,350 published rows, including 630 ShardLoom rows:
+      600 `publication_proof` / `publication_full` claim-grade rows and 30 `hot_runtime` /
+      `metadata_sink` non-claim rows.
+    - Current hot-route geomeans in the generated dashboard evidence are Native Vortex Query
+      0.52 ms, Warm Prepared Query 0.55 ms, Prepare-Once Batch 3.80 ms,
+      Prepare-Once First Query 3.80 ms, and Cold Certified Route 7.53 ms.
+    - Publication-proof rows remain separately visible; for example, Warm Prepared Query is
+      18.38 ms on `publication_proof` because result-sink and evidence-render timing are included.
+    - Local validation passed: `python3 -m unittest python.tests.test_release_scripts`,
+      `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`,
+      `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`,
+      `python3 scripts/check_runtime_execution_envelopes.py --benchmark-artifact website/assets/benchmarks/latest/benchmark-results.json`,
+      `python3 scripts/check_website_readiness.py`,
+      `node website/validate_static_assets.js`, and `git diff --check`.
+  - Benchmark boundary:
+    - The hot-runtime metadata rows are non-claim local evidence generated from the current dirty
+      worktree. They correct dashboard interpretation and identify optimization direction, but do
+      not authorize a performance claim. A clean committed rerun is still required before claiming
+      a hot-route improvement or regression.
+  - Claim boundary:
+    - Claim is limited to timing-surface attribution, validator behavior, website interpretation,
+      and preparation-field provenance. No superiority, Spark-displacement, production-readiness,
+      or package-release claim is made.
+  - Fallback boundary:
+    - The timing-surface split does not change execution providers and does not introduce Spark,
+      DataFusion, DuckDB, Polars, Velox, Vortex query-engine integrations, or other fallback
+      execution.
+
 - [x] Session label: PERF-INNOV-5 Vortex writer-strategy preparation optimization
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-vortex-write-strategy` / PR #1133 merged.

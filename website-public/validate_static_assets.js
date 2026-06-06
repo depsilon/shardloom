@@ -68,6 +68,10 @@ const statusVocabulary = new Set([
   "not_claim_grade",
   "external_baseline_only",
   "future",
+  "current",
+  "not reported",
+  "stale_or_dirty",
+  "stale or dirty",
 ]);
 
 function assert(condition, message) {

@@ -85,6 +85,10 @@ STATUS_VOCABULARY = {
     "not_claim_grade",
     "external_baseline_only",
     "future",
+    "current",
+    "not reported",
+    "stale_or_dirty",
+    "stale or dirty",
 }
 REQUIRED_BENCHMARK_ROUTE_CARDS = {
     "cold_certified_route": "ShardLoom Cold Certified Route",
