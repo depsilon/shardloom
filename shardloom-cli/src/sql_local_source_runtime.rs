@@ -8193,7 +8193,7 @@ fn run_sql_local_source_union_smoke(
 ) -> Result<SqlLocalSourceUnionReport, ShardLoomError> {
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_union_statement(&request.statement)?;
-    let branch_reports = run_sql_union_branch_reports(&parsed)?;
+    let branch_reports = run_sql_union_branch_reports(&parsed, request.source_format_override)?;
     validate_sql_union_branch_boundaries(&branch_reports)?;
 
     let compute_start = Instant::now();
@@ -8315,13 +8315,14 @@ fn compute_sql_union_output(
 
 fn run_sql_union_branch_reports(
     parsed: &ParsedSqlLocalSourceUnion,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<SqlLocalSourceReport>, ShardLoomError> {
     parsed
         .branch_statements
         .iter()
         .map(|statement| {
             let branch_request = SqlLocalSourceRequest {
-                source_format_override: None,
+                source_format_override,
                 statement: statement.clone(),
                 output_format: SqlLocalSourceOutputFormat::InlineJsonl,
                 output_path: None,
@@ -47247,6 +47248,47 @@ mod tests {
 
         fs::remove_file(left).expect("remove left csv");
         fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn runs_scoped_sql_union_all_declared_extensionless_csv_sources_without_fallback() {
+        let left = sql_local_source_extensionless_test_path("union-declared-format-left");
+        let right = sql_local_source_extensionless_test_path("union-declared-format-right");
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n").expect("write extensionless left csv");
+        fs::write(&right, "id,label\n2,beta\n3,gamma\n").expect("write extensionless right csv");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT id,label FROM '{}' UNION ALL SELECT id,label FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run declared-format union smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected union report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv,csv");
+        assert_field_eq(&fields, "source_formats", "csv,csv");
+        assert_field_eq(&fields, "sql_union_mode", "all");
+        assert_field_eq(&fields, "sql_union_input_row_count", "4");
+        assert_field_eq(&fields, "sql_union_output_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove extensionless left csv");
+        fs::remove_file(right).expect("remove extensionless right csv");
     }
 
     #[test]
