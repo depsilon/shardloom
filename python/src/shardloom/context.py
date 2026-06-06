@@ -4515,14 +4515,14 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "scoped_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
-            ".write_parquet/write_arrow_ipc/write_avro"
+            ".write_parquet/write_arrow_ipc/write_avro/write_vortex"
         ),
         python_surface=(
-            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro and "
+            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro/write_vortex and "
             "ctx.read(...).with_columns({'values': sl.array(...), 'payload': sl.struct(...)})"
         ),
         dataframe_surface=(
-            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro"
+            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro/write_vortex"
         ),
         shared_runtime_path="sql-local-source-smoke typed nested compatibility sink",
         parity_status="equivalent_admitted_scope",
@@ -4540,8 +4540,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Scoped SQL, Python, and DataFrame-style ARRAY/STRUCT projection workflows can write "
             "inferable typed nested compatibility output through feature-gated Parquet, Arrow IPC, "
-            "and Avro sinks. This does not admit all-null nested columns without child-schema "
-            "evidence, ORC nested output, Vortex nested output, nested accessors/casts, broad "
+            "Avro, and local Vortex sinks. This does not admit all-null nested columns without child-schema "
+            "evidence, ORC nested output, nested accessors/casts, broad "
             "nested ordering, complex-key joins, production SQL nested parity, or benchmarked "
             "performance equivalence."
         ),

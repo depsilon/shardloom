@@ -318,13 +318,15 @@ Each item below uses the same sub-checklist shape:
       values through JSONL and CSV JSON-text result boundaries, with Arrow IPC CLI smoke evidence
       and all-null nested structured-sink blockers.
     - [x] Scoped feature-gated typed nested compatibility sinks admit inferable `List` / `Struct`
-      result columns through Parquet, Arrow IPC, and Avro, with Arrow IPC-to-Parquet CLI smoke and
-      shared Parquet/Arrow IPC/Avro writer/readback proof.
+      result columns through Parquet, Arrow IPC, Avro, and local Vortex, with Arrow IPC-to-Parquet
+      CLI smoke, shared Parquet/Arrow IPC/Avro writer/readback proof, and local Vortex
+      `ArrayRef::from_arrow(RecordBatch)` writer/reopen proof.
     - [x] All-null typed nested sink columns without child-schema evidence now fail closed at
       OutputPlan conversion with `typed_complex_child_schema_not_admitted`; JSONL/CSV remain logical
       result/text boundaries, while Parquet/Arrow IPC/Avro/ORC/Vortex structured writers require
       non-null nested values or source-schema child-field evidence.
-    - [ ] Remaining: ORC nested output and Vortex nested output remain deterministic blockers.
+    - [ ] Remaining: ORC nested output and all-null typed nested Vortex output without child-schema
+      evidence remain deterministic blockers.
     - [x] Variant/union dtype shapes, non-binary-source-to-binary-literal comparisons,
       scalar-left multi-column subqueries, and unbound source aliases outside admitted
       source-qualified surfaces now have matrix-backed deterministic diagnostics rather than open
@@ -333,7 +335,7 @@ Each item below uses the same sub-checklist shape:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
       requirements.
-    - [ ] Remaining: ORC nested output, Vortex nested output, ORC typed decimal sinks, broad ANSI
+    - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
       beyond scoped source projection/predicate/order plus explicit casts/helpers, and broad ANSI
       subquery parity beyond the admitted bounded local families remain outside the claim boundary.

@@ -5462,10 +5462,16 @@ pub fn write_flat_scalar_vortex_prepared_state(
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
     let column_families =
         scalar_column_families(&request.columns, &request.column_dtypes, &request.rows)?;
+    let typed_complex_output = scalar_column_families_include_typed_complex(&column_families);
+    let (expected_provider_kind, expected_provider_surface) = if typed_complex_output {
+        ("vortex_array_kernel", "ArrayRef::from_arrow(RecordBatch)")
+    } else {
+        ("shardloom_kernel", "shardloom_scalar_rows_to_vortex_struct")
+    };
     let layout_write_decision = admit_layout_write_runtime_decision(
         request.layout_write_advisor.as_ref(),
-        "shardloom_kernel",
-        "shardloom_scalar_rows_to_vortex_struct",
+        expected_provider_kind,
+        expected_provider_surface,
         &request.target_path,
         request.certification_level,
     )?;
@@ -5477,35 +5483,40 @@ pub fn write_flat_scalar_vortex_prepared_state(
     capillary_prewrite_control.apply_task_role_gate("read_chunk", "read_chunk")?;
     capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
     let array_build_start = Instant::now();
-    let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
+    let array_build = flat_rows_to_vortex_struct(
+        &request.columns,
+        &request.column_dtypes,
+        &request.rows,
+        &column_families,
+    )?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
         target_path: request.target_path,
         column_count: request.columns.len(),
         column_families,
         row_count,
-        array: &array,
+        array: &array_build.array,
         array_build_micros,
         certification_level: request.certification_level,
         allow_overwrite: request.allow_overwrite,
-        array_build_provider_kind: "shardloom_kernel",
-        array_build_provider_surface: "shardloom_scalar_rows_to_vortex_struct",
-        array_build_strategy: "scalar_rows_to_vortex_struct",
-        array_build_input_layout: "materialized_rows",
-        array_build_record_batch_count: 0,
-        manual_scalar_copy_avoided: false,
+        array_build_provider_kind: array_build.provider_kind,
+        array_build_provider_surface: array_build.provider_surface,
+        array_build_strategy: array_build.strategy,
+        array_build_input_layout: array_build.input_layout,
+        array_build_record_batch_count: array_build.record_batch_count,
+        manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
         capillary_prewrite_control,
         layout_write_decision,
         preparation_spine: VortexPreparationSpineFinalizeInput {
-            vortex_first_decision: "implement_shardloom_kernel",
-            feature_gate: "vortex-write",
-            source_surface: "local_text_source_state_scalar_rows",
+            vortex_first_decision: array_build.vortex_first_decision,
+            feature_gate: array_build.feature_gate,
+            source_surface: array_build.source_surface,
             split_surface: "single_materialized_scalar_row_split",
             split_count: usize::from(row_count > 0),
             projection_mask_status: "full_projection_materialized",
             filter_mask_status: "not_requested",
-            materialization_boundary_status: "materialized_scalar_rows_before_vortex_write",
-            decode_boundary_status: "text_source_decoded_by_shardloom_adapter",
+            materialization_boundary_status: array_build.materialization_boundary_status,
+            decode_boundary_status: array_build.decode_boundary_status,
         },
     })
 }
@@ -6056,6 +6067,10 @@ fn scalar_family_from_dtype_hint(
                 })?;
             Ok(Some(ScalarFamily::Decimal128 { precision, scale }))
         }
+        #[cfg(feature = "universal-format-io")]
+        LogicalDType::List => Ok(Some(ScalarFamily::List)),
+        #[cfg(feature = "universal-format-io")]
+        LogicalDType::Struct => Ok(Some(ScalarFamily::Struct)),
         _ => Ok(None),
     }
 }
@@ -6069,9 +6084,16 @@ enum ScalarFamily {
     Float64,
     Utf8,
     Binary,
-    Decimal128 { precision: u8, scale: u8 },
+    Decimal128 {
+        precision: u8,
+        scale: u8,
+    },
     Date32,
     TimestampMicros,
+    #[cfg(feature = "universal-format-io")]
+    List,
+    #[cfg(feature = "universal-format-io")]
+    Struct,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -6087,6 +6109,10 @@ impl ScalarFamily {
             Self::Decimal128 { precision, scale } => format!("decimal128({precision},{scale})"),
             Self::Date32 => "date32".to_string(),
             Self::TimestampMicros => "timestamp_micros".to_string(),
+            #[cfg(feature = "universal-format-io")]
+            Self::List => "list".to_string(),
+            #[cfg(feature = "universal-format-io")]
+            Self::Struct => "struct".to_string(),
         }
     }
 }
@@ -6108,12 +6134,21 @@ fn scalar_family(value: &ScalarValue) -> Option<ScalarFamily> {
         }),
         ScalarValue::Date32(_) => Some(ScalarFamily::Date32),
         ScalarValue::TimestampMicros(_) => Some(ScalarFamily::TimestampMicros),
-        ScalarValue::Null
-        | ScalarValue::Decimal128 { .. }
-        | ScalarValue::Float64(_)
-        | ScalarValue::List(_)
-        | ScalarValue::Struct(_) => None,
+        #[cfg(feature = "universal-format-io")]
+        ScalarValue::List(_) => Some(ScalarFamily::List),
+        #[cfg(feature = "universal-format-io")]
+        ScalarValue::Struct(_) => Some(ScalarFamily::Struct),
+        #[cfg(not(feature = "universal-format-io"))]
+        ScalarValue::List(_) | ScalarValue::Struct(_) => None,
+        ScalarValue::Null | ScalarValue::Decimal128 { .. } | ScalarValue::Float64(_) => None,
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn scalar_column_families_include_typed_complex(column_families: &[(String, String)]) -> bool {
+    column_families
+        .iter()
+        .any(|(_column, family)| matches!(family.as_str(), "list" | "struct"))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6124,6 +6159,22 @@ struct ColumnarVortexArrayBuild {
     provider_surface: &'static str,
     strategy: &'static str,
     manual_scalar_copy_avoided: bool,
+}
+
+#[cfg(feature = "vortex-write")]
+struct ScalarVortexArrayBuild {
+    array: vortex::array::ArrayRef,
+    provider_kind: &'static str,
+    provider_surface: &'static str,
+    strategy: &'static str,
+    input_layout: &'static str,
+    record_batch_count: usize,
+    manual_scalar_copy_avoided: bool,
+    vortex_first_decision: &'static str,
+    feature_gate: &'static str,
+    source_surface: &'static str,
+    materialization_boundary_status: &'static str,
+    decode_boundary_status: &'static str,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6581,13 +6632,32 @@ fn unexpected_columnar_array(column: &str, family: &str, array: &dyn Array) -> S
 #[cfg(feature = "vortex-write")]
 fn flat_rows_to_vortex_struct(
     columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
     column_families: &[(String, String)],
-) -> Result<vortex::array::ArrayRef> {
+) -> Result<ScalarVortexArrayBuild> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::StructArray;
     use vortex::array::dtype::FieldNames;
     use vortex::array::validity::Validity;
+
+    if scalar_column_families_include_typed_complex(column_families) {
+        let array = scalar_rows_to_vortex_from_arrow_provider(columns, column_dtypes, rows)?;
+        return Ok(ScalarVortexArrayBuild {
+            array,
+            provider_kind: "vortex_array_kernel",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch)",
+            strategy: "scalar_rows_to_arrow_record_batch_to_vortex",
+            input_layout: "materialized_rows_to_arrow_record_batch",
+            record_batch_count: usize::from(!rows.is_empty()),
+            manual_scalar_copy_avoided: false,
+            vortex_first_decision: "use_vortex_native_provider",
+            feature_gate: "vortex-write,universal-format-io",
+            source_surface: "local_scalar_rows_with_inferable_typed_nested_values",
+            materialization_boundary_status: "materialized_scalar_rows_to_arrow_record_batch_before_vortex_array_provider",
+            decode_boundary_status: "no_external_decode_after_shardloom_scalar_result_batch_state",
+        });
+    }
 
     let fields = column_families
         .iter()
@@ -6605,7 +6675,49 @@ fn flat_rows_to_vortex_struct(
     )
     .map_err(vortex_error)?
     .into_array();
-    Ok(array)
+    Ok(ScalarVortexArrayBuild {
+        array,
+        provider_kind: "shardloom_kernel",
+        provider_surface: "shardloom_scalar_rows_to_vortex_struct",
+        strategy: "scalar_rows_to_vortex_struct",
+        input_layout: "materialized_rows",
+        record_batch_count: 0,
+        manual_scalar_copy_avoided: false,
+        vortex_first_decision: "implement_shardloom_kernel",
+        feature_gate: "vortex-write",
+        source_surface: "local_text_source_state_scalar_rows",
+        materialization_boundary_status: "materialized_scalar_rows_before_vortex_write",
+        decode_boundary_status: "text_source_decoded_by_shardloom_adapter",
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn scalar_rows_to_vortex_from_arrow_provider(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::arrow::FromArrowArray as _;
+
+    let batch = crate::universal_format_io::flat_rows_to_record_batch_with_dtypes(
+        columns,
+        column_dtypes,
+        rows,
+        "local Vortex typed nested output",
+    )?;
+    vortex::array::ArrayRef::from_arrow(batch, false).map_err(vortex_error)
+}
+
+#[cfg(all(feature = "vortex-write", not(feature = "universal-format-io")))]
+fn scalar_rows_to_vortex_from_arrow_provider(
+    _columns: &[String],
+    _column_dtypes: &[Option<LogicalDType>],
+    _rows: &[Vec<(String, ScalarValue)>],
+) -> Result<vortex::array::ArrayRef> {
+    Err(ShardLoomError::InvalidOperation(
+        "local vortex_ingest typed nested output requires --features vortex-write,universal-format-io; no fallback execution was attempted"
+            .to_string(),
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -8256,6 +8368,167 @@ mod tests {
         assert_eq!(payload.value(1), &[] as &[u8]);
         assert_eq!(payload.value(2), b"raw");
         assert_eq!(payload.null_count(), 0);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_scalar_typed_nested_rows_write_via_vortex_arrow_provider() {
+        use std::sync::Arc;
+
+        use arrow_array::{Array as _, Int64Array, ListArray, StringArray, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::{LogicalDType, ScalarValue};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-scalar-nested-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec![
+            "id".to_string(),
+            "values".to_string(),
+            "payload".to_string(),
+        ];
+        let rows = vec![
+            vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                (
+                    "values".to_string(),
+                    ScalarValue::List(vec![ScalarValue::Int64(7), ScalarValue::Int64(8)]),
+                ),
+                (
+                    "payload".to_string(),
+                    ScalarValue::Struct(vec![
+                        ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                        ("amount".to_string(), ScalarValue::Int64(42)),
+                    ]),
+                ),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Int64(2)),
+                (
+                    "values".to_string(),
+                    ScalarValue::List(vec![ScalarValue::Int64(9), ScalarValue::Null]),
+                ),
+                (
+                    "payload".to_string(),
+                    ScalarValue::Struct(vec![
+                        ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
+                        ("amount".to_string(), ScalarValue::Null),
+                    ]),
+                ),
+            ],
+        ];
+        let request = VortexPreparedStateWriteRequest::new(&path, columns.clone(), rows)
+            .column_dtypes(vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::List),
+                Some(LogicalDType::Struct),
+            ]);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,values:list,payload:struct"
+        );
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.array_build_strategy,
+            "scalar_rows_to_arrow_record_batch_to_vortex"
+        );
+        assert_eq!(
+            report.array_build_input_layout,
+            "materialized_rows_to_arrow_record_batch"
+        );
+        assert_eq!(report.array_build_record_batch_count, 1);
+        assert!(!report.manual_scalar_copy_avoided);
+        assert_eq!(
+            report.preparation_spine.vortex_first_decision,
+            "use_vortex_native_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.provider_kind,
+            "vortex_array_kernel"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "materialized_scalar_rows_to_arrow_record_batch_before_vortex_array_provider"
+        );
+
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new(
+                "values",
+                DataType::List(Arc::new(Field::new_list_field(DataType::Int64, true))),
+                false,
+            ),
+            Field::new(
+                "payload",
+                DataType::Struct(
+                    vec![
+                        Field::new("label", DataType::Utf8, true),
+                        Field::new("amount", DataType::Int64, true),
+                    ]
+                    .into(),
+                ),
+                false,
+            ),
+        ]);
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let values = struct_array
+            .column_by_name("values")
+            .expect("values column")
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .expect("values list column");
+        assert_eq!(values.len(), 2);
+        assert_eq!(values.value_length(0), 2);
+        assert_eq!(values.value_length(1), 2);
+        let second_values = values.value(1);
+        let second_values = second_values
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("second list int values");
+        assert_eq!(second_values.value(0), 9);
+        assert!(second_values.is_null(1));
+
+        let payload = struct_array
+            .column_by_name("payload")
+            .expect("payload column")
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("payload struct column");
+        let labels = payload
+            .column_by_name("label")
+            .expect("label field")
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("label string field");
+        let amounts = payload
+            .column_by_name("amount")
+            .expect("amount field")
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("amount int field");
+        assert_eq!(labels.value(0), "alpha");
+        assert_eq!(labels.value(1), "beta");
+        assert_eq!(amounts.value(0), 42);
+        assert!(amounts.is_null(1));
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

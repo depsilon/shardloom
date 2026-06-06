@@ -3731,7 +3731,7 @@ class SqlLocalSourceSmokeReport:
             != COMPLEX_PROJECTION_TYPED_NESTED_OUTPUT_BOUNDARY
         ):
             return ()
-        return ("parquet", "arrow_ipc", "avro")
+        return ("parquet", "arrow_ipc", "avro", "vortex")
 
     @property
     def complex_projection_blocked_typed_nested_sink_formats(self) -> tuple[str, ...]:
@@ -3742,7 +3742,7 @@ class SqlLocalSourceSmokeReport:
             != COMPLEX_PROJECTION_TYPED_NESTED_OUTPUT_BOUNDARY
         ):
             return ()
-        return ("orc", "vortex")
+        return ("orc",)
 
     @property
     def typed_nested_child_schema_evidence_status(self) -> str | None:

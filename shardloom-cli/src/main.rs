@@ -7717,11 +7717,12 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_valid_args_default_build_returns_success() {
+        let workspace = cli_temp_workspace("spill-payload-roundtrip");
         let code = run_with_larger_stack(
             "spill-payload-roundtrip-test",
             vec![
                 "spill-payload-roundtrip".to_string(),
-                "/tmp/shardloom_spill_payload".to_string(),
+                workspace.workspace.to_string_lossy().into_owned(),
                 "payload-1".to_string(),
                 "hello".to_string(),
             ],

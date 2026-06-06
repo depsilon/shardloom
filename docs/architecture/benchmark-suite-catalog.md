@@ -415,13 +415,14 @@ classes are `encoded_native`, `residual_native`, `materialized_temporary`, and
 claim.
 The `selective filter` prepared/native row also carries
 `encoded_predicate_provider_*` fields. The current status is
-`reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`
-when the scoped local filter-column probe observes the admitted encodings: a
-scoped local scan projects real `flag,value` reader chunks without
-decode/materialization, the observed `flag:fastlanes.bitpacked` and
-`value:vortex.sequence` chunks lower into ShardLoom-owned encoded kernel inputs,
-the reader-generated conjunctive bridge intersects their selection vectors, and
-the selected metric path consumes the admitted selection vector for scoped
+`blocked_until_reader_generated_kernel_input_certificate` for CSV/JSON prepared
+rows whose reopened Vortex reader exposes primitive `flag,value` chunks. Scoped
+encoded-kernel and selection-vector-backed aggregation proofs remain fixture
+evidence only until the reader-generated chunks have admitted kernel-input
+certificates. When that certificate exists, a scoped local scan may project real
+`flag,value` reader chunks without decode/materialization, lower admitted
+encodings into ShardLoom-owned encoded kernel inputs, intersect their selection
+vectors, and consume the admitted selection vector for scoped
 `row_count` and `metric_sum` evidence. GAR-0026-S adds the bridge contract,
 GAR-0026-T adds filter-column probe evidence, GAR-0026-U adds the scoped
 encoding-specific kernel-input lowering, and GAR-0026-V adds selected metric
@@ -502,8 +503,9 @@ per-batch dimension-label lookup state when both are present. The batch envelope
 `source_state_reuse_status=per_batch_dimension_label_state_reused`,
 `source_state_reuse_consumer_count`, `source_state_recompute_avoided_count`,
 `source_state_prepare_micros`, and
-`source_state_prepare_timing_scope=batch_shared_pre_scenario`. The shared setup timing is reported
-explicitly and is not a hidden fast mode or performance claim; encoded-native operators,
+`source_state_prepare_timing_scope=batch_shared_session_open_only_deferred_family_build_reported_separately`.
+The shared session-open setup timing is reported explicitly, with deferred family-build timing
+reported separately; it is not a hidden fast mode or performance claim. Encoded-native operators,
 SQL/DataFrame, object-store/lakehouse, production, and Spark-displacement claims remain blocked.
 
 GAR-FLOW-2J adds a second scoped prepared/native source-state reuse path inside
