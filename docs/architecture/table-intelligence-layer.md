@@ -42,6 +42,12 @@ The scoped local table append commit rehearsal is exposed through:
 shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
 ```
 
+The scoped local table commit recovery replay is exposed through:
+
+```powershell
+shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -62,6 +68,9 @@ shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-pa
       `LocalAppendOnlyCdcOverlaySmokeReport`.
 - [x] Support one local-manifest append commit rehearsal with staged committed-manifest write,
       sidecar commit record, idempotency, and optional rollback cleanup evidence.
+- [x] Support one local-manifest commit recovery replay smoke that verifies the committed manifest
+      digest, sidecar commit record, correctness digest, and optional idempotency key without
+      catalog/object-store effects.
 - [x] Expose delete/tombstone, CDC, compaction, and maintenance-write execution posture through
       `TableMaintenanceExecutionMatrixReport`.
 Out of scope until promoted GAR slices complete:
@@ -71,12 +80,12 @@ Out of scope until promoted GAR slices complete:
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
   execution beyond the completed `GAR-0020-E` append-only overlay smoke, broad compaction writes,
   broad table data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime
-  surfaces remain unsupported. The local table append commit rehearsal writes only a
-  ShardLoom-owned local-manifest fixture artifact plus sidecar commit record; it is not an
-  Iceberg/Delta/Hudi, catalog, or object-store commit. `GAR-0028-A` now supplies the deterministic
-  commit-semantics gate for lakehouse/catalog paths; later runtime promotion still requires workload
-  fixtures, commit execution evidence, execution certificates, Native I/O certificates,
-  materialization/decode evidence, and no-fallback evidence.
+  surfaces remain unsupported. The local table append commit rehearsal and recovery replay operate
+  only on a ShardLoom-owned local-manifest fixture artifact plus sidecar commit record; they are not
+  Iceberg/Delta/Hudi, catalog, object-store, production commit, or exactly-once recovery support.
+  `GAR-0028-A` now supplies the deterministic commit-semantics gate for lakehouse/catalog paths;
+  later runtime promotion still requires workload fixtures, commit execution evidence, execution
+  certificates, Native I/O certificates, materialization/decode evidence, and no-fallback evidence.
 
 ## Default Policy
 

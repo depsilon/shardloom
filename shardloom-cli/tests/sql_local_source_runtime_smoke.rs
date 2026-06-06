@@ -1820,6 +1820,46 @@ fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
 }
 
 #[cfg(feature = "universal-format-io")]
+fn write_nested_arrow_ipc_smoke_source(path: &std::path::Path) {
+    use arrow_array::{
+        Array, ArrayRef, Int64Array, ListArray, RecordBatch, StringArray, StructArray,
+        types::Int64Type,
+    };
+    use arrow_ipc::writer::FileWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let values = Arc::new(ListArray::from_iter_primitive::<Int64Type, _, _>(vec![
+        Some(vec![Some(1), Some(2), None]),
+        None,
+        Some(vec![]),
+    ])) as ArrayRef;
+    let payload = Arc::new(StructArray::from(vec![
+        (
+            Arc::new(Field::new("label", DataType::Utf8, true)),
+            Arc::new(StringArray::from(vec![Some("alpha"), None, Some("empty")])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("amount", DataType::Int64, true)),
+            Arc::new(Int64Array::from(vec![Some(8), Some(15), None])) as ArrayRef,
+        ),
+    ])) as ArrayRef;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("values", values.data_type().clone(), true),
+        Field::new("payload", payload.data_type().clone(), true),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![Arc::new(Int64Array::from(vec![1, 2, 3])), values, payload],
+    )
+    .expect("nested record batch");
+    let file = File::create(path).expect("create nested arrow ipc source");
+    let mut writer = FileWriter::try_new(file, &schema).expect("arrow ipc writer");
+    writer.write(&batch).expect("write nested arrow ipc batch");
+    writer.finish().expect("finish nested arrow ipc writer");
+}
+
+#[cfg(feature = "universal-format-io")]
 fn write_binary_arrow_ipc_smoke_source(path: &std::path::Path) {
     use arrow_array::{BinaryArray, Int64Array, RecordBatch};
     use arrow_ipc::writer::FileWriter;
@@ -2194,6 +2234,235 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
     );
 
     fs::remove_file(source_path).expect("remove source arrow ipc");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_without_fallback() {
+    let source_path = unique_path("sql-local-source-nested", "arrow");
+    let csv_output_path = unique_path("sql-local-source-nested", "csv");
+    write_nested_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT id,values,payload FROM '{}' ORDER BY id ASC LIMIT 3",
+        source_path.display()
+    );
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &csv_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "arrow_ipc")));
+    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
+    assert!(stdout.contains(&field(
+        "source_state_projection_pushdown_status",
+        "reader_level_projection"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,values,payload")));
+    assert!(stdout.contains(&field(
+        "result_batch_state_status",
+        "shared_logical_columnar_boundary_available"
+    )));
+    assert!(stdout.contains(&field(
+        "result_batch_state_layout",
+        "logical_mixed_column_vectors_v1"
+    )));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        stdout.contains(
+            "{\\\"id\\\":1,\\\"values\\\":[1,2,null],\\\"payload\\\":{\\\"label\\\":\\\"alpha\\\",\\\"amount\\\":8}}"
+        ),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains(
+            "{\\\"id\\\":2,\\\"values\\\":null,\\\"payload\\\":{\\\"label\\\":null,\\\"amount\\\":15}}"
+        ),
+        "{stdout}"
+    );
+
+    let csv = fs::read_to_string(&csv_output_path).expect("read nested csv output");
+    assert_eq!(
+        csv,
+        "id,values,payload\n1,\"[1,2,null]\",\"{\"\"label\"\":\"\"alpha\"\",\"\"amount\"\":8}\"\n2,,\"{\"\"label\"\":null,\"\"amount\"\":15}\"\n3,[],\"{\"\"label\"\":\"\"empty\"\",\"\"amount\"\":null}\"\n"
+    );
+
+    fs::remove_file(source_path).expect("remove nested source arrow ipc");
+    fs::remove_file(csv_output_path).expect("remove nested csv output");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_without_fallback() {
+    let source_path = unique_path("sql-local-source-nested-parquet", "arrow");
+    let output_path = unique_path("sql-local-source-nested-parquet", "parquet");
+    write_nested_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT values,payload FROM '{}' ORDER BY id ASC LIMIT 3",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output-format",
+            "parquet",
+            "--output",
+            &output_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
+    assert!(stdout.contains(&field("output_format", "parquet")));
+    assert!(stdout.contains(&field(
+        "output_plan_type_nullability_support",
+        "flat_scalar_nullable_and_inferable_typed_nested_nullable_values_supported"
+    )));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        output_path.exists(),
+        "typed nested parquet output should be written at {}",
+        output_path.display()
+    );
+
+    let table =
+        shardloom_vortex::read_flat_parquet_source(&output_path, 10).expect("read nested parquet");
+    assert_eq!(
+        table.column_dtypes,
+        vec![
+            Some(shardloom_core::LogicalDType::List),
+            Some(shardloom_core::LogicalDType::Struct)
+        ]
+    );
+    assert_eq!(table.rows.len(), 3);
+    assert_eq!(
+        table.rows[0].get("values"),
+        Some(&shardloom_core::ScalarValue::List(vec![
+            shardloom_core::ScalarValue::Int64(1),
+            shardloom_core::ScalarValue::Int64(2),
+            shardloom_core::ScalarValue::Null,
+        ]))
+    );
+    assert_eq!(
+        table.rows[1].get("values"),
+        Some(&shardloom_core::ScalarValue::Null)
+    );
+    assert_eq!(
+        table.rows[2].get("payload"),
+        Some(&shardloom_core::ScalarValue::Struct(vec![
+            (
+                "label".to_string(),
+                shardloom_core::ScalarValue::Utf8("empty".to_string())
+            ),
+            ("amount".to_string(), shardloom_core::ScalarValue::Null),
+        ]))
+    );
+
+    fs::remove_file(source_path).expect("remove nested source arrow ipc");
+    fs::remove_file(output_path).expect("remove nested parquet output");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_fallback() {
+    let source_path = unique_path("sql-local-source-nested-blocked", "arrow");
+    let output_path = unique_path("sql-local-source-nested-blocked", "parquet");
+    write_nested_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT values FROM '{}' WHERE id = 2 LIMIT 1",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output-format",
+            "parquet",
+            "--output",
+            &output_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""), "{stdout}");
+    assert!(stdout.contains("\"code\":\"SL_INVALID_INPUT\""), "{stdout}");
+    assert!(
+        stdout.contains("output_plan_conversion_blocker=nested_sink_schema_inference_required")
+    );
+    assert!(stdout.contains(
+        "all values are NULL and the logical dtype hint list does not carry nested child schema"
+    ));
+    assert!(stdout.contains("\"attempted\":false"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(
+        !output_path.exists(),
+        "blocked structured sink must not write {}",
+        output_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove nested source arrow ipc");
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -5638,7 +5907,7 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
     assert!(stdout.contains(&field(
         "output_plan_materialization_required",
-        "parquet:flat_scalar_row_bridge_required_no_text_rendering,arrow_ipc:flat_scalar_row_bridge_required_no_text_rendering"
+        "parquet:flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering,arrow_ipc:flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering"
     )));
     assert!(stdout.contains(&field("output_plan_required_columns", "id,label,amount")));
     assert!(stdout.contains(&field(
@@ -5666,8 +5935,12 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains("parquet:verified_local_file_digest"));
     assert!(stdout.contains("arrow_ipc:verified_local_file_digest"));
-    assert!(stdout.contains("parquet:flat_scalar_schema_replay_verified"));
-    assert!(stdout.contains("arrow_ipc:flat_scalar_schema_replay_verified"));
+    assert!(
+        stdout.contains("parquet:flat_scalar_or_inferable_typed_nested_schema_replay_verified")
+    );
+    assert!(
+        stdout.contains("arrow_ipc:flat_scalar_or_inferable_typed_nested_schema_replay_verified")
+    );
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 

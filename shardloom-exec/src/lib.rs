@@ -1153,10 +1153,10 @@ pub use memory::{
     MemoryReservationStatus, MemoryRuntimeHardeningGateEntry, MemoryRuntimeHardeningGateReport,
     MemoryRuntimeHardeningStatus, MemoryRuntimeHardeningSurface, OomSafetyPlan,
     OperatorMemoryClass, OperatorMemorySpillDeclaration, OperatorMemorySpillDeclarationReport,
-    OperatorMemorySpillDeclarationStatus, SpillCompression, SpillDecision, SpillDecisionKind,
-    SpillFileRef, SpillFileStatus, SpillFormat, SpillPartition, SpillPlan, SpillPlanStatus,
-    SpillPolicy, SpillReport, plan_memory_runtime_hardening_gate,
-    plan_operator_memory_spill_declarations,
+    OperatorMemorySpillDeclarationStatus, PreOomMemoryGuardFixtureReport, SpillCompression,
+    SpillDecision, SpillDecisionKind, SpillFileRef, SpillFileStatus, SpillFormat, SpillPartition,
+    SpillPlan, SpillPlanStatus, SpillPolicy, SpillReport, plan_memory_runtime_hardening_gate,
+    plan_operator_memory_spill_declarations, run_pre_oom_memory_guard_fixture,
 };
 
 // PulseWeave automatic local runtime-control policy. This module is pure

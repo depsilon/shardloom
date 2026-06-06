@@ -151,6 +151,9 @@ fn assert_runtime_blocker_matrix_fields(output: &str) {
             "runtime_blocker_matrix_row_retry_attempt_allowed",
             "runtime_blocker_matrix_row_cleanup_execution_allowed",
             "runtime_blocker_matrix_row_commit_record_write_allowed",
+            "runtime_blocker_matrix_row_partition_discovery_allowed",
+            "runtime_blocker_matrix_row_catalog_integration_allowed",
+            "runtime_blocker_matrix_row_remote_result_delivery_allowed",
             "runtime_blocker_matrix_row_coordinator_start_coordinator_started",
             "runtime_blocker_matrix_row_worker_start_worker_started",
             "runtime_blocker_matrix_row_task_execution_task_executed",
@@ -158,6 +161,9 @@ fn assert_runtime_blocker_matrix_fields(output: &str) {
             "runtime_blocker_matrix_row_retry_attempt_retry_attempted",
             "runtime_blocker_matrix_row_cleanup_execution_cleanup_executed",
             "runtime_blocker_matrix_row_commit_record_write_commit_record_written",
+            "runtime_blocker_matrix_row_partition_discovery_object_store_io",
+            "runtime_blocker_matrix_row_catalog_integration_external_engine_invoked",
+            "runtime_blocker_matrix_row_remote_result_delivery_write_io",
             "runtime_blocker_matrix_row_retry_attempt_fallback_attempted",
             "runtime_blocker_matrix_row_commit_record_write_external_engine_invoked",
         ],
@@ -176,6 +182,9 @@ fn assert_runtime_blocker_matrix_fields(output: &str) {
             "runtime_blocker_matrix_row_retry_attempt_side_effect_free",
             "runtime_blocker_matrix_row_cleanup_execution_side_effect_free",
             "runtime_blocker_matrix_row_commit_record_write_side_effect_free",
+            "runtime_blocker_matrix_row_partition_discovery_side_effect_free",
+            "runtime_blocker_matrix_row_catalog_integration_side_effect_free",
+            "runtime_blocker_matrix_row_remote_result_delivery_side_effect_free",
         ],
     );
     assert!(output.contains(&field(
@@ -198,9 +207,26 @@ fn assert_runtime_blocker_matrix_fields(output: &str) {
         "runtime_blocker_matrix_row_commit_record_write_claim_gate_status",
         "not_claim_grade"
     )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_partition_discovery_required_evidence",
+        "partition_listing_policy,partition_schema_contract,credential_effect_policy,execution_certificate,native_io_certificate,no_fallback_policy"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_catalog_integration_blocker_id",
+        "gar0008b.catalog_integration_blocked"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_catalog_integration_required_evidence",
+        "catalog_adapter_policy,catalog_auth_policy,snapshot_consistency_contract,execution_certificate,native_io_certificate,no_fallback_policy"
+    )));
+    assert!(output.contains(&field(
+        "runtime_blocker_matrix_row_remote_result_delivery_required_evidence",
+        "remote_delivery_protocol,result_replay_policy,idempotency_key_contract,credential_effect_policy,execution_certificate,native_io_certificate,no_fallback_policy"
+    )));
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() {
     let output = run_cg10_object_store_runtime_gate_json();
 
@@ -215,12 +241,12 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
         "report_id",
         "cg10.object_store_runtime_promotion_gate"
     )));
-    assert!(output.contains(&field("surface_count", "13")));
+    assert!(output.contains(&field("surface_count", "16")));
     assert!(output.contains(&field("existing_evidence_surface_count", "2")));
-    assert!(output.contains(&field("blocked_surface_count", "11")));
+    assert!(output.contains(&field("blocked_surface_count", "14")));
     assert!(output.contains(&field(
         "surface_order",
-        "request_planner_aggregate,byte_range_provider_gate,range_read_execution,request_coalescing_runtime,distributed_coordinator_startup,distributed_worker_startup,distributed_task_execution,checkpoint_write_execution,retry_execution,cleanup_execution,object_store_commit_execution,provider_credential_runtime,benchmark_certificate_closeout"
+        "request_planner_aggregate,byte_range_provider_gate,range_read_execution,request_coalescing_runtime,distributed_coordinator_startup,distributed_worker_startup,distributed_task_execution,checkpoint_write_execution,retry_execution,cleanup_execution,object_store_commit_execution,partition_discovery_runtime,catalog_integration_runtime,remote_result_delivery_runtime,provider_credential_runtime,benchmark_certificate_closeout"
     )));
     assert!(output.contains(&field(
         "byte_range_provider_gate_report_id",
@@ -238,27 +264,27 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
         "runtime_blocker_matrix_report_id",
         "gar0008b.object_store_runtime_blocker_matrix"
     )));
-    assert!(output.contains(&field("runtime_blocker_matrix_row_count", "7")));
+    assert!(output.contains(&field("runtime_blocker_matrix_row_count", "10")));
     assert!(output.contains(&field(
         "runtime_blocker_matrix_row_order",
-        "coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write"
+        "coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write,partition_discovery,catalog_integration,remote_result_delivery"
     )));
     assert!(output.contains(&field(
         "runtime_blocker_matrix_diagnostics_propagated",
         "true"
     )));
-    assert!(output.contains(&field("runtime_blocker_matrix_diagnostic_count", "7")));
+    assert!(output.contains(&field("runtime_blocker_matrix_diagnostic_count", "10")));
     assert!(output.contains(&field(
         "runtime_blocker_matrix_diagnostic_code_order",
-        "SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED"
+        "SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED,SL_OBJECT_STORE_UNSUPPORTED"
     )));
     assert!(output.contains(&field(
         "runtime_blocker_matrix_diagnostic_category_order",
-        "object_store,object_store,object_store,object_store,object_store,object_store,object_store"
+        "object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store"
     )));
     assert!(output.contains(&field(
         "runtime_blocker_matrix_diagnostic_severity_order",
-        "info,info,info,info,info,info,info"
+        "info,info,info,info,info,info,info,info,info,info"
     )));
     assert!(output.contains(&field("runtime_blocker_matrix_envelope_status", "success")));
     assert!(output.contains("\"diagnostics\":[{\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
@@ -266,6 +292,9 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
     assert!(output.contains("\"category\":\"object_store\""));
     assert!(output.contains("\"feature\":\"coordinator_start\""));
     assert!(output.contains("\"feature\":\"commit_record_write\""));
+    assert!(output.contains("\"feature\":\"partition_discovery\""));
+    assert!(output.contains("\"feature\":\"catalog_integration\""));
+    assert!(output.contains("\"feature\":\"remote_result_delivery\""));
     assert!(output.contains(&field("existing_request_planner_evidence_present", "true")));
     assert!(output.contains(&field("existing_range_planning_evidence_present", "true")));
     assert!(output.contains(&field("existing_coalescing_evidence_present", "true")));
@@ -275,6 +304,54 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
     )));
     assert!(output.contains(&field("existing_checkpoint_retry_evidence_present", "true")));
     assert!(output.contains(&field("existing_commit_protocol_evidence_present", "true")));
+    assert!(output.contains(&field(
+        "existing_local_emulator_partition_discovery_evidence_present",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_partition_discovery_command",
+        "object-store-partition-discovery-smoke"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_partition_discovery_certificate_id",
+        "gar-runtime-impl-6d.local_emulator_partition_discovery.native_io"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_partition_discovery_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field(
+        "local_emulator_partition_discovery_runtime_supported",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "live_provider_partition_discovery_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_write_recovery_evidence_present",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_write_recovery_command",
+        "object-store-write-recovery-smoke"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_write_recovery_certificate_id",
+        "gar-runtime-impl-6d.local_emulator_object_store_write_recovery.native_io"
+    )));
+    assert!(output.contains(&field(
+        "existing_local_emulator_write_recovery_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field(
+        "local_emulator_write_recovery_runtime_supported",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "live_provider_write_recovery_runtime_supported",
+        "false"
+    )));
 }
 
 #[test]
@@ -286,5 +363,5 @@ fn cg10_object_store_runtime_gate_blocks_execution_io_credentials_and_claims() {
     assert_byte_range_provider_gate_fields(&output);
     assert_runtime_blocker_matrix_fields(&output);
     assert!(output.contains(&field("execution", "not_performed")));
-    assert!(output.contains(&field("diagnostic_count", "7")));
+    assert!(output.contains(&field("diagnostic_count", "10")));
 }

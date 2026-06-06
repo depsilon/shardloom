@@ -140,7 +140,7 @@ fn effect_budget_json_exposes_effectful_operation_admission_matrix() {
     )));
     assert!(output.contains(&field(
         "effectful_operation_admission_admitted_local_fixture_count",
-        "2"
+        "3"
     )));
     assert!(output.contains(&field(
         "effectful_operation_admission_metadata_only_count",
@@ -160,6 +160,10 @@ fn effect_budget_json_exposes_effectful_operation_admission_matrix() {
     )));
     assert!(output.contains(&field(
         "effectful_operation_admission_row_deterministic_scalar_udf_fixture_support_status",
+        "fixture_smoke_supported"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_deterministic_embedding_vector_fixture_support_status",
         "fixture_smoke_supported"
     )));
     assert!(output.contains(&field(

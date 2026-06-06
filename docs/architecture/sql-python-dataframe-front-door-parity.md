@@ -229,8 +229,10 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   blocker. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
   the bounded expression-join route, including Python `LazyFrame.join(condition=...)` predicate
   objects and logical `OR` over admitted qualified scalar leaves; complex-key and broader
-  non-scalar join predicates remain deterministic blockers. Arbitrary expression/DataFrame breadth
-  remains pending until its runtime evidence lands.
+  non-scalar join predicates remain deterministic blockers. Common DataFrame inspection, summary,
+  null-handling, and Python-callable methods now fail closed through `workflow-unsupported-plan`
+  instead of missing Python attributes or hidden pandas/Polars execution. Arbitrary
+  expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

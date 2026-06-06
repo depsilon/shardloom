@@ -144,6 +144,44 @@ fn extension_manifest_effect_rows_keep_effectful_paths_blocked() {
 }
 
 #[test]
+fn embedding_vector_local_fixture_smoke_exposes_no_effect_vector_evidence() {
+    let output = run_json(&[
+        "embedding-vector-local-fixture-smoke",
+        "alpha;beta;gamma",
+        "--query",
+        "beta",
+        "--format",
+        "json",
+    ]);
+    assert!(output.contains("\"command\":\"embedding-vector-local-fixture-smoke\""));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.deterministic_embedding_vector_fixture.v1"
+    )));
+    assert!(output.contains(&field("fixture_id", "sl_fixture_hash_embedding_vector")));
+    assert!(output.contains(&field("embedding_model_id", "sl_fixture_hash_embedding_v1")));
+    assert!(output.contains(&field("vector_index_kind", "local_bruteforce_l2_fixture")));
+    assert!(output.contains(&field("output_dtype", "fixed_size_list<int64,4>")));
+    assert!(output.contains(&field("vector_dimension", "4")));
+    assert!(output.contains(&field("vector_metric", "squared_l2")));
+    assert!(output.contains(&field("nearest_index", "1")));
+    assert!(output.contains(&field("nearest_text", "beta")));
+    assert!(output.contains(&field("nearest_distance_squared", "0")));
+    assert!(output.contains(&field("model_call_performed", "false")));
+    assert!(output.contains(&field("credential_resolution_performed", "false")));
+    assert!(output.contains(&field("network_probe_performed", "false")));
+    assert!(output.contains(&field("extension_code_executed", "false")));
+    assert!(output.contains(&field("external_effect_executed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("no_fallback_invariant_holds", "true")));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_deterministic_embedding_vector_fixture_support_status",
+        "fixture_smoke_supported"
+    )));
+}
+
+#[test]
 fn extension_and_udf_commands_expose_plugin_abi_udf_sandbox_blocker() {
     for args in [
         ["extension-registry", "--format", "json"].as_slice(),

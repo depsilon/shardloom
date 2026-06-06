@@ -21,6 +21,7 @@ from .client import (
     HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
+    LiveHybridStateTransitionReport,
     PublicWorkflowExecution,
     PublicWorkflowRoute,
     PythonClientSmokeReport,
@@ -270,6 +271,7 @@ class GeneratedObjectStoreOutputReport:
     provider_profile: str
     generated_report: GeneratedSourceWriteReport
     object_store_report: OutputEnvelope
+    object_store_recovery_report: OutputEnvelope | None = None
 
     @property
     def envelope(self) -> OutputEnvelope:
@@ -319,10 +321,51 @@ class GeneratedObjectStoreOutputReport:
         return self.object_store_report.field("rollback_status")
 
     @property
+    def object_store_write_recovery_status(self) -> str | None:
+        """Return the local-emulator write recovery status when replay was requested."""
+
+        if self.object_store_recovery_report is None:
+            return None
+        return self.object_store_recovery_report.field("object_store_write_recovery_status")
+
+    @property
+    def recovery_replay_status(self) -> str | None:
+        """Return the sidecar recovery replay status when present."""
+
+        if self.object_store_recovery_report is None:
+            return None
+        return self.object_store_recovery_report.field("recovery_replay_status")
+
+    @property
+    def output_replay_verified(self) -> bool:
+        """Whether committed local-emulator object output replay was verified."""
+
+        return self.object_store_write_recovery_status == "recovered"
+
+    @property
     def object_store_io(self) -> bool:
         """Whether the final route performed object-store IO."""
 
-        return self.object_store_report.field_bool("object_store_io", False) is True
+        return (
+            self.object_store_report.field_bool("object_store_io", False) is True
+            or (
+                self.object_store_recovery_report is not None
+                and self.object_store_recovery_report.field_bool(
+                    "object_store_io",
+                    False,
+                )
+                is True
+            )
+        )
+
+    @property
+    def object_store_read_io(self) -> bool:
+        """Whether the route performed recovery read I/O."""
+
+        return (
+            self.object_store_recovery_report is not None
+            and self.object_store_recovery_report.field_bool("object_store_read_io", False) is True
+        )
 
     @property
     def object_store_write_io(self) -> bool:
@@ -340,7 +383,11 @@ class GeneratedObjectStoreOutputReport:
     def runtime_execution(self) -> bool:
         """Whether the scoped generated-output object-store route executed."""
 
-        return self.generated_source_created and self.object_store_write_io
+        recovery_ok = (
+            self.object_store_recovery_report is None
+            or self.object_store_recovery_report.status == "success"
+        )
+        return self.generated_source_created and self.object_store_write_io and recovery_ok
 
     @property
     def fallback_attempted(self) -> bool:
@@ -350,6 +397,17 @@ class GeneratedObjectStoreOutputReport:
             self.generated_report.fallback_attempted
             or self.object_store_report.fallback.attempted
             or self.object_store_report.field_bool("fallback_attempted", False) is True
+            or (
+                self.object_store_recovery_report is not None
+                and (
+                    self.object_store_recovery_report.fallback.attempted
+                    or self.object_store_recovery_report.field_bool(
+                        "fallback_attempted",
+                        False,
+                    )
+                    is True
+                )
+            )
         )
 
     @property
@@ -359,6 +417,14 @@ class GeneratedObjectStoreOutputReport:
         return (
             self.generated_report.external_engine_invoked
             or self.object_store_report.field_bool("external_engine_invoked", False) is True
+            or (
+                self.object_store_recovery_report is not None
+                and self.object_store_recovery_report.field_bool(
+                    "external_engine_invoked",
+                    False,
+                )
+                is True
+            )
         )
 
     @property
@@ -366,6 +432,126 @@ class GeneratedObjectStoreOutputReport:
         """Return the final object-store route claim-gate status."""
 
         return self.object_store_report.field("claim_gate_status")
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedPartitionedObjectStoreOutputReport:
+    """Typed view over generated rows written to a partitioned local-emulator object-store path."""
+
+    partition_root_uri: str
+    partition_values: Mapping[str, str]
+    partitioned_target_uri: str
+    generated_object_store_report: GeneratedObjectStoreOutputReport
+    partition_discovery_report: OutputEnvelope
+
+    @property
+    def envelope(self) -> OutputEnvelope:
+        """Return the partition discovery envelope for the final proof step."""
+
+        return self.partition_discovery_report
+
+    @property
+    def command(self) -> str:
+        """Return the final proof command name."""
+
+        return self.partition_discovery_report.command
+
+    @property
+    def status(self) -> str:
+        """Return the final proof status."""
+
+        return self.partition_discovery_report.status
+
+    @property
+    def generated_source_created(self) -> bool:
+        """Whether generated-source staging evidence was emitted."""
+
+        return self.generated_object_store_report.generated_source_created
+
+    @property
+    def object_store_write_status(self) -> str | None:
+        """Return the object-store write status."""
+
+        return self.generated_object_store_report.object_store_write_status
+
+    @property
+    def object_store_write_recovery_status(self) -> str | None:
+        """Return the object-store write recovery status."""
+
+        return self.generated_object_store_report.object_store_write_recovery_status
+
+    @property
+    def output_replay_verified(self) -> bool:
+        """Whether committed object-store output replay was verified."""
+
+        return self.generated_object_store_report.output_replay_verified
+
+    @property
+    def partition_discovery_status(self) -> str | None:
+        """Return the partition discovery status."""
+
+        return self.partition_discovery_report.field("partition_discovery_status")
+
+    @property
+    def discovered_partition_columns(self) -> tuple[str, ...]:
+        """Return discovered partition columns from the local-emulator listing."""
+
+        return _split_csv(self.partition_discovery_report.field("discovered_partition_columns"))
+
+    @property
+    def object_store_io(self) -> bool:
+        """Whether any scoped local-emulator object-store I/O occurred."""
+
+        return (
+            self.generated_object_store_report.object_store_io
+            or self.partition_discovery_report.field_bool("object_store_io", False) is True
+        )
+
+    @property
+    def object_store_listing_io(self) -> bool:
+        """Whether the partition discovery step listed local-emulator directories."""
+
+        return self.partition_discovery_report.field_bool("object_store_listing_io", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the generated output route wrote local-emulator output."""
+
+        return self.generated_object_store_report.write_io
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the generated-output write and partition proof both executed."""
+
+        return (
+            self.generated_object_store_report.runtime_execution
+            and self.partition_discovery_status == "succeeded"
+        )
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any route stage attempted fallback execution."""
+
+        return (
+            self.generated_object_store_report.fallback_attempted
+            or self.partition_discovery_report.fallback.attempted
+            or self.partition_discovery_report.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether any route stage invoked an external engine."""
+
+        return (
+            self.generated_object_store_report.external_engine_invoked
+            or self.partition_discovery_report.field_bool("external_engine_invoked", False) is True
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the final partition discovery claim-gate status."""
+
+        return self.partition_discovery_report.field("claim_gate_status")
 
 
 @dataclass(frozen=True, slots=True)
@@ -726,6 +912,7 @@ class FrontDoorParityMatrix:
             "generated_source_output",
             "schema_quality_preview",
             "local_vortex_primitive_runtime",
+            "typed_nested_compatibility_sink",
             "decoded_materialization_interop",
         }
         admitted = {row.row_id for row in self.admitted_rows}
@@ -1927,8 +2114,9 @@ _LOCAL_VORTEX_PRIMITIVE_RUNTIME_BOUNDARY = (
 )
 _LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY = (
     "Scoped bounded Python object materialization from ShardLoom-emitted inline JSONL for admitted "
-    "local-source query-builder workflows only; object-store/table source, external engine, "
-    "fallback, or production notebook/DataFrame claim."
+    "local-source query-builder workflows only, including bounded schema, not-null/unique/regex "
+    "data-quality reports, and report-only quarantine classification. Object-store/table source, "
+    "external engine, fallback, or production notebook/DataFrame claims remain blocked."
 )
 
 LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
@@ -2378,6 +2566,468 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
     ),
     _df_method(
+        "rename",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="rename",
+        blocker_id="cg21.workflow.rename.schema_rewrite_unsupported",
+        required_evidence=(
+            "schema_rewrite_semantics",
+            "projection_alias_contract",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Column rename is a deterministic unsupported report until schema rewrite "
+            "semantics, projection aliasing, and runtime evidence are certified. No "
+            "pandas/Polars backend, external engine, fallback, or production DataFrame claim."
+        ),
+    ),
+    _df_method(
+        "rename_columns",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="rename",
+        blocker_id="cg21.workflow.rename.schema_rewrite_unsupported",
+        required_evidence=(
+            "schema_rewrite_semantics",
+            "projection_alias_contract",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Alias for rename(...), preserving the same deterministic unsupported schema "
+            "rewrite diagnostic and no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "drop",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="drop",
+        blocker_id="cg21.workflow.drop.schema_projection_unsupported",
+        required_evidence=(
+            "schema_discovery",
+            "projection_rewrite_semantics",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Column drop is a deterministic unsupported report until schema-aware "
+            "projection rewrite evidence exists. No hidden all-column schema read, "
+            "pandas/Polars backend, external engine, fallback, or production DataFrame claim."
+        ),
+    ),
+    _df_method(
+        "drop_columns",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="drop",
+        blocker_id="cg21.workflow.drop.schema_projection_unsupported",
+        required_evidence=(
+            "schema_discovery",
+            "projection_rewrite_semantics",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Alias for drop(...), preserving the same deterministic unsupported "
+            "schema-aware projection diagnostic and no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "sample",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="sample",
+        blocker_id="cg21.workflow.sample.sampling_semantics_unsupported",
+        required_evidence=(
+            "sampling_semantics",
+            "deterministic_seed_policy",
+            "semantic_conformance_suite",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Sample is a deterministic unsupported report until native sampling semantics, "
+            "seed policy, and correctness evidence are certified. No random local "
+            "materialization, pandas/Polars backend, external engine, fallback, or performance "
+            "claim."
+        ),
+    ),
+    _df_method(
+        "explode",
+        "dataframe_transform_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="explode",
+        blocker_id="cg21.workflow.explode.nested_expansion_unsupported",
+        required_evidence=(
+            "nested_type_semantics",
+            "list_expansion_operator",
+            "semantic_conformance_suite",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Explode is a deterministic unsupported report until nested/list expansion "
+            "semantics and runtime evidence are certified. No decode-to-external-engine "
+            "expansion, fallback, or broad nested DataFrame claim."
+        ),
+    ),
+    _df_method(
+        "merge",
+        "dataframe_combine_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="merge",
+        blocker_id="cg21.workflow.merge.join_alias_unsupported",
+        required_evidence=(
+            "join_alias_semantics",
+            "key_resolution_contract",
+            "join_operator_capability",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pandas-style merge is a deterministic unsupported report until broad "
+            "join aliasing, key inference, suffix handling, and runtime evidence are "
+            "certified. Scoped join(...) evidence does not imply broad merge support."
+        ),
+    ),
+    _df_method(
+        "concat",
+        "dataframe_combine_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="concat",
+        blocker_id="cg21.workflow.concat.union_alignment_unsupported",
+        required_evidence=(
+            "schema_alignment_contract",
+            "set_operation_semantics",
+            "axis_semantics",
+            "execution_certificate",
+            "native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Concat is a deterministic unsupported report until axis, schema alignment, "
+            "union, and column-combine semantics are certified without pandas/Polars "
+            "or external execution fallback."
+        ),
+    ),
+    _df_method(
+        "pivot",
+        "dataframe_reshape_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="pivot",
+        blocker_id="cg21.workflow.pivot.reshape_semantics_unsupported",
+        required_evidence=(
+            "reshape_semantics",
+            "grouping_key_contract",
+            "materialization_boundary",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pivot is a deterministic unsupported report until reshape semantics, "
+            "key cardinality handling, and materialization boundaries are certified."
+        ),
+    ),
+    _df_method(
+        "pivot_table",
+        "dataframe_reshape_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="pivot_table",
+        blocker_id="cg21.workflow.pivot_table.aggregate_reshape_unsupported",
+        required_evidence=(
+            "aggregate_reshape_semantics",
+            "aggregate_operator_capability",
+            "grouping_key_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pivot-table is a deterministic unsupported report until aggregate reshape "
+            "semantics and native aggregate evidence are certified."
+        ),
+    ),
+    _df_method(
+        "melt",
+        "dataframe_reshape_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="melt",
+        blocker_id="cg21.workflow.melt.reshape_semantics_unsupported",
+        required_evidence=(
+            "unpivot_semantics",
+            "schema_alignment_contract",
+            "materialization_boundary",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Melt is a deterministic unsupported report until unpivot semantics, schema "
+            "alignment, and materialization boundaries are certified."
+        ),
+    ),
+    _df_method(
+        "rolling",
+        "dataframe_window_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="rolling",
+        blocker_id="cg21.workflow.rolling.window_semantics_unsupported",
+        required_evidence=(
+            "window_frame_semantics",
+            "ordering_contract",
+            "window_operator_capability",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Rolling-window DataFrame operations are deterministic unsupported reports "
+            "until native frame semantics, ordering, and correctness evidence are certified."
+        ),
+    ),
+    _df_method(
+        "tail",
+        "dataframe_inspection_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="tail",
+        blocker_id="cg21.workflow.tail.source_order_unsupported",
+        required_evidence=(
+            "source_order_semantics",
+            "reverse_scan_or_stable_ordering",
+            "materialization_boundary",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Tail is a deterministic unsupported report until stable source-order or reverse-scan "
+            "semantics are certified. Use scoped head/preview for bounded inspection."
+        ),
+    ),
+    _df_method(
+        "describe",
+        "dataframe_summary_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="describe",
+        blocker_id="cg21.workflow.describe.summary_statistics_unsupported",
+        required_evidence=(
+            "summary_statistics_semantics",
+            "numeric_dtype_policy",
+            "null_semantics",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pandas-style describe is a deterministic unsupported report until native summary "
+            "statistics, dtype policy, null semantics, and result-shape evidence are certified."
+        ),
+    ),
+    _df_method(
+        "nunique",
+        "dataframe_summary_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="nunique",
+        blocker_id="cg21.workflow.nunique.distinct_count_semantics_unsupported",
+        required_evidence=(
+            "distinct_count_semantics",
+            "dropna_policy",
+            "aggregate_operator_capability",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pandas-style nunique is a deterministic unsupported report until axis/dropna and "
+            "result-shape semantics are certified. Scoped count_distinct(...) aggregates remain "
+            "available where explicit SQL runtime evidence exists."
+        ),
+    ),
+    _df_method(
+        "value_counts",
+        "dataframe_summary_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="value_counts",
+        blocker_id="cg21.workflow.value_counts.grouped_count_semantics_unsupported",
+        required_evidence=(
+            "grouped_count_semantics",
+            "dropna_policy",
+            "ordering_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Pandas-style value_counts is a deterministic unsupported report until grouped-count, "
+            "null/dropna, ordering, and result-shape evidence are certified. Scoped "
+            "group_by(...).count() evidence does not imply broad value_counts support."
+        ),
+    ),
+    _df_method(
+        "fillna",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="fillna",
+        blocker_id="cg21.workflow.fillna.null_fill_semantics_unsupported",
+        required_evidence=(
+            "null_fill_semantics",
+            "dtype_coercion_policy",
+            "projection_rewrite_semantics",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame-wide fillna is a deterministic unsupported report until null-fill, dtype "
+            "coercion, and schema/projection rewrite semantics are certified."
+        ),
+    ),
+    _df_method(
+        "fill_null",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="fillna",
+        blocker_id="cg21.workflow.fillna.null_fill_semantics_unsupported",
+        required_evidence=(
+            "null_fill_semantics",
+            "dtype_coercion_policy",
+            "projection_rewrite_semantics",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Alias for fillna(...), preserving the same deterministic null-fill blocker and "
+            "no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "isna",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="isna",
+        blocker_id="cg21.workflow.isna.null_mask_semantics_unsupported",
+        required_evidence=(
+            "null_mask_semantics",
+            "three_valued_logic_policy",
+            "projection_result_shape",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame-wide isna masks are deterministic unsupported reports until null-mask "
+            "semantics and result-shape evidence are certified."
+        ),
+    ),
+    _df_method(
+        "isnull",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="isna",
+        blocker_id="cg21.workflow.isna.null_mask_semantics_unsupported",
+        required_evidence=(
+            "null_mask_semantics",
+            "three_valued_logic_policy",
+            "projection_result_shape",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Alias for isna(...), preserving the same deterministic null-mask blocker and "
+            "no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "notna",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="notna",
+        blocker_id="cg21.workflow.notna.null_mask_semantics_unsupported",
+        required_evidence=(
+            "not_null_mask_semantics",
+            "three_valued_logic_policy",
+            "projection_result_shape",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame-wide notna masks are deterministic unsupported reports until non-null mask "
+            "semantics and result-shape evidence are certified."
+        ),
+    ),
+    _df_method(
+        "notnull",
+        "dataframe_null_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="notna",
+        blocker_id="cg21.workflow.notna.null_mask_semantics_unsupported",
+        required_evidence=(
+            "not_null_mask_semantics",
+            "three_valued_logic_policy",
+            "projection_result_shape",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Alias for notna(...), preserving the same deterministic non-null-mask blocker and "
+            "no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "apply",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="apply",
+        blocker_id="cg21.workflow.apply.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "udf_type_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Python apply is a deterministic unsupported report until callable typing, sandbox, "
+            "effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
+        "map",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="map",
+        blocker_id="cg21.workflow.map.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "elementwise_type_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Python map is a deterministic unsupported report until element-wise callable typing, "
+            "sandbox, effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
+        "map_rows",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="map_rows",
+        blocker_id="cg21.workflow.map_rows.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "row_udf_type_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Row-wise Python maps are deterministic unsupported reports until row schema, "
+            "callable typing, sandbox, effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
         "with_column",
         "expression",
         "fixture_smoke_supported",
@@ -2657,6 +3307,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "bounded_inline_jsonl_result",
             "data_quality_runtime",
+            "regex_quality_rule",
             "execution_certificate",
         ),
         runtime_execution=True,
@@ -2672,6 +3323,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "bounded_inline_jsonl_result",
             "data_quality_runtime",
+            "regex_quality_rule",
             "execution_certificate",
         ),
         runtime_execution=True,
@@ -3107,6 +3759,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "bounded_inline_jsonl_result",
             "quarantine_policy",
             "local_quarantine_sink_write_evidence",
+            "regex_quarantine_pushdown",
             "output_native_io_certificate",
             "no_fallback_evidence",
         ),
@@ -3116,8 +3769,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped local-source quarantine only. Bounded runtime rows are classified through "
-            "ShardLoom local-source evidence; pushdownable not-null quarantine rows can be written "
-            "to admitted local sinks through sql-local-source-smoke. Broad quarantine policy, "
+            "ShardLoom local-source evidence; pushdownable not-null and scoped regex quarantine "
+            "rows can be written to admitted local sinks through sql-local-source-smoke. Broad "
+            "quarantine policy, "
             "object-store/table quarantine, unique-check sink pushdown, production remediation, "
             "and performance claims remain blocked."
         ),
@@ -3483,22 +4137,32 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         cli_commands=(
             "object-store-read-smoke",
             "object-store-write-smoke",
+            "object-store-write-recovery-smoke",
+            "object-store-partition-discovery-smoke",
             "local-table-metadata-read-smoke",
             "local-table-append-commit-rehearsal-smoke",
+            "local-table-commit-recovery-smoke",
         ),
         context_methods=(
             "generated_output_to_object_store",
+            "generated_output_to_partitioned_object_store",
             "foundry_generated_output",
             "object_store_read_smoke",
             "object_store_write_smoke",
+            "object_store_write_recovery_smoke",
+            "object_store_partition_discovery_smoke",
             "local_table_metadata_read_smoke",
             "local_table_append_commit_rehearsal_smoke",
+            "local_table_commit_recovery_smoke",
         ),
         client_methods=(
             "local_table_metadata_read_smoke",
             "object_store_read_smoke",
             "object_store_write_smoke",
+            "object_store_write_recovery_smoke",
+            "object_store_partition_discovery_smoke",
             "local_table_append_commit_rehearsal_smoke",
+            "local_table_commit_recovery_smoke",
         ),
         runtime_route="generated_source_output_to_local_emulator_or_local_manifest_fixture",
         promotion_criteria="only credential-safe local fixture routes are promoted",
@@ -3508,16 +4172,33 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
     _graduation_row(
         "local_effect_sqlite_and_udf_fixtures",
         "python_context",
-        "SQLite local fixture and deterministic built-in scalar UDF fixture",
+        "SQLite local fixture plus deterministic built-in UDF and embedding/vector fixtures",
         "high_level_context",
         "fixture_smoke_supported",
-        cli_commands=("sqlite-local-import-export-smoke", "udf-local-scalar-fixture-smoke"),
-        context_methods=("sqlite_local_import_export_smoke", "udf_local_scalar_fixture_smoke"),
-        client_methods=("sqlite_local_import_export_smoke", "udf_local_scalar_fixture_smoke"),
-        runtime_route="sqlite-local-import-export-smoke|udf-local-scalar-fixture-smoke",
+        cli_commands=(
+            "sqlite-local-import-export-smoke",
+            "udf-local-scalar-fixture-smoke",
+            "embedding-vector-local-fixture-smoke",
+        ),
+        context_methods=(
+            "sqlite_local_import_export_smoke",
+            "udf_local_scalar_fixture_smoke",
+            "embedding_vector_local_fixture_smoke",
+        ),
+        client_methods=(
+            "sqlite_local_import_export_smoke",
+            "udf_local_scalar_fixture_smoke",
+            "embedding_vector_local_fixture_smoke",
+        ),
+        runtime_route="sqlite-local-import-export-smoke|udf-local-scalar-fixture-smoke|embedding-vector-local-fixture-smoke",
         promotion_criteria="only deterministic local fixture effects with explicit policy are promoted",
-        evidence_refs=("sqlite_fixture_smoke", "deterministic_udf_fixture", "effect_budget_policy"),
-        claim_boundary="Scoped deterministic local fixtures only; arbitrary UDF, plugin, LLM/API, embedding, and external effect execution remain gated.",
+        evidence_refs=(
+            "sqlite_fixture_smoke",
+            "deterministic_udf_fixture",
+            "deterministic_embedding_vector_fixture",
+            "effect_budget_policy",
+        ),
+        claim_boundary="Scoped deterministic local fixtures only; arbitrary UDF, plugin, real LLM/API/model calls, vector services, and external effect execution remain gated.",
     ),
     _graduation_row(
         "extension_and_effect_diagnostics",
@@ -3577,18 +4258,32 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Local live/hybrid fixture execution",
         "high_level_context",
         "fixture_smoke_supported",
-        cli_commands=("live-fixture-run", "hybrid-overlay-run"),
-        context_methods=("live_fixture_run", "hybrid_overlay_run"),
+        cli_commands=(
+            "live-fixture-run",
+            "hybrid-overlay-run",
+            "live-hybrid-state-transition-smoke",
+        ),
+        context_methods=(
+            "live_fixture_run",
+            "hybrid_overlay_run",
+            "live_hybrid_state_transition_smoke",
+        ),
         client_methods=(
             "live_fixture_run",
             "hybrid_overlay_run",
+            "live_hybrid_state_transition_smoke",
             "live_etl_smoke",
             "live_etl_csv_to_vortex_replay",
         ),
-        runtime_route="live-fixture-run|hybrid-overlay-run",
+        runtime_route="live-fixture-run|hybrid-overlay-run|live-hybrid-state-transition-smoke",
         promotion_criteria="only in-memory local fixture live/hybrid operators are promoted",
-        evidence_refs=("live_hybrid_fixture_evidence", "engine_selection_report", "no_fallback_evidence"),
-        claim_boundary="Local fixture scope only; no production streaming, remote state, or platform live/hybrid claim.",
+        evidence_refs=(
+            "live_hybrid_fixture_evidence",
+            "live_hybrid_state_transition_fixture",
+            "engine_selection_report",
+            "no_fallback_evidence",
+        ),
+        claim_boundary="Local fixture scope only; no production streaming, remote state, exactly-once, broker, object-store, or platform live/hybrid claim.",
     ),
     _graduation_row(
         "materialized_python_interop_boundaries",
@@ -3800,6 +4495,43 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "Vortex-normalized case. This is not decoded row materialization, broad Vortex "
             "read-transform-write parity, object-store runtime, or benchmark-backed performance "
             "equivalence."
+        ),
+    ),
+    _front_door_row(
+        "typed_nested_compatibility_sink",
+        "typed nested local compatibility sink output for scoped ARRAY/STRUCT projections",
+        "scoped_runtime_supported",
+        sql_surface=(
+            "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
+            ".write_parquet/write_arrow_ipc/write_avro"
+        ),
+        python_surface=(
+            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro and "
+            "ctx.read(...).with_columns({'values': sl.array(...), 'payload': sl.struct(...)})"
+        ),
+        dataframe_surface=(
+            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro"
+        ),
+        shared_runtime_path="sql-local-source-smoke typed nested compatibility sink",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_runtime_path_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        required_evidence=(
+            "typed_nested_compatibility_sink_preservation",
+            "python_query_builder_tests",
+            "output_native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped SQL, Python, and DataFrame-style ARRAY/STRUCT projection workflows can write "
+            "inferable typed nested compatibility output through feature-gated Parquet, Arrow IPC, "
+            "and Avro sinks. This does not admit all-null nested columns without child-schema "
+            "evidence, ORC nested output, Vortex nested output, nested accessors/casts, broad "
+            "nested ordering, complex-key joins, production SQL nested parity, or benchmarked "
+            "performance equivalence."
         ),
     ),
     _front_door_row(
@@ -4950,15 +5682,15 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         front_doors=("Python", "DataFrame", "context", "session", "CLI"),
         desired_outputs=("quarantine_output", "policy_report"),
         recommended_user_surface=(
-            "ctx.read(path).quarantine(local_path, 'not_null:column', output_format='jsonl')"
+            "ctx.read(path).quarantine(local_path, 'not_null:column', 'regex:column:pattern', output_format='jsonl')"
         ),
         start_state="raw_compat_source",
         vortex_normalization_point="local source -> SourceState -> ShardLoom runtime bounded evidence rows",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="route_specific_direct_or_prepared_source_state",
         execution_mode="direct_compatibility_transient",
-        execution_route="sql-local-source-smoke bounded classification and pushdownable not-null quarantine",
-        output_route="local quarantine sink through sql-local-source-smoke for pushdownable not-null rows",
+        execution_route="sql-local-source-smoke bounded classification and pushdownable not-null/regex quarantine",
+        output_route="local quarantine sink through sql-local-source-smoke for pushdownable not-null or regex rows",
         evidence_route="quarantine report, local sink certificate, replay evidence, no-fallback evidence",
         materialization_decode_boundary="bounded inline JSONL classification before scoped quarantine sink write",
         route_runtime_status="scoped_runtime_supported",
@@ -4969,11 +5701,12 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "sql_local_source_smoke",
             "quarantine_policy",
             "local_quarantine_sink_write_evidence",
+            "regex_quarantine_pushdown",
             "output_native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped local-source not-null quarantine and bounded report evidence only; object-store/"
+            "Scoped local-source not-null/regex quarantine and bounded report evidence only; object-store/"
             "table quarantine, broad policy remediation, unique-check sink pushdown, production "
             "governance, external effects, and performance claims remain blocked."
         ),
@@ -6600,6 +7333,14 @@ class SourceFreeGeneratedOutputCompatibilityContract:
         )
 
     @property
+    def platform_row_order(self) -> tuple[str, ...]:
+        """Return platform-adjacent generated-output proof and blocker rows."""
+
+        return _split_csv(
+            self.capability.field("universal_compatibility_generated_output_platform_row_order")
+        )
+
+    @property
     def rows(self) -> tuple[SourceFreeGeneratedOutputCompatibilityRow, ...]:
         """Return all source-free generated-output compatibility rows."""
 
@@ -6649,7 +7390,7 @@ class SourceFreeGeneratedOutputCompatibilityContract:
 
     @property
     def object_store_runtime_supported(self) -> bool:
-        """Whether object-store generated-output runtime is supported."""
+        """Whether live object-store generated-output runtime is supported."""
 
         return (
             self.capability.envelope.field_bool(
@@ -6660,12 +7401,48 @@ class SourceFreeGeneratedOutputCompatibilityContract:
         )
 
     @property
+    def object_store_local_emulator_runtime_supported(self) -> bool:
+        """Whether scoped local-emulator object-store generated-output proof is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_object_store_local_emulator_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
     def foundry_runtime_supported(self) -> bool:
-        """Whether Foundry generated-output runtime is supported."""
+        """Whether real Foundry generated-output runtime is supported."""
 
         return (
             self.capability.envelope.field_bool(
                 "universal_compatibility_generated_output_foundry_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def foundry_style_runtime_supported(self) -> bool:
+        """Whether local Foundry-style generated-output proof is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_foundry_style_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def live_platform_api_supported(self) -> bool:
+        """Whether live platform APIs are supported for generated output."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_generated_output_live_platform_api_supported",
                 False,
             )
             is True
@@ -8932,6 +9709,21 @@ class ShardLoomContext:
 
         return self.client.udf_local_scalar_fixture_smoke(values, check=check)
 
+    def embedding_vector_local_fixture_smoke(
+        self,
+        texts: Sequence[str] | str,
+        *,
+        query: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the built-in deterministic embedding/vector fixture."""
+
+        return self.client.embedding_vector_local_fixture_smoke(
+            texts,
+            query=query,
+            check=check,
+        )
+
     def functions(self, *, check: bool = True) -> CapabilityView:
         """Return function capability discovery."""
 
@@ -9271,6 +10063,7 @@ class ShardLoomContext:
         idempotency_key: str | None = None,
         allow_overwrite: bool = False,
         rollback_after_commit: bool = False,
+        verify_recovery: bool = True,
         check: bool = True,
     ) -> GeneratedObjectStoreOutputReport | UnsupportedWorkflowOperationReport:
         """Write generated rows through the scoped local-emulator object-store route."""
@@ -9315,6 +10108,18 @@ class ShardLoomContext:
             rollback_after_commit=rollback_after_commit,
             check=check,
         )
+        object_store_recovery_report = None
+        if (
+            verify_recovery
+            and object_store_report.status == "success"
+            and object_store_report.field("object_store_write_status") == "committed"
+        ):
+            object_store_recovery_report = self.client.object_store_write_recovery_smoke(
+                target_ref,
+                profile=normalized_profile,
+                idempotency_key=idempotency_key,
+                check=check,
+            )
         return GeneratedObjectStoreOutputReport(
             target_uri=target_ref,
             staging_path=generated_report.output_path,
@@ -9322,6 +10127,78 @@ class ShardLoomContext:
             provider_profile=normalized_profile,
             generated_report=generated_report,
             object_store_report=object_store_report,
+            object_store_recovery_report=object_store_recovery_report,
+        )
+
+    def generated_output_to_partitioned_object_store(
+        self,
+        partition_root_uri: str | os.PathLike[str],
+        *,
+        partition_values: Mapping[str, object],
+        rows: Sequence[Mapping[str, object]] | None = None,
+        staging_path: str | os.PathLike[str] | None = None,
+        output_format: str = "jsonl",
+        profile: str = "local-emulator",
+        output_file_name: str | os.PathLike[str] | None = None,
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        verify_recovery: bool = True,
+        check: bool = True,
+    ) -> GeneratedPartitionedObjectStoreOutputReport | UnsupportedWorkflowOperationReport:
+        """Write generated rows into a local-emulator partition path and verify discovery."""
+
+        root_ref = _require_non_empty_text(
+            "partitioned object-store generated-output root URI",
+            partition_root_uri,
+        )
+        normalized_profile = _require_non_empty_text("object-store profile", profile)
+        if _object_store_generated_output_requires_report_only(root_ref, normalized_profile):
+            return self._source_free_unsupported(
+                "object-store-generated-output",
+                "object_store_generated_output",
+                root_ref,
+                check=check,
+            )
+
+        normalized_format = _normalize_generated_object_store_output_format(output_format)
+        partition_segments = _normalize_generated_output_partition_segments(partition_values)
+        file_name = _generated_partition_output_file_name(output_file_name, normalized_format)
+        target_ref = str(Path(root_ref).joinpath(*partition_segments, file_name))
+        generated_object_store_report = self.generated_output_to_object_store(
+            target_ref,
+            rows=rows,
+            staging_path=staging_path,
+            output_format=normalized_format,
+            profile=normalized_profile,
+            idempotency_key=idempotency_key,
+            allow_overwrite=allow_overwrite,
+            rollback_after_commit=rollback_after_commit,
+            verify_recovery=verify_recovery,
+            check=check,
+        )
+        if isinstance(generated_object_store_report, UnsupportedWorkflowOperationReport):
+            return generated_object_store_report
+
+        partition_discovery_report = self.object_store_partition_discovery_smoke(
+            root_ref,
+            profile=normalized_profile,
+            partition_columns=tuple(
+                segment.split("=", 1)[0] for segment in partition_segments
+            ),
+            check=check,
+        )
+        return GeneratedPartitionedObjectStoreOutputReport(
+            partition_root_uri=root_ref,
+            partition_values={
+                key: value
+                for key, value in (
+                    segment.split("=", 1) for segment in partition_segments
+                )
+            },
+            partitioned_target_uri=target_ref,
+            generated_object_store_report=generated_object_store_report,
+            partition_discovery_report=partition_discovery_report,
         )
 
     def foundry_generated_output(
@@ -9500,6 +10377,15 @@ class ShardLoomContext:
         """Run the explicit CG-22 in-memory hybrid overlay fixture."""
 
         return self.client.hybrid_overlay_run(operator, argument, check=check)
+
+    def live_hybrid_state_transition_smoke(
+        self,
+        *,
+        check: bool = True,
+    ) -> LiveHybridStateTransitionReport:
+        """Run the bounded CG-22 state-transition retry/cancel/cleanup fixture."""
+
+        return self.client.live_hybrid_state_transition_smoke(check=check)
 
     def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
@@ -9713,6 +10599,23 @@ class ShardLoomContext:
             check=check,
         )
 
+    def object_store_partition_discovery_smoke(
+        self,
+        local_partition_root: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        partition_columns: Sequence[str] | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run scoped local-emulator key=value partition discovery."""
+
+        return self.client.object_store_partition_discovery_smoke(
+            local_partition_root,
+            profile=profile,
+            partition_columns=partition_columns,
+            check=check,
+        )
+
     def object_store_write_smoke(
         self,
         source_path: str | os.PathLike[str],
@@ -9733,6 +10636,23 @@ class ShardLoomContext:
             idempotency_key=idempotency_key,
             allow_overwrite=allow_overwrite,
             rollback_after_commit=rollback_after_commit,
+            check=check,
+        )
+
+    def object_store_write_recovery_smoke(
+        self,
+        target_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        idempotency_key: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run local-emulator object-store write recovery replay."""
+
+        return self.client.object_store_write_recovery_smoke(
+            target_object_path,
+            profile=profile,
+            idempotency_key=idempotency_key,
             check=check,
         )
 
@@ -9763,6 +10683,23 @@ class ShardLoomContext:
             idempotency_key=idempotency_key,
             allow_overwrite=allow_overwrite,
             rollback_after_commit=rollback_after_commit,
+            check=check,
+        )
+
+    def local_table_commit_recovery_smoke(
+        self,
+        target_manifest_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-manifest",
+        idempotency_key: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local-manifest table commit recovery smoke."""
+
+        return self.client.local_table_commit_recovery_smoke(
+            target_manifest_path,
+            profile=profile,
+            idempotency_key=idempotency_key,
             check=check,
         )
 
@@ -10086,6 +11023,46 @@ def _generated_object_store_staging_path(target_ref: str, output_format: str) ->
         "vortex": "vortex",
     }[output_format]
     return str(staging_parent / f"{target_name}.{digest}.{extension}")
+
+
+def _normalize_generated_output_partition_segments(
+    partition_values: Mapping[str, object],
+) -> tuple[str, ...]:
+    if not partition_values:
+        raise ValueError("partition_values must include at least one key=value partition")
+    segments: list[str] = []
+    for key, value in partition_values.items():
+        normalized_key = _require_safe_partition_path_part("partition key", key)
+        normalized_value = _require_safe_partition_path_part("partition value", value)
+        if "=" in normalized_key:
+            raise ValueError("partition key must not contain '='")
+        segments.append(f"{normalized_key}={normalized_value}")
+    return tuple(segments)
+
+
+def _require_safe_partition_path_part(label: str, value: object) -> str:
+    text = _require_non_empty_text(label, value)
+    if any(separator in text for separator in ("/", "\\")):
+        raise ValueError(f"{label} must not contain path separators")
+    return text
+
+
+def _generated_partition_output_file_name(
+    output_file_name: str | os.PathLike[str] | None,
+    output_format: str,
+) -> str:
+    if output_file_name is not None:
+        return _require_safe_partition_path_part("partition output file name", output_file_name)
+    extension = {
+        "jsonl": "jsonl",
+        "csv": "csv",
+        "parquet": "parquet",
+        "arrow-ipc": "arrow",
+        "avro": "avro",
+        "orc": "orc",
+        "vortex": "vortex",
+    }[output_format]
+    return f"part-00000.{extension}"
 
 
 def _foundry_generated_output_requires_report_only(output_ref: str) -> bool:

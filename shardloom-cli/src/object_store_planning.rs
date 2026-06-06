@@ -883,6 +883,66 @@ fn append_object_store_runtime_existing_fields(
         "existing_commit_protocol_evidence_present",
         report.existing_commit_protocol_evidence_present,
     );
+    push_bool_field(
+        fields,
+        "existing_local_emulator_partition_discovery_evidence_present",
+        true,
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_partition_discovery_command",
+        "object-store-partition-discovery-smoke",
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_partition_discovery_certificate_id",
+        "gar-runtime-impl-6d.local_emulator_partition_discovery.native_io",
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_partition_discovery_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_bool_field(
+        fields,
+        "local_emulator_partition_discovery_runtime_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "live_provider_partition_discovery_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "existing_local_emulator_write_recovery_evidence_present",
+        true,
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_write_recovery_command",
+        "object-store-write-recovery-smoke",
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_write_recovery_certificate_id",
+        "gar-runtime-impl-6d.local_emulator_object_store_write_recovery.native_io",
+    );
+    push_field(
+        fields,
+        "existing_local_emulator_write_recovery_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_bool_field(
+        fields,
+        "local_emulator_write_recovery_runtime_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "live_provider_write_recovery_runtime_supported",
+        false,
+    );
 }
 
 fn append_object_store_runtime_allowed_fields(

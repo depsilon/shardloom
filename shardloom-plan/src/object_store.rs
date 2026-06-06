@@ -1004,6 +1004,9 @@ pub enum ObjectStoreRuntimePromotionSurface {
     RetryExecution,
     CleanupExecution,
     ObjectStoreCommitExecution,
+    PartitionDiscoveryRuntime,
+    CatalogIntegrationRuntime,
+    RemoteResultDeliveryRuntime,
     ProviderCredentialRuntime,
     BenchmarkCertificateCloseout,
 }
@@ -1023,6 +1026,9 @@ impl ObjectStoreRuntimePromotionSurface {
             Self::RetryExecution => "retry_execution",
             Self::CleanupExecution => "cleanup_execution",
             Self::ObjectStoreCommitExecution => "object_store_commit_execution",
+            Self::PartitionDiscoveryRuntime => "partition_discovery_runtime",
+            Self::CatalogIntegrationRuntime => "catalog_integration_runtime",
+            Self::RemoteResultDeliveryRuntime => "remote_result_delivery_runtime",
             Self::ProviderCredentialRuntime => "provider_credential_runtime",
             Self::BenchmarkCertificateCloseout => "benchmark_certificate_closeout",
         }
@@ -1111,6 +1117,39 @@ impl ObjectStoreRuntimePromotionRequirements {
     pub const COMMIT_RUNTIME: Self = Self {
         requires_range_planning: false,
         requires_request_budget: false,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: true,
+        requires_retry_policy: true,
+        requires_commit_atomicity: true,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const PARTITION_DISCOVERY_RUNTIME: Self = Self {
+        requires_range_planning: false,
+        requires_request_budget: true,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: false,
+        requires_retry_policy: true,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const CATALOG_INTEGRATION_RUNTIME: Self = Self {
+        requires_range_planning: false,
+        requires_request_budget: true,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: false,
+        requires_retry_policy: true,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const REMOTE_RESULT_DELIVERY_RUNTIME: Self = Self {
+        requires_range_planning: false,
+        requires_request_budget: true,
         requires_scheduler_policy: false,
         requires_checkpoint_plan: true,
         requires_retry_policy: true,
@@ -1688,6 +1727,18 @@ fn object_store_runtime_promotion_entries() -> Vec<ObjectStoreRuntimePromotionGa
             ObjectStoreRuntimePromotionRequirements::COMMIT_RUNTIME,
         ),
         ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::PartitionDiscoveryRuntime,
+            ObjectStoreRuntimePromotionRequirements::PARTITION_DISCOVERY_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::CatalogIntegrationRuntime,
+            ObjectStoreRuntimePromotionRequirements::CATALOG_INTEGRATION_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::RemoteResultDeliveryRuntime,
+            ObjectStoreRuntimePromotionRequirements::REMOTE_RESULT_DELIVERY_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
             ObjectStoreRuntimePromotionSurface::ProviderCredentialRuntime,
             ObjectStoreRuntimePromotionRequirements::CREDENTIAL_RUNTIME,
         ),
@@ -1734,6 +1785,21 @@ fn object_store_runtime_blocker_matrix_rows() -> Vec<ObjectStoreRuntimeBlockerMa
             "commit_record_write",
             "gar0008b.commit_record_write_blocked",
             "commit_record_schema,atomic_commit_evidence,cleanup_policy,idempotency_key_contract",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "partition_discovery",
+            "gar0008b.partition_discovery_blocked",
+            "partition_listing_policy,partition_schema_contract,credential_effect_policy,execution_certificate,native_io_certificate,no_fallback_policy",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "catalog_integration",
+            "gar0008b.catalog_integration_blocked",
+            "catalog_adapter_policy,catalog_auth_policy,snapshot_consistency_contract,execution_certificate,native_io_certificate,no_fallback_policy",
+        ),
+        ObjectStoreRuntimeBlockerMatrixRow::blocked(
+            "remote_result_delivery",
+            "gar0008b.remote_result_delivery_blocked",
+            "remote_delivery_protocol,result_replay_policy,idempotency_key_contract,credential_effect_policy,execution_certificate,native_io_certificate,no_fallback_policy",
         ),
     ]
 }
@@ -3269,9 +3335,9 @@ mod tests {
             "shardloom.object_store_runtime_promotion_gate.v1"
         );
         assert_eq!(report.report_id, "cg10.object_store_runtime_promotion_gate");
-        assert_eq!(report.surface_count(), 13);
+        assert_eq!(report.surface_count(), 16);
         assert_eq!(report.existing_evidence_surface_count(), 2);
-        assert_eq!(report.blocked_surface_count(), 11);
+        assert_eq!(report.blocked_surface_count(), 14);
         assert_eq!(
             report.surface_order(),
             vec![
@@ -3286,6 +3352,9 @@ mod tests {
                 "retry_execution",
                 "cleanup_execution",
                 "object_store_commit_execution",
+                "partition_discovery_runtime",
+                "catalog_integration_runtime",
+                "remote_result_delivery_runtime",
                 "provider_credential_runtime",
                 "benchmark_certificate_closeout",
             ]
@@ -3311,6 +3380,9 @@ mod tests {
                 "retry_attempt",
                 "cleanup_execution",
                 "commit_record_write",
+                "partition_discovery",
+                "catalog_integration",
+                "remote_result_delivery",
             ]
         );
         assert_eq!(
@@ -3353,6 +3425,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn object_store_runtime_gate_requires_evidence_before_runtime() {
         let report = plan_object_store_runtime_promotion_gate();
 
@@ -3435,6 +3508,35 @@ mod tests {
             .expect("commit row");
         assert!(commit.required_evidence.contains("commit_record_schema"));
         assert!(!commit.commit_record_written);
+        let partition = report
+            .runtime_blocker_matrix
+            .iter()
+            .find(|row| row.action == "partition_discovery")
+            .expect("partition discovery row");
+        assert!(
+            partition
+                .required_evidence
+                .contains("partition_listing_policy")
+        );
+        assert!(!partition.object_store_io);
+        let catalog = report
+            .runtime_blocker_matrix
+            .iter()
+            .find(|row| row.action == "catalog_integration")
+            .expect("catalog integration row");
+        assert!(catalog.required_evidence.contains("catalog_adapter_policy"));
+        assert!(!catalog.external_engine_invoked);
+        let remote_delivery = report
+            .runtime_blocker_matrix
+            .iter()
+            .find(|row| row.action == "remote_result_delivery")
+            .expect("remote result delivery row");
+        assert!(
+            remote_delivery
+                .required_evidence
+                .contains("remote_delivery_protocol")
+        );
+        assert!(!remote_delivery.write_io);
     }
 
     #[test]

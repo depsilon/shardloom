@@ -37,7 +37,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 6)
+        self.assertEqual(report["admitted_row_count"], 7)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
         self.assertTrue(report["all_broad_gaps_have_precise_runtime_status"])
         self.assertIn(
@@ -84,6 +84,19 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(vortex["parity_status"], "equivalent_admitted_scope")
         self.assertEqual(vortex["runtime_gap_status"], "admitted_scope")
         self.assertIn("Vortex-normalized", vortex["claim_boundary"])
+        nested_sink = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "typed_nested_compatibility_sink"
+        )
+        self.assertEqual(
+            nested_sink["parity_status"], "equivalent_admitted_scope"
+        )
+        self.assertEqual(nested_sink["runtime_gap_status"], "admitted_scope")
+        self.assertIn(
+            "Parquet, Arrow IPC, and Avro",
+            nested_sink["claim_boundary"],
+        )
         native = next(
             row
             for row in report["rows"]

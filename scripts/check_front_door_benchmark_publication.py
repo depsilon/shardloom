@@ -1,0 +1,281 @@
+#!/usr/bin/env python
+# SPDX-License-Identifier: Apache-2.0
+"""Validate front-door benchmark publication admission without running benchmarks.
+
+This gate composes the SQL/Python/DataFrame parity report with the committed public
+benchmark publication gate. It is intentionally fail-closed: current ShardLoom artifacts may
+publish route identity and timing-surface evidence, but they must not publish SQL/Python/DataFrame
+performance-equivalence claims until measured equivalent front-door rows exist.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from check_benchmark_publication_claim_gate import (  # noqa: E402
+    DEFAULT_MAX_AGE_DAYS,
+    DEFAULT_MANIFEST,
+    DEFAULT_PRE_5J_DEPENDENCY_REPORT,
+    PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION,
+    REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS,
+    SCHEMA_VERSION as BENCHMARK_PUBLICATION_SCHEMA_VERSION,
+    validate_publication_claim_gate,
+)
+from check_sql_python_dataframe_parity import (  # noqa: E402
+    SCHEMA_VERSION as SQL_PYTHON_DATAFRAME_PARITY_SCHEMA_VERSION,
+    build_report as build_sql_python_dataframe_parity_report,
+)
+
+
+SCHEMA_VERSION = "shardloom.front_door_benchmark_publication_gate.v1"
+GATE_ID = "gar-runtime-impl-6d.front_door_performance_benchmark_publication"
+DEFAULT_OUTPUT = ROOT / "target" / "front-door-benchmark-publication-gate.json"
+FRONT_DOOR_PERFORMANCE_PUBLICATION_BLOCKED = (
+    "blocked_pending_measured_equivalence_artifact"
+)
+REQUIRED_MISSING_EVIDENCE = (
+    "front_door_equivalent_workload_manifest",
+    "measured_sql_python_dataframe_front_door_rows",
+    "correctness_digest_parity_across_front_doors",
+    "runtime_execution_certificates_for_each_front_door",
+    "laptop_safe_sequential_rerun_approval",
+    "published_front_door_equivalence_artifact",
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=ROOT)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--pre-5j-dependency-report",
+        type=Path,
+        default=DEFAULT_PRE_5J_DEPENDENCY_REPORT,
+    )
+    parser.add_argument("--allow-incomplete", action="store_true")
+    parser.add_argument("--allow-stale-git", action="store_true")
+    parser.add_argument("--allow-dirty-worktree", action="store_true")
+    parser.add_argument("--max-age-days", type=int, default=DEFAULT_MAX_AGE_DAYS)
+    return parser.parse_args()
+
+
+def resolve(repo_root: Path, path: Path) -> Path:
+    return path if path.is_absolute() else repo_root / path
+
+
+def row_by_id(rows: Any, row_id: str) -> dict[str, Any]:
+    if not isinstance(rows, list):
+        return {}
+    for row in rows:
+        if isinstance(row, dict) and row.get("row_id") == row_id:
+            return row
+    return {}
+
+
+def public_front_door_summary(publication_claim_gate: dict[str, Any]) -> dict[str, Any]:
+    summary = publication_claim_gate.get("public_front_door_benchmark_rows")
+    return summary if isinstance(summary, dict) else {}
+
+
+def validate_structure(
+    *,
+    parity_report: dict[str, Any],
+    publication_claim_gate: dict[str, Any],
+) -> list[str]:
+    blockers: list[str] = []
+    if parity_report.get("schema_version") != SQL_PYTHON_DATAFRAME_PARITY_SCHEMA_VERSION:
+        blockers.append(
+            "SQL/Python/DataFrame parity schema mismatch: "
+            + str(parity_report.get("schema_version", "missing"))
+        )
+    if parity_report.get("status") != "passed":
+        blockers.extend(
+            "SQL/Python/DataFrame parity: " + str(blocker)
+            for blocker in parity_report.get("blockers", ["gate blocked"])
+        )
+    if parity_report.get("scoped_local_front_door_parity_supported") is not True:
+        blockers.append("scoped local front-door parity must be supported")
+    if parity_report.get("all_no_fallback_no_external_engine") is not True:
+        blockers.append("front-door parity must preserve no fallback and no external engine")
+    for field in ("flexible_anything_claim_allowed", "performance_equivalence_claim_allowed"):
+        if parity_report.get(field) is not False:
+            blockers.append(f"SQL/Python/DataFrame parity {field} must be false")
+    if parity_report.get("claim_gate_status") != "not_claim_grade":
+        blockers.append(
+            "SQL/Python/DataFrame parity claim_gate_status="
+            + str(parity_report.get("claim_gate_status", "missing"))
+        )
+
+    performance_row = row_by_id(parity_report.get("rows"), "performance_equivalence")
+    if not performance_row:
+        blockers.append("missing performance_equivalence parity row")
+    else:
+        if performance_row.get("runtime_gap_status") != "benchmark_publication_pending":
+            blockers.append("performance_equivalence row must remain benchmark_publication_pending")
+        if performance_row.get("parity_status") != "front_door_gap":
+            blockers.append("performance_equivalence row must remain front_door_gap")
+        if performance_row.get("blocker_id") != (
+            "cg6.front_door_performance_equivalence_benchmark_missing"
+        ):
+            blockers.append("performance_equivalence row must keep the CG-6 benchmark blocker id")
+        if performance_row.get("fallback_attempted") is not False:
+            blockers.append("performance_equivalence row fallback_attempted must be false")
+        if performance_row.get("external_engine_invoked") is not False:
+            blockers.append("performance_equivalence row external_engine_invoked must be false")
+
+    if publication_claim_gate.get("schema_version") != BENCHMARK_PUBLICATION_SCHEMA_VERSION:
+        blockers.append(
+            "benchmark publication claim gate schema mismatch: "
+            + str(publication_claim_gate.get("schema_version", "missing"))
+        )
+    front_door_rows = public_front_door_summary(publication_claim_gate)
+    if front_door_rows.get("schema_version") != PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION:
+        blockers.append("public front-door benchmark row schema mismatch")
+    ids = {
+        str(item)
+        for item in front_door_rows.get("front_door_ids", [])
+        if isinstance(item, str)
+    }
+    if ids != REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS:
+        blockers.append(
+            "public front-door benchmark rows must expose exactly: "
+            + ",".join(sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS))
+        )
+    if front_door_rows.get("missing_front_door_ids"):
+        blockers.append("public front-door benchmark rows have missing ids")
+    if int(front_door_rows.get("invalid_example_count", 0) or 0) != 0:
+        blockers.append("public front-door benchmark rows have invalid examples")
+    return blockers
+
+
+def build_report(
+    repo_root: Path = ROOT,
+    *,
+    manifest_path: Path = DEFAULT_MANIFEST,
+    pre_5j_dependency_report_path: Path = DEFAULT_PRE_5J_DEPENDENCY_REPORT,
+    allow_incomplete: bool = False,
+    require_current_git: bool = True,
+    allow_dirty_worktree: bool = False,
+    max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    parity_report: dict[str, Any] | None = None,
+    publication_claim_gate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    repo_root = repo_root.resolve()
+    resolved_manifest = resolve(repo_root, manifest_path)
+    resolved_pre_5j = resolve(repo_root, pre_5j_dependency_report_path)
+    parity = parity_report or build_sql_python_dataframe_parity_report(repo_root)
+    publication = publication_claim_gate or validate_publication_claim_gate(
+        resolved_manifest,
+        repo_root=repo_root,
+        pre_5j_dependency_report_path=resolved_pre_5j,
+        allow_incomplete=allow_incomplete,
+        require_current_git=require_current_git,
+        allow_dirty_worktree=allow_dirty_worktree,
+        max_age_days=max_age_days,
+    )
+    structural_blockers = validate_structure(
+        parity_report=parity,
+        publication_claim_gate=publication,
+    )
+    publication_claim_blockers = list(publication.get("blockers", []))
+    publication_admission_blockers = [
+        "performance_equivalence parity row remains benchmark_publication_pending",
+        "measured SQL/Python/DataFrame front-door benchmark rows are not published",
+        "correctness digest parity across equivalent front doors is not attached",
+        "runtime execution certificates for each equivalent front door are not attached",
+        "human-approved laptop-safe sequential rerun evidence is not recorded",
+        *[
+            f"benchmark publication claim gate: {blocker}"
+            for blocker in publication_claim_blockers
+        ],
+    ]
+    front_door_rows = public_front_door_summary(publication)
+    passed = not structural_blockers
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "gate_id": GATE_ID,
+        "status": "passed" if passed else "blocked",
+        "front_door_performance_publication_status": (
+            FRONT_DOOR_PERFORMANCE_PUBLICATION_BLOCKED
+        ),
+        "claim_gate_status": "not_claim_grade",
+        "front_door_performance_equivalence_claim_allowed": False,
+        "performance_claim_allowed": False,
+        "production_claim_allowed": False,
+        "spark_replacement_claim_allowed": False,
+        "benchmark_run_performed": False,
+        "benchmark_rerun_approved": False,
+        "laptop_safe_sequential_controls_confirmed": False,
+        "measured_front_door_equivalence_artifact_present": False,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "manifest": str(resolved_manifest),
+        "pre_5j_dependency_report": str(resolved_pre_5j),
+        "sql_python_dataframe_parity_status": parity.get("status"),
+        "scoped_local_front_door_parity_supported": parity.get(
+            "scoped_local_front_door_parity_supported"
+        ),
+        "parity_remaining_gap_row_ids": parity.get("remaining_gap_row_ids", []),
+        "benchmark_publication_claim_gate_status": publication.get("status"),
+        "benchmark_publication_claim_gate_blocker_count": len(publication_claim_blockers),
+        "benchmark_publication_claim_gate_blockers": publication_claim_blockers,
+        "public_front_door_benchmark_schema_version": front_door_rows.get(
+            "schema_version"
+        ),
+        "public_front_door_benchmark_row_count": front_door_rows.get("row_count", 0),
+        "public_front_door_benchmark_row_ids": front_door_rows.get("front_door_ids", []),
+        "public_front_door_benchmark_invalid_example_count": front_door_rows.get(
+            "invalid_example_count", 0
+        ),
+        "missing_claim_grade_evidence": list(REQUIRED_MISSING_EVIDENCE),
+        "publication_admission_blockers": publication_admission_blockers,
+        "claim_boundary": (
+            "This gate closes the current front-door benchmark publication phase as a "
+            "fail-closed admission surface. It permits static route identity and current "
+            "timing-surface publication, but it does not permit SQL/Python/DataFrame "
+            "performance-equivalence, superiority, production, package, or Spark-replacement "
+            "claims."
+        ),
+        "fallback_boundary": (
+            "External engines remain benchmark baselines only; ShardLoom front-door rows must "
+            "preserve fallback_attempted=false and external_engine_invoked=false."
+        ),
+        "blockers": structural_blockers,
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    repo_root = args.repo_root.resolve()
+    output = resolve(repo_root, args.output)
+    report = build_report(
+        repo_root,
+        manifest_path=args.manifest,
+        pre_5j_dependency_report_path=args.pre_5j_dependency_report,
+        allow_incomplete=args.allow_incomplete,
+        require_current_git=not args.allow_stale_git,
+        allow_dirty_worktree=args.allow_dirty_worktree,
+        max_age_days=args.max_age_days,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(output)
+    return 0 if report["status"] == "passed" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

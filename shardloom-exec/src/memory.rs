@@ -898,6 +898,7 @@ pub fn plan_operator_memory_spill_declarations() -> OperatorMemorySpillDeclarati
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryRuntimeHardeningSurface {
     MemoryReservationAdmission,
+    PreOomMemoryGuardFixture,
     OperatorMemorySpillDeclarationGate,
     SpillReservationIntegrationPlan,
     SpillLifecyclePlan,
@@ -918,6 +919,7 @@ impl MemoryRuntimeHardeningSurface {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::MemoryReservationAdmission => "memory_reservation_admission",
+            Self::PreOomMemoryGuardFixture => "pre_oom_memory_guard_fixture",
             Self::OperatorMemorySpillDeclarationGate => "operator_memory_spill_declaration_gate",
             Self::SpillReservationIntegrationPlan => "spill_reservation_integration_plan",
             Self::SpillLifecyclePlan => "spill_lifecycle_plan",
@@ -1039,6 +1041,7 @@ pub struct MemoryRuntimeHardeningGateReport {
     pub required_evidence_refs: Vec<&'static str>,
     pub security_path_safety_refs: Vec<&'static str>,
     pub existing_memory_reservation_admission_present: bool,
+    pub existing_pre_oom_memory_guard_fixture_present: bool,
     pub existing_operator_memory_spill_declaration_gate_present: bool,
     pub existing_spill_reservation_integration_present: bool,
     pub existing_spill_lifecycle_plan_present: bool,
@@ -1093,6 +1096,7 @@ impl MemoryRuntimeHardeningGateReport {
             required_evidence_refs: memory_runtime_hardening_required_evidence_refs(),
             security_path_safety_refs: memory_runtime_hardening_security_path_safety_refs(),
             existing_memory_reservation_admission_present: true,
+            existing_pre_oom_memory_guard_fixture_present: true,
             existing_operator_memory_spill_declaration_gate_present: true,
             existing_spill_reservation_integration_present: true,
             existing_spill_lifecycle_plan_present: true,
@@ -1242,6 +1246,10 @@ fn memory_runtime_hardening_entries() -> Vec<MemoryRuntimeHardeningGateEntry> {
             "shardloom.memory_admission.v1",
         ),
         MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::PreOomMemoryGuardFixture,
+            "shardloom.pre_oom_memory_guard_fixture.v1",
+        ),
+        MemoryRuntimeHardeningGateEntry::existing(
             MemoryRuntimeHardeningSurface::OperatorMemorySpillDeclarationGate,
             "operator-memory-spill-declarations",
         ),
@@ -1290,6 +1298,7 @@ fn memory_runtime_hardening_entries() -> Vec<MemoryRuntimeHardeningGateEntry> {
 fn memory_runtime_hardening_existing_report_refs() -> Vec<&'static str> {
     vec![
         "shardloom.memory_admission.v1",
+        "shardloom.pre_oom_memory_guard_fixture.v1",
         "shardloom.operator_memory_spill_declaration.v1",
         "shardloom.spill_reservation_integration.v1",
         "shardloom.spill_lifecycle.v1",
@@ -1751,6 +1760,173 @@ impl OomSafetyPlan {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct PreOomMemoryGuardFixtureReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub fixture_id: &'static str,
+    pub operator_class: OperatorMemoryClass,
+    pub spill_policy: SpillPolicy,
+    pub memory_budget: MemoryBudget,
+    pub granted_reservation_id: MemoryReservationId,
+    pub denied_reservation_id: MemoryReservationId,
+    pub granted_reservation_bytes: ByteSize,
+    pub denied_request_bytes: ByteSize,
+    pub reserved_before_denial: ByteSize,
+    pub reserved_after_denial: ByteSize,
+    pub reserved_after_cleanup: ByteSize,
+    pub pressure_before_denial: MemoryPressureLevel,
+    pub pressure_after_denial: MemoryPressureLevel,
+    pub admission_decision: MemoryAdmissionDecisionKind,
+    pub diagnostic_code: &'static str,
+    pub fail_before_oom: bool,
+    pub release_performed: bool,
+    pub cleanup_required: bool,
+    pub cleanup_completed: bool,
+    pub real_query_spill_admitted: bool,
+    pub distributed_execution_admitted: bool,
+    pub native_spill_write_performed: bool,
+    pub native_spill_read_performed: bool,
+    pub spill_io_performed: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub runtime_execution: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PreOomMemoryGuardFixtureReport {
+    #[must_use]
+    pub fn guard_triggered(&self) -> bool {
+        self.admission_decision == MemoryAdmissionDecisionKind::DeniedBeforeOom
+            && self.fail_before_oom
+            && self.release_performed
+            && self.cleanup_completed
+            && self.reserved_after_cleanup.as_bytes() == 0
+            && !self.real_query_spill_admitted
+            && !self.distributed_execution_admitted
+            && !self.native_spill_write_performed
+            && !self.native_spill_read_performed
+            && !self.spill_io_performed
+            && !self.object_store_io
+            && !self.write_io
+            && !self.tasks_executed
+            && !self.data_read
+            && !self.data_materialized
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.runtime_execution
+    }
+
+    #[must_use]
+    pub fn has_unexpected_errors(&self) -> bool {
+        !self.guard_triggered()
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "pre_oom_memory_guard_fixture\nschema_version: {}\nfixture_id: {}\ndecision: {}\npressure_before: {}\nreserved_before_denial: {}\nreserved_after_cleanup: {}\nfail_before_oom: {}\ncleanup_completed: {}\nreal_query_spill_admitted: {}\ndistributed_execution_admitted: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.fixture_id,
+            self.admission_decision.as_str(),
+            self.pressure_before_denial.as_str(),
+            self.reserved_before_denial.to_human_text(),
+            self.reserved_after_cleanup.to_human_text(),
+            self.fail_before_oom,
+            self.cleanup_completed,
+            self.real_query_spill_admitted,
+            self.distributed_execution_admitted
+        )
+    }
+}
+
+pub fn run_pre_oom_memory_guard_fixture() -> Result<PreOomMemoryGuardFixtureReport> {
+    let budget = MemoryBudget::with_limits(
+        ByteSize::from_bytes(1_024),
+        ByteSize::from_bytes(512),
+        ByteSize::from_bytes(768),
+    )?;
+    let mut pool = MemoryPoolPlan::new(budget.clone());
+    let owner = MemoryOwner::new(OperatorMemoryClass::Join, "pre_oom_fixture_join_state")?;
+    let granted_reservation_id =
+        MemoryReservationId::new("pre_oom_guard_fixture.existing_join_state")?;
+    let denied_reservation_id =
+        MemoryReservationId::new("pre_oom_guard_fixture.additional_join_state")?;
+
+    let granted = pool.admit_reservation(
+        granted_reservation_id.clone(),
+        owner.clone(),
+        ByteSize::from_bytes(512),
+    )?;
+    if !granted.granted_decision() {
+        return Err(invalid_operation(
+            "pre-OOM guard fixture setup reservation was not granted",
+        ));
+    }
+
+    let denied = pool.admit_reservation(
+        denied_reservation_id.clone(),
+        owner,
+        ByteSize::from_bytes(512),
+    )?;
+    if denied.decision != MemoryAdmissionDecisionKind::DeniedBeforeOom {
+        return Err(invalid_operation(
+            "pre-OOM guard fixture did not deny before the hard memory limit",
+        ));
+    }
+
+    pool.release_reservation(&granted_reservation_id)?;
+    let reserved_after_cleanup = pool.reserved_bytes();
+    let diagnostic_code = denied
+        .diagnostics
+        .first()
+        .map_or("none", |diagnostic| diagnostic.code.as_str());
+
+    Ok(PreOomMemoryGuardFixtureReport {
+        schema_version: "shardloom.pre_oom_memory_guard_fixture.v1",
+        report_id: "gar-runtime-impl-6d.pre_oom_memory_guard_fixture",
+        fixture_id: "memory.pre_oom.denial.fixture.v1",
+        operator_class: OperatorMemoryClass::Join,
+        spill_policy: SpillPolicy::ForceBeforeOom,
+        memory_budget: budget,
+        granted_reservation_id,
+        denied_reservation_id,
+        granted_reservation_bytes: ByteSize::from_bytes(512),
+        denied_request_bytes: ByteSize::from_bytes(512),
+        reserved_before_denial: denied.reserved_before,
+        reserved_after_denial: denied.reserved_after,
+        reserved_after_cleanup,
+        pressure_before_denial: denied.pressure_before,
+        pressure_after_denial: denied.pressure_after,
+        admission_decision: denied.decision,
+        diagnostic_code,
+        fail_before_oom: denied.fail_before_oom,
+        release_performed: true,
+        cleanup_required: true,
+        cleanup_completed: reserved_after_cleanup.as_bytes() == 0,
+        real_query_spill_admitted: false,
+        distributed_execution_admitted: false,
+        native_spill_write_performed: false,
+        native_spill_read_performed: false,
+        spill_io_performed: false,
+        object_store_io: false,
+        write_io: false,
+        tasks_executed: false,
+        data_read: false,
+        data_materialized: false,
+        fallback_attempted: denied.fallback_attempted,
+        external_engine_invoked: false,
+        runtime_execution: true,
+        diagnostics: denied.diagnostics,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2028,10 +2204,11 @@ mod tests {
         assert_eq!(report.support_status, "report_only");
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert_eq!(report.promotion_gate_status, "blocked_until_certified");
-        assert_eq!(report.surface_count(), 14);
-        assert_eq!(report.existing_evidence_surface_count(), 5);
+        assert_eq!(report.surface_count(), 15);
+        assert_eq!(report.existing_evidence_surface_count(), 6);
         assert_eq!(report.blocked_surface_count(), 9);
         assert!(report.existing_memory_reservation_admission_present);
+        assert!(report.existing_pre_oom_memory_guard_fixture_present);
         assert!(report.existing_operator_memory_spill_declaration_gate_present);
         assert!(report.existing_spill_reservation_integration_present);
         assert!(report.existing_spill_lifecycle_plan_present);
@@ -2040,6 +2217,7 @@ mod tests {
             report.surface_order(),
             vec![
                 "memory_reservation_admission",
+                "pre_oom_memory_guard_fixture",
                 "operator_memory_spill_declaration_gate",
                 "spill_reservation_integration_plan",
                 "spill_lifecycle_plan",
@@ -2055,6 +2233,44 @@ mod tests {
                 "benchmark_certificate_closeout",
             ]
         );
+    }
+    #[test]
+    fn pre_oom_memory_guard_fixture_denies_and_cleans_up_without_spill_or_fallback() {
+        let report = run_pre_oom_memory_guard_fixture().expect("pre-OOM guard fixture");
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.pre_oom_memory_guard_fixture.v1"
+        );
+        assert_eq!(
+            report.admission_decision,
+            MemoryAdmissionDecisionKind::DeniedBeforeOom
+        );
+        assert_eq!(report.operator_class, OperatorMemoryClass::Join);
+        assert_eq!(report.spill_policy, SpillPolicy::ForceBeforeOom);
+        assert_eq!(report.memory_budget.total, bs(1_024));
+        assert_eq!(report.memory_budget.hard_limit, bs(768));
+        assert_eq!(report.granted_reservation_bytes, bs(512));
+        assert_eq!(report.denied_request_bytes, bs(512));
+        assert_eq!(report.reserved_before_denial, bs(512));
+        assert_eq!(report.reserved_after_denial, bs(512));
+        assert_eq!(report.reserved_after_cleanup, bs(0));
+        assert_eq!(report.pressure_before_denial, MemoryPressureLevel::High);
+        assert_eq!(report.diagnostic_code, "SL_RESOURCE_BUDGET_EXCEEDED");
+        assert!(report.fail_before_oom);
+        assert!(report.release_performed);
+        assert!(report.cleanup_required);
+        assert!(report.cleanup_completed);
+        assert!(report.guard_triggered());
+        assert!(!report.has_unexpected_errors());
+        assert!(!report.real_query_spill_admitted);
+        assert!(!report.distributed_execution_admitted);
+        assert!(!report.native_spill_write_performed);
+        assert!(!report.native_spill_read_performed);
+        assert!(!report.spill_io_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.runtime_execution);
     }
     #[test]
     fn memory_runtime_hardening_gate_blocks_runtime_spill_and_claims() {

@@ -1654,6 +1654,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "not_null:label",
             "unique:id",
             "unique:label",
+            "regex:label:^a",
         )
         profile = workflow.profile()
         quarantine = workflow.quarantine(None, "not_null:label")
@@ -1680,6 +1681,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(by_check["unique:id"].passed)
         self.assertFalse(by_check["unique:label"].passed)
         self.assertEqual(by_check["unique:label"].failing_row_count, 1)
+        self.assertFalse(by_check["regex:label:^a"].passed)
+        self.assertEqual(by_check["regex:label:^a"].failing_row_count, 1)
         self.assertIsInstance(profile, sl.WorkflowProfileReport)
         self.assertEqual(profile.profile_kind, "bounded_local_source_runtime_profile")
         self.assertEqual(profile.materialization_boundary, "bounded_inline_jsonl_profile")
@@ -1801,6 +1804,174 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.write_io)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_quarantine_writes_pushdown_regex_rows(self) -> None:
+        base = "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10"
+        quarantine_statement = (
+            "SELECT id,label,amount FROM 'target/input.csv' "
+            "WHERE (amount >= 10) AND ((label IS NULL OR label NOT RLIKE '^a')) LIMIT 100"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                statement = sys.argv[2]
+                if statement == {base + " LIMIT 100"!r}:
+                    assert sys.argv[3:] == [
+                        "--output-format",
+                        "inline-jsonl",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    result_jsonl = "{{\\"id\\":1,\\"label\\":\\"alpha\\",\\"amount\\":10}}\\n{{\\"id\\":2,\\"label\\":\\"beta\\",\\"amount\\":15}}\\n{{\\"id\\":3,\\"label\\":null,\\"amount\\":21}}\\n"
+                    output_path = None
+                    output_format = "inline-jsonl"
+                    row_count = "3"
+                elif statement == {quarantine_statement!r}:
+                    assert sys.argv[3:] == [
+                        "--output-format",
+                        "jsonl",
+                        "--output",
+                        "target/regex-bad.jsonl",
+                        "--allow-overwrite",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    result_jsonl = "{{\\"id\\":2,\\"label\\":\\"beta\\",\\"amount\\":15}}\\n{{\\"id\\":3,\\"label\\":null,\\"amount\\":21}}\\n"
+                    output_path = "target/regex-bad.jsonl"
+                    output_format = "jsonl"
+                    row_count = "2"
+                else:
+                    raise AssertionError(sys.argv)
+                fields = [
+                    {{"key": "result_jsonl", "value": result_jsonl}},
+                    {{"key": "output_row_count", "value": row_count}},
+                    {{"key": "selected_row_count", "value": row_count}},
+                    {{"key": "output_format", "value": output_format}},
+                    {{"key": "fallback_attempted", "value": "false"}},
+                    {{"key": "external_engine_invoked", "value": "false"}},
+                    {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                ]
+                if output_path is not None:
+                    fields.extend([
+                        {{"key": "output_path", "value": output_path}},
+                        {{"key": "output_io_performed", "value": "true"}},
+                        {{"key": "output_commit_status", "value": "committed"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"}},
+                        {{"key": "result_replay_verified", "value": "true"}},
+                    ])
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": fields,
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label", "amount")
+            .filter(sl.col("amount") >= 10)
+        )
+
+        quality = workflow.data_quality_check("matches:label:^a")
+        report = workflow.quarantine(
+            "target/regex-bad.jsonl",
+            "regex:label:^a",
+            output_format="jsonl",
+            allow_overwrite=True,
+        )
+
+        self.assertIsInstance(quality, sl.WorkflowDataQualityReport)
+        by_check = {result.check: result for result in quality.checks}
+        self.assertFalse(by_check["matches:label:^a"].passed)
+        self.assertEqual(by_check["matches:label:^a"].failing_row_count, 2)
+        self.assertIsInstance(report, sl.WorkflowQuarantineReport)
+        self.assertEqual(report.quarantine_status, "written")
+        self.assertEqual(report.quarantined_row_count, 2)
+        self.assertEqual(report.output_path, "target/regex-bad.jsonl")
+        self.assertEqual(report.output_format, "jsonl")
+        self.assertEqual(report.output_commit_status, "committed")
+        self.assertTrue(report.result_replay_verified)
+        self.assertTrue(report.runtime_execution)
+        self.assertTrue(report.data_read)
+        self.assertTrue(report.write_io)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_malformed_regex_quality_and_quarantine_are_unsupported(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
+                operation = sys.argv[2]
+                assert operation in {"data-quality", "quarantine"}, sys.argv
+                assert sys.argv[3:] == [
+                    "read_csv(target/input.csv) -> select(id,label)",
+                    "regex:label:[",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_NOT_IMPLEMENTED",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": f"cg21.workflow.{operation}",
+                        "reason": "regex quality rule is not admitted",
+                        "suggested_next_step": "inspect capability and evidence reports",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                    }],
+                    "fields": [
+                        {"key": "workflow_operation", "value": operation},
+                        {"key": "blocker_id", "value": f"cg21.workflow.{operation}.unsupported"},
+                        {"key": "required_evidence", "value": "execution_certificate,native_io_certificate"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        workflow = (
+            ShardLoomContext(ShardLoomClient(binary=binary))
+            .read_csv("target/input.csv")
+            .select("id", "label")
+        )
+
+        quality_report = workflow.data_quality_check("regex:label:[")
+        quarantine_report = workflow.quarantine("target/bad.jsonl", "regex:label:[", check=False)
+
+        self.assertIsInstance(quality_report, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(quality_report.operation, "data-quality")
+        self.assertFalse(quality_report.fallback_attempted)
+        self.assertFalse(quality_report.external_engine_invoked)
+        self.assertIsInstance(quarantine_report, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(quarantine_report.operation, "quarantine")
+        self.assertFalse(quarantine_report.fallback_attempted)
+        self.assertFalse(quarantine_report.external_engine_invoked)
 
     def test_context_sql_schema_quality_helpers_invoke_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -8204,7 +8375,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "complex_projection_kind", "value": "array_literal,struct_source_columns"},
                         {"key": "complex_projection_output_dtype", "value": "list,struct"},
                         {"key": "complex_projection_source_column", "value": "label,amount"},
-                        {"key": "complex_projection_output_boundary", "value": "jsonl_nested_result_boundary_only"},
+                        {"key": "complex_projection_output_boundary", "value": "typed_nested_compatibility_sink_with_result_jsonl_evidence"},
+                        {"key": "typed_nested_child_schema_evidence_status", "value": "present_from_non_null_nested_values_or_source_schema"},
+                        {"key": "typed_nested_child_schema_blocker", "value": "none"},
+                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc,vortex"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -8240,6 +8414,35 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.envelope.field("complex_projection_kind"),
             "array_literal,struct_source_columns",
+        )
+        self.assertTrue(report.complex_projection_runtime_execution)
+        self.assertEqual(report.complex_projection_columns, ("values", "payload"))
+        self.assertEqual(
+            report.complex_projection_kinds,
+            ("array_literal", "struct_source_columns"),
+        )
+        self.assertEqual(report.complex_projection_output_dtypes, ("list", "struct"))
+        self.assertEqual(report.complex_projection_source_columns, ("label", "amount"))
+        self.assertEqual(
+            report.complex_projection_output_boundary,
+            "typed_nested_compatibility_sink_with_result_jsonl_evidence",
+        )
+        self.assertEqual(
+            report.complex_projection_typed_nested_sink_formats,
+            ("parquet", "arrow_ipc", "avro"),
+        )
+        self.assertEqual(
+            report.complex_projection_blocked_typed_nested_sink_formats,
+            ("orc", "vortex"),
+        )
+        self.assertEqual(
+            report.typed_nested_child_schema_evidence_status,
+            "present_from_non_null_nested_values_or_source_schema",
+        )
+        self.assertIsNone(report.typed_nested_child_schema_blocker)
+        self.assertEqual(
+            report.typed_nested_child_schema_blocked_sink_formats,
+            ("orc", "vortex"),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -10689,6 +10892,146 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.envelope.field("output_certificate_ref"),
             "sql-local-source.local-parquet-output.native-io.v1",
+        )
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
+                    "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 2",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id) -> with_column(values,ARRAY[1,2,NULL]) -> with_column(payload,STRUCT(label, amount)) -> limit(2)",
+                    "--request",
+                    "write_parquet",
+                    "--output",
+                    "target/nested.parquet",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "sql local source typed nested parquet output",
+                    "human_text": "sql local source typed nested parquet output",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"values\\":[1,2,null],\\"payload\\":{\\"label\\":\\"alpha\\",\\"amount\\":8}}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_complex_projection_limit"},
+                        {"key": "complex_projection_runtime_execution", "value": "true"},
+                        {"key": "complex_projection_columns", "value": "values,payload"},
+                        {"key": "complex_projection_count", "value": "2"},
+                        {"key": "complex_projection_kind", "value": "array_literal,struct_source_columns"},
+                        {"key": "complex_projection_output_dtype", "value": "list,struct"},
+                        {"key": "complex_projection_source_column", "value": "label,amount"},
+                        {"key": "complex_projection_output_boundary", "value": "typed_nested_compatibility_sink_with_result_jsonl_evidence"},
+                        {"key": "typed_nested_child_schema_evidence_status", "value": "present_from_non_null_nested_values_or_source_schema"},
+                        {"key": "typed_nested_child_schema_blocker", "value": "none"},
+                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc,vortex"},
+                        {"key": "output_path", "value": "target/nested.parquet"},
+                        {"key": "output_format", "value": "parquet"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_parquet_sink"},
+                        {"key": "output_plan_materialization_required", "value": "flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering"},
+                        {"key": "output_plan_type_nullability_support", "value": "flat_scalar_or_inferable_typed_nested_nullable_values_supported"},
+                        {"key": "output_fidelity_report_status", "value": "flat_scalar_or_inferable_typed_nested_schema_replay_verified"},
+                        {"key": "output_fidelity_loss", "value": "parquet:vortex_layout_metadata_dropped_typed_nested_preserved_only_when_arrow_schema_inferred"},
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_facade_command", "value": "run"},
+                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_requested_output", "value": "write_parquet"},
+                        {"key": "public_workflow_allow_overwrite", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_columns(
+                {
+                    "values": sl.array(1, 2, None),
+                    "payload": sl.struct("label", "amount"),
+                }
+            )
+            .limit(2)
+            .write_parquet("target/nested.parquet", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/nested.parquet")
+        self.assertEqual(report.output_format, "parquet")
+        self.assertTrue(report.output_io_performed)
+        self.assertTrue(report.complex_projection_runtime_execution)
+        self.assertEqual(report.complex_projection_columns, ("values", "payload"))
+        self.assertEqual(
+            report.complex_projection_output_boundary,
+            "typed_nested_compatibility_sink_with_result_jsonl_evidence",
+        )
+        self.assertEqual(
+            report.complex_projection_typed_nested_sink_formats,
+            ("parquet", "arrow_ipc", "avro"),
+        )
+        self.assertEqual(
+            report.complex_projection_blocked_typed_nested_sink_formats,
+            ("orc", "vortex"),
+        )
+        self.assertEqual(
+            report.typed_nested_child_schema_evidence_status,
+            "present_from_non_null_nested_values_or_source_schema",
+        )
+        self.assertIsNone(report.typed_nested_child_schema_blocker)
+        self.assertEqual(
+            report.typed_nested_child_schema_blocked_sink_formats,
+            ("orc", "vortex"),
+        )
+        self.assertEqual(
+            report.output_plan_materialization_required,
+            "flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering",
+        )
+        self.assertEqual(
+            report.output_plan_type_nullability_support,
+            "flat_scalar_or_inferable_typed_nested_nullable_values_supported",
+        )
+        self.assertEqual(
+            report.output_fidelity_loss,
+            (
+                "parquet:vortex_layout_metadata_dropped_typed_nested_preserved_only_when_arrow_schema_inferred",
+            ),
         )
         self.assertEqual(report.envelope.command, "run")
         self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
@@ -13595,6 +13938,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "agg": "agg",
                     "sort": "sort",
                     "limit": "limit",
+                    "pivot-table": "pivot_table",
+                    "value-counts": "value_counts",
+                    "map-rows": "map_rows",
                     "write-vortex": "write_vortex",
                     "write-parquet": "write_parquet",
                     "write-arrow-ipc": "write_arrow_ipc",
@@ -13624,6 +13970,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "to-numpy", "to-python-objects", "write-vortex", "write-parquet",
                     "write-arrow-ipc", "write-avro", "write-orc",
                     "quarantine", "preview", "head", "take", "display",
+                    "tail", "describe", "nunique", "value-counts", "value_counts",
                 }
                 runtime_required = operation not in {
                     "from-pandas", "from-arrow-table", "from-arrow-ipc",
@@ -13636,10 +13983,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         "sql", "sql-parse", "sql-bind", "sql-plan", "sql-execute",
                         "sql-values", "sql-literal-select",
                         "with-column", "group-by", "agg", "sort", "join",
-                        "aggregate", "window",
+                        "aggregate", "window", "merge", "pivot-table", "rolling",
                     }
                     else "SL_UNSUPPORTED_EFFECT"
-                    if operation == "quarantine"
+                    if operation in {"quarantine", "apply", "map", "map-rows"}
                     else "SL_MATERIALIZATION_REQUIRED"
                     if materialization_required
                     else "SL_NOT_IMPLEMENTED"
@@ -13704,6 +14051,40 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.group_by("id").agg(total="sum(amount)"),
             workflow.agg("sum(amount)"),
             workflow.sort("amount", "amount", descending=True),
+            workflow.rename({"amount": "order_amount"}),
+            workflow.rename_columns([("id", "event_id")]),
+            workflow.drop(columns=["unused"]),
+            workflow.drop_columns("debug"),
+            workflow.sample(n=5, seed=7),
+            workflow.explode("items"),
+            workflow.merge(
+                sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
+                on="id",
+                how="left",
+            ),
+            workflow.concat([sl.read_csv("other.csv", client=ShardLoomClient(binary=binary))]),
+            workflow.pivot(index="id", columns="label", values="amount"),
+            workflow.pivot_table(
+                index="id",
+                columns="label",
+                values="amount",
+                aggfunc="sum",
+            ),
+            workflow.melt(id_vars="id", value_vars=["amount"]),
+            workflow.rolling(window=3),
+            workflow.tail(limit=5),
+            workflow.describe("amount"),
+            workflow.nunique("customer_id"),
+            workflow.value_counts("label"),
+            workflow.fillna({"amount": 0}),
+            workflow.fill_null(0),
+            workflow.isna("amount"),
+            workflow.isnull("amount"),
+            workflow.notna("amount"),
+            workflow.notnull("amount"),
+            workflow.apply("row_udf"),
+            workflow.map("value_udf"),
+            workflow.map_rows("row_udf"),
             workflow.write_vortex("out.vortex", check=False),
             workflow.write_parquet("out.parquet", check=False),
             ctx.sql_parse("select * from events"),
@@ -13727,7 +14108,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 30)
+        self.assertEqual(len(reports), 55)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -13795,6 +14176,93 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["sort"].envelope.field("target_ref"),
             "desc:amount,amount",
         )
+        rename_targets = [
+            report.envelope.field("target_ref")
+            for report in reports
+            if report.operation == "rename"
+        ]
+        self.assertIn("amount=order_amount", rename_targets)
+        self.assertIn("id=event_id", rename_targets)
+        drop_targets = [
+            report.envelope.field("target_ref")
+            for report in reports
+            if report.operation == "drop"
+        ]
+        self.assertIn("unused", drop_targets)
+        self.assertIn("debug", drop_targets)
+        self.assertEqual(by_operation["sample"].envelope.field("target_ref"), "n=5,seed=7")
+        self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
+        self.assertEqual(
+            by_operation["merge"].envelope.field("target_ref"),
+            "how=left;on=id;read_csv(other.csv)",
+        )
+        self.assertEqual(
+            by_operation["concat"].envelope.field("target_ref"),
+            "axis=0;join=outer;read_csv(other.csv)",
+        )
+        self.assertEqual(
+            by_operation["pivot"].envelope.field("target_ref"),
+            "index=id;columns=label;values=amount",
+        )
+        self.assertEqual(
+            by_operation["pivot-table"].envelope.field("workflow_operation"),
+            "pivot_table",
+        )
+        self.assertEqual(
+            by_operation["pivot-table"].envelope.field("target_ref"),
+            "index=id;columns=label;values=amount;aggfunc=sum",
+        )
+        self.assertEqual(
+            by_operation["melt"].envelope.field("target_ref"),
+            "id_vars=id;value_vars=amount",
+        )
+        self.assertEqual(
+            by_operation["rolling"].envelope.field("target_ref"),
+            "window=3;center=false",
+        )
+        self.assertEqual(by_operation["tail"].envelope.field("target_ref"), "5")
+        self.assertEqual(
+            by_operation["describe"].envelope.field("target_ref"),
+            "columns=amount",
+        )
+        self.assertEqual(
+            by_operation["nunique"].envelope.field("target_ref"),
+            "columns=customer_id;dropna=true",
+        )
+        self.assertEqual(
+            by_operation["value-counts"].envelope.field("workflow_operation"),
+            "value_counts",
+        )
+        self.assertEqual(
+            by_operation["value-counts"].envelope.field("target_ref"),
+            "columns=label;sort=true;dropna=true",
+        )
+        fillna_targets = [
+            report.envelope.field("target_ref")
+            for report in reports
+            if report.operation == "fillna"
+        ]
+        self.assertIn("value={amount=0}", fillna_targets)
+        self.assertIn("value=0", fillna_targets)
+        isna_targets = [
+            report.envelope.field("target_ref")
+            for report in reports
+            if report.operation == "isna"
+        ]
+        self.assertEqual(isna_targets, ["columns=amount", "columns=amount"])
+        notna_targets = [
+            report.envelope.field("target_ref")
+            for report in reports
+            if report.operation == "notna"
+        ]
+        self.assertEqual(notna_targets, ["columns=amount", "columns=amount"])
+        self.assertEqual(by_operation["apply"].envelope.field("target_ref"), "callable=row_udf")
+        self.assertEqual(by_operation["map"].envelope.field("target_ref"), "callable=value_udf")
+        self.assertEqual(
+            by_operation["map-rows"].envelope.field("workflow_operation"),
+            "map_rows",
+        )
+        self.assertEqual(by_operation["map-rows"].envelope.field("target_ref"), "callable=row_udf")
         self.assertEqual(
             by_operation["write-vortex"].envelope.field("target_ref"),
             "out.vortex",
@@ -13973,16 +14441,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_sql_dataframe_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_generated_output_contract_schema_version", "value": "shardloom.universal_compatibility.generated_output_contract.v1"},
                     {"key": "universal_compatibility_generated_output_contract_id", "value": "gar-compat-1b.source_free_generated_output_contract"},
-                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"},
+                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column,object_store_local_emulator_generated_output,object_store_live_provider_generated_output,foundry_style_generated_output,foundry_live_platform_generated_output"},
                     {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"},
                     {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range"},
-                    {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": ""},
+                    {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": "dataframe_source_free_projection,dataframe_generated_with_column"},
+                    {"key": "universal_compatibility_generated_output_platform_row_order", "value": "object_store_local_emulator_generated_output,object_store_live_provider_generated_output,foundry_style_generated_output,foundry_live_platform_generated_output"},
                     {"key": "universal_compatibility_generated_output_claim_gate_status", "value": "fixture_smoke_only"},
                     {"key": "universal_compatibility_generated_output_no_dataset_smoke_separate", "value": "true"},
                     {"key": "universal_compatibility_generated_output_local_output_only", "value": "true"},
                     {"key": "universal_compatibility_generated_output_output_certificate_required", "value": "true"},
                     {"key": "universal_compatibility_generated_output_object_store_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_object_store_local_emulator_runtime_supported", "value": "true"},
                     {"key": "universal_compatibility_generated_output_foundry_runtime_supported", "value": "false"},
+                    {"key": "universal_compatibility_generated_output_foundry_style_runtime_supported", "value": "true"},
+                    {"key": "universal_compatibility_generated_output_live_platform_api_supported", "value": "false"},
                     {"key": "universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed", "value": "false"},
                     {"key": "universal_compatibility_generated_output_all_rows_fallback_attempted_false", "value": "true"},
                     {"key": "universal_compatibility_generated_output_all_rows_external_engine_invoked_false", "value": "true"},
@@ -14124,6 +14596,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"),
                     ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_dataframe_literal_projection_jsonl_csv_structured_smoke_only"),
                     ("dataframe_generated_with_column", "Scoped generated DataFrame with_column", "dataframe_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_generated_with_column_jsonl_csv_smoke_only"),
+                    ("object_store_local_emulator_generated_output", "Python ctx.generated_output_to_object_store(local_path, profile=local-emulator)", "platform_generated_output", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "local_emulator_object_store_write_certificate_required", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_emulator_generated_output_to_object_store_smoke_only"),
+                    ("object_store_live_provider_generated_output", "Generated output to live S3/GCS/ADLS object-store URI", "platform_generated_output", "blocked", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_blocked", "not_emitted_blocked", "not_claim_grade", "gar-gen-1.object_store_generated_output_live_provider_blocked"),
+                    ("foundry_style_generated_output", "Python ctx.foundry_generated_output(local_dataset_path)", "platform_generated_output", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "local_foundry_style_dataset_output_evidence", "required_for_runtime", "fixture_smoke_only", "none_local_foundry_style_generated_output_dataset_proof_only"),
+                    ("foundry_live_platform_generated_output", "Generated output to real Foundry dataset/API", "platform_generated_output", "blocked", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_blocked", "not_emitted_blocked", "not_claim_grade", "gar-gen-1.foundry_generated_output_runtime_not_implemented"),
                 ]:
                     prefix = f"universal_compatibility_generated_output_row_{row_id}"
                     fields.extend([
@@ -14226,7 +14702,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.local_output_only)
         self.assertTrue(generated.output_certificate_required)
         self.assertFalse(generated.object_store_runtime_supported)
+        self.assertTrue(generated.object_store_local_emulator_runtime_supported)
         self.assertFalse(generated.foundry_runtime_supported)
+        self.assertTrue(generated.foundry_style_runtime_supported)
+        self.assertFalse(generated.live_platform_api_supported)
         self.assertFalse(generated.broad_sql_dataframe_claim_allowed)
         self.assertTrue(generated.all_no_fallback_no_external_engine)
         self.assertTrue(generated.row("python-ctx-from-rows").fixture_smoke_supported)
@@ -14240,6 +14719,29 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.row("sql_source_free_projection").runtime_execution)
         self.assertTrue(generated.row("sql_generate_series_range").fixture_smoke_supported)
         self.assertTrue(generated.row("sql_generate_series_range").runtime_execution)
+        self.assertEqual(
+            generated.platform_row_order,
+            (
+                "object_store_local_emulator_generated_output",
+                "object_store_live_provider_generated_output",
+                "foundry_style_generated_output",
+                "foundry_live_platform_generated_output",
+            ),
+        )
+        self.assertTrue(
+            generated.row("object_store_local_emulator_generated_output").fixture_smoke_supported
+        )
+        self.assertTrue(
+            generated.row("object_store_local_emulator_generated_output").runtime_execution
+        )
+        self.assertEqual(
+            generated.row("object_store_live_provider_generated_output").support_status,
+            "blocked",
+        )
+        self.assertTrue(generated.row("foundry_style_generated_output").fixture_smoke_supported)
+        self.assertFalse(
+            generated.row("foundry_live_platform_generated_output").runtime_execution
+        )
         self.assertTrue(generated.row("dataframe_generated_with_column").fixture_smoke_supported)
         self.assertTrue(generated.row("dataframe_generated_with_column").runtime_execution)
         self.assertEqual(

@@ -160,14 +160,15 @@ pub use execution_certificate::{
     plan_execution_certificate_evidence_surface,
 };
 pub use extension::{
-    DeterministicScalarUdfFixtureReport, ExtensionCapability, ExtensionCapabilityStatus,
-    ExtensionCategory, ExtensionEffectDeclaration, ExtensionId, ExtensionInspectionReport,
-    ExtensionInspectionStatus, ExtensionLicenseKind, ExtensionLifecycleState, ExtensionManifest,
-    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
-    ExtensionPermission, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    PluginAbiRequirement, PluginAbiStatus, PluginAbiUdfSandboxBlockerReport,
-    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
-    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_scalar_udf_fixture,
+    DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
+    ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
+    ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
+    ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
+    ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
+    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
+    SandboxPolicyKind, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
 };
 
 pub use feature_footprint::{
@@ -211,9 +212,10 @@ pub use input::{
 pub use live_engine::{
     ChangeOperation, ChangeRecord, CheckpointPolicy, ContinuousViewCertificate,
     FreshnessCertificate, LateDataPolicy, LiveCertificateStatus, LiveChangeContractReport,
-    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport, LiveOutputRow,
-    OutputChangelogEntry, OutputChangelogMode, StateCertificate, StateTtlPolicy, WatermarkPolicy,
-    plan_live_change_contract, run_live_fixture,
+    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
+    LiveHybridStateTransitionFixtureReport, LiveOutputRow, OutputChangelogEntry,
+    OutputChangelogMode, StateCertificate, StateTtlPolicy, WatermarkPolicy,
+    plan_live_change_contract, run_live_fixture, run_live_hybrid_state_transition_fixture,
 };
 
 pub use manifest::{

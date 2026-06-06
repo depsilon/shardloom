@@ -27,6 +27,7 @@ REQUIRED_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
     "object_store_lakehouse_catalog",
@@ -40,6 +41,7 @@ REQUIRED_ADMITTED_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
 }
 
@@ -59,6 +61,7 @@ REQUIRED_SOURCE_MARKERS = {
         "class FrontDoorParityMatrix",
         "FRONT_DOOR_PARITY_ROWS",
         "def front_door_parity_matrix(",
+        "typed_nested_compatibility_sink",
         "arbitrary_sql_python_dataframe_breadth",
         "performance_equivalence",
     ],
@@ -90,6 +93,11 @@ REQUIRED_SOURCE_MARKERS = {
         "def decimal_cast_output_boundary(",
         "def decimal_cast_typed_decimal_sink_formats(",
         "def decimal_cast_blocked_typed_decimal_sink_formats(",
+        "def complex_projection_output_boundary(",
+        "def complex_projection_typed_nested_sink_formats(",
+        "def complex_projection_blocked_typed_nested_sink_formats(",
+        "def typed_nested_child_schema_evidence_status(",
+        "def typed_nested_child_schema_blocker(",
         "def unsupported_reasons(",
         "def sql_set_operation_runtime_execution(",
         "def source_qualified_subquery_runtime_execution(",
@@ -118,6 +126,8 @@ REQUIRED_SOURCE_MARKERS = {
         "decimal_cast_output_boundary",
         "decimal_cast_typed_decimal_sink_formats",
         "decimal_cast_blocked_typed_decimal_sink_formats",
+        "test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary",
+        "typed_nested_compatibility_sink_with_result_jsonl_evidence",
         "test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke",
         "binary_helper_projection_runtime_execution",
         "binary_helper_projection_operator",
@@ -129,6 +139,13 @@ REQUIRED_SOURCE_MARKERS = {
         "test_local_csv_query_builder_decoded_materialization_helpers",
         "test_materialized_input_boundaries_create_generated_rows",
         "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
+    ],
+    "shardloom-cli/src/sql_local_source_runtime.rs": [
+        "fn validate_sql_cte_policy_boundary(",
+        "SQL common table expressions (WITH/RECURSIVE) are not admitted",
+        "fn parser_blocks_common_table_expressions_without_fallback(",
+        "fn contains_all_null_complex_dtype_without_child_schema(",
+        "typed_complex_child_schema_not_admitted",
     ],
 }
 

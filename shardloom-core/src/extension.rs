@@ -459,6 +459,159 @@ pub fn run_deterministic_scalar_udf_fixture(
     })
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeterministicEmbeddingVectorFixtureReport {
+    pub schema_version: &'static str,
+    pub fixture_id: &'static str,
+    pub fixture_version: &'static str,
+    pub input_dtype: &'static str,
+    pub output_dtype: &'static str,
+    pub determinism: &'static str,
+    pub embedding_model_id: &'static str,
+    pub vector_index_kind: &'static str,
+    pub metric: &'static str,
+    pub dimension: usize,
+    pub input_row_count: usize,
+    pub vector_row_count: usize,
+    pub query_text: String,
+    pub query_vector: [i64; 4],
+    pub nearest_index: usize,
+    pub nearest_text: String,
+    pub nearest_distance_squared: i64,
+    pub input_digest: String,
+    pub vector_digest: String,
+    pub model_call_performed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dynamic_loading_performed: bool,
+    pub extension_code_executed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+}
+
+impl DeterministicEmbeddingVectorFixtureReport {
+    #[must_use]
+    pub fn query_vector_summary(&self) -> String {
+        summarize_vector(&self.query_vector)
+    }
+
+    #[must_use]
+    pub fn nearest_summary(&self) -> String {
+        format!(
+            "{}:{}:{}",
+            self.nearest_index, self.nearest_text, self.nearest_distance_squared
+        )
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.model_call_performed
+            && !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.dynamic_loading_performed
+            && !self.extension_code_executed
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "deterministic embedding/vector fixture\nfixture: {} {}\nmodel: {}\nmetric: {}\ninput rows: {}\nnearest: {}\nfallback execution: disabled",
+            self.fixture_id,
+            self.fixture_version,
+            self.embedding_model_id,
+            self.metric,
+            self.input_row_count,
+            self.nearest_summary()
+        )
+    }
+}
+
+/// Execute the only admitted embedding/vector fixture: a built-in deterministic
+/// text-to-vector transform plus local brute-force nearest-neighbor proof.
+///
+/// This is intentionally not an embedding model call, vector database, network
+/// search service, plugin, external API call, or fallback execution path.
+///
+/// # Errors
+/// Returns an explicit invalid-operation error when no non-empty fixture texts
+/// are supplied.
+pub fn run_deterministic_embedding_vector_fixture(
+    texts: &[String],
+    query_text: &str,
+) -> Result<DeterministicEmbeddingVectorFixtureReport> {
+    if texts.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "embedding/vector fixture requires at least one input text".to_string(),
+        ));
+    }
+    if texts.iter().any(|value| value.trim().is_empty()) {
+        return Err(ShardLoomError::InvalidOperation(
+            "embedding/vector fixture input texts must not be empty".to_string(),
+        ));
+    }
+    if query_text.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "embedding/vector fixture query text must not be empty".to_string(),
+        ));
+    }
+
+    let vectors = texts
+        .iter()
+        .map(|text| deterministic_fixture_embedding(text))
+        .collect::<Vec<_>>();
+    let query_vector = deterministic_fixture_embedding(query_text);
+    let Some((nearest_index, nearest_distance_squared)) = vectors
+        .iter()
+        .enumerate()
+        .map(|(index, vector)| (index, squared_vector_distance(&query_vector, vector)))
+        .min_by_key(|(index, distance)| (*distance, *index))
+    else {
+        return Err(ShardLoomError::InvalidOperation(
+            "embedding/vector fixture requires at least one candidate vector".to_string(),
+        ));
+    };
+    let nearest_text = texts[nearest_index].clone();
+    let input_summary = texts.join("\u{1f}");
+    let vector_summary = summarize_vectors(&vectors);
+    Ok(DeterministicEmbeddingVectorFixtureReport {
+        schema_version: "shardloom.deterministic_embedding_vector_fixture.v1",
+        fixture_id: "sl_fixture_hash_embedding_vector",
+        fixture_version: "0.1.0",
+        input_dtype: "utf8",
+        output_dtype: "fixed_size_list<int64,4>",
+        determinism: "pure_deterministic",
+        embedding_model_id: "sl_fixture_hash_embedding_v1",
+        vector_index_kind: "local_bruteforce_l2_fixture",
+        metric: "squared_l2",
+        dimension: 4,
+        input_row_count: texts.len(),
+        vector_row_count: vectors.len(),
+        query_text: query_text.to_string(),
+        query_vector,
+        nearest_index,
+        nearest_text,
+        nearest_distance_squared,
+        input_digest: fnv64_digest_text(&input_summary),
+        vector_digest: fnv64_digest_text(&vector_summary),
+        model_call_performed: false,
+        credential_resolution_performed: false,
+        network_probe_performed: false,
+        dynamic_loading_performed: false,
+        extension_code_executed: false,
+        external_effect_executed: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only the built-in deterministic embedding/vector fixture is admitted; real model calls, embedding generation, vector databases, ANN indexes, external APIs, credentials, network effects, and fallback execution remain blocked.",
+    })
+}
+
 fn summarize_optional_i64_values(values: &[Option<i64>]) -> String {
     values
         .iter()
@@ -467,13 +620,53 @@ fn summarize_optional_i64_values(values: &[Option<i64>]) -> String {
         .join(",")
 }
 
+fn deterministic_fixture_embedding(text: &str) -> [i64; 4] {
+    let bytes = text.as_bytes();
+    let len = i64::try_from(text.chars().count()).unwrap_or(i64::MAX);
+    let byte_sum = bytes.iter().map(|byte| i64::from(*byte)).sum::<i64>();
+    let vowel_count = i64::try_from(
+        text.chars()
+            .filter(|ch| matches!(ch.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u'))
+            .count(),
+    )
+    .unwrap_or(i64::MAX);
+    let hash_bucket = i64::try_from(fnv64_numeric(text) % 10_000).unwrap_or(0);
+    [len, byte_sum, vowel_count, hash_bucket]
+}
+
+fn squared_vector_distance(left: &[i64; 4], right: &[i64; 4]) -> i64 {
+    left.iter()
+        .zip(right.iter())
+        .map(|(l, r)| {
+            let delta = l - r;
+            delta * delta
+        })
+        .sum()
+}
+
+fn summarize_vector(vector: &[i64; 4]) -> String {
+    format!("[{},{},{},{}]", vector[0], vector[1], vector[2], vector[3])
+}
+
+fn summarize_vectors(vectors: &[[i64; 4]]) -> String {
+    vectors
+        .iter()
+        .map(summarize_vector)
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
 fn fnv64_digest_text(value: &str) -> String {
+    format!("fnv64:{:016x}", fnv64_numeric(value))
+}
+
+fn fnv64_numeric(value: &str) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     for byte in value.as_bytes() {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x0100_0000_01b3);
     }
-    format!("fnv64:{hash:016x}")
+    hash
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2078,5 +2271,38 @@ mod tests {
         let error = run_deterministic_scalar_udf_fixture(&[Some(i64::MAX)])
             .expect_err("overflow is blocked");
         assert!(error.message().contains("overflow blocked"));
+    }
+
+    #[test]
+    fn deterministic_embedding_vector_fixture_returns_nearest_neighbor_without_effects() {
+        let texts = vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()];
+        let report = run_deterministic_embedding_vector_fixture(&texts, "beta").expect("fixture");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.deterministic_embedding_vector_fixture.v1"
+        );
+        assert_eq!(report.fixture_id, "sl_fixture_hash_embedding_vector");
+        assert_eq!(report.output_dtype, "fixed_size_list<int64,4>");
+        assert_eq!(report.embedding_model_id, "sl_fixture_hash_embedding_v1");
+        assert_eq!(report.vector_index_kind, "local_bruteforce_l2_fixture");
+        assert_eq!(report.metric, "squared_l2");
+        assert_eq!(report.dimension, 4);
+        assert_eq!(report.input_row_count, 3);
+        assert_eq!(report.vector_row_count, 3);
+        assert_eq!(report.nearest_index, 1);
+        assert_eq!(report.nearest_text, "beta");
+        assert_eq!(report.nearest_distance_squared, 0);
+        assert_eq!(report.claim_gate_status, "fixture_smoke_only");
+        assert!(report.no_fallback_invariant_holds());
+    }
+
+    #[test]
+    fn deterministic_embedding_vector_fixture_rejects_empty_inputs() {
+        let error = run_deterministic_embedding_vector_fixture(&[], "beta")
+            .expect_err("empty input is blocked");
+        assert!(error.message().contains("requires at least one input text"));
+        let error = run_deterministic_embedding_vector_fixture(&[String::new()], "beta")
+            .expect_err("empty text is blocked");
+        assert!(error.message().contains("must not be empty"));
     }
 }

@@ -31,6 +31,9 @@ DECIMAL_CAST_TYPED_DECIMAL_OUTPUT_BOUNDARY = (
     "jsonl_exact_decimal_string_csv_exact_decimal_text_"
     "parquet_arrow_avro_vortex_typed_decimal_orc_blocked"
 )
+COMPLEX_PROJECTION_TYPED_NESTED_OUTPUT_BOUNDARY = (
+    "typed_nested_compatibility_sink_with_result_jsonl_evidence"
+)
 ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
@@ -3675,6 +3678,98 @@ class SqlLocalSourceSmokeReport:
             )
             is True
         )
+
+    @property
+    def complex_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted scoped complex projection values."""
+
+        return self.envelope.field_bool("complex_projection_runtime_execution", False) is True
+
+    @property
+    def complex_projection_columns(self) -> tuple[str, ...]:
+        """Return complex projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("complex_projection_columns", "")
+        return _split_field_list(value)
+
+    @property
+    def complex_projection_kinds(self) -> tuple[str, ...]:
+        """Return scoped complex projection kinds emitted by the smoke."""
+
+        value = self.envelope.field("complex_projection_kind", "")
+        return _split_field_list(value)
+
+    @property
+    def complex_projection_output_dtypes(self) -> tuple[str, ...]:
+        """Return complex projection logical output dtypes emitted by the smoke."""
+
+        value = self.envelope.field("complex_projection_output_dtype", "")
+        return _split_field_list(value)
+
+    @property
+    def complex_projection_source_columns(self) -> tuple[str, ...]:
+        """Return source columns used inside scoped complex projections."""
+
+        value = self.envelope.field("complex_projection_source_column", "")
+        return _split_field_list(value)
+
+    @property
+    def complex_projection_output_boundary(self) -> str | None:
+        """Return the result/sink boundary for scoped complex projections."""
+
+        value = self.envelope.field("complex_projection_output_boundary")
+        if value in {None, "", "not_applicable", "none"}:
+            return None
+        return value
+
+    @property
+    def complex_projection_typed_nested_sink_formats(self) -> tuple[str, ...]:
+        """Return local formats that preserve inferable nested projection columns."""
+
+        if (
+            self.complex_projection_output_boundary
+            != COMPLEX_PROJECTION_TYPED_NESTED_OUTPUT_BOUNDARY
+        ):
+            return ()
+        return ("parquet", "arrow_ipc", "avro")
+
+    @property
+    def complex_projection_blocked_typed_nested_sink_formats(self) -> tuple[str, ...]:
+        """Return local formats that still block typed nested projection preservation."""
+
+        if (
+            self.complex_projection_output_boundary
+            != COMPLEX_PROJECTION_TYPED_NESTED_OUTPUT_BOUNDARY
+        ):
+            return ()
+        return ("orc", "vortex")
+
+    @property
+    def typed_nested_child_schema_evidence_status(self) -> str | None:
+        """Return the typed nested child-schema evidence posture for SQL sinks."""
+
+        value = self.envelope.field("typed_nested_child_schema_evidence_status")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def typed_nested_child_schema_blocker(self) -> str | None:
+        """Return the typed nested child-schema blocker, when present."""
+
+        value = self.envelope.field("typed_nested_child_schema_blocker")
+        if value in {None, "", "none", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def typed_nested_child_schema_blocked_sink_formats(self) -> tuple[str, ...]:
+        """Return sinks blocked by missing typed nested child-schema evidence."""
+
+        value = self.envelope.field("typed_nested_child_schema_blocked_sink_formats", "")
+        if not value or value in {"none", "not_applicable"}:
+            return ()
+        return tuple(part for part in value.split(",") if part)
 
     @property
     def cast_runtime_execution(self) -> bool:
@@ -9792,6 +9887,101 @@ class HybridOverlayRunReport:
 
 
 @dataclass(frozen=True, slots=True)
+class LiveHybridStateTransitionReport:
+    """Typed view over the bounded live/hybrid state-transition fixture."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def selected_engine_mode(self) -> str | None:
+        """Return the selected fixture engine mode."""
+
+        return self.envelope.field("selected_engine_mode")
+
+    @property
+    def transition_kind(self) -> str | None:
+        """Return the state-transition fixture kind."""
+
+        return self.envelope.field("transition_kind")
+
+    @property
+    def snapshot_epoch(self) -> int:
+        """Return the deterministic target snapshot epoch."""
+
+        return self.envelope.field_int("snapshot_epoch", 0) or 0
+
+    @property
+    def attempt_count(self) -> int:
+        """Return the number of simulated attempts."""
+
+        return self.envelope.field_int("attempt_count", 0) or 0
+
+    @property
+    def attempt_outcomes(self) -> tuple[str, ...]:
+        """Return attempt outcomes in deterministic order."""
+
+        return _csv_values(self.envelope.field("attempt_outcome_order"))
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether freshness, state, and transition evidence is certified."""
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "freshness_certificate_status",
+                "state_certificate_status",
+                "state_transition_certificate_status",
+            )
+        )
+
+    @property
+    def cleanup_completed(self) -> bool:
+        """Whether cooperative cancellation cleanup completed."""
+
+        return self.envelope.field_bool("cancellation_cleanup_completed", False) is True
+
+    @property
+    def partial_output_committed(self) -> bool:
+        """Whether the cancelled attempt committed partial output."""
+
+        return self.envelope.field_bool("partial_output_committed", False) is True
+
+    @property
+    def durable_checkpoint_store_used(self) -> bool:
+        """Whether a durable checkpoint store was used."""
+
+        return self.envelope.field_bool("durable_checkpoint_store_used", False) is True
+
+    @property
+    def exactly_once_claim_allowed(self) -> bool:
+        """Whether the fixture authorizes an exactly-once claim."""
+
+        return self.envelope.field_bool("exactly_once_claim_allowed", False) is True
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether this explicit fixture command performed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the fixture command reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the fixture command invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+
+@dataclass(frozen=True, slots=True)
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
@@ -10394,6 +10584,17 @@ class ShardLoomClient:
         if argument is not None:
             args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
         return HybridOverlayRunReport(self.run(args, check=check))
+
+    def live_hybrid_state_transition_smoke(
+        self,
+        *,
+        check: bool = True,
+    ) -> LiveHybridStateTransitionReport:
+        """Run the bounded CG-22 state-transition retry/cancel/cleanup fixture."""
+
+        return LiveHybridStateTransitionReport(
+            self.run(["live-hybrid-state-transition-smoke"], check=check)
+        )
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only explain envelope for an operation summary."""
@@ -11617,6 +11818,32 @@ class ShardLoomClient:
             command.extend(["--range", f"{offset}:{length}"])
         return self.run(command, check=check)
 
+    def object_store_partition_discovery_smoke(
+        self,
+        local_partition_root: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        partition_columns: Sequence[str] | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run scoped local-emulator key=value partition discovery."""
+
+        command = [
+            "object-store-partition-discovery-smoke",
+            str(local_partition_root),
+            "--profile",
+            profile,
+        ]
+        if partition_columns is not None:
+            columns = [
+                str(column).strip()
+                for column in partition_columns
+                if str(column).strip()
+            ]
+            if columns:
+                command.extend(["--partition-columns", ",".join(columns)])
+        return self.run(command, check=check)
+
     def object_store_write_smoke(
         self,
         source_path: str | os.PathLike[str],
@@ -11669,6 +11896,46 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if rollback_after_commit:
             command.append("--rollback-after-commit")
+        return self.run(command, check=check)
+
+    def object_store_write_recovery_smoke(
+        self,
+        target_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        idempotency_key: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run local-emulator object-store write recovery replay."""
+
+        command = [
+            "object-store-write-recovery-smoke",
+            str(target_object_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        return self.run(command, check=check)
+
+    def local_table_commit_recovery_smoke(
+        self,
+        target_manifest_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-manifest",
+        idempotency_key: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local-manifest table commit recovery smoke."""
+
+        command = [
+            "local-table-commit-recovery-smoke",
+            str(target_manifest_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
         return self.run(command, check=check)
 
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
@@ -11888,6 +12155,24 @@ class ShardLoomClient:
         else:
             encoded_values = ",".join("null" if value is None else str(value) for value in values)
         return self.run(["udf-local-scalar-fixture-smoke", encoded_values], check=check)
+
+    def embedding_vector_local_fixture_smoke(
+        self,
+        texts: Sequence[str] | str,
+        *,
+        query: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the built-in deterministic embedding/vector fixture."""
+
+        if isinstance(texts, str):
+            encoded_texts = texts
+        else:
+            encoded_texts = ";".join(str(text) for text in texts)
+        command: list[CommandPart] = ["embedding-vector-local-fixture-smoke", encoded_texts]
+        if query is not None:
+            command.extend(["--query", query])
+        return self.run(command, check=check)
 
     def sqlite_local_import_export_smoke(
         self,

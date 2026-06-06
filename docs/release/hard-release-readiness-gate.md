@@ -43,10 +43,10 @@ Producer evidence artifacts:
   graduation, burn-down, and route-capability reports; produced after reusing the local dry-run
   transcript from `release-local-smoke-evidence`.
 - `release-benchmark-claim-evidence`: pre-5J dependency freshness, benchmark artifact
-  completeness, and benchmark publication claim gate reports. The final aggregate consumes the
-  precomputed benchmark completeness/publication reports when present instead of rescanning the
-  large public benchmark bundle, and verifies manifest/artifact digests before trusting the
-  precomputed completeness report.
+  completeness, benchmark publication claim gate, and front-door benchmark publication gate
+  reports. The final aggregate consumes the precomputed benchmark completeness/publication reports
+  when present instead of rescanning the large public benchmark bundle, and verifies
+  manifest/artifact digests before trusting the precomputed completeness report.
 - `website-docs-evidence`: website readiness report.
 - `ci-gate-matrix-report`: CI matrix drift contract.
 
@@ -440,7 +440,7 @@ and the non-executing correctness-harness boundary, and intentionally reports:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=121
+matrix_row_count=123
 executable_fixture_count=99
 diagnostic_case_count=22
 unsupported_diagnostic_count=20
@@ -493,7 +493,11 @@ The hard release gate consumes the reports produced by
 published row evidence, broad-format row coverage, ShardLoom engine/format cells, capillary
 activation evidence, runtime-envelope proof, independent reproducibility/correctness/timing/replay
 proof, and no-fallback/no-external-engine proof block release readiness through the same canonical
-benchmark validators that protect the website/public bundle. Local runs without the precomputed
+benchmark validators that protect the website/public bundle. The front-door benchmark publication
+gate, `scripts/check_front_door_benchmark_publication.py`, composes those public artifacts with the
+SQL/Python/DataFrame parity report and keeps performance equivalence
+`blocked_pending_measured_equivalence_artifact` until measured equivalent front-door rows, rerun
+approval, correctness digests, and execution certificates exist. Local runs without the precomputed
 reports fall back to direct manifest scans. The validators inspect static benchmark artifacts only;
 they do not rerun benchmarks.
 

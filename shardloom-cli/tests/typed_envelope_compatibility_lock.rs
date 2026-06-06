@@ -463,7 +463,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             allow_stderr: false,
             fields: &[
                 ("runtime_blocker_matrix_diagnostics_propagated", "true"),
-                ("runtime_blocker_matrix_diagnostic_count", "7"),
+                ("runtime_blocker_matrix_diagnostic_count", "10"),
                 ("runtime_blocker_matrix_envelope_status", "success"),
                 ("fallback_attempted", "false"),
                 ("external_engine_invoked", "false"),
@@ -474,6 +474,9 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 "\"category\":\"object_store\"",
                 "\"feature\":\"coordinator_start\"",
                 "\"feature\":\"commit_record_write\"",
+                "\"feature\":\"partition_discovery\"",
+                "\"feature\":\"catalog_integration\"",
+                "\"feature\":\"remote_result_delivery\"",
             ],
         },
         EnvelopeCase {

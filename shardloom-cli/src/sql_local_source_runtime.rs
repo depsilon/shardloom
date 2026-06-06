@@ -932,6 +932,16 @@ impl SqlResultBatchState {
         })
     }
 
+    fn contains_all_null_complex_dtype_without_child_schema(&self) -> bool {
+        self.columns.iter().any(|column| {
+            column.dtype.as_ref().is_some_and(logical_dtype_is_complex)
+                && column
+                    .values
+                    .iter()
+                    .all(|value| matches!(value, ScalarValue::Null))
+        })
+    }
+
     fn contains_decimal_values(&self) -> bool {
         self.columns
             .iter()
@@ -1191,9 +1201,10 @@ impl SqlLocalSourceOutputFormat {
     const fn materialization_required(self) -> &'static str {
         match self {
             Self::InlineJsonl | Self::Csv => "terminal_text_materialization_required",
-            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
-                "flat_scalar_row_bridge_required_no_text_rendering"
+            Self::Parquet | Self::ArrowIpc | Self::Avro => {
+                "flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering"
             }
+            Self::Orc => "flat_scalar_row_bridge_required_no_text_rendering_nested_blocked",
             Self::Vortex => "flat_scalar_vortex_writer_bridge_required_no_text_rendering",
         }
     }
@@ -1222,9 +1233,10 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => "logical_values_including_nested_json_boundary",
             Self::Csv => "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
-            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
-                "flat_scalar_nullable_values_required"
+            Self::Parquet | Self::ArrowIpc | Self::Avro => {
+                "flat_scalar_nullable_and_inferable_typed_nested_nullable_values_supported"
             }
+            Self::Orc => "flat_scalar_nullable_values_required",
             Self::Vortex => "flat_scalar_nullable_values_required_for_current_vortex_writer",
         }
     }
@@ -1291,8 +1303,11 @@ impl SqlLocalSourceOutputFormat {
             Self::Vortex => {
                 "schema=preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
             }
-            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
-                "schema=flat_scalar_preserved,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
+            Self::Parquet | Self::ArrowIpc | Self::Avro => {
+                "schema=flat_scalar_or_inferable_typed_nested_preserved,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
+            }
+            Self::Orc => {
+                "schema=flat_scalar_preserved,nested_schema=blocked_before_provider_conversion,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
             }
             Self::Csv => {
                 "column_names=preserved,row_order=preserved,row_count=digest_replay_verified,nested_values=json_text_when_present,static_types=dropped"
@@ -1321,6 +1336,10 @@ impl SqlLocalSourceOutputFormat {
             self,
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Vortex
         )
+    }
+
+    const fn preserves_typed_complex(self) -> bool {
+        matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
@@ -5389,6 +5408,13 @@ fn scoped_flat_scalar_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalD
     vortex_flat_scalar_family_from_dtype(dtype).map(|_| dtype.clone())
 }
 
+fn scoped_source_output_dtype_hint(dtype: &LogicalDType) -> Option<LogicalDType> {
+    match dtype {
+        LogicalDType::List | LogicalDType::Struct => Some(dtype.clone()),
+        _ => scoped_flat_scalar_output_dtype_hint(dtype),
+    }
+}
+
 fn source_column_output_dtype_hint(
     header: &[String],
     source_dtypes: &[Option<LogicalDType>],
@@ -5399,7 +5425,7 @@ fn source_column_output_dtype_hint(
         .position(|candidate| candidate == column)
         .and_then(|index| source_dtypes.get(index))
         .and_then(Option::as_ref)
-        .and_then(scoped_flat_scalar_output_dtype_hint)
+        .and_then(scoped_source_output_dtype_hint)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14049,15 +14075,15 @@ fn validate_shared_fanout_materialization_formats(
             SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
         )
     });
-    let typed_flat_sink_requested = formats.iter().any(|format| {
+    let typed_structured_sink_requested = formats.iter().any(|format| {
         !matches!(
             format,
             SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
         )
     });
-    if logical_text_sink_requested && typed_flat_sink_requested {
+    if logical_text_sink_requested && typed_structured_sink_requested {
         return Err(unsupported_sql_error(
-            "fanout_conversion_dag_status=blocked_incompatible_materialization; logical JSONL/CSV nested text materialization cannot currently share a fanout conversion DAG with typed flat-scalar sink materialization; no partial fanout writes or fallback execution were attempted",
+            "fanout_conversion_dag_status=blocked_incompatible_materialization; logical JSONL/CSV nested text materialization cannot currently share a fanout conversion DAG with typed structured sink materialization; no partial fanout writes or fallback execution were attempted",
         ));
     }
     Ok(())
@@ -14338,8 +14364,10 @@ fn output_fidelity_status(format: SqlLocalSourceOutputFormat) -> &'static str {
         }
         SqlLocalSourceOutputFormat::Parquet
         | SqlLocalSourceOutputFormat::ArrowIpc
-        | SqlLocalSourceOutputFormat::Avro
-        | SqlLocalSourceOutputFormat::Orc => "flat_scalar_schema_replay_verified",
+        | SqlLocalSourceOutputFormat::Avro => {
+            "flat_scalar_or_inferable_typed_nested_schema_replay_verified"
+        }
+        SqlLocalSourceOutputFormat::Orc => "flat_scalar_schema_replay_verified_nested_blocked",
         SqlLocalSourceOutputFormat::Vortex => "vortex_flat_scalar_reopen_verified",
     }
 }
@@ -14354,9 +14382,11 @@ fn output_fidelity_loss(format: SqlLocalSourceOutputFormat) -> &'static str {
         }
         SqlLocalSourceOutputFormat::Parquet
         | SqlLocalSourceOutputFormat::ArrowIpc
-        | SqlLocalSourceOutputFormat::Avro
-        | SqlLocalSourceOutputFormat::Orc => {
-            "flat_scalar_only_no_nested_or_full_metadata_fidelity_claim"
+        | SqlLocalSourceOutputFormat::Avro => {
+            "vortex_layout_metadata_dropped_typed_nested_preserved_only_when_arrow_schema_inferred"
+        }
+        SqlLocalSourceOutputFormat::Orc => {
+            "flat_scalar_only_nested_blocked_no_full_metadata_fidelity_claim"
         }
         SqlLocalSourceOutputFormat::Vortex => {
             "flat_scalar_only_no_broad_vortex_writer_fidelity_claim"
@@ -16793,7 +16823,7 @@ impl ParsedSqlLocalSource {
                         source_dtypes
                             .get(index)
                             .and_then(Option::as_ref)
-                            .and_then(scoped_flat_scalar_output_dtype_hint)
+                            .and_then(scoped_source_output_dtype_hint)
                     }));
                 }
                 ParsedProjectionOutput::Raw(column) => {
@@ -26538,6 +26568,18 @@ impl SqlLocalSourceReport {
                 self.complex_projection_output_boundary(),
             ),
             (
+                "typed_nested_child_schema_evidence_status".to_string(),
+                self.typed_nested_child_schema_evidence_status().to_string(),
+            ),
+            (
+                "typed_nested_child_schema_blocker".to_string(),
+                self.typed_nested_child_schema_blocker().to_string(),
+            ),
+            (
+                "typed_nested_child_schema_blocked_sink_formats".to_string(),
+                self.typed_nested_child_schema_blocked_sink_formats(),
+            ),
+            (
                 "complex_projection_equality_semantics".to_string(),
                 if self.parsed.has_complex_projection() {
                     "admitted_distinct_projection_and_union_distinct_result_boundary_values_only"
@@ -27506,10 +27548,64 @@ impl SqlLocalSourceReport {
         let jsonl_requested = formats
             .iter()
             .any(|format| matches!(format, SqlLocalSourceOutputFormat::InlineJsonl));
-        match (jsonl_requested, csv_requested) {
-            (true, true) => "jsonl_nested_result_boundary_and_csv_json_text_sink".to_string(),
-            (false, true) => "csv_json_text_output_with_result_jsonl_evidence".to_string(),
+        let typed_nested_requested = formats
+            .iter()
+            .any(|format| format.preserves_typed_complex());
+        match (jsonl_requested, csv_requested, typed_nested_requested) {
+            (true, true, false) => "jsonl_nested_result_boundary_and_csv_json_text_sink".to_string(),
+            (false, true, false) => "csv_json_text_output_with_result_jsonl_evidence".to_string(),
+            (false, false, true) => {
+                "typed_nested_compatibility_sink_with_result_jsonl_evidence".to_string()
+            }
+            (true, false, true) => {
+                "jsonl_nested_result_boundary_and_typed_nested_compatibility_sink".to_string()
+            }
+            (false, true, true) => {
+                "csv_json_text_output_and_typed_nested_compatibility_sink_with_result_jsonl_evidence"
+                    .to_string()
+            }
+            (true, true, true) => {
+                "jsonl_nested_result_boundary_csv_json_text_sink_and_typed_nested_compatibility_sink"
+                    .to_string()
+            }
             _ => "jsonl_nested_result_boundary_only".to_string(),
+        }
+    }
+
+    fn typed_nested_child_schema_evidence_status(&self) -> &'static str {
+        if !self.result_batch_state.contains_complex_values() {
+            "not_applicable"
+        } else if self
+            .result_batch_state
+            .contains_all_null_complex_dtype_without_child_schema()
+        {
+            "blocked_missing_child_schema_evidence_for_all_null_typed_nested_column"
+        } else {
+            "present_from_non_null_nested_values_or_source_schema"
+        }
+    }
+
+    fn typed_nested_child_schema_blocker(&self) -> &'static str {
+        if self
+            .result_batch_state
+            .contains_all_null_complex_dtype_without_child_schema()
+        {
+            "typed_complex_child_schema_not_admitted"
+        } else {
+            "none"
+        }
+    }
+
+    fn typed_nested_child_schema_blocked_sink_formats(&self) -> String {
+        if self
+            .result_batch_state
+            .contains_all_null_complex_dtype_without_child_schema()
+        {
+            "parquet,arrow_ipc,avro,orc,vortex".to_string()
+        } else if self.result_batch_state.contains_complex_values() {
+            "orc,vortex".to_string()
+        } else {
+            "none".to_string()
         }
     }
 
@@ -28896,6 +28992,7 @@ fn parse_sql_local_source_union_statement(
     raw: &str,
 ) -> Result<ParsedSqlLocalSourceUnion, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
+    validate_sql_cte_policy_boundary(&statement)?;
     validate_advanced_scalar_policy_boundaries(&statement)?;
     validate_complex_dtype_policy_boundaries_with_sql_union(&statement, true)?;
 
@@ -28981,6 +29078,15 @@ fn parse_sql_local_source_union_statement(
     })
 }
 
+fn validate_sql_cte_policy_boundary(statement: &str) -> Result<(), ShardLoomError> {
+    if starts_with_keyword(statement.trim_start(), "with") {
+        return Err(unsupported_sql_error(
+            "SQL common table expressions (WITH/RECURSIVE) are not admitted in this scoped local-source runtime; cte_plan_nodes, catalog scope, recursive policy, execution certificate, and no-fallback evidence are required before execution",
+        ));
+    }
+    Ok(())
+}
+
 fn sql_union_branch_statements(
     statement: &str,
     operators: &[SqlUnionOperator],
@@ -29022,6 +29128,7 @@ fn sql_union_bounded_branch_statement(branch: &str) -> Result<String, ShardLoomE
 
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
     let statement = normalize_and_validate_sql_statement(raw)?;
+    validate_sql_cte_policy_boundary(&statement)?;
     if !statement
         .get(..6)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
@@ -37061,9 +37168,23 @@ fn validate_flat_scalar_result_batch(
     batch: &SqlResultBatchState,
     format: SqlLocalSourceOutputFormat,
 ) -> Result<(), ShardLoomError> {
-    if batch.contains_complex_values() && !matches!(format, SqlLocalSourceOutputFormat::Csv) {
+    if batch.contains_all_null_complex_dtype_without_child_schema()
+        && !matches!(
+            format,
+            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+        )
+    {
         return Err(unsupported_sql_error(&format!(
-            "local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary and CSV JSON-text output boundary in this scoped runtime slice",
+            "local {} output does not yet admit all-null typed nested sink columns without child-schema evidence; typed nested compatibility sinks require non-null nested values or source-schema child-field evidence before Parquet/Arrow IPC/Avro/ORC/Vortex writer conversion",
+            format.sink_format()
+        )));
+    }
+    if batch.contains_complex_values()
+        && !matches!(format, SqlLocalSourceOutputFormat::Csv)
+        && !format.preserves_typed_complex()
+    {
+        return Err(unsupported_sql_error(&format!(
+            "local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, and feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries when a nested Arrow schema can be inferred",
             format.sink_format()
         )));
     }
@@ -37084,8 +37205,12 @@ fn validate_sql_output_plan_sink(
     batch: &SqlResultBatchState,
 ) -> Result<(), ShardLoomError> {
     match sql_output_plan_conversion_blocker(format, batch) {
-        Some("flat_scalar_result_batch_required") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=flat_scalar_result_batch_required; local {} output currently admits flat scalar rows only through flat scalar result batches; ARRAY and STRUCT projection values are admitted through the JSONL result boundary and CSV JSON-text output boundary in this scoped runtime slice",
+        Some("typed_complex_child_schema_not_admitted") => Err(unsupported_sql_error(&format!(
+            "output_plan_conversion_blocker=typed_complex_child_schema_not_admitted; local {} output does not yet admit all-null typed nested sink columns without child-schema evidence; typed nested compatibility sinks require non-null nested values or source-schema child-field evidence before writer conversion",
+            format.sink_format()
+        ))),
+        Some("typed_complex_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
+            "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, and feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries when a nested Arrow schema can be inferred",
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
@@ -37155,8 +37280,11 @@ fn sql_output_plan_conversion_blocker(
     ) {
         return None;
     }
-    if batch.contains_complex_values() {
-        return Some("flat_scalar_result_batch_required");
+    if batch.contains_all_null_complex_dtype_without_child_schema() {
+        return Some("typed_complex_child_schema_not_admitted");
+    }
+    if batch.contains_complex_values() && !format.preserves_typed_complex() {
+        return Some("typed_complex_preservation_not_admitted");
     }
     if batch.contains_typed_decimal128()
         && !matches!(format, SqlLocalSourceOutputFormat::Csv)
@@ -40489,7 +40617,8 @@ mod tests {
     }
 
     #[test]
-    fn complex_projection_result_batch_still_blocks_typed_structured_sinks_without_fallback() {
+    fn complex_projection_result_batch_admits_typed_nested_compatibility_sinks_and_blocks_orc_vortex_without_fallback()
+     {
         let complex_batch = SqlResultBatchState::from_rows_with_dtypes(
             &["values".to_string()],
             &[Some(LogicalDType::List)],
@@ -40515,12 +40644,21 @@ mod tests {
             SqlLocalSourceOutputFormat::Parquet,
             SqlLocalSourceOutputFormat::ArrowIpc,
             SqlLocalSourceOutputFormat::Avro,
+        ] {
+            assert_eq!(
+                sql_output_plan_conversion_blocker(format, &complex_batch),
+                None,
+                "expected {} to admit inferable typed complex batches",
+                format.sink_format()
+            );
+        }
+        for format in [
             SqlLocalSourceOutputFormat::Orc,
             SqlLocalSourceOutputFormat::Vortex,
         ] {
             assert_eq!(
                 sql_output_plan_conversion_blocker(format, &complex_batch),
-                Some("flat_scalar_result_batch_required"),
+                Some("typed_complex_preservation_not_admitted"),
                 "expected {} to keep blocking complex batches",
                 format.sink_format()
             );
@@ -40555,18 +40693,76 @@ mod tests {
         );
 
         let sink_error =
-            validate_sql_output_plan_sink(SqlLocalSourceOutputFormat::Parquet, &complex_batch)
+            validate_sql_output_plan_sink(SqlLocalSourceOutputFormat::Orc, &complex_batch)
                 .expect_err("typed structured sink remains blocked");
         assert!(
             sink_error
                 .to_string()
-                .contains("output_plan_conversion_blocker=flat_scalar_result_batch_required")
+                .contains("output_plan_conversion_blocker=typed_complex_preservation_not_admitted")
         );
         assert!(
             sink_error
                 .to_string()
                 .contains("external_engine_invoked=false")
         );
+    }
+
+    #[test]
+    fn all_null_typed_nested_sink_without_child_schema_blocks_structured_writers_without_fallback()
+    {
+        let all_null_complex_batch = SqlResultBatchState::from_rows_with_dtypes(
+            &["values".to_string()],
+            &[Some(LogicalDType::List)],
+            &[
+                vec![("values".to_string(), ScalarValue::Null)],
+                vec![("values".to_string(), ScalarValue::Null)],
+            ],
+        )
+        .expect("all-null typed complex result batch");
+
+        assert!(all_null_complex_batch.contains_complex_values());
+        assert!(all_null_complex_batch.contains_all_null_complex_dtype_without_child_schema());
+        assert_eq!(
+            sql_output_plan_conversion_blocker(
+                SqlLocalSourceOutputFormat::InlineJsonl,
+                &all_null_complex_batch
+            ),
+            None
+        );
+        assert_eq!(
+            sql_output_plan_conversion_blocker(
+                SqlLocalSourceOutputFormat::Csv,
+                &all_null_complex_batch
+            ),
+            None
+        );
+        for format in [
+            SqlLocalSourceOutputFormat::Parquet,
+            SqlLocalSourceOutputFormat::ArrowIpc,
+            SqlLocalSourceOutputFormat::Avro,
+            SqlLocalSourceOutputFormat::Orc,
+            SqlLocalSourceOutputFormat::Vortex,
+        ] {
+            assert_eq!(
+                sql_output_plan_conversion_blocker(format, &all_null_complex_batch),
+                Some("typed_complex_child_schema_not_admitted"),
+                "expected {} to require child-schema evidence for all-null nested columns",
+                format.sink_format()
+            );
+            let sink_error = validate_sql_output_plan_sink(format, &all_null_complex_batch)
+                .expect_err("all-null typed nested sink without child schema remains blocked");
+            assert!(
+                sink_error.to_string().contains(
+                    "output_plan_conversion_blocker=typed_complex_child_schema_not_admitted"
+                ),
+                "{sink_error}"
+            );
+            assert!(
+                sink_error
+                    .to_string()
+                    .contains("external_engine_invoked=false")
+            );
+        }
     }
 
     #[test]
@@ -47146,6 +47342,42 @@ mod tests {
         assert_eq!(except.branches.len(), 2);
         assert_eq!(except.limit, 5);
         assert!(except.order_by.is_none());
+    }
+
+    #[test]
+    fn parser_blocks_common_table_expressions_without_fallback() {
+        for statement in [
+            "WITH recent AS (SELECT id FROM 'target/input.csv' LIMIT 5) SELECT id FROM recent LIMIT 5",
+            "WITH RECURSIVE r AS (SELECT id FROM 'target/input.csv' LIMIT 5) SELECT id FROM r LIMIT 5",
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("CTE syntax remains a deterministic parser blocker");
+            assert!(
+                error
+                    .to_string()
+                    .contains("SQL common table expressions (WITH/RECURSIVE) are not admitted"),
+                "got {error}"
+            );
+            assert!(error.to_string().contains("cte_plan_nodes"));
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+
+        let error = parse_sql_local_source_union_statement(
+            "WITH recent AS (SELECT id FROM 'target/input.csv' LIMIT 5) SELECT id FROM recent UNION SELECT id FROM 'target/other.csv' LIMIT 5",
+        )
+        .expect_err("CTE set-operation syntax remains blocked");
+        assert!(
+            error
+                .to_string()
+                .contains("SQL common table expressions (WITH/RECURSIVE) are not admitted"),
+            "got {error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

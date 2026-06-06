@@ -18,18 +18,19 @@ use shardloom_exec::{
     AttemptId, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
     CommitExecutionPromotionGateReport, FaultTolerancePromotionGateReport, MemoryBudget,
     MemoryOwner, MemoryPoolPlan, MemoryRuntimeHardeningGateReport, OomSafetyPlan,
-    OperatorMemoryClass, OperatorMemorySpillDeclarationReport, RecoveryPlan, RetryPlan,
-    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
-    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
-    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
-    ShardLoomRetryExecutionGateSignal, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
-    SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripReport, SpillPayloadRoundTripRequest,
-    SpillPayloadWriteRequest, SpillPlan, SpillPolicy, SpillReservationIntegrationRequest,
-    SpillWorkspaceId, SpillWorkspacePath, SyntheticSpillPayload, TaskAttemptRecord,
-    plan_cancellation_execution_gate, plan_commit_execution_promotion_gate,
-    plan_fault_tolerance_promotion_gate, plan_memory_runtime_hardening_gate,
-    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
-    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    OperatorMemoryClass, OperatorMemorySpillDeclarationReport, PreOomMemoryGuardFixtureReport,
+    RecoveryPlan, RetryPlan, ShardLoomCancellationExecutionGateReport,
+    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
+    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
+    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SpillLifecycleRequest,
+    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    SpillPayloadRoundTripReport, SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan,
+    SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
+    SyntheticSpillPayload, TaskAttemptRecord, plan_cancellation_execution_gate,
+    plan_commit_execution_promotion_gate, plan_fault_tolerance_promotion_gate,
+    plan_memory_runtime_hardening_gate, plan_operator_memory_spill_declarations,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, run_pre_oom_memory_guard_fixture, spill_payload_fs_feature_enabled,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -620,6 +621,34 @@ pub(crate) fn handle_operator_memory_spill_declarations(format: OutputFormat) ->
     emit_operator_memory_spill_declarations(format, &report)
 }
 
+pub(crate) fn handle_pre_oom_memory_guard_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "pre-oom-memory-guard-smoke",
+            format,
+            "unexpected pre-OOM memory guard argument",
+            &ShardLoomError::InvalidOperation(format!(
+                "pre-oom-memory-guard-smoke does not accept arguments: {extra}"
+            )),
+        );
+    }
+    let report = match run_pre_oom_memory_guard_fixture() {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "pre-oom-memory-guard-smoke",
+                format,
+                "pre-OOM memory guard fixture failed",
+                &error,
+            );
+        }
+    };
+    emit_pre_oom_memory_guard_smoke(format, &report)
+}
+
 pub(crate) fn handle_memory_runtime_hardening_gate(format: OutputFormat) -> ExitCode {
     let report = plan_memory_runtime_hardening_gate();
     emit_memory_runtime_hardening_gate(format, &report)
@@ -1024,6 +1053,27 @@ fn emit_memory_runtime_hardening_gate(
     ExitCode::SUCCESS
 }
 
+fn emit_pre_oom_memory_guard_smoke(
+    format: OutputFormat,
+    report: &PreOomMemoryGuardFixtureReport,
+) -> ExitCode {
+    let has_unexpected_errors = report.has_unexpected_errors();
+    emit(
+        "pre-oom-memory-guard-smoke",
+        format,
+        if has_unexpected_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "pre-OOM memory guard fixture".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        pre_oom_memory_guard_smoke_fields(report),
+    );
+    exit_for_errors(has_unexpected_errors)
+}
+
 fn emit_commit_execution_promotion_gate(
     format: OutputFormat,
     report: &CommitExecutionPromotionGateReport,
@@ -1227,6 +1277,135 @@ fn memory_runtime_hardening_gate_fields(
     fields
 }
 
+#[allow(clippy::too_many_lines)]
+fn pre_oom_memory_guard_smoke_fields(
+    report: &PreOomMemoryGuardFixtureReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "pre_oom_memory_guard_smoke");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "fixture_id", report.fixture_id);
+    push_field(
+        &mut fields,
+        "operator_class",
+        report.operator_class.as_str(),
+    );
+    push_field(&mut fields, "spill_policy", report.spill_policy.as_str());
+    push_field(
+        &mut fields,
+        "memory_budget_bytes",
+        &report.memory_budget.total.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "memory_soft_limit_bytes",
+        &report.memory_budget.soft_limit.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "memory_hard_limit_bytes",
+        &report.memory_budget.hard_limit.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "granted_reservation_id",
+        report.granted_reservation_id.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "denied_reservation_id",
+        report.denied_reservation_id.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "granted_reservation_bytes",
+        &report.granted_reservation_bytes.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "denied_request_bytes",
+        &report.denied_request_bytes.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "reserved_before_denial_bytes",
+        &report.reserved_before_denial.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "reserved_after_denial_bytes",
+        &report.reserved_after_denial.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "reserved_after_cleanup_bytes",
+        &report.reserved_after_cleanup.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "pressure_before_denial",
+        report.pressure_before_denial.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "pressure_after_denial",
+        report.pressure_after_denial.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "admission_decision",
+        report.admission_decision.as_str(),
+    );
+    push_field(&mut fields, "diagnostic_code", report.diagnostic_code);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    push_bool_field(&mut fields, "fail_before_oom", report.fail_before_oom);
+    push_bool_field(&mut fields, "release_performed", report.release_performed);
+    push_bool_field(&mut fields, "cleanup_required", report.cleanup_required);
+    push_bool_field(&mut fields, "cleanup_completed", report.cleanup_completed);
+    push_bool_field(
+        &mut fields,
+        "real_query_spill_admitted",
+        report.real_query_spill_admitted,
+    );
+    push_bool_field(
+        &mut fields,
+        "distributed_execution_admitted",
+        report.distributed_execution_admitted,
+    );
+    push_bool_field(
+        &mut fields,
+        "native_spill_write_performed",
+        report.native_spill_write_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "native_spill_read_performed",
+        report.native_spill_read_performed,
+    );
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "fallback_execution_allowed", false);
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        &mut fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "guard_triggered", report.guard_triggered());
+    push_bool_field(
+        &mut fields,
+        "has_unexpected_errors",
+        report.has_unexpected_errors(),
+    );
+    fields
+}
+
 fn append_memory_runtime_hardening_identity_fields(
     fields: &mut Vec<(String, String)>,
     report: &MemoryRuntimeHardeningGateReport,
@@ -1280,6 +1459,11 @@ fn append_memory_runtime_hardening_existing_fields(
         fields,
         "existing_memory_reservation_admission_present",
         report.existing_memory_reservation_admission_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_pre_oom_memory_guard_fixture_present",
+        report.existing_pre_oom_memory_guard_fixture_present,
     );
     push_bool_field(
         fields,
@@ -1555,6 +1739,11 @@ fn append_commit_execution_promotion_gate_summary_fields(
         fields,
         "existing_local_rollback_execution_present",
         report.existing_local_rollback_execution_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_local_recovery_execution_present",
+        report.existing_local_recovery_execution_present,
     );
     push_bool_field(
         fields,

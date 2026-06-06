@@ -32,6 +32,9 @@ from check_benchmark_publication_claim_gate import (
 from check_benchmark_publication_claim_gate import (
     validate_publication_claim_gate as validate_benchmark_publication_claim_gate,
 )
+from check_front_door_benchmark_publication import (
+    SCHEMA_VERSION as FRONT_DOOR_BENCHMARK_PUBLICATION_SCHEMA_VERSION,
+)
 from check_runtime_execution_envelopes import (
     validate_repo as validate_runtime_execution_envelope_surfaces,
 )
@@ -152,6 +155,11 @@ def parse_args() -> argparse.Namespace:
         "--benchmark-publication-claim-report",
         type=Path,
         default=Path("target/benchmark-publication-claim-gate-report.json"),
+    )
+    parser.add_argument(
+        "--front-door-benchmark-publication-report",
+        type=Path,
+        default=Path("target/front-door-benchmark-publication-gate.json"),
     )
     parser.add_argument(
         "--output",
@@ -406,6 +414,10 @@ def main() -> int:
     benchmark_publication_claim_report_path = resolve(
         repo_root,
         args.benchmark_publication_claim_report,
+    )
+    front_door_benchmark_publication_report_path = resolve(
+        repo_root,
+        args.front_door_benchmark_publication_report,
     )
 
     checks: list[dict[str, Any]] = []
@@ -1074,6 +1086,90 @@ def main() -> int:
         )
     )
 
+    front_door_benchmark_publication = load_json(
+        front_door_benchmark_publication_report_path
+    )
+    front_door_publication_blockers: list[str] = []
+    if front_door_benchmark_publication is None:
+        front_door_publication_blockers.append(
+            "missing front-door benchmark publication gate report"
+        )
+    else:
+        if (
+            front_door_benchmark_publication.get("schema_version")
+            != FRONT_DOOR_BENCHMARK_PUBLICATION_SCHEMA_VERSION
+        ):
+            front_door_publication_blockers.append(
+                "front-door benchmark publication schema_version="
+                + str(front_door_benchmark_publication.get("schema_version", "missing"))
+            )
+        if front_door_benchmark_publication.get("status") != "passed":
+            front_door_publication_blockers.extend(
+                front_door_benchmark_publication.get(
+                    "blockers", ["front-door benchmark publication gate blocked"]
+                )
+            )
+        if front_door_benchmark_publication.get("claim_gate_status") != "not_claim_grade":
+            front_door_publication_blockers.append(
+                "front-door benchmark publication claim_gate_status="
+                + str(front_door_benchmark_publication.get("claim_gate_status", "missing"))
+            )
+        if (
+            front_door_benchmark_publication.get(
+                "front_door_performance_publication_status"
+            )
+            != "blocked_pending_measured_equivalence_artifact"
+        ):
+            front_door_publication_blockers.append(
+                "front-door benchmark publication status must stay blocked pending measured equivalence artifact"
+            )
+        if (
+            front_door_benchmark_publication.get(
+                "front_door_performance_equivalence_claim_allowed"
+            )
+            is not False
+        ):
+            front_door_publication_blockers.append(
+                "front-door performance equivalence claim must be false"
+            )
+        for field in [
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "benchmark_run_performed",
+            "benchmark_rerun_approved",
+            "publication_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if front_door_benchmark_publication.get(field) is not False:
+                front_door_publication_blockers.append(
+                    f"front-door benchmark publication {field} must be false"
+                )
+        if (
+            int(
+                front_door_benchmark_publication.get(
+                    "public_front_door_benchmark_row_count", 0
+                )
+                or 0
+            )
+            < 2
+        ):
+            front_door_publication_blockers.append(
+                "front-door benchmark publication must expose public front-door rows"
+            )
+        if not front_door_benchmark_publication.get("publication_admission_blockers"):
+            front_door_publication_blockers.append(
+                "front-door benchmark publication must list admission blockers"
+            )
+    checks.append(
+        check(
+            "front_door_benchmark_publication_gate",
+            str(args.front_door_benchmark_publication_report).replace("\\", "/"),
+            front_door_publication_blockers,
+        )
+    )
+
     production_usability = load_json(production_usability_report_path)
     production_usability_blockers: list[str] = []
     if production_usability is None:
@@ -1588,6 +1684,7 @@ def main() -> int:
         "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json",
         "python scripts/check_pre_5j_dependency_freshness.py",
         "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
+        "python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json",
         "python scripts/final_release_rehearsal.py --allow-blocked",
         "python scripts/check_production_usability_gate.py",
         "python scripts/check_python_user_surface_completion.py",
@@ -1642,6 +1739,9 @@ def main() -> int:
         ),
         "benchmark_publication_claim_report_ref": str(
             args.benchmark_publication_claim_report
+        ).replace("\\", "/"),
+        "front_door_benchmark_publication_report_ref": str(
+            args.front_door_benchmark_publication_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

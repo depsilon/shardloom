@@ -17,15 +17,17 @@ use std::{
 
 use arrow_array::{
     Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Decimal128Array,
-    FixedSizeBinaryArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
-    Int64Array, LargeBinaryArray, LargeStringArray, RecordBatch, RecordBatchReader, StringArray,
-    StringViewArray, TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    FixedSizeBinaryArray, FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array,
+    Int32Array, Int64Array, LargeBinaryArray, LargeListArray, LargeStringArray, ListArray,
+    RecordBatch, RecordBatchReader, StringArray, StringViewArray, StructArray,
+    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
-        BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder, Float64Builder,
-        Int64Builder, StringBuilder, TimestampMicrosecondBuilder, UInt64Builder,
+        ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
+        Float64Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
+        TimestampMicrosecondBuilder, UInt64Builder, make_builder,
     },
 };
-use arrow_schema::{DataType, Field, Schema, TimeUnit};
+use arrow_schema::{DataType, Field, Fields, Schema, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 use std::sync::Arc;
 
@@ -603,7 +605,7 @@ where
 ///
 /// # Errors
 /// Returns [`ShardLoomError::InvalidOperation`] when any projected Arrow array
-/// contains an unsupported scalar type for the scoped local runtime.
+/// contains an unsupported type for the scoped local runtime.
 pub fn materialize_flat_columnar_source_to_scalar_table(
     source: &FlatLocalColumnarSource,
     path: &Path,
@@ -702,6 +704,10 @@ fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
         | DataType::LargeBinary
         | DataType::FixedSizeBinary(_)
         | DataType::BinaryView => Some(LogicalDType::Binary),
+        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
+            Some(LogicalDType::List)
+        }
+        DataType::Struct(_) => Some(LogicalDType::Struct),
         DataType::Decimal128(precision, scale) => {
             let scale = u8::try_from(*scale).ok()?;
             (scale <= *precision)
@@ -946,6 +952,12 @@ fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
                 field.name()
             )));
         }
+        if matches!(field.data_type(), DataType::List(_) | DataType::Struct(_)) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local ORC output does not yet admit typed nested preservation for column '{}'; scoped typed nested compatibility sinks are admitted through Parquet/Arrow IPC/Avro after Arrow schema inference, while ORC remains blocked before provider conversion until writer/readback evidence is added; no fallback execution was attempted",
+                field.name()
+            )));
+        }
     }
     Ok(())
 }
@@ -1075,6 +1087,11 @@ fn flat_output_column_array(
         .transpose()?
         .flatten();
     let declared_binary = column_dtype.is_some_and(|dtype| matches!(dtype, LogicalDType::Binary));
+    let declared_complex = column_dtype.and_then(|dtype| match dtype {
+        LogicalDType::List => Some("list"),
+        LogicalDType::Struct => Some("struct"),
+        _ => None,
+    });
     let inferred_kind = values
         .iter()
         .filter(|value| !matches!(value, ScalarValue::Null))
@@ -1086,6 +1103,29 @@ fn flat_output_column_array(
                 "{context} column '{column}' mixes scalar families {existing} and {candidate}; scoped compatibility output requires one non-null scalar family per column"
             ))),
         })?;
+    let nullable = values
+        .iter()
+        .any(|value| matches!(value, ScalarValue::Null));
+    if let Some(complex_kind) = declared_complex {
+        match inferred_kind {
+            Some(kind) if kind == complex_kind => {
+                return nested_arrow_column(column, &values, nullable, context);
+            }
+            Some(kind) => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' is declared {complex_kind} but contains non-null {kind} values; scoped typed complex sinks require {complex_kind} values or NULLs"
+                )));
+            }
+            None => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' has output_plan_conversion_blocker=nested_sink_schema_inference_required; all values are NULL and the logical dtype hint {complex_kind} does not carry nested child schema, so ShardLoom blocks before writer conversion instead of inventing a child type; no fallback execution was attempted and external_engine_invoked=false"
+                )));
+            }
+        }
+    }
+    if matches!(inferred_kind, Some("list" | "struct")) {
+        return nested_arrow_column(column, &values, nullable, context);
+    }
     let kind = match (declared_decimal, declared_binary, inferred_kind) {
         (Some(_), _, Some("decimal128") | None) => "decimal128",
         (Some((precision, scale)), _, Some(other)) => {
@@ -1102,9 +1142,6 @@ fn flat_output_column_array(
         (None, false, Some(kind)) => kind,
         (None, false, None) => "utf8",
     };
-    let nullable = values
-        .iter()
-        .any(|value| matches!(value, ScalarValue::Null));
     match kind {
         "boolean" => Ok(parquet_bool_column(column, &values, nullable, context)?),
         "int64" => Ok(parquet_int64_column(column, &values, nullable, context)?),
@@ -1421,6 +1458,500 @@ fn parquet_timestamp_micros_column(
     ))
 }
 
+fn nested_arrow_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+    context: &str,
+) -> Result<(Field, ArrayRef)> {
+    let data_type = infer_arrow_dtype_from_scalar_values(column, values, context)?;
+    let mut builder = make_builder(&data_type, values.len());
+    for value in values {
+        append_scalar_to_arrow_builder(builder.as_mut(), &data_type, value, column, context)?;
+    }
+    Ok((Field::new(column, data_type, nullable), builder.finish()))
+}
+
+fn infer_arrow_dtype_from_scalar_values(
+    path: &str,
+    values: &[&ScalarValue],
+    context: &str,
+) -> Result<DataType> {
+    let mut inferred_kind: Option<&'static str> = None;
+    let mut primitive_dtype: Option<DataType> = None;
+    let mut list_child_values = Vec::new();
+    let mut struct_field_names: Option<Vec<String>> = None;
+    let mut struct_field_values: Vec<Vec<&ScalarValue>> = Vec::new();
+
+    for value in values {
+        if matches!(value, ScalarValue::Null) {
+            continue;
+        }
+        let candidate_kind = scalar_family(value);
+        match inferred_kind {
+            None => inferred_kind = Some(candidate_kind),
+            Some(existing) if existing == candidate_kind => {}
+            Some(existing) => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} nested output path '{path}' mixes scalar families {existing} and {candidate_kind}; scoped typed complex sinks require one stable Arrow dtype per nested path"
+                )));
+            }
+        }
+        match value {
+            ScalarValue::List(values) => {
+                list_child_values.extend(values.iter());
+            }
+            ScalarValue::Struct(fields) => {
+                validate_struct_sink_fields(path, fields, context)?;
+                let candidate_names = fields
+                    .iter()
+                    .map(|(name, _value)| name.clone())
+                    .collect::<Vec<_>>();
+                match &struct_field_names {
+                    None => {
+                        struct_field_values = vec![Vec::new(); candidate_names.len()];
+                        struct_field_names = Some(candidate_names);
+                    }
+                    Some(existing_names) if existing_names == &candidate_names => {}
+                    Some(existing_names) => {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "{context} nested output path '{path}' mixes struct field layouts {:?} and {:?}; scoped typed complex sinks require stable field names and order",
+                            existing_names, candidate_names
+                        )));
+                    }
+                }
+                for (field_index, (_name, field_value)) in fields.iter().enumerate() {
+                    struct_field_values[field_index].push(field_value);
+                }
+            }
+            other => {
+                let candidate_dtype = primitive_arrow_dtype(path, other, context)?;
+                match &primitive_dtype {
+                    None => primitive_dtype = Some(candidate_dtype),
+                    Some(existing_dtype) if existing_dtype == &candidate_dtype => {}
+                    Some(existing_dtype) => {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "{context} nested output path '{path}' mixes Arrow dtypes {:?} and {:?}; scoped typed complex sinks require one stable Arrow dtype per nested path",
+                            existing_dtype, candidate_dtype
+                        )));
+                    }
+                }
+            }
+        }
+    }
+
+    match inferred_kind {
+        None => Err(ShardLoomError::InvalidOperation(format!(
+            "{context} nested output path '{path}' has output_plan_conversion_blocker=nested_sink_schema_inference_required; all values are NULL or empty and no nested child schema is available, so ShardLoom blocks before writer conversion instead of inventing a child type; no fallback execution was attempted and external_engine_invoked=false"
+        ))),
+        Some("list") => {
+            if list_child_values.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} nested output path '{path}' has output_plan_conversion_blocker=nested_sink_schema_inference_required; list values are empty and no child Arrow dtype can be inferred; no fallback execution was attempted and external_engine_invoked=false"
+                )));
+            }
+            let child_type =
+                infer_arrow_dtype_from_scalar_values(&format!("{path}[]"), &list_child_values, context)?;
+            Ok(DataType::List(Arc::new(Field::new_list_field(
+                child_type, true,
+            ))))
+        }
+        Some("struct") => {
+            let Some(field_names) = struct_field_names else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} nested output path '{path}' has output_plan_conversion_blocker=nested_sink_schema_inference_required; no struct field schema is available; no fallback execution was attempted and external_engine_invoked=false"
+                )));
+            };
+            let fields = field_names
+                .iter()
+                .zip(struct_field_values.iter())
+                .map(|(field_name, field_values)| {
+                    let field_type = infer_arrow_dtype_from_scalar_values(
+                        &format!("{path}.{field_name}"),
+                        field_values,
+                        context,
+                    )?;
+                    Ok(Field::new(field_name, field_type, true))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(DataType::Struct(Fields::from(fields)))
+        }
+        Some(_) => primitive_dtype.ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' did not infer a primitive Arrow dtype; no fallback execution was attempted"
+            ))
+        }),
+    }
+}
+
+fn validate_struct_sink_fields(
+    path: &str,
+    fields: &[(String, ScalarValue)],
+    context: &str,
+) -> Result<()> {
+    if fields.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} nested output path '{path}' contains an empty struct; scoped typed complex sinks require at least one field for deterministic Arrow schema inference"
+        )));
+    }
+    let mut seen = BTreeSet::new();
+    for (field_name, _value) in fields {
+        if field_name.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' contains an empty struct field name"
+            )));
+        }
+        if !seen.insert(field_name) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' contains duplicate struct field '{field_name}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn primitive_arrow_dtype(path: &str, value: &ScalarValue, context: &str) -> Result<DataType> {
+    match value {
+        ScalarValue::Boolean(_) => Ok(DataType::Boolean),
+        ScalarValue::Int64(_) => Ok(DataType::Int64),
+        ScalarValue::UInt64(_) => Ok(DataType::UInt64),
+        ScalarValue::Float64(_) => Ok(DataType::Float64),
+        ScalarValue::Utf8(_) => Ok(DataType::Utf8),
+        ScalarValue::Binary(_) => Ok(DataType::Binary),
+        ScalarValue::Decimal128 {
+            precision, scale, ..
+        } if (1..=38).contains(precision) && scale <= precision => {
+            let scale = i8::try_from(*scale).map_err(|_| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{context} nested output path '{path}' cannot preserve decimal128({precision},{scale}): scale exceeds Arrow decimal128 range"
+                ))
+            })?;
+            Ok(DataType::Decimal128(*precision, scale))
+        }
+        ScalarValue::Decimal128 {
+            precision, scale, ..
+        } => Err(ShardLoomError::InvalidOperation(format!(
+            "{context} nested output path '{path}' has invalid decimal128({precision},{scale}); scoped typed complex sinks require 1 <= precision <= 38 and scale <= precision"
+        ))),
+        ScalarValue::Date32(_) => Ok(DataType::Date32),
+        ScalarValue::TimestampMicros(_) => Ok(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        ScalarValue::Null | ScalarValue::List(_) | ScalarValue::Struct(_) => {
+            Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' expected a non-null primitive value for Arrow dtype inference but found {}",
+                scalar_family(value)
+            )))
+        }
+    }
+}
+
+fn append_scalar_to_arrow_builder(
+    builder: &mut dyn ArrayBuilder,
+    data_type: &DataType,
+    value: &ScalarValue,
+    path: &str,
+    context: &str,
+) -> Result<()> {
+    if matches!(value, ScalarValue::Null) {
+        return append_null_to_arrow_builder(builder, data_type, path, context);
+    }
+    match (data_type, value) {
+        (DataType::Boolean, ScalarValue::Boolean(value)) => {
+            bool_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::Int64, ScalarValue::Int64(value)) => {
+            int64_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::UInt64, ScalarValue::UInt64(value)) => {
+            uint64_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::Float64, ScalarValue::Float64(value)) => {
+            float64_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::Utf8, ScalarValue::Utf8(value)) => {
+            string_builder_mut(builder, path, context)?.append_value(value);
+        }
+        (DataType::Binary, ScalarValue::Binary(value)) => {
+            binary_builder_mut(builder, path, context)?.append_value(value);
+        }
+        (
+            DataType::Decimal128(precision, scale),
+            ScalarValue::Decimal128 {
+                value,
+                precision: value_precision,
+                scale: value_scale,
+            },
+        ) if value_precision == precision && i8::try_from(*value_scale).ok() == Some(*scale) => {
+            decimal128_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::Date32, ScalarValue::Date32(value)) => {
+            date32_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::Timestamp(TimeUnit::Microsecond, None), ScalarValue::TimestampMicros(value)) => {
+            timestamp_micros_builder_mut(builder, path, context)?.append_value(*value);
+        }
+        (DataType::List(field), ScalarValue::List(values)) => {
+            let list_builder = list_builder_mut(builder, path, context)?;
+            for (value_index, value) in values.iter().enumerate() {
+                append_scalar_to_arrow_builder(
+                    list_builder.values().as_mut(),
+                    field.data_type(),
+                    value,
+                    &format!("{path}[{value_index}]"),
+                    context,
+                )?;
+            }
+            list_builder.append(true);
+        }
+        (DataType::Struct(fields), ScalarValue::Struct(values)) => {
+            validate_struct_value_matches_arrow_fields(path, values, fields, context)?;
+            let struct_builder = struct_builder_mut(builder, path, context)?;
+            for (field_index, field) in fields.iter().enumerate() {
+                let (_field_name, field_value) = &values[field_index];
+                let child_builder = struct_builder
+                    .field_builders_mut()
+                    .get_mut(field_index)
+                    .ok_or_else(|| arrow_builder_downcast_error(context, path, data_type))?;
+                append_scalar_to_arrow_builder(
+                    child_builder.as_mut(),
+                    field.data_type(),
+                    field_value,
+                    &format!("{path}.{}", field.name()),
+                    context,
+                )?;
+            }
+            struct_builder.append(true);
+        }
+        (DataType::Decimal128(precision, scale), ScalarValue::Decimal128 { .. }) => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' expected decimal128({precision},{scale}) but found {}",
+                value.summary()
+            )));
+        }
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' expected Arrow dtype {:?} but found {}",
+                data_type,
+                scalar_family(value)
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn append_null_to_arrow_builder(
+    builder: &mut dyn ArrayBuilder,
+    data_type: &DataType,
+    path: &str,
+    context: &str,
+) -> Result<()> {
+    match data_type {
+        DataType::Boolean => bool_builder_mut(builder, path, context)?.append_null(),
+        DataType::Int64 => int64_builder_mut(builder, path, context)?.append_null(),
+        DataType::UInt64 => uint64_builder_mut(builder, path, context)?.append_null(),
+        DataType::Float64 => float64_builder_mut(builder, path, context)?.append_null(),
+        DataType::Utf8 => string_builder_mut(builder, path, context)?.append_null(),
+        DataType::Binary => binary_builder_mut(builder, path, context)?.append_null(),
+        DataType::Decimal128(_, _) => {
+            decimal128_builder_mut(builder, path, context)?.append_null();
+        }
+        DataType::Date32 => date32_builder_mut(builder, path, context)?.append_null(),
+        DataType::Timestamp(TimeUnit::Microsecond, None) => {
+            timestamp_micros_builder_mut(builder, path, context)?.append_null();
+        }
+        DataType::List(_) => list_builder_mut(builder, path, context)?.append(false),
+        DataType::Struct(fields) => {
+            let struct_builder = struct_builder_mut(builder, path, context)?;
+            for (field_index, field) in fields.iter().enumerate() {
+                let child_builder = struct_builder
+                    .field_builders_mut()
+                    .get_mut(field_index)
+                    .ok_or_else(|| arrow_builder_downcast_error(context, path, data_type))?;
+                append_null_to_arrow_builder(
+                    child_builder.as_mut(),
+                    field.data_type(),
+                    &format!("{path}.{}", field.name()),
+                    context,
+                )?;
+            }
+            struct_builder.append(false);
+        }
+        other => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' has unsupported Arrow dtype {:?}; scoped typed complex sinks admit boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, list, and struct only",
+                other
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_struct_value_matches_arrow_fields(
+    path: &str,
+    values: &[(String, ScalarValue)],
+    fields: &Fields,
+    context: &str,
+) -> Result<()> {
+    if values.len() != fields.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} nested output path '{path}' has {} struct fields but inferred Arrow schema has {}; scoped typed complex sinks require stable field names and order",
+            values.len(),
+            fields.len()
+        )));
+    }
+    for (field_index, (value_name, _value)) in values.iter().enumerate() {
+        let expected_name = fields[field_index].name();
+        if value_name != expected_name {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} nested output path '{path}' field {} expected '{expected_name}' but found '{value_name}'; scoped typed complex sinks require stable field names and order",
+                field_index + 1
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn bool_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut BooleanBuilder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<BooleanBuilder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Boolean))
+}
+
+fn int64_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut Int64Builder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<Int64Builder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Int64))
+}
+
+fn uint64_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut UInt64Builder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<UInt64Builder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::UInt64))
+}
+
+fn float64_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut Float64Builder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<Float64Builder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Float64))
+}
+
+fn string_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut StringBuilder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<StringBuilder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Utf8))
+}
+
+fn binary_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut BinaryBuilder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<BinaryBuilder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Binary))
+}
+
+fn decimal128_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut Decimal128Builder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<Decimal128Builder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Decimal128(38, 0)))
+}
+
+fn date32_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut Date32Builder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<Date32Builder>()
+        .ok_or_else(|| arrow_builder_downcast_error(context, path, &DataType::Date32))
+}
+
+fn timestamp_micros_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut TimestampMicrosecondBuilder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<TimestampMicrosecondBuilder>()
+        .ok_or_else(|| {
+            arrow_builder_downcast_error(
+                context,
+                path,
+                &DataType::Timestamp(TimeUnit::Microsecond, None),
+            )
+        })
+}
+
+fn list_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut ListBuilder<Box<dyn ArrayBuilder>>> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<ListBuilder<Box<dyn ArrayBuilder>>>()
+        .ok_or_else(|| {
+            arrow_builder_downcast_error(
+                context,
+                path,
+                &DataType::List(Arc::new(Field::new_list_field(DataType::Utf8, true))),
+            )
+        })
+}
+
+fn struct_builder_mut<'a>(
+    builder: &'a mut dyn ArrayBuilder,
+    path: &str,
+    context: &str,
+) -> Result<&'a mut StructBuilder> {
+    builder
+        .as_any_mut()
+        .downcast_mut::<StructBuilder>()
+        .ok_or_else(|| {
+            arrow_builder_downcast_error(context, path, &DataType::Struct(Fields::empty()))
+        })
+}
+
+fn arrow_builder_downcast_error(context: &str, path: &str, data_type: &DataType) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "{context} nested output path '{path}' could not access Arrow builder for dtype {:?}; no fallback execution was attempted",
+        data_type
+    ))
+}
+
 fn scalar_family(value: &ScalarValue) -> &'static str {
     match value {
         ScalarValue::Boolean(_) => "boolean",
@@ -1548,11 +2079,57 @@ fn arrow_scalar_to_shardloom(
             scale,
         });
     }
+    if let Some(values) = array.as_any().downcast_ref::<ListArray>() {
+        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<LargeListArray>() {
+        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<FixedSizeListArray>() {
+        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+    }
+    if let Some(values) = array.as_any().downcast_ref::<StructArray>() {
+        let mut fields = Vec::with_capacity(values.num_columns());
+        for (field, child) in values.fields().iter().zip(values.columns()) {
+            let nested_column = format!("{column}.{}", field.name());
+            fields.push((
+                field.name().clone(),
+                arrow_scalar_to_shardloom(
+                    child.as_ref(),
+                    row_index,
+                    &nested_column,
+                    path,
+                    source_label,
+                )?,
+            ));
+        }
+        return Ok(ScalarValue::Struct(fields));
+    }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, binary byte arrays, decimal128, date32, and timestamp_micros only",
+        "local {source_label} source '{}' column '{column}' has unsupported Arrow type {:?}; scoped local-source runtime admits booleans, integers, floats, UTF-8 strings, binary byte arrays, decimal128, date32, timestamp_micros, list, and struct only",
         path.display(),
         array.data_type()
     )))
+}
+
+fn arrow_list_value_to_shardloom(
+    value: ArrayRef,
+    column: &str,
+    path: &Path,
+    source_label: &str,
+) -> Result<ScalarValue> {
+    let mut values = Vec::with_capacity(value.len());
+    for value_index in 0..value.len() {
+        let nested_column = format!("{column}[{value_index}]");
+        values.push(arrow_scalar_to_shardloom(
+            value.as_ref(),
+            value_index,
+            &nested_column,
+            path,
+            source_label,
+        )?);
+    }
+    Ok(ScalarValue::List(values))
 }
 
 #[cfg(test)]
@@ -1562,6 +2139,8 @@ mod tests {
     type FlatSinkRow = Vec<(String, ScalarValue)>;
     type FlatSinkRows = Vec<FlatSinkRow>;
     type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
+    type TypedSinkEncoder =
+        fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
 
     fn binary_source_with_column(column: &str, array: ArrayRef) -> FlatLocalColumnarSource {
         let schema = Arc::new(Schema::new(vec![Field::new(
@@ -1692,6 +2271,76 @@ mod tests {
         );
     }
 
+    #[test]
+    fn materializes_columnar_nested_source_dtypes_as_scalar_complex_values() {
+        use arrow_array::types::Int64Type;
+
+        let values = Arc::new(ListArray::from_iter_primitive::<Int64Type, _, _>(vec![
+            Some(vec![Some(1), Some(2), None]),
+            None,
+            Some(vec![]),
+        ]));
+        let payload = Arc::new(StructArray::from(vec![
+            (
+                Arc::new(Field::new("label", DataType::Utf8, true)),
+                Arc::new(StringArray::from(vec![Some("alpha"), None, Some("empty")])) as ArrayRef,
+            ),
+            (
+                Arc::new(Field::new("amount", DataType::Int64, true)),
+                Arc::new(Int64Array::from(vec![Some(8), Some(15), None])) as ArrayRef,
+            ),
+        ]));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("values", values.data_type().clone(), true),
+            Field::new("payload", payload.data_type().clone(), true),
+        ]));
+        let batch = RecordBatch::try_new(schema, vec![values, payload]).expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: vec!["values".to_string(), "payload".to_string()],
+            column_dtypes: vec![Some(LogicalDType::List), Some(LogicalDType::Struct)],
+            materialized_columns: vec!["values".to_string(), "payload".to_string()],
+            reader_projection_columns: vec!["values".to_string(), "payload".to_string()],
+            row_count: batch.num_rows(),
+            batches: vec![batch],
+        };
+
+        let table = materialize_flat_columnar_source_to_scalar_table(
+            &source,
+            Path::new("target/nested.arrow"),
+            "Arrow IPC",
+        )
+        .expect("materialize nested columns");
+
+        assert_eq!(table.column_dtypes, source.column_dtypes);
+        assert_eq!(
+            table.rows[0].get("values"),
+            Some(&ScalarValue::List(vec![
+                ScalarValue::Int64(1),
+                ScalarValue::Int64(2),
+                ScalarValue::Null,
+            ]))
+        );
+        assert_eq!(table.rows[1].get("values"), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get("values"),
+            Some(&ScalarValue::List(Vec::new()))
+        );
+        assert_eq!(
+            table.rows[0].get("payload"),
+            Some(&ScalarValue::Struct(vec![
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                ("amount".to_string(), ScalarValue::Int64(8)),
+            ]))
+        );
+        assert_eq!(
+            table.rows[1].get("payload"),
+            Some(&ScalarValue::Struct(vec![
+                ("label".to_string(), ScalarValue::Null),
+                ("amount".to_string(), ScalarValue::Int64(15)),
+            ]))
+        );
+    }
+
     fn binary_sink_rows() -> (Vec<String>, FlatSinkRows) {
         (
             vec!["id".to_string(), "payload".to_string()],
@@ -1726,6 +2375,17 @@ mod tests {
             .as_nanos();
         std::env::temp_dir().join(format!(
             "shardloom-vortex-binary-sink-{}-{nanos}.{extension}",
+            std::process::id()
+        ))
+    }
+
+    fn unique_nested_sink_path(extension: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "shardloom-vortex-nested-sink-{}-{nanos}.{extension}",
             std::process::id()
         ))
     }
@@ -1774,6 +2434,138 @@ mod tests {
         );
         assert_binary_sink_round_trip("avro", encode_flat_avro_rows, read_flat_avro_source);
         assert_binary_sink_round_trip("orc", encode_flat_orc_rows, read_flat_orc_source);
+    }
+
+    fn nested_sink_rows() -> (Vec<String>, Vec<Option<LogicalDType>>, FlatSinkRows) {
+        (
+            vec!["values".to_string(), "payload".to_string()],
+            vec![Some(LogicalDType::List), Some(LogicalDType::Struct)],
+            vec![
+                vec![
+                    (
+                        "values".to_string(),
+                        ScalarValue::List(vec![
+                            ScalarValue::Int64(1),
+                            ScalarValue::Int64(2),
+                            ScalarValue::Null,
+                        ]),
+                    ),
+                    (
+                        "payload".to_string(),
+                        ScalarValue::Struct(vec![
+                            ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                            ("amount".to_string(), ScalarValue::Int64(8)),
+                        ]),
+                    ),
+                ],
+                vec![
+                    ("values".to_string(), ScalarValue::Null),
+                    ("payload".to_string(), ScalarValue::Null),
+                ],
+                vec![
+                    ("values".to_string(), ScalarValue::List(Vec::new())),
+                    (
+                        "payload".to_string(),
+                        ScalarValue::Struct(vec![
+                            ("label".to_string(), ScalarValue::Null),
+                            ("amount".to_string(), ScalarValue::Int64(15)),
+                        ]),
+                    ),
+                ],
+            ],
+        )
+    }
+
+    fn assert_nested_sink_round_trip(
+        extension: &str,
+        encode: TypedSinkEncoder,
+        read: fn(&std::path::Path, usize) -> Result<FlatLocalSourceTable>,
+    ) {
+        let (columns, dtypes, rows) = nested_sink_rows();
+        let path = unique_nested_sink_path(extension);
+        let bytes = encode(&columns, &dtypes, &rows).expect("encode nested sink rows");
+        std::fs::write(&path, bytes).expect("write nested sink artifact");
+
+        let table = read(&path, 10).expect("read nested sink artifact");
+        assert_eq!(table.header, columns);
+        assert_eq!(table.column_dtypes, dtypes);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(
+            table.rows[0].get("values"),
+            Some(&ScalarValue::List(vec![
+                ScalarValue::Int64(1),
+                ScalarValue::Int64(2),
+                ScalarValue::Null,
+            ]))
+        );
+        assert_eq!(table.rows[1].get("values"), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get("values"),
+            Some(&ScalarValue::List(Vec::new()))
+        );
+        assert_eq!(
+            table.rows[0].get("payload"),
+            Some(&ScalarValue::Struct(vec![
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+                ("amount".to_string(), ScalarValue::Int64(8)),
+            ]))
+        );
+        assert_eq!(table.rows[1].get("payload"), Some(&ScalarValue::Null));
+        assert_eq!(
+            table.rows[2].get("payload"),
+            Some(&ScalarValue::Struct(vec![
+                ("label".to_string(), ScalarValue::Null),
+                ("amount".to_string(), ScalarValue::Int64(15)),
+            ]))
+        );
+
+        std::fs::remove_file(path).expect("remove nested sink artifact");
+    }
+
+    #[test]
+    fn preserves_nested_rows_in_feature_gated_typed_structured_sinks() {
+        assert_nested_sink_round_trip(
+            "parquet",
+            encode_flat_parquet_rows_with_dtypes,
+            read_flat_parquet_source,
+        );
+        assert_nested_sink_round_trip(
+            "arrow",
+            encode_flat_arrow_ipc_rows_with_dtypes,
+            read_flat_arrow_ipc_source,
+        );
+        assert_nested_sink_round_trip(
+            "avro",
+            encode_flat_avro_rows_with_dtypes,
+            read_flat_avro_source,
+        );
+    }
+
+    #[test]
+    fn all_null_complex_sink_without_child_schema_blocks_before_writer_conversion() {
+        let columns = vec!["values".to_string()];
+        let dtypes = vec![Some(LogicalDType::List)];
+        let rows = vec![vec![("values".to_string(), ScalarValue::Null)]];
+
+        let error = flat_rows_to_record_batch_with_dtypes(
+            &columns,
+            &dtypes,
+            &rows,
+            "nested dtype hint output",
+        )
+        .expect_err("all-null complex output should require child schema evidence");
+
+        assert!(
+            error
+                .to_string()
+                .contains("output_plan_conversion_blocker=nested_sink_schema_inference_required"),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted")
+        );
     }
 
     #[test]

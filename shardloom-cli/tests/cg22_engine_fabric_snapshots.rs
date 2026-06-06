@@ -124,12 +124,12 @@ fn engine_capability_matrix_separates_batch_live_and_hybrid_claims() {
         "live_hybrid_fabric_gate_report_id",
         "gar-0034-a.live_hybrid_fabric_freshness_gate"
     )));
-    assert!(output.contains(&field("live_hybrid_fabric_gate_row_count", "9")));
+    assert!(output.contains(&field("live_hybrid_fabric_gate_row_count", "10")));
     assert!(output.contains(&field("live_hybrid_fabric_gate_blocked_row_count", "7")));
     assert!(output.contains(&field("live_hybrid_fabric_gate_report_only_row_count", "1")));
     assert!(output.contains(&field(
         "live_hybrid_fabric_gate_fixture_smoke_row_count",
-        "1"
+        "2"
     )));
     assert!(output.contains(&field(
         "live_hybrid_fabric_gate_claim_gate_status",
@@ -256,6 +256,57 @@ fn live_fixture_run_group_count_emits_state_freshness_and_certificate_evidence()
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn live_hybrid_state_transition_smoke_emits_retry_cancellation_cleanup_evidence() {
+    let output = run_json(&["live-hybrid-state-transition-smoke"], true);
+
+    assert!(output.contains("\"command\":\"live-hybrid-state-transition-smoke\""));
+    assert!(output.contains(&field("mode", "live_hybrid_state_transition_smoke")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.live_hybrid_state_transition_fixture.v1"
+    )));
+    assert!(output.contains(&field(
+        "fixture_id",
+        "cg22.live_hybrid.state_transition.fixture.v1"
+    )));
+    assert!(output.contains(&field("selected_engine_mode", "hybrid")));
+    assert!(output.contains(&field(
+        "transition_kind",
+        "bounded_snapshot_retry_cleanup_fixture"
+    )));
+    assert!(output.contains(&field("snapshot_epoch", "11")));
+    assert!(output.contains(&field("input_change_record_count", "10")));
+    assert!(output.contains(&field("active_state_key_count", "3")));
+    assert!(output.contains(&field("freshness_certificate_status", "certified")));
+    assert!(output.contains(&field("state_certificate_status", "certified")));
+    assert!(output.contains(&field("state_transition_certificate_status", "certified")));
+    assert!(output.contains(&field(
+        "retry_policy",
+        "single_retry_after_cooperative_cancellation"
+    )));
+    assert!(output.contains(&field("attempt_count", "2")));
+    assert!(output.contains(&field(
+        "attempt_outcome_order",
+        "attempt-1:cancelled_cleanup_completed,attempt-2:certified"
+    )));
+    assert!(output.contains(&field("retry_performed", "true")));
+    assert!(output.contains(&field("cancellation_requested", "true")));
+    assert!(output.contains(&field("cancellation_cleanup_completed", "true")));
+    assert!(output.contains(&field("partial_output_tracked", "true")));
+    assert!(output.contains(&field("partial_output_committed", "false")));
+    assert!(output.contains(&field("durable_checkpoint_store_used", "false")));
+    assert!(output.contains(&field("durable_checkpoint_write_performed", "false")));
+    assert!(output.contains(&field("broker_io", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("write_io", "false")));
+    assert!(output.contains(&field("exactly_once_claim_allowed", "false")));
+    assert!(output.contains(&field("production_claim_allowed", "false")));
+    assert!(output.contains(&field("no_fallback_no_external_engine", "true")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]

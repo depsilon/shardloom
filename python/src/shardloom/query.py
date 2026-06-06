@@ -9,6 +9,7 @@ import html
 import importlib
 import math
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union, cast
@@ -1994,15 +1995,25 @@ class SqlWorkflow:
         """Return bounded quarantine evidence for admitted local-source SQL."""
 
         _validate_positive_row_count("quarantine limit", limit)
+        parsed_checks: tuple[_WorkflowDataQualityCheckSpec, ...] | None = None
+        if checks:
+            normalized_checks = _normalize_columns(checks)
+            parsed_checks = _parse_data_quality_checks(normalized_checks)
+            if parsed_checks is None:
+                return self._unsupported_operation(
+                    "quarantine",
+                    ",".join(normalized_checks),
+                    check=check,
+                )
         if report := self._bounded_materialization_report(limit=limit, check=check):
             workflow = self._report_workflow()
             schema_report = _workflow_schema_report(workflow, report)
-            parsed_checks = _workflow_quarantine_checks(schema_report, checks)
+            parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
             quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
             return WorkflowQuarantineReport(
                 workflow=workflow,
                 quality_report=quality_report,
-                checks=tuple(raw for _kind, _column, raw in parsed_checks),
+                checks=tuple(spec.raw for spec in parsed_checks),
                 rows=_workflow_quarantine_rows(schema_report, parsed_checks),
                 limit=limit,
                 target_uri=None if target_uri is None else str(target_uri),
@@ -3005,6 +3016,16 @@ class WorkflowSchemaValidationReport:
 
 
 @dataclass(frozen=True, slots=True)
+class _WorkflowDataQualityCheckSpec:
+    """Parsed bounded data-quality check syntax."""
+
+    kind: str
+    column: str
+    raw: str
+    pattern: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowDataQualityCheckResult:
     """Result for one bounded data-quality check."""
 
@@ -3449,6 +3470,353 @@ class LazyFrame:
         """Alias for `select(...)` using familiar DataFrame/project naming."""
 
         return self.select(*columns)
+
+    def rename(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        *,
+        check: bool = False,
+        **named_columns: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad DataFrame column renames."""
+
+        items = _normalize_rename_items("rename", columns, named_columns)
+        target_ref = ",".join(f"{source}={target}" for source, target in items)
+        return self._unsupported_operation("rename", target_ref, check=check)
+
+    def rename_columns(
+        self,
+        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        *,
+        check: bool = False,
+        **named_columns: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for `rename(...)` using explicit column-transform naming."""
+
+        return self.rename(columns, check=check, **named_columns)
+
+    def drop(
+        self,
+        *labels: object,
+        columns: object | None = None,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad DataFrame column drops."""
+
+        target_ref = ",".join(_normalize_drop_columns(labels, columns))
+        return self._unsupported_operation("drop", target_ref, check=check)
+
+    def drop_columns(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for `drop(...)` using explicit column-transform naming."""
+
+        return self.drop(*columns, check=check)
+
+    def sample(
+        self,
+        n: int | None = None,
+        fraction: float | None = None,
+        seed: int | None = None,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for sampling semantics."""
+
+        target_ref = _normalize_sample_target(n=n, fraction=fraction, seed=seed)
+        return self._unsupported_operation("sample", target_ref, check=check)
+
+    def explode(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for nested/list column expansion."""
+
+        target_ref = ",".join(_normalize_columns(columns))
+        return self._unsupported_operation("explode", target_ref, check=check)
+
+    def merge(
+        self,
+        other: "LazyFrame | str",
+        *,
+        on: object | None = None,
+        left_on: object | None = None,
+        right_on: object | None = None,
+        how: str = "inner",
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad pandas-style merge semantics."""
+
+        target_ref = _normalize_merge_target(
+            other,
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            how=how,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("merge", target_ref, check=check)
+
+    def concat(
+        self,
+        others: "LazyFrame | str | Sequence[LazyFrame | str]",
+        *,
+        axis: int = 0,
+        join: str = "outer",
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad DataFrame concatenation."""
+
+        target_ref = _normalize_concat_target(others, axis=axis, join=join, kwargs=kwargs)
+        return self._unsupported_operation("concat", target_ref, check=check)
+
+    def pivot(
+        self,
+        *,
+        index: object | None = None,
+        columns: object | None = None,
+        values: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame reshape/pivot semantics."""
+
+        target_ref = _normalize_pivot_target(
+            index=index,
+            columns=columns,
+            values=values,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("pivot", target_ref, check=check)
+
+    def pivot_table(
+        self,
+        *,
+        values: object | None = None,
+        index: object | None = None,
+        columns: object | None = None,
+        aggfunc: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for aggregate reshape semantics."""
+
+        target_ref = _normalize_pivot_table_target(
+            values=values,
+            index=index,
+            columns=columns,
+            aggfunc=aggfunc,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("pivot-table", target_ref, check=check)
+
+    def melt(
+        self,
+        *,
+        id_vars: object | None = None,
+        value_vars: object | None = None,
+        var_name: object | None = None,
+        value_name: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame unpivot/melt semantics."""
+
+        target_ref = _normalize_melt_target(
+            id_vars=id_vars,
+            value_vars=value_vars,
+            var_name=var_name,
+            value_name=value_name,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("melt", target_ref, check=check)
+
+    def rolling(
+        self,
+        window: object,
+        *,
+        min_periods: int | None = None,
+        center: bool = False,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for rolling-window DataFrame semantics."""
+
+        target_ref = _normalize_rolling_target(
+            window,
+            min_periods=min_periods,
+            center=center,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("rolling", target_ref, check=check)
+
+    def tail(
+        self,
+        limit: int = 20,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for source-order tail materialization."""
+
+        _validate_positive_row_count("tail limit", limit)
+        return self._unsupported_operation("tail", str(limit), check=check)
+
+    def describe(
+        self,
+        *columns: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for pandas-style summary statistics."""
+
+        target_ref = _normalize_describe_target(columns, kwargs)
+        return self._unsupported_operation("describe", target_ref, check=check)
+
+    def nunique(
+        self,
+        *columns: object,
+        dropna: bool = True,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for pandas-style distinct counts."""
+
+        target_ref = _normalize_distinct_count_target(
+            columns,
+            dropna=dropna,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("nunique", target_ref, check=check)
+
+    def value_counts(
+        self,
+        *columns: object,
+        sort: bool = True,
+        dropna: bool = True,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for pandas-style value-count summaries."""
+
+        target_ref = _normalize_value_counts_target(
+            columns,
+            sort=sort,
+            dropna=dropna,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("value-counts", target_ref, check=check)
+
+    def fillna(
+        self,
+        value: object | None = None,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad DataFrame null filling."""
+
+        target_ref = _normalize_fillna_target(value, kwargs)
+        return self._unsupported_operation("fillna", target_ref, check=check)
+
+    def fill_null(
+        self,
+        value: object | None = None,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for `fillna(...)` using expression-engine null terminology."""
+
+        return self.fillna(value, check=check, **kwargs)
+
+    def isna(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame null-mask construction."""
+
+        target_ref = _normalize_null_mask_target(columns)
+        return self._unsupported_operation("isna", target_ref, check=check)
+
+    def isnull(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for `isna(...)` using pandas-style naming."""
+
+        return self.isna(*columns, check=check)
+
+    def notna(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame non-null-mask construction."""
+
+        target_ref = _normalize_null_mask_target(columns)
+        return self._unsupported_operation("notna", target_ref, check=check)
+
+    def notnull(
+        self,
+        *columns: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for `notna(...)` using pandas-style naming."""
+
+        return self.notna(*columns, check=check)
+
+    def apply(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for Python callable DataFrame transforms."""
+
+        target_ref = _normalize_callable_transform_target(
+            "apply",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("apply", target_ref, check=check)
+
+    def map(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for element-wise Python callable transforms."""
+
+        target_ref = _normalize_callable_transform_target("map", function, args, kwargs)
+        return self._unsupported_operation("map", target_ref, check=check)
+
+    def map_rows(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for row-wise Python callable transforms."""
+
+        target_ref = _normalize_callable_transform_target(
+            "map_rows",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("map-rows", target_ref, check=check)
 
     def distinct(self) -> "LazyFrame":
         """Return a lazy plan with row-level duplicate removal."""
@@ -4540,9 +4908,19 @@ class LazyFrame:
         """Return bounded quarantine evidence for admitted local-source workflows."""
 
         _validate_positive_row_count("quarantine limit", limit)
+        parsed_checks: tuple[_WorkflowDataQualityCheckSpec, ...] | None = None
+        if checks:
+            normalized_checks = _normalize_columns(checks)
+            parsed_checks = _parse_data_quality_checks(normalized_checks)
+            if parsed_checks is None:
+                return self._unsupported_operation(
+                    "quarantine",
+                    ",".join(normalized_checks),
+                    check=check,
+                )
         if report := self._bounded_materialization_report(limit=limit, check=check):
             schema_report = _workflow_schema_report(self, report)
-            parsed_checks = _workflow_quarantine_checks(schema_report, checks)
+            parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
             quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
             rows = _workflow_quarantine_rows(schema_report, parsed_checks)
             normalized_output_format = _normalize_optional_quarantine_output_format(
@@ -4563,7 +4941,7 @@ class LazyFrame:
             return WorkflowQuarantineReport(
                 workflow=self,
                 quality_report=quality_report,
-                checks=tuple(raw for _kind, _column, raw in parsed_checks),
+                checks=tuple(spec.raw for spec in parsed_checks),
                 rows=rows,
                 limit=limit,
                 target_uri=None if target_uri is None else str(target_uri),
@@ -4944,7 +5322,7 @@ class LazyFrame:
 
     def _quarantine_pushdown_statement(
         self,
-        checks: tuple[tuple[str, str, str], ...],
+        checks: tuple[_WorkflowDataQualityCheckSpec, ...],
         *,
         limit: int,
     ) -> str | None:
@@ -6938,6 +7316,343 @@ def _normalize_named_projection_items(
             raise ValueError(f"{context} output column names must be unique")
         seen.add(column_name)
         normalized.append((column_name, expression))
+    return tuple(normalized)
+
+
+def _normalize_rename_items(
+    context: str,
+    columns: Mapping[str, object] | Sequence[tuple[object, object]] | None,
+    named_columns: Mapping[str, object],
+) -> tuple[tuple[str, str], ...]:
+    """Normalize ordered source/target column pairs for rename diagnostics."""
+
+    raw_items: list[tuple[object, object]] = []
+    if columns is not None:
+        if isinstance(columns, Mapping):
+            raw_items.extend(columns.items())
+        elif _is_non_string_sequence(columns):
+            for item in columns:
+                if not _is_non_string_sequence(item) or len(item) != 2:
+                    raise ValueError(f"{context} sequence entries must be (source, target) pairs")
+                source, target = item
+                raw_items.append((source, target))
+        else:
+            raise TypeError(
+                f"{context} columns must be a mapping or sequence of (source, target) pairs"
+            )
+    raw_items.extend(named_columns.items())
+    if not raw_items:
+        raise ValueError(f"{context} columns must not be empty")
+
+    normalized: list[tuple[str, str]] = []
+    seen_sources: set[str] = set()
+    seen_targets: set[str] = set()
+    for source, target in raw_items:
+        source_name = _require_non_empty("source column name", source)
+        target_name = _normalize_output_column_name(target)
+        if source_name in seen_sources:
+            raise ValueError(f"{context} source column names must be unique")
+        if target_name in seen_targets:
+            raise ValueError(f"{context} target column names must be unique")
+        seen_sources.add(source_name)
+        seen_targets.add(target_name)
+        normalized.append((source_name, target_name))
+    return tuple(normalized)
+
+
+def _normalize_drop_columns(
+    labels: Sequence[object],
+    columns: object | None,
+) -> tuple[str, ...]:
+    raw_columns: list[object] = []
+    if len(labels) == 1 and _is_non_string_sequence(labels[0]):
+        raw_columns.extend(labels[0])
+    else:
+        raw_columns.extend(labels)
+    if columns is not None:
+        if _is_non_string_sequence(columns):
+            raw_columns.extend(columns)
+        else:
+            raw_columns.append(columns)
+    values = [_require_non_empty("drop column", column) for column in raw_columns]
+    if not values:
+        raise ValueError("drop columns must not be empty")
+    duplicates = [column for column in dict.fromkeys(values) if values.count(column) > 1]
+    if duplicates:
+        raise ValueError("drop columns must be unique")
+    return tuple(values)
+
+
+def _normalize_sample_target(
+    *,
+    n: int | None,
+    fraction: float | None,
+    seed: int | None,
+) -> str:
+    if n is not None and fraction is not None:
+        raise ValueError("sample accepts either n or fraction, not both")
+    parts: list[str] = []
+    if fraction is None:
+        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
+        parts.append(f"n={sample_n}")
+    else:
+        if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
+            raise TypeError("sample fraction must be numeric")
+        fraction_value = float(fraction)
+        if not math.isfinite(fraction_value) or fraction_value <= 0:
+            raise ValueError("sample fraction must be positive and finite")
+        parts.append(f"fraction={fraction_value:.12g}")
+    if seed is not None:
+        parts.append(f"seed={_normalize_non_negative_int('sample seed', seed)}")
+    return ",".join(parts)
+
+
+def _normalize_merge_target(
+    other: "LazyFrame | str",
+    *,
+    on: object | None,
+    left_on: object | None,
+    right_on: object | None,
+    how: str,
+    kwargs: Mapping[str, object],
+) -> str:
+    normalized_how = _normalize_join_how(how)
+    if on is not None and (left_on is not None or right_on is not None):
+        raise ValueError("merge accepts either on= or left_on=/right_on=, not both")
+    parts = [f"how={normalized_how}"]
+    if on is not None:
+        parts.append(f"on={_join_columns_for_target('merge on', on)}")
+    elif left_on is not None or right_on is not None:
+        if left_on is None or right_on is None:
+            raise ValueError("merge requires both left_on and right_on when using sided keys")
+        parts.append(f"left_on={_join_columns_for_target('merge left_on', left_on)}")
+        parts.append(f"right_on={_join_columns_for_target('merge right_on', right_on)}")
+    else:
+        parts.append("on=implicit_common_columns")
+    parts.extend(_normalize_extra_kwargs("merge", kwargs))
+    parts.append(_workflow_target_summary(other))
+    return ";".join(parts)
+
+
+def _normalize_concat_target(
+    others: "LazyFrame | str | Sequence[LazyFrame | str]",
+    *,
+    axis: int,
+    join: str,
+    kwargs: Mapping[str, object],
+) -> str:
+    if isinstance(axis, bool) or axis not in (0, 1):
+        raise ValueError("concat axis must be 0 or 1")
+    normalized_join = _require_non_empty("concat join", join).lower()
+    if normalized_join not in {"inner", "outer"}:
+        raise ValueError("concat join must be inner or outer")
+    targets = _normalize_workflow_targets(others)
+    parts = [f"axis={axis}", f"join={normalized_join}"]
+    parts.extend(_normalize_extra_kwargs("concat", kwargs))
+    parts.extend(targets)
+    return ";".join(parts)
+
+
+def _normalize_pivot_target(
+    *,
+    index: object | None,
+    columns: object | None,
+    values: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"index={_optional_columns_for_target(index)}",
+        f"columns={_optional_columns_for_target(columns)}",
+        f"values={_optional_columns_for_target(values)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("pivot", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_pivot_table_target(
+    *,
+    values: object | None,
+    index: object | None,
+    columns: object | None,
+    aggfunc: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"index={_optional_columns_for_target(index)}",
+        f"columns={_optional_columns_for_target(columns)}",
+        f"values={_optional_columns_for_target(values)}",
+        f"aggfunc={_require_non_empty('pivot_table aggfunc', aggfunc or 'mean')}",
+    ]
+    parts.extend(_normalize_extra_kwargs("pivot_table", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_melt_target(
+    *,
+    id_vars: object | None,
+    value_vars: object | None,
+    var_name: object | None,
+    value_name: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"id_vars={_optional_columns_for_target(id_vars)}",
+        f"value_vars={_optional_columns_for_target(value_vars)}",
+    ]
+    if var_name is not None:
+        parts.append(f"var_name={_require_non_empty('melt var_name', var_name)}")
+    if value_name is not None:
+        parts.append(f"value_name={_require_non_empty('melt value_name', value_name)}")
+    parts.extend(_normalize_extra_kwargs("melt", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_rolling_target(
+    window: object,
+    *,
+    min_periods: int | None,
+    center: bool,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"window={_require_non_empty('rolling window', window)}"]
+    if min_periods is not None:
+        parts.append(
+            f"min_periods={_normalize_non_negative_int('rolling min_periods', min_periods)}"
+        )
+    parts.append(f"center={str(bool(center)).lower()}")
+    parts.extend(_normalize_extra_kwargs("rolling", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_describe_target(
+    columns: Sequence[object],
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"columns={_optional_columns_for_target(columns or None)}"]
+    parts.extend(_normalize_extra_kwargs("describe", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_distinct_count_target(
+    columns: Sequence[object],
+    *,
+    dropna: bool,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"columns={_optional_columns_for_target(columns or None)}",
+        f"dropna={str(bool(dropna)).lower()}",
+    ]
+    parts.extend(_normalize_extra_kwargs("nunique", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_value_counts_target(
+    columns: Sequence[object],
+    *,
+    sort: bool,
+    dropna: bool,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"columns={_optional_columns_for_target(columns or None)}",
+        f"sort={str(bool(sort)).lower()}",
+        f"dropna={str(bool(dropna)).lower()}",
+    ]
+    parts.extend(_normalize_extra_kwargs("value_counts", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_fillna_target(
+    value: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"value={_stable_target_value(value)}"]
+    parts.extend(_normalize_extra_kwargs("fillna", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_null_mask_target(columns: Sequence[object]) -> str:
+    return f"columns={_optional_columns_for_target(columns or None)}"
+
+
+def _normalize_callable_transform_target(
+    context: str,
+    function: object,
+    args: Sequence[object],
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"callable={_stable_callable_name(function)}"]
+    if args:
+        parts.append(f"arg_count={len(args)}")
+    parts.extend(_normalize_extra_kwargs(context, kwargs))
+    return ";".join(parts)
+
+
+def _stable_callable_name(function: object) -> str:
+    if isinstance(function, str):
+        return _require_non_empty("callable expression", function)
+    name = getattr(function, "__name__", None)
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    type_name = type(function).__name__
+    if type_name:
+        return type_name
+    return _require_non_empty("callable", function)
+
+
+def _stable_target_value(value: object | None) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (int, float, str)):
+        return str(value)
+    if isinstance(value, Mapping):
+        items = [
+            f"{_require_non_empty('fillna key', key)}={_stable_target_value(item_value)}"
+            for key, item_value in sorted(value.items(), key=lambda item: str(item[0]))
+        ]
+        return "{" + ",".join(items) + "}"
+    if _is_non_string_sequence(value):
+        return "[" + ",".join(_stable_target_value(item) for item in value) + "]"
+    return type(value).__name__
+
+
+def _join_columns_for_target(name: str, value: object) -> str:
+    return ",".join(_normalize_columns((value,))) or _require_non_empty(name, value)
+
+
+def _optional_columns_for_target(value: object | None) -> str:
+    columns = _normalize_optional_columns(value)
+    return ",".join(columns) if columns else "none"
+
+
+def _normalize_workflow_targets(
+    value: "LazyFrame | str | Sequence[LazyFrame | str]",
+) -> tuple[str, ...]:
+    if isinstance(value, LazyFrame) or isinstance(value, (str, os.PathLike)):
+        targets = (_workflow_target_summary(value),)
+    elif _is_non_string_sequence(value):
+        targets = tuple(_workflow_target_summary(item) for item in value)
+    else:
+        raise TypeError("concat others must be a workflow, path, or sequence of workflows/paths")
+    if not targets:
+        raise ValueError("concat others must not be empty")
+    return targets
+
+
+def _workflow_target_summary(value: "LazyFrame | str | os.PathLike[str]") -> str:
+    if isinstance(value, LazyFrame):
+        return value.operation_summary
+    return _require_non_empty("workflow target", value)
+
+
+def _normalize_extra_kwargs(context: str, kwargs: Mapping[str, object]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for key in sorted(kwargs):
+        name = _normalize_output_column_name(key)
+        normalized.append(f"{name}={_require_non_empty(f'{context} {name}', kwargs[key])}")
     return tuple(normalized)
 
 
@@ -9051,22 +9766,37 @@ def _validate_workflow_schema(
 
 def _parse_data_quality_checks(
     checks: tuple[str, ...],
-) -> tuple[tuple[str, str, str], ...] | None:
+) -> tuple[_WorkflowDataQualityCheckSpec, ...] | None:
     if not checks:
         raise ValueError("data-quality checks must not be empty")
-    parsed: list[tuple[str, str, str]] = []
+    parsed: list[_WorkflowDataQualityCheckSpec] = []
     for check in checks:
-        parts = check.split(":", 1)
-        if len(parts) != 2:
+        parts = check.split(":", 2)
+        if len(parts) < 2:
             return None
         kind = parts[0].strip().lower().replace("-", "_").replace(" ", "_")
         column = parts[1].strip()
         if not column:
             return None
         if kind in {"not_null", "non_null", "required"}:
-            parsed.append(("not_null", column, check))
+            if len(parts) != 2:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("not_null", column, check))
         elif kind == "unique":
-            parsed.append(("unique", column, check))
+            if len(parts) != 2:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("unique", column, check))
+        elif kind in {"regex", "matches"}:
+            if len(parts) != 3:
+                return None
+            pattern = parts[2].strip()
+            if not pattern:
+                return None
+            try:
+                re.compile(pattern)
+            except re.error:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("regex", column, check, pattern))
         else:
             return None
     return tuple(parsed)
@@ -9074,12 +9804,16 @@ def _parse_data_quality_checks(
 
 def _workflow_data_quality_report(
     schema_report: WorkflowSchemaReport,
-    checks: tuple[tuple[str, str, str], ...],
+    checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> WorkflowDataQualityReport:
     rows = schema_report.smoke_report.result_rows
     field_names = set(schema_report.field_names)
+    schema_map = schema_report.schema_map
     results: list[WorkflowDataQualityCheckResult] = []
-    for kind, column, raw_check in checks:
+    for spec in checks:
+        kind = spec.kind
+        column = spec.column
+        raw_check = spec.raw
         if column not in field_names:
             results.append(
                 WorkflowDataQualityCheckResult(
@@ -9123,6 +9857,36 @@ def _workflow_data_quality_report(
                     else "duplicate values observed",
                 )
             )
+            continue
+        if kind == "regex":
+            if schema_map.get(column) != "utf8":
+                results.append(
+                    WorkflowDataQualityCheckResult(
+                        check=raw_check,
+                        column=column,
+                        passed=False,
+                        failing_row_count=len(rows),
+                        message="regex data-quality checks require utf8 values",
+                    )
+                )
+                continue
+            pattern = re.compile(spec.pattern or "")
+            failing = sum(
+                1
+                for row in rows
+                if not isinstance(row.get(column), str) or pattern.search(row[column]) is None
+            )
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=failing == 0,
+                    failing_row_count=failing,
+                    message="all values match regex"
+                    if failing == 0
+                    else "regex mismatches or null values observed",
+                )
+            )
     return WorkflowDataQualityReport(
         schema_report=schema_report,
         checks=tuple(results),
@@ -9132,44 +9896,51 @@ def _workflow_data_quality_report(
 def _workflow_quarantine_checks(
     schema_report: WorkflowSchemaReport,
     checks: tuple[object, ...],
-) -> tuple[tuple[str, str, str], ...]:
+) -> tuple[_WorkflowDataQualityCheckSpec, ...]:
     if checks:
         normalized_checks = _normalize_columns(checks)
         parsed = _parse_data_quality_checks(normalized_checks)
         if parsed is None:
             raise ValueError(
                 "quarantine checks must use supported data-quality forms such as "
-                "'not_null:column' or 'unique:column'"
+                "'not_null:column', 'unique:column', or 'regex:column:pattern'"
             )
         return parsed
     return tuple(
-        ("not_null", field.name, f"not_null:{field.name}")
+        _WorkflowDataQualityCheckSpec("not_null", field.name, f"not_null:{field.name}")
         for field in schema_report.fields
     )
 
 
 def _workflow_quarantine_rows(
     schema_report: WorkflowSchemaReport,
-    checks: tuple[tuple[str, str, str], ...],
+    checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> tuple[Mapping[str, Any], ...]:
     rows = schema_report.smoke_report.result_rows
     if not rows or not checks:
         return ()
     field_names = set(schema_report.field_names)
     unique_value_counts: dict[str, dict[str, int]] = {}
-    for kind, column, _raw_check in checks:
-        if kind != "unique" or column not in field_names:
+    regex_patterns = {
+        spec.raw: re.compile(spec.pattern or "")
+        for spec in checks
+        if spec.kind == "regex" and spec.pattern is not None
+    }
+    for spec in checks:
+        if spec.kind != "unique" or spec.column not in field_names:
             continue
         counts: dict[str, int] = {}
         for row in rows:
-            key = _stable_quality_value_key(row.get(column))
+            key = _stable_quality_value_key(row.get(spec.column))
             counts[key] = counts.get(key, 0) + 1
-        unique_value_counts[column] = counts
+        unique_value_counts[spec.column] = counts
 
     quarantined: list[Mapping[str, Any]] = []
     for row in rows:
         failed = False
-        for kind, column, _raw_check in checks:
+        for spec in checks:
+            kind = spec.kind
+            column = spec.column
             if column not in field_names:
                 failed = True
             elif kind == "not_null":
@@ -9177,6 +9948,14 @@ def _workflow_quarantine_rows(
             elif kind == "unique":
                 key = _stable_quality_value_key(row.get(column))
                 failed = unique_value_counts.get(column, {}).get(key, 0) > 1
+            elif kind == "regex":
+                pattern = regex_patterns.get(spec.raw)
+                value = row.get(column)
+                failed = (
+                    not isinstance(value, str)
+                    or pattern is None
+                    or pattern.search(value) is None
+                )
             if failed:
                 quarantined.append(row)
                 break
@@ -9184,15 +9963,23 @@ def _workflow_quarantine_rows(
 
 
 def _quarantine_pushdown_predicate(
-    checks: tuple[tuple[str, str, str], ...],
+    checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> str | None:
-    if not checks or any(kind != "not_null" for kind, _column, _raw in checks):
+    if not checks or any(spec.kind not in {"not_null", "regex"} for spec in checks):
         return None
     predicates = []
-    for _kind, column, _raw in checks:
+    for spec in checks:
+        column = spec.column
         if not _is_sql_identifier(column):
             return None
-        predicates.append(f"{column} IS NULL")
+        if spec.kind == "not_null":
+            predicates.append(f"{column} IS NULL")
+        elif spec.kind == "regex" and spec.pattern is not None:
+            predicates.append(
+                f"({column} IS NULL OR {column} NOT RLIKE {_sql_string_literal(spec.pattern)})"
+            )
+        else:
+            return None
     return " OR ".join(predicates) if predicates else None
 
 

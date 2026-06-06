@@ -38,7 +38,8 @@ Use this skill for tasks involving:
 - Public APIs should have documentation comments.
 - Prefer deterministic behavior and deterministic errors.
 - Do not optimize prematurely without tests and benchmarks.
-- Avoid mixing architecture policy changes with implementation changes in the same PR.
+- Keep architecture policy and implementation aligned when they belong to the same phase-plan item;
+  split them only when the policy change has a separate review or verification boundary.
 
 ## Required checks
 
@@ -70,6 +71,7 @@ Also confirm:
 
 When modifying Rust code, include this instruction:
 
-"Use the Rust Systems Engineering skill. Keep the change small and reviewable. Do not add Spark,
-DataFusion, or fallback execution. Use explicit errors for unsupported behavior. Run fmt, clippy,
-and tests before opening the PR."
+"Use the Rust Systems Engineering skill. Choose the largest cohesive phase-plan work unit that can
+be grounded, implemented, validated, and explained cleanly. Do not add Spark, DataFusion, or
+fallback execution. Use explicit errors for unsupported behavior. Run fmt, clippy, and tests before
+opening the PR."
