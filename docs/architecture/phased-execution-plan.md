@@ -187,11 +187,13 @@ Current autonomous execution order:
 1. Work the benchmark timing and cold-route performance split queue, then the performance
    innovation follow-up queue, before returning to the 6-series runtime breadth queue. Completed
    hotpath implementation, freshness, rerun, and publication slices now live in
-   `docs/architecture/phased-execution-completed-ledger.md`. The current promoted engine route
-   geomeans are shardloom 196.41 ms, shardloom-vortex 16.86 ms, shardloom-prepared-vortex
-   16.95 ms, and shardloom-prepare-batch 22.91 ms. The artifact has
-   `performance_claim_allowed=false`; benchmark rows remain evidence and optimization direction,
-   not superiority or Spark-replacement claims.
+   `docs/architecture/phased-execution-completed-ledger.md`. The current promoted artifact is
+   timing-surface aware: `hot_runtime` metadata-sink rows drive the primary route grid, while
+   `publication_proof` rows remain separate and include result-sink plus human evidence timing.
+   Current hot route geomeans are Native Vortex Query 0.52 ms, Warm Prepared Query 0.55 ms,
+   Prepare-Once Batch 3.80 ms, Prepare-Once First Query 3.80 ms, and Cold Certified Route
+   7.53 ms. The artifact still has `performance_claim_allowed=false`; benchmark rows remain
+   evidence and optimization direction, not superiority or Spark-replacement claims.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
@@ -366,12 +368,19 @@ completed base slice, while unchecked rows define the remaining optimization wor
       `10.8370 ms`/`7.1019 ms`, Vortex write geomeans about `4.5262 ms`/`3.2373 ms`, and
       query/operator geomeans remained sub-ms at about `0.5824 ms`/`0.3162 ms` and
       `0.5859 ms`/`0.3178 ms`.
+    - [x] `PERF-SPLIT-FIX-1` separates promoted route timing surfaces so `metadata_sink`
+      `hot_runtime` rows drive the primary route grid and `publication_full` rows remain visible
+      only as `publication_proof` totals. The merged current artifact has 30 ShardLoom
+      `hot_runtime` metadata rows and 600 ShardLoom `publication_proof` claim-grade rows; native
+      and warm prepared hot-route geomeans are sub-ms, while publication-proof rows remain slower
+      because they include result-sink replay/output and evidence render timing.
     - [ ] Remaining: continue reducing any remaining above-10 ms startup/process harness and
       fresh compatibility-import rows, especially `shardloom-vortex` parquet/jsonl preparation and
       per-command `cli_process_wall_millis`. Warm scan/operator execution is no longer the current
-      hot target in the scoped clean matrix. Current checked-in evidence still cannot support a
-      performance claim because the clean post-#1133 artifact has `performance_claim_allowed=false`
-      and has not been promoted through public claim gates with matching lane/manifest provenance.
+      hot target in the scoped clean matrix. Current checked-in hot-runtime rows still cannot
+      support a performance claim because they are non-claim `metadata_sink` evidence generated
+      from a dirty worktree; a clean post-fix artifact must be regenerated from committed code
+      before any route-total improvement or regression claim is made.
   - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
     import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
     public artifact freshness gates.
@@ -432,10 +441,16 @@ completed base slice, while unchecked rows define the remaining optimization wor
     - [x] Benchmark re-promotion preserves existing writer-context millisecond timing cells and
       does not auto-upgrade legacy rows to replay/publication tiers unless result-sink replay timing
       is present.
+    - [x] Promoted rows now expose `timing_surface` metadata derived from the actual evidence tier:
+      `metadata_sink` maps to `hot_runtime`, `full_vortex_replay` maps to
+      `full_replay_proof`, and `publication_full` maps to `publication_proof`. The route dashboard
+      groups primary route geomeans by the default `hot_runtime` surface and reports "hot runtime
+      row missing" rather than substituting publication-proof rows.
     - [ ] Remaining: require every hot stage field to declare owner, parent stage, inclusion class,
       timing scope, evidence level, and residual treatment before optimization work begins; extend
       dashboard grouping so route-total stages, excluded diagnostic children, shared preparation,
-      sink/evidence, harness, and dirty-provenance blockers are visually distinct.
+      sink/evidence, harness, dirty-provenance blockers, and `not_optimization_ready` cells are
+      visually distinct.
   - Runtime enablement: benchmark artifact promotion -> timing-field metadata model ->
     optimization-readiness validator -> website route critical-path grouping.
   - Objective: make every performance optimization target traceable to a correctly scoped timer

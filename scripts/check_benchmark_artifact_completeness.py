@@ -70,6 +70,27 @@ SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
 ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
 )
+ROUTE_TIMING_SURFACE_SCHEMA_VERSION = "shardloom.route_timing_surface.v1"
+TIMING_SURFACE_BY_EVIDENCE_TIER = {
+    "runtime_minimal": "hot_runtime",
+    "metadata_sink": "hot_runtime",
+    "full_vortex_replay": "full_replay_proof",
+    "publication_full": "publication_proof",
+}
+TIMING_SURFACES = {
+    "hot_runtime",
+    "full_replay_proof",
+    "publication_proof",
+    "external_baseline",
+}
+
+
+def runtime_envelope_required(row: dict[str, Any]) -> bool:
+    return not (
+        str(row.get("timing_surface") or "") == "hot_runtime"
+        and str(row.get("claim_gate_status") or "") != "claim_grade"
+    )
+PROOF_TIMING_SURFACES = {"full_replay_proof", "publication_proof"}
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
 OPERATOR_EXECUTION_MODES = {
@@ -369,6 +390,12 @@ REQUIRED_ROUTE_FIELDS = {
     "prepared_state_reused",
     "route_timing_ledger_schema_version",
     "route_timing_ledger_status",
+    "route_timing_surface_schema_version",
+    "timing_surface",
+    "timing_surface_label",
+    "timing_surface_evidence_tier",
+    "timing_surface_default_for_route",
+    "timing_surface_claim_boundary",
     "route_total_formula",
     "route_timing_scope",
     "stage_parent_id",
@@ -653,6 +680,13 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             )
         if row.get("route_timing_ledger_schema_version") != ROUTE_TIMING_LEDGER_SCHEMA_VERSION:
             blockers.append(f"benchmark row {index} has invalid route timing ledger schema")
+        if row.get("route_timing_surface_schema_version") != ROUTE_TIMING_SURFACE_SCHEMA_VERSION:
+            blockers.append(f"benchmark row {index} has invalid route timing surface schema")
+        timing_surface = str(row.get("timing_surface") or "")
+        if timing_surface not in TIMING_SURFACES:
+            blockers.append(
+                f"benchmark row {index} has invalid timing_surface={timing_surface!r}"
+            )
         if row.get("fast_path_attribution_schema_version") != FAST_PATH_ATTRIBUTION_SCHEMA_VERSION:
             blockers.append(f"benchmark row {index} has invalid fast-path attribution schema")
         if (
@@ -852,17 +886,23 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     f"ShardLoom row {index} maps broad source_state_prepare_micros "
                     "to source_admission_ms without a direct admission timing field"
                 )
-            if _boolish_true(row.get("includes_output")) and row.get(
-                "output_timing_included_in_total"
-            ) is not True:
+            output_required_for_surface = timing_surface in PROOF_TIMING_SURFACES
+            evidence_required_for_surface = timing_surface == "publication_proof"
+            if (
+                row.get("output_timing_included_in_total")
+                is not output_required_for_surface
+            ):
                 blockers.append(
-                    f"benchmark row {index} includes output but excludes output timing"
+                    f"benchmark row {index} output timing inclusion does not match "
+                    f"timing_surface={timing_surface!r}"
                 )
-            if _boolish_true(row.get("includes_evidence")) and row.get(
-                "evidence_timing_included_in_total"
-            ) is not True:
+            if (
+                row.get("evidence_timing_included_in_total")
+                is not evidence_required_for_surface
+            ):
                 blockers.append(
-                    f"benchmark row {index} includes evidence but excludes evidence timing"
+                    f"benchmark row {index} evidence timing inclusion does not match "
+                    f"timing_surface={timing_surface!r}"
                 )
             for field in (
                 "evidence_sink_tier_schema_version",
@@ -886,6 +926,13 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 "publication_full",
             }:
                 blockers.append(f"ShardLoom row {index} has invalid actual evidence tier")
+            elif (
+                timing_surface
+                != TIMING_SURFACE_BY_EVIDENCE_TIER[row["actual_evidence_tier"]]
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} timing surface does not match actual evidence tier"
+                )
             if row.get("selected_evidence_tier") != row.get("actual_evidence_tier"):
                 blockers.append(
                     f"ShardLoom row {index} selected evidence tier does not match actual tier"
@@ -1138,19 +1185,20 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"ShardLoom row {index} must set external_engine_invoked=false"
                 )
-            validation = validate_runtime_execution_fields(
-                runtime_validation_field_map(row),
-                command="benchmark-artifact-completeness-row",
-                status=str(row.get("status", "unknown")),
-                surface_id=f"benchmark_artifact_row_{index}",
-                runtime_expected=str(row.get("status", "unknown")) == "success",
-                execution_mode=str(row.get("selected_execution_mode") or "") or None,
-            )
-            if validation.status != "passed":
-                blockers.append(
-                    f"ShardLoom row {index} runtime envelope blocked: "
-                    + "; ".join(validation.blockers)
+            if runtime_envelope_required(row):
+                validation = validate_runtime_execution_fields(
+                    runtime_validation_field_map(row),
+                    command="benchmark-artifact-completeness-row",
+                    status=str(row.get("status", "unknown")),
+                    surface_id=f"benchmark_artifact_row_{index}",
+                    runtime_expected=str(row.get("status", "unknown")) == "success",
+                    execution_mode=str(row.get("selected_execution_mode") or "") or None,
                 )
+                if validation.status != "passed":
+                    blockers.append(
+                        f"ShardLoom row {index} runtime envelope blocked: "
+                        + "; ".join(validation.blockers)
+                    )
         elif engine:
             if route_status != "external_baseline_only":
                 blockers.append(
@@ -1212,9 +1260,13 @@ def validate_prepared_route_amortization(
             continue
         row_count = _numeric_value(row[1])
         if row_count is None or row_count <= 0:
-            blockers.append(
-                f"prepared_route_amortization query-count {row[0]} has no route rows"
+            explicit_missing_hot_row = any(
+                "hot runtime row missing" in str(cell) for cell in row
             )
+            if not explicit_missing_hot_row:
+                blockers.append(
+                    f"prepared_route_amortization query-count {row[0]} has no route rows"
+                )
 
 
 def validate_cold_lane_attribution(

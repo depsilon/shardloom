@@ -840,6 +840,13 @@ p {
   white-space: normal;
 }
 
+.surface-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
 .badge-count {
   padding: 0;
   border: 0;
@@ -861,7 +868,7 @@ p {
 .route-card-metrics div {
   display: grid;
   gap: 4px;
-  min-height: 74px;
+  min-height: 96px;
   border: 1px solid var(--line);
   border-radius: var(--radius-small);
   background: #f9fcfd;
@@ -1209,6 +1216,7 @@ p {
 .status-ready-local,
 .status-smoke-supported,
 .status-executable,
+.status-current,
 .status-claim-grade {
   border-color: rgba(21, 116, 95, 0.28);
   background: rgba(21, 116, 95, 0.07);
@@ -1227,6 +1235,8 @@ p {
 .status-planned,
 .status-feature-gated,
 .status-diagnostic-only,
+.status-not-reported,
+.status-stale-or-dirty,
 .status-future {
   border-color: rgba(154, 101, 0, 0.28);
   background: rgba(154, 101, 0, 0.08);

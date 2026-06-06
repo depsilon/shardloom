@@ -588,6 +588,18 @@ def benchmark_surface_id(row: dict[str, Any], index: int) -> str:
     )
 
 
+def should_validate_benchmark_row(row: dict[str, Any]) -> bool:
+    engine = str(row.get("engine", ""))
+    if not engine.startswith("shardloom"):
+        return False
+    if (
+        str(row.get("timing_surface") or "") == "hot_runtime"
+        and str(row.get("claim_gate_status") or "") != "claim_grade"
+    ):
+        return False
+    return True
+
+
 def validate_benchmark_artifact(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     blockers: list[str] = []
     if not path.exists():
@@ -601,8 +613,7 @@ def validate_benchmark_artifact(path: Path) -> tuple[list[dict[str, Any]], list[
 
     reports: list[dict[str, Any]] = []
     for index, row in enumerate(rows):
-        engine = str(row.get("engine", ""))
-        if not engine.startswith("shardloom"):
+        if not should_validate_benchmark_row(row):
             continue
         status = str(row.get("status", "unknown"))
         validation = validate_runtime_execution_fields(

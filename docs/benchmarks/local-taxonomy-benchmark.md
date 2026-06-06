@@ -128,8 +128,12 @@ Every promoted row also carries a stage inclusion contract. The fields
 `route_timing_stage_inclusion_stage_owners`,
 `route_timing_stage_inclusion_timing_scopes`, and
 `route_timing_stage_inclusion_skip_reasons` classify each canonical stage as
-`included`, `excluded_shared_preparation`, `excluded_harness`, or
-`diagnostic_only`. Broad shared setup such as `source_state_prepare_micros`
+`included_hot_runtime`, `included_full_replay_proof`,
+`included_publication_proof`, `excluded_shared_preparation`,
+`excluded_harness`, or `diagnostic_only`. The primary perf-split route grid reads
+`timing_surface=hot_runtime`; proof-heavy `full_vortex_replay` and
+`publication_full` rows remain visible on their own timing surfaces and must not
+replace missing hot rows. Broad shared setup such as `source_state_prepare_micros`
 must not be remapped into `source_admission_ms`; it is exposed through
 normalized timing fields such as `source_state_open_micros` unless a direct
 admission/stat timer exists.

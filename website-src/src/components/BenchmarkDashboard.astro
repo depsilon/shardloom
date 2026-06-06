@@ -9,6 +9,9 @@ const claimRows = Array.isArray(claimDistribution.rows) ? claimDistribution.rows
 const routeLaneTable = dashboard.route_lane_comparison ?? {};
 const routeLaneRows = Array.isArray(routeLaneTable.rows) ? routeLaneTable.rows : [];
 const routeLaneHeaders = Array.isArray(routeLaneTable.headers) ? routeLaneTable.headers : [];
+const routeSurfaceTable = dashboard.route_timing_surface_comparison ?? {};
+const routeSurfaceRows = Array.isArray(routeSurfaceTable.rows) ? routeSurfaceTable.rows : [];
+const routeSurfaceHeaders = Array.isArray(routeSurfaceTable.headers) ? routeSurfaceTable.headers : [];
 const preparedAmortizationTable = dashboard.prepared_route_amortization ?? {};
 const preparedAmortizationRows = Array.isArray(preparedAmortizationTable.rows) ? preparedAmortizationTable.rows : [];
 const preparedAmortizationHeaders = Array.isArray(preparedAmortizationTable.headers) ? preparedAmortizationTable.headers : [];
@@ -207,6 +210,23 @@ function firstValue(rows: any[], key: string, fallback = "not reported"): string
   return fallback;
 }
 
+function firstTableValue(row: Record<string, unknown>, keys: string[], fallback = "not reported"): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== null && value !== undefined && value !== "") return String(value);
+  }
+  return fallback;
+}
+
+function evidenceTierTokens(value: unknown): string[] {
+  const text = textValue(value, "");
+  if (!text) return [];
+  return text
+    .split(",")
+    .map((token) => token.trim().split(":")[0]?.trim())
+    .filter((token) => token && token !== "unknown");
+}
+
 function tableObject(headers: string[], row: unknown[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   headers.forEach((header: string, index: number) => {
@@ -238,6 +258,34 @@ function formatMs(value: unknown): string {
 function parsePercent(value: unknown): number | null {
   const match = String(value ?? "").match(/([0-9]+(?:\.[0-9]+)?)\s*%/);
   return match ? Number(match[1]) : null;
+}
+
+const WORKSPACE_LOCAL_VERSION_RE = /^workspace-local-.+-([0-9a-f]{7,40})(-dirty)?$/;
+
+function shardloomLaneProvenance(manifestData: Record<string, unknown>) {
+  const laneVersions = manifestData.lane_versions && typeof manifestData.lane_versions === "object"
+    ? manifestData.lane_versions as Record<string, unknown>
+    : {};
+  const expectedSha = textValue(manifestData.shardloom_git_sha || manifestData.benchmark_git_sha, "");
+  const checked: string[] = [];
+  const dirty: string[] = [];
+  const mismatched: string[] = [];
+  for (const [lane, rawVersion] of Object.entries(laneVersions).sort(([left], [right]) => left.localeCompare(right))) {
+    if (!lane.startsWith("shardloom")) continue;
+    const version = textValue(rawVersion, "");
+    checked.push(lane);
+    const match = version.match(WORKSPACE_LOCAL_VERSION_RE);
+    const laneSha = match?.[1] ?? "";
+    const isDirty = version.endsWith("-dirty") || Boolean(match?.[2]);
+    if (isDirty) dirty.push(lane);
+    if (laneSha && expectedSha && !expectedSha.startsWith(laneSha)) mismatched.push(lane);
+  }
+  const status = !checked.length
+    ? "not_reported"
+    : dirty.length || mismatched.length
+      ? "stale_or_dirty"
+      : "current";
+  return { checked, dirty, mismatched, status };
 }
 
 function routeStageSummary(stage: Record<string, unknown> | undefined): string {
@@ -279,6 +327,10 @@ function shardloomRouteCard(laneId: string) {
     routeViewTokens: ["diagnostic-stage"],
   };
   const comparable = rows.some((row: any) => row.route_comparable_to_external_end_to_end === true);
+  const tierSummary = textValue(
+    laneSummary["Evidence tiers"],
+    countEntries(countBy(rows, "actual_evidence_tier")).map(([tier, count]) => `${tier}: ${count}`).join(", "),
+  );
   return {
     id: laneId,
     title: displayName,
@@ -290,7 +342,11 @@ function shardloomRouteCard(laneId: string) {
     runtimeStatuses: countBy(rows, "route_runtime_status"),
     evidenceStatuses: countBy(rows, "claim_gate_status"),
     successLabel: textValue(laneSummary["Success / total"], `${rows.filter((row: any) => row.status === "success").length}/${rows.length}`),
-    geomeanLabel: textValue(laneSummary["Route geomean"], "not reported"),
+    geomeanHeading: "Hot route geomean",
+    geomeanLabel: firstTableValue(laneSummary, ["Hot route geomean", "Route geomean"], "not reported"),
+    timingSurface: textValue(laneSummary["Timing surface"], firstValue(rows, "timing_surface")),
+    evidenceTiers: tierSummary,
+    evidenceTierTokens: evidenceTierTokens(tierSummary),
     startState: textValue(laneSummary["Starts from"], firstValue(rows, "start_state")),
     includesPrepare: textValue(laneSummary["Includes prepare?"], boolText(rows.some((row: any) => row.includes_preparation === true))),
     timingScope: textValue(laneSummary["Prepare timing scope"], firstValue(rows, "route_timing_scope")),
@@ -305,7 +361,7 @@ function shardloomRouteCard(laneId: string) {
 const externalRows = publishedRows.filter((row: any) => !String(row.engine ?? "").startsWith("shardloom"));
 const externalLaneObjects: Record<string, unknown>[] = routeLaneObjects.filter((row: Record<string, unknown>) => !textValue(row["Lane"]).startsWith("ShardLoom"));
 const externalGeomeans = externalLaneObjects
-  .map((row: Record<string, unknown>) => parseMillis(row["Route geomean"]))
+  .map((row: Record<string, unknown>) => parseMillis(firstTableValue(row, ["Hot route geomean", "Route geomean"], "")))
   .filter((value: number | null): value is number => value !== null)
   .sort((left: number, right: number) => left - right);
 const externalRouteCard = {
@@ -319,10 +375,14 @@ const externalRouteCard = {
   runtimeStatuses: countBy(externalRows, "route_runtime_status"),
   evidenceStatuses: countBy(externalRows, "claim_gate_status"),
   successLabel: `${externalRows.filter((row: any) => row.status === "success").length}/${externalRows.length}`,
+  geomeanHeading: "Route geomean",
   geomeanLabel: externalGeomeans.length
     ? `${externalGeomeans[0].toFixed(2)}-${externalGeomeans[externalGeomeans.length - 1].toFixed(2)} ms by baseline lane`
     : "not reported",
   startState: "raw_compat_source",
+  timingSurface: "external_baseline",
+  evidenceTiers: "external_baseline_only",
+  evidenceTierTokens: ["external_baseline_only"],
   includesPrepare: "no",
   timingScope: "external_baseline_end_to_end",
   comparable: true,
@@ -339,12 +399,13 @@ const routeCards = [
 const optimizationTargets = routeShareObjects
   .map((row: Record<string, unknown>) => {
     const dominantStageMs = parseMillis(row["Dominant stage geomean"]);
-    const routeMs = parseMillis(row["Route geomean"]);
+    const routeGeomean = firstTableValue(row, ["Hot route geomean", "Route geomean"], "not reported");
+    const routeMs = parseMillis(routeGeomean);
     const share = parsePercent(row["Dominant route share"]);
     return {
       route: textValue(row["Route"]),
       rows: textValue(row["Rows"]),
-      routeGeomean: textValue(row["Route geomean"]),
+      routeGeomean,
       routeMs,
       dominantStage: textValue(row["Dominant stage"]),
       dominantStageGeomean: textValue(row["Dominant stage geomean"]),
@@ -358,12 +419,21 @@ const optimizationTargets = routeShareObjects
   })
   .sort((left, right) => right.priorityScore - left.priorityScore);
 const topOptimizationTarget = optimizationTargets[0];
+const laneProvenance = shardloomLaneProvenance(manifestAny);
+const laneProvenanceLabel = laneProvenance.status === "current"
+  ? "current"
+  : laneProvenance.status === "not_reported"
+    ? "not reported"
+    : "stale or dirty";
 const artifactFreshnessRows = [
   ["Benchmark profile", textValue(manifestAny.benchmark_profile)],
   ["Artifact status", textValue(manifestAny.artifact_status)],
   ["Artifact generated", textValue(manifestAny.generated_at_utc)],
   ["Benchmark git SHA", textValue(manifestAny.benchmark_git_sha)],
   ["ShardLoom git SHA", textValue(manifestAny.shardloom_git_sha)],
+  ["ShardLoom lane provenance", laneProvenanceLabel],
+  ["Dirty ShardLoom lanes", laneProvenance.dirty.length ? laneProvenance.dirty.join(", ") : "none"],
+  ["SHA-mismatched ShardLoom lanes", laneProvenance.mismatched.length ? laneProvenance.mismatched.join(", ") : "none"],
   ["Performance claim allowed", String(manifestAny.performance_claim_allowed ?? false)],
   ["Constitution gate", textValue(manifestAny.benchmark_constitution_claim_gate_status)],
 ];
@@ -393,6 +463,20 @@ const artifactFreshnessRows = [
     )}
   </div>
   <div class="artifact-panel">
+    <div class="readiness-groups artifact-freshness-status" aria-label="Benchmark artifact freshness">
+      <div>
+        <span>ShardLoom lane provenance</span>
+        <div><span class:list={["status-chip", statusClass(laneProvenance.status)]}>{laneProvenanceLabel}</span></div>
+      </div>
+      <div>
+        <span>Checked lanes</span>
+        <div><span class="claim-chip">{laneProvenance.checked.length}</span></div>
+      </div>
+      <div>
+        <span>Public timing claim</span>
+        <div><span class="claim-chip">performance_claim_allowed={String(manifestAny.performance_claim_allowed ?? false)}</span></div>
+      </div>
+    </div>
     <div class="route-card-grid compact-route-grid">
       {optimizationTargets.slice(0, 5).map((target) => (
         <article class="route-summary-card">
@@ -402,7 +486,7 @@ const artifactFreshnessRows = [
           </div>
           <h3>{target.route}</h3>
           <div class="route-card-metrics">
-            <div><span>Route geomean</span><strong>{target.routeGeomean}</strong></div>
+            <div><span>Hot route geomean</span><strong>{target.routeGeomean}</strong></div>
             <div><span>Stage geomean</span><strong>{target.dominantStageGeomean}</strong></div>
             <div><span>Route share</span><strong>{target.dominantShare}</strong></div>
             <div><span>Rows</span><strong>{target.rows}</strong></div>
@@ -424,6 +508,7 @@ const artifactFreshnessRows = [
       </table>
     </div>
     <p class="table-note">Optimization triage rows: {optimizationTargets.length}. Source table: <strong>{routeShareTable.heading ?? "Route-Share Amdahl Attribution"}</strong>. Boundary: {routeShareTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Website freshness boundary: committed public artifacts are displayed as current only when ShardLoom lane versions are clean and match the manifest SHA. Local optimization artifacts are not shown here until promoted.</p>
   </div>
 </section>
 
@@ -559,7 +644,14 @@ const artifactFreshnessRows = [
           <p>{card.scope}</p>
           <div class="route-card-metrics">
             <div><span>Rows</span><strong>{card.successLabel}</strong></div>
-            <div><span>Total route geomean</span><strong>{card.geomeanLabel}</strong></div>
+            <div>
+              <span>{card.geomeanHeading}</span>
+              <strong>{card.geomeanLabel}</strong>
+              <div class="surface-chip-row">
+                <span class="claim-chip">{card.timingSurface}</span>
+                {card.evidenceTierTokens.map((tier) => <span class="claim-chip">{tier}</span>)}
+              </div>
+            </div>
             <div><span>Start</span><strong>{card.startState}</strong></div>
             <div><span>Includes prepare</span><strong>{card.includesPrepare}</strong></div>
           </div>
@@ -630,7 +722,21 @@ const artifactFreshnessRows = [
         </table>
       </div>
     </details>
+    <details class="drawer">
+      <summary>Open route timing surfaces</summary>
+      <div class="table-wrap compact-table">
+        <table>
+          <thead><tr>{routeSurfaceHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+          <tbody>
+            {routeSurfaceRows.map((row: unknown[]) => (
+              <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
     <p class="table-note">Schema: {routeLaneTable.schema_version ?? "not reported"}. Boundary: {routeLaneTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Surface schema: {routeSurfaceTable.schema_version ?? "not reported"}. Boundary: {routeSurfaceTable.claim_boundary ?? "not reported"}.</p>
   </div>
 </section>
 
@@ -703,7 +809,7 @@ const artifactFreshnessRows = [
     <p class="table-note">Artifact table: <strong>{routeShareTable.heading ?? "Route-Share Amdahl Attribution"}</strong>.</p>
     <div class="table-wrap compact-table">
       <table>
-        <thead><tr>{(routeShareHeaders.length ? routeShareHeaders : ["Route", "Rows", "Route geomean", "Dominant stage", "Dominant stage geomean", "Dominant route share", "Next optimization target", "Exclusive timing status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{(routeShareHeaders.length ? routeShareHeaders : ["Route", "Timing surface", "Rows", "Hot route geomean", "Dominant stage", "Dominant stage geomean", "Dominant route share", "Next optimization target", "Exclusive timing status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {routeShareRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
