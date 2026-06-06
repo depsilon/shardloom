@@ -5336,7 +5336,7 @@ jobs:
             ],
         )
 
-    def test_website_readiness_validates_benchmark_route_cards(self) -> None:
+    def test_website_readiness_validates_benchmark_timing_surfaces(self) -> None:
         module = self._load_script_module(
             "check_website_readiness.py", "check_website_route_cards_for_test"
         )
@@ -5344,13 +5344,30 @@ jobs:
         with tempfile.TemporaryDirectory() as tempdir:
             website = Path(tempdir) / "website"
             website.mkdir()
-            runtime_badges = "".join(
-                f'<span class="status-chip">{status}</span>'
-                for status in module.REQUIRED_BENCHMARK_RUNTIME_BADGES
+            timing_surface_tokens = "\n".join(
+                f"<p>{token}</p>"
+                for token in module.REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS
             )
-            evidence_badges = "".join(
-                f'<span class="status-chip">{status}</span>'
-                for status in module.REQUIRED_BENCHMARK_EVIDENCE_BADGES
+            route_share_tokens = "\n".join(
+                f"<p>{token}</p>"
+                for token in module.REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS
+            )
+            stage_tokens = "\n".join(
+                f"<p>{token}</p>"
+                for token in module.REQUIRED_BENCHMARK_STAGE_STRINGS
+            )
+            runtime_tokens = "\n".join(
+                f"<p>{token}</p>"
+                for token in module.REQUIRED_BENCHMARK_RUNTIME_STRINGS
+            )
+            artifact_section_tokens = {
+                "Prepared/native source-state coverage",
+                "Raw timing tables",
+            }
+            artifact_tokens = "\n".join(
+                f"<p>{token}</p>"
+                for token in module.REQUIRED_BENCHMARK_ARTIFACT_STRINGS
+                if token not in artifact_section_tokens
             )
             cards = {
                 "cold_certified_route": "ShardLoom Cold Certified Route",
@@ -5361,7 +5378,7 @@ jobs:
                 "external_baseline_end_to_end": "External Baseline End-to-End",
             }
             card_markup = "\n".join(
-                f'<article data-route-card-id="{card_id}" data-route-view="end-to-end prepared-state native-vortex diagnostic-stage" data-route-card-e2e-comparable="{str(card_id != "warm_prepared_query").lower()}">{label}</article>'
+                f'<article data-route-card-id="{card_id}">{label}</article>'
                 for card_id, label in cards.items()
             )
             public_front_door_markup = """
@@ -5384,79 +5401,49 @@ jobs:
             """
             (website / "benchmarks.html").write_text(
                 f"""
-                <section data-route-card-dashboard>
+                <section data-route-timing-surface-dashboard>
+                  <h2>Route timing dashboard</h2>
                   {card_markup}
-                  <p>Not comparable to raw-source external end-to-end baselines.</p>
-                  <p>External rows are baseline context only.</p>
-                  <div data-route-badge-fixture>{runtime_badges}{evidence_badges}</div>
+                  <p>External Baseline End-to-End</p>
+                  {timing_surface_tokens}
+                </section>
+                <section>
+                  <h2>Publication proof</h2>
+                </section>
+                <section>
+                  <h2>Optimization direction</h2>
+                </section>
+                <section>
+                  <h2>Route-share attribution</h2>
+                  {route_share_tokens}
+                </section>
+                <section>
+                  <h2>Stage attribution</h2>
+                  {stage_tokens}
+                </section>
+                <section>
+                  <h2>Runtime and claims</h2>
+                  {runtime_tokens}
                 </section>
                 {public_front_door_markup}
-                <h2>Stage attribution</h2>
-                <section data-route-share-amdahl>
-                  <h2>Route-share attribution</h2>
-                  <p>Optimization targets follow route share.</p>
-                  <table>
-                    <caption>Route-Share Amdahl Attribution</caption>
-                    <tr><th>Dominant route share</th></tr>
-                    <tr><td>75.0%</td></tr>
-                  </table>
-                  <table>
-                    <caption>Source-Read Scout Attribution</caption>
-                    <tr><th>Timing split</th></tr>
-                    <tr><td>blocked_missing_source_read_scout_split</td></tr>
-                  </table>
-                  <table>
-                    <caption>Vortex Reopen And Scan Attribution</caption>
-                    <tr><th>Scan counters</th></tr>
-                    <tr><td>blocked_missing_scan_counters</td></tr>
-                  </table>
-                  <p>shardloom.traditional_analytics.route_share_amdahl.v1</p>
+                <section>
+                  <h2>Artifact lane availability</h2>
+                  {artifact_tokens}
                 </section>
                 <section>
-                  <h2>Runtime fast path</h2>
-                  <p>Runtime timing is separate from output and evidence rendering.</p>
-                  <table>
-                    <caption>Runtime Fast Path Versus Evidence Path</caption>
-                    <tr><th>Certificate status</th></tr>
-                    <tr><td>linked_certified_runtime_execution</td></tr>
-                  </table>
-                  <p>shardloom.route_fast_path_attribution.v1</p>
+                  <h2>Prepared/native source-state coverage</h2>
+                  <p>Prepared/native source-state coverage</p>
                 </section>
                 <section>
-                  <h2>Evidence-render proof</h2>
-                  <p>Human benchmark evidence is regenerated from compact facts.</p>
-                  <table>
-                    <caption>Evidence-Render Proof Regeneration</caption>
-                    <tr><th>Status</th><th>Rows</th></tr>
-                    <tr><td>compact_machine_evidence_derived</td><td>1</td></tr>
-                  </table>
-                  <p>shardloom.traditional_analytics.evidence_render_proof.v1</p>
+                  <h2>Raw timing tables</h2>
+                  <p>Raw timing tables</p>
                 </section>
-                <section>
-                  <h2>Operator mode inventory</h2>
-                  <p>Runtime support is not encoded-native support.</p>
-                  <table>
-                    <caption>Operator Mode Inventory</caption>
-                    <tr><th>Execution mode</th><th>Rows</th></tr>
-                    <tr><td>residual_native</td><td>1</td></tr>
-                  </table>
-                  <table>
-                    <caption>Operator Hot-Path Promotion Candidates</caption>
-                    <tr><th>Candidate</th><th>Status</th></tr>
-                    <tr>
-                      <td>selective_filter_selection_vector_metric_aggregation</td>
-                      <td>blocked_selection_vector_metric_aggregation_not_admitted</td>
-                    </tr>
-                  </table>
-                  <p>shardloom.operator_mode_inventory.v1</p>
-                </section>
-                <h2>Raw timing tables</h2>
                 """,
                 encoding="utf-8",
             )
 
             blockers: list[str] = []
-            module.check_benchmark_route_card_dashboard(website, blockers)
+            module.check_benchmark_timing_surface_dashboard(website, blockers)
 
         self.assertEqual(blockers, [])
 
