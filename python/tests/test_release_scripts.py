@@ -1272,6 +1272,108 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["total_route_ms"], 130.0)
         self.assertFalse(published["performance_claim_allowed"])
 
+    def test_benchmark_repromotion_preserves_writer_context_ms_fields(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_repromoted_writer_context_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "repromoted writer context row",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "vortex_writer_context_schema_version": (
+                "shardloom.traditional_analytics.vortex_writer_context.v1"
+            ),
+            "vortex_writer_context_status": "reported",
+            "vortex_writer_context_open_ms": 1.25,
+            "vortex_writer_context_write_count": 2,
+            "vortex_writer_context_reuse_hit_count": 1,
+            "vortex_writer_context_reuse_status": (
+                "single_vortex_runtime_session_reused_across_artifacts"
+            ),
+            "vortex_segment_write_ms": 3.5,
+            "vortex_workspace_stage_ms": 4.75,
+            "vortex_write_plan_context_open_ms": 1.25,
+            "vortex_write_plan_segment_write_ms": 3.5,
+            "vortex_write_plan_workspace_stage_ms": 4.75,
+            "metrics": {
+                "source_read_millis": 1.0,
+                "compatibility_parse_millis": 1.0,
+                "compatibility_to_vortex_import_millis": 1.0,
+                "vortex_write_millis": 1.0,
+                "vortex_reopen_verify_millis": 1.0,
+                "operator_compute_millis": 1.0,
+                "total_runtime_millis": 10.0,
+                "cli_process_wall_millis": 10.5,
+            },
+        }
+
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+
+        self.assertEqual(published["vortex_writer_context_open_ms"], 1.25)
+        self.assertEqual(published["vortex_segment_write_ms"], 3.5)
+        self.assertEqual(published["vortex_workspace_stage_ms"], 4.75)
+        self.assertEqual(published["vortex_write_plan_context_open_ms"], 1.25)
+        self.assertEqual(published["vortex_write_plan_segment_write_ms"], 3.5)
+        self.assertEqual(published["vortex_write_plan_workspace_stage_ms"], 4.75)
+
+    def test_benchmark_repromotion_requires_replay_timing_for_replay_tier(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_repromoted_replay_tier_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "legacy replay proof without replay timing",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "timing_scope": "warm_prepared_query",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "requested_evidence_tier": "auto",
+            "actual_evidence_tier": "full_vortex_replay",
+            "selected_evidence_tier": "full_vortex_replay",
+            "sink_tier": "full_vortex_replay",
+            "computed_result_sink_replay_verified": True,
+            "computed_result_sink_write_micros": 2500,
+            "result_sink_replay_micros": None,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "result_sink_write_millis": 2.5,
+                "operator_compute_millis": 0.4,
+                "total_runtime_millis": 3.5,
+                "cli_process_wall_millis": 3.8,
+            },
+        }
+
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+
+        self.assertEqual(published["actual_evidence_tier"], "metadata_sink")
+        self.assertEqual(published["selected_evidence_tier"], "metadata_sink")
+        self.assertEqual(published["sink_tier"], "metadata_sink")
+        self.assertFalse(published["evidence_tier_result_sink_replay_required"])
+        self.assertEqual(
+            published["result_sink_replay_skip_reason"],
+            "skipped_metadata_sink_tier_digest_count_path_proof_without_replay",
+        )
+
     def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
         self,
     ) -> None:

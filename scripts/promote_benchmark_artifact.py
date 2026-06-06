@@ -2103,8 +2103,13 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("vortex_writer_context_status",)
         )
         or ("not_reported" if is_shardloom else "external_baseline_only"),
-        "vortex_writer_context_open_ms": micros_to_millis(
-            first_meaningful_field(fields, ("vortex_writer_context_open_micros",))
+        "vortex_writer_context_open_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=(
+                "vortex_writer_context_open_ms",
+                "vortex_writer_context_open_millis",
+            ),
+            micros_keys=("vortex_writer_context_open_micros",),
         ),
         "vortex_writer_context_write_count": writer_context_write_count,
         "vortex_writer_context_reuse_hit_count": writer_context_reuse_hit_count,
@@ -2112,11 +2117,15 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
             fields, ("vortex_writer_context_reuse_status",)
         )
         or ("not_reported" if is_shardloom else "external_baseline_only"),
-        "vortex_segment_write_ms": micros_to_millis(
-            first_meaningful_field(fields, ("vortex_segment_write_micros",))
+        "vortex_segment_write_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_segment_write_ms", "vortex_segment_write_millis"),
+            micros_keys=("vortex_segment_write_micros",),
         ),
-        "vortex_workspace_stage_ms": micros_to_millis(
-            first_meaningful_field(fields, ("vortex_workspace_stage_micros",))
+        "vortex_workspace_stage_ms": first_numeric_stage_millis(
+            fields,
+            millis_keys=("vortex_workspace_stage_ms", "vortex_workspace_stage_millis"),
+            micros_keys=("vortex_workspace_stage_micros",),
         ),
         "vortex_write_coalescing_status": first_meaningful_field(
             fields, ("vortex_write_coalescing_status",)
@@ -2193,7 +2202,10 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ),
         "vortex_write_plan_context_open_ms": first_numeric_stage_millis(
             fields,
-            millis_keys=("vortex_write_plan_context_open_millis",),
+            millis_keys=(
+                "vortex_write_plan_context_open_ms",
+                "vortex_write_plan_context_open_millis",
+            ),
             micros_keys=(
                 "vortex_write_plan_context_open_micros",
                 "vortex_writer_context_open_micros",
@@ -2201,7 +2213,10 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ),
         "vortex_write_plan_segment_write_ms": first_numeric_stage_millis(
             fields,
-            millis_keys=("vortex_write_plan_segment_write_millis",),
+            millis_keys=(
+                "vortex_write_plan_segment_write_ms",
+                "vortex_write_plan_segment_write_millis",
+            ),
             micros_keys=(
                 "vortex_write_plan_segment_write_micros",
                 "vortex_segment_write_micros",
@@ -2209,7 +2224,10 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         ),
         "vortex_write_plan_workspace_stage_ms": first_numeric_stage_millis(
             fields,
-            millis_keys=("vortex_write_plan_workspace_stage_millis",),
+            millis_keys=(
+                "vortex_write_plan_workspace_stage_ms",
+                "vortex_write_plan_workspace_stage_millis",
+            ),
             micros_keys=(
                 "vortex_write_plan_workspace_stage_micros",
                 "vortex_workspace_stage_micros",
@@ -6565,6 +6583,24 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
             "computed_result_sink_write_millis",
         )
     )
+    replay_timing_present = (
+        first_numeric_micros(
+            adjusted,
+            micros_keys=(
+                "computed_result_sink_replay_micros",
+                "result_sink_replay_micros",
+                "exclusive_result_sink_replay_micros",
+                "total_result_sink_replay_micros",
+                "batch_total_result_sink_replay_micros",
+            ),
+            millis_keys=(
+                "computed_result_sink_replay_millis",
+                "result_sink_replay_millis",
+                "exclusive_result_sink_replay_ms",
+            ),
+        )
+        is not None
+    )
     replay_verified = any(
         field_bool(adjusted, field, default=False)
         or "replay_verified" in str(adjusted.get(field) or "").strip().lower()
@@ -6581,9 +6617,9 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
     )
     if evidence_level == "minimal_runtime":
         default_tier = "runtime_minimal"
-    elif evidence_level == "full_replay":
+    elif evidence_level == "full_replay" and replay_timing_present:
         default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
-    elif replay_verified or sink_timing_present:
+    elif replay_timing_present and (replay_verified or sink_timing_present):
         default_tier = "publication_full" if claim_grade_publication else "full_vortex_replay"
     else:
         default_tier = "metadata_sink"
@@ -6594,10 +6630,19 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
     adjusted.setdefault("requested_evidence_tier", "auto")
     current_tier = str(adjusted.get("actual_evidence_tier") or "").strip()
     tier_adjusted = False
-    if not current_tier:
+    requested_tier = str(adjusted.get("requested_evidence_tier") or "auto").strip()
+    replay_tier_without_timing = (
+        requested_tier == "auto"
+        and current_tier in {"full_vortex_replay", "publication_full"}
+        and not replay_timing_present
+    )
+    if replay_tier_without_timing:
+        adjusted["actual_evidence_tier"] = default_tier
+        tier_adjusted = True
+    elif not current_tier:
         adjusted["actual_evidence_tier"] = default_tier
     elif (
-        adjusted.get("requested_evidence_tier") == "auto"
+        requested_tier == "auto"
         and (
             current_tier == "metadata_sink"
             or (current_tier == "full_vortex_replay" and default_tier == "publication_full")
