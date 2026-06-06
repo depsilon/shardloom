@@ -281,6 +281,38 @@ class ReleaseScriptTests(unittest.TestCase):
                 "included_in_route_total"
             ),
             "route_timing_stage_inclusion_claim_boundary": "fixture_no_claim",
+            "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
+            "route_timing_instrument_status": "optimization_ready",
+            "route_timing_instrument_stage_ids": canonical_stage_ids,
+            "route_timing_instrument_stage_parent_stages": self._packed_route_stage_map(
+                "fixture_parent"
+            ),
+            "route_timing_instrument_stage_groups": self._packed_route_stage_map(
+                "route_total_stage"
+            ),
+            "route_timing_instrument_stage_owners": self._packed_route_stage_map(
+                "fixture"
+            ),
+            "route_timing_instrument_inclusion_classes": self._packed_route_stage_map(
+                "included"
+            ),
+            "route_timing_instrument_timing_scopes": self._packed_route_stage_map(
+                "fixture_route_total"
+            ),
+            "route_timing_instrument_evidence_levels": self._packed_route_stage_map(
+                "publication_full"
+            ),
+            "route_timing_instrument_residual_treatments": self._packed_route_stage_map(
+                "included_in_route_total_with_exclusive_residual_audited"
+            ),
+            "route_timing_instrument_substage_fields": self._packed_route_stage_map(
+                "fixture_substage_field"
+            ),
+            "route_timing_instrument_missing_substage_attribution": "none",
+            "route_timing_instrument_expensive_stage_threshold_ms": 10.0,
+            "route_timing_instrument_expensive_stage_ids": "none",
+            "route_timing_instrument_not_ready_stage_ids": "none",
+            "route_timing_instrument_claim_boundary": "fixture_no_claim",
             "exclusive_stage_timing_schema_version": (
                 "shardloom.traditional_analytics.exclusive_stage_timing.v1"
             ),
@@ -638,6 +670,22 @@ class ReleaseScriptTests(unittest.TestCase):
             "route_timing_stage_inclusion_timing_scopes": "external_baseline_only",
             "route_timing_stage_inclusion_skip_reasons": "external_baseline_only",
             "route_timing_stage_inclusion_claim_boundary": "external_baseline_only",
+            "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
+            "route_timing_instrument_status": "external_baseline_only",
+            "route_timing_instrument_stage_ids": canonical_stage_ids,
+            "route_timing_instrument_stage_parent_stages": "external_baseline_only",
+            "route_timing_instrument_stage_groups": "external_baseline_only",
+            "route_timing_instrument_stage_owners": "external_baseline_only",
+            "route_timing_instrument_inclusion_classes": "external_baseline_only",
+            "route_timing_instrument_timing_scopes": "external_baseline_only",
+            "route_timing_instrument_evidence_levels": "external_baseline_only",
+            "route_timing_instrument_residual_treatments": "external_baseline_only",
+            "route_timing_instrument_substage_fields": "external_baseline_only",
+            "route_timing_instrument_missing_substage_attribution": "none",
+            "route_timing_instrument_expensive_stage_threshold_ms": 10.0,
+            "route_timing_instrument_expensive_stage_ids": "none",
+            "route_timing_instrument_not_ready_stage_ids": "none",
+            "route_timing_instrument_claim_boundary": "external_baseline_only",
             "exclusive_stage_timing_schema_version": (
                 "shardloom.traditional_analytics.exclusive_stage_timing.v1"
             ),
@@ -1502,6 +1550,67 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
         self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
+
+    def test_benchmark_promoter_marks_expensive_stage_without_substages_not_ready(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_route_instrument_readiness_for_test",
+        )
+
+        canonical_stage_ids = ",".join(self._canonical_route_timing_stage_ids())
+        row = {
+            "engine": "shardloom-vortex",
+            "status": "success",
+            "actual_evidence_tier": "metadata_sink",
+        }
+        stage_fields = {
+            "operator_compute_ms": 12.0,
+            "timing_surface": "hot_runtime",
+        }
+        inclusion_fields = {
+            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
+                "included_hot_runtime"
+            ),
+            "route_timing_stage_inclusion_timing_scopes": self._packed_route_stage_map(
+                "hot_runtime:native_vortex_query_only"
+            ),
+        }
+
+        not_ready = module.route_timing_instrument_fields_for_row(
+            row,
+            stage_fields,
+            inclusion_fields,
+        )
+
+        self.assertEqual(
+            not_ready["route_timing_instrument_schema_version"],
+            "shardloom.route_timing_instrument.v1",
+        )
+        self.assertEqual(not_ready["route_timing_instrument_stage_ids"], canonical_stage_ids)
+        self.assertEqual(not_ready["route_timing_instrument_status"], "not_optimization_ready")
+        self.assertEqual(
+            not_ready["route_timing_instrument_expensive_stage_ids"],
+            "operator_compute",
+        )
+        self.assertEqual(
+            not_ready["route_timing_instrument_missing_substage_attribution"],
+            "operator_compute",
+        )
+        self.assertIn(
+            "operator_compute:not_optimization_ready_missing_substage_attribution",
+            not_ready["route_timing_instrument_residual_treatments"],
+        )
+
+        ready = module.route_timing_instrument_fields_for_row(
+            {**row, "operator_kernel_micros": 500},
+            stage_fields,
+            inclusion_fields,
+        )
+
+        self.assertEqual(ready["route_timing_instrument_status"], "optimization_ready")
+        self.assertEqual(ready["route_timing_instrument_not_ready_stage_ids"], "none")
 
     def test_benchmark_promoter_merges_hot_rows_without_replacing_publication_rows(
         self,

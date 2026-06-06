@@ -84,6 +84,8 @@ STATUS_VOCABULARY = {
     "claim_grade",
     "not_claim_grade",
     "external_baseline_only",
+    "optimization_ready",
+    "not_optimization_ready",
     "future",
     "current",
     "not reported",

@@ -71,6 +71,8 @@ ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
     "shardloom.route_timing_stage_inclusion.v1"
 )
 ROUTE_TIMING_SURFACE_SCHEMA_VERSION = "shardloom.route_timing_surface.v1"
+ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION = "shardloom.route_timing_instrument.v1"
+OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS = 10.0
 TIMING_SURFACE_BY_EVIDENCE_TIER = {
     "runtime_minimal": "hot_runtime",
     "metadata_sink": "hot_runtime",
@@ -219,6 +221,24 @@ ROUTE_TIMING_STAGE_INCLUSION_REQUIRED_FIELDS = {
     "route_timing_stage_inclusion_skip_reasons",
     "route_timing_stage_inclusion_claim_boundary",
 }
+ROUTE_TIMING_INSTRUMENT_REQUIRED_FIELDS = {
+    "route_timing_instrument_schema_version",
+    "route_timing_instrument_status",
+    "route_timing_instrument_stage_ids",
+    "route_timing_instrument_stage_parent_stages",
+    "route_timing_instrument_stage_groups",
+    "route_timing_instrument_stage_owners",
+    "route_timing_instrument_inclusion_classes",
+    "route_timing_instrument_timing_scopes",
+    "route_timing_instrument_evidence_levels",
+    "route_timing_instrument_residual_treatments",
+    "route_timing_instrument_substage_fields",
+    "route_timing_instrument_missing_substage_attribution",
+    "route_timing_instrument_expensive_stage_threshold_ms",
+    "route_timing_instrument_expensive_stage_ids",
+    "route_timing_instrument_not_ready_stage_ids",
+    "route_timing_instrument_claim_boundary",
+}
 CANONICAL_ROUTE_TIMING_STAGE_IDS = {
     "source_admission",
     "source_read",
@@ -233,6 +253,21 @@ CANONICAL_ROUTE_TIMING_STAGE_IDS = {
     "result_sink_write",
     "evidence_render",
     "cli_process_wall",
+}
+STAGE_VALUE_FIELD_BY_ID = {
+    "source_admission": "source_admission_ms",
+    "source_read": "source_read_ms",
+    "source_parse_or_decode": "source_parse_or_columnar_decode_ms",
+    "source_to_vortex_array": "source_to_vortex_array_ms",
+    "vortex_write": "vortex_write_ms",
+    "vortex_digest": "exclusive_vortex_digest_ms",
+    "vortex_reopen_verify": "vortex_reopen_or_verify_ms",
+    "prepared_state_lookup_or_create": "prepared_state_lookup_or_create_ms",
+    "vortex_scan": "vortex_scan_ms",
+    "operator_compute": "operator_compute_ms",
+    "result_sink_write": "result_sink_write_ms",
+    "evidence_render": "evidence_render_ms",
+    "cli_process_wall": "cli_process_wall_millis",
 }
 PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
 PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
@@ -662,6 +697,40 @@ def _packed_stage_keys(value: Any) -> set[str]:
     return keys
 
 
+def _packed_stage_values(value: Any) -> dict[str, str]:
+    if not isinstance(value, str):
+        return {}
+    result: dict[str, str] = {}
+    for token in value.split(";"):
+        if ":" not in token:
+            continue
+        key, stage_value = token.split(":", 1)
+        if key.strip():
+            result[key.strip()] = stage_value.strip()
+    return result
+
+
+def _stage_list(value: Any) -> set[str]:
+    return {part for part in _csv_set(value) if part != "none"}
+
+
+def _meaningful_substage_value(value: Any) -> bool:
+    if _numeric_value(value) is not None:
+        return True
+    text = str(value or "").strip().lower()
+    return text not in {
+        "",
+        "none",
+        "missing",
+        "null",
+        "not_reported",
+        "not_reported_by_engine",
+        "not_applicable",
+        "not_applicable_non_cold_route",
+        "external_baseline_only",
+    }
+
+
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
     route_lane_counts: Counter[str] = Counter()
     for index, row in enumerate(result_rows(payload)):
@@ -719,6 +788,21 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             != ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
         ):
             blockers.append(f"benchmark row {index} has invalid stage inclusion schema")
+        missing_instrument_fields = sorted(
+            ROUTE_TIMING_INSTRUMENT_REQUIRED_FIELDS - set(row)
+        )
+        if missing_instrument_fields:
+            blockers.append(
+                f"benchmark row {index} is missing route timing instrument fields: "
+                f"{missing_instrument_fields}"
+            )
+        elif (
+            row.get("route_timing_instrument_schema_version")
+            != ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION
+        ):
+            blockers.append(
+                f"benchmark row {index} has invalid route timing instrument schema"
+            )
         if not str(row.get("route_total_formula") or "").strip():
             blockers.append(f"benchmark row {index} is missing route_total_formula")
         if not str(row.get("route_timing_scope") or "").strip():
@@ -826,6 +910,126 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                         f"ShardLoom row {index} stage inclusion field {field} "
                         "does not cover every canonical stage"
                     )
+            if row.get("route_timing_instrument_status") not in {
+                "optimization_ready",
+                "not_optimization_ready",
+                "not_executed",
+            }:
+                blockers.append(
+                    f"ShardLoom row {index} has invalid route timing instrument status"
+                )
+            if (
+                _csv_set(row.get("route_timing_instrument_stage_ids"))
+                != CANONICAL_ROUTE_TIMING_STAGE_IDS
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} route timing instrument ids are incomplete"
+                )
+            for field in (
+                "route_timing_instrument_stage_parent_stages",
+                "route_timing_instrument_stage_groups",
+                "route_timing_instrument_stage_owners",
+                "route_timing_instrument_inclusion_classes",
+                "route_timing_instrument_timing_scopes",
+                "route_timing_instrument_evidence_levels",
+                "route_timing_instrument_residual_treatments",
+                "route_timing_instrument_substage_fields",
+            ):
+                packed = _packed_stage_values(row.get(field))
+                if set(packed) != CANONICAL_ROUTE_TIMING_STAGE_IDS or any(
+                    not value for value in packed.values()
+                ):
+                    blockers.append(
+                        f"ShardLoom row {index} route timing instrument field {field} "
+                        "does not cover every canonical stage"
+                    )
+            threshold = _numeric_value(
+                row.get("route_timing_instrument_expensive_stage_threshold_ms")
+            )
+            if (
+                threshold is None
+                or abs(threshold - OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS) > 0.001
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} has invalid optimization readiness threshold"
+                )
+            substage_fields = _packed_stage_values(
+                row.get("route_timing_instrument_substage_fields")
+            )
+            computed_expensive: set[str] = set()
+            computed_missing_substage: set[str] = set()
+            for stage_id, value_field in STAGE_VALUE_FIELD_BY_ID.items():
+                stage_value = _numeric_value(row.get(value_field))
+                if (
+                    threshold is not None
+                    and stage_value is not None
+                    and stage_value > threshold
+                ):
+                    computed_expensive.add(stage_id)
+                    fields = [
+                        field.strip()
+                        for field in substage_fields.get(stage_id, "").split(",")
+                        if field.strip()
+                    ]
+                    if not any(
+                        _meaningful_substage_value(row.get(field)) for field in fields
+                    ):
+                        computed_missing_substage.add(stage_id)
+            declared_expensive = _stage_list(
+                row.get("route_timing_instrument_expensive_stage_ids")
+            )
+            declared_not_ready = _stage_list(
+                row.get("route_timing_instrument_not_ready_stage_ids")
+            )
+            declared_missing = _stage_list(
+                row.get("route_timing_instrument_missing_substage_attribution")
+            )
+            for field_name, declared in (
+                ("route_timing_instrument_expensive_stage_ids", declared_expensive),
+                ("route_timing_instrument_not_ready_stage_ids", declared_not_ready),
+                (
+                    "route_timing_instrument_missing_substage_attribution",
+                    declared_missing,
+                ),
+            ):
+                if not declared <= CANONICAL_ROUTE_TIMING_STAGE_IDS:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid stage ids in {field_name}"
+                    )
+            if declared_expensive != computed_expensive:
+                blockers.append(
+                    f"ShardLoom row {index} route timing instrument expensive stages "
+                    "do not match measured >10 ms stages"
+                )
+            if declared_missing != computed_missing_substage:
+                blockers.append(
+                    f"ShardLoom row {index} route timing instrument missing-substage "
+                    "stages do not match measured substage attribution"
+                )
+            if declared_not_ready != computed_missing_substage:
+                blockers.append(
+                    f"ShardLoom row {index} route timing instrument not-ready stages "
+                    "must match missing substage attribution"
+                )
+            if (
+                computed_missing_substage
+                and row.get("route_timing_instrument_status")
+                != "not_optimization_ready"
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} claims optimization readiness while "
+                    ">10 ms stages lack substage attribution"
+                )
+            if (
+                not computed_missing_substage
+                and row.get("status") == "success"
+                and row.get("route_timing_instrument_status")
+                == "not_optimization_ready"
+            ):
+                blockers.append(
+                    f"ShardLoom row {index} reports not_optimization_ready without "
+                    "missing expensive-stage substage attribution"
+                )
             for field in (
                 "source_read_projected_field_mask",
                 "source_read_filter_field_mask",
@@ -950,9 +1154,13 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 blockers.append(
                     f"ShardLoom row {index} has invalid sink timing route inclusion flag"
                 )
-        elif row.get("route_timing_stage_inclusion_status") != "external_baseline_only":
+        elif (
+            row.get("route_timing_stage_inclusion_status") != "external_baseline_only"
+            or row.get("route_timing_instrument_status") != "external_baseline_only"
+        ):
             blockers.append(
-                f"external row {index} must keep stage inclusion external-baseline-only"
+                f"external row {index} must keep stage inclusion and timing instrument "
+                "external-baseline-only"
             )
         for claim_field in (
             "performance_claim_allowed",
@@ -1269,6 +1477,83 @@ def validate_prepared_route_amortization(
                 )
 
 
+def validate_route_timing_instrument_readiness(
+    payload: dict[str, Any],
+    manifest: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    dashboard = payload.get("comparative_dashboard")
+    table = (
+        dashboard.get("route_timing_instrument_readiness")
+        if isinstance(dashboard, dict)
+        else None
+    )
+    if not isinstance(table, dict):
+        blockers.append("comparative_dashboard missing route_timing_instrument_readiness table")
+        return
+    if table.get("schema_version") != ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION:
+        blockers.append("route_timing_instrument_readiness schema_version mismatch")
+    threshold = _numeric_value(table.get("threshold_ms"))
+    if (
+        threshold is None
+        or abs(threshold - OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS) > 0.001
+    ):
+        blockers.append("route_timing_instrument_readiness threshold mismatch")
+    headers = table.get("headers")
+    required_headers = {
+        "Optimization readiness",
+        ">10 ms stages",
+        "Not-ready stages",
+        "Route-total stages",
+        "Excluded diagnostic children",
+        "Shared preparation",
+        "Output/sink",
+        "Publication evidence",
+        "Harness",
+    }
+    if not isinstance(headers, list) or not required_headers <= set(headers):
+        blockers.append("route_timing_instrument_readiness table missing required headers")
+        return
+    rows = table.get("rows")
+    if not isinstance(rows, list) or not rows:
+        blockers.append("route_timing_instrument_readiness rows must be non-empty")
+        return
+    readiness_index = headers.index("Optimization readiness")
+    not_ready_index = headers.index("Not-ready stages")
+    saw_readiness = False
+    for row in rows:
+        if not isinstance(row, list) or len(row) <= not_ready_index:
+            blockers.append("route_timing_instrument_readiness contains malformed row")
+            continue
+        readiness = str(row[readiness_index] or "")
+        not_ready_stages = str(row[not_ready_index] or "")
+        if readiness not in {"optimization_ready", "not_optimization_ready"}:
+            blockers.append(
+                "route_timing_instrument_readiness contains invalid readiness status"
+            )
+        if readiness == "optimization_ready" and not_ready_stages != "none":
+            blockers.append(
+                "route_timing_instrument_readiness marks row ready with not-ready stages"
+            )
+        if readiness == "not_optimization_ready" and not_ready_stages == "none":
+            blockers.append(
+                "route_timing_instrument_readiness marks row not ready without stages"
+            )
+        saw_readiness = True
+    if not saw_readiness:
+        blockers.append("route_timing_instrument_readiness has no readable rows")
+    if manifest.get("route_timing_instrument_schema_version") != (
+        ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION
+    ):
+        blockers.append("manifest route_timing_instrument_schema_version mismatch")
+    if manifest.get("route_timing_instrument_status") not in {
+        "optimization_ready",
+        "not_optimization_ready",
+        "not_reported",
+    }:
+        blockers.append("manifest route_timing_instrument_status is invalid")
+
+
 def validate_cold_lane_attribution(
     payload: dict[str, Any],
     blockers: list[str],
@@ -1497,6 +1782,7 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
             if isinstance(payload, dict):
                 validate_rows(payload, blockers)
                 validate_prepared_route_amortization(payload, blockers)
+                validate_route_timing_instrument_readiness(payload, manifest, blockers)
                 validate_source_state_lazy_family_table(payload, blockers)
                 validate_cold_lane_attribution(payload, blockers)
                 validate_public_front_door_rows(payload, manifest, blockers)

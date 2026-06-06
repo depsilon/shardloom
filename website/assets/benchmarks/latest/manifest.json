@@ -7,37 +7,37 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "21bf6d068288aee2c3f50d75b4a8f84b9525a5ea6408e2660da8a562be062a0c"
+        "sha256": "99cc94fd4fe5ca84a833b8cdfde3abac4f0b899e6f2cfa3b0a57282e850e8a73"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "6bfc1c07c91211b84d5eac6f642227b4a9cb66cb36075cf538cb6a86ff4d8062"
+        "sha256": "7355ba312b11bba3e2bf0cf34d17529945cc76ddcb3cc09c6254f86ca945a718"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "3d7cf791129af4f4efa4f66080640b5aceae6b571d60af83080161e2c0777154"
+        "sha256": "f8938b5eba8b36fb57f879f285d1d2756bea39e0c11629f8c87719a23989449f"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "5055f1411c475afcfa8fd3e5074a993e6e00436f1dafa48d489211f8fb45e79b"
+        "sha256": "26b51218f41d0b6d23d20e451ec160bbcb4b01ccb056f2059b5077325b4b6711"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "fd92e5d0b3064e06c4758d1b09f37bf118708956b76856a19ab0f1a89ff4f789"
+        "sha256": "6440b22f19d5ef314192bb2eb137395135b42a22f090d89a532e37020e4bb606"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "b8f1f2dac3cc50d925128a90461915b85a9889055d29d0a2769d2a8ac3b6a4e3"
+        "sha256": "c4b71581c6a3e5b99f9c35f37fd40d89915c484a5a51d2ad936b89b42868c220"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
         "row_count": 150,
-        "sha256": "e9b29fabb906ac5b3a6eb7b61e3d36fdd9ca5a9c63dbd5bd2c24f13091841c9d"
+        "sha256": "5082e41037b201e72e7ac9b2a90883b92a0c461367bcbf5e6f9124b0f99d3a79"
       }
     ]
   },
@@ -78,18 +78,11 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "c22b371fe41c27da6353f37aa3e0e77606a1d45d",
+  "benchmark_git_sha": "e0655f5cf1a78bb91b53da3c109285b7b57fe882",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
-    "artifact_environment": {
-      "cpu_count": 10,
-      "machine": "arm64",
-      "platform": "macOS-26.5.1-arm64-arm-64bit",
-      "processor": "arm",
-      "python_version": "3.12.13",
-      "total_memory_bytes": 17179869184
-    },
+    "artifact_environment": {},
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
     "python": "3.9.6",
@@ -107,7 +100,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-06T06:17:49.739405+00:00",
+  "generated_at_utc": "2026-06-06T07:13:18.019081+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -115,10 +108,10 @@
     "pandas": "available in promoted benchmark artifact",
     "polars-eager": "available in promoted benchmark artifact",
     "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available, version workspace-local-release-c22b371f",
-    "shardloom-prepare-batch": "available, version workspace-local-release-c22b371f",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-c22b371f",
-    "shardloom-vortex": "available, version workspace-local-release-c22b371f"
+    "shardloom": "available in promoted benchmark artifact",
+    "shardloom-prepare-batch": "available in promoted benchmark artifact",
+    "shardloom-prepared-vortex": "available in promoted benchmark artifact",
+    "shardloom-vortex": "available in promoted benchmark artifact"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -127,10 +120,10 @@
     "pandas": "from promoted benchmark artifact",
     "polars-eager": "from promoted benchmark artifact",
     "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "workspace-local-release-c22b371f",
-    "shardloom-prepare-batch": "workspace-local-release-c22b371f",
-    "shardloom-prepared-vortex": "workspace-local-release-c22b371f",
-    "shardloom-vortex": "workspace-local-release-c22b371f"
+    "shardloom": "from promoted benchmark artifact",
+    "shardloom-prepare-batch": "from promoted benchmark artifact",
+    "shardloom-prepared-vortex": "from promoted benchmark artifact",
+    "shardloom-vortex": "from promoted benchmark artifact"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -150,6 +143,13 @@
     "scoped_runtime_supported",
     "unsupported"
   ],
+  "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
+  "route_timing_instrument_status": "not_optimization_ready",
+  "route_timing_instrument_status_counts": {
+    "not_optimization_ready": 82,
+    "optimization_ready": 548
+  },
+  "route_timing_instrument_threshold_ms": 10.0,
   "runtime_envelope_validation": {
     "headers": [
       "Status",
@@ -770,5 +770,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "c22b371fe41c27da6353f37aa3e0e77606a1d45d"
+  "shardloom_git_sha": "e0655f5cf1a78bb91b53da3c109285b7b57fe882"
 }
