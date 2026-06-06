@@ -6062,6 +6062,16 @@ PREPARATION_STAGE_TIMING_FIELDS = (
     "vortex_array_build_record_batch_count",
     "vortex_array_build_manual_scalar_copy_avoided",
     "vortex_write_micros",
+    "vortex_write_strategy_schema_version",
+    "vortex_write_strategy_status",
+    "vortex_write_strategy",
+    "vortex_write_strategy_provider_surface",
+    "vortex_write_strategy_compression",
+    "vortex_write_strategy_metadata_status",
+    "vortex_write_strategy_payload_tradeoff",
+    "vortex_write_strategy_fallback_attempted",
+    "vortex_write_strategy_external_engine_invoked",
+    "vortex_write_strategy_claim_boundary",
     "vortex_digest_micros",
     "vortex_reopen_verify_micros",
     "exclusive_stage_timing_schema_version",
@@ -6307,8 +6317,12 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "vortex_write_plan_shared_writer_context",
         "vortex_write_plan_fallback_attempted",
         "vortex_write_plan_external_engine_invoked",
+        "vortex_write_strategy_fallback_attempted",
+        "vortex_write_strategy_external_engine_invoked",
     }:
         return False
+    if field == "vortex_write_strategy_schema_version":
+        return "shardloom.traditional_analytics.vortex_write_strategy.v1"
     if field == "vortex_writer_context_schema_version":
         return "shardloom.traditional_analytics.vortex_writer_context.v1"
     if field == "vortex_write_plan_schema_version":
@@ -6336,6 +6350,13 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "vortex_write_plan_verification_status",
         "vortex_write_plan_native_io_certificate_status",
         "vortex_write_plan_claim_boundary",
+        "vortex_write_strategy_status",
+        "vortex_write_strategy",
+        "vortex_write_strategy_provider_surface",
+        "vortex_write_strategy_compression",
+        "vortex_write_strategy_metadata_status",
+        "vortex_write_strategy_payload_tradeoff",
+        "vortex_write_strategy_claim_boundary",
     }:
         return "not_reported_by_engine" if row_status == "success" else "not_executed"
     if field in {

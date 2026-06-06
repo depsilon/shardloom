@@ -332,19 +332,38 @@ completed base slice, while unchecked rows define the remaining optimization wor
       across parquet/jsonl/avro group-by, distinct, and hash-join rows, while isolating the
       remaining above-10 ms cells to startup/process harness and compatibility preparation rather
       than warm scan/operator execution.
-    - [x] Pending branch `codex/perf-preparation-attribution` changes non-batch prepared/native
-      benchmark rows to report preparation-command engine timing in `preparation_millis`, keep
-      `preparation_cli_process_wall_millis` as the separate process-wall field, and propagate
-      compatibility import/write substages from the preparation command. Dirty verification artifact
-      `target/codex-perf-prep-attribution.json` shows warm query/operator/scan timings still sub-ms
-      and identifies the remaining non-batch preparation hotspot as native Vortex write/import
-      (`vortex_write_millis` roughly `20-32 ms`) plus process harness overhead.
-    - [ ] Remaining: after the preparation-attribution patch merges, rerun a clean non-dirty
+    - [x] Merged PR #1132 (`codex/perf-preparation-attribution`) changes non-batch
+      prepared/native benchmark rows to report preparation-command engine timing in
+      `preparation_millis`, keep `preparation_cli_process_wall_millis` as the separate process-wall
+      field, and propagate compatibility import/write substages from the preparation command.
+      Dirty verification artifact `target/codex-perf-prep-attribution.json` showed warm
+      query/operator/scan timings still sub-ms and identified the remaining non-batch preparation
+      hotspot as native Vortex write/import (`vortex_write_millis` roughly `20-32 ms`) plus process
+      harness overhead.
+    - [x] A clean post-#1132 scoped rerun on `4df62456`
+      (`target/codex-perf-postmerge-prep-attribution.json`) preserved sub-ms warm query/operator/
+      scan timings across parquet/jsonl/avro group-by, distinct, and hash-join rows while reporting
+      engine preparation instead of CLI process wall as `preparation_millis`. It measured
+      `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans around `30.8653 ms` and
+      `24.5313 ms`, with Vortex write geomeans around `23.7962 ms` and `20.0162 ms`.
+    - [x] A direct parquet preparation probe on `4df62456`
+      (`target/codex-direct-prep-probe-parquet`) decomposed the remaining fresh-preparation hotspot:
+      upstream Vortex segment write accounted for about `23.206 ms`, while ShardLoom workspace-safe
+      staging accounted for about `0.526 ms`; `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - [ ] Active branch `codex/perf-vortex-write-strategy` changes the traditional benchmark
+      preparation writer to an explicit upstream Vortex `TableStrategy<FlatLayoutStrategy>` policy
+      and emits writer-strategy evidence. Dirty scoped artifact
+      `target/codex-perf-flat-strategy-evidence.json`
+      reduces `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans to about
+      `14.0587 ms`/`7.9630 ms` and Vortex write geomeans to about `4.8597 ms`/`3.6534 ms`, while
+      warm query/operator/scan remains sub-ms. This evidence is dirty optimization evidence only
+      until the branch is validated, merged with green checks, and rerun clean.
+    - [ ] Remaining: after the writer-strategy optimization merges, rerun a clean non-dirty
       benchmark artifact, compare against the pre-`PERF-INNOV-5` baseline, and continue reducing
-      remaining above-10 ms native Vortex write/import, startup/process harness, preparation, or
-      operator-kernel rows. Current checked-in evidence still cannot support a performance claim
-      because the latest published artifact records dirty ShardLoom lane versions and mismatched
-      lane/manifest SHAs.
+      remaining above-10 ms startup/process harness, preparation, or operator-kernel rows. Current
+      checked-in evidence still cannot support a performance claim because the latest published
+      artifact records dirty ShardLoom lane versions and mismatched lane/manifest SHAs.
   - Runtime enablement: prepared/native Vortex scan route -> file/source metadata reuse decision ->
     scan/chunk/operator/finalization substage evidence -> benchmark optimization readiness.
   - Objective: explain and then reduce per-row scan/operator outliers above 10 ms without
