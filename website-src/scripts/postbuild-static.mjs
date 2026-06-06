@@ -13,6 +13,9 @@ function copyPublicPath(relativePath) {
     throw new Error(`missing public asset path ${relativePath}: ${source}`);
   }
   fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (fs.statSync(source).isDirectory() && fs.existsSync(target)) {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
   fs.cpSync(source, target, { recursive: true, force: true });
 }
 

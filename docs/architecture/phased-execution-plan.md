@@ -190,9 +190,9 @@ Current autonomous execution order:
    `docs/architecture/phased-execution-completed-ledger.md`. The current promoted artifact is
    timing-surface aware: `hot_runtime` metadata-sink rows drive the primary route grid, while
    `publication_proof` rows remain separate and include result-sink plus human evidence timing.
-   Current hot route geomeans are Native Vortex Query 0.52 ms, Warm Prepared Query 0.55 ms,
-   Prepare-Once Batch 3.80 ms, Prepare-Once First Query 3.80 ms, and Cold Certified Route
-   7.53 ms. The artifact still has `performance_claim_allowed=false`; benchmark rows remain
+   Current hot route geomeans are Native Vortex Query 0.56 ms, Warm Prepared Query 0.53 ms,
+   Prepare-Once Batch 3.64 ms, Prepare-Once First Query 3.64 ms, and Cold Certified Route
+   8.00 ms. The artifact still has `performance_claim_allowed=false`; benchmark rows remain
    evidence and optimization direction, not superiority or Spark-replacement claims.
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
@@ -374,13 +374,19 @@ completed base slice, while unchecked rows define the remaining optimization wor
       `hot_runtime` metadata rows and 600 ShardLoom `publication_proof` claim-grade rows; native
       and warm prepared hot-route geomeans are sub-ms, while publication-proof rows remain slower
       because they include result-sink replay/output and evidence render timing.
+    - [x] A clean post-#1135 targeted metadata-sink rerun on `c22b371f`
+      (`target/perf-split-hot-metadata-clean.json`) refreshed the 30 hot-runtime rows without
+      changing the 600 publication-proof rows. The promoted artifact now reports
+      `dirty_shardloom_lanes=[]`, no lane SHA mismatches, benchmark SHA `c22b371f`, and hot route
+      geomeans of about 0.56 ms native, 0.53 ms warm prepared, 3.64 ms prepare-once, and 8.00 ms
+      cold certified route.
     - [ ] Remaining: continue reducing any remaining above-10 ms startup/process harness and
       fresh compatibility-import rows, especially `shardloom-vortex` parquet/jsonl preparation and
       per-command `cli_process_wall_millis`. Warm scan/operator execution is no longer the current
       hot target in the scoped clean matrix. Current checked-in hot-runtime rows still cannot
-      support a performance claim because they are non-claim `metadata_sink` evidence generated
-      from a dirty worktree; a clean post-fix artifact must be regenerated from committed code
-      before any route-total improvement or regression claim is made.
+      support a performance claim because they are non-claim `metadata_sink` evidence and only cover
+      the targeted tiny-smoke selective-filter refresh; broader claim-grade publication proof and
+      clean full-suite evidence remain separate requirements before any performance claim is made.
   - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
     import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
     public artifact freshness gates.

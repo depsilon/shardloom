@@ -37,7 +37,7 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
         "row_count": 150,
-        "sha256": "028ed81a02796f38cbb431b5720cfdc09389beb1781d5788d0ec65651b6ec122"
+        "sha256": "e9b29fabb906ac5b3a6eb7b61e3d36fdd9ca5a9c63dbd5bd2c24f13091841c9d"
       }
     ]
   },
@@ -78,7 +78,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "920d9a3709b634ac87e05ecc6f33353db5fa2904",
+  "benchmark_git_sha": "c22b371fe41c27da6353f37aa3e0e77606a1d45d",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -107,7 +107,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-06T05:31:40.274202+00:00",
+  "generated_at_utc": "2026-06-06T06:17:49.739405+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -115,10 +115,10 @@
     "pandas": "available in promoted benchmark artifact",
     "polars-eager": "available in promoted benchmark artifact",
     "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available, version workspace-local-release-920d9a37-dirty",
-    "shardloom-prepare-batch": "available, version workspace-local-release-920d9a37-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-920d9a37-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-920d9a37-dirty"
+    "shardloom": "available, version workspace-local-release-c22b371f",
+    "shardloom-prepare-batch": "available, version workspace-local-release-c22b371f",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-c22b371f",
+    "shardloom-vortex": "available, version workspace-local-release-c22b371f"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -127,10 +127,10 @@
     "pandas": "from promoted benchmark artifact",
     "polars-eager": "from promoted benchmark artifact",
     "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "workspace-local-release-920d9a37-dirty",
-    "shardloom-prepare-batch": "workspace-local-release-920d9a37-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-920d9a37-dirty",
-    "shardloom-vortex": "workspace-local-release-920d9a37-dirty"
+    "shardloom": "workspace-local-release-c22b371f",
+    "shardloom-prepare-batch": "workspace-local-release-c22b371f",
+    "shardloom-prepared-vortex": "workspace-local-release-c22b371f",
+    "shardloom-vortex": "workspace-local-release-c22b371f"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -770,5 +770,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "920d9a3709b634ac87e05ecc6f33353db5fa2904"
+  "shardloom_git_sha": "c22b371fe41c27da6353f37aa3e0e77606a1d45d"
 }
