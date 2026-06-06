@@ -12,6 +12,7 @@ concurrency:
 permissions:
   actions: read
   contents: read
+  pull-requests: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -275,7 +276,11 @@ jobs:
         with:
           python-version: "3.11"
       - name: Pre-5J dependency freshness gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/check_pre_5j_dependency_freshness.py --require-live-github
+      - name: Benchmark artifact completeness
+        run: python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json
       - name: Benchmark publication claim gate
         continue-on-error: true
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
@@ -285,6 +290,7 @@ jobs:
           name: release-benchmark-claim-evidence
           path: |
             target/pre-5j-dependency-freshness-gate.json
+            target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
           if-no-files-found: ignore
           retention-days: 14
@@ -386,6 +392,7 @@ jobs:
           test -f target/runtime-gap-family-burn-down.json
           test -f target/user-route-capability-report.json
           test -f target/pre-5j-dependency-freshness-gate.json
+          test -f target/benchmark-artifact-completeness-report.json
           test -f target/benchmark-publication-claim-gate-report.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
@@ -422,6 +429,7 @@ jobs:
             target/runtime-gap-family-burn-down.json
             target/user-route-capability-report.json
             target/pre-5j-dependency-freshness-gate.json
+            target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
             target/ci-gate-matrix-report.json
             target/hard-release-readiness-gate.json

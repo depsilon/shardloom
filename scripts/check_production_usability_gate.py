@@ -12,6 +12,7 @@ claim.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -21,6 +22,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from check_benchmark_artifact_completeness import (
+    REPORT_SCHEMA_VERSION as BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION,
+)
 from check_benchmark_artifact_completeness import validate_manifest as validate_benchmark_manifest
 
 
@@ -155,6 +159,15 @@ def parse_args() -> argparse.Namespace:
         default=Path("website/assets/benchmarks/latest/manifest.json"),
     )
     parser.add_argument(
+        "--benchmark-completeness-report",
+        type=Path,
+        default=Path("target/benchmark-artifact-completeness-report.json"),
+        help=(
+            "Optional precomputed benchmark completeness report. If the path exists, "
+            "the gate consumes it instead of rescanning the published benchmark bundle."
+        ),
+    )
+    parser.add_argument(
         "--runs-today-matrix",
         type=Path,
         default=Path("docs/status/runs-today-support-matrix.json"),
@@ -189,6 +202,29 @@ def path_exists(repo_root: Path, path_text: str | None) -> bool:
         return False
     path = Path(path_text)
     return (path if path.is_absolute() else repo_root / path).exists()
+
+
+def file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def benchmark_artifact_json_path(manifest: dict[str, Any] | None, repo_root: Path) -> Path | None:
+    if not isinstance(manifest, dict):
+        return None
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return None
+    path_text = artifact_paths.get("json")
+    if not path_text:
+        return None
+    path = Path(str(path_text))
+    return path if path.is_absolute() else repo_root / path
 
 
 def false_field_blockers(payload: dict[str, Any] | None, label: str) -> list[str]:
@@ -357,7 +393,87 @@ def validate_website_report(website_report: dict[str, Any] | None) -> tuple[dict
     )
 
 
-def validate_benchmark(manifest_path: Path) -> tuple[dict[str, Any], list[str]]:
+def validate_benchmark_completeness_report(
+    report: dict[str, Any] | None,
+    *,
+    manifest_ref: str,
+    manifest_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> tuple[dict[str, Any], list[str]] | None:
+    if report is None:
+        return None
+    blockers: list[str] = []
+    if report.get("schema_version") != BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION:
+        blockers.append("benchmark completeness report schema mismatch")
+    if str(report.get("manifest") or "").replace("\\", "/") != manifest_ref:
+        blockers.append(
+            "benchmark completeness report manifest mismatch: "
+            + str(report.get("manifest", "missing"))
+        )
+    if manifest_path is not None and manifest_path.exists():
+        expected_manifest_digest = file_sha256(manifest_path)
+        if report.get("manifest_sha256") != expected_manifest_digest:
+            blockers.append("benchmark completeness report manifest digest mismatch")
+        manifest = load_json(manifest_path)
+        artifact_path = benchmark_artifact_json_path(
+            manifest,
+            repo_root or manifest_path.parent,
+        )
+        if artifact_path is not None and artifact_path.exists():
+            expected_artifact_digest = file_sha256(artifact_path)
+            if report.get("artifact_json_sha256") != expected_artifact_digest:
+                blockers.append("benchmark completeness report artifact digest mismatch")
+    report_blockers = report.get("blockers")
+    if not isinstance(report_blockers, list):
+        blockers.append("benchmark completeness report blockers must be a list")
+    elif report_blockers:
+        blockers.extend(
+            f"benchmark artifact completeness: {blocker}"
+            for blocker in report_blockers
+        )
+    if report.get("status") != "passed":
+        blockers.append(
+            "benchmark completeness report status="
+            + str(report.get("status", "missing"))
+        )
+    if report.get("performance_claim_allowed") is not False:
+        blockers.append("benchmark completeness performance_claim_allowed must be false")
+    for field in [
+        "benchmark_run_performed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ]:
+        if report.get(field) is not False:
+            blockers.append(f"benchmark completeness {field} must be false")
+    return (
+        {
+            "status": "passed" if not blockers else "blocked",
+            "benchmark_profile": report.get("benchmark_profile"),
+            "artifact_status": report.get("artifact_status"),
+            "available_lane_count": report.get("available_lane_count"),
+            "missing_lane_count": report.get("missing_lane_count"),
+            "performance_claim_allowed": report.get("performance_claim_allowed"),
+            "source": "precomputed_report",
+        },
+        blockers,
+    )
+
+
+def validate_benchmark(
+    manifest_path: Path,
+    *,
+    manifest_ref: str,
+    repo_root: Path,
+    completeness_report: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    report_result = validate_benchmark_completeness_report(
+        completeness_report,
+        manifest_ref=manifest_ref,
+        manifest_path=manifest_path,
+        repo_root=repo_root,
+    )
+    if report_result is not None:
+        return report_result
     try:
         blockers, manifest = validate_benchmark_manifest(manifest_path, allow_incomplete=False)
     except (FileNotFoundError, json.JSONDecodeError) as error:
@@ -370,6 +486,7 @@ def validate_benchmark(manifest_path: Path) -> tuple[dict[str, Any], list[str]]:
             "available_lane_count": len(manifest.get("available_lanes") or []),
             "missing_lane_count": len(manifest.get("missing_lanes") or []),
             "performance_claim_allowed": manifest.get("performance_claim_allowed"),
+            "source": "direct_manifest_scan",
         },
         [f"benchmark artifact completeness: {blocker}" for blocker in blockers],
     )
@@ -503,6 +620,7 @@ def build_report(
     final_release_rehearsal_report_ref: str,
     website_readiness_report_ref: str,
     benchmark_manifest_ref: str,
+    benchmark_completeness_report_ref: str,
     runs_today_matrix_ref: str,
     dry_run: dict[str, Any] | None,
     package_report: dict[str, Any] | None,
@@ -511,6 +629,7 @@ def build_report(
     final_rehearsal: dict[str, Any] | None,
     website_report: dict[str, Any] | None,
     benchmark_manifest_path: Path,
+    benchmark_completeness_report: dict[str, Any] | None,
     runs_today: dict[str, Any] | None,
 ) -> dict[str, Any]:
     dry_run_summary, dry_run_blockers = validate_release_dry_run(repo_root, dry_run)
@@ -545,7 +664,12 @@ def build_report(
             if final_rehearsal.get(field) != expected:
                 rehearsal_blockers.append(f"final release rehearsal {field} must be {expected}")
     website_summary, website_blockers = validate_website_report(website_report)
-    benchmark_summary, benchmark_blockers = validate_benchmark(benchmark_manifest_path)
+    benchmark_summary, benchmark_blockers = validate_benchmark(
+        benchmark_manifest_path,
+        manifest_ref=benchmark_manifest_ref,
+        repo_root=repo_root,
+        completeness_report=benchmark_completeness_report,
+    )
     runs_today_summary, runs_today_blockers = validate_runs_today(runs_today)
     docs_summary, docs_blockers = validate_docs(repo_root)
 
@@ -580,6 +704,7 @@ def build_report(
         "final_release_rehearsal_report_ref": final_release_rehearsal_report_ref,
         "website_readiness_report_ref": website_readiness_report_ref,
         "benchmark_manifest_ref": benchmark_manifest_ref,
+        "benchmark_completeness_report_ref": benchmark_completeness_report_ref,
         "runs_today_matrix_ref": runs_today_matrix_ref,
         "release_dry_run": dry_run_summary,
         "package_channel": package_summary,
@@ -625,6 +750,10 @@ def main() -> int:
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
     website_readiness_report_path = resolve(repo_root, args.website_readiness_report)
     benchmark_manifest_path = resolve(repo_root, args.benchmark_manifest)
+    benchmark_completeness_report_path = resolve(
+        repo_root,
+        args.benchmark_completeness_report,
+    )
     runs_today_matrix_path = resolve(repo_root, args.runs_today_matrix)
 
     report = build_report(
@@ -636,6 +765,10 @@ def main() -> int:
         final_release_rehearsal_report_ref=rel(repo_root, final_release_rehearsal_report_path),
         website_readiness_report_ref=rel(repo_root, website_readiness_report_path),
         benchmark_manifest_ref=rel(repo_root, benchmark_manifest_path),
+        benchmark_completeness_report_ref=rel(
+            repo_root,
+            benchmark_completeness_report_path,
+        ),
         runs_today_matrix_ref=rel(repo_root, runs_today_matrix_path),
         dry_run=load_json(release_dry_run_path),
         package_report=load_json(package_channel_report_path),
@@ -644,6 +777,7 @@ def main() -> int:
         final_rehearsal=load_json(final_release_rehearsal_report_path),
         website_report=load_json(website_readiness_report_path),
         benchmark_manifest_path=benchmark_manifest_path,
+        benchmark_completeness_report=load_json(benchmark_completeness_report_path),
         runs_today=load_json(runs_today_matrix_path),
     )
     output.parent.mkdir(parents=True, exist_ok=True)

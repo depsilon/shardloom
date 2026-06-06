@@ -42,8 +42,11 @@ Producer evidence artifacts:
 - `release-user-surface-evidence`: Python user-surface, SQL/DataFrame parity, runtime-gap,
   graduation, burn-down, and route-capability reports; produced after reusing the local dry-run
   transcript from `release-local-smoke-evidence`.
-- `release-benchmark-claim-evidence`: pre-5J dependency freshness and benchmark publication claim
-  gate reports.
+- `release-benchmark-claim-evidence`: pre-5J dependency freshness, benchmark artifact
+  completeness, and benchmark publication claim gate reports. The final aggregate consumes the
+  precomputed benchmark completeness/publication reports when present instead of rescanning the
+  large public benchmark bundle, and verifies manifest/artifact digests before trusting the
+  precomputed completeness report.
 - `website-docs-evidence`: website readiness report.
 - `ci-gate-matrix-report`: CI matrix drift contract.
 
@@ -323,6 +326,10 @@ unincorporated dependency PRs, and is required by the benchmark publication clai
 benchmark data can be treated as current publication evidence. The gate never runs benchmarks and
 reports:
 
+In GitHub Actions, the CI workflow supplies the scoped Actions token to this step and grants only
+`pull-requests: read`; the gate uses the token for the live PR query so rate limits do not replace
+the actual dependency freshness decision.
+
 ```text
 benchmark_run_performed=false
 publication_attempted=false
@@ -480,16 +487,15 @@ shardloom-vortex
 vortex_ingest -> VortexPreparedState -> prepared_vortex batch` route. Omitting it from benchmark
 artifacts hides a real runtime path and keeps the benchmark/release evidence incomplete.
 
-The hard release gate reuses `scripts/check_benchmark_artifact_completeness.py` so missing
-profile-required formats, scenarios, and published row evidence block release readiness through the
-same canonical benchmark artifact validator that protects the website/public bundle. It also runs
-`scripts/check_benchmark_publication_claim_gate.py` against the latest website benchmark manifest so
-stale Git SHAs, dirty-worktree artifacts, missing broad-format row coverage, missing ShardLoom
-engine/format cells, external-baseline rows masquerading as ShardLoom coverage, missing capillary
-activation evidence, stale or invalid runtime-envelope proof, blocked ShardLoom rows,
-non-claim-grade ShardLoom rows, missing independent reproducibility/correctness/timing/replay
-proof, local workstation artifact paths in public JSON, and missing no-fallback/no-external-engine
-proof block public benchmark publication claims without rerunning benchmarks.
+The hard release gate consumes the reports produced by
+`scripts/check_benchmark_artifact_completeness.py` and
+`scripts/check_benchmark_publication_claim_gate.py` so missing profile-required formats, scenarios,
+published row evidence, broad-format row coverage, ShardLoom engine/format cells, capillary
+activation evidence, runtime-envelope proof, independent reproducibility/correctness/timing/replay
+proof, and no-fallback/no-external-engine proof block release readiness through the same canonical
+benchmark validators that protect the website/public bundle. Local runs without the precomputed
+reports fall back to direct manifest scans. The validators inspect static benchmark artifacts only;
+they do not rerun benchmarks.
 
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 

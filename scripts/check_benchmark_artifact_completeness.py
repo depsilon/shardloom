@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter
@@ -25,6 +26,7 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
 from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
+REPORT_SCHEMA_VERSION = "shardloom.benchmark_artifact_completeness_report.v1"
 REQUIRED_MANIFEST_FIELDS = {
     "schema_version",
     "generated_at_utc",
@@ -460,6 +462,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional JSON report path. The report is always printed to stdout.",
+    )
+    parser.add_argument(
         "--allow-incomplete",
         action="store_true",
         help="Allow missing required lanes if the manifest is explicitly marked incomplete.",
@@ -480,6 +488,26 @@ def repo_path(path_text: str, manifest_path: Path) -> Path:
     if root_candidate.exists():
         return root_candidate
     return manifest_path.parent / path
+
+
+def file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def artifact_json_path(manifest: dict[str, Any], manifest_path: Path) -> Path | None:
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return None
+    path_text = artifact_paths.get("json")
+    if not path_text:
+        return None
+    return repo_path(str(path_text), manifest_path)
 
 
 def chunked_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1816,11 +1844,29 @@ def main() -> int:
     args = parse_args()
     blockers, manifest = validate_manifest(args.manifest, args.allow_incomplete)
     report = {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "status": "passed" if not blockers else "blocked",
         "manifest": str(args.manifest),
+        "manifest_sha256": file_sha256(args.manifest),
+        "artifact_json_sha256": file_sha256(
+            artifact_json_path(manifest, args.manifest) or Path("__missing__")
+        ),
         "benchmark_profile": manifest.get("benchmark_profile"),
         "artifact_status": manifest.get("artifact_status"),
+        "available_lane_count": len(manifest.get("available_lanes") or []),
+        "missing_lane_count": len(manifest.get("missing_lanes") or []),
+        "performance_claim_allowed": manifest.get("performance_claim_allowed"),
+        "benchmark_run_performed": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
         "blockers": blockers,
     }
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 1 if blockers else 0
 

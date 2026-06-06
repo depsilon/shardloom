@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
 import urllib.request
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,15 @@ def parse_args() -> argparse.Namespace:
         help="Query GitHub and block if the live open Dependabot set cannot be checked.",
     )
     parser.add_argument("--github-url", default=GITHUB_PULLS_URL)
+    parser.add_argument(
+        "--github-token-env",
+        action="append",
+        default=None,
+        help=(
+            "Environment variable to read for GitHub API authentication. May be "
+            "passed multiple times. Defaults to GITHUB_TOKEN then GH_TOKEN."
+        ),
+    )
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
     return parser.parse_args()
 
@@ -294,13 +305,34 @@ def dependabot_prs(open_prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-def fetch_open_prs(url: str, timeout_seconds: float) -> tuple[list[dict[str, Any]] | None, str, str | None]:
+def github_token_from_env(
+    env: Mapping[str, str], names: Sequence[str] | None = None
+) -> str | None:
+    for name in names or ("GITHUB_TOKEN", "GH_TOKEN"):
+        token = env.get(name)
+        if token:
+            return token
+    return None
+
+
+def github_request_headers(github_token: str | None = None) -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "shardloom-pre-5j-dependency-freshness-gate",
+    }
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+    return headers
+
+
+def fetch_open_prs(
+    url: str,
+    timeout_seconds: float,
+    github_token: str | None = None,
+) -> tuple[list[dict[str, Any]] | None, str, str | None]:
     request = urllib.request.Request(
         url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "shardloom-pre-5j-dependency-freshness-gate",
-        },
+        headers=github_request_headers(github_token),
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
@@ -319,6 +351,7 @@ def load_open_prs(
     require_live_github: bool,
     github_url: str,
     timeout_seconds: float,
+    github_token_env: Sequence[str] | None = None,
 ) -> tuple[list[dict[str, Any]] | None, str, str | None]:
     if open_prs_json is not None:
         path = resolve(repo_root, open_prs_json)
@@ -330,7 +363,8 @@ def load_open_prs(
             return None, "failed", f"{path} must contain a GitHub pulls API list"
         return payload, "loaded_from_file", None
     if require_live_github:
-        return fetch_open_prs(github_url, timeout_seconds)
+        github_token = github_token_from_env(os.environ, github_token_env)
+        return fetch_open_prs(github_url, timeout_seconds, github_token)
     return None, "skipped_not_requested", None
 
 
@@ -503,6 +537,7 @@ def main() -> int:
         require_live_github=args.require_live_github,
         github_url=args.github_url,
         timeout_seconds=args.timeout_seconds,
+        github_token_env=args.github_token_env,
     )
     report = build_report(
         repo_root=repo_root,

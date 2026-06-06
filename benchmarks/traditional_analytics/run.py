@@ -5168,6 +5168,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             batch_wall,
             batch_scenario_count,
         )
+        batch_wall_row_level = row_level_batch_cli_process_wall_millis(
+            batch_wall,
+            batch_scenario_count,
+        )
         fields.update(
             {
                 "requested_execution_mode": vortex_execution_mode,
@@ -5186,10 +5190,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                     prepared["prepared_state_lookup_or_create_millis"]
                 ),
                 "prepare_route_total_millis": str(prepared["prepare_route_total_millis"]),
-                "prepare_cli_wall_millis": str(prepared["prepare_cli_wall_millis"]),
-                "preparation_cli_process_wall_millis": str(
-                    prepared["preparation_cli_process_wall_millis"]
-                ),
+                "prepare_cli_wall_millis": str(batch_wall_row_level),
+                "preparation_cli_process_wall_millis": str(batch_wall_row_level),
                 "cdc_delta_preparation_millis": str(
                     prepared.get("cdc_delta_preparation_millis", "0")
                 ),
@@ -5215,9 +5217,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                     BATCH_PROCESS_STARTUP_AMORTIZED_ATTRIBUTION
                 ),
                 "python_harness_overhead_status": BATCH_HARNESS_OVERHEAD_STATUS,
-                "cli_process_wall_millis": str(
-                    batch_wall_amortized if batch_wall_amortized is not None else batch_wall
-                ),
+                "cli_process_wall_millis": str(batch_wall_row_level),
                 "batch_cli_process_wall_millis": str(batch_wall),
                 "batch_cli_process_wall_amortized_millis": str(
                     batch_wall_amortized
@@ -6546,6 +6546,17 @@ def amortized_batch_cli_process_wall_millis(
     if wall is None or scenario_count is None or scenario_count <= 0:
         return None
     return round(wall / scenario_count, 4)
+
+
+def row_level_batch_cli_process_wall_millis(
+    batch_wall_millis: Any,
+    scenario_count: int | None,
+) -> float | Any:
+    amortized = amortized_batch_cli_process_wall_millis(
+        batch_wall_millis,
+        scenario_count,
+    )
+    return amortized if amortized is not None else batch_wall_millis
 
 
 PREPARATION_STAGE_TIMING_FIELDS = (

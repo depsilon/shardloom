@@ -10,6 +10,7 @@ without channel-specific install, smoke, provenance, and rollback evidence.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -20,7 +21,13 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_benchmark_artifact_completeness import (
+    REPORT_SCHEMA_VERSION as BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION,
+)
+from check_benchmark_artifact_completeness import (
     validate_manifest as validate_benchmark_artifact_completeness,
+)
+from check_benchmark_publication_claim_gate import (
+    SCHEMA_VERSION as BENCHMARK_PUBLICATION_CLAIM_REPORT_SCHEMA_VERSION,
 )
 from check_benchmark_publication_claim_gate import (
     validate_publication_claim_gate as validate_benchmark_publication_claim_gate,
@@ -137,6 +144,16 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/pre-5j-dependency-freshness-gate.json"),
     )
     parser.add_argument(
+        "--benchmark-completeness-report",
+        type=Path,
+        default=Path("target/benchmark-artifact-completeness-report.json"),
+    )
+    parser.add_argument(
+        "--benchmark-publication-claim-report",
+        type=Path,
+        default=Path("target/benchmark-publication-claim-gate-report.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -157,6 +174,29 @@ def load_json(path: Path) -> dict[str, Any] | None:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def benchmark_artifact_json_path(manifest: dict[str, Any] | None, repo_root: Path) -> Path | None:
+    if not isinstance(manifest, dict):
+        return None
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return None
+    path_text = artifact_paths.get("json")
+    if not path_text:
+        return None
+    path = Path(str(path_text))
+    return path if path.is_absolute() else repo_root / path
 
 
 def check(name: str, ref: str, blockers: list[str]) -> dict[str, Any]:
@@ -241,6 +281,89 @@ def runtime_gap_family_burn_down_blockers(
     return blockers
 
 
+def benchmark_completeness_report_blockers(
+    report: dict[str, Any] | None,
+    *,
+    manifest_ref: str,
+    manifest_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> list[str]:
+    blockers: list[str] = []
+    if report is None:
+        return blockers
+    if report.get("schema_version") != BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION:
+        blockers.append("benchmark completeness report schema mismatch")
+    if str(report.get("manifest") or "").replace("\\", "/") != manifest_ref:
+        blockers.append(
+            "benchmark completeness report manifest mismatch: "
+            + str(report.get("manifest", "missing"))
+        )
+    if manifest_path is not None and manifest_path.exists():
+        expected_manifest_digest = file_sha256(manifest_path)
+        if report.get("manifest_sha256") != expected_manifest_digest:
+            blockers.append("benchmark completeness report manifest digest mismatch")
+        manifest = load_json(manifest_path)
+        artifact_path = benchmark_artifact_json_path(
+            manifest,
+            repo_root or manifest_path.parent,
+        )
+        if artifact_path is not None and artifact_path.exists():
+            expected_artifact_digest = file_sha256(artifact_path)
+            if report.get("artifact_json_sha256") != expected_artifact_digest:
+                blockers.append("benchmark completeness report artifact digest mismatch")
+    report_blockers = report.get("blockers")
+    if not isinstance(report_blockers, list):
+        blockers.append("benchmark completeness report blockers must be a list")
+    else:
+        blockers.extend(f"benchmark artifact completeness: {item}" for item in report_blockers)
+    if report.get("status") != "passed":
+        blockers.append(
+            "benchmark completeness report status="
+            + str(report.get("status", "missing"))
+        )
+    if report.get("performance_claim_allowed") is not False:
+        blockers.append("benchmark completeness performance_claim_allowed must be false")
+    for field in [
+        "benchmark_run_performed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ]:
+        if report.get(field) is not False:
+            blockers.append(f"benchmark completeness {field} must be false")
+    return blockers
+
+
+def benchmark_publication_claim_report_blockers(
+    report: dict[str, Any] | None,
+    *,
+    manifest_ref: str,
+) -> list[str]:
+    blockers: list[str] = []
+    if report is None:
+        return blockers
+    if report.get("schema_version") != BENCHMARK_PUBLICATION_CLAIM_REPORT_SCHEMA_VERSION:
+        blockers.append("benchmark publication claim report schema mismatch")
+    if str(report.get("manifest") or "").replace("\\", "/") != manifest_ref:
+        blockers.append(
+            "benchmark publication claim report manifest mismatch: "
+            + str(report.get("manifest", "missing"))
+        )
+    report_blockers = report.get("blockers")
+    if not isinstance(report_blockers, list):
+        blockers.append("benchmark publication claim report blockers must be a list")
+    else:
+        blockers.extend(f"benchmark publication claim gate: {item}" for item in report_blockers)
+    if report.get("status") != "passed":
+        blockers.append(
+            "benchmark publication claim report status="
+            + str(report.get("status", "missing"))
+        )
+    for field in ["benchmark_run_performed", "fallback_attempted", "external_engine_invoked"]:
+        if report.get(field) is not False:
+            blockers.append(f"benchmark publication claim {field} must be false")
+    return blockers
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -276,6 +399,14 @@ def main() -> int:
     )
     user_route_capability_report_path = resolve(repo_root, args.user_route_capability_report)
     pre_5j_dependency_report_path = resolve(repo_root, args.pre_5j_dependency_report)
+    benchmark_completeness_report_path = resolve(
+        repo_root,
+        args.benchmark_completeness_report,
+    )
+    benchmark_publication_claim_report_path = resolve(
+        repo_root,
+        args.benchmark_publication_claim_report,
+    )
 
     checks: list[dict[str, Any]] = []
 
@@ -839,7 +970,12 @@ def main() -> int:
     benchmark_constitution_doc = repo_root / "docs/architecture/benchmark-constitution.md"
     benchmark_constitution_source = repo_root / "shardloom-core/src/benchmark.rs"
     benchmark_manifest_path = repo_root / "website/assets/benchmarks/latest/manifest.json"
+    benchmark_manifest_ref = "website/assets/benchmarks/latest/manifest.json"
     benchmark_manifest = load_json(benchmark_manifest_path)
+    benchmark_completeness_report = load_json(benchmark_completeness_report_path)
+    benchmark_publication_claim_report = load_json(
+        benchmark_publication_claim_report_path
+    )
     benchmark_constitution_blockers: list[str] = []
     if not benchmark_constitution_script.exists():
         benchmark_constitution_blockers.append("missing benchmark constitution validator script")
@@ -856,23 +992,39 @@ def main() -> int:
     if benchmark_manifest is None:
         benchmark_constitution_blockers.append("missing website benchmark manifest")
     else:
-        completeness_blockers, _ = validate_benchmark_artifact_completeness(
-            benchmark_manifest_path,
-            allow_incomplete=False,
-        )
-        for blocker in completeness_blockers:
-            benchmark_constitution_blockers.append(
-                f"benchmark artifact completeness: {blocker}"
-            )
-        publication_claim_gate = validate_benchmark_publication_claim_gate(
-            benchmark_manifest_path,
+        precomputed_completeness_blockers = benchmark_completeness_report_blockers(
+            benchmark_completeness_report,
+            manifest_ref=benchmark_manifest_ref,
+            manifest_path=benchmark_manifest_path,
             repo_root=repo_root,
-            require_current_git=False,
         )
-        for blocker in publication_claim_gate.get("blockers", []):
-            benchmark_constitution_blockers.append(
-                f"benchmark publication claim gate: {blocker}"
+        if benchmark_completeness_report is not None:
+            benchmark_constitution_blockers.extend(precomputed_completeness_blockers)
+        else:
+            completeness_blockers, _ = validate_benchmark_artifact_completeness(
+                benchmark_manifest_path,
+                allow_incomplete=False,
             )
+            for blocker in completeness_blockers:
+                benchmark_constitution_blockers.append(
+                    f"benchmark artifact completeness: {blocker}"
+                )
+        precomputed_publication_blockers = benchmark_publication_claim_report_blockers(
+            benchmark_publication_claim_report,
+            manifest_ref=benchmark_manifest_ref,
+        )
+        if benchmark_publication_claim_report is not None:
+            benchmark_constitution_blockers.extend(precomputed_publication_blockers)
+        else:
+            publication_claim_gate = validate_benchmark_publication_claim_gate(
+                benchmark_manifest_path,
+                repo_root=repo_root,
+                require_current_git=False,
+            )
+            for blocker in publication_claim_gate.get("blockers", []):
+                benchmark_constitution_blockers.append(
+                    f"benchmark publication claim gate: {blocker}"
+                )
         for required in [
             "benchmark_constitution_schema_version",
             "benchmark_constitution_validator",
@@ -1433,7 +1585,7 @@ def main() -> int:
         "python scripts/check_runtime_execution_envelopes.py",
         "python scripts/check_website_readiness.py",
         "python scripts/check_benchmark_constitution.py",
-        "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json",
+        "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json",
         "python scripts/check_pre_5j_dependency_freshness.py",
         "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
         "python scripts/final_release_rehearsal.py --allow-blocked",
@@ -1485,6 +1637,12 @@ def main() -> int:
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
         "production_usability_report_ref": str(args.production_usability_report).replace("\\", "/"),
+        "benchmark_completeness_report_ref": str(args.benchmark_completeness_report).replace(
+            "\\", "/"
+        ),
+        "benchmark_publication_claim_report_ref": str(
+            args.benchmark_publication_claim_report
+        ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report
         ).replace("\\", "/"),

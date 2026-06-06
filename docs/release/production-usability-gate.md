@@ -69,7 +69,10 @@ The gate requires:
   release/package claims false.
 - website readiness evidence and checked start/status/docs assets.
 - current benchmark artifact completeness for the promoted website bundle without rerunning or
-  reinterpreting benchmark data.
+  reinterpreting benchmark data. In CI this is consumed from the precomputed
+  `target/benchmark-artifact-completeness-report.json` emitted by the benchmark claim lane; local
+  runs without that report fall back to a direct manifest scan. When the report is present, the gate
+  verifies manifest and benchmark JSON digests before trusting it.
 - the generated `runs-today` support matrix with production and package-publication claim rows
   blocked and `claim_gate_status=not_claim_grade`.
 - README, getting-started, release, SECURITY, LICENSE, NOTICE, package metadata, and website start

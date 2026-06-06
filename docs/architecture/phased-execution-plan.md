@@ -386,22 +386,32 @@ completed base slice, while unchecked rows define the remaining optimization wor
       `0.50 ms` and `0.10 ms`; batch row `cli_process_wall_millis` is amortized to about
       `8.6-8.9 ms` while full shared `batch_cli_process_wall_millis` remains diagnostic at about
       `34-37 ms`.
-    - [x] Current branch `codex/perf-innov-5-reuse-freshness` adds a benchmark-harness workspace
-      prepared-artifact reuse manifest beside fresh local Vortex artifacts and propagates manifest
-      path, digest, scope, policy, artifact count, write timing, and no-fallback fields into
-      prepared/native row metrics. Scoped artifact `target/perf-innov5-workspace-manifest.json`
-      shows all successful prepared/native rows carrying
-      `workspace_manifest_local_vortex_artifacts` evidence; cache-hit rows verify the manifest and
-      report `0` fresh manifest-write micros while preserving sub-ms scan/operator timings.
-    - [x] Current branch `codex/perf-innov-5-public-refresh` refreshes the checked-in public
-      benchmark bundle on merged main `cf23c7e6` with a full-local claim-readiness artifact
-      (`target/benchmark-artifacts/traditional-full-local.json`) plus merged full-local
-      `metadata_sink` hot-runtime rows regenerated from a clean worktree
-      (`target/perf-innov5-hot-runtime-full-local-clean.json`). The promoted bundle has 1,920
-      published rows, including five ShardLoom `hot_runtime` surfaces and five ShardLoom
-      `publication_proof` surfaces, each showing `120/120`; all ShardLoom rows preserve
-      `fallback_attempted=false` and `external_engine_invoked=false`, prepared/native rows carry
-      workspace-manifest evidence, and the ShardLoom lane versions no longer carry dirty suffixes.
+    - [x] PR #1142 (`codex/perf-innov-5-reuse-freshness`) added benchmark-harness workspace
+      prepared-artifact reuse manifest evidence for prepared/native rows; detailed proof is in the
+      completed ledger.
+    - [x] PR #1143 (`codex/perf-innov-5-public-refresh`) refreshed the checked-in public benchmark
+      bundle with clean full-local hot-runtime metadata rows plus full-local publication-proof
+      rows. The promoted bundle has 1,920 published rows, five ShardLoom `hot_runtime` surfaces and
+      five ShardLoom `publication_proof` surfaces each showing `120/120`, no dirty ShardLoom lane
+      versions, and ShardLoom `fallback_attempted=false` / `external_engine_invoked=false`;
+      detailed proof is in the completed ledger.
+    - [x] Current branch `codex/perf-innov-5-residual-optimization` fixes prepare-batch row-level
+      process-wall attribution so `prepare_cli_wall_millis`,
+      `preparation_cli_process_wall_millis`, and row `cli_process_wall_millis` report the
+      per-scenario amortized batch wall, while `prepare_batch_cli_process_wall_millis`,
+      `batch_cli_process_wall_millis`, and `batch_process_wall_shared=true` preserve the full shared
+      single-process diagnostic wall. Scoped smoke artifact
+      `target/perf-innov5-batch-wall-amortized-smoke.json` showed 20 real
+      `shardloom-prepare-batch` JSONL rows with row-level prepare/process wall `55.7941 ms`,
+      full shared batch wall `1115.8827 ms`, and no fallback/external engine invocation.
+    - [x] Current branch `codex/perf-innov-5-residual-optimization` also optimizes the serial CI
+      hard-gate tail by producing `target/benchmark-artifact-completeness-report.json` once in the
+      `release-benchmark-claim` lane, then teaching production-usability and hard-release gates to
+      consume the precomputed completeness/publication reports when present, with manifest and
+      benchmark JSON digest checks before trusting the report. Local validation measured the
+      now-precomputed static scans at about 9-15 seconds for completeness and 17 seconds for
+      publication on this workstation; `scripts/check_release_readiness.py` then consumed the
+      reports with no benchmark-constitution blockers instead of rescanning the public bundle.
     - [ ] Remaining: reduce or explicitly attribute the residual above-10 ms cells: cold certified
       `shardloom` route query/process wall, first-creator native Vortex fresh parquet/jsonl
       compatibility import, and publication-proof sink/evidence rendering. Warm scan/operator

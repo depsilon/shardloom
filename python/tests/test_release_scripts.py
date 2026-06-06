@@ -2911,6 +2911,14 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIsNone(
             benchmark_run.amortized_batch_cli_process_wall_millis(34.0, 0)
         )
+        self.assertEqual(
+            benchmark_run.row_level_batch_cli_process_wall_millis(753.4, 20),
+            37.67,
+        )
+        self.assertEqual(
+            benchmark_run.row_level_batch_cli_process_wall_millis("not_measured", 20),
+            "not_measured",
+        )
 
     def test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
@@ -3351,6 +3359,57 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: 38 != 37",
             module.runtime_gap_family_burn_down_blockers(mismatched),
+        )
+
+    def test_release_readiness_accepts_precomputed_benchmark_reports(self) -> None:
+        module = self._load_script_module(
+            "check_release_readiness.py",
+            "check_release_readiness_benchmark_reports_for_test",
+        )
+        manifest_ref = "website/assets/benchmarks/latest/manifest.json"
+        completeness = {
+            "schema_version": "shardloom.benchmark_artifact_completeness_report.v1",
+            "status": "passed",
+            "manifest": manifest_ref,
+            "benchmark_profile": "full_local",
+            "artifact_status": "complete",
+            "performance_claim_allowed": False,
+            "benchmark_run_performed": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "blockers": [],
+        }
+        publication = {
+            "schema_version": "shardloom.benchmark_publication_claim_gate.v1",
+            "status": "passed",
+            "manifest": manifest_ref,
+            "benchmark_run_performed": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "blockers": [],
+        }
+
+        self.assertEqual(
+            module.benchmark_completeness_report_blockers(
+                completeness,
+                manifest_ref=manifest_ref,
+            ),
+            [],
+        )
+        self.assertEqual(
+            module.benchmark_publication_claim_report_blockers(
+                publication,
+                manifest_ref=manifest_ref,
+            ),
+            [],
+        )
+        blocked = dict(completeness, status="blocked", blockers=["missing lane"])
+        self.assertIn(
+            "benchmark artifact completeness: missing lane",
+            module.benchmark_completeness_report_blockers(
+                blocked,
+                manifest_ref=manifest_ref,
+            ),
         )
 
     def test_differential_preparation_matrix_preserves_refinement_evidence(self) -> None:
@@ -4557,6 +4616,22 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
+    def test_pre_5j_dependency_freshness_uses_github_token_header(self) -> None:
+        module = self._load_script_module(
+            "check_pre_5j_dependency_freshness.py",
+            "check_pre_5j_dependency_freshness_auth_for_test",
+        )
+
+        token = module.github_token_from_env(
+            {"GITHUB_TOKEN": "ghs_token", "GH_TOKEN": "gh_token"}
+        )
+        headers = module.github_request_headers(token)
+
+        self.assertEqual(token, "ghs_token")
+        self.assertEqual(headers["Authorization"], "Bearer ghs_token")
+        self.assertEqual(headers["Accept"], "application/vnd.github+json")
+        self.assertNotIn("Authorization", module.github_request_headers(None))
+
     def test_pre_5j_dependency_freshness_parses_cargo_files_without_tomllib(self) -> None:
         module = self._load_script_module(
             "check_pre_5j_dependency_freshness.py",
@@ -5271,6 +5346,7 @@ jobs:
                 final_release_rehearsal_report_ref="target/final-release-rehearsal/final-release-rehearsal-report.json",
                 website_readiness_report_ref="target/website-readiness-report.json",
                 benchmark_manifest_ref="website/assets/benchmarks/latest/manifest.json",
+                benchmark_completeness_report_ref="target/benchmark-artifact-completeness-report.json",
                 runs_today_matrix_ref="docs/status/runs-today-support-matrix.json",
                 dry_run=payloads["dry_run"],
                 package_report=payloads["package_report"],
@@ -5279,6 +5355,7 @@ jobs:
                 final_rehearsal=payloads["final_rehearsal"],
                 website_report=payloads["website_report"],
                 benchmark_manifest_path=REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
+                benchmark_completeness_report=None,
                 runs_today=payloads["runs_today"],
             )
 
@@ -5287,6 +5364,34 @@ jobs:
             self.assertFalse(report["public_release_claim_allowed"])
             self.assertFalse(report["public_package_claim_allowed"])
             self.assertIn("GAR-RUNTIME-IMPL-4S", report["covered_phase_items"])
+
+    def test_production_usability_gate_accepts_precomputed_benchmark_report(self) -> None:
+        module = self._load_script_module(
+            "check_production_usability_gate.py",
+            "check_production_usability_gate_benchmark_report_for_test",
+        )
+        manifest_ref = "website/assets/benchmarks/latest/manifest.json"
+        summary, blockers = module.validate_benchmark_completeness_report(
+            {
+                "schema_version": "shardloom.benchmark_artifact_completeness_report.v1",
+                "status": "passed",
+                "manifest": manifest_ref,
+                "benchmark_profile": "full_local",
+                "artifact_status": "complete",
+                "available_lane_count": 12,
+                "missing_lane_count": 0,
+                "performance_claim_allowed": False,
+                "benchmark_run_performed": False,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "blockers": [],
+            },
+            manifest_ref=manifest_ref,
+        )
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(summary["source"], "precomputed_report")
+        self.assertEqual(summary["available_lane_count"], 12)
 
     def test_production_usability_gate_rejects_fallback_or_publication_drift(self) -> None:
         module = self._load_script_module(
