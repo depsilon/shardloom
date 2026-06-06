@@ -2277,6 +2277,57 @@ class ReleaseScriptTests(unittest.TestCase):
         finally:
             benchmark_run.subprocess_run = previous
 
+    def test_benchmark_runner_prefers_engine_preparation_timing(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        self.assertEqual(
+            benchmark_run.preparation_engine_millis(
+                {
+                    "total_runtime_micros": "26108",
+                    "compatibility_to_vortex_import_micros": "25207",
+                },
+                34.5943,
+            ),
+            26.108,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_engine_millis(
+                {"compatibility_to_vortex_import_micros": "25207"},
+                34.5943,
+            ),
+            25.207,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_engine_millis({}, 34.5943),
+            34.5943,
+        )
+
+    def test_benchmark_runner_propagates_only_preparation_stage_timings(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        fields = benchmark_run.preparation_stage_timing_fields(
+            {
+                "source_parse_micros": "1773",
+                "compatibility_to_vortex_import_micros": "25207",
+                "vortex_write_micros": "21850",
+                "exclusive_vortex_write_micros": "21850",
+                "total_runtime_micros": "26108",
+                "evidence_render_micros": "182",
+                "vortex_scan_micros": "181",
+                "empty": "",
+            }
+        )
+
+        self.assertEqual(
+            fields,
+            {
+                "source_parse_micros": "1773",
+                "compatibility_to_vortex_import_micros": "25207",
+                "vortex_write_micros": "21850",
+                "exclusive_vortex_write_micros": "21850",
+            },
+        )
+
     def test_full_local_external_lanes_have_required_scenario_handlers(self) -> None:
         required_modules = ("pandas", "polars", "duckdb", "datafusion", "dask")
         missing_modules = [
