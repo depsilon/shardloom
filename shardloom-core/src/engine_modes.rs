@@ -682,6 +682,14 @@ impl LiveHybridFabricFreshnessGateReport {
                     "No exactly-once claim without checkpoint, commit, retry, and sink idempotency proof.",
                 ),
                 live_hybrid_gate_row(
+                    "live_hybrid_state_transition_fixture",
+                    "fixture_smoke_only",
+                    "live,hybrid",
+                    "none_scoped_state_transition_fixture_only",
+                    "freshness_certificate,state_certificate,snapshot_epoch,retry_attempts,cancellation_cleanup,partial_output_tracking,no_fallback_evidence",
+                    "Bounded in-memory state-transition retry/cancellation/cleanup evidence only; no durable checkpoint, broker, object-store, or exactly-once claim.",
+                ),
+                live_hybrid_gate_row(
                     "hybrid_micro_segment_flush",
                     "blocked",
                     "hybrid",

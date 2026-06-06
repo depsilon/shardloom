@@ -22,11 +22,13 @@ execution, cancellation execution, or fallback execution.
   - `MemoryBudget`
   - `OomSafetyPlan`
   - memory pressure decisions
+  - `PreOomMemoryGuardFixtureReport`
 - Vortex memory bridge planning
   - `plan_vortex_memory_safety`
   - `VortexMemoryBridgeReport`
 - Bounded local execution planning surfaces.
-- CLI integration through `spill-lifecycle` and `vortex-memory-plan`.
+- CLI integration through `spill-lifecycle`, `vortex-memory-plan`, and
+  `pre-oom-memory-guard-smoke`.
 
 ## Behavior Map
 
@@ -36,6 +38,8 @@ execution, cancellation execution, or fallback execution.
 - Synthetic spill payload roundtrip exists behind feature gating.
 - Exact synthetic payload cleanup exists behind feature gating.
 - Retry and cancellation gates exist as planning/report surfaces.
+- `pre-oom-memory-guard-smoke` exercises a bounded local reservation denial before process OOM and
+  releases the granted reservation as cleanup evidence.
 - Real query-data spill remains deferred until authorized in `phased-execution-plan.md`.
 - Object-store spill remains deferred until authorized in `phased-execution-plan.md`.
 - Retry execution remains deferred until authorized in `phased-execution-plan.md`.
@@ -55,6 +59,10 @@ Future spill and bounded-execution reports should preserve:
 - `spill_data_is_synthetic`
 - `query_spill_data_written`
 - `fallback_execution_allowed=false`
+- `fail_before_oom`
+- `cleanup_completed`
+- `real_query_spill_admitted=false`
+- `distributed_execution_admitted=false`
 
 ## Completed Ledger
 
@@ -79,6 +87,12 @@ Future spill and bounded-execution reports should preserve:
 - [x] Cancellation gate report and CLI integration.
   - `cancellation-gate-plan` is planning/report-only.
   - Cleanup completion derives only from actual cleanup execution state.
+- [x] Bounded pre-OOM memory guard fixture.
+  - `pre-oom-memory-guard-smoke` emits `shardloom.pre_oom_memory_guard_fixture.v1`.
+  - The fixture denies a bounded reservation request before process OOM and releases the granted
+    reservation.
+  - The fixture does not authorize real query-data spill, native spill IO, object-store IO,
+    distributed runtime, or fallback execution.
 - [x] Phase 11 recovery closeout.
   - Synthetic spill path is complete through CLI and cleanup.
   - Bounded spill integration exists.

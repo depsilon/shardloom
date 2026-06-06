@@ -50,7 +50,10 @@ use crate::{
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,",
     "to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,",
-    "with_column,group_by,agg,sort,limit,write_vortex,write_parquet,",
+    "with_column,group_by,agg,sort,limit,rename,drop,sample,explode,",
+    "merge,concat,pivot,pivot_table,melt,rolling,",
+    "tail,describe,nunique,value_counts,fillna,isna,notna,apply,map,map_rows,",
+    "write_vortex,write_parquet,",
     "write_arrow_ipc,write_avro,write_orc,sql,",
     "sql_parse,sql_bind,sql_plan,sql_execute,",
     "sql_source_free_projection,",
@@ -77,6 +80,26 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.agg.operator_unsupported,",
     "cg21.workflow.sort.operator_unsupported,",
     "cg21.workflow.limit.execution_uncertified,",
+    "cg21.workflow.rename.schema_rewrite_unsupported,",
+    "cg21.workflow.drop.schema_projection_unsupported,",
+    "cg21.workflow.sample.sampling_semantics_unsupported,",
+    "cg21.workflow.explode.nested_expansion_unsupported,",
+    "cg21.workflow.merge.join_alias_unsupported,",
+    "cg21.workflow.concat.union_alignment_unsupported,",
+    "cg21.workflow.pivot.reshape_semantics_unsupported,",
+    "cg21.workflow.pivot_table.aggregate_reshape_unsupported,",
+    "cg21.workflow.melt.reshape_semantics_unsupported,",
+    "cg21.workflow.rolling.window_semantics_unsupported,",
+    "cg21.workflow.tail.source_order_unsupported,",
+    "cg21.workflow.describe.summary_statistics_unsupported,",
+    "cg21.workflow.nunique.distinct_count_semantics_unsupported,",
+    "cg21.workflow.value_counts.grouped_count_semantics_unsupported,",
+    "cg21.workflow.fillna.null_fill_semantics_unsupported,",
+    "cg21.workflow.isna.null_mask_semantics_unsupported,",
+    "cg21.workflow.notna.null_mask_semantics_unsupported,",
+    "cg21.workflow.apply.python_callable_unsupported,",
+    "cg21.workflow.map.python_callable_unsupported,",
+    "cg21.workflow.map_rows.python_callable_unsupported,",
     "cg21.workflow.write_vortex.write_policy_unsupported,",
     "cg21.workflow.write_parquet.compatibility_export_unsupported,",
     "cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,",
@@ -107,7 +130,7 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.object_store_read.runtime_unsupported,",
     "cg21.workflow.fallback_engine.no_fallback_policy"
 );
-const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy";
+const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,source_order_semantics,summary_statistics_semantics,null_mask_semantics,python_callable_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
 
 #[allow(clippy::struct_excessive_bools)]
@@ -1298,6 +1321,82 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         required_evidence: "generated_row_literal_projection,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         claim_gate_status: "fixture_smoke_only",
         claim_boundary: "Generated DataFrame with_column is admitted only for scoped generated-row literal columns and generated range int64 expression columns before local JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output; broad expression-backed generation remains blocked.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "object_store_local_emulator_generated_output",
+        user_visible_surface: "Python ctx.generated_output_to_object_store(...) / ctx.generated_output_to_partitioned_object_store(...)",
+        family: "platform_generated_output",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "local_emulator_object_store_write_certificate_required",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_emulator_generated_output_to_object_store_smoke_only",
+        required_evidence: "generated_source_certificate,object_store_write_smoke,object_store_partition_discovery_smoke,object_store_write_policy,output_commit_protocol,output_replay_evidence,output_fidelity_evidence,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Object-store generated output is admitted only for scoped local-emulator flat or partitioned fixture paths with staged local generated rows and optional partition-discovery proof; live S3/GCS/ADLS, credential resolution, provider probes, table/lakehouse commits, production, and performance claims remain blocked.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "object_store_live_provider_generated_output",
+        user_visible_surface: "Generated output to live S3/GCS/ADLS object-store URI",
+        family: "platform_generated_output",
+        support_status: "blocked",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_blocked",
+        generated_source_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-gen-1.object_store_generated_output_live_provider_blocked",
+        required_evidence: "credential_policy,network_effect_policy,object_store_write_policy,output_commit_protocol,rollback_policy,replay_certificate,fidelity_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Live object-store generated-output writes are blocked; a local-emulator fixture proof does not authorize provider credentials, provider probes, network writes, or production object-store claims.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "foundry_style_generated_output",
+        user_visible_surface: "Python ctx.foundry_generated_output(local_dataset_path)",
+        family: "platform_generated_output",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "local_foundry_style_dataset_output_evidence",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_local_foundry_style_generated_output_dataset_proof_only",
+        required_evidence: "generated_source_certificate,foundry_style_result_dataset,foundry_style_evidence_dataset,foundry_output_api_invoked_false,foundry_spark_invoked_false,replay_evidence,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Foundry-style generated output is admitted only as local dataset/evidence-directory proof; real Foundry runtime, output APIs, package publication, Marketplace, Spark, object-store, and production claims remain blocked.",
+    },
+    GeneratedOutputCompatibilityRow {
+        id: "foundry_live_platform_generated_output",
+        user_visible_surface: "Generated output to real Foundry dataset/API",
+        family: "platform_generated_output",
+        support_status: "blocked",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        source_io_performed: false,
+        generated_source_created: false,
+        output_io_performed: false,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "not_emitted_blocked",
+        generated_source_certificate_status: "not_emitted_blocked",
+        blocker_id: "gar-gen-1.foundry_generated_output_runtime_not_implemented",
+        required_evidence: "foundry_transform_wrapper,foundry_output_dataset_evidence,foundry_evidence_dataset,credential_policy,platform_effect_policy,foundry_spark_invoked_false,replay_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Real Foundry generated-output runtime is blocked until an explicit platform integration writes output and evidence datasets without Spark or external-engine fallback.",
     },
 ];
 
@@ -3795,7 +3894,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 45);
+    push_count_field(&mut fields, "workflow_operation_count", 65);
     push_field(
         &mut fields,
         "workflow_operation_names",
@@ -5788,6 +5887,70 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
+        id: "cli_embedding_vector_local_fixture_smoke",
+        family: "cli_command",
+        surface: "embedding-vector-local-fixture-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "extension_manifest_effect_matrix_snapshots,effectful_operation_admission_matrix,python.tests.test_cli_client",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "built-in deterministic UTF-8 hash embedding/vector fixture only; real model calls, vector databases, ANN indexes, external APIs, credentials, network effects, plugins, and fallback remain blocked",
+        runtime_execution: true,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_pre_oom_memory_guard_smoke",
+        family: "cli_command",
+        surface: "pre-oom-memory-guard-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "pre_oom_memory_guard_smoke,cg14_memory_runtime_hardening_gate",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "bounded local reservation-denial fixture only; no real query-data spill, native spill IO, distributed runtime, larger-than-memory, production, or performance claim",
+        runtime_execution: true,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_object_store_write_recovery_smoke",
+        family: "cli_command",
+        surface: "object-store-write-smoke,object-store-write-recovery-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "object_store_write_smoke,object_store_write_recovery_smoke,python.tests.test_cli_client,cg10_object_store_runtime_gate",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local-emulator object write plus sidecar recovery replay only; no live S3/GCS/ADLS, remote delivery, table/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_local_table_commit_recovery_smoke",
+        family: "cli_command",
+        surface: "local-table-append-commit-rehearsal-smoke,local-table-commit-recovery-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "local_table_append_commit_rehearsal_smoke,commit_execution_promotion_gate,python.tests.test_cli_client",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local-manifest append commit rehearsal plus sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
         id: "cli_prepared_vortex_batch_benchmark",
         family: "cli_command",
         surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run,traditional-analytics-prepare-batch-run",
@@ -5886,13 +6049,13 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     RunsTodaySupportRow {
         id: "python_effectful_fixture_helpers",
         family: "python_api",
-        surface: "ShardLoomClient.sqlite_local_import_export_smoke,ShardLoomClient.udf_local_scalar_fixture_smoke,ShardLoomClient.extension_registry,ShardLoomClient.extension_inspect,ShardLoomClient.udf_runtime_plan",
+        surface: "ShardLoomClient.sqlite_local_import_export_smoke,ShardLoomClient.udf_local_scalar_fixture_smoke,ShardLoomClient.embedding_vector_local_fixture_smoke,ShardLoomClient.extension_registry,ShardLoomClient.extension_inspect,ShardLoomClient.udf_runtime_plan",
         support_state: "executable",
         feature_gate: "default",
         evidence_refs: "python.tests.test_cli_client,sqlite_local_runtime_snapshots,extension_manifest_effect_matrix_snapshots",
         blocker_id: "none",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "thin Python CLI helpers for local SQLite fixture, extension metadata, and built-in deterministic UDF fixture only; no native binding, arbitrary UDF, plugin, network connector, or fallback claim",
+        claim_boundary: "thin Python CLI helpers for local SQLite fixture, extension metadata, built-in deterministic UDF fixture, and deterministic embedding/vector fixture only; no native binding, arbitrary UDF, plugin, network connector, real model/vector service, or fallback claim",
         runtime_execution: true,
         data_read: true,
         write_io: true,
@@ -10060,6 +10223,11 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
         "universal_compatibility_generated_output_dataframe_row_order",
         &generated_output_compatibility_row_order_for_family("dataframe_generated_source"),
     );
+    push_field(
+        fields,
+        "universal_compatibility_generated_output_platform_row_order",
+        &generated_output_compatibility_row_order_for_family("platform_generated_output"),
+    );
     push_count_field(
         fields,
         "universal_compatibility_generated_output_smoke_supported_count",
@@ -10069,6 +10237,11 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
         fields,
         "universal_compatibility_generated_output_report_only_count",
         generated_output_compatibility_status_count("report-only"),
+    );
+    push_count_field(
+        fields,
+        "universal_compatibility_generated_output_blocked_count",
+        generated_output_compatibility_status_count("blocked"),
     );
     push_field(
         fields,
@@ -10102,7 +10275,22 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
     );
     push_bool_field(
         fields,
+        "universal_compatibility_generated_output_object_store_local_emulator_runtime_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
         "universal_compatibility_generated_output_foundry_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_foundry_style_runtime_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_generated_output_live_platform_api_supported",
         false,
     );
     push_bool_field(
@@ -10128,7 +10316,7 @@ fn append_universal_compatibility_generated_output_fields(fields: &mut Vec<(Stri
     push_field(
         fields,
         "universal_compatibility_generated_output_claim_boundary",
-        "only scoped local user-row, range, sequence, and source-free SQL VALUES/literal/generate_series/range JSONL/CSV plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only",
+        "only scoped local user-row, range, sequence, source-free SQL VALUES/literal/generate_series/range, DataFrame generated-output, local-emulator object-store generated-output, and local Foundry-style generated-output proof routes are admitted; live object-store providers, real Foundry APIs, lakehouse/table, broad SQL/DataFrame, production, package, and performance claims remain blocked or report-only",
     );
 
     for row in GENERATED_OUTPUT_COMPATIBILITY_ROWS {

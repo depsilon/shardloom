@@ -37,6 +37,7 @@ from shardloom import (
     FoundryGeneratedOutputReport,
     FrontDoorParityMatrix,
     GeneratedObjectStoreOutputReport,
+    GeneratedPartitionedObjectStoreOutputReport,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
     GeneratedSourceWriteReport,
@@ -4633,6 +4634,26 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
+                elif args == ["live-hybrid-state-transition-smoke", "--format", "json"]:
+                    command = "live-hybrid-state-transition-smoke"
+                    fields = [
+                        {"key": "schema_version", "value": "shardloom.live_hybrid_state_transition_fixture.v1"},
+                        {"key": "selected_engine_mode", "value": "hybrid"},
+                        {"key": "transition_kind", "value": "bounded_snapshot_retry_cleanup_fixture"},
+                        {"key": "snapshot_epoch", "value": "11"},
+                        {"key": "freshness_certificate_status", "value": "certified"},
+                        {"key": "state_certificate_status", "value": "certified"},
+                        {"key": "state_transition_certificate_status", "value": "certified"},
+                        {"key": "attempt_count", "value": "2"},
+                        {"key": "attempt_outcome_order", "value": "attempt-1:cancelled_cleanup_completed,attempt-2:certified"},
+                        {"key": "cancellation_cleanup_completed", "value": "true"},
+                        {"key": "partial_output_committed", "value": "false"},
+                        {"key": "durable_checkpoint_store_used", "value": "false"},
+                        {"key": "exactly_once_claim_allowed", "value": "false"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -4673,6 +4694,28 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(hybrid.write_io)
         self.assertFalse(hybrid.fallback_attempted)
         self.assertFalse(hybrid.external_engine_invoked)
+        transition = client.live_hybrid_state_transition_smoke()
+        self.assertEqual(transition.selected_engine_mode, "hybrid")
+        self.assertEqual(transition.transition_kind, "bounded_snapshot_retry_cleanup_fixture")
+        self.assertEqual(transition.snapshot_epoch, 11)
+        self.assertEqual(transition.attempt_count, 2)
+        self.assertEqual(
+            transition.attempt_outcomes,
+            ("attempt-1:cancelled_cleanup_completed", "attempt-2:certified"),
+        )
+        self.assertTrue(transition.all_certified)
+        self.assertTrue(transition.cleanup_completed)
+        self.assertFalse(transition.partial_output_committed)
+        self.assertFalse(transition.durable_checkpoint_store_used)
+        self.assertFalse(transition.exactly_once_claim_allowed)
+        self.assertTrue(transition.runtime_execution)
+        self.assertFalse(transition.fallback_attempted)
+        self.assertFalse(transition.external_engine_invoked)
+
+        ctx = ShardLoomContext(client=client)
+        ctx_transition = ctx.live_hybrid_state_transition_smoke()
+        self.assertEqual(ctx_transition.snapshot_epoch, 11)
+        self.assertTrue(ctx_transition.cleanup_completed)
 
     def test_from_env_reads_client_configuration_without_running_commands(self) -> None:
         binary = self.fake_cli(
@@ -5755,6 +5798,18 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("foundry_generated_output", dataframe_methods.unsupported_methods)
         self.assertNotIn("sql", dataframe_methods.unsupported_methods)
         self.assertNotIn("from_pandas", dataframe_methods.unsupported_methods)
+        self.assertIn("rename", dataframe_methods.unsupported_methods)
+        self.assertIn("rename_columns", dataframe_methods.unsupported_methods)
+        self.assertIn("drop", dataframe_methods.unsupported_methods)
+        self.assertIn("drop_columns", dataframe_methods.unsupported_methods)
+        self.assertIn("sample", dataframe_methods.unsupported_methods)
+        self.assertIn("explode", dataframe_methods.unsupported_methods)
+        self.assertIn("merge", dataframe_methods.unsupported_methods)
+        self.assertIn("concat", dataframe_methods.unsupported_methods)
+        self.assertIn("pivot", dataframe_methods.unsupported_methods)
+        self.assertIn("pivot_table", dataframe_methods.unsupported_methods)
+        self.assertIn("melt", dataframe_methods.unsupported_methods)
+        self.assertIn("rolling", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
             "source_declaration_supported",
@@ -5877,6 +5932,107 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             dataframe_methods.row("unique").support_status,
             "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("rename").support_status,
+            "deterministic_unsupported_diagnostic",
+        )
+        self.assertEqual(
+            dataframe_methods.row("rename").diagnostic_operation,
+            "rename",
+        )
+        self.assertEqual(
+            dataframe_methods.row("rename").blocker_id,
+            "cg21.workflow.rename.schema_rewrite_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("rename").runtime_execution)
+        self.assertIn(
+            "schema_rewrite_semantics",
+            dataframe_methods.row("rename").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("rename_columns").diagnostic_operation,
+            "rename",
+        )
+        self.assertEqual(
+            dataframe_methods.row("drop").support_status,
+            "deterministic_unsupported_diagnostic",
+        )
+        self.assertEqual(
+            dataframe_methods.row("drop").blocker_id,
+            "cg21.workflow.drop.schema_projection_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("drop").data_read)
+        self.assertIn("projection_rewrite_semantics", dataframe_methods.row("drop").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("drop_columns").diagnostic_operation,
+            "drop",
+        )
+        self.assertEqual(
+            dataframe_methods.row("sample").blocker_id,
+            "cg21.workflow.sample.sampling_semantics_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("sample").write_io)
+        self.assertIn(
+            "deterministic_seed_policy",
+            dataframe_methods.row("sample").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("explode").blocker_id,
+            "cg21.workflow.explode.nested_expansion_unsupported",
+        )
+        self.assertIn(
+            "list_expansion_operator",
+            dataframe_methods.row("explode").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("merge").blocker_id,
+            "cg21.workflow.merge.join_alias_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("merge").runtime_execution)
+        self.assertIn(
+            "join_alias_semantics",
+            dataframe_methods.row("merge").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("concat").blocker_id,
+            "cg21.workflow.concat.union_alignment_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("concat").data_read)
+        self.assertIn(
+            "schema_alignment_contract",
+            dataframe_methods.row("concat").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("pivot").blocker_id,
+            "cg21.workflow.pivot.reshape_semantics_unsupported",
+        )
+        self.assertFalse(dataframe_methods.row("pivot").write_io)
+        self.assertIn("reshape_semantics", dataframe_methods.row("pivot").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("pivot_table").diagnostic_operation,
+            "pivot_table",
+        )
+        self.assertEqual(
+            dataframe_methods.row("pivot_table").blocker_id,
+            "cg21.workflow.pivot_table.aggregate_reshape_unsupported",
+        )
+        self.assertIn(
+            "aggregate_reshape_semantics",
+            dataframe_methods.row("pivot_table").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("melt").blocker_id,
+            "cg21.workflow.melt.reshape_semantics_unsupported",
+        )
+        self.assertIn("unpivot_semantics", dataframe_methods.row("melt").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("rolling").blocker_id,
+            "cg21.workflow.rolling.window_semantics_unsupported",
+        )
+        self.assertIn(
+            "window_frame_semantics",
+            dataframe_methods.row("rolling").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("window").support_status,
@@ -6221,6 +6377,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(vortex.materialization_required)
         self.assertIsNone(vortex.blocker_id)
         self.assertIn("Vortex-normalized", vortex.claim_boundary)
+        typed_nested = matrix.row("typed_nested_compatibility_sink")
+        self.assertTrue(typed_nested.equivalent_admitted_scope)
+        self.assertTrue(typed_nested.write_io)
+        self.assertTrue(typed_nested.materialization_required)
+        self.assertIsNone(typed_nested.blocker_id)
+        self.assertIn("Parquet, Arrow IPC, and Avro", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -6233,7 +6395,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 6)
+        self.assertEqual(len(matrix.admitted_rows), 7)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
@@ -6260,11 +6422,11 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "streaming_capability_matrix_all_rows_no_fallback_no_external_engine", "value": "true"},
                         {"key": "live_hybrid_fabric_gate_schema_version", "value": "shardloom.live_hybrid_fabric_freshness_gate.v1"},
                         {"key": "live_hybrid_fabric_gate_report_id", "value": "gar-0034-a.live_hybrid_fabric_freshness_gate"},
-                        {"key": "live_hybrid_fabric_gate_row_count", "value": "9"},
-                        {"key": "live_hybrid_fabric_gate_row_order", "value": "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"},
+                        {"key": "live_hybrid_fabric_gate_row_count", "value": "10"},
+                        {"key": "live_hybrid_fabric_gate_row_order", "value": "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,live_hybrid_state_transition_fixture,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"},
                         {"key": "live_hybrid_fabric_gate_blocked_row_count", "value": "7"},
                         {"key": "live_hybrid_fabric_gate_report_only_row_count", "value": "1"},
-                        {"key": "live_hybrid_fabric_gate_fixture_smoke_row_count", "value": "1"},
+                        {"key": "live_hybrid_fabric_gate_fixture_smoke_row_count", "value": "2"},
                         {"key": "live_hybrid_fabric_gate_claim_gate_status", "value": "not_claim_grade"},
                         {"key": "live_hybrid_fabric_gate_freshness_claim_allowed", "value": "false"},
                         {"key": "live_hybrid_fabric_gate_exactly_once_claim_allowed", "value": "false"},
@@ -6309,10 +6471,14 @@ class ShardLoomClientTests(unittest.TestCase):
             "gar-0034-a.live_hybrid_fabric_freshness_gate",
         )
         self.assertIn("live_freshness_certificate", result.live_hybrid_fabric_gate_rows)
+        self.assertIn(
+            "live_hybrid_state_transition_fixture",
+            result.live_hybrid_fabric_gate_rows,
+        )
         self.assertIn("baseline_oracle_boundary", result.live_hybrid_fabric_gate_rows)
         self.assertEqual(result.live_hybrid_fabric_gate_blocked_row_count, 7)
         self.assertEqual(result.live_hybrid_fabric_gate_report_only_row_count, 1)
-        self.assertEqual(result.live_hybrid_fabric_gate_fixture_smoke_row_count, 1)
+        self.assertEqual(result.live_hybrid_fabric_gate_fixture_smoke_row_count, 2)
         self.assertEqual(result.live_hybrid_fabric_gate_claim_gate_status, "not_claim_grade")
         self.assertFalse(result.live_hybrid_freshness_claim_allowed)
         self.assertFalse(result.live_hybrid_exactly_once_claim_allowed)
@@ -7172,6 +7338,116 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
+    def test_object_store_partition_discovery_smoke_wrapper_calls_local_emulator_profile(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "object-store-partition-discovery-smoke",
+                    "target/table",
+                    "--profile",
+                    "local-emulator",
+                    "--partition-columns",
+                    "region,date",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "object-store-partition-discovery-smoke",
+                    "status": "success",
+                    "summary": "object-store local-emulator partition discovery smoke",
+                    "human_text": "local-emulator partition discovery smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "partition_discovery_status", "value": "succeeded"},
+                        {"key": "provider_profile", "value": "local-emulator"},
+                        {"key": "partition_listing_status", "value": "performed_local_emulator"},
+                        {"key": "requested_partition_columns", "value": "region,date"},
+                        {"key": "discovered_partition_columns", "value": "date,region"},
+                        {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "object_store_io", "value": "true"},
+                        {"key": "object_store_listing_io", "value": "true"},
+                        {"key": "credential_resolution_performed", "value": "false"},
+                        {"key": "network_probe_performed", "value": "false"},
+                        {"key": "provider_probe_performed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(
+            binary=binary
+        ).object_store_partition_discovery_smoke(
+            "target/table",
+            partition_columns=("region", "date"),
+        )
+
+        self.assertEqual(envelope.command, "object-store-partition-discovery-smoke")
+        self.assertEqual(envelope.field("partition_discovery_status"), "succeeded")
+        self.assertEqual(envelope.field("requested_partition_columns"), "region,date")
+        self.assertTrue(envelope.field_bool("object_store_io"))
+        self.assertTrue(envelope.field_bool("object_store_listing_io"))
+        self.assertFalse(envelope.field_bool("credential_resolution_performed"))
+        self.assertFalse(envelope.field_bool("network_probe_performed"))
+        self.assertFalse(envelope.field_bool("provider_probe_performed"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
+    def test_context_object_store_partition_discovery_smoke_routes_to_client(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "object-store-partition-discovery-smoke",
+                    "target/table",
+                    "--profile",
+                    "local-emulator",
+                    "--partition-columns",
+                    "region,date",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "object-store-partition-discovery-smoke",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "partition_discovery_status", "value": "succeeded"},
+                        {"key": "object_store_listing_io", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        envelope = ctx.object_store_partition_discovery_smoke(
+            "target/table",
+            partition_columns=("region", "date"),
+        )
+
+        self.assertEqual(envelope.command, "object-store-partition-discovery-smoke")
+        self.assertEqual(envelope.field("partition_discovery_status"), "succeeded")
+        self.assertTrue(envelope.field_bool("object_store_listing_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_object_store_write_smoke_wrapper_calls_local_emulator_profile(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -7229,6 +7505,67 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(envelope.field("object_store_write_status"), "rolled_back")
         self.assertTrue(envelope.field_bool("object_store_io"))
         self.assertTrue(envelope.field_bool("object_store_write_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
+    def test_object_store_write_recovery_smoke_wrapper_calls_local_emulator_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "object-store-write-recovery-smoke",
+                    "target/object.bin",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "orders-batch-001",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "object-store-write-recovery-smoke",
+                    "status": "success",
+                    "summary": "object-store local-emulator write recovery smoke",
+                    "human_text": "local-emulator object-store write recovery smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "object_store_write_recovery_status", "value": "recovered"},
+                        {"key": "provider_profile", "value": "local-emulator"},
+                        {"key": "recovery_replay_status", "value": "recovered_local_emulator_sidecar"},
+                        {"key": "target_digest_matched", "value": "true"},
+                        {"key": "payload_digest_matched", "value": "true"},
+                        {"key": "expected_idempotency_key", "value": "orders-batch-001"},
+                        {"key": "recovered_idempotency_key", "value": "orders-batch-001"},
+                        {"key": "idempotency_status", "value": "recovered_from_commit_manifest"},
+                        {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "object_store_io", "value": "true"},
+                        {"key": "object_store_read_io", "value": "true"},
+                        {"key": "object_store_write_io", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).object_store_write_recovery_smoke(
+            "target/object.bin",
+            idempotency_key="orders-batch-001",
+        )
+
+        self.assertEqual(envelope.status, "success")
+        self.assertEqual(envelope.field("object_store_write_recovery_status"), "recovered")
+        self.assertTrue(envelope.field_bool("target_digest_matched"))
+        self.assertTrue(envelope.field_bool("payload_digest_matched"))
+        self.assertTrue(envelope.field_bool("object_store_read_io"))
+        self.assertFalse(envelope.field_bool("object_store_write_io"))
+        self.assertFalse(envelope.field_bool("write_io"))
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
@@ -7337,6 +7674,190 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(report.object_store_write_status, "rolled_back")
         self.assertEqual(report.commit_protocol_status, "rolled_back")
         self.assertEqual(report.rollback_status, "performed_local_emulator_cleanup")
+        self.assertIsNone(report.object_store_write_recovery_status)
+        self.assertFalse(report.output_replay_verified)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_context_generated_output_to_partitioned_object_store_verifies_discovery(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == [
+                    "generated-source-user-rows-smoke",
+                    "target/staging/partitioned.jsonl",
+                    "id:int64,label:utf8",
+                    "id=1,label=alpha",
+                    "--source-kind",
+                    "user_rows",
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "generated-source-user-rows-smoke",
+                        "status": "success",
+                        "summary": "generated rows staged",
+                        "human_text": "generated rows staged",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "output_path", "value": "target/staging/partitioned.jsonl"},
+                            {"key": "output_format", "value": "jsonl"},
+                            {"key": "generated_source_kind", "value": "user_rows"},
+                            {"key": "generated_source_row_count", "value": "1"},
+                            {"key": "generated_source_certificate_status", "value": "present"},
+                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                elif args == [
+                    "object-store-write-smoke",
+                    "target/staging/partitioned.jsonl",
+                    "target/object-store/partitioned/region=us/date=2026-06-06/part-00000.jsonl",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "partitioned-generated-output-001",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "object-store-write-smoke",
+                        "status": "success",
+                        "summary": "object-store partitioned generated output",
+                        "human_text": "object-store partitioned generated output",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "object_store_write_status", "value": "committed"},
+                            {"key": "provider_profile", "value": "local-emulator"},
+                            {"key": "commit_protocol_status", "value": "committed"},
+                            {"key": "idempotency_key", "value": "partitioned-generated-output-001"},
+                            {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "object_store_io", "value": "true"},
+                            {"key": "object_store_write_io", "value": "true"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                elif args == [
+                    "object-store-write-recovery-smoke",
+                    "target/object-store/partitioned/region=us/date=2026-06-06/part-00000.jsonl",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "partitioned-generated-output-001",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "object-store-write-recovery-smoke",
+                        "status": "success",
+                        "summary": "object-store partitioned generated output recovery",
+                        "human_text": "object-store partitioned generated output recovery",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "object_store_write_recovery_status", "value": "recovered"},
+                            {"key": "provider_profile", "value": "local-emulator"},
+                            {"key": "recovery_replay_status", "value": "recovered_local_emulator_sidecar"},
+                            {"key": "target_digest_matched", "value": "true"},
+                            {"key": "payload_digest_matched", "value": "true"},
+                            {"key": "idempotency_status", "value": "recovered_from_commit_manifest"},
+                            {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "object_store_io", "value": "true"},
+                            {"key": "object_store_read_io", "value": "true"},
+                            {"key": "object_store_write_io", "value": "false"},
+                            {"key": "write_io", "value": "false"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                elif args == [
+                    "object-store-partition-discovery-smoke",
+                    "target/object-store/partitioned",
+                    "--profile",
+                    "local-emulator",
+                    "--partition-columns",
+                    "region,date",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "object-store-partition-discovery-smoke",
+                        "status": "success",
+                        "summary": "partition discovery",
+                        "human_text": "partition discovery",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "partition_discovery_status", "value": "succeeded"},
+                            {"key": "partition_listing_status", "value": "performed_local_emulator"},
+                            {"key": "requested_partition_columns", "value": "region,date"},
+                            {"key": "discovered_partition_columns", "value": "date,region"},
+                            {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            {"key": "object_store_io", "value": "true"},
+                            {"key": "object_store_listing_io", "value": "true"},
+                            {"key": "credential_resolution_performed", "value": "false"},
+                            {"key": "network_probe_performed", "value": "false"},
+                            {"key": "provider_probe_performed", "value": "false"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                else:
+                    raise AssertionError(sys.argv)
+                """
+            )
+        )
+
+        report = ShardLoomContext(
+            ShardLoomClient(binary=binary)
+        ).generated_output_to_partitioned_object_store(
+            "target/object-store/partitioned",
+            partition_values={"region": "us", "date": "2026-06-06"},
+            rows=[{"id": 1, "label": "alpha"}],
+            staging_path="target/staging/partitioned.jsonl",
+            idempotency_key="partitioned-generated-output-001",
+            allow_overwrite=True,
+        )
+
+        self.assertIsInstance(report, GeneratedPartitionedObjectStoreOutputReport)
+        self.assertEqual(report.command, "object-store-partition-discovery-smoke")
+        self.assertEqual(report.status, "success")
+        self.assertEqual(
+            report.partitioned_target_uri,
+            "target/object-store/partitioned/region=us/date=2026-06-06/part-00000.jsonl",
+        )
+        self.assertEqual(report.object_store_write_status, "committed")
+        self.assertEqual(report.object_store_write_recovery_status, "recovered")
+        self.assertEqual(report.partition_discovery_status, "succeeded")
+        self.assertEqual(report.discovered_partition_columns, ("date", "region"))
+        self.assertTrue(report.generated_source_created)
+        self.assertTrue(report.runtime_execution)
+        self.assertTrue(report.output_replay_verified)
+        self.assertTrue(report.write_io)
+        self.assertTrue(report.object_store_io)
+        self.assertTrue(report.object_store_listing_io)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -7481,6 +8002,64 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
+    def test_local_table_commit_recovery_wrapper_calls_local_manifest_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "local-table-commit-recovery-smoke",
+                    "target/table/metadata/v2.json",
+                    "--profile",
+                    "local-manifest",
+                    "--idempotency-key",
+                    "orders-table-commit-001",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "local-table-commit-recovery-smoke",
+                    "status": "success",
+                    "summary": "local table commit recovery smoke",
+                    "human_text": "local table commit recovery smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "table_commit_recovery_status", "value": "recovered"},
+                        {"key": "provider_profile", "value": "local-manifest"},
+                        {"key": "manifest_replay_status", "value": "verified_local_manifest_sidecar"},
+                        {"key": "commit_record_replay_status", "value": "verified_local_manifest_sidecar"},
+                        {"key": "manifest_digest_matched", "value": "true"},
+                        {"key": "correctness_digest_matched", "value": "true"},
+                        {"key": "recovered_idempotency_key", "value": "orders-table-commit-001"},
+                        {"key": "claim_gate_status", "value": "scoped_local_table_commit_recovery_only"},
+                        {"key": "table_metadata_read_performed", "value": "true"},
+                        {"key": "manifest_write_performed", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).local_table_commit_recovery_smoke(
+            "target/table/metadata/v2.json",
+            idempotency_key="orders-table-commit-001",
+        )
+
+        self.assertEqual(envelope.status, "success")
+        self.assertEqual(envelope.field("table_commit_recovery_status"), "recovered")
+        self.assertTrue(envelope.field_bool("manifest_digest_matched"))
+        self.assertTrue(envelope.field_bool("correctness_digest_matched"))
+        self.assertTrue(envelope.field_bool("table_metadata_read_performed"))
+        self.assertFalse(envelope.field_bool("manifest_write_performed"))
+        self.assertFalse(envelope.field_bool("object_store_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_context_runtime_smoke_helpers_delegate_to_client_commands(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -7547,6 +8126,22 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
                 elif args == [
+                    "local-table-commit-recovery-smoke",
+                    "target/table/metadata/v2.json",
+                    "--profile",
+                    "local-manifest",
+                    "--idempotency-key",
+                    "orders-table-commit-001",
+                    "--format",
+                    "json",
+                ]:
+                    command = "local-table-commit-recovery-smoke"
+                    fields = [
+                        {"key": "table_commit_recovery_status", "value": "recovered"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == [
                     "sqlite-local-import-export-smoke",
                     "target/orders.sqlite",
                     "--table",
@@ -7598,6 +8193,10 @@ class ShardLoomClientTests(unittest.TestCase):
             idempotency_key="orders-table-commit-001",
             rollback_after_commit=True,
         )
+        recovery = ctx.local_table_commit_recovery_smoke(
+            "target/table/metadata/v2.json",
+            idempotency_key="orders-table-commit-001",
+        )
         sqlite = ctx.sqlite_local_import_export_smoke(
             "target/orders.sqlite",
             table="orders",
@@ -7611,16 +8210,19 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(write.command, "object-store-write-smoke")
         self.assertEqual(metadata.command, "local-table-metadata-read-smoke")
         self.assertEqual(append.command, "local-table-append-commit-rehearsal-smoke")
+        self.assertEqual(recovery.command, "local-table-commit-recovery-smoke")
         self.assertEqual(sqlite.command, "sqlite-local-import-export-smoke")
         self.assertFalse(read.field_bool("fallback_attempted"))
         self.assertFalse(write.field_bool("fallback_attempted"))
         self.assertFalse(metadata.field_bool("fallback_attempted"))
         self.assertFalse(append.field_bool("fallback_attempted"))
+        self.assertFalse(recovery.field_bool("fallback_attempted"))
         self.assertFalse(sqlite.field_bool("fallback_attempted"))
         self.assertFalse(read.field_bool("external_engine_invoked"))
         self.assertFalse(write.field_bool("external_engine_invoked"))
         self.assertFalse(metadata.field_bool("external_engine_invoked"))
         self.assertFalse(append.field_bool("external_engine_invoked"))
+        self.assertFalse(recovery.field_bool("external_engine_invoked"))
         self.assertFalse(sqlite.field_bool("external_engine_invoked"))
 
     def test_invalid_json_raises_protocol_error(self) -> None:
@@ -10634,6 +11236,32 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
                 elif args == [
+                    "embedding-vector-local-fixture-smoke",
+                    "alpha;beta;gamma",
+                    "--query",
+                    "beta",
+                    "--format",
+                    "json",
+                ]:
+                    command = "embedding-vector-local-fixture-smoke"
+                    fields = [
+                        {"key": "schema_version", "value": "shardloom.deterministic_embedding_vector_fixture.v1"},
+                        {"key": "fixture_id", "value": "sl_fixture_hash_embedding_vector"},
+                        {"key": "embedding_model_id", "value": "sl_fixture_hash_embedding_v1"},
+                        {"key": "vector_index_kind", "value": "local_bruteforce_l2_fixture"},
+                        {"key": "vector_metric", "value": "squared_l2"},
+                        {"key": "vector_dimension", "value": "4"},
+                        {"key": "nearest_index", "value": "1"},
+                        {"key": "nearest_text", "value": "beta"},
+                        {"key": "nearest_distance_squared", "value": "0"},
+                        {"key": "model_call_performed", "value": "false"},
+                        {"key": "credential_resolution_performed", "value": "false"},
+                        {"key": "network_probe_performed", "value": "false"},
+                        {"key": "external_effect_executed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == [
                     "sqlite-local-import-export-smoke",
                     "target/orders.sqlite",
                     "--table",
@@ -10681,6 +11309,19 @@ class ShardLoomClientTests(unittest.TestCase):
             client.udf_local_scalar_fixture_smoke([3, None, -4]).field("output_values"),
             "6,null,-8",
         )
+        embedding = client.embedding_vector_local_fixture_smoke(
+            ["alpha", "beta", "gamma"],
+            query="beta",
+        )
+        self.assertEqual(embedding.command, "embedding-vector-local-fixture-smoke")
+        self.assertEqual(
+            embedding.field("schema_version"),
+            "shardloom.deterministic_embedding_vector_fixture.v1",
+        )
+        self.assertEqual(embedding.field("nearest_text"), "beta")
+        self.assertEqual(embedding.field_int("nearest_distance_squared"), 0)
+        self.assertFalse(embedding.field_bool("model_call_performed"))
+        self.assertFalse(embedding.field_bool("network_probe_performed"))
         sqlite = client.sqlite_local_import_export_smoke(
             "target/orders.sqlite",
             table="orders",
@@ -10703,7 +11344,13 @@ class ShardLoomClientTests(unittest.TestCase):
         udf_smoke = ctx.udf_local_scalar_fixture_smoke([3, None, -4])
         self.assertEqual(udf_smoke.field("output_values"), "6,null,-8")
         self.assertTrue(udf_smoke.field_bool("udf_execution_performed"))
-        for envelope in (inspected, udf_plan, udf_smoke):
+        embedding_smoke = ctx.embedding_vector_local_fixture_smoke(
+            ("alpha", "beta", "gamma"),
+            query="beta",
+        )
+        self.assertEqual(embedding_smoke.field("nearest_text"), "beta")
+        self.assertFalse(embedding_smoke.field_bool("external_effect_executed"))
+        for envelope in (inspected, udf_plan, udf_smoke, embedding_smoke):
             self.assertFalse(envelope.field_bool("fallback_attempted"))
             self.assertFalse(envelope.field_bool("external_engine_invoked"))
 

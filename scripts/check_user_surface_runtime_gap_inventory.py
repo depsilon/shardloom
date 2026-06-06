@@ -96,15 +96,67 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
     },
 }
 
-DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
-    "schema_contract": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "local_source_or_vortex_schema_to_contract_runtime_pending",
-        "runtime_route": "schema contract enforcement runtime pending",
-        "output_or_evidence_route": "diagnostic report until contract enforcement evidence lands",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.schema_contract_runtime",
-    },
+DATAFRAME_METHOD_FRONT_DOOR_GAPS = (
+    "rename",
+    "rename_columns",
+    "drop",
+    "drop_columns",
+    "sample",
+    "explode",
+    "merge",
+    "concat",
+    "pivot",
+    "pivot_table",
+    "melt",
+    "rolling",
+    "tail",
+    "describe",
+    "nunique",
+    "value_counts",
+    "fillna",
+    "fill_null",
+    "isna",
+    "isnull",
+    "notna",
+    "notnull",
+    "apply",
+    "map",
+    "map_rows",
+)
+
+DATAFRAME_METHOD_FRONT_DOOR_ROUTE = {
+    "classification": "true_runtime_expansion_item",
+    "vortex_normalization_point": "dataframe_front_door_to_vortex_plan_pending",
+    "runtime_route": (
+        "Python LazyFrame method exists as a deterministic fail-closed front door; "
+        "admitted native runtime remains pending"
+    ),
+    "output_or_evidence_route": (
+        "workflow-unsupported-plan diagnostic until the method has semantic, runtime, "
+        "and output evidence"
+    ),
+    "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
 }
+
+DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
+    method: DATAFRAME_METHOD_FRONT_DOOR_ROUTE
+    for method in DATAFRAME_METHOD_FRONT_DOOR_GAPS
+}
+DATAFRAME_METHOD_GAP_ROUTES.update(
+    {
+        "schema_contract": {
+            "classification": "true_runtime_expansion_item",
+            "vortex_normalization_point": (
+                "local_source_or_vortex_schema_to_contract_runtime_pending"
+            ),
+            "runtime_route": "schema contract enforcement runtime pending",
+            "output_or_evidence_route": (
+                "diagnostic report until contract enforcement evidence lands"
+            ),
+            "owner": "GAR-RUNTIME-IMPL-6D:last_order.schema_contract_runtime",
+        },
+    }
+)
 
 RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
     "input_object_store_cloud": {
@@ -360,6 +412,13 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "true_runtime_expansion_item",
         "route_specific_vortex_boundary_required",
         "Python/CLI deterministic unsupported diagnostics for non-admitted runtime shapes",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    ),
+    (
+        "fail closed through `workflow-unsupported-plan`",
+        "true_runtime_expansion_item",
+        "dataframe_front_door_to_vortex_plan_pending",
+        "Python/DataFrame deterministic unsupported diagnostics for non-admitted runtime shapes",
         "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
     ),
 )

@@ -89,6 +89,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "extension-inspect",
     "udf-runtime-plan",
     "udf-local-scalar-fixture-smoke",
+    "embedding-vector-local-fixture-smoke",
     "security-plan",
     "security-governance-evidence-gate",
     "effect-budget-plan",
@@ -99,6 +100,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "plan-export",
     "memory-plan",
     "operator-memory-spill-declarations",
+    "pre-oom-memory-guard-smoke",
     "cg14-memory-runtime-hardening-gate",
     "spill-plan",
     "correctness-plan",
@@ -131,6 +133,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "local-delete-tombstone-read-smoke",
     "local-append-only-cdc-overlay-smoke",
     "local-table-append-commit-rehearsal-smoke",
+    "local-table-commit-recovery-smoke",
     "object-store-request-plan",
     "cg10-object-store-runtime-gate",
     "object-store-range-plan",
@@ -140,6 +143,8 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "object-store-commit-plan",
     "object-store-read-smoke",
     "object-store-write-smoke",
+    "object-store-write-recovery-smoke",
+    "object-store-partition-discovery-smoke",
     "incremental-plan",
     "stateful-reuse-plan",
     "cg17-stateful-reuse-gate",
@@ -173,6 +178,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "live-change-contract-plan",
     "live-fixture-run",
     "hybrid-overlay-run",
+    "live-hybrid-state-transition-smoke",
     "session-cache-smoke",
     "streaming-plan",
     "streaming-batch-plan",
@@ -840,6 +846,7 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn command_usage_fragment(command: &str) -> String {
     match command {
         "help" => "help [command]".to_string(),
@@ -875,6 +882,9 @@ fn command_usage_fragment(command: &str) -> String {
             )
         }
         "udf-local-scalar-fixture-smoke" => format!("{command} <comma-separated-int64-or-null>"),
+        "embedding-vector-local-fixture-smoke" => {
+            format!("{command} <semicolon-separated-texts> [--query <text>]")
+        }
         "traditional-analytics-prepare-batch-run" => {
             format!("{command} <scenario_csv> <fact_input> <dim_input> --workspace <dir>")
         }
@@ -899,9 +909,24 @@ fn command_usage_fragment(command: &str) -> String {
                 "{command} <local-source-path> <local-object-path> [--profile local-emulator] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
             )
         }
+        "object-store-write-recovery-smoke" => {
+            format!(
+                "{command} <local-object-path> [--profile local-emulator] [--idempotency-key key]"
+            )
+        }
+        "object-store-partition-discovery-smoke" => {
+            format!(
+                "{command} <local-partition-root> [--profile local-emulator] [--partition-columns a,b]"
+            )
+        }
         "local-table-append-commit-rehearsal-smoke" => {
             format!(
                 "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
+            )
+        }
+        "local-table-commit-recovery-smoke" => {
+            format!(
+                "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key]"
             )
         }
         "engine-selection-plan" => {
@@ -1210,7 +1235,9 @@ fn command_owning_phase_item(command: &str) -> &'static str {
     }
     if matches!(
         command,
-        "sqlite-local-import-export-smoke" | "udf-local-scalar-fixture-smoke"
+        "sqlite-local-import-export-smoke"
+            | "udf-local-scalar-fixture-smoke"
+            | "embedding-vector-local-fixture-smoke"
     ) {
         return "GAR-RUNTIME-IMPL-4R/GAR-RUNTIME-IMPL-5O";
     }

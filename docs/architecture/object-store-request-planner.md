@@ -91,25 +91,59 @@ parse S3/GCS/ADLS object URIs and read explicit local fixture bytes, but it does
 provider fetches, credential resolution, network probes, provider probes, cache writes, or provider
 listing.
 
+The `object-store-partition-discovery-smoke` command is now admitted for the scoped
+`local-emulator` profile. It lists caller-owned local `key=value` partition directories and emits
+`native_io_certificate_id=gar-runtime-impl-6d.local_emulator_partition_discovery.native_io`,
+`claim_gate_status=fixture_smoke_only`, `credential_resolution_performed=false`,
+`network_probe_performed=false`, `provider_probe_performed=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false`. Live S3/GCS/ADLS partition discovery, catalog integration, table
+commit, and remote result delivery remain blocked.
+
+The `object-store-write-recovery-smoke` command is also admitted for the scoped `local-emulator`
+profile. It replays the sidecar manifest emitted by `object-store-write-smoke`, verifies the
+committed object digest, recorded payload/target digests, payload byte count, target path, and
+optional idempotency key, and emits
+`native_io_certificate_id=gar-runtime-impl-6d.local_emulator_object_store_write_recovery.native_io`,
+`object_store_read_io=true`, `object_store_write_io=false`, `write_io=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false` on successful replay. This is local
+fixture recovery evidence only; live-provider recovery, remote delivery, production object-store
+commit semantics, table-format commits, catalog integration, and exactly-once claims remain
+blocked.
+
 For the object-store runtime blocker matrix:
 
 - `runtime_blocker_matrix_status=blocked_until_certified`
-- `runtime_blocker_matrix_row_order=coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write`
+- `runtime_blocker_matrix_row_order=coordinator_start,worker_start,task_execution,checkpoint_write,retry_attempt,cleanup_execution,commit_record_write,partition_discovery,catalog_integration,remote_result_delivery`
 - `runtime_blocker_matrix_diagnostics_propagated=true`
-- `runtime_blocker_matrix_diagnostic_count=7`
-- `runtime_blocker_matrix_diagnostic_category_order=object_store,object_store,object_store,object_store,object_store,object_store,object_store`
-- `runtime_blocker_matrix_diagnostic_severity_order=info,info,info,info,info,info,info`
+- `runtime_blocker_matrix_diagnostic_count=10`
+- `runtime_blocker_matrix_diagnostic_category_order=object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store,object_store`
+- `runtime_blocker_matrix_diagnostic_severity_order=info,info,info,info,info,info,info,info,info,info`
 - `runtime_blocker_matrix_envelope_status=success`
 - `runtime_blocker_matrix_all_allowed_false=true`
 - `runtime_blocker_matrix_all_no_io=true`
 - `runtime_blocker_matrix_all_no_fallback=true`
 - `runtime_blocker_matrix_all_no_external_engine=true`
+- `existing_local_emulator_partition_discovery_evidence_present=true`
+- `existing_local_emulator_partition_discovery_command=object-store-partition-discovery-smoke`
+- `existing_local_emulator_partition_discovery_certificate_id=gar-runtime-impl-6d.local_emulator_partition_discovery.native_io`
+- `existing_local_emulator_partition_discovery_claim_gate_status=fixture_smoke_only`
+- `local_emulator_partition_discovery_runtime_supported=true`
+- `live_provider_partition_discovery_runtime_supported=false`
+- `existing_local_emulator_write_recovery_evidence_present=true`
+- `existing_local_emulator_write_recovery_command=object-store-write-recovery-smoke`
+- `existing_local_emulator_write_recovery_certificate_id=gar-runtime-impl-6d.local_emulator_object_store_write_recovery.native_io`
+- `existing_local_emulator_write_recovery_claim_gate_status=fixture_smoke_only`
+- `local_emulator_write_recovery_runtime_supported=true`
+- `live_provider_write_recovery_runtime_supported=false`
 
 Every row carries `diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`,
 `claim_gate_status=not_claim_grade`, `allowed=false`, `data_read=false`,
 `object_store_io=false`, `write_io=false`, `fallback_attempted=false`,
 `fallback_execution_allowed=false`, and `external_engine_invoked=false`, plus a row-specific
-blocker ID and required-evidence list.
+blocker ID and required-evidence list. The blocker matrix continues to represent broad live/general
+object-store runtime promotion; the scoped local-emulator partition-discovery and write-recovery
+smokes are surfaced as fixture evidence and do not authorize live provider listing, live recovery,
+or production object-store commits.
 
 The runtime promotion gate also copies every blocker row into the typed output envelope diagnostics
 array as `severity=info`, `category=object_store`, `code=SL_OBJECT_STORE_UNSUPPORTED`, and
@@ -297,6 +331,43 @@ fallback. The separate local table append commit rehearsal below writes only a S
 local-manifest fixture artifact and does not upgrade this object-store smoke into table-format or
 cloud-provider support.
 
+Recovery replay for committed local-emulator objects is separate from the write command:
+
+```powershell
+shardloom object-store-write-recovery-smoke <local-object-path> --profile local-emulator [--idempotency-key key] --format json
+```
+
+The recovery smoke reads the committed local object and its
+`<local-object-path>.shardloom-commit.json` sidecar manifest, then verifies that the sidecar still
+matches the object. It does not stage or write objects during recovery and does not authorize live
+provider recovery.
+
+Successful local-emulator recovery rows emit:
+
+```text
+provider_profile=local-emulator
+object_store_write_recovery_status=recovered
+recovery_replay_status=recovered_local_emulator_sidecar
+commit_manifest_replay_status=recovered_local_emulator_sidecar
+target_digest_matched=true
+payload_digest_matched=true
+payload_bytes_matched=true
+target_path_matched=true
+commit_manifest_shape_matched=true
+idempotency_status=recovered_from_commit_manifest
+object_store_io=true
+object_store_read_io=true
+object_store_write_io=false
+write_io=false
+table_commit_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Missing objects, missing sidecars, digest mismatches, idempotency-key mismatches, remote URIs, and
+unsupported profiles fail with deterministic unsupported diagnostics and no credential, network,
+provider, fallback, or external-engine execution.
+
 ## GAR-RUNTIME-IMPL-4O Local Table Append Commit Rehearsal
 
 `GAR-RUNTIME-IMPL-4O` now admits one fixture-scoped table operation profile:
@@ -424,6 +495,10 @@ evidence before `range_read_execution`; range-read execution itself remains bloc
 - [x] The CLI emits machine-readable JSON fields for component statuses, request/task/retry/commit
       counts, required evidence, side-effect flags, diagnostics, and no-fallback status.
 - [x] Snapshot and contract tests assert the aggregate report is side-effect-free.
+- [x] Scoped local-emulator partition discovery is represented as fixture evidence while live
+      provider partition discovery remains blocked.
+- [x] Scoped local-emulator object-store write recovery is represented as fixture evidence while
+      live-provider recovery and production object-store commit semantics remain blocked.
 - [x] Future object-store read execution must update this report before enabling object-store IO.
 - [x] Future distributed execution must update this report before coordinator/worker/task execution.
 - [x] Future object-store commit execution must update this report before writes or

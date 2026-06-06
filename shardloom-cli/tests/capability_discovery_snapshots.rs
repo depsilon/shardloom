@@ -582,10 +582,11 @@ const EFFECTFUL_OPERATION_ADMISSION_FIELD_KEYS: [&str; 21] = [
     "effectful_operation_admission_external_engine_invoked",
 ];
 
-const EFFECTFUL_OPERATION_ADMISSION_ROW_IDS: [&str; 8] = [
+const EFFECTFUL_OPERATION_ADMISSION_ROW_IDS: [&str; 9] = [
     "local_sqlite_import_export",
     "typed_extension_manifest_inspection",
     "deterministic_scalar_udf_fixture",
+    "deterministic_embedding_vector_fixture",
     "network_database_connectors",
     "rest_flight_adbc_connectors",
     "python_udf",
@@ -2370,6 +2371,10 @@ fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
             "fixture_smoke_supported"
         )));
         assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_row_deterministic_embedding_vector_fixture_support_status",
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&string_field_pair(
             "effectful_operation_admission_row_network_database_connectors_support_status",
             "blocked"
         )));
@@ -2894,6 +2899,7 @@ fn assert_universal_compatibility_top_level_keys(output: &str) {
         "universal_compatibility_generated_output_python_row_order",
         "universal_compatibility_generated_output_sql_row_order",
         "universal_compatibility_generated_output_dataframe_row_order",
+        "universal_compatibility_generated_output_platform_row_order",
         "universal_compatibility_object_store_ladder_schema_version",
         "universal_compatibility_object_store_ladder_id",
         "universal_compatibility_object_store_ladder_row_order",
@@ -3022,14 +3028,14 @@ fn assert_runs_today_summary_fields(output: &str) {
             "runs_today_family_order",
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
-        ("runs_today_row_count", "33"),
-        ("runs_today_executable_row_count", "18"),
+        ("runs_today_row_count", "37"),
+        ("runs_today_executable_row_count", "22"),
         ("runs_today_feature_gated_row_count", "5"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
         ("runs_today_blocked_row_count", "5"),
         ("runs_today_future_row_count", "1"),
-        ("runs_today_cli_command_row_count", "8"),
+        ("runs_today_cli_command_row_count", "12"),
         ("runs_today_python_api_row_count", "5"),
         ("runs_today_input_format_row_count", "6"),
         ("runs_today_output_format_row_count", "3"),
@@ -3081,6 +3087,9 @@ fn assert_runs_today_row_states(output: &str) {
         ),
         ("cli_sqlite_local_import_export_smoke", "executable"),
         ("cli_udf_local_scalar_fixture_smoke", "executable"),
+        ("cli_pre_oom_memory_guard_smoke", "executable"),
+        ("cli_object_store_write_recovery_smoke", "executable"),
+        ("cli_local_table_commit_recovery_smoke", "executable"),
         ("python_status_capabilities", "diagnostic_only"),
         ("python_effectful_fixture_helpers", "executable"),
         ("input_sqlite_local_database_file", "executable"),
@@ -3118,8 +3127,21 @@ fn assert_runs_today_evidence_refs(output: &str) {
         "runs_today_row_input_parquet_arrow_avro_orc_evidence_refs",
         "feature_gated_sql_local_source_tests,vortex_ingest_smoke_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy"
     )));
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_cli_pre_oom_memory_guard_smoke_evidence_refs",
+        "pre_oom_memory_guard_smoke,cg14_memory_runtime_hardening_gate"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_cli_object_store_write_recovery_smoke_evidence_refs",
+        "object_store_write_smoke,object_store_write_recovery_smoke,python.tests.test_cli_client,cg10_object_store_runtime_gate"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_cli_local_table_commit_recovery_smoke_evidence_refs",
+        "local_table_append_commit_rehearsal_smoke,commit_execution_promotion_gate,python.tests.test_cli_client"
+    )));
 }
 
+#[allow(clippy::too_many_lines)]
 fn assert_generated_output_compatibility_fields(output: &str) {
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_contract_schema_version",
@@ -3127,7 +3149,11 @@ fn assert_generated_output_compatibility_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_order",
-        "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"
+        "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column,object_store_local_emulator_generated_output,object_store_live_provider_generated_output,foundry_style_generated_output,foundry_live_platform_generated_output"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_platform_row_order",
+        "object_store_local_emulator_generated_output,object_store_live_provider_generated_output,foundry_style_generated_output,foundry_live_platform_generated_output"
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_python_ctx_from_rows_support_status",
@@ -3185,6 +3211,38 @@ fn assert_generated_output_compatibility_fields(output: &str) {
         "universal_compatibility_generated_output_row_local_output_only_generated_source_posture_blocker_id",
         "gar-compat-1b.non_local_generated_output_blocked"
     )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_object_store_local_emulator_generated_output_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_object_store_local_emulator_generated_output_runtime_execution",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_object_store_live_provider_generated_output_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_object_store_live_provider_generated_output_blocker_id",
+        "gar-gen-1.object_store_generated_output_live_provider_blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_foundry_style_generated_output_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_foundry_style_generated_output_runtime_execution",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_foundry_live_platform_generated_output_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_foundry_live_platform_generated_output_blocker_id",
+        "gar-gen-1.foundry_generated_output_runtime_not_implemented"
+    )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_no_dataset_smoke_separate",
         true
@@ -3194,7 +3252,19 @@ fn assert_generated_output_compatibility_fields(output: &str) {
         false
     )));
     assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_object_store_local_emulator_runtime_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_foundry_runtime_supported",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_foundry_style_runtime_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_live_platform_api_supported",
         false
     )));
     assert!(output.contains(&field_pair(
@@ -4128,7 +4198,7 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     )));
     assert!(output.contains(&string_field_pair(
         "live_hybrid_fabric_gate_row_order",
-        "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"
+        "live_broker_adapter,live_durable_checkpoint_store,live_unbounded_scheduler,live_freshness_certificate,live_exactly_once_claim,live_hybrid_state_transition_fixture,hybrid_micro_segment_flush,hybrid_object_store_commit,hybrid_catalog_snapshot,baseline_oracle_boundary"
     )));
     assert!(output.contains(&string_field_pair(
         "live_hybrid_fabric_gate_blocked_row_count",
@@ -4136,7 +4206,7 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     )));
     assert!(output.contains(&string_field_pair(
         "live_hybrid_fabric_gate_fixture_smoke_row_count",
-        "1"
+        "2"
     )));
     assert!(output.contains(&field_pair(
         "live_hybrid_fabric_gate_freshness_claim_allowed",
@@ -4184,14 +4254,14 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
         "schema_version",
         "shardloom.workflow_capability_parity.v1"
     )));
-    assert!(workflow.contains(&string_field_pair("workflow_operation_count", "45")));
+    assert!(workflow.contains(&string_field_pair("workflow_operation_count", "65")));
     assert!(workflow.contains(&string_field_pair(
         "workflow_operation_names",
-        "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,with_column,group_by,agg,sort,limit,write_vortex,write_parquet,write_arrow_ipc,write_avro,write_orc,sql,sql_parse,sql_bind,sql_plan,sql_execute,sql_source_free_projection,dataframe_source_free_projection,dataframe_generated_with_column,object_store_generated_output,foundry_generated_output,join,aggregate,window,schema_contract,schema,describe_schema,validate_schema,data_quality,data_quality_summary,quarantine,preview,display,object_store_read,fallback_engine"
+        "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,with_column,group_by,agg,sort,limit,rename,drop,sample,explode,merge,concat,pivot,pivot_table,melt,rolling,tail,describe,nunique,value_counts,fillna,isna,notna,apply,map,map_rows,write_vortex,write_parquet,write_arrow_ipc,write_avro,write_orc,sql,sql_parse,sql_bind,sql_plan,sql_execute,sql_source_free_projection,dataframe_source_free_projection,dataframe_generated_with_column,object_store_generated_output,foundry_generated_output,join,aggregate,window,schema_contract,schema,describe_schema,validate_schema,data_quality,data_quality_summary,quarantine,preview,display,object_store_read,fallback_engine"
     )));
     assert!(workflow.contains(&string_field_pair(
         "blocker_ids",
-        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy"
+        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.rename.schema_rewrite_unsupported,cg21.workflow.drop.schema_projection_unsupported,cg21.workflow.sample.sampling_semantics_unsupported,cg21.workflow.explode.nested_expansion_unsupported,cg21.workflow.merge.join_alias_unsupported,cg21.workflow.concat.union_alignment_unsupported,cg21.workflow.pivot.reshape_semantics_unsupported,cg21.workflow.pivot_table.aggregate_reshape_unsupported,cg21.workflow.melt.reshape_semantics_unsupported,cg21.workflow.rolling.window_semantics_unsupported,cg21.workflow.tail.source_order_unsupported,cg21.workflow.describe.summary_statistics_unsupported,cg21.workflow.nunique.distinct_count_semantics_unsupported,cg21.workflow.value_counts.grouped_count_semantics_unsupported,cg21.workflow.fillna.null_fill_semantics_unsupported,cg21.workflow.isna.null_mask_semantics_unsupported,cg21.workflow.notna.null_mask_semantics_unsupported,cg21.workflow.apply.python_callable_unsupported,cg21.workflow.map.python_callable_unsupported,cg21.workflow.map_rows.python_callable_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy"
     )));
     assert!(workflow.contains(&string_field_pair("severity", "error")));
     assert!(workflow.contains(&field_pair("no_runtime", true)));
@@ -4251,11 +4321,11 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
     assert!(cross_cg.contains(&string_field_pair("severity", "error")));
     assert!(cross_cg.contains(&string_field_pair(
         "blocker_ids",
-        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy,cg22.engine.batch.workload_correctness_evidence,cg22.engine.batch.benchmark_evidence,cg22.engine.batch.broad_source_sink_certification,cg22.engine.live.external_broker_adapters,cg22.engine.live.durable_checkpoint_store,cg22.engine.live.unbounded_runtime_scheduler,cg22.engine.live.workload_correctness_evidence,cg22.engine.live.benchmark_evidence,cg22.engine.hybrid.durable_micro_segment_flush_writes,cg22.engine.hybrid.object_store_commit_protocol,cg22.engine.hybrid.external_catalog_snapshot_discovery,cg22.engine.hybrid.workload_correctness_evidence,cg22.engine.hybrid.benchmark_evidence,cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
+        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.rename.schema_rewrite_unsupported,cg21.workflow.drop.schema_projection_unsupported,cg21.workflow.sample.sampling_semantics_unsupported,cg21.workflow.explode.nested_expansion_unsupported,cg21.workflow.merge.join_alias_unsupported,cg21.workflow.concat.union_alignment_unsupported,cg21.workflow.pivot.reshape_semantics_unsupported,cg21.workflow.pivot_table.aggregate_reshape_unsupported,cg21.workflow.melt.reshape_semantics_unsupported,cg21.workflow.rolling.window_semantics_unsupported,cg21.workflow.tail.source_order_unsupported,cg21.workflow.describe.summary_statistics_unsupported,cg21.workflow.nunique.distinct_count_semantics_unsupported,cg21.workflow.value_counts.grouped_count_semantics_unsupported,cg21.workflow.fillna.null_fill_semantics_unsupported,cg21.workflow.isna.null_mask_semantics_unsupported,cg21.workflow.notna.null_mask_semantics_unsupported,cg21.workflow.apply.python_callable_unsupported,cg21.workflow.map.python_callable_unsupported,cg21.workflow.map_rows.python_callable_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy,cg22.engine.batch.workload_correctness_evidence,cg22.engine.batch.benchmark_evidence,cg22.engine.batch.broad_source_sink_certification,cg22.engine.live.external_broker_adapters,cg22.engine.live.durable_checkpoint_store,cg22.engine.live.unbounded_runtime_scheduler,cg22.engine.live.workload_correctness_evidence,cg22.engine.live.benchmark_evidence,cg22.engine.hybrid.durable_micro_segment_flush_writes,cg22.engine.hybrid.object_store_commit_protocol,cg22.engine.hybrid.external_catalog_snapshot_discovery,cg22.engine.hybrid.workload_correctness_evidence,cg22.engine.hybrid.benchmark_evidence,cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
     )));
     assert!(cross_cg.contains(&string_field_pair(
         "required_evidence",
-        "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy,workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol,openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report"
+        "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,source_order_semantics,summary_statistics_semantics,null_mask_semantics,python_callable_policy,no_fallback_policy,workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol,openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report"
     )));
     assert!(cross_cg.contains(&string_field_pair(
         "suggested_next_action",

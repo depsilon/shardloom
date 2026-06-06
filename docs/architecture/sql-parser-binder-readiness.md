@@ -38,6 +38,10 @@ important distinction is:
 - blocked broad SQL, catalog/CTE/set-operation, broad subquery, object-store/table SQL, and fallback
   engine paths.
 
+CTE syntax is an explicit parser-bound blocker. `WITH` and `WITH RECURSIVE` statements fail before
+bind, plan, runtime, source I/O, or fallback with requirements for `cte_plan_nodes`, catalog scope,
+recursive runtime policy, execution certificates, and no-fallback evidence.
+
 ## Contract Fields
 
 The workflow unsupported report keeps these fields explicit for broad SQL parser/binder/planner

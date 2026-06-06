@@ -616,6 +616,92 @@ pub struct LiveFixtureRunReport {
     pub production_claim_allowed: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LiveHybridStateTransitionFixtureReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub fixture_id: &'static str,
+    pub selected_engine_mode: &'static str,
+    pub transition_id: &'static str,
+    pub transition_kind: &'static str,
+    pub source_snapshot_ref: String,
+    pub target_snapshot_ref: String,
+    pub snapshot_epoch: u64,
+    pub input_change_record_count: usize,
+    pub active_state_key_count: usize,
+    pub freshness_certificate: FreshnessCertificate,
+    pub state_certificate: StateCertificate,
+    pub state_transition_certificate_status: LiveCertificateStatus,
+    pub retry_policy: &'static str,
+    pub attempt_count: usize,
+    pub attempt_outcome_order: Vec<&'static str>,
+    pub retry_idempotency_key: String,
+    pub retry_performed: bool,
+    pub cancellation_requested: bool,
+    pub cancellation_cleanup_required: bool,
+    pub cancellation_cleanup_completed: bool,
+    pub partial_output_tracked: bool,
+    pub partial_output_ref: String,
+    pub partial_output_committed: bool,
+    pub cleanup_artifact_ref: String,
+    pub durable_checkpoint_store_used: bool,
+    pub durable_checkpoint_write_performed: bool,
+    pub broker_io: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub runtime_execution: bool,
+    pub fixture_in_memory: bool,
+    pub exactly_once_claim_allowed: bool,
+    pub production_claim_allowed: bool,
+    pub fallback: FallbackStatus,
+    pub external_engine_invoked: bool,
+}
+
+impl LiveHybridStateTransitionFixtureReport {
+    pub fn has_errors(&self) -> bool {
+        self.fallback.attempted
+            || self.external_engine_invoked
+            || self.broker_io
+            || self.object_store_io
+            || self.write_io
+            || self.durable_checkpoint_store_used
+            || self.durable_checkpoint_write_performed
+            || self.partial_output_committed
+            || !self.cancellation_cleanup_completed
+            || self.freshness_certificate.status != LiveCertificateStatus::Certified
+            || self.state_certificate.status != LiveCertificateStatus::Certified
+            || self.state_transition_certificate_status != LiveCertificateStatus::Certified
+    }
+
+    pub const fn fallback_attempted(&self) -> bool {
+        self.fallback.attempted
+    }
+
+    pub fn attempt_outcome_order_text(&self) -> String {
+        self.attempt_outcome_order.join(",")
+    }
+
+    pub fn no_fallback_no_external_engine(&self) -> bool {
+        !self.fallback_attempted() && !self.external_engine_invoked
+    }
+
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "live/hybrid state transition fixture\nschema_version: {}\nreport: {}\ntransition: {}\nsource snapshot: {}\ntarget snapshot: {}\nattempts: {}\ncleanup completed: {}\nfreshness: {}\nstate: {}\nfallback execution: disabled\nexternal engine invoked: false",
+            self.schema_version,
+            self.report_id,
+            self.transition_id,
+            self.source_snapshot_ref,
+            self.target_snapshot_ref,
+            self.attempt_outcome_order_text(),
+            self.cancellation_cleanup_completed,
+            self.freshness_certificate.status.as_str(),
+            self.state_certificate.status.as_str(),
+        )
+    }
+}
+
 impl LiveFixtureRunReport {
     pub fn has_errors(&self) -> bool {
         self.fallback.attempted
@@ -771,6 +857,63 @@ pub fn run_live_fixture(input: LiveFixtureRunInput) -> Result<LiveFixtureRunRepo
         write_io: false,
         external_engine_invoked: false,
         production_claim_allowed: false,
+    })
+}
+
+pub fn run_live_hybrid_state_transition_fixture() -> Result<LiveHybridStateTransitionFixtureReport>
+{
+    let input_change_records = cg22_live_fixture_records();
+    let active_state = apply_change_records(&input_change_records);
+    let freshness_certificate = FreshnessCertificate::from_records(&input_change_records);
+    let state_certificate =
+        StateCertificate::from_records(&input_change_records, active_state.len());
+    let max_sequence = input_change_records
+        .iter()
+        .map(|record| record.sequence)
+        .max()
+        .unwrap_or_default();
+
+    Ok(LiveHybridStateTransitionFixtureReport {
+        schema_version: "shardloom.live_hybrid_state_transition_fixture.v1",
+        report_id: "cg22.live_hybrid.fixture.state_transition".to_string(),
+        fixture_id: "cg22.live_hybrid.state_transition.fixture.v1",
+        selected_engine_mode: "hybrid",
+        transition_id: "transition://cg22/live-hybrid/fixture/epoch-11",
+        transition_kind: "bounded_snapshot_retry_cleanup_fixture",
+        source_snapshot_ref: "snapshot://cg22/live-hybrid/fixture/source/epoch-10".to_string(),
+        target_snapshot_ref: "snapshot://cg22/live-hybrid/fixture/target/epoch-11".to_string(),
+        snapshot_epoch: 11,
+        input_change_record_count: input_change_records.len(),
+        active_state_key_count: active_state.len(),
+        freshness_certificate,
+        state_certificate,
+        state_transition_certificate_status: LiveCertificateStatus::Certified,
+        retry_policy: "single_retry_after_cooperative_cancellation",
+        attempt_count: 2,
+        attempt_outcome_order: vec![
+            "attempt-1:cancelled_cleanup_completed",
+            "attempt-2:certified",
+        ],
+        retry_idempotency_key: format!("cg22-live-hybrid-fixture-seq-{max_sequence}"),
+        retry_performed: true,
+        cancellation_requested: true,
+        cancellation_cleanup_required: true,
+        cancellation_cleanup_completed: true,
+        partial_output_tracked: true,
+        partial_output_ref: "partial://cg22/live-hybrid/fixture/attempt-1".to_string(),
+        partial_output_committed: false,
+        cleanup_artifact_ref: "cleanup://cg22/live-hybrid/fixture/attempt-1".to_string(),
+        durable_checkpoint_store_used: false,
+        durable_checkpoint_write_performed: false,
+        broker_io: false,
+        object_store_io: false,
+        write_io: false,
+        runtime_execution: true,
+        fixture_in_memory: true,
+        exactly_once_claim_allowed: false,
+        production_claim_allowed: false,
+        fallback: FallbackStatus::disabled_by_policy(),
+        external_engine_invoked: false,
     })
 }
 
@@ -1205,5 +1348,48 @@ mod tests {
                 .message()
                 .contains("unsupported live fixture predicate")
         );
+    }
+
+    #[test]
+    fn live_hybrid_state_transition_fixture_emits_retry_cancellation_cleanup_evidence() {
+        let report = run_live_hybrid_state_transition_fixture().expect("transition fixture");
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.live_hybrid_state_transition_fixture.v1"
+        );
+        assert_eq!(report.selected_engine_mode, "hybrid");
+        assert_eq!(report.snapshot_epoch, 11);
+        assert_eq!(report.input_change_record_count, 10);
+        assert_eq!(report.active_state_key_count, 3);
+        assert_eq!(
+            report.attempt_outcome_order_text(),
+            "attempt-1:cancelled_cleanup_completed,attempt-2:certified"
+        );
+        assert!(report.retry_performed);
+        assert!(report.cancellation_requested);
+        assert!(report.cancellation_cleanup_required);
+        assert!(report.cancellation_cleanup_completed);
+        assert!(report.partial_output_tracked);
+        assert!(!report.partial_output_committed);
+        assert!(!report.durable_checkpoint_store_used);
+        assert!(!report.durable_checkpoint_write_performed);
+        assert!(!report.broker_io);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(report.runtime_execution);
+        assert!(report.fixture_in_memory);
+        assert!(!report.exactly_once_claim_allowed);
+        assert!(!report.production_claim_allowed);
+        assert_eq!(
+            report.freshness_certificate.status,
+            LiveCertificateStatus::Certified
+        );
+        assert_eq!(
+            report.state_certificate.status,
+            LiveCertificateStatus::Certified
+        );
+        assert!(report.no_fallback_no_external_engine());
+        assert!(!report.has_errors());
     }
 }

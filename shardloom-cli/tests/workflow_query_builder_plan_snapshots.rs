@@ -194,6 +194,226 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let rename = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "rename",
+            "read_csv(events.csv)",
+            "amount=order_amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let drop = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "drop-columns",
+            "read_csv(events.csv)",
+            "unused",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let sample = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "sample",
+            "read_csv(events.csv)",
+            "n=5,seed=7",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let explode = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "explode",
+            "read_json(events.json)",
+            "items",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let merge = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "merge",
+            "read_csv(events.csv)",
+            "how=left;on=id;read_csv(dim.csv)",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let concat = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "concat",
+            "read_csv(events.csv)",
+            "axis=0;join=outer;read_csv(dim.csv)",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let pivot = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "pivot",
+            "read_csv(events.csv)",
+            "index=id;columns=label;values=amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let pivot_table = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "pivot-table",
+            "read_csv(events.csv)",
+            "index=id;columns=label;values=amount;aggfunc=sum",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let melt = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "melt",
+            "read_csv(events.csv)",
+            "id_vars=id;value_vars=amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let rolling = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "rolling",
+            "read_csv(events.csv)",
+            "window=3;center=false",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let tail = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "tail",
+            "read_csv(events.csv)",
+            "5",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let describe = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "describe",
+            "read_csv(events.csv)",
+            "columns=amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let nunique = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "nunique",
+            "read_csv(events.csv)",
+            "columns=customer_id;dropna=true",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let value_counts = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "value-counts",
+            "read_csv(events.csv)",
+            "columns=label;sort=true;dropna=true",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let fillna = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "fillna",
+            "read_csv(events.csv)",
+            "value={amount=0}",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let isna = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "isna",
+            "read_csv(events.csv)",
+            "columns=amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let notna = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "notna",
+            "read_csv(events.csv)",
+            "columns=amount",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let apply = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "apply",
+            "read_csv(events.csv)",
+            "callable=row_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let map = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "map",
+            "read_csv(events.csv)",
+            "callable=value_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let map_rows = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "map-rows",
+            "read_csv(events.csv)",
+            "callable=row_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
     let sql = run_command_json(
         &[
             "workflow-unsupported-plan",
@@ -359,6 +579,26 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &agg,
         &sort,
         &limit,
+        &rename,
+        &drop,
+        &sample,
+        &explode,
+        &merge,
+        &concat,
+        &pivot,
+        &pivot_table,
+        &melt,
+        &rolling,
+        &tail,
+        &describe,
+        &nunique,
+        &value_counts,
+        &fillna,
+        &isna,
+        &notna,
+        &apply,
+        &map,
+        &map_rows,
         &sql,
         &sql_parse,
         &sql_bind,
@@ -457,6 +697,130 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(limit.contains(&field(
         "blocker_id",
         "cg21.workflow.limit.execution_uncertified"
+    )));
+    assert!(rename.contains(&field("workflow_operation", "rename")));
+    assert!(rename.contains(&field("workflow_surface", "dataframe_schema_transform")));
+    assert!(rename.contains(&field(
+        "blocker_id",
+        "cg21.workflow.rename.schema_rewrite_unsupported"
+    )));
+    assert!(rename.contains(&field("target_ref", "amount=order_amount")));
+    assert!(rename.contains(&field("diagnostic_code", "SL_NOT_IMPLEMENTED")));
+    assert!(drop.contains(&field("workflow_operation", "drop")));
+    assert!(drop.contains(&field(
+        "blocker_id",
+        "cg21.workflow.drop.schema_projection_unsupported"
+    )));
+    assert!(drop.contains(&field("target_ref", "unused")));
+    assert!(sample.contains(&field("workflow_operation", "sample")));
+    assert!(sample.contains(&field(
+        "blocker_id",
+        "cg21.workflow.sample.sampling_semantics_unsupported"
+    )));
+    assert!(sample.contains(&field("target_ref", "n=5,seed=7")));
+    assert!(explode.contains(&field("workflow_operation", "explode")));
+    assert!(explode.contains(&field(
+        "blocker_id",
+        "cg21.workflow.explode.nested_expansion_unsupported"
+    )));
+    assert!(explode.contains(&field("target_ref", "items")));
+    assert!(merge.contains(&field("workflow_operation", "merge")));
+    assert!(merge.contains(&field("workflow_surface", "dataframe_join_alias")));
+    assert!(merge.contains(&field(
+        "blocker_id",
+        "cg21.workflow.merge.join_alias_unsupported"
+    )));
+    assert!(merge.contains(&field("target_ref", "how=left;on=id;read_csv(dim.csv)")));
+    assert!(merge.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+    assert!(concat.contains(&field("workflow_operation", "concat")));
+    assert!(concat.contains(&field(
+        "blocker_id",
+        "cg21.workflow.concat.union_alignment_unsupported"
+    )));
+    assert!(concat.contains(&field("target_ref", "axis=0;join=outer;read_csv(dim.csv)")));
+    assert!(pivot.contains(&field("workflow_operation", "pivot")));
+    assert!(pivot.contains(&field(
+        "blocker_id",
+        "cg21.workflow.pivot.reshape_semantics_unsupported"
+    )));
+    assert!(pivot.contains(&field("target_ref", "index=id;columns=label;values=amount")));
+    assert!(pivot_table.contains(&field("workflow_operation", "pivot_table")));
+    assert!(pivot_table.contains(&field(
+        "blocker_id",
+        "cg21.workflow.pivot_table.aggregate_reshape_unsupported"
+    )));
+    assert!(pivot_table.contains(&field(
+        "target_ref",
+        "index=id;columns=label;values=amount;aggfunc=sum"
+    )));
+    assert!(melt.contains(&field("workflow_operation", "melt")));
+    assert!(melt.contains(&field(
+        "blocker_id",
+        "cg21.workflow.melt.reshape_semantics_unsupported"
+    )));
+    assert!(melt.contains(&field("target_ref", "id_vars=id;value_vars=amount")));
+    assert!(rolling.contains(&field("workflow_operation", "rolling")));
+    assert!(rolling.contains(&field(
+        "blocker_id",
+        "cg21.workflow.rolling.window_semantics_unsupported"
+    )));
+    assert!(rolling.contains(&field("target_ref", "window=3;center=false")));
+    assert!(rolling.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
+    assert!(tail.contains(&field("workflow_operation", "tail")));
+    assert!(tail.contains(&field(
+        "blocker_id",
+        "cg21.workflow.tail.source_order_unsupported"
+    )));
+    assert!(tail.contains(&field("target_ref", "5")));
+    assert!(tail.contains("\"code\":\"SL_MATERIALIZATION_REQUIRED\""));
+    assert!(describe.contains(&field("workflow_operation", "describe")));
+    assert!(describe.contains(&field(
+        "blocker_id",
+        "cg21.workflow.describe.summary_statistics_unsupported"
+    )));
+    assert!(describe.contains(&field("target_ref", "columns=amount")));
+    assert!(nunique.contains(&field("workflow_operation", "nunique")));
+    assert!(nunique.contains(&field(
+        "blocker_id",
+        "cg21.workflow.nunique.distinct_count_semantics_unsupported"
+    )));
+    assert!(nunique.contains(&field("target_ref", "columns=customer_id;dropna=true")));
+    assert!(value_counts.contains(&field("workflow_operation", "value_counts")));
+    assert!(value_counts.contains(&field(
+        "blocker_id",
+        "cg21.workflow.value_counts.grouped_count_semantics_unsupported"
+    )));
+    assert!(value_counts.contains(&field("target_ref", "columns=label;sort=true;dropna=true")));
+    assert!(fillna.contains(&field("workflow_operation", "fillna")));
+    assert!(fillna.contains(&field(
+        "blocker_id",
+        "cg21.workflow.fillna.null_fill_semantics_unsupported"
+    )));
+    assert!(isna.contains(&field("workflow_operation", "isna")));
+    assert!(isna.contains(&field(
+        "blocker_id",
+        "cg21.workflow.isna.null_mask_semantics_unsupported"
+    )));
+    assert!(notna.contains(&field("workflow_operation", "notna")));
+    assert!(notna.contains(&field(
+        "blocker_id",
+        "cg21.workflow.notna.null_mask_semantics_unsupported"
+    )));
+    assert!(apply.contains(&field("workflow_operation", "apply")));
+    assert!(apply.contains(&field(
+        "blocker_id",
+        "cg21.workflow.apply.python_callable_unsupported"
+    )));
+    assert!(apply.contains("\"code\":\"SL_UNSUPPORTED_EFFECT\""));
+    assert!(map.contains(&field("workflow_operation", "map")));
+    assert!(map.contains(&field(
+        "blocker_id",
+        "cg21.workflow.map.python_callable_unsupported"
+    )));
+    assert!(map_rows.contains(&field("workflow_operation", "map_rows")));
+    assert!(map_rows.contains(&field(
+        "blocker_id",
+        "cg21.workflow.map_rows.python_callable_unsupported"
     )));
     assert!(sql.contains(&field("workflow_operation", "sql")));
     assert!(sql.contains(&field(

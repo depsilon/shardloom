@@ -31,7 +31,7 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=121
+matrix_row_count=123
 executable_fixture_count=99
 diagnostic_case_count=22
 unsupported_diagnostic_count=20
@@ -72,6 +72,8 @@ Covered fixture rows:
 - `complex_array_literal_projection`
 - `complex_struct_source_projection`
 - `complex_csv_output_projection`
+- `nested_arrow_ipc_source_projection`
+- `typed_nested_compatibility_sink_preservation`
 - `complex_distinct_projection_equality`
 - `complex_order_by_projection`
 - `sql_union_complex_distinct_equality`
@@ -201,10 +203,17 @@ literal projection and `STRUCT(<source column>, ...)` projection are executable 
 result boundary and local CSV JSON-text output cells. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
 over those already-materialized ARRAY/STRUCT projection values are executable through structural
 result-row equality, and scoped `ORDER BY` over those complex projection values is executable
-through canonical structural result-boundary sort keys. Nested source decoding, broad ANSI nested
-ordering, complex subquery membership materialization, complex-key joins, broader non-scalar join
-predicates, and typed structured nested sink persistence beyond CSV JSON text remain outside the
-claim boundary.
+through canonical structural result-boundary sort keys. Feature-gated local structured source
+decoding now admits Arrow list/large-list/fixed-size-list and struct arrays into ShardLoom
+`ScalarValue::List` / `ScalarValue::Struct` values through the JSONL result boundary and local CSV
+JSON-text output cells, with Arrow IPC CLI smoke evidence and shared materializer coverage for the
+admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad ANSI
+nested ordering, nested accessors/casts, complex subquery membership materialization, complex-key
+joins, broader non-scalar join predicates, ORC nested output, and Vortex nested output remain
+outside the claim boundary. All-null typed nested sink columns without child-schema evidence fail
+closed with `typed_complex_child_schema_not_admitted` before structured writer conversion.
+Feature-gated Parquet/Arrow IPC/Avro typed nested compatibility sinks are admitted only when one
+stable Arrow nested dtype can be inferred from non-null `List` / `Struct` values.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact

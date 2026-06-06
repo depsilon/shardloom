@@ -837,6 +837,26 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "agg" => Some(workflow_unsupported_agg()),
         "sort" | "order-by" | "order_by" => Some(workflow_unsupported_sort()),
         "limit" => Some(workflow_unsupported_limit()),
+        "rename" | "rename-columns" | "rename_columns" => Some(workflow_unsupported_rename()),
+        "drop" | "drop-columns" | "drop_columns" => Some(workflow_unsupported_drop()),
+        "sample" => Some(workflow_unsupported_sample()),
+        "explode" => Some(workflow_unsupported_explode()),
+        "merge" => Some(workflow_unsupported_merge()),
+        "concat" => Some(workflow_unsupported_concat()),
+        "pivot" => Some(workflow_unsupported_pivot()),
+        "pivot-table" | "pivot_table" => Some(workflow_unsupported_pivot_table()),
+        "melt" | "unpivot" => Some(workflow_unsupported_melt()),
+        "rolling" => Some(workflow_unsupported_rolling()),
+        "tail" => Some(workflow_unsupported_tail()),
+        "describe" => Some(workflow_unsupported_describe()),
+        "nunique" => Some(workflow_unsupported_nunique()),
+        "value-counts" | "value_counts" => Some(workflow_unsupported_value_counts()),
+        "fillna" | "fill-null" | "fill_null" => Some(workflow_unsupported_fillna()),
+        "isna" | "isnull" | "is-null" | "is_null" => Some(workflow_unsupported_isna()),
+        "notna" | "notnull" | "not-null" | "not_null" => Some(workflow_unsupported_notna()),
+        "apply" => Some(workflow_unsupported_apply()),
+        "map" => Some(workflow_unsupported_map()),
+        "map-rows" | "map_rows" => Some(workflow_unsupported_map_rows()),
         "write-vortex" => Some(workflow_unsupported_write_vortex()),
         "write-parquet" => Some(workflow_unsupported_write_parquet()),
         "write-arrow-ipc" | "write-arrow" | "write-ipc" => {
@@ -1200,6 +1220,326 @@ fn workflow_unsupported_limit() -> WorkflowUnsupportedOperation {
         required_evidence: "limit_operator_capability,execution_certificate,benchmark_row,materialization_boundary",
         suggested_next_action: "Limit can appear in lazy plan summaries, but execution claims require certificate-backed runtime evidence.",
         diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_rename() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "rename",
+        label: "DataFrame column rename",
+        surface: "dataframe_schema_transform",
+        feature: "cg21.workflow.rename",
+        blocker_id: "cg21.workflow.rename.schema_rewrite_unsupported",
+        required_evidence: "schema_rewrite_semantics,projection_alias_contract,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit select aliases where scoped projection evidence exists; broad DataFrame rename requires schema rewrite evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_drop() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "drop",
+        label: "DataFrame column drop",
+        surface: "dataframe_schema_transform",
+        feature: "cg21.workflow.drop",
+        blocker_id: "cg21.workflow.drop.schema_projection_unsupported",
+        required_evidence: "schema_discovery,projection_rewrite_semantics,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit select(...) projections for admitted columns; broad drop(...) requires schema-aware projection rewrite evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sample() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sample",
+        label: "DataFrame sampling",
+        surface: "dataframe_sampling",
+        feature: "cg21.workflow.sample",
+        blocker_id: "cg21.workflow.sample.sampling_semantics_unsupported",
+        required_evidence: "sampling_semantics,deterministic_seed_policy,semantic_conformance_suite,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use deterministic limit/order evidence where applicable; random or fraction sampling needs native sampling semantics before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_explode() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "explode",
+        label: "DataFrame nested/list explode",
+        surface: "dataframe_nested_transform",
+        feature: "cg21.workflow.explode",
+        blocker_id: "cg21.workflow.explode.nested_expansion_unsupported",
+        required_evidence: "nested_type_semantics,list_expansion_operator,semantic_conformance_suite,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Keep nested/list expansion as an explicit blocker until native nested semantics and conformance fixtures are certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_merge() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "merge",
+        label: "DataFrame merge",
+        surface: "dataframe_join_alias",
+        feature: "cg21.workflow.merge",
+        blocker_id: "cg21.workflow.merge.join_alias_unsupported",
+        required_evidence: "join_alias_semantics,key_resolution_contract,join_operator_capability,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped join(...) only where local runtime evidence exists; broad pandas-style merge requires key inference, suffix, alias, and no-fallback evidence before execution.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_concat() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "concat",
+        label: "DataFrame concat",
+        surface: "dataframe_union_concat",
+        feature: "cg21.workflow.concat",
+        blocker_id: "cg21.workflow.concat.union_alignment_unsupported",
+        required_evidence: "schema_alignment_contract,set_operation_semantics,axis_semantics,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped union/union_all only where both inputs lower to admitted local-source SQL; broad concat needs axis and schema-alignment evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_pivot() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "pivot",
+        label: "DataFrame pivot",
+        surface: "dataframe_reshape",
+        feature: "cg21.workflow.pivot",
+        blocker_id: "cg21.workflow.pivot.reshape_semantics_unsupported",
+        required_evidence: "reshape_semantics,grouping_key_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Keep pivot as an explicit reshape blocker until key cardinality, output schema, materialization, and no-fallback evidence are certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_pivot_table() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "pivot_table",
+        label: "DataFrame pivot table",
+        surface: "dataframe_aggregate_reshape",
+        feature: "cg21.workflow.pivot_table",
+        blocker_id: "cg21.workflow.pivot_table.aggregate_reshape_unsupported",
+        required_evidence: "aggregate_reshape_semantics,aggregate_operator_capability,grouping_key_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped aggregate/group_by only where evidence exists; aggregate reshape requires native pivot-table semantics and no-fallback evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_melt() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "melt",
+        label: "DataFrame melt",
+        surface: "dataframe_reshape",
+        feature: "cg21.workflow.melt",
+        blocker_id: "cg21.workflow.melt.reshape_semantics_unsupported",
+        required_evidence: "unpivot_semantics,schema_alignment_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Keep melt/unpivot as an explicit reshape blocker until native unpivot semantics and materialization evidence are certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_rolling() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "rolling",
+        label: "DataFrame rolling window",
+        surface: "dataframe_window",
+        feature: "cg21.workflow.rolling",
+        blocker_id: "cg21.workflow.rolling.window_semantics_unsupported",
+        required_evidence: "window_frame_semantics,ordering_contract,window_operator_capability,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped window(...) only for admitted SQL window projections; rolling DataFrame windows require native frame semantics and no-fallback evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_tail() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "tail",
+        label: "DataFrame tail",
+        surface: "dataframe_row_inspection",
+        feature: "cg21.workflow.tail",
+        blocker_id: "cg21.workflow.tail.source_order_unsupported",
+        required_evidence: "source_order_semantics,reverse_scan_or_stable_ordering,materialization_boundary,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped head/preview for bounded source-order inspection; tail requires stable source ordering or reverse-scan evidence before execution.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_describe() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "describe",
+        label: "DataFrame summary statistics",
+        surface: "dataframe_summary_statistics",
+        feature: "cg21.workflow.describe",
+        blocker_id: "cg21.workflow.describe.summary_statistics_unsupported",
+        required_evidence: "summary_statistics_semantics,numeric_dtype_policy,null_semantics,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use schema(), describe_schema(), data_quality_summary(), or profile() for scoped reports; pandas-style describe requires native summary-statistics semantics.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_nunique() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "nunique",
+        label: "DataFrame distinct count",
+        surface: "dataframe_summary_statistics",
+        feature: "cg21.workflow.nunique",
+        blocker_id: "cg21.workflow.nunique.distinct_count_semantics_unsupported",
+        required_evidence: "distinct_count_semantics,dropna_policy,aggregate_operator_capability,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit count_distinct(...) aggregates where scoped SQL evidence exists; pandas-style nunique requires axis/dropna/result-shape evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_value_counts() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "value_counts",
+        label: "DataFrame value counts",
+        surface: "dataframe_summary_statistics",
+        feature: "cg21.workflow.value_counts",
+        blocker_id: "cg21.workflow.value_counts.grouped_count_semantics_unsupported",
+        required_evidence: "grouped_count_semantics,dropna_policy,ordering_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit group_by(...).count() where scoped runtime evidence exists; pandas-style value_counts needs null, ordering, and result-shape evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_fillna() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "fillna",
+        label: "DataFrame fill nulls",
+        surface: "dataframe_null_transform",
+        feature: "cg21.workflow.fillna",
+        blocker_id: "cg21.workflow.fillna.null_fill_semantics_unsupported",
+        required_evidence: "null_fill_semantics,dtype_coercion_policy,projection_rewrite_semantics,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit column expressions where scoped fill_null evidence exists; broad fillna requires dtype and schema rewrite evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_isna() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "isna",
+        label: "DataFrame null mask",
+        surface: "dataframe_null_mask",
+        feature: "cg21.workflow.isna",
+        blocker_id: "cg21.workflow.isna.null_mask_semantics_unsupported",
+        required_evidence: "null_mask_semantics,three_valued_logic_policy,projection_result_shape,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit column predicates where scoped null semantics exist; DataFrame-wide null masks require result-shape evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_notna() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "notna",
+        label: "DataFrame non-null mask",
+        surface: "dataframe_null_mask",
+        feature: "cg21.workflow.notna",
+        blocker_id: "cg21.workflow.notna.null_mask_semantics_unsupported",
+        required_evidence: "not_null_mask_semantics,three_valued_logic_policy,projection_result_shape,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use explicit column predicates where scoped null semantics exist; DataFrame-wide non-null masks require result-shape evidence before execution.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_apply() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "apply",
+        label: "DataFrame Python apply",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.apply",
+        blocker_id: "cg21.workflow.apply.python_callable_unsupported",
+        required_evidence: "python_callable_policy,udf_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom expressions or registered UDF plans; Python apply cannot execute without explicit callable, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_map() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "map",
+        label: "DataFrame Python map",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.map",
+        blocker_id: "cg21.workflow.map.python_callable_unsupported",
+        required_evidence: "python_callable_policy,elementwise_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom expressions or registered UDF plans; Python map cannot execute without explicit callable, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_map_rows() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "map_rows",
+        label: "DataFrame row-wise Python map",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.map_rows",
+        blocker_id: "cg21.workflow.map_rows.python_callable_unsupported",
+        required_evidence: "python_callable_policy,row_udf_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom expressions or registered UDF plans; row-wise Python maps require explicit schema, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
         materialization_required: false,
         write_required: false,
         runtime_required: true,

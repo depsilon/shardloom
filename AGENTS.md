@@ -73,7 +73,8 @@ Before making implementation changes:
 1. Read the relevant skill documents in `docs/skills`.
 2. Confirm the change does not violate the no-fallback policy.
 3. Confirm Vortex-native input/output is preserved where relevant.
-4. Keep the change small and reviewable.
+4. Choose the largest cohesive phase-plan work unit that can be grounded, implemented, validated,
+   and explained cleanly.
 5. Do not publish packages or create releases.
 
 After making implementation changes:
@@ -154,7 +155,13 @@ ShardLoom's active implementation and cleanup queue is tracked in
 
 Do not overbuild.
 
-Prefer small pull requests that establish clear contracts:
+Do not default to small/sliver branches or PRs. Prefer cohesive, meaningful PRs that close an
+entire phase-plan item, runtime family, cleanup batch, or benchmark/release-evidence section when
+the shared context and validation surface are the same. Split work only when there is a concrete
+safety, dependency, generated-artifact, or verification boundary that would make one PR harder to
+review or trust.
+
+Cohesive PRs should still establish clear contracts:
 
 - No-fallback execution policy.
 - Vortex-native input/output contract.
@@ -461,7 +468,7 @@ Before proposing next implementation work:
 - Do not treat synthetic spill payload support as query/Vortex data spill permission.
 - Attach cross-cutting epic obligations to the current phase.
 - Reviews should happen at phase boundaries or when entering a new behavior class, not after every
-  small PR.
+  minor adjustment.
 
 
 ## Competitive engine roadmap

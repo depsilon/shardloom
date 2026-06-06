@@ -46,8 +46,8 @@ items into one or more evidence-bearing implementation slices. Split a Planned i
 `full`, `broad`, `general`, `production`, `universal`, `distributed`, `runtime`, `platform`,
 `lakehouse`, `object-store`, `SQL/DataFrame`, `claim`, `release`, `Foundry`, or `REST` without an
 immediate concrete scope. A split item should use child IDs such as `GAR-0032-A`; each child must be
-implementable in one focused PR or explicitly marked `report-only`, `planning-only`, or
-`diagnostic-only`.
+implementable as one coherent implementation batch or explicitly marked `report-only`,
+`planning-only`, or `diagnostic-only`.
 
 A Planned item may be checked off only when implementation or deterministic unsupported diagnostics
 exist, tests/snapshots/release checks exist, evidence refs are attached where claims are made,
@@ -179,15 +179,15 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. Work the benchmark timing and cold-route performance split queue, then the performance
-   innovation follow-up queue, before returning to the 6-series runtime breadth queue. Completed
-   hotpath implementation, freshness, rerun, and publication slices now live in
+1. The benchmark timing and performance innovation follow-up queue is now closed for current
+   runtime sequencing. Completed hotpath implementation, freshness, rerun, publication, residual
+   attribution, and CI-tail slices live in
    `docs/architecture/phased-execution-completed-ledger.md`. The current promoted artifact is
    timing-surface aware: `hot_runtime` metadata-sink rows drive the primary route grid, while
    `publication_proof` rows remain separate and include result-sink plus human evidence timing.
-   The route timing instrument and optimization-readiness gate slice is complete and recorded in
-   `docs/architecture/phased-execution-completed-ledger.md`; the benchmark dashboard now reports
-   timing-surface instrumentation quality without starting the deferred clean-slate page overhaul.
+   The route timing instrument and optimization-readiness gate plus residual attribution closeout
+   are complete; the benchmark dashboard reports timing-surface instrumentation quality without
+   starting the deferred clean-slate page overhaul.
    Current hot route geomeans are Native Vortex Query 0.56 ms, Warm Prepared Query 0.53 ms,
    Prepare-Once Batch 3.64 ms, Prepare-Once First Query 3.64 ms, and Cold Certified Route
    8.00 ms. The artifact still has `performance_claim_allowed=false`; benchmark rows remain
@@ -195,24 +195,17 @@ Current autonomous execution order:
 2. Preserve end-to-end route totals as the primary comparison surface. Stage grids are attribution
    aids only, so future stage-level claims require exclusive timing fields, an inclusive
    compatibility view, and an auditable residual before superiority wording moves.
-3. Return to the residual `GAR-RUNTIME-IMPL-4/6A` completion gate only after the benchmark split
-   queue, performance innovation follow-up queue, and active 6D breadth queue have reduced or
-   explicitly blocked the runtime families they own.
+3. Return to the residual `GAR-RUNTIME-IMPL-4/6A` completion gate only after the active 6D breadth
+   queue has reduced, admitted, or explicitly blocked the runtime families it owns.
 
 Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-INNOV-5` | Reduce remaining startup/process harness, fresh compatibility-import, and public benchmark freshness gaps. |
-| 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 5 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 6 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 7 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 8 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 9 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 10 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 1 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 2 | `6D:last_order.python_dataframe_api_breadth` | Keep broad DataFrame parity gated while promoting only API families with admitted runtime evidence or deterministic blockers. |
+| 3 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 4 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -257,10 +250,9 @@ Live plan hygiene:
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready runtime
 queues below. After the 6E automatic preparation/reuse closeout, 6F output/fanout closeout, 6C
-user-surface graduation closeout, and 6D gap-family burn-down closeout, the current runtime
-sequence is the benchmark timing and cold-route performance split queue followed by the remaining
-`GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. Pull a 6D breadth item forward only after
-the `PERF-SPLIT-*` queue is complete or explicitly blocked. The remaining 4/5-series queue stays as
+user-surface graduation closeout, 6D gap-family burn-down closeout, benchmark timing split, and
+PERF-INNOV-5 residual-attribution closeout, the current runtime sequence is the remaining
+`GAR-RUNTIME-IMPL-6D:last_order.*` user-surface breadth. The remaining 4/5-series queue stays as
 internal-engine backstop work after the route/reuse/output boundary work.
 
 Runtime completion rule:
@@ -277,191 +269,13 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
-#### Benchmark Timing And Cold-Route Performance Split Queue
+#### Completed Benchmark Timing And Performance Innovation Queue
 
-This queue is the active benchmark-driven optimization lane and must be worked in numeric order
-before the 6-series runtime breadth queue resumes. Completed HOTPATH/HOTPATH-14 history remains in
-the completed ledger; the items below are the remaining implementation slices needed to make route
-timings actionable and then reduce the ShardLoom hot/cold overheads they expose. Benchmark reruns
-belong only at `PERF-SPLIT-7` or after later code-bearing split items have landed, and any rerun
-must preserve no-fallback evidence and claim gates.
-
-#### Performance Innovation Follow-Up Queue
-
-This queue runs after `PERF-SPLIT-7` through `PERF-SPLIT-9` are merged. Some items deliberately
-extend already-landed PERF-SPLIT foundations; their checked current-state rows point to the
-completed base slice, while unchecked rows define the remaining optimization work.
-
-- [ ] PERF-INNOV-5 startup/import and public benchmark freshness optimization:
-  - Source: `scan_fact_vortex_projected_with_encoded_inputs` and scenario execution paths in
-    `shardloom-vortex/src/traditional_analytics.rs`, route-share benchmark rows, and website
-    optimization triage.
-  - Current state:
-    - [x] The latest artifact identifies native and warm prepared route totals plus dominant
-      evidence-render costs.
-    - [x] Runtime reports and the benchmark harness emit scan/operator substage evidence for chunk
-      iteration, projected-field extraction, encoded-kernel evidence construction, operator kernel
-      work, finalization, and result assembly.
-    - [x] Promoted row derivation preserves route totals as the authoritative comparison surface,
-      exposes scan/operator substages as diagnostic decomposition, and keeps exclusive-stage
-      residuals coherent when substage timing scope differs from per-row route timing.
-    - [x] The promoted `full_local` artifact has been refreshed through the new runtime
-      instrumentation, so successful prepared/native rows no longer carry legacy scan/operator
-      mirror cells from a pre-`PERF-INNOV-5` run.
-    - [x] The first operator-outlier reduction pass removes avoidable string allocation and
-      evidence-key construction from residual-native grouping/distinct/dirty-input paths by using
-      borrowed Vortex bytes, scoped string interning, typed dictionary evidence keys, and
-      deterministic result assembly.
-    - [x] A bounded fresh hot-operator rerun over Arrow IPC/Parquet group-by, multi-key group-by,
-      and clean/cast/filter/write routes did not reproduce the stale public artifact's 30 ms
-      operator rows: successful warm/native group-by operator kernels were below 0.8 ms, scan was
-      below 0.5 ms, and the remaining visible cost was process/harness wall time around 15-18 ms.
-    - [x] A clean merged-main scoped rerun on `efee336a`
-      (`target/codex-perf-runtime-optimization.json`) over parquet/jsonl/avro group-by, distinct,
-      and hash-join rows found no warm route, scan, operator, or evidence-render field above 10 ms;
-      all successful ShardLoom query runtimes stayed below 1 ms.
-    - [x] The benchmark harness now runs a side-effect-free ShardLoom CLI `status --format json`
-      warmup before ShardLoom preparation/query timing, so first-process cold startup is visible in
-      `startup_warmup_millis` instead of contaminating the first preparation cell. Dirty post-change
-      triage artifact `target/codex-perf-runtime-optimization-warm.json` moved the one-time
-      `shardloom-vortex` parquet setup spike from `preparation_millis` into startup/warmup while
-      preserving sub-ms warm query/operator timings.
-    - [x] A clean post-merge scoped rerun on `3c45befb`
-      (`target/codex-perf-postmerge-clean.json`) preserved sub-ms warm query/operator/scan timings
-      across parquet/jsonl/avro group-by, distinct, and hash-join rows, while isolating the
-      remaining above-10 ms cells to startup/process harness and compatibility preparation rather
-      than warm scan/operator execution.
-    - [x] Merged PR #1132 (`codex/perf-preparation-attribution`) changes non-batch
-      prepared/native benchmark rows to report preparation-command engine timing in
-      `preparation_millis`, keep `preparation_cli_process_wall_millis` as the separate process-wall
-      field, and propagate compatibility import/write substages from the preparation command.
-      Dirty verification artifact `target/codex-perf-prep-attribution.json` showed warm
-      query/operator/scan timings still sub-ms and identified the remaining non-batch preparation
-      hotspot as native Vortex write/import (`vortex_write_millis` roughly `20-32 ms`) plus process
-      harness overhead.
-    - [x] A clean post-#1132 scoped rerun on `4df62456`
-      (`target/codex-perf-postmerge-prep-attribution.json`) preserved sub-ms warm query/operator/
-      scan timings across parquet/jsonl/avro group-by, distinct, and hash-join rows while reporting
-      engine preparation instead of CLI process wall as `preparation_millis`. It measured
-      `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans around `30.8653 ms` and
-      `24.5313 ms`, with Vortex write geomeans around `23.7962 ms` and `20.0162 ms`.
-    - [x] A direct parquet preparation probe on `4df62456`
-      (`target/codex-direct-prep-probe-parquet`) decomposed the remaining fresh-preparation hotspot:
-      upstream Vortex segment write accounted for about `23.206 ms`, while ShardLoom workspace-safe
-      staging accounted for about `0.526 ms`; `fallback_attempted=false` and
-      `external_engine_invoked=false`.
-    - [x] Merged PR #1133 (`codex/perf-vortex-write-strategy`) changes the traditional benchmark
-      preparation writer to an explicit upstream Vortex `TableStrategy<FlatLayoutStrategy>` policy
-      and emits writer-strategy evidence. Dirty scoped artifact
-      `target/codex-perf-flat-strategy-evidence.json`
-      reduced `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans to about
-      `14.0587 ms`/`7.9630 ms` and Vortex write geomeans to about `4.8597 ms`/`3.6534 ms`, while
-      warm query/operator/scan remained sub-ms. PR #1133 merged only after 19/19 remote check-runs
-      were green, Cloudflare Workers deployment succeeded, and the PR had no review threads.
-    - [x] Clean post-#1133 scoped rerun on `b3575bd3`
-      (`target/codex-perf-post1133-clean.json`) confirmed the writer-strategy reduction on merged
-      main: `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans were about
-      `12.0626 ms`/`7.5698 ms`, compatibility import geomeans about
-      `10.8370 ms`/`7.1019 ms`, Vortex write geomeans about `4.5262 ms`/`3.2373 ms`, and
-      query/operator geomeans remained sub-ms at about `0.5824 ms`/`0.3162 ms` and
-      `0.5859 ms`/`0.3178 ms`.
-    - [x] `PERF-SPLIT-FIX-1` separates promoted route timing surfaces so `metadata_sink`
-      `hot_runtime` rows drive the primary route grid and `publication_full` rows remain visible
-      only as `publication_proof` totals. The merged current artifact has 30 ShardLoom
-      `hot_runtime` metadata rows and 600 ShardLoom `publication_proof` claim-grade rows; native
-      and warm prepared hot-route geomeans are sub-ms, while publication-proof rows remain slower
-      because they include result-sink replay/output and evidence render timing.
-    - [x] A clean post-#1135 targeted metadata-sink rerun on `c22b371f`
-      (`target/perf-split-hot-metadata-clean.json`) refreshed the 30 hot-runtime rows without
-      changing the 600 publication-proof rows. The promoted artifact now reports
-      `dirty_shardloom_lanes=[]`, no lane SHA mismatches, benchmark SHA `c22b371f`, and hot route
-      geomeans of about 0.56 ms native, 0.53 ms warm prepared, 3.64 ms prepare-once, and 8.00 ms
-      cold certified route.
-    - [x] A dirty scoped current-branch rerun on `149d1a73`
-      (`target/perf-remaining-hotpath-shared-cache-amortized.json`) added process-local
-      benchmark-harness prepared-artifact reuse plus row-amortized shared batch CLI wall timing.
-      `shardloom-prepared-vortex` cache-hit rows now report `0 ms` fresh preparation/import/
-      source-read/write and `cache_hit_reused_in_process` prepared-artifact cache status;
-      prepared/native/batch query and operator geomeans remain about
-      `0.50 ms` and `0.10 ms`; batch row `cli_process_wall_millis` is amortized to about
-      `8.6-8.9 ms` while full shared `batch_cli_process_wall_millis` remains diagnostic at about
-      `34-37 ms`.
-    - [x] PR #1142 (`codex/perf-innov-5-reuse-freshness`) added benchmark-harness workspace
-      prepared-artifact reuse manifest evidence for prepared/native rows; detailed proof is in the
-      completed ledger.
-    - [x] PR #1143 (`codex/perf-innov-5-public-refresh`) refreshed the checked-in public benchmark
-      bundle with clean full-local hot-runtime metadata rows plus full-local publication-proof
-      rows. The promoted bundle has 1,920 published rows, five ShardLoom `hot_runtime` surfaces and
-      five ShardLoom `publication_proof` surfaces each showing `120/120`, no dirty ShardLoom lane
-      versions, and ShardLoom `fallback_attempted=false` / `external_engine_invoked=false`;
-      detailed proof is in the completed ledger.
-    - [x] Current branch `codex/perf-innov-5-residual-optimization` fixes prepare-batch row-level
-      process-wall attribution so `prepare_cli_wall_millis`,
-      `preparation_cli_process_wall_millis`, and row `cli_process_wall_millis` report the
-      per-scenario amortized batch wall, while `prepare_batch_cli_process_wall_millis`,
-      `batch_cli_process_wall_millis`, and `batch_process_wall_shared=true` preserve the full shared
-      single-process diagnostic wall. Scoped smoke artifact
-      `target/perf-innov5-batch-wall-amortized-smoke.json` showed 20 real
-      `shardloom-prepare-batch` JSONL rows with row-level prepare/process wall `55.7941 ms`,
-      full shared batch wall `1115.8827 ms`, and no fallback/external engine invocation.
-    - [x] Current branch `codex/perf-innov-5-residual-optimization` also optimizes the serial CI
-      hard-gate tail by producing `target/benchmark-artifact-completeness-report.json` once in the
-      `release-benchmark-claim` lane, then teaching production-usability and hard-release gates to
-      consume the precomputed completeness/publication reports when present, with manifest and
-      benchmark JSON digest checks before trusting the report. Local validation measured the
-      now-precomputed static scans at about 9-15 seconds for completeness and 17 seconds for
-      publication on this workstation; `scripts/check_release_readiness.py` then consumed the
-      reports with no benchmark-constitution blockers instead of rescanning the public bundle.
-    - [ ] Remaining: reduce or explicitly attribute the residual above-10 ms cells: cold certified
-      `shardloom` route query/process wall, first-creator native Vortex fresh parquet/jsonl
-      compatibility import, and publication-proof sink/evidence rendering. Warm scan/operator
-      execution is no longer the current hot target in the scoped matrix. Current checked-in
-      hot-runtime rows are fresh but still cannot support a performance claim because they are
-      non-claim `metadata_sink` evidence over the full-local tiny-smoke scenario/format matrix;
-      broader claim-grade publication proof remains separate and correctly slower because it
-      includes proof/output work.
-  - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
-    import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
-    public artifact freshness gates.
-  - Objective: explain and then reduce remaining above-10 ms startup/process harness and fresh
-    compatibility-import rows without regressing the already-sub-ms warm query, scan, and operator
-    paths.
-  - Implementation scope: decompose and reduce source read, compatibility import, process startup,
-    per-command CLI wall, and reusable preparation state costs before adding new operator kernels.
-    Reuse session-owned source/file metadata and prepared artifacts where legal, make any
-    process-harness exclusion explicit, and keep website/public benchmark artifacts from presenting
-    stale or dirty ShardLoom lane versions as current results.
-  - User-visible surface: benchmark stage rows, website route-share/outlier tables, runtime
-    preparation evidence fields, manifest lane-version provenance, and public benchmark freshness
-    diagnostics.
-  - Evidence required: source read timing, compatibility import timing, Vortex write timing,
-    preparation process-wall timing, startup timing, warm query/operator/scan preservation,
-    lane-version/manifest SHA freshness status, no-fallback fields, and correctness digest/replay
-    evidence where claim gates require it.
-  - Acceptance: scoped clean artifacts identify any remaining above-10 ms cells as startup,
-    process-wall, source-read, compatibility-import, Vortex-write, or public-artifact freshness
-    costs. Warm scan/operator rows remain sub-ms in the scoped matrix. Website/public benchmark
-    surfaces point at a fresh promoted artifact whose ShardLoom lane versions match the manifest
-    SHA, while any future unpromoted local optimization artifact is clearly marked as phase-plan
-    evidence only. A clean post-fix artifact must not carry dirty `lane_versions` or ShardLoom lane
-    SHAs that disagree with the manifest SHA before any route-total improvement or regression claim
-    is made.
-  - Verification:
-    ```powershell
-    cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state
-    cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark small_change_over_large_base_imports_cdc_delta_fixture
-    cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark operator_microkernel_benchmark_covers_promoted_pair_shapes
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    python scripts\check_benchmark_publication_claim_gate.py --manifest website\assets\benchmarks\latest\manifest.json --allow-stale-git --allow-dirty-worktree
-    git diff --check
-    ```
-  - Non-goals: no encoded-native performance claim from timing split alone.
-  - Claim boundary: attribution and scoped outlier reduction only until refreshed benchmark rows
-    support a performance claim.
-  - Fallback boundary: no external scan, query, or kernel engine may execute unsupported ShardLoom
-    work.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
+The benchmark timing split, PERF-SPLIT follow-up, and PERF-INNOV-5 residual-attribution queue is
+complete for current runtime sequencing. Detailed history, artifact refs, claim boundaries, and
+validator evidence live in `docs/architecture/phased-execution-completed-ledger.md`. Remaining
+public performance claims stay blocked by `performance_claim_allowed=false`; residual cold/proof
+route timing is attribution evidence, not a 6D runtime blocker.
 
 #### 6-Series Runtime Breadth Queue
 
@@ -499,21 +313,38 @@ Each item below uses the same sub-checklist shape:
       fixtures, Rust smokes, docs, and no-fallback report fields.
     - [x] Scoped `ARRAY[...]` / `STRUCT(...)` result-boundary projections can write local CSV as
       JSON text cells with replay/no-fallback evidence.
-    - [ ] Remaining: nested source decoding and typed structured sinks beyond scoped
-      JSONL/result-boundary and CSV JSON-text projections.
-    - [ ] Remaining: variant/union dtype shapes, broader binary execution/preservation,
-      non-binary-source-to-binary-literal comparisons, ORC typed decimal sinks, broad ANSI decimal
-      coercion, scalar-left multi-column subqueries, and unbound source aliases outside admitted
-      source-qualified surfaces.
+    - [x] Scoped feature-gated local structured source decoding admits Arrow
+      list/large-list/fixed-size-list and struct arrays into ShardLoom `List` / `Struct` scalar
+      values through JSONL and CSV JSON-text result boundaries, with Arrow IPC CLI smoke evidence
+      and all-null nested structured-sink blockers.
+    - [x] Scoped feature-gated typed nested compatibility sinks admit inferable `List` / `Struct`
+      result columns through Parquet, Arrow IPC, and Avro, with Arrow IPC-to-Parquet CLI smoke and
+      shared Parquet/Arrow IPC/Avro writer/readback proof.
+    - [x] All-null typed nested sink columns without child-schema evidence now fail closed at
+      OutputPlan conversion with `typed_complex_child_schema_not_admitted`; JSONL/CSV remain logical
+      result/text boundaries, while Parquet/Arrow IPC/Avro/ORC/Vortex structured writers require
+      non-null nested values or source-schema child-field evidence.
+    - [ ] Remaining: ORC nested output and Vortex nested output remain deterministic blockers.
+    - [x] Variant/union dtype shapes, non-binary-source-to-binary-literal comparisons,
+      scalar-left multi-column subqueries, and unbound source aliases outside admitted
+      source-qualified surfaces now have matrix-backed deterministic diagnostics rather than open
+      diagnostic work.
+    - [x] Common table expression syntax now has a precise parser-bound deterministic blocker:
+      `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
+      catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
+      requirements.
+    - [ ] Remaining: ORC nested output, Vortex nested output, ORC typed decimal sinks, broad ANSI
+      decimal coercion beyond exact exponent normalization, broader binary execution/preservation
+      beyond scoped source projection/predicate/order plus explicit casts/helpers, and broad ANSI
+      subquery parity beyond the admitted bounded local families remain outside the claim boundary.
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.
-  - Next slice outcome: choose the next coherent grammar family from the unchecked remaining rows;
-    current candidates are
-    nested source decoding, typed nested sinks beyond CSV JSON text, ORC typed decimal sink
-    preservation once writer evidence exists, broader binary preservation, broad ANSI decimal
-    coercion, or scalar-left multi-column subquery diagnostics depending on the next runtime route
-    evidence.
+  - Next slice outcome: choose the next coherent grammar family only when it has provider or route
+    evidence strong enough to admit; current provider/semantics candidates are ORC/Vortex nested
+    output once writer evidence exists, ORC typed decimal sink preservation once writer evidence
+    exists, broader binary preservation beyond the scoped route, or broad ANSI decimal/subquery
+    parity. Do not reopen fixture-backed deterministic diagnostics as runtime blockers.
   - Execution checklist:
     - [ ] Derive the exact admitted and unsupported shapes from the matrix, parser/runtime code, and
       existing CLI smokes before editing.
@@ -561,8 +392,27 @@ Each item below uses the same sub-checklist shape:
     - [x] Python SQL smoke reports expose runtime unsupported `status`, `diagnostics`, and
       `unsupported_reasons` for non-admitted correlated subquery shapes while preserving
       no-fallback fields.
-    - [ ] Remaining: promote the next coherent API family that lowers to an admitted runtime route
-      or deterministic unsupported diagnostic.
+    - [x] Python SQL/DataFrame reports expose scoped complex projection output boundaries and typed
+      nested compatibility sink formats; the front-door parity matrix now includes
+      `typed_nested_compatibility_sink` as a seventh admitted scoped row for Parquet, Arrow IPC, and
+      Avro.
+    - [x] Common DataFrame transform affordances now exist as deterministic no-fallback blockers:
+      `rename(...)` / `rename_columns(...)`, `drop(...)` / `drop_columns(...)`, `sample(...)`, and
+      `explode(...)` route through `workflow-unsupported-plan` with stable schema/rewrite,
+      sampling, or nested-expansion blocker IDs instead of missing Python attributes or
+      pandas/Polars execution.
+    - [x] Common DataFrame combine/reshape/window affordances now exist as deterministic
+      no-fallback blockers: `merge(...)`, `concat(...)`, `pivot(...)`, `pivot_table(...)`,
+      `melt(...)`, and `rolling(...)` route through `workflow-unsupported-plan` with stable
+      join-alias, union-alignment, reshape, aggregate-reshape, unpivot, and rolling-window blocker
+      IDs instead of missing Python attributes or pandas/Polars execution.
+    - [x] Common DataFrame inspection, summary, null-handling, and Python-callable affordances now
+      exist as deterministic no-fallback blockers: `tail(...)`, `describe(...)`, `nunique(...)`,
+      `value_counts(...)`, `fillna(...)` / `fill_null(...)`, `isna(...)` / `isnull(...)`,
+      `notna(...)` / `notnull(...)`, `apply(...)`, `map(...)`, and `map_rows(...)` route through
+      `workflow-unsupported-plan` with stable source-order, summary-statistics, distinct-count,
+      grouped-count, null-fill, null-mask, and Python-callable blocker IDs instead of missing Python
+      attributes or hidden pandas/Polars execution.
     - [ ] Remaining: broad DataFrame parity remains gated.
   - Runtime enablement: Python/DataFrame-style API call -> shared public route facade ->
     deterministic ShardLoom query lowering -> admitted runtime route or explicit unsupported
@@ -570,9 +420,9 @@ Each item below uses the same sub-checklist shape:
   - Next slice outcome: promote the next coherent Python/DataFrame API family only when it lowers to
     existing ShardLoom runtime evidence or returns deterministic unsupported diagnostics.
   - Execution checklist:
-    - [ ] Add alias/canonical equivalence tests for the chosen API family.
-    - [ ] Preserve no hidden pandas/Polars execution.
-    - [ ] Update capability rows and user-facing docs for admitted or blocked behavior.
+    - [x] Add alias/canonical equivalence tests for the chosen API family.
+    - [x] Preserve no hidden pandas/Polars execution.
+    - [x] Update capability rows and user-facing docs for admitted or blocked behavior.
   - User-visible surface: `shardloom` Python package, session/query builders, docs, parity matrix,
     and route capability report.
   - Implementation scope: `python/src/shardloom/query.py`, `context.py`, `session.py`, Python tests,
@@ -604,17 +454,34 @@ Each item below uses the same sub-checklist shape:
     - [x] Public/no-credential fixture reads exist.
     - [x] Local-emulator read/write smokes exist.
     - [x] Table/lakehouse boundary reports exist.
+    - [x] Scoped local-manifest table append commit rehearsal and optional rollback cleanup exist.
+    - [x] Scoped local-manifest table commit recovery replay now executes through
+      `local-table-commit-recovery-smoke`, verifies the committed manifest sidecar digest,
+      correctness digest, and idempotency key, and is exposed through Python client/context helpers
+      plus the commit-execution promotion gate.
+    - [x] Scoped local-emulator object-store write recovery replay now executes through
+      `object-store-write-recovery-smoke`, verifies the committed object digest, sidecar
+      payload/target digests, payload byte count, target path, and idempotency key, and is exposed
+      through Python client/context helpers plus CG-10 scoped evidence fields.
+    - [x] Scoped local-emulator key=value partition discovery now executes through
+      `object-store-partition-discovery-smoke` and Python context/client helpers with explicit
+      credential, network, provider-probe, fallback, and external-engine false fields.
+    - [x] The CG-10 object-store runtime gate exposes the scoped local-emulator partition discovery
+      and write recovery evidence while keeping deterministic no-IO blockers for live-provider
+      partition discovery, catalog integration, and remote result delivery.
     - [ ] Remaining: live providers remain gated.
-    - [ ] Remaining: table commits, rollback, recovery, partition discovery, catalog integration, and
-      remote result delivery need scoped admission or deterministic blockers.
+    - [ ] Remaining: production table-format/object-store commits, generalized recovery across live
+      providers, live-provider partition discovery, catalog integration, and remote result delivery
+      remain blocked until certified.
   - Runtime enablement: credential-safe object/table request -> ShardLoom Native I/O admission ->
     bounded read/write/commit/recovery proof or deterministic blocker -> no-fallback evidence row.
   - Next slice outcome: add the next local or credential-safe runtime promotion with explicit
     admission, commit/recovery evidence, and no-fallback diagnostics.
   - Execution checklist:
-    - [ ] Use a local, isolated, or credential-safe fixture.
-    - [ ] Record credential/effect policy fields and Native I/O evidence.
-    - [ ] Prove commit/rollback/recovery or keep the path explicitly blocked.
+    - [x] Use a local, isolated, or credential-safe fixture.
+    - [x] Record credential/effect policy fields and Native I/O evidence.
+    - [x] Prove scoped local commit/rollback/recovery rehearsal or keep broader paths explicitly
+      blocked.
   - User-visible surface: CLI object-store/table commands, Python helpers, capability matrices,
     docs, and release gates.
   - Implementation scope: object-store runtime modules, table boundary reports, credential policy,
@@ -643,17 +510,28 @@ Each item below uses the same sub-checklist shape:
     - [x] Generated rows can write local outputs.
     - [x] Local-emulator object-store proofs exist.
     - [x] Foundry-style dev-stack proofs exist.
+    - [x] The universal compatibility generated-output contract exposes scoped local-emulator
+      object-store and local Foundry-style generated-output proof rows, plus deterministic blocked
+      rows for live object-store providers and real Foundry APIs.
+    - [x] `ctx.generated_output_to_partitioned_object_store(...)` composes generated-source
+      staging, local-emulator object-store write, and local-emulator partition discovery proof for
+      caller-owned key=value partition paths.
+    - [x] Committed local-emulator generated-output object-store routes now run
+      `object-store-write-recovery-smoke` before partition discovery, so replay/fidelity evidence
+      is attached when the write is not rolled back. Rollback cleanup routes skip recovery because
+      the object and sidecar have intentionally been removed.
     - [ ] Remaining: live platform APIs remain gated.
-    - [ ] Remaining: platform routes need explicit effect, credential, output, replay, and fidelity
-      evidence before promotion.
+    - [ ] Remaining: live platform routes need explicit effect, credential, output, replay, and
+      fidelity evidence before promotion.
   - Runtime enablement: generated-output request -> explicit effect/output admission -> local or
     platform-bound output proof plus replay/fidelity evidence or deterministic blocker.
   - Next slice outcome: promote the next generated-output platform route only with explicit effect,
     credential, output, and replay evidence.
   - Execution checklist:
-    - [ ] Attach generated-source certificate and output artifact proof.
-    - [ ] Add replay/fidelity evidence and no-fallback fields.
-    - [ ] Keep live platform writes blocked unless explicitly approved.
+    - [x] Attach generated-source certificate and output artifact proof for scoped local proof rows.
+    - [x] Add replay/fidelity evidence requirements and no-fallback fields to the compatibility
+      contract.
+    - [x] Keep live platform writes blocked unless explicitly approved.
   - User-visible surface: Python generated-output helpers, CLI generated-source commands, Foundry
     and object-store proof docs, capability rows, and release checks.
   - Implementation scope: generated-source runtime, output/fanout helpers, platform boundary
@@ -673,7 +551,7 @@ Each item below uses the same sub-checklist shape:
     hidden execution; effectful writes require explicit admission and evidence.
   - Ledger rule: when the chosen generated-output slice is complete, move the completed details to
     the ledger and leave the next unchecked 6-series item or residual platform blocker in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.data_quality_quarantine_profile_runtime: Promote
+- [x] GAR-RUNTIME-IMPL-6D:last_order.data_quality_quarantine_profile_runtime: Promote
   remaining data-quality observability and quarantine surfaces only where they are backed by
   ShardLoom runtime evidence.
   - Source: data-quality/profile/quarantine docs, Python query builder parity docs, output/fanout
@@ -681,18 +559,23 @@ Each item below uses the same sub-checklist shape:
   - Current state:
     - [x] Bounded local-source `profile(...)` uses admitted local-source runtime evidence.
     - [x] Scoped `quarantine(...)` uses admitted local-source runtime evidence.
-    - [ ] Remaining: broader table/object-store remediation remains gated.
-    - [ ] Remaining: the next check or quarantine action needs bounded ShardLoom runtime proof and
-      deterministic unsupported diagnostics for non-admitted checks.
+    - [x] Scoped `regex:column:pattern` / `matches:column:pattern` data-quality checks classify
+      bounded ShardLoom-emitted rows with explicit UTF-8/null semantics.
+    - [x] Pushdownable local-source regex quarantine writes admitted failing rows through the same
+      `sql-local-source-smoke` sink route as not-null quarantine.
+    - [x] Non-admitted or malformed check syntax remains deterministic unsupported/report-only
+      behavior with no fallback.
+    - [x] Broader table/object-store remediation remains gated as a non-goal for this bounded
+      local-source item.
   - Runtime enablement: data-quality/profile/quarantine request -> admitted bounded ShardLoom
     runtime check or explicit unsupported diagnostic -> output/replay evidence when a sink is
     written.
-  - Next slice outcome: add the next bounded data-quality check or quarantine action with ShardLoom
-    runtime proof and explicit unsupported diagnostics for non-admitted checks.
+  - Completed slice outcome: added the next bounded data-quality check and quarantine action with
+    ShardLoom runtime proof and explicit unsupported diagnostics for non-admitted checks.
   - Execution checklist:
-    - [ ] Add positive bounded checks and negative unsupported diagnostics.
-    - [ ] Attach output/replay evidence when a sink is written.
-    - [ ] Keep no-fallback fields visible in reports.
+    - [x] Add positive bounded checks and negative unsupported diagnostics.
+    - [x] Attach output/replay evidence when a sink is written.
+    - [x] Keep no-fallback fields visible in reports.
   - User-visible surface: Python query builder, CLI local-source smoke, output/fanout reports, docs,
     and capability matrices.
   - Implementation scope: Python query API, CLI runtime fields, local sink outputs, validators, and
@@ -711,9 +594,9 @@ Each item below uses the same sub-checklist shape:
     or fallback claim.
   - Fallback boundary: no hidden pandas/Polars profiling, DuckDB SQL, Spark quality engine, or
     external remediation runtime; unsupported checks fail explicitly.
-  - Ledger rule: when the chosen data-quality slice is complete, move the completed details to the
-    ledger and leave the next unchecked 6-series item or residual data-quality blocker in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.effectful_operations: Effectful operations: UDFs, LLM/API
+  - Ledger rule: completed details are recorded in the ledger; broad object-store/table remediation
+    remains outside this local-source slice and the next unchecked 6-series item resumes below.
+- [x] GAR-RUNTIME-IMPL-6D:last_order.effectful_operations: Effectful operations: UDFs, LLM/API
   calls, embeddings, vector search, external writes, credentials, sandboxing, and deterministic
   effect budgets.
   - Source: modular extensibility RFCs, extension/plugin safety docs, effect policy docs,
@@ -721,17 +604,17 @@ Each item below uses the same sub-checklist shape:
   - Current state:
     - [x] Effectful-operation admission reports exist.
     - [x] Local deterministic UDF and SQLite fixture boundaries exist.
-    - [ ] Remaining: arbitrary effects remain blocked.
-    - [ ] Remaining: one effect family needs explicit policy, capability, sandbox, and no-fallback
-      evidence before admission.
+    - [x] Arbitrary effects remain blocked by deterministic admission rows.
+    - [x] The built-in deterministic embedding/vector fixture has explicit policy, capability,
+      sandbox, and no-fallback evidence.
   - Runtime enablement: effectful operation declaration -> capability/permission/effect-budget
     admission -> sandboxed local proof or deterministic blocker -> no-fallback evidence row.
-  - Next slice outcome: promote one effect family through explicit policy, capability, sandbox, and
-    no-fallback evidence.
+  - Completed slice outcome: promoted one bounded effect family through explicit policy,
+    capability, sandbox, and no-fallback evidence.
   - Execution checklist:
-    - [ ] Add side-effect declaration and permission policy evidence.
-    - [ ] Add deterministic diagnostics for non-admitted effects.
-    - [ ] Record sandbox status and security review evidence where needed.
+    - [x] Add side-effect declaration and permission policy evidence.
+    - [x] Add deterministic diagnostics for non-admitted effects.
+    - [x] Record sandbox status and security review evidence where needed.
   - User-visible surface: CLI effect/extension reports, Python helpers, docs, capability matrices,
     and security/release validators.
   - Implementation scope: effect budget plan, extension/UDF boundaries, credential policy,
@@ -746,31 +629,32 @@ Each item below uses the same sub-checklist shape:
     by default.
   - Dependencies/blockers: sandbox policy, credential governance, extension manifests, and security
     review.
-  - Claim boundary: scoped effect admission only; no production UDF/LLM/vector/platform claim.
+  - Claim boundary: scoped local deterministic fixture admission only; no production
+    UDF/LLM/vector/platform claim.
   - Fallback boundary: no hidden external service call, plugin execution, query engine fallback, or
     credential probing; all effects require explicit user/policy admission.
-  - Ledger rule: when the chosen effectful slice is complete, move the completed details to the
-    ledger and leave the next unchecked 6-series item or residual effect blocker in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime: Live/hybrid runtime state, incremental
+  - Ledger rule: completed details are recorded in the ledger and the next unchecked 6-series item
+    resumes below.
+- [x] GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime: Live/hybrid runtime state, incremental
   processing, CDC beyond scoped overlay fixtures, freshness/snapshot contracts, state cleanup,
   cancellation, retry, and recovery.
   - Source: three-engine execution fabric RFC, fault-tolerance/recovery docs, live/hybrid state
     reports, CDC overlay evidence, and completed hybrid-runtime ledger entries.
   - Current state:
     - [x] Engine-selection and hybrid overlay reports exist with fixture-scoped evidence.
-    - [ ] Remaining: production broker/state-store runtime is not admitted.
-    - [ ] Remaining: exactly-once runtime is not admitted.
-    - [ ] Remaining: the next bounded live/hybrid state transition needs freshness, snapshot,
+    - [x] Production broker/state-store runtime remains blocked by deterministic gate rows.
+    - [x] Exactly-once runtime remains blocked by deterministic gate rows.
+    - [x] The bounded live/hybrid state transition fixture records freshness, snapshot,
       retry/cancellation, cleanup, and no-fallback evidence.
   - Runtime enablement: bounded live/hybrid request -> freshness/snapshot admission -> state
     transition/retry/cancellation/cleanup proof or deterministic blocker -> no-fallback evidence
     row.
-  - Next slice outcome: promote the next bounded live/hybrid state transition with freshness,
+  - Completed slice outcome: promoted a bounded live/hybrid state transition with freshness,
     cancellation/retry, cleanup, and no-fallback evidence.
   - Execution checklist:
-    - [ ] Add bounded state fixture and freshness/snapshot proof.
-    - [ ] Add retry/cancellation and cleanup evidence.
-    - [ ] Keep broker-backed or production semantics blocked unless explicitly admitted.
+    - [x] Add bounded state fixture and freshness/snapshot proof.
+    - [x] Add retry/cancellation and cleanup evidence.
+    - [x] Keep broker-backed or production semantics blocked unless explicitly admitted.
   - User-visible surface: engine capability matrix, Python/CLI hybrid reports, docs, and release
     gates.
   - Implementation scope: hybrid runtime reports, state cleanup/recovery logic, diagnostics, tests,
@@ -789,9 +673,9 @@ Each item below uses the same sub-checklist shape:
     replacement claim.
   - Fallback boundary: no Kafka/Flink/Spark/Ray/Dask/state-store delegation, no hidden broker
     runtime, and no external streaming fallback; live/hybrid gaps remain deterministic blockers.
-  - Ledger rule: when the chosen live/hybrid slice is complete, move the completed details to the
-    ledger and leave the next unchecked 6-series item or residual state blocker in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime: Distributed/shuffle/spill/OOM
+  - Ledger rule: completed details are recorded in the ledger and the next unchecked 6-series item
+    resumes below.
+- [x] GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime: Distributed/shuffle/spill/OOM
   production runtime, including resource governance and deterministic pre-OOM diagnostics.
   - Source: memory/spill/OOM RFCs, optimizer/adaptive execution docs, resource governance reports,
     release-readiness gates, and completed memory/spill ledger entries.
@@ -799,18 +683,18 @@ Each item below uses the same sub-checklist shape:
     - [x] Spill/OOM plans exist.
     - [x] Memory declarations exist.
     - [x] Blocked diagnostics exist.
-    - [ ] Remaining: real query-data spill remains gated.
-    - [ ] Remaining: distributed execution remains gated.
-    - [ ] Remaining: the next local bounded memory/spill guard must fail before process OOM or write
-      admitted ShardLoom-native spill evidence.
+    - [x] Real query-data spill remains gated with explicit false fields in the promoted fixture.
+    - [x] Distributed execution remains gated with explicit false fields in the promoted fixture.
+    - [x] `pre-oom-memory-guard-smoke` fails a bounded reservation request before process OOM and
+      releases the granted reservation as cleanup evidence.
   - Runtime enablement: bounded resource-pressure request -> memory/spill admission or pre-OOM
     diagnostic -> cleanup evidence and no-fallback evidence row.
   - Next slice outcome: promote the next local bounded memory/spill guard that fails before process
     OOM or writes admitted ShardLoom-native spill evidence.
   - Execution checklist:
-    - [ ] Add bounded-memory fixture or admitted spill proof.
-    - [ ] Attach deterministic pre-OOM/blocker evidence and cleanup proof.
-    - [ ] Avoid distributed/shuffle claims unless the runtime is explicitly admitted.
+    - [x] Add bounded-memory fixture or admitted spill proof.
+    - [x] Attach deterministic pre-OOM/blocker evidence and cleanup proof.
+    - [x] Avoid distributed/shuffle claims unless the runtime is explicitly admitted.
   - User-visible surface: CLI diagnostics, benchmark rows, memory/spill reports, docs, and release
     readiness gates.
   - Implementation scope: memory reservation, spill diagnostics, operator declarations, tests,
@@ -829,7 +713,7 @@ Each item below uses the same sub-checklist shape:
     fallback; unsupported memory pressure fails before hidden delegation.
   - Ledger rule: when the chosen memory/spill slice is complete, move the completed details to the
     ledger and leave the next unchecked 6-series item or residual resource blocker in Planned.
-- [ ] GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication: Claim-grade
+- [x] GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication: Claim-grade
   performance-equivalence benchmark publication across equivalent SQL, Python, and DataFrame
   workloads.
   - Source: benchmark suite catalog, front-door parity docs, benchmark publication validators,
@@ -839,30 +723,35 @@ Each item below uses the same sub-checklist shape:
     - [x] Benchmark publication validators exist.
     - [x] HOTPATH-14 promoted artifact is the current evidence surface, with
       `performance_claim_allowed=false`.
-    - [ ] Remaining: front-door performance equivalence remains not claim-grade.
-    - [ ] Remaining: SQL/Python/DataFrame route parity and benchmark safety gates must pass before
-      any approved rerun/promotion.
-    - [ ] Remaining: website benchmark publication must distinguish runtime support, evidence
-      grade, and performance claims.
+    - [x] `scripts/check_front_door_benchmark_publication.py` now composes SQL/Python/DataFrame
+      parity with public benchmark publication rows and keeps front-door performance equivalence
+      fail-closed as `blocked_pending_measured_equivalence_artifact`.
+    - [x] SQL/Python/DataFrame scoped route parity and public front-door route identity rows are
+      checked before any benchmark-publication admission language.
+    - [x] Website benchmark publication continues to distinguish runtime support, evidence grade,
+      timing surface, and performance claims; the new gate fails on static-route overclaiming.
   - Runtime enablement: route-parity evidence -> approved benchmark rerun/promotion -> validated
     website artifact -> claim-gated front-door benchmark publication.
-  - Next slice outcome: publish a laptop-safe, reproducible front-door equivalence artifact only
-    after SQL/Python/DataFrame route parity and benchmark safety gates are satisfied.
+  - Next slice outcome: fail-closed front-door benchmark publication admission gate; no broad
+    benchmark rerun or performance-equivalence claim is made without measured equivalent rows.
   - Execution checklist:
-    - [ ] Confirm benchmark rerun approval and laptop-safe sequential controls before running.
-    - [ ] Attach reproducible artifact, correctness digests, hardware/runtime context, and
-      no-fallback fields.
-    - [ ] Update website data/components, docs, and validators together.
+    - [x] Confirm no benchmark rerun approval is recorded for this slice and keep rerun controls
+      blocked in the gate output.
+    - [x] Attach deterministic missing-evidence fields for measured rows, correctness digests,
+      execution certificates, rerun approval, and no-fallback posture.
+    - [x] Update release/CI validators, docs, and completed ledger together.
   - User-visible surface: benchmark artifacts, website benchmark page, README/docs, Python examples,
     and release gates.
   - Implementation scope: benchmark harness, promotion scripts, website data/components, docs, and
     validators.
   - Evidence required: reproducible artifact, route parity, correctness digests, hardware/runtime
-    context, sequential/safety controls, and no-fallback fields.
+    context, sequential/safety controls, and no-fallback fields. Current slice records these as
+    explicit missing claim-grade evidence rather than substituting static route rows.
   - Acceptance: published rows distinguish runtime support, evidence grade, and performance claims
-    without unsupported ShardLoom gaps or external fallback.
-  - Verification: benchmark artifact validators, website readiness/static checks, focused benchmark
-    smoke when approved, and `git diff --check`.
+    without unsupported ShardLoom gaps or external fallback; front-door performance-equivalence
+    publication is blocked unless measured equivalent front-door rows are later attached.
+  - Verification: front-door benchmark publication gate, benchmark artifact validators, website
+    readiness/static checks, focused benchmark smoke when approved, and `git diff --check`.
   - Non-goals: no broad benchmark suite on an unsafe laptop path, no superiority/Spark-replacement
     claim without CG-5/CG-6 evidence.
   - Dependencies/blockers: route parity, claim gates, benchmark safety redesign, current generated

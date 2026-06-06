@@ -274,6 +274,7 @@ fn is_operational_hardening_command(command: &str) -> bool {
             | "redaction-plan"
             | "cg14-memory-runtime-hardening-gate"
             | "operator-memory-spill-declarations"
+            | "pre-oom-memory-guard-smoke"
             | "spill-lifecycle"
             | "spill-reservation-plan"
             | "spill-payload-roundtrip"
@@ -343,6 +344,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "local-delete-tombstone-read-smoke"
             | "local-append-only-cdc-overlay-smoke"
             | "local-table-append-commit-rehearsal-smoke"
+            | "local-table-commit-recovery-smoke"
             | "incremental-plan"
             | "stateful-reuse-plan"
             | "cg17-stateful-reuse-gate"
@@ -359,6 +361,7 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
             | "live-change-contract-plan"
             | "live-fixture-run"
             | "hybrid-overlay-run"
+            | "live-hybrid-state-transition-smoke"
             | "session-cache-smoke"
             | "streaming-plan"
             | "streaming-batch-plan"
@@ -393,6 +396,7 @@ fn is_extension_planning_command(command: &str) -> bool {
             | "extension-inspect"
             | "udf-runtime-plan"
             | "udf-local-scalar-fixture-smoke"
+            | "embedding-vector-local-fixture-smoke"
     )
 }
 
@@ -460,6 +464,10 @@ mod tests {
         assert_eq!(
             classify_command("execution-certificate-plan"),
             CommandFamily::EvidenceCertificates
+        );
+        assert_eq!(
+            classify_command("pre-oom-memory-guard-smoke"),
+            CommandFamily::OperationalHardening
         );
         assert_eq!(
             classify_command("workload-certification-dossier"),
@@ -575,6 +583,10 @@ mod tests {
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(
+            classify_command("local-table-commit-recovery-smoke"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
             classify_command("input-adapters"),
             CommandFamily::InputPlanning
         );
@@ -588,6 +600,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("live-fixture-run"),
+            CommandFamily::EngineRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("live-hybrid-state-transition-smoke"),
             CommandFamily::EngineRuntimePlanning
         );
         assert_eq!(

@@ -11,10 +11,10 @@ use shardloom_core::{
     EngineCapabilityRow, EngineMode, EngineSelectionReport, EngineSelectionRequest,
     FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport, LiveChangeContractReport,
     LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
-    LiveHybridFabricFreshnessGateReport, OutputFormat, OutputMode, ShardLoomError,
-    StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
-    output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
-    update_mode_vocabulary,
+    LiveHybridFabricFreshnessGateReport, LiveHybridStateTransitionFixtureReport, OutputFormat,
+    OutputMode, ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary,
+    engine_mode_vocabulary, output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture,
+    run_live_fixture, run_live_hybrid_state_transition_fixture, update_mode_vocabulary,
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 
@@ -36,6 +36,7 @@ const LIVE_FIXTURE_RUN_USAGE: &str = "usage: shardloom live-fixture-run [filter|
 const HYBRID_FIXTURE_RUN_COMMAND: &str = "hybrid-overlay-run";
 const HYBRID_FIXTURE_RUN_SUMMARY: &str = "hybrid overlay run failed";
 const HYBRID_FIXTURE_RUN_USAGE: &str = "usage: shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]";
+const LIVE_HYBRID_STATE_TRANSITION_COMMAND: &str = "live-hybrid-state-transition-smoke";
 
 pub(crate) fn handle_engine_selection_plan(
     args: IntoIter<String>,
@@ -180,6 +181,49 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
         report.to_human_text(),
         vec![],
         hybrid_fixture_run_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_live_hybrid_state_transition_smoke(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            LIVE_HYBRID_STATE_TRANSITION_COMMAND,
+            format,
+            "live/hybrid state transition smoke failed",
+            &cli_unknown_arg_error(LIVE_HYBRID_STATE_TRANSITION_COMMAND, &extra),
+        );
+    }
+    let report = match run_live_hybrid_state_transition_fixture() {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                LIVE_HYBRID_STATE_TRANSITION_COMMAND,
+                format,
+                "live/hybrid state transition smoke failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        LIVE_HYBRID_STATE_TRANSITION_COMMAND,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "live/hybrid state transition fixture smoke".to_string(),
+        report.to_human_text(),
+        vec![],
+        live_hybrid_state_transition_fields(&report),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -780,6 +824,135 @@ fn hybrid_fixture_run_fields(report: &HybridFixtureRunReport) -> Vec<(String, St
     append_freshness_certificate_fields(&mut fields, &report.freshness_certificate);
     append_hybrid_execution_certificate_fields(&mut fields, report);
     append_hybrid_native_io_certificate_fields(&mut fields, report);
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn live_hybrid_state_transition_fields(
+    report: &LiveHybridStateTransitionFixtureReport,
+) -> Vec<(String, String)> {
+    let mut fields = common_engine_contract_fields(
+        report.schema_version,
+        &report.report_id,
+        report.fallback_attempted(),
+        report.external_engine_invoked,
+        report.runtime_execution,
+        false,
+        report.write_io,
+    );
+    push_field(&mut fields, "mode", "live_hybrid_state_transition_smoke");
+    push_field(&mut fields, "fixture_id", report.fixture_id);
+    push_field(
+        &mut fields,
+        "selected_engine_mode",
+        report.selected_engine_mode,
+    );
+    push_field(&mut fields, "transition_id", report.transition_id);
+    push_field(&mut fields, "transition_kind", report.transition_kind);
+    push_field(
+        &mut fields,
+        "source_snapshot_ref",
+        &report.source_snapshot_ref,
+    );
+    push_field(
+        &mut fields,
+        "target_snapshot_ref",
+        &report.target_snapshot_ref,
+    );
+    push_u64_field(&mut fields, "snapshot_epoch", report.snapshot_epoch);
+    push_count_field(
+        &mut fields,
+        "input_change_record_count",
+        report.input_change_record_count,
+    );
+    push_count_field(
+        &mut fields,
+        "active_state_key_count",
+        report.active_state_key_count,
+    );
+    append_freshness_certificate_fields(&mut fields, &report.freshness_certificate);
+    append_state_certificate_fields(&mut fields, &report.state_certificate);
+    push_field(
+        &mut fields,
+        "state_transition_certificate_status",
+        report.state_transition_certificate_status.as_str(),
+    );
+    push_field(&mut fields, "retry_policy", report.retry_policy);
+    push_count_field(&mut fields, "attempt_count", report.attempt_count);
+    push_field(
+        &mut fields,
+        "attempt_outcome_order",
+        &report.attempt_outcome_order_text(),
+    );
+    push_field(
+        &mut fields,
+        "retry_idempotency_key",
+        &report.retry_idempotency_key,
+    );
+    push_bool_field(&mut fields, "retry_performed", report.retry_performed);
+    push_bool_field(
+        &mut fields,
+        "cancellation_requested",
+        report.cancellation_requested,
+    );
+    push_bool_field(
+        &mut fields,
+        "cancellation_cleanup_required",
+        report.cancellation_cleanup_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "cancellation_cleanup_completed",
+        report.cancellation_cleanup_completed,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_output_tracked",
+        report.partial_output_tracked,
+    );
+    push_field(
+        &mut fields,
+        "partial_output_ref",
+        &report.partial_output_ref,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_output_committed",
+        report.partial_output_committed,
+    );
+    push_field(
+        &mut fields,
+        "cleanup_artifact_ref",
+        &report.cleanup_artifact_ref,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_checkpoint_store_used",
+        report.durable_checkpoint_store_used,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_checkpoint_write_performed",
+        report.durable_checkpoint_write_performed,
+    );
+    push_bool_field(&mut fields, "broker_io", report.broker_io);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "fixture_in_memory", report.fixture_in_memory);
+    push_bool_field(
+        &mut fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "no_fallback_no_external_engine",
+        report.no_fallback_no_external_engine(),
+    );
     fields
 }
 

@@ -42,16 +42,16 @@ fn cg14_memory_runtime_hardening_gate_exposes_existing_and_blocked_surfaces() {
     assert!(output.contains(&field("promotion_gate_status", "blocked_until_certified")));
     assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(output.contains(&field("support_status", "report_only")));
-    assert!(output.contains(&field("surface_count", "14")));
-    assert!(output.contains(&field("existing_evidence_surface_count", "5")));
+    assert!(output.contains(&field("surface_count", "15")));
+    assert!(output.contains(&field("existing_evidence_surface_count", "6")));
     assert!(output.contains(&field("blocked_surface_count", "9")));
     assert!(output.contains(&field(
         "surface_order",
-        "memory_reservation_admission,operator_memory_spill_declaration_gate,spill_reservation_integration_plan,spill_lifecycle_plan,dynamic_runtime_promotion_reference,resource_derived_chunk_sizing_runtime,adaptive_parallelism_runtime,memory_reservation_release_runtime,pressure_reaction_runtime,native_spill_write_runtime,native_spill_read_runtime,spill_cleanup_execution,allocator_runtime_integration,benchmark_certificate_closeout"
+        "memory_reservation_admission,pre_oom_memory_guard_fixture,operator_memory_spill_declaration_gate,spill_reservation_integration_plan,spill_lifecycle_plan,dynamic_runtime_promotion_reference,resource_derived_chunk_sizing_runtime,adaptive_parallelism_runtime,memory_reservation_release_runtime,pressure_reaction_runtime,native_spill_write_runtime,native_spill_read_runtime,spill_cleanup_execution,allocator_runtime_integration,benchmark_certificate_closeout"
     )));
     assert!(output.contains(&field(
         "existing_report_refs",
-        "shardloom.memory_admission.v1,shardloom.operator_memory_spill_declaration.v1,shardloom.spill_reservation_integration.v1,shardloom.spill_lifecycle.v1,shardloom.dynamic_runtime_promotion_gate.v1"
+        "shardloom.memory_admission.v1,shardloom.pre_oom_memory_guard_fixture.v1,shardloom.operator_memory_spill_declaration.v1,shardloom.spill_reservation_integration.v1,shardloom.spill_lifecycle.v1,shardloom.dynamic_runtime_promotion_gate.v1"
     )));
     assert!(output.contains(&field(
         "required_evidence_refs",
@@ -69,6 +69,10 @@ fn cg14_memory_runtime_hardening_gate_blocks_runtime_spill_and_claims() {
 
     assert!(output.contains(&field(
         "existing_memory_reservation_admission_present",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "existing_pre_oom_memory_guard_fixture_present",
         "true"
     )));
     assert!(output.contains(&field(

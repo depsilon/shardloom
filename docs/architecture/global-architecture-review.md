@@ -246,6 +246,11 @@ plan before coding.
   Every row remains `claim_gate_status=not_claim_grade`; external engines are
   baseline/oracle-only; no benchmark rerun, public performance claim, Spark-displacement claim,
   external engine invocation, or fallback execution is authorized.
+- [x] `GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication` adds
+  `shardloom.front_door_benchmark_publication_gate.v1`, a fail-closed static admission gate that
+  composes SQL/Python/DataFrame parity with public benchmark route rows and keeps front-door
+  performance equivalence blocked until measured equivalent rows, correctness digests, execution
+  certificates, and rerun approval exist.
 - [ ] Broad claim-grade Spark-displacement evidence and public performance claims remain gated.
 
 ### RFC 0010 - Developer Experience, API Ergonomics, and Agent Usability
@@ -364,6 +369,10 @@ plan before coding.
   reservation-release/native-spill-read-write/cleanup/allocator/fail-before-OOM evidence refs,
   spill artifact path-safety refs, and no runtime execution, no spill I/O, no external engine, and
   no fallback.
+- [x] GAR-RUNTIME-IMPL-6D adds `pre-oom-memory-guard-smoke`, a bounded local reservation-denial
+  fixture with `shardloom.pre_oom_memory_guard_fixture.v1`, `SL_RESOURCE_BUDGET_EXCEEDED`,
+  cleanup/release evidence, and explicit false fields for query-data spill, distributed execution,
+  native spill IO, fallback, and external engines.
 - [ ] Actual runtime spill/OOM production enforcement remains limited to synthetic or local
   constraints beyond the promotion gate.
 
@@ -479,8 +488,8 @@ plan before coding.
 - Source:
   [`docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`](../rfcs/0020-schema-evolution-catalog-table-compatibility.md)
 - Current read: Typed reports, a report-only catalog/table metadata admission gate, and one scoped
-  local manifest-backed metadata smoke exist; broad table/catalog runtime integration is
-  incomplete.
+  local manifest-backed metadata smoke exist; scoped local-manifest append commit and recovery replay
+  proofs exist separately. Broad table/catalog runtime integration is incomplete.
 - Evidence: `shardloom-core/src/schema.rs`, `shardloom-core/src/table_intelligence.rs`,
   `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`,
   `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`,
@@ -515,6 +524,10 @@ plan before coding.
   CDC overlay path that combines base rows plus append-delta rows, emits a correctness digest, keeps
   update/delete/tombstone CDC plus manifest/transaction/commit paths deterministically blocked, and
   reports `fallback_attempted=false` and `external_engine_invoked=false`.
+- [x] GAR-RUNTIME-IMPL-6D: `local-table-commit-recovery-smoke` replays the committed local-manifest
+  artifact plus sidecar commit record emitted by the append commit rehearsal, verifies manifest,
+  correctness, and idempotency evidence, and keeps catalog/object-store I/O, production recovery,
+  fallback, and external-engine execution false.
 - [ ] Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,
   CDC execution, maintenance writes, and table/lakehouse commits remain incomplete; the current
   matrix keeps those lanes unsupported until evidence-bearing promotion slices such as `GAR-0028-A`
@@ -666,10 +679,15 @@ plan before coding.
   boundary only, plus scoped `SELECT DISTINCT` and `UNION DISTINCT` structural equality over those
   already-materialized projection values, and scoped canonical structural `ORDER BY` over those
   complex result-boundary values, and scoped scalar-expression `JOIN ON` predicates over qualified
-  local-source rows, including scoped logical `OR` over admitted qualified scalar leaves. Complex
-  accessors, casts, subquery membership, broad nested ordering, nested source decoding, flat nested
-  sinks, complex-key joins, broader non-scalar join predicates, and broader variant/union semantics
-  still fail before fallback.
+  local-source rows, including scoped logical `OR` over admitted qualified scalar leaves. Current
+  GAR-RUNTIME-IMPL-6D evidence also admits scoped feature-gated Arrow list/large-list/
+  fixed-size-list and struct source decoding into JSONL and CSV JSON-text result boundaries, plus
+  scoped typed nested compatibility sink preservation through Parquet, Arrow IPC, and Avro when one
+  stable nested Arrow dtype can be inferred. All-null typed nested structured sinks without
+  child-schema evidence now fail closed with `typed_complex_child_schema_not_admitted`; complex
+  accessors, casts, subquery membership, broad nested ordering, ORC nested output, Vortex nested
+  output, complex-key joins, broader non-scalar join predicates, and broader variant/union
+  semantics still fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
   broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit
@@ -950,11 +968,11 @@ plan before coding.
 - [x] `GAR-0028-A` expands `CommitExecutionPromotionGateReport` into a deterministic RFC 0028
   object-store/lakehouse commit-semantics gate. It records `GAR-0028-A`,
   `support_status=report_only_with_blocked_runtime_paths`, `claim_gate_status=not_claim_grade`,
-  existing local staged-output/manifest/commit/object-store/table-maintenance evidence refs, and
-  info-level no-fallback diagnostics for generalized manifest serialization, generalized sink
-  commit, object-store commit, table/catalog commit, lakehouse transaction commit, native
-  source/sink commit, Foundry dataset transaction commit, upstream Vortex write API execution,
-  live/hybrid checkpoint commit, and output-payload fidelity claims.
+  existing local staged-output/manifest/commit/rollback/recovery/object-store/table-maintenance
+  evidence refs, and info-level no-fallback diagnostics for generalized manifest serialization,
+  generalized sink commit, object-store commit, table/catalog commit, lakehouse transaction commit,
+  native source/sink commit, Foundry dataset transaction commit, upstream Vortex write API
+  execution, live/hybrid checkpoint commit, and output-payload fidelity claims.
 - [x] Unsupported RFC 0028 commit surfaces remain side-effect-free:
   `runtime_execution=false`, `manifest_write_io=false`, `write_io=false`, `object_store_io=false`,
   `catalog_io=false`, `upstream_vortex_write_api_invoked=false`, `external_engine_invoked=false`,
@@ -1867,5 +1885,5 @@ plan before coding.
 
 Before implementing any unchecked item from this review, use the corresponding `GAR-*` checklist
 item in `docs/architecture/phased-execution-plan.md`. If the item is still too broad, split it in
-the phase plan first. Keep the implementation slice narrow enough to verify with focused tests,
-evidence snapshots, or release/readiness checks.
+the phase plan first. Keep each implementation batch cohesive enough to verify with focused tests,
+evidence snapshots, or release/readiness checks without turning shared-context work into sliver PRs.

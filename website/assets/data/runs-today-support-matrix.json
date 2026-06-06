@@ -27,6 +27,9 @@
     "cli_generated_source_smokes",
     "cli_sqlite_local_import_export_smoke",
     "cli_udf_local_scalar_fixture_smoke",
+    "cli_embedding_vector_local_fixture_smoke",
+    "cli_pre_oom_memory_guard_smoke",
+    "cli_local_table_commit_recovery_smoke",
     "cli_prepared_vortex_batch_benchmark",
     "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
@@ -55,9 +58,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 33,
+  "row_count": 36,
   "support_state_counts": {
-    "executable": 18,
+    "executable": 21,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -65,7 +68,7 @@
     "future": 1
   },
   "family_counts": {
-    "cli_command": 8,
+    "cli_command": 11,
     "python_api": 5,
     "input_format": 6,
     "output_format": 3,
@@ -105,6 +108,10 @@
     "universal_ingress_route_taxonomy",
     "extension_manifest_effect_matrix_snapshots",
     "python.tests.test_cli_client",
+    "pre_oom_memory_guard_smoke",
+    "cg14_memory_runtime_hardening_gate",
+    "local_table_append_commit_rehearsal_smoke",
+    "commit_execution_promotion_gate",
     "traditional_benchmark_harness",
     "benchmark_runtime_tests",
     "prepared_vortex_batch_python_tests",
@@ -300,6 +307,72 @@
       "external_engine_invoked": false
     },
     {
+      "id": "cli_embedding_vector_local_fixture_smoke",
+      "family": "cli_command",
+      "surface": [
+        "embedding-vector-local-fixture-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "extension_manifest_effect_matrix_snapshots",
+        "effectful_operation_admission_matrix",
+        "python.tests.test_cli_client"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "built-in deterministic UTF-8 hash embedding/vector fixture only; real model calls, vector databases, ANN indexes, external APIs, credentials, network effects, plugins, and fallback remain blocked",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_pre_oom_memory_guard_smoke",
+      "family": "cli_command",
+      "surface": [
+        "pre-oom-memory-guard-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "pre_oom_memory_guard_smoke",
+        "cg14_memory_runtime_hardening_gate"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "bounded local reservation-denial fixture only; no real query-data spill, native spill IO, distributed runtime, larger-than-memory, production, or performance claim",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_local_table_commit_recovery_smoke",
+      "family": "cli_command",
+      "surface": [
+        "local-table-append-commit-rehearsal-smoke",
+        "local-table-commit-recovery-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "local_table_append_commit_rehearsal_smoke",
+        "commit_execution_promotion_gate",
+        "python.tests.test_cli_client"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local-manifest append commit rehearsal plus sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
       "id": "cli_prepared_vortex_batch_benchmark",
       "family": "cli_command",
       "surface": [
@@ -448,6 +521,7 @@
       "surface": [
         "ShardLoomClient.sqlite_local_import_export_smoke",
         "ShardLoomClient.udf_local_scalar_fixture_smoke",
+        "ShardLoomClient.embedding_vector_local_fixture_smoke",
         "ShardLoomClient.extension_registry",
         "ShardLoomClient.extension_inspect",
         "ShardLoomClient.udf_runtime_plan"
@@ -461,7 +535,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "thin Python CLI helpers for local SQLite fixture, extension metadata, and built-in deterministic UDF fixture only; no native binding, arbitrary UDF, plugin, network connector, or fallback claim",
+      "claim_boundary": "thin Python CLI helpers for local SQLite fixture, extension metadata, built-in deterministic UDF fixture, and deterministic embedding/vector fixture only; no native binding, arbitrary UDF, plugin, network connector, real model/vector service, or fallback claim",
       "runtime_execution": true,
       "data_read": true,
       "write_io": true,

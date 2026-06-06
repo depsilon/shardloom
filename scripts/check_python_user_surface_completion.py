@@ -107,7 +107,33 @@ REQUIRED_MATERIALIZATION_METHODS = [
     "display",
 ]
 
-REQUIRED_UNSUPPORTED_METHODS: list[str] = []
+REQUIRED_UNSUPPORTED_METHODS = [
+    "rename",
+    "rename_columns",
+    "drop",
+    "drop_columns",
+    "sample",
+    "explode",
+    "merge",
+    "concat",
+    "pivot",
+    "pivot_table",
+    "melt",
+    "rolling",
+    "tail",
+    "describe",
+    "nunique",
+    "value_counts",
+    "fillna",
+    "fill_null",
+    "isna",
+    "isnull",
+    "notna",
+    "notnull",
+    "apply",
+    "map",
+    "map_rows",
+]
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
@@ -177,6 +203,10 @@ REQUIRED_TEST_MARKERS = {
         "test_context_sql_local_source_write_invokes_sql_smoke",
         "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
         "test_missing_dataframe_affordances_return_report_only_unsupported",
+        "workflow.rename({\"amount\": \"order_amount\"})",
+        "workflow.drop(columns=[\"unused\"])",
+        "workflow.sample(n=5, seed=7)",
+        "workflow.explode(\"items\")",
     ],
     "python/tests/test_cli_client.py": [
         "test_context_session_reuses_prepared_vortex_state_when_fingerprints_match",

@@ -674,6 +674,15 @@ impl EffectfulOperationAdmissionMatrix {
                     false,
                     "Only the built-in deterministic scalar fixture is admitted; arbitrary Rust, WASM, Python, SQL-defined, table-function, and external-service UDFs remain blocked.",
                 ),
+                EffectfulOperationAdmissionRow::admitted_local(
+                    "deterministic_embedding_vector_fixture",
+                    "embedding_vector",
+                    "built-in deterministic embedding/vector fixture",
+                    "builtin_utf8_hash_embedding_vector_fixture",
+                    "fixture_id,embedding_model_id,vector_dimension,vector_metric,input_digest,vector_digest,nearest_neighbor,no_model_call,no_network_no_credentials,no_fallback_evidence",
+                    false,
+                    "Only the built-in deterministic embedding/vector fixture is admitted; real model calls, embedding generation, vector databases, ANN indexes, external APIs, credentials, network effects, and fallback execution remain blocked.",
+                ),
                 EffectfulOperationAdmissionRow::blocked(
                     "network_database_connectors",
                     "database_service",
@@ -1131,7 +1140,7 @@ mod tests {
             "shardloom.effectful_operation_admission_matrix.v1"
         );
         assert_eq!(matrix.claim_gate_status, "fixture_smoke_only");
-        assert_eq!(matrix.admitted_local_fixture_count(), 2);
+        assert_eq!(matrix.admitted_local_fixture_count(), 3);
         assert_eq!(matrix.metadata_only_count(), 1);
         assert!(matrix.blocked_count() >= 4);
         assert!(matrix.row_order().contains(&"local_sqlite_import_export"));
@@ -1139,6 +1148,11 @@ mod tests {
             matrix
                 .row_order()
                 .contains(&"deterministic_scalar_udf_fixture")
+        );
+        assert!(
+            matrix
+                .row_order()
+                .contains(&"deterministic_embedding_vector_fixture")
         );
         assert!(
             matrix

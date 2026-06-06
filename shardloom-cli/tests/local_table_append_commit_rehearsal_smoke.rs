@@ -19,6 +19,21 @@ fn run_local_table_append_commit_json(args: &[String]) -> (bool, String, String)
     )
 }
 
+fn run_local_table_commit_recovery_json(args: &[String]) -> (bool, String, String) {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(args)
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("local-table-commit-recovery-smoke command runs");
+
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).expect("stdout is utf8"),
+        String::from_utf8(output.stderr).expect("stderr is utf8"),
+    )
+}
+
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
@@ -152,6 +167,141 @@ fn rollback_after_commit_cleans_manifest_and_record() {
 }
 
 #[test]
+fn local_table_commit_recovery_replays_manifest_and_commit_record() {
+    let temp_dir = temp_case_dir("recovery");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let commit_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-001".to_string(),
+    ];
+    let (commit_success, commit_output, commit_stderr) =
+        run_local_table_append_commit_json(&commit_args);
+    assert!(
+        commit_success,
+        "stdout={commit_output} stderr={commit_stderr}"
+    );
+    assert!(sidecar_path(&target).exists(), "commit sidecar exists");
+
+    let recovery_args = vec![
+        "local-table-commit-recovery-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-001".to_string(),
+    ];
+    let (success, output, stderr) = run_local_table_commit_recovery_json(&recovery_args);
+
+    assert!(success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"command\":\"local-table-commit-recovery-smoke\""));
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.local_table_commit_recovery_smoke.v1"
+    )));
+    assert!(output.contains(&field("mode", "local_table_commit_recovery_smoke")));
+    assert!(output.contains(&field(
+        "runtime_enablement",
+        "local_table_commit_recovery_replay"
+    )));
+    assert!(output.contains(&field(
+        "claim_gate_status",
+        "scoped_local_table_commit_recovery_only"
+    )));
+    assert!(output.contains(&field("table_commit_recovery_status", "recovered")));
+    assert!(output.contains(&field(
+        "manifest_replay_status",
+        "verified_local_manifest_sidecar"
+    )));
+    assert!(output.contains(&field(
+        "commit_record_replay_status",
+        "verified_local_manifest_sidecar"
+    )));
+    assert!(output.contains(&field("recovery_replay_performed", "true")));
+    assert!(output.contains(&field("commit_record_read_performed", "true")));
+    assert!(output.contains(&field("manifest_digest_matched", "true")));
+    assert!(output.contains(&field("manifest_bytes_matched", "true")));
+    assert!(output.contains(&field("correctness_digest_matched", "true")));
+    assert!(output.contains(&field(
+        "recovered_idempotency_key",
+        "orders-table-recovery-001"
+    )));
+    assert!(output.contains(&field("idempotency_status", "recovered_from_commit_record")));
+    assert!(output.contains(&field("table_metadata_read_performed", "true")));
+    assert!(output.contains(&field("manifest_write_performed", "false")));
+    assert!(output.contains(&field("write_io", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("recovery_claim_allowed", "false")));
+    assert!(output.contains(&field("exactly_once_claim_allowed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn local_table_commit_recovery_blocks_mismatched_sidecar_without_fallback() {
+    let temp_dir = temp_case_dir("recovery-mismatch");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let commit_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-mismatch-001".to_string(),
+    ];
+    let (commit_success, commit_output, commit_stderr) =
+        run_local_table_append_commit_json(&commit_args);
+    assert!(
+        commit_success,
+        "stdout={commit_output} stderr={commit_stderr}"
+    );
+    let sidecar = sidecar_path(&target);
+    let mut sidecar_payload = fs::read_to_string(&sidecar).expect("sidecar");
+    sidecar_payload = sidecar_payload.replace(
+        "orders-table-recovery-mismatch-001",
+        "orders-table-recovery-mismatch-other",
+    );
+    fs::write(&sidecar, sidecar_payload).expect("corrupt sidecar");
+
+    let recovery_args = vec![
+        "local-table-commit-recovery-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-mismatch-001".to_string(),
+    ];
+    let (success, output, stderr) = run_local_table_commit_recovery_json(&recovery_args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains("\"code\":\"SL_COMMIT_NOT_ATOMIC\""));
+    assert!(output.contains(&field(
+        "table_commit_recovery_status",
+        "blocked_recovery_mismatch"
+    )));
+    assert!(output.contains(&field("idempotency_status", "recovered_mismatch")));
+    assert!(output.contains(&field("manifest_write_performed", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
 fn remote_manifest_target_is_blocked_without_probe_or_write() {
     let args = vec![
         "local-table-append-commit-rehearsal-smoke".to_string(),
@@ -173,6 +323,34 @@ fn remote_manifest_target_is_blocked_without_probe_or_write() {
     assert!(output.contains(&field("provider_probe_performed", "false")));
     assert!(output.contains(&field("table_metadata_write_performed", "false")));
     assert!(output.contains(&field("manifest_write_performed", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("write_io", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
+}
+
+#[test]
+fn remote_commit_recovery_target_is_blocked_without_probe_or_read() {
+    let args = vec![
+        "local-table-commit-recovery-smoke".to_string(),
+        "s3://bucket/table/metadata/v2.json".to_string(),
+    ];
+
+    let (success, output, stderr) = run_local_table_commit_recovery_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(output.contains(&field(
+        "table_commit_recovery_status",
+        "blocked_remote_provider"
+    )));
+    assert!(output.contains(&field("credential_resolution_performed", "false")));
+    assert!(output.contains(&field("network_probe_performed", "false")));
+    assert!(output.contains(&field("provider_probe_performed", "false")));
+    assert!(output.contains(&field("table_metadata_read_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));

@@ -1432,6 +1432,7 @@ pub fn plan_fault_tolerance_promotion_gate() -> FaultTolerancePromotionGateRepor
 pub enum CommitExecutionPromotionSurface {
     LocalCommittedManifestCopy,
     LocalCommittedManifestRollbackCleanup,
+    LocalCommittedManifestRecoveryReplay,
     GeneralizedManifestSerialization,
     GeneralizedLocalSinkCommit,
     ObjectStoreCommit,
@@ -1449,6 +1450,9 @@ impl CommitExecutionPromotionSurface {
             Self::LocalCommittedManifestCopy => "local_committed_manifest_copy",
             Self::LocalCommittedManifestRollbackCleanup => {
                 "local_committed_manifest_rollback_cleanup"
+            }
+            Self::LocalCommittedManifestRecoveryReplay => {
+                "local_committed_manifest_recovery_replay"
             }
             Self::GeneralizedManifestSerialization => "generalized_manifest_serialization",
             Self::GeneralizedLocalSinkCommit => "generalized_local_sink_commit",
@@ -1606,6 +1610,10 @@ fn commit_execution_promotion_entries() -> Vec<CommitExecutionPromotionGateEntry
             CommitExecutionPromotionSurface::LocalCommittedManifestRollbackCleanup,
             "existing feature-gated local committed-manifest rollback cleanup evidence plus ownership, cleanup audit, idempotency, certificate, and no-fallback linkage before any broader promotion",
         ),
+        CommitExecutionPromotionGateEntry::existing_limited(
+            CommitExecutionPromotionSurface::LocalCommittedManifestRecoveryReplay,
+            "existing local committed-manifest recovery replay smoke with sidecar digest, correctness, idempotency, certificate, and no-fallback linkage before any broader recovery promotion",
+        ),
         CommitExecutionPromotionGateEntry::blocked(
             CommitExecutionPromotionSurface::GeneralizedManifestSerialization,
             "generalized manifest schema, serialization roundtrip, compatibility/fidelity proof, idempotency identity, execution certificate, Native I/O certificate, and no-fallback evidence",
@@ -1688,6 +1696,7 @@ fn commit_execution_existing_report_refs() -> Vec<&'static str> {
         "cg10.object_store_request_planner.aggregate",
         "shardloom.object_store_commit_protocol.v1",
         "shardloom.table_maintenance_execution_matrix.v1",
+        "gar-runtime-impl-6d.local_table_commit_recovery_smoke",
     ]
 }
 
@@ -1702,6 +1711,7 @@ pub struct CommitExecutionPromotionGateReport {
     pub existing_report_refs: Vec<&'static str>,
     pub existing_local_commit_execution_present: bool,
     pub existing_local_rollback_execution_present: bool,
+    pub existing_local_recovery_execution_present: bool,
     pub broader_commit_execution_allowed: bool,
     pub generalized_manifest_serialization_allowed: bool,
     pub generalized_local_sink_commit_allowed: bool,
@@ -1760,6 +1770,7 @@ impl CommitExecutionPromotionGateReport {
             existing_report_refs: commit_execution_existing_report_refs(),
             existing_local_commit_execution_present: true,
             existing_local_rollback_execution_present: true,
+            existing_local_recovery_execution_present: true,
             broader_commit_execution_allowed: false,
             generalized_manifest_serialization_allowed: false,
             generalized_local_sink_commit_allowed: false,
@@ -1943,6 +1954,11 @@ impl CommitExecutionPromotionGateReport {
             out,
             "existing local rollback execution present: {}",
             self.existing_local_rollback_execution_present
+        );
+        let _ = writeln!(
+            out,
+            "existing local recovery execution present: {}",
+            self.existing_local_recovery_execution_present
         );
         let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
         let _ = writeln!(out, "commit surfaces:");
@@ -4571,8 +4587,8 @@ mod tests {
     #[test]
     fn commit_execution_promotion_gate_tracks_broader_surfaces() {
         let report = plan_commit_execution_promotion_gate();
-        assert_eq!(report.surface_count(), 12);
-        assert_eq!(report.existing_limited_surface_count(), 2);
+        assert_eq!(report.surface_count(), 13);
+        assert_eq!(report.existing_limited_surface_count(), 3);
         assert_eq!(report.blocked_surface_count(), 10);
         assert_eq!(report.broader_execution_ready_surface_count(), 0);
         assert_eq!(report.gar_id, "GAR-0028-A");
@@ -4586,6 +4602,9 @@ mod tests {
                 .surface_order()
                 .contains(&CommitExecutionPromotionSurface::LocalCommittedManifestCopy.as_str())
         );
+        assert!(report.surface_order().contains(
+            &CommitExecutionPromotionSurface::LocalCommittedManifestRecoveryReplay.as_str()
+        ));
         assert!(
             report.surface_order().contains(
                 &CommitExecutionPromotionSurface::GeneralizedManifestSerialization.as_str()
@@ -4622,6 +4641,7 @@ mod tests {
         let report = plan_commit_execution_promotion_gate();
         assert!(report.existing_local_commit_execution_present);
         assert!(report.existing_local_rollback_execution_present);
+        assert!(report.existing_local_recovery_execution_present);
         assert!(report.broader_execution_promotions_blocked());
         assert!(report.commit_claims_blocked());
         assert_eq!(report.diagnostics.len(), 10);

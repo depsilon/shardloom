@@ -16,6 +16,917 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D generated-output object-store recovery replay integration
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Newly admitted scoped local-emulator object-store write recovery replay proof.
+  - Scope:
+    - Extended `ShardLoomContext.generated_output_to_object_store(...)` with optional recovery
+      replay that runs only after a successful committed local-emulator object-store write.
+    - Extended `ShardLoomContext.generated_output_to_partitioned_object_store(...)` to forward the
+      replay option, so committed partitioned generated outputs verify the sidecar before partition
+      discovery.
+    - Added typed report accessors for recovery status, replay status, object-store read I/O, and
+      `output_replay_verified`; rollback cleanup routes intentionally skip recovery because the
+      object and sidecar are removed.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/context.py python/tests/test_cli_client.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_object_store_uses_local_emulator_route python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_partitioned_object_store_verifies_discovery`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_graduation_matrix.py --output target/user-surface-graduation-generated-output-recovery.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-generated-output-recovery.json`
+      passed.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+  - Claim boundary:
+    - Scoped local-emulator generated-output replay proof only. This does not add live platform API
+      writes, real Foundry runtime, live S3/GCS/ADLS writes, production remote delivery, table
+      commits, performance claims, or package/release claims.
+  - Fallback boundary:
+    - No external platform, Spark, warehouse, query engine, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D local-emulator object-store write recovery replay proof
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Object-store runtime skill, translation/object-store boundaries, CG-10 runtime gate, and
+      ShardLoom no-fallback policy.
+  - Scope:
+    - Added `object-store-write-recovery-smoke`, a scoped local-emulator recovery replay command
+      for sidecar manifests emitted by `object-store-write-smoke`.
+    - Recovery reads the committed local object and its `.shardloom-commit.json` sidecar, verifies
+      object digest, recorded payload/target digests, payload byte count, target path, manifest
+      shape, and optional idempotency key, then emits explicit no-fallback evidence.
+    - Added Python `ShardLoomClient.object_store_write_recovery_smoke(...)` and
+      `ShardLoomContext.object_store_write_recovery_smoke(...)` helpers.
+    - Added CG-10 scoped evidence fields and a runs-today support row while preserving blocked
+      live-provider partition discovery, live-provider recovery, catalog integration, remote result
+      delivery, and production object-store/table commit promotion.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/context.py python/tests/test_cli_client.py`
+      passed.
+    - `cargo test -p shardloom-cli --test object_store_write_smoke -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_object_store_write_recovery_smoke_wrapper_calls_local_emulator_profile`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli usage_includes_object_store_write_recovery_smoke -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots capability_discovery_json_field_keys_are_stable -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_graduation_matrix.py --output target/user-surface-graduation-object-store-write-recovery.json`
+      passed after adding the existing partition/generated/table-recovery local fixture methods to
+      the same graduation row.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-object-store-write-recovery.json`
+      passed.
+  - Claim boundary:
+    - Scoped local-emulator write recovery proof only. This does not add S3/GCS/ADLS credential
+      resolution, provider probes, network recovery, production object-store commit semantics,
+      table/lakehouse/catalog commits, exactly-once recovery, remote result delivery, distributed
+      runtime, performance claims, package/release claims, or Spark-replacement claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D DataFrame inspection/null/callable blocker slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - RFC 0033 user workflow/ETL surface, developer/agent experience skill, testing/correctness
+      skill, and ShardLoom no-fallback policy.
+  - Scope:
+    - Added familiar DataFrame affordances for `tail(...)`, `describe(...)`, `nunique(...)`,
+      `value_counts(...)`, `fillna(...)` / `fill_null(...)`, `isna(...)` / `isnull(...)`,
+      `notna(...)` / `notnull(...)`, `apply(...)`, `map(...)`, and `map_rows(...)`.
+    - Each affordance returns a deterministic `workflow-unsupported-plan` report rather than a
+      missing Python attribute or hidden pandas/Polars execution path.
+    - Extended method capability rows and workflow capability parity from 55 to 65 canonical
+      operations with stable blocker IDs for source-order tail, summary statistics, distinct counts,
+      grouped value counts, null fill, null masks, and Python callable transforms.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/context.py python/tests/test_query_builder.py scripts/check_python_user_surface_completion.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+      passed.
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots cross_cg_capability_parity_surfaces_shared_blocker_contracts -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-dataframe-inspection-null-callable-blockers.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-dataframe-inspection-null-callable-blockers.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-dataframe-inspection-null-callable-blockers.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_python_user_surface_completion_can_read_method_rows_statically`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity.SqlPythonDataFrameParityTests.test_current_repo_parity_gate_is_honest_about_scope_and_gaps`
+      passed after superseding a stale test-method-name invocation.
+    - `cargo fmt --all -- --check` and `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+      passed.
+  - Claim boundary:
+    - Deterministic unsupported diagnostics only. This does not certify broad DataFrame parity,
+      pandas/Polars compatibility, tail source-order semantics, summary-statistics runtime,
+      DataFrame-wide null masks/fill, Python callable execution, production support, benchmark
+      evidence, or performance claims.
+  - Fallback boundary:
+    - No pandas, Polars, Spark, DataFusion, DuckDB, Velox, Vortex query-engine integration, external
+      engine execution, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D SQL all-null typed nested sink blocker
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Typed nested compatibility sink row in `docs/status/admitted-semantics-matrix.json`.
+  - Scope:
+    - Tightened SQL local-source OutputPlan conversion so generic all-null `List` / `Struct`
+      result columns without child-schema evidence fail before Parquet, Arrow IPC, Avro, ORC, or
+      Vortex writer conversion.
+    - Added the stable blocker id `typed_complex_child_schema_not_admitted` while preserving JSONL
+      logical-result and CSV JSON-text boundaries for all-null nested values.
+    - Added SQL report fields and Python `SqlLocalSourceSmokeReport` accessors for typed nested
+      child-schema evidence status, blocker id, and blocked sink formats.
+    - Kept inferable non-null nested Parquet/Arrow IPC/Avro sinks admitted, and kept ORC/Vortex
+      nested outputs blocked with no-fallback diagnostics.
+  - Evidence:
+    - `cargo test -p shardloom-cli typed_nested -- --nocapture` passed the all-null child-schema
+      blocker regression and the existing inferable typed nested sink regression.
+    - `cargo clippy -p shardloom-cli --all-targets -- -D warnings` passed after splitting the new
+      regression into a focused test instead of suppressing `clippy::too_many_lines`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_complex_projection_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-all-null-nested-blocker.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-all-null-nested-blocker.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-all-null-nested-blocker.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-all-null-nested-blocker.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/client.py python/tests/test_query_builder.py scripts/check_sql_python_dataframe_parity.py`
+      passed.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+  - Claim boundary:
+    - Deterministic unsupported diagnostic only for all-null typed nested structured sinks without
+      child-schema evidence. This does not admit ORC nested output, Vortex nested output, nested
+      accessors/casts, broad nested SQL parity, production SQL support, or performance claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D local table commit recovery replay proof
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Existing local-manifest table append commit rehearsal, commit-execution promotion gate, and
+      current-support matrix.
+  - Scope:
+    - Added `local-table-commit-recovery-smoke`, a scoped local-manifest recovery replay command
+      that reads the committed manifest plus sidecar commit record emitted by
+      `local-table-append-commit-rehearsal-smoke`.
+    - The recovery smoke verifies the committed manifest digest, sidecar-recorded digest,
+      fixture correctness digest, and optional idempotency key before reporting recovery success.
+    - Added deterministic blockers for remote targets, missing manifests, missing sidecar records,
+      read failures, and mismatched recovery evidence, with credential/network/provider probes,
+      object-store I/O, fallback, and external-engine invocation all false.
+    - Exposed Python `ShardLoomClient.local_table_commit_recovery_smoke(...)` and
+      `ShardLoomContext.local_table_commit_recovery_smoke(...)` helpers.
+    - Extended `CommitExecutionPromotionGateReport` with the existing-limited
+      `local_committed_manifest_recovery_replay` surface and exported the command in the runs-today
+      current-support matrix and website data.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test local_table_append_commit_rehearsal_smoke -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli local_table_commit_recovery_smoke -- --nocapture` passed.
+    - `cargo test -p shardloom-exec commit_execution_promotion_gate --lib -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test commit_execution_promotion_gate -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_local_table_commit_recovery_wrapper_calls_local_manifest_profile python.tests.test_cli_client.ShardLoomClientTests.test_context_runtime_smoke_helpers_delegate_to_client_commands`
+      passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/context.py python/tests/test_cli_client.py`
+      passed.
+    - `python3 scripts/export_runs_today_support_matrix.py --binary target/debug/shardloom` and
+      `node website-src/scripts/sync-content.mjs` refreshed the current-support JSON copies.
+  - Claim boundary:
+    - Scoped local-manifest recovery replay proof only. This does not add real Iceberg/Delta/Hudi
+      recovery, object-store/table catalog commits, exactly-once recovery, generalized recovery,
+      production lakehouse support, performance claims, or Spark-replacement claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, external lakehouse/catalog engine, remote provider,
+      credential resolution, network probe, external engine execution, or fallback execution is
+      introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D SQL CTE deterministic parser blocker
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - SQL parser/binder readiness doc, SQL/Python/DataFrame parity validator, and no-fallback
+      policy.
+  - Scope:
+    - Added `validate_sql_cte_policy_boundary(...)` to the SQL local-source parser so `WITH` and
+      `WITH RECURSIVE` statements fail before bind, plan, runtime, source I/O, or fallback.
+    - Applied the boundary to both single local-source statements and top-level set-operation parse
+      requests before scalar/complex policy validation.
+    - Added Rust parser tests for ordinary CTE, recursive CTE, and CTE-wrapped set-operation input.
+    - Added parity-gate source markers and docs so the CTE blocker remains visible as a deliberate
+      broad-SQL grammar boundary.
+  - Evidence:
+    - `cargo test -p shardloom-cli parser_blocks_common_table_expressions_without_fallback -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m py_compile scripts/check_sql_python_dataframe_parity.py`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-cte-blocker.json`
+      passed.
+  - Claim boundary:
+    - Deterministic parser-bound unsupported diagnostic only. This does not add CTE plan nodes,
+      recursive runtime, catalog scope, production SQL support, broad SQL parity, or performance
+      claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, SQLite, Vortex query-engine integration,
+      external SQL engine execution, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D DataFrame combine/reshape/window blocker slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - RFC 0033 user workflow/ETL surface, developer/agent experience skill, diagnostics
+      capability skill, and no-fallback policy.
+  - Scope:
+    - Added `LazyFrame.merge(...)`, `concat(...)`, `pivot(...)`, `pivot_table(...)`, `melt(...)`,
+      and `rolling(...)` as familiar DataFrame affordances that return deterministic unsupported
+      reports instead of missing Python attributes or hidden pandas/Polars execution.
+    - Added deterministic `target_ref` normalization for merge keys, concat axis/schema alignment,
+      pivot/pivot-table reshape inputs, melt/unpivot inputs, and rolling-window frame parameters.
+    - Extended `workflow-unsupported-plan` with canonical operation records for merge, concat,
+      pivot, pivot_table, melt, and rolling, including blocker IDs, required evidence, diagnostic
+      codes, no-runtime report fields, and no-fallback/no-external-engine evidence.
+    - Extended workflow capability parity from 49 to 55 operations and added DataFrame method
+      capability rows so Python, CLI, static validators, and cross-CG capability reports agree.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/context.py scripts/check_python_user_surface_completion.py python/tests/test_query_builder.py python/tests/test_cli_client.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_python_user_surface_completion_can_read_method_rows_statically`
+      passed.
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots cross_cg_capability_parity_surfaces_shared_blocker_contracts -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-dataframe-combine-reshape-blockers.json`
+      passed with `method_matrix_row_count=85`, no blockers, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-dataframe-combine-reshape-blockers.json`
+      passed with broad DataFrame parity still not claim-grade.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-dataframe-combine-reshape-blockers.json`
+      passed with `claim_gate_status=not_claim_grade`, `production_claim_allowed=false`,
+      `performance_claim_allowed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+  - Claim boundary:
+    - Deterministic unsupported diagnostics for broad DataFrame combine, reshape, and rolling-window
+      affordances only. This does not certify broad DataFrame parity, schema inference, suffix
+      resolution, pivot materialization, rolling runtime, production support, benchmark evidence, or
+      performance claims.
+  - Fallback boundary:
+    - No pandas, Polars, Spark, DataFusion, DuckDB, Velox, Vortex query-engine integration, external
+      engine execution, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D partitioned generated-output local-emulator proof
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Existing generated-source local output smokes, local-emulator object-store write smoke, and
+      scoped partition discovery smoke.
+  - Scope:
+    - Added Python `ShardLoomContext.generated_output_to_partitioned_object_store(...)`, which
+      composes generated-source staging, local-emulator object-store write, and local-emulator
+      key=value partition discovery.
+    - Added `GeneratedPartitionedObjectStoreOutputReport` and exported it from `shardloom` so
+      callers can inspect the generated-output write status, partition discovery status, discovered
+      columns, write/listing I/O flags, claim gate, fallback status, and external-engine status.
+    - Kept live S3/GCS/ADLS generated-output paths report-only/blocked; the new route accepts only
+      local-emulator roots and validates partition keys/values as local path segments.
+    - Updated the generated-output compatibility row and scoreboard wording to include partitioned
+      local-emulator proof while keeping live platform APIs blocked.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_partitioned_object_store_verifies_discovery python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_object_store_uses_local_emulator_route python.tests.test_cli_client.ShardLoomClientTests.test_context_foundry_generated_output_uses_local_style_dataset_route`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots compatibility_capabilities_expose_universal_scoreboard -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_universal_compatibility_scoreboard`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-partitioned-generated-output.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-partitioned-generated-output.json`
+      passed with `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=not_claim_grade`.
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate -- --nocapture` passed.
+    - `cargo fmt --all -- --check` and
+      `python3 -m json.tool docs/architecture/universal-compatibility-coverage-scoreboard.json >/dev/null`
+      passed.
+  - Claim boundary:
+    - Scoped partitioned local-emulator generated-output proof only. This does not add live
+      provider generated-output writes, credential resolution, network/provider probes, table or
+      lakehouse commits, real Foundry output APIs, production support, performance claims, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - No external platform, Spark, DataFusion, DuckDB, Polars, warehouse, provider credential,
+      provider probe, live network write, or external engine execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D local-emulator partition discovery smoke
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Object-store runtime skill, object-store request planner, CG-10 runtime gate, and no-fallback
+      policy.
+  - Scope:
+    - Added `object-store-partition-discovery-smoke`, a scoped local-emulator runtime command that
+      lists caller-owned local `key=value` partition directories and reports discovered partition
+      columns/values, directory counts, listing counts, and max partition depth.
+    - Added deterministic remote-provider and unsupported-profile blockers before credential
+      resolution, network/provider probes, catalog integration, table commits, remote result
+      delivery, fallback, or external-engine invocation.
+    - Added Python `ShardLoomClient.object_store_partition_discovery_smoke(...)` and
+      `ShardLoomContext.object_store_partition_discovery_smoke(...)` helpers so the runtime proof is
+      available from the user-facing Python surface.
+    - Exposed the scoped proof in the CG-10 runtime gate as local-emulator fixture evidence while
+      keeping live-provider partition discovery, catalog integration, and remote result delivery
+      blocked in the broad runtime blocker matrix.
+    - Updated the object-store request planner doc and live phase plan to distinguish scoped
+      local-emulator partition discovery from live-provider partition listing.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test object_store_partition_discovery_smoke -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate -- --nocapture` passed.
+    - `cargo test -p shardloom-cli usage_includes_object_store_partition_discovery_smoke -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/context.py python/tests/test_cli_client.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_object_store_partition_discovery_smoke_wrapper_calls_local_emulator_profile python.tests.test_cli_client.ShardLoomClientTests.test_context_object_store_partition_discovery_smoke_routes_to_client`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-object-store-partition-discovery.json`
+      passed with `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=not_claim_grade`.
+    - `cargo fmt --all -- --check` passed.
+  - Claim boundary:
+    - Scoped local-emulator partition directory discovery only. This does not add live S3/GCS/ADLS
+      listing, credential resolution, network/provider probing, catalog integration, table-format
+      discovery, remote result delivery, production support, performance claims, Spark replacement,
+      or fallback execution.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, external lakehouse/catalog engine, remote provider, or
+      fallback execution is introduced. Unsupported and live-provider paths fail with deterministic
+      diagnostics before side effects.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D front-door benchmark publication admission closeout
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication`
+      item in `docs/architecture/phased-execution-plan.md`.
+    - Benchmarking skill, SQL/Python/DataFrame parity gate, public benchmark publication claim
+      gate, and release benchmark-claim CI lane.
+  - Scope:
+    - Added `scripts/check_front_door_benchmark_publication.py` with schema
+      `shardloom.front_door_benchmark_publication_gate.v1`. The gate composes the
+      SQL/Python/DataFrame parity report with the committed benchmark publication claim gate and
+      passes only when the current front-door publication posture is explicit and fail-closed.
+    - The gate preserves `front_door_performance_publication_status=blocked_pending_measured_equivalence_artifact`,
+      `claim_gate_status=not_claim_grade`, `front_door_performance_equivalence_claim_allowed=false`,
+      `performance_claim_allowed=false`, `benchmark_run_performed=false`,
+      `benchmark_rerun_approved=false`, `publication_attempted=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Wired the gate into `scripts/check_release_readiness.py`,
+      `scripts/run_release_validation_evidence.py`, the release benchmark-claim CI lane, and
+      `docs/release/ci-gate-matrix.md`, with
+      `target/front-door-benchmark-publication-gate.json` as the evidence artifact.
+    - Added Python tests proving the current repo stays fail-closed and that overclaimed
+      front-door performance equivalence is rejected.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_front_door_benchmark_publication`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - Additional validation is recorded in the current session summary.
+  - Claim boundary:
+    - Front-door route identity and publication admission are explicit. SQL/Python/DataFrame
+      performance equivalence, superiority, production readiness, package publication, and
+      Spark-replacement claims remain not claim-grade until measured equivalent front-door rows,
+      correctness digests, execution certificates, reproducibility metadata, and approved rerun
+      evidence are attached.
+  - Fallback boundary:
+    - No benchmark execution, external baseline execution, package publication, external engine,
+      or fallback execution is introduced. External engines remain baselines only.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D distributed/spill/OOM bounded pre-OOM guard slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - RFC 0014 memory/spill/OOM safety and memory-spill skill guidance.
+  - Scope:
+    - Added `PreOomMemoryGuardFixtureReport` and `pre-oom-memory-guard-smoke`, a bounded local
+      reservation fixture that grants 512 bytes, denies an additional 512-byte request against a
+      768-byte hard limit, emits `SL_RESOURCE_BUDGET_EXCEEDED`, then releases the granted
+      reservation so cleanup is explicit.
+    - Added the `pre_oom_memory_guard_fixture` row to the CG-14 memory runtime hardening gate as
+      existing narrow evidence while keeping native spill write/read, spill cleanup execution,
+      allocator runtime integration, distributed execution, large-workload claims, and performance
+      claims blocked.
+    - Added `runs-today` discovery for the CLI smoke with a fixture-only claim boundary.
+  - Evidence:
+    - `cargo test -p shardloom-exec pre_oom_memory_guard --lib -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test pre_oom_memory_guard_smoke -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test cg14_memory_runtime_hardening_gate -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli pre_oom_memory_guard_smoke_returns_success -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli usage_includes_pre_oom_memory_guard_smoke -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli classifies_representative_priority_39_families -- --nocapture`
+      passed.
+    - `cargo clippy -p shardloom-core -p shardloom-exec -p shardloom-cli --all-targets -- -D warnings`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `python3 scripts/export_runs_today_support_matrix.py --binary target/debug/shardloom --check`
+      passed.
+    - `python3 scripts/check_golden_workflows.py` passed.
+    - `python3 scripts/check_runtime_execution_envelopes.py --output target/runtime-execution-envelope-pre-oom-memory-guard.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-pre-oom-memory-guard.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-pre-oom-memory-guard.json`
+      passed.
+    - `node website/validate_static_assets.js` passed from the built `website/` directory.
+  - Claim boundary:
+    - Bounded local pre-OOM reservation-denial fixture only. Real query-data spill, object-store
+      spill, native spill read/write, distributed/shuffle runtime, larger-than-memory production
+      support, and performance claims remain blocked.
+  - Fallback boundary:
+    - No Spark/Dask/Ray/Trino/warehouse shuffle, spill, external engine, object-store IO, write IO,
+      or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D live/hybrid state-transition bounded runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - RFC 0034 three-engine fabric and fault-tolerance/cancellation/recovery docs.
+  - Scope:
+    - Added `live-hybrid-state-transition-smoke`, a bounded in-memory hybrid state-transition
+      fixture with source/target snapshot refs, snapshot epoch, freshness and state certificates,
+      first-attempt cooperative cancellation, cleanup completion, second-attempt retry
+      certification, partial-output tracking, and no-fallback evidence.
+    - Added the `live_hybrid_state_transition_fixture` row to the live/hybrid fabric freshness gate.
+      Gate counts now distinguish seven blocked rows, one report-only row, and two fixture-smoke
+      rows.
+    - Added Python client/context helpers and typed accessors for the lifecycle proof.
+  - Evidence:
+    - `cargo test -p shardloom-core live_hybrid_state_transition_fixture --lib -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots -- --nocapture` passed.
+    - `cargo test -p shardloom-cli live_hybrid_state_transition_smoke_returns_success -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli usage_includes_cg22_engine_fabric_plans -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli classifies_representative_priority_39_families -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_live_fixture_client_methods_dispatch_expected_commands`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-live-hybrid-state-transition.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-live-hybrid-state-transition.json`
+      passed.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Bounded in-memory live/hybrid state-transition fixture only. Production broker ingestion,
+      durable state-store/checkpoint recovery, object-store/table commits, unbounded scheduler,
+      exactly-once semantics, benchmark claims, and Spark-displacement claims remain blocked.
+  - Fallback boundary:
+    - No Kafka/Flink/Spark/Ray/Dask/state-store delegation, broker IO, object-store IO, durable
+      checkpoint write, external streaming runtime, external engine, or fallback execution is
+      introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D effectful embedding/vector bounded runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.effectful_operations` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Modular extensibility and extension/plugin sandboxing docs for embedding/vector and
+      effectful-operation admission boundaries.
+  - Scope:
+    - Added `deterministic_embedding_vector_fixture` to the effectful-operation admission matrix as
+      a built-in local UTF-8 hash embedding/vector fixture with explicit fixture id, model id,
+      dimension, metric, input/vector digests, nearest-neighbor proof, and no-effect evidence.
+    - Added `embedding-vector-local-fixture-smoke` CLI execution and Python client/context helpers
+      for the deterministic fixture.
+    - Kept real model calls, external embedding generation, vector databases, ANN indexes,
+      credentials, network probes, dynamic loading, plugin execution, fallback execution, and
+      external-engine invocation blocked by policy and capability fields.
+  - Evidence:
+    - `cargo test -p shardloom-core deterministic_embedding_vector_fixture --lib -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-core effectful_operation_admission_matrix_admits_only_local_fixtures --lib -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots embedding_vector_local_fixture_smoke_exposes_no_effect_vector_evidence -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test effect_budget_plan_snapshots effect_budget_json_exposes_effectful_operation_admission_matrix -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots udf_and_effectful_capabilities_expose_external_effect_blockers -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_extension_udf_and_sqlite_effectful_operation_helpers`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-effectful-embedding.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-effectful-embedding.json`
+      passed.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Scoped built-in deterministic embedding/vector fixture only. It is not a production
+      embedding model, model-call route, vector database, ANN index, external API, plugin, or
+      performance claim.
+  - Fallback boundary:
+    - No model call, credential resolution, network probe, dynamic loading, extension code
+      execution, external effect, Spark, DataFusion, DuckDB, Polars, vector database, external
+      engine, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D data-quality regex/quarantine bounded runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.data_quality_quarantine_profile_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Python query-builder schema/data-quality helpers, scoped SQL local-source regex predicate
+      runtime, and local quarantine sink evidence paths.
+  - Scope:
+    - Added scoped `regex:column:pattern` / `matches:column:pattern` bounded data-quality checks
+      over ShardLoom-emitted local-source rows, with explicit UTF-8/null failure semantics and
+      malformed regex syntax routed to deterministic unsupported reports.
+    - Promoted pushdownable local-source regex quarantine so failing regex rows can be written to
+      admitted local sinks through `sql-local-source-smoke`, preserving local sink certificate and
+      replay fields.
+    - Updated Python/DataFrame capability rows and user-route text so quarantine is no longer
+      described as only not-null pushdown.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_schema_quality_helpers_invoke_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_quarantine_writes_pushdown_regex_rows python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_malformed_regex_quality_and_quarantine_are_unsupported`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-data-quality-regex.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-data-quality-regex.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-data-quality-regex.json`
+      passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_regex_predicates_without_fallback -- --nocapture`
+      passed.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Scoped local-source bounded data-quality and quarantine only. Broad production governance,
+      object-store/table remediation, unique-check sink pushdown, provider credentials, benchmark
+      execution, performance claims, and production claims remain blocked.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, Spark, DataFusion, external quality engine, provider API, or hidden
+      remediation runtime is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D generated-output platform contract alignment slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Universal compatibility generated-output contract, Python generated-output helpers, local
+      object-store write smoke, and local Foundry-style generated-output proof routes.
+  - Scope:
+    - Expanded the generated-output compatibility contract with four platform-adjacent rows:
+      scoped local-emulator object-store generated-output proof, blocked live object-store provider
+      generated-output, scoped local Foundry-style generated-output proof, and blocked real Foundry
+      platform generated-output.
+    - Added aggregate fields that separate live-provider support from local proof support:
+      `object_store_runtime_supported=false`,
+      `object_store_local_emulator_runtime_supported=true`, `foundry_runtime_supported=false`,
+      `foundry_style_runtime_supported=true`, and `live_platform_api_supported=false`.
+    - Added Python typed accessors for the generated-output platform row order and local/live
+      platform support booleans.
+    - Updated the universal compatibility JSON/Markdown projection and active phase plan so
+      platform routes are no longer reported as vague residual work.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots compatibility_capabilities_expose_universal_scoreboard -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_universal_compatibility_scoreboard`
+      passed.
+    - `python3 -m json.tool docs/architecture/universal-compatibility-coverage-scoreboard.json >/dev/null`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-generated-output-platform.json`
+      passed.
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock -- --nocapture`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Admits no new live platform API. The scoped rows describe existing local-emulator object-store
+      and local Foundry-style generated-output proof routes only. Live S3/GCS/ADLS writes, real
+      Foundry runtime/output APIs, lakehouse/table output, package publication, Marketplace,
+      production, and performance claims remain blocked.
+  - Fallback boundary:
+    - No external platform, Spark, DataFusion, DuckDB, Polars, warehouse, provider credential,
+      provider probe, live network write, or external engine execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D object-store/lakehouse blocker alignment slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - CG-10 object-store runtime promotion gate and completed local object-store/table fixture
+      ledger entries.
+  - Scope:
+    - Expanded the plan-side CG-10 runtime promotion gate from 13 to 16 surfaces by naming
+      partition discovery, catalog integration, and remote result delivery as explicit blocked
+      production-class runtime surfaces.
+    - Expanded the runtime blocker matrix from 7 to 10 rows with deterministic
+      `SL_OBJECT_STORE_UNSUPPORTED` diagnostics and required-evidence strings for
+      `partition_discovery`, `catalog_integration`, and `remote_result_delivery`.
+    - Updated CLI JSON contract tests, typed-envelope compatibility coverage, the object-store
+      request-planner doc, and the active phase plan so these boundaries are no longer vague
+      residual work.
+    - Reconciled the phase plan with existing scoped local-manifest table append commit rehearsal
+      and rollback cleanup evidence while keeping production table-format/object-store commits,
+      generalized recovery, live-provider partition discovery, catalog integration, and remote
+      result delivery blocked until certified.
+  - Evidence:
+    - `cargo test -p shardloom-plan object_store_runtime_gate --lib -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_object_store_runtime_gate_preserves_blocker_diagnostics`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This slice does not admit live cloud providers, credentialed provider reads/writes, catalog
+      service access, production table-format commits, generalized recovery, or remote result
+      delivery. It makes those boundaries deterministic and machine-readable until the required
+      evidence exists.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, external lakehouse engine, catalog service, provider
+      probe, credential resolution, object-store IO, write IO, or external engine execution is
+      introduced by the gate expansion.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D Python/DataFrame typed nested sink parity slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - The typed nested compatibility sink runtime slice and front-door parity matrix.
+  - Scope:
+    - Added Python `SqlLocalSourceSmokeReport` accessors for scoped complex projection runtime
+      evidence, complex output columns/kinds/dtypes/source columns, complex output boundary, and
+      admitted/blocked typed nested sink formats.
+    - Added a Python/DataFrame query-builder smoke proving `with_columns(sl.array(...),
+      sl.struct(...)).write_parquet(...)` routes through the public `run dataframe` front door and
+      exposes the typed nested compatibility sink boundary without fallback.
+    - Promoted `typed_nested_compatibility_sink` into the front-door parity matrix as a seventh
+      admitted scoped row for SQL, Python, and DataFrame-style Parquet/Arrow IPC/Avro output.
+    - Updated parity and CLI-client tests so row counts, marker checks, and claim boundaries remain
+      explicit.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_complex_projection_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-typed-nested.json`
+      passed with `row_count=11`, `admitted_row_count=7`, `remaining_gap_count=4`,
+      `scoped_local_front_door_parity_supported=true`, and
+      `all_no_fallback_no_external_engine=true`.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-typed-nested.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_front_door_parity_matrix_exposes_broad_gaps`
+      passed.
+  - Claim boundary:
+    - Admits Python-visible scoped typed nested compatibility sink parity only for inferable
+      Parquet, Arrow IPC, and Avro output. Broad DataFrame parity, all-null nested child-schema
+      inference, ORC nested output, Vortex nested output, nested accessors/casts, production SQL
+      nested parity, and performance equivalence remain outside the claim boundary.
+  - Fallback boundary:
+    - No pandas, Polars, Spark, DataFusion, DuckDB, or external engine execution is introduced.
+    - The Python row remains a front door into the same ShardLoom local-source runtime evidence.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL diagnostic alignment audit
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` remaining grammar rows in
+      `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json` and
+      `scripts/check_admitted_semantics_matrix.py`.
+  - Scope:
+    - Reconciled the active phase-plan wording with current matrix-backed diagnostics so proven
+      unsupported/invalid SQL shapes are not reopened as active implementation gaps.
+    - Confirmed variant access, union dtype casts, non-binary-source comparisons against binary
+      literals, scalar-left multi-column `IN (SELECT ...)`, unbound source-qualified subquery
+      references, and invalid/broad correlated outer-reference shapes have deterministic
+      no-fallback diagnostics in the admitted-semantics matrix and validator fixtures.
+    - Left real residual claim boundaries visible: all-null nested sink columns without child-schema
+      evidence, ORC nested output, Vortex nested output, ORC typed decimal output, broader binary
+      execution/preservation, broad ANSI decimal coercion, and broad ANSI subquery parity beyond the
+      admitted bounded local families.
+  - Evidence:
+    - `target/admitted-semantics-typed-nested.json` reports `status=passed`,
+      `matrix_row_count=123`, `executable_fixture_count=99`, `diagnostic_case_count=22`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `scripts/check_admitted_semantics_matrix.py` contains executable/diagnostic cases for
+      `unsupported_nonbinary_source_binary_literal_predicate`,
+      `unsupported_nonbinary_source_binary_ordering_predicate`, `unsupported_variant_access`,
+      `unsupported_union_dtype_cast`, `invalid_shape_scalar_multi_column_in_subquery`,
+      the unbound source-qualified diagnostic family, and the outer-reference diagnostic family.
+  - Claim boundary:
+    - This audit does not admit new SQL runtime shapes. It prevents completed deterministic
+      diagnostics from being treated as open runtime work.
+  - Fallback boundary:
+    - No fallback policy change. All audited unsupported/invalid shapes remain explicit
+      ShardLoom diagnostics with `external_engine_invoked=false`.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D typed nested compatibility sink runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` remaining typed structured sink
+      row in `docs/architecture/phased-execution-plan.md`.
+    - Admitted semantics matrix, local structured-source runtime, and shared compatibility-format
+      writer.
+  - Scope:
+    - Added recursive Arrow dtype inference and dynamic Arrow builder emission for ShardLoom
+      `ScalarValue::List` / `ScalarValue::Struct` result columns in the shared
+      `shardloom-vortex` compatibility writer.
+    - Admitted scoped feature-gated Parquet, Arrow IPC, and Avro typed nested compatibility sinks
+      when one stable nested Arrow dtype can be inferred from non-null result values.
+    - Kept all-null complex columns without child-schema evidence blocked before writer conversion
+      with `output_plan_conversion_blocker=typed_complex_child_schema_not_admitted`.
+    - Kept ORC and local Vortex nested outputs blocked before provider conversion with explicit
+      no-fallback diagnostics; this slice does not admit Vortex nested output.
+    - Updated SQL output-plan evidence strings, type/nullability support labels, fidelity labels,
+      and fanout blocker wording so typed nested compatibility output is not reported as a flat-only
+      sink.
+    - Added `typed_nested_compatibility_sink_preservation` to the admitted-semantics matrix as a
+      Rust-smoke-backed row (`runtime_validation=rust_cli_smoke`).
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features universal-format-io preserves_nested_rows_in_feature_gated_typed_structured_sinks -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io all_null_complex_sink_without_child_schema_blocks_before_writer_conversion -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features universal-format-io complex_projection_result_batch_admits_typed_nested_compatibility_sinks_and_blocks_orc_vortex_without_fallback -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_without_fallback -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_fallback -- --nocapture`
+      passed after the writer diagnostic gained `external_engine_invoked=false`.
+  - Claim boundary:
+    - Admits typed nested compatibility sink preservation for inferable `List` / `Struct` result
+      columns through Parquet, Arrow IPC, and Avro only.
+    - Does not admit all-null nested columns without child-schema evidence, ORC nested output,
+      Vortex nested output, nested accessors/casts, complex subquery membership, broad nested
+      ordering, complex-key joins, production SQL nested parity, or performance claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, or Vortex query-engine fallback is introduced.
+    - Unsupported nested sink shapes fail before provider conversion or before local output write.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped nested source decoding runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` remaining nested source decoding
+      row in `docs/architecture/phased-execution-plan.md`.
+    - Admitted semantics matrix and local structured-source runtime.
+  - Scope:
+    - Promoted scoped feature-gated Arrow list, large-list, fixed-size-list, and struct source
+      materialization from unsupported Arrow types into ShardLoom `ScalarValue::List` /
+      `ScalarValue::Struct` values.
+    - Preserved source-schema `list` / `struct` dtype hints through raw projections and `SELECT *`
+      so all-null nested source columns remain complex at the output-plan boundary.
+    - Added a real CLI Arrow IPC nested source smoke that renders nested source values through
+      JSONL and CSV JSON-text result boundaries without fallback.
+    - Added a deterministic pre-write blocker proving all-null nested source projections cannot
+      silently pass into typed structured sinks; Parquet output still fails before write with
+      `output_plan_conversion_blocker=typed_complex_child_schema_not_admitted`.
+    - Added `nested_arrow_ipc_source_projection` to the admitted-semantics matrix as a
+      Rust-smoke-backed row (`runtime_validation=rust_cli_smoke`) rather than a generated CSV
+      fixture row.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features universal-format-io materializes_columnar_nested_source_dtypes_as_scalar_complex_values -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_decodes_arrow_ipc_nested_source_to_jsonl_csv_boundary_without_fallback -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_fallback -- --nocapture`
+      passed.
+    - `python3 -m json.tool docs/status/admitted-semantics-matrix.json >/dev/null` passed.
+    - `CARGO_INCREMENTAL=0 PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-nested-source.json`
+      passed with `matrix_row_count=122`, `executable_fixture_count=99`,
+      `diagnostic_case_count=22`, `unsupported_diagnostic_count=20`,
+      `runtime_error_diagnostic_count=1`, `invalid_shape_diagnostic_count=1`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Claim is limited to scoped local structured-source decoding for Arrow list/large-list/
+      fixed-size-list and struct arrays through JSONL and CSV JSON-text result boundaries.
+      The executable CLI proof covers Arrow IPC; the shared materializer covers the admitted Arrow
+      array families surfaced by feature-gated local Parquet/Arrow IPC/Avro/ORC readers.
+    - No nested accessors, casts, broad nested ordering, complex-key joins, subquery membership
+      materialization, Vortex nested output, ORC nested output, production SQL nested parity,
+      performance, package-publication, or Spark-replacement claim is made. Typed Parquet/Arrow
+      IPC/Avro nested compatibility sink preservation is tracked by the later typed nested sink
+      slice above.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, external SQL engine, or external DataFrame
+      backend is introduced or invoked.
+
+- [x] Session label: PERF-INNOV-5 residual attribution and CI-tail closeout
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-innov-5-residual-optimization` / PR #1144 merged as `148fba95`.
+  - Source:
+    - Active `PERF-INNOV-5` residual timing requirement in
+      `docs/architecture/phased-execution-plan.md`.
+    - Current public benchmark bundle at `website/assets/benchmarks/latest`.
+    - Scoped smoke artifact `target/perf-innov5-batch-wall-amortized-smoke.json`.
+  - Scope:
+    - Fixed prepare-batch row-level process-wall attribution so row-level
+      `prepare_cli_wall_millis`, `preparation_cli_process_wall_millis`, and
+      `cli_process_wall_millis` report per-scenario amortized batch wall while shared full-process
+      fields remain diagnostic.
+    - Added benchmark artifact completeness report output and taught production-usability and hard
+      release-readiness gates to consume precomputed benchmark completeness/publication reports
+      with manifest and benchmark JSON digest checks.
+    - Authenticated the live pre-5J Dependabot query in CI with the scoped Actions token and
+      `pull-requests: read` so GitHub rate limits do not replace the actual dependency freshness
+      decision.
+    - Closed PERF-INNOV-5 for current runtime sequencing as explicitly attributed rather than
+      forcing every cold/proof route component below an arbitrary 10 ms threshold.
+  - Evidence:
+    - Scoped smoke artifact had 20 real `shardloom-prepare-batch` JSONL rows with row-level
+      prepare/process wall `55.7941 ms`, full shared batch wall `1115.8827 ms`, and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+    - Current checked-in benchmark rows still separate `hot_runtime` metadata-sink lanes from
+      `publication_proof` publication-full lanes. The remaining >10 ms cells are attributed to
+      cold compatibility parse/decode, Vortex write, process wall, result sink, or publication
+      evidence work; warm scan/operator execution is not the active hotspot.
+    - Local validation passed before PR #1144 merge: focused release-script tests, full
+      `python.tests.test_release_scripts`, full `python/tests` discovery, CI gate matrix,
+      benchmark completeness/publication gates, `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace
+      --all-targets`, and `git diff --check`.
+    - Remote PR #1144 checks completed green before merge: CI, CodeQL, Rust baseline/feature
+      matrix, Python/package smoke, dependency/security, release runtime/package/user-surface/
+      benchmark/readiness jobs, website/docs validation, and Cloudflare Workers.
+  - Benchmark boundary:
+    - This closeout does not make a performance superiority claim. `performance_claim_allowed=false`
+      remains the public benchmark claim boundary.
+  - Claim boundary:
+    - Claim is limited to attribution correctness, CI hard-gate reuse, and current sequencing
+      readiness for 6D runtime breadth. Cold/proof stages may remain above 10 ms when they are
+      correctly attributed and outside warm hot-runtime execution.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, or other external engine fallback is introduced
+      or invoked.
+
 - [x] Session label: PERF-INNOV-5 public benchmark surface refresh
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-innov-5-public-refresh` / PR #1143 merged as `c92207b1`.
@@ -1845,8 +2756,10 @@ phase plan first.
   - Scope:
     - Admitted scoped `ARRAY[...]` and `STRUCT(...)` result-boundary projections to write local CSV
       outputs as JSON text cells while preserving JSONL result evidence and no-fallback fields.
-    - Kept typed structured sinks blocked for complex result batches, including Parquet, Arrow IPC,
-      Avro, ORC, and Vortex output boundaries.
+    - Kept typed structured sinks blocked for complex result batches at this historical slice,
+      including Parquet, Arrow IPC, Avro, ORC, and Vortex output boundaries. This blocker is
+      superseded by the later typed nested compatibility sink slice for inferable Parquet, Arrow
+      IPC, and Avro nested outputs; ORC, Vortex, and all-null child-schema cases remain blocked.
     - Added shared JSONL plus CSV complex fanout support while still blocking mixed logical-text and
       typed flat-sink fanout for complex batches.
     - Extended the admitted-semantics validator with output-backed fixture execution and artifact
@@ -5345,7 +6258,9 @@ phase plan first.
     - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
     - Follow-up to the scoped binary cast/helper slices: list/struct shapes were still represented
       as blanket complex dtype blockers even though scoped bounded result-boundary projections can
-      be admitted without claiming complex equality, nested source decoding, or flat nested sinks.
+      be admitted without claiming complex equality, nested source decoding, or typed nested sink
+      preservation. Later slices separately admitted scoped nested source decoding and inferable
+      Parquet/Arrow IPC/Avro typed nested compatibility sinks.
   - Scope:
     - Promoted scoped SQL `ARRAY[...] AS <alias>` scalar-literal projections and
       `STRUCT(<source column>, ...) AS <alias>` source-column payload projections through the
@@ -38804,6 +39719,25 @@ the current queue; promote any actionable unfinished work into Planned before im
       This is scoped local generated-source preparation with upstream Vortex write/reopen evidence;
       generated-source artifact-adjacent manifest-hit reuse, benchmark/public row promotion,
       production claims, performance claims, and external-engine fallback remain gated.
+- [x] GAR-RUNTIME-IMPL-6D Python/DataFrame transform blocker slice adds common DataFrame
+      affordances as deterministic unsupported diagnostics instead of missing Python attributes or
+      hidden external execution. `LazyFrame.rename(...)`, `rename_columns(...)`, `drop(...)`,
+      `drop_columns(...)`, `sample(...)`, and `explode(...)` now route through
+      `workflow-unsupported-plan` with stable blocker IDs for schema rewrite, schema-aware
+      projection rewrite, sampling semantics, and nested/list expansion. The CLI unsupported
+      workflow catalog accepts the canonical operation tokens plus rename/drop aliases; workflow
+      capability discovery now lists 49 workflow operations and includes the four new canonical
+      blockers. The DataFrame method capability matrix exposes all six user-facing methods as
+      `deterministic_unsupported_diagnostic` rows with `runtime_execution=false`,
+      `data_read=false`, `write_io=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`. Validation covered Python syntax checks, `cargo fmt --all
+      -- --check`, focused Python unsupported-affordance and capability-matrix tests, static
+      release-script source-row parsing, focused Rust workflow/capability integration tests,
+      `scripts/check_python_user_surface_completion.py`,
+      `scripts/check_sql_python_dataframe_parity.py`, and
+      `scripts/check_runtime_gap_family_burn_down.py`. Broad DataFrame parity, schema-aware
+      projection rewrites, sampling runtime, nested/list expansion runtime, production claims,
+      benchmark execution, performance claims, and external-engine fallback remain gated.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

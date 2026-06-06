@@ -7,13 +7,14 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, DeterministicScalarUdfFixtureReport, EffectfulOperationAdmissionMatrix,
-    EffectfulOperationAdmissionRow, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
-    ExtensionManifestEffectCapabilityRow, ExtensionProvenance, ExtensionRegistrySnapshot,
-    ExtensionVersion, OutputFormat, PluginAbiUdfSandboxBlockerReport,
-    PluginAbiUdfSandboxBlockerRow, ShardLoomError, UdfRuntimeKind,
-    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_scalar_udf_fixture,
+    CommandStatus, DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
+    EffectfulOperationAdmissionMatrix, EffectfulOperationAdmissionRow, ExtensionId,
+    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
+    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, OutputFormat,
+    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, ShardLoomError,
+    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -160,6 +161,81 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
     ExitCode::SUCCESS
 }
 
+pub(crate) fn handle_embedding_vector_local_fixture_smoke(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(texts_raw) = args.next() else {
+        return emit_error(
+            "embedding-vector-local-fixture-smoke",
+            format,
+            "embedding/vector local fixture failed",
+            &ShardLoomError::InvalidOperation(
+                "missing semicolon-separated text values".to_string(),
+            ),
+        );
+    };
+    let mut query_text = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--query" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        "embedding-vector-local-fixture-smoke",
+                        format,
+                        "embedding/vector local fixture failed",
+                        &ShardLoomError::InvalidOperation("missing --query value".to_string()),
+                    );
+                };
+                query_text = Some(value);
+            }
+            other => {
+                return emit_error(
+                    "embedding-vector-local-fixture-smoke",
+                    format,
+                    "embedding/vector local fixture failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown embedding/vector fixture argument: {other}"
+                    )),
+                );
+            }
+        }
+    }
+    let texts = match parse_semicolon_text_values(&texts_raw) {
+        Ok(texts) => texts,
+        Err(error) => {
+            return emit_error(
+                "embedding-vector-local-fixture-smoke",
+                format,
+                "embedding/vector local fixture failed",
+                &error,
+            );
+        }
+    };
+    let query = query_text.unwrap_or_else(|| texts[0].clone());
+    let report = match run_deterministic_embedding_vector_fixture(&texts, &query) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "embedding-vector-local-fixture-smoke",
+                format,
+                "embedding/vector local fixture failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "embedding-vector-local-fixture-smoke",
+        format,
+        CommandStatus::Success,
+        "deterministic embedding/vector fixture smoke".to_string(),
+        report.to_human_text(),
+        vec![],
+        embedding_vector_local_fixture_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
 fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, ShardLoomError> {
     if values_raw.trim().is_empty() {
         return Err(ShardLoomError::InvalidOperation(
@@ -183,6 +259,25 @@ fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, Shard
             })?;
             values.push(Some(value));
         }
+    }
+    Ok(values)
+}
+
+fn parse_semicolon_text_values(values_raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    if values_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "semicolon-separated text values must not be empty".to_string(),
+        ));
+    }
+    let mut values = Vec::new();
+    for token in values_raw.split(';') {
+        let text = token.trim();
+        if text.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "semicolon-separated text values must not contain empty entries".to_string(),
+            ));
+        }
+        values.push(text.to_string());
     }
     Ok(values)
 }
@@ -269,6 +364,114 @@ fn udf_local_scalar_fixture_fields(
         (
             "credential_resolution_performed".to_string(),
             report.credential_resolution_performed.to_string(),
+        ),
+        (
+            "dynamic_loading_performed".to_string(),
+            report.dynamic_loading_performed.to_string(),
+        ),
+        (
+            "extension_code_executed".to_string(),
+            report.extension_code_executed.to_string(),
+        ),
+        (
+            "external_effect_executed".to_string(),
+            report.external_effect_executed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "external_engine_invoked".to_string(),
+            report.external_engine_invoked.to_string(),
+        ),
+        (
+            "no_fallback_invariant_holds".to_string(),
+            report.no_fallback_invariant_holds().to_string(),
+        ),
+        (
+            "claim_gate_status".to_string(),
+            report.claim_gate_status.to_string(),
+        ),
+        (
+            "claim_boundary".to_string(),
+            report.claim_boundary.to_string(),
+        ),
+    ];
+    append_effectful_operation_admission_matrix_fields(&mut fields);
+    append_extension_manifest_effect_capability_matrix_fields(&mut fields);
+    append_plugin_abi_udf_sandbox_blocker_fields(&mut fields);
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn embedding_vector_local_fixture_fields(
+    report: &DeterministicEmbeddingVectorFixtureReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "mode".to_string(),
+            "embedding_vector_local_fixture_smoke".to_string(),
+        ),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("fixture_id".to_string(), report.fixture_id.to_string()),
+        (
+            "fixture_version".to_string(),
+            report.fixture_version.to_string(),
+        ),
+        ("input_dtype".to_string(), report.input_dtype.to_string()),
+        ("output_dtype".to_string(), report.output_dtype.to_string()),
+        ("determinism".to_string(), report.determinism.to_string()),
+        (
+            "embedding_model_id".to_string(),
+            report.embedding_model_id.to_string(),
+        ),
+        (
+            "vector_index_kind".to_string(),
+            report.vector_index_kind.to_string(),
+        ),
+        ("vector_metric".to_string(), report.metric.to_string()),
+        ("vector_dimension".to_string(), report.dimension.to_string()),
+        (
+            "input_row_count".to_string(),
+            report.input_row_count.to_string(),
+        ),
+        (
+            "vector_row_count".to_string(),
+            report.vector_row_count.to_string(),
+        ),
+        ("query_text".to_string(), report.query_text.clone()),
+        ("query_vector".to_string(), report.query_vector_summary()),
+        (
+            "nearest_index".to_string(),
+            report.nearest_index.to_string(),
+        ),
+        ("nearest_text".to_string(), report.nearest_text.clone()),
+        (
+            "nearest_distance_squared".to_string(),
+            report.nearest_distance_squared.to_string(),
+        ),
+        ("nearest_summary".to_string(), report.nearest_summary()),
+        ("input_digest".to_string(), report.input_digest.clone()),
+        ("vector_digest".to_string(), report.vector_digest.clone()),
+        (
+            "model_call_performed".to_string(),
+            report.model_call_performed.to_string(),
+        ),
+        (
+            "credential_resolution_performed".to_string(),
+            report.credential_resolution_performed.to_string(),
+        ),
+        (
+            "network_probe_performed".to_string(),
+            report.network_probe_performed.to_string(),
         ),
         (
             "dynamic_loading_performed".to_string(),

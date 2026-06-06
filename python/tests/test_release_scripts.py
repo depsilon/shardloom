@@ -4046,7 +4046,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("PERF-INNOV-5", packet["next_implementation_slice"])
+        self.assertIn("GAR-RUNTIME-IMPL-6D", packet["next_implementation_slice"])
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
@@ -5481,12 +5481,54 @@ jobs:
         self.assertIn("from_rows", by_method)
         self.assertIn("sql", by_method)
         self.assertIn("to_pandas", by_method)
+        self.assertIn("rename", by_method)
+        self.assertIn("drop", by_method)
+        self.assertIn("sample", by_method)
+        self.assertIn("explode", by_method)
+        self.assertIn("merge", by_method)
+        self.assertIn("concat", by_method)
+        self.assertIn("pivot", by_method)
+        self.assertIn("pivot_table", by_method)
+        self.assertIn("melt", by_method)
+        self.assertIn("rolling", by_method)
         self.assertEqual(by_method["filter"]["support_status"], "lazy_plan_supported")
         self.assertEqual(by_method["from_rows"]["support_status"], "fixture_smoke_supported")
         self.assertEqual(
             by_method["to_pandas"]["support_status"],
             "optional_dependency_runtime_supported",
         )
+        self.assertEqual(
+            by_method["rename"]["support_status"],
+            "deterministic_unsupported_diagnostic",
+        )
+        self.assertEqual(by_method["rename"]["diagnostic_operation"], "rename")
+        self.assertEqual(
+            by_method["drop"]["blocker_id"],
+            "cg21.workflow.drop.schema_projection_unsupported",
+        )
+        self.assertIn(
+            "deterministic_seed_policy",
+            by_method["sample"]["required_evidence"],
+        )
+        self.assertFalse(by_method["explode"]["runtime_execution"])
+        self.assertEqual(
+            by_method["merge"]["blocker_id"],
+            "cg21.workflow.merge.join_alias_unsupported",
+        )
+        self.assertIn(
+            "schema_alignment_contract",
+            by_method["concat"]["required_evidence"],
+        )
+        self.assertEqual(
+            by_method["pivot"]["support_status"],
+            "deterministic_unsupported_diagnostic",
+        )
+        self.assertIn(
+            "aggregate_reshape_semantics",
+            by_method["pivot_table"]["required_evidence"],
+        )
+        self.assertIn("unpivot_semantics", by_method["melt"]["required_evidence"])
+        self.assertFalse(by_method["rolling"]["write_io"])
         self.assertTrue(by_method["to_pandas"]["materialization_required"])
         self.assertIsNone(by_method["to_pandas"]["blocker_id"])
         self.assertFalse(any(row["fallback_attempted"] for row in rows))

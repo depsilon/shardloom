@@ -115,6 +115,15 @@ REQUIRED_VALIDATION_COMMANDS = [
         ],
     ),
     (
+        "front_door_benchmark_publication_gate",
+        [
+            sys.executable,
+            "scripts/check_front_door_benchmark_publication.py",
+            "--manifest",
+            "website/assets/benchmarks/latest/manifest.json",
+        ],
+    ),
+    (
         "final_release_rehearsal",
         [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
     ),

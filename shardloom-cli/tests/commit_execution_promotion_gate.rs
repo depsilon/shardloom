@@ -43,17 +43,17 @@ fn commit_execution_promotion_gate_json_exposes_surfaces() {
         "report_only_with_blocked_runtime_paths"
     )));
     assert!(output.contains(&field("claim_gate_status", "not_claim_grade")));
-    assert!(output.contains(&field("surface_count", "12")));
-    assert!(output.contains(&field("existing_limited_surface_count", "2")));
+    assert!(output.contains(&field("surface_count", "13")));
+    assert!(output.contains(&field("existing_limited_surface_count", "3")));
     assert!(output.contains(&field("blocked_surface_count", "10")));
     assert!(output.contains(&field("broader_execution_ready_surface_count", "0")));
     assert!(output.contains(&field(
         "surface_order",
-        "local_committed_manifest_copy,local_committed_manifest_rollback_cleanup,generalized_manifest_serialization,generalized_local_sink_commit,object_store_commit,table_catalog_commit,lakehouse_transaction_commit,native_source_sink_commit,foundry_dataset_transaction_commit,upstream_vortex_write_api_execution,live_hybrid_checkpoint_commit,output_payload_fidelity_claim"
+        "local_committed_manifest_copy,local_committed_manifest_rollback_cleanup,local_committed_manifest_recovery_replay,generalized_manifest_serialization,generalized_local_sink_commit,object_store_commit,table_catalog_commit,lakehouse_transaction_commit,native_source_sink_commit,foundry_dataset_transaction_commit,upstream_vortex_write_api_execution,live_hybrid_checkpoint_commit,output_payload_fidelity_claim"
     )));
     assert!(output.contains(&field(
         "existing_report_refs",
-        "shardloom.vortex_staged_output.v1,shardloom.vortex_manifest_finalization.v1,shardloom.vortex_commit_marker.v1,cg4.commit_execution_promotion_gate,cg10.object_store_request_planner.aggregate,shardloom.object_store_commit_protocol.v1,shardloom.table_maintenance_execution_matrix.v1"
+        "shardloom.vortex_staged_output.v1,shardloom.vortex_manifest_finalization.v1,shardloom.vortex_commit_marker.v1,cg4.commit_execution_promotion_gate,cg10.object_store_request_planner.aggregate,shardloom.object_store_commit_protocol.v1,shardloom.table_maintenance_execution_matrix.v1,gar-runtime-impl-6d.local_table_commit_recovery_smoke"
     )));
     assert!(output.contains(&field(
         "commit_promotion_surface_0_name",
@@ -61,26 +61,30 @@ fn commit_execution_promotion_gate_json_exposes_surfaces() {
     )));
     assert!(output.contains(&field(
         "commit_promotion_surface_2_name",
+        "local_committed_manifest_recovery_replay"
+    )));
+    assert!(output.contains(&field(
+        "commit_promotion_surface_3_name",
         "generalized_manifest_serialization"
     )));
     assert!(output.contains(&field(
-        "commit_promotion_surface_4_name",
+        "commit_promotion_surface_5_name",
         "object_store_commit"
     )));
     assert!(output.contains(&field(
-        "commit_promotion_surface_6_name",
+        "commit_promotion_surface_7_name",
         "lakehouse_transaction_commit"
     )));
     assert!(output.contains(&field(
-        "commit_promotion_surface_8_name",
+        "commit_promotion_surface_9_name",
         "foundry_dataset_transaction_commit"
     )));
     assert!(output.contains(&field(
-        "commit_promotion_surface_9_name",
+        "commit_promotion_surface_10_name",
         "upstream_vortex_write_api_execution"
     )));
     assert!(output.contains(&field(
-        "commit_promotion_surface_11_name",
+        "commit_promotion_surface_12_name",
         "output_payload_fidelity_claim"
     )));
 }
@@ -91,6 +95,7 @@ fn commit_execution_promotion_gate_json_blocks_claims_and_effects() {
 
     assert!(output.contains(&field("existing_local_commit_execution_present", "true")));
     assert!(output.contains(&field("existing_local_rollback_execution_present", "true")));
+    assert!(output.contains(&field("existing_local_recovery_execution_present", "true")));
     assert!(output.contains(&field("broader_execution_promotions_blocked", "true")));
     assert!(output.contains(&field("commit_claims_blocked", "true")));
     assert!(output.contains(&field("output_manifest_required", "true")));

@@ -284,6 +284,8 @@ jobs:
       - name: Benchmark publication claim gate
         continue-on-error: true
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
+      - name: Front-door benchmark publication gate
+        run: python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -292,6 +294,7 @@ jobs:
             target/pre-5j-dependency-freshness-gate.json
             target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
+            target/front-door-benchmark-publication-gate.json
           if-no-files-found: ignore
           retention-days: 14
 
@@ -394,6 +397,7 @@ jobs:
           test -f target/pre-5j-dependency-freshness-gate.json
           test -f target/benchmark-artifact-completeness-report.json
           test -f target/benchmark-publication-claim-gate-report.json
+          test -f target/front-door-benchmark-publication-gate.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
         run: python scripts/final_release_rehearsal.py --allow-blocked
@@ -431,6 +435,7 @@ jobs:
             target/pre-5j-dependency-freshness-gate.json
             target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
+            target/front-door-benchmark-publication-gate.json
             target/ci-gate-matrix-report.json
             target/hard-release-readiness-gate.json
           if-no-files-found: ignore

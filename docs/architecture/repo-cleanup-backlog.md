@@ -13,7 +13,9 @@ execution.
 
 - Promote actionable cleanup into `phased-execution-plan.md` before implementation.
 - Keep completed cleanup here as a historical ledger, not a second active queue.
-- Keep cleanup PRs narrow, reviewable, and no-fallback.
+- Keep cleanup work cohesive and no-fallback. Batch related cleanup that shares context,
+  validators, docs, or release evidence instead of creating sliver PRs; split only for concrete
+  safety, dependency, or verification boundaries.
 - Preserve public commands and report schemas unless an explicit phase item says otherwise.
 
 ## Backlog Checklist

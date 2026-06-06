@@ -955,6 +955,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("udf-local-scalar-fixture-smoke") => {
             extension_planning::handle_udf_local_scalar_fixture_smoke(args, format)
         }
+        Some("embedding-vector-local-fixture-smoke") => {
+            extension_planning::handle_embedding_vector_local_fixture_smoke(args, format)
+        }
         Some("security-plan") => operational_hardening::handle_security_plan(format),
         Some("security-governance-evidence-gate") => {
             operational_hardening::handle_security_governance_evidence_gate(format)
@@ -968,6 +971,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("memory-plan") => operational_hardening::handle_memory_plan(args, format),
         Some("operator-memory-spill-declarations") => {
             operational_hardening::handle_operator_memory_spill_declarations(format)
+        }
+        Some("pre-oom-memory-guard-smoke") => {
+            operational_hardening::handle_pre_oom_memory_guard_smoke(args, format)
         }
         Some("cg14-memory-runtime-hardening-gate") => {
             operational_hardening::handle_memory_runtime_hardening_gate(format)
@@ -1031,6 +1037,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("local-table-append-commit-rehearsal-smoke") => {
             table_lakehouse_runtime::handle_local_table_append_commit_rehearsal_smoke(args, format)
         }
+        Some("local-table-commit-recovery-smoke") => {
+            table_lakehouse_runtime::handle_local_table_commit_recovery_smoke(args, format)
+        }
         Some("object-store-request-plan") => {
             object_store_planning::handle_object_store_request_plan(args, format)
         }
@@ -1057,6 +1066,12 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("object-store-write-smoke") => {
             object_store_runtime::handle_object_store_write_smoke(args, format)
+        }
+        Some("object-store-write-recovery-smoke") => {
+            object_store_runtime::handle_object_store_write_recovery_smoke(args, format)
+        }
+        Some("object-store-partition-discovery-smoke") => {
+            object_store_runtime::handle_object_store_partition_discovery_smoke(args, format)
         }
         Some("incremental-plan") => workflow_planning::handle_incremental_plan(args, format),
         Some("stateful-reuse-plan") => workflow_planning::handle_stateful_reuse_plan(format),
@@ -1147,6 +1162,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("live-fixture-run") => engine_fabric_planning::handle_live_fixture_run(args, format),
         Some("hybrid-overlay-run") => {
             engine_fabric_planning::handle_hybrid_overlay_run(args, format)
+        }
+        Some("live-hybrid-state-transition-smoke") => {
+            engine_fabric_planning::handle_live_hybrid_state_transition_smoke(args, format)
         }
         Some("streaming-plan") => engine_runtime_planning::handle_streaming_plan(args, format),
         Some("streaming-batch-plan") => {
@@ -1726,6 +1744,12 @@ mod tests {
     }
 
     #[test]
+    fn pre_oom_memory_guard_smoke_returns_success() {
+        let code = run(vec!["pre-oom-memory-guard-smoke".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn manifest_plan_with_dataset_uri_returns_success() {
         let code = run(vec![
             "manifest-plan".to_string(),
@@ -2104,6 +2128,40 @@ mod tests {
     fn local_table_append_commit_rehearsal_remote_provider_returns_non_zero() {
         let code = run(vec![
             "local-table-append-commit-rehearsal-smoke".to_string(),
+            "s3://bucket/table/metadata/v2.json".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn local_table_commit_recovery_smoke_returns_success() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-cli-table-commit-recovery-smoke-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp_dir).expect("temp dir");
+        let target = temp_dir.join("committed-table-manifest.json");
+        let commit_code = run(vec![
+            "local-table-append-commit-rehearsal-smoke".to_string(),
+            target.to_string_lossy().into_owned(),
+            "--idempotency-key".to_string(),
+            "main-unit-table-recovery".to_string(),
+        ]);
+        assert_eq!(commit_code, ExitCode::SUCCESS);
+        let recovery_code = run(vec![
+            "local-table-commit-recovery-smoke".to_string(),
+            target.to_string_lossy().into_owned(),
+            "--idempotency-key".to_string(),
+            "main-unit-table-recovery".to_string(),
+        ]);
+        std::fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+        assert_eq!(recovery_code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn local_table_commit_recovery_remote_provider_returns_non_zero() {
+        let code = run(vec![
+            "local-table-commit-recovery-smoke".to_string(),
             "s3://bucket/table/metadata/v2.json".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
@@ -3150,6 +3208,7 @@ mod tests {
         assert!(cli_usage_line().contains("live-change-contract-plan"));
         assert!(cli_usage_line().contains("live-fixture-run"));
         assert!(cli_usage_line().contains("hybrid-overlay-run"));
+        assert!(cli_usage_line().contains("live-hybrid-state-transition-smoke"));
         assert!(cli_usage_line().contains("workload-certification-dossier"));
         assert!(cli_usage_line().contains("claim-gate-closeout"));
         assert!(cli_usage_line().contains("global-architecture-gate"));
@@ -3218,6 +3277,11 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
+    fn live_hybrid_state_transition_smoke_returns_success() {
+        let code = run(vec!["live-hybrid-state-transition-smoke".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
     fn usage_includes_streaming_batch_plan() {
         assert!(cli_usage_line().contains("streaming-batch-plan"));
     }
@@ -3262,6 +3326,10 @@ mod tests {
         assert!(cli_usage_line().contains("local-table-append-commit-rehearsal-smoke"));
     }
     #[test]
+    fn usage_includes_local_table_commit_recovery_smoke() {
+        assert!(cli_usage_line().contains("local-table-commit-recovery-smoke"));
+    }
+    #[test]
     fn usage_includes_object_store_request_plan() {
         assert!(cli_usage_line().contains("object-store-request-plan"));
     }
@@ -3294,8 +3362,21 @@ mod tests {
         assert!(cli_usage_line().contains("object-store-write-smoke"));
     }
     #[test]
+    fn usage_includes_object_store_write_recovery_smoke() {
+        assert!(cli_usage_line().contains("object-store-write-recovery-smoke"));
+    }
+    #[test]
+    fn usage_includes_object_store_partition_discovery_smoke() {
+        assert!(cli_usage_line().contains("object-store-partition-discovery-smoke"));
+    }
+    #[test]
     fn usage_includes_optimizer_adaptive_memory_plan() {
         assert!(cli_usage_line().contains("optimizer-adaptive-memory-plan"));
+    }
+
+    #[test]
+    fn usage_includes_pre_oom_memory_guard_smoke() {
+        assert!(cli_usage_line().contains("pre-oom-memory-guard-smoke"));
     }
     #[test]
     fn usage_includes_cpu_specialization_plan() {
