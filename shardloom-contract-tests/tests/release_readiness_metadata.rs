@@ -3733,12 +3733,13 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         );
     }
 
-    let website_plan = read_repo_file("docs/architecture/website-minimal-public-surface-reset.md");
+    let website_plan =
+        read_repo_file("docs/architecture/website-current-state-public-reference.md");
     for required in [
-        "ShardLoom's public website should be a simple interpretation layer",
-        "The repo remains the source of truth for phase plans, RFCs, use cases, recipes, and support",
-        "website now renders a compact Starlight surface",
-        "The underlying repository docs remain authoritative",
+        "ShardLoom's website is a static interpretation layer",
+        "The repository remains authoritative",
+        "current site source is `website-src/`",
+        "PERF-INNOV-5 scoped local optimization artifacts remain phase-plan evidence",
     ] {
         assert!(
             website_plan.contains(required),
@@ -3859,25 +3860,22 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         !plan.contains("- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report")
     );
 
-    let minimal_reset = read_repo_file("docs/architecture/website-minimal-public-surface-reset.md");
+    let current_website_reference =
+        read_repo_file("docs/architecture/website-current-state-public-reference.md");
     for required in [
-        "Status: superseded by the compact Astro/Starlight website source",
-        "public website should be a simple interpretation layer",
-        "What can a reader run or inspect today?",
-        "What does the current benchmark evidence show?",
-        "How does work move through the compute engine?",
-        "Do not reintroduce:",
-        "the old Python static-site generator",
-        "a generated README mirror",
-        "hand-edited generated site data",
-        "The underlying repository docs remain authoritative",
+        "Status: accepted current contract after the Astro/Starlight migration",
+        "static interpretation layer",
+        "The current site source is `website-src/`",
+        "The benchmark page must lead with current timing semantics",
+        "`hot_runtime` rows drive the primary ShardLoom route grid",
+        "`publication_proof` rows remain visible",
+        "No duplicate active implementation queue",
         "website-src/scripts/sync-content.mjs",
-        "Light mode first",
-        "Avoid cyberpunk dashboard sprawl",
+        "no essential evidence may depend on client-side JavaScript",
     ] {
         assert!(
-            minimal_reset.contains(required),
-            "missing minimal website reset field {required}"
+            current_website_reference.contains(required),
+            "missing current website reference field {required}"
         );
     }
 
@@ -3937,7 +3935,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let benchmarks = read_repo_file("website/benchmarks.html");
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
-        "Evidence-gated compute over Vortex-prepared data.",
+        "ShardLoom",
+        "hot_runtime separated",
+        "performance_claim_allowed",
         "Start local proof",
         "Read Field Guide",
         "View benchmark evidence",
@@ -4059,37 +4059,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
 
     let current_framework_decision =
-        read_repo_file("docs/architecture/website-redesign-framework-decision.md");
+        read_repo_file("docs/architecture/website-current-state-public-reference.md");
     for required in [
-        "Status: accepted and implemented for `GAR-WEB-REDESIGN-2I`",
-        "Decision status: `approved_runtime_static_site_migration`",
-        "Recommendation: use Astro for the public website shell and Starlight",
-        "Migration status: `implemented_after_explicit_approval`",
+        "Site runtime: static Astro with Starlight docs",
+        "No external search SaaS",
         "website-src/package.json",
         "website-src/astro.config.mjs",
         "website-src/src/content.config.ts",
         "website-src/scripts/sync-content.mjs",
         "website-src/scripts/postbuild-static.mjs",
-        "website/pagefind/",
-        "no external search SaaS",
-        "Astro + Starlight",
+        "website-public/assets/benchmarks/latest/",
     ] {
         assert!(
             current_framework_decision.contains(required),
             "missing current website framework decision field {required}"
-        );
-    }
-
-    let old_framework_decision =
-        read_repo_file("docs/architecture/website-atlas-framework-decision.md");
-    for required in [
-        "Status: superseded historical decision",
-        "website-redesign-framework-decision.md",
-        "Do not use this historical document to justify Pagefind",
-    ] {
-        assert!(
-            old_framework_decision.contains(required),
-            "missing superseded website framework pointer {required}"
         );
     }
 
@@ -4196,8 +4179,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
-    let framework_decision =
-        read_repo_file("docs/architecture/website-atlas-framework-decision.md");
+    let framework_decision = completed.as_str();
     for required in [
         "GAR-WEB-ATLAS-1H",
         "Decision status: `report_only`",

@@ -101,12 +101,7 @@ Reference index:
 - Status source: `README.md`, `docs/architecture/phased-execution-completed-ledger.md`,
   `docs/architecture/rfc-phase-traceability.md`, `docs/architecture/global-architecture-review.md`,
   `docs/architecture/compute-engine-flow-reference.md`, and
-  `docs/architecture/website-minimal-public-surface-reset.md`.
-- Website redesign references:
-  `docs/architecture/website-redesign-reference-synthesis.md`,
-  `docs/architecture/website-redesign-information-architecture.md`, and
-  `docs/architecture/website-redesign-content-model.md`, and
-  `docs/architecture/website-redesign-framework-decision.md`.
+  `docs/architecture/website-current-state-public-reference.md`.
 - Compute-flow and benchmark references:
   `docs/architecture/compute-engine-flow-overhaul-review.md`,
   `docs/architecture/benchmark-persistent-runner-decision.md`,

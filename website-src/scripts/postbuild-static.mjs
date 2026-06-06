@@ -46,6 +46,7 @@ function copyLegacyHtml(route) {
 }
 
 for (const route of [
+  "about",
   "start",
   "field-guide",
   "use-cases",

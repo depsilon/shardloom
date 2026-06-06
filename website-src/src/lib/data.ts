@@ -19,6 +19,7 @@ type BenchmarkRow = Record<string, unknown> & {
 
 export const siteNav = [
   ["Home", "/", "home"],
+  ["About", "/about", "about"],
   ["Start", "/start", "start"],
   ["Field Guide", "/field-guide", "field-guide"],
   ["Use Cases", "/use-cases", "use-cases"],
