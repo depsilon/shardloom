@@ -182,14 +182,17 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         job_id="release-benchmark-claim",
         commands=(
             "python scripts/check_pre_5j_dependency_freshness.py",
+            "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json",
             "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
         ),
         artifact_refs=(
             "target/pre-5j-dependency-freshness-gate.json",
+            "target/benchmark-artifact-completeness-report.json",
             "target/benchmark-publication-claim-gate-report.json",
         ),
         release_blocker_refs=(
             "pre-5J dependency freshness gate",
+            "benchmark artifact completeness",
             "benchmark publication claim gate",
         ),
         workflow_markers=(
@@ -230,6 +233,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/runtime-gap-family-burn-down.json",
             "target/user-route-capability-report.json",
             "target/pre-5j-dependency-freshness-gate.json",
+            "target/benchmark-artifact-completeness-report.json",
             "target/benchmark-publication-claim-gate-report.json",
             "target/ci-gate-matrix-report.json",
             "target/hard-release-readiness-gate.json",

@@ -16,6 +16,82 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5 public benchmark surface refresh
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-innov-5-public-refresh` / PR #1143 merged as `c92207b1`.
+  - Source:
+    - Active `PERF-INNOV-5` public benchmark freshness requirement.
+    - Clean full-local hot-runtime metadata artifact
+      `target/perf-innov5-hot-runtime-full-local-clean.json`.
+    - Full-local publication-proof artifact
+      `target/benchmark-artifacts/traditional-full-local.json`.
+    - Promoted website artifacts under `website/assets/benchmarks/latest`,
+      `website-public/assets/benchmarks/latest`, and `website-src/src/data`.
+  - Scope:
+    - Regenerated full-local ShardLoom-only `metadata_sink` hot-runtime rows from a clean detached
+      worktree at `cf23c7e6`.
+    - Re-promoted the clean hot-runtime rows with the full-local `publication_full` rows so the
+      public bundle separates `hot_runtime` and `publication_proof` surfaces without mixing tiers.
+    - Updated benchmark dashboard/homepage copy, public benchmark data, generated static website
+      pages, and website current-state reference text.
+    - Updated the release-readiness contract test that verifies the current website boundary text.
+  - Evidence:
+    - The promoted `full_local` bundle has 1,920 published rows, including 1,200 ShardLoom rows.
+    - ShardLoom route surfaces have 120 rows each for five `hot_runtime` / `metadata_sink` lanes
+      and five `publication_proof` / `publication_full` lanes.
+    - ShardLoom rows preserve `fallback_attempted=false` and `external_engine_invoked=false`; the
+      publication gate reports no missing ShardLoom engine/format cells, no dirty ShardLoom lane
+      versions, and no ShardLoom lane SHA mismatches.
+    - Local validation passed:
+      `scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`,
+      `scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`,
+      `scripts/check_benchmark_constitution.py --manifest website/assets/benchmarks/latest/manifest.json`,
+      website sync/build/postbuild/Astro check, `scripts/check_website_readiness.py`,
+      `node website/validate_static_assets.js`, `python -m unittest python.tests.test_release_scripts`,
+      `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check`.
+    - Remote PR #1143 checks completed green on head `85ae708a`: Rust baseline, Rust feature
+      matrix, Python/package smoke, dependency/security gates, release runtime/core/user-surface/
+      benchmark/package/readiness jobs, website/docs, CodeQL, and Cloudflare Workers.
+  - Benchmark boundary:
+    - Hot-runtime rows are non-claim `metadata_sink` evidence; publication-proof rows remain
+      separate and include proof/output work. `performance_claim_allowed=false` remains unchanged.
+  - Claim boundary:
+    - Claim is limited to fresh public benchmark artifact provenance, route-surface separation, and
+      website freshness. No production, package-release, Spark-displacement, or performance
+      superiority claim is made.
+  - Fallback boundary:
+    - The refresh preserves ShardLoom no-fallback evidence and does not change execution providers.
+
+- [x] Session label: PERF-INNOV-5 workspace prepared manifest evidence
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-innov-5-reuse-freshness` / PR #1142 merged as `cf23c7e6`.
+  - Source:
+    - Active `PERF-INNOV-5` prepared/native reuse freshness requirement.
+    - `benchmarks/traditional_analytics/run.py` and `python/tests/test_release_scripts.py`.
+    - Scoped artifact `target/perf-innov5-workspace-manifest.json`.
+  - Scope:
+    - Added a benchmark-harness workspace prepared-artifact reuse manifest beside fresh local
+      Vortex artifacts.
+    - Propagated manifest path, digest, scope, policy, artifact count, write timing, and
+      no-fallback fields into prepared/native row metrics.
+    - Ensured cache-hit rows verify the manifest and report zero fresh manifest-write micros while
+      preserving sub-ms scan/operator timings.
+  - Evidence:
+    - Scoped artifact rows showed successful prepared/native rows carrying
+      `workspace_manifest_local_vortex_artifacts` evidence.
+    - Local validation passed: `git diff --check`, focused release-script tests, compileall, full
+      `python.tests.test_release_scripts`, benchmark artifact completeness/claim-gate checks with
+      local dirty/stale allowances, and focused Rust contract coverage.
+    - Remote PR #1142 checks completed green before merge: CI and CodeQL.
+  - Benchmark boundary:
+    - This slice proves prepared-artifact manifest reuse evidence and cache-hit attribution; it does
+      not by itself claim performance superiority.
+  - Claim boundary:
+    - Claim is limited to benchmark-harness prepared-manifest evidence and freshness attribution.
+  - Fallback boundary:
+    - ShardLoom rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: PERF-INNOV-6 route timing instrument readiness gate
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-instrument-readiness-gate` / PR pending.
