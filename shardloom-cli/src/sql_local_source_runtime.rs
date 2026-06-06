@@ -8166,17 +8166,21 @@ fn prepare_sql_local_source_evaluation(
         &source.header,
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
-    materialize_in_subquery_predicates(&mut parsed.predicate)?;
-    materialize_in_subquery_predicates(&mut parsed.having)?;
-    materialize_projection_subquery_predicates(&mut parsed)?;
+    materialize_in_subquery_predicates(&mut parsed.predicate, source_format_override)?;
+    materialize_in_subquery_predicates(&mut parsed.having, source_format_override)?;
+    materialize_projection_subquery_predicates(&mut parsed, source_format_override)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
     resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
     validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
     validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
     let compute_start = Instant::now();
-    let evaluated_output =
-        evaluate_sql_local_source_output(&parsed, &source, right_source.as_ref())?;
+    let evaluated_output = evaluate_sql_local_source_output(
+        &parsed,
+        &source,
+        right_source.as_ref(),
+        source_format_override,
+    )?;
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     Ok(SqlLocalSourcePreparedEvaluation {
@@ -8586,9 +8590,11 @@ fn evaluate_sql_local_source_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     right_source: Option<&CsvSourceData>,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<SqlLocalSourceEvaluationOutput, ShardLoomError> {
     if let Some(right_source) = right_source {
-        let join_output = evaluate_join_output(parsed, source, right_source)?;
+        let join_output =
+            evaluate_join_output(parsed, source, right_source, source_format_override)?;
         Ok(SqlLocalSourceEvaluationOutput {
             selected_row_count: join_output.selected_row_count,
             having_input_row_count: join_output.having_input_row_count,
@@ -8603,7 +8609,7 @@ fn evaluate_sql_local_source_output(
             output_rows: join_output.output_rows,
         })
     } else {
-        let non_join_output = evaluate_non_join_output(parsed, source)?;
+        let non_join_output = evaluate_non_join_output(parsed, source, source_format_override)?;
         Ok(SqlLocalSourceEvaluationOutput {
             selected_row_count: non_join_output.selected_row_count,
             having_input_row_count: non_join_output.having_input_row_count,
@@ -8658,8 +8664,9 @@ fn sql_source_digest(source: &CsvSourceData, right_source: Option<&CsvSourceData
 fn evaluate_non_join_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<NonJoinEvaluationOutput, ShardLoomError> {
-    let selected_row_indexes = selected_row_indexes(parsed, source)?;
+    let selected_row_indexes = selected_row_indexes(parsed, source, source_format_override)?;
     let (
         having_input_row_count,
         having_selected_row_count,
@@ -8668,7 +8675,8 @@ fn evaluate_non_join_output(
         output_rows,
     ) = if parsed.is_grouped_aggregate() {
         let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_rows)?;
+        let aggregate =
+            evaluate_grouped_aggregate_output(parsed, &selected_rows, source_format_override)?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         (
@@ -8680,7 +8688,8 @@ fn evaluate_non_join_output(
         )
     } else if parsed.is_aggregate() {
         let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_rows)?;
+        let aggregate =
+            evaluate_scalar_aggregate_output(parsed, &selected_rows, source_format_override)?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         (
@@ -8696,8 +8705,12 @@ fn evaluate_non_join_output(
             apply_distinct_projection_limit(parsed, output_rows);
         (0, 0, distinct_projection_input_row_count, 0, output_rows)
     } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
-        let projection_output =
-            evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?;
+        let projection_output = evaluate_computed_projection_ordered_output(
+            parsed,
+            source,
+            &selected_row_indexes,
+            source_format_override,
+        )?;
         (
             0,
             0,
@@ -8708,7 +8721,12 @@ fn evaluate_non_join_output(
     } else {
         let ordered_row_indexes =
             ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
-        let projection_output = evaluate_projection_output(parsed, source, &ordered_row_indexes)?;
+        let projection_output = evaluate_projection_output(
+            parsed,
+            source,
+            &ordered_row_indexes,
+            source_format_override,
+        )?;
         (
             0,
             0,
@@ -8729,6 +8747,7 @@ fn evaluate_non_join_output(
 
 fn materialize_in_subquery_predicates(
     predicate: &mut ParsedPredicate,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
@@ -8736,28 +8755,30 @@ fn materialize_in_subquery_predicates(
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_in_subquery(subquery)
+                materialize_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_row_value_in_subquery(subquery)
+                materialize_row_value_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_exists_subquery(subquery)
+                materialize_exists_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::Logical { left, right, .. } => {
-            materialize_in_subquery_predicates(left)?;
-            materialize_in_subquery_predicates(right)
+            materialize_in_subquery_predicates(left, source_format_override)?;
+            materialize_in_subquery_predicates(right, source_format_override)
         }
-        ParsedPredicate::Not { inner } => materialize_in_subquery_predicates(inner),
+        ParsedPredicate::Not { inner } => {
+            materialize_in_subquery_predicates(inner, source_format_override)
+        }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::ColumnCompare { .. }
@@ -8784,12 +8805,13 @@ fn materialize_in_subquery_predicates(
 
 fn materialize_projection_subquery_predicates(
     parsed: &mut ParsedSqlLocalSource,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     for projection in &mut parsed.conditional_projections {
-        materialize_in_subquery_predicates(&mut projection.predicate)?;
+        materialize_in_subquery_predicates(&mut projection.predicate, source_format_override)?;
     }
     for projection in &mut parsed.predicate_projections {
-        materialize_in_subquery_predicates(&mut projection.predicate)?;
+        materialize_in_subquery_predicates(&mut projection.predicate, source_format_override)?;
     }
     Ok(())
 }
@@ -8797,12 +8819,21 @@ fn materialize_projection_subquery_predicates(
 fn materialize_correlated_projection_subquery_predicates(
     parsed: &mut ParsedSqlLocalSource,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     for projection in &mut parsed.conditional_projections {
-        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+        materialize_correlated_subquery_predicates(
+            &mut projection.predicate,
+            outer_row,
+            source_format_override,
+        )?;
     }
     for projection in &mut parsed.predicate_projections {
-        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+        materialize_correlated_subquery_predicates(
+            &mut projection.predicate,
+            outer_row,
+            source_format_override,
+        )?;
     }
     Ok(())
 }
@@ -8810,36 +8841,45 @@ fn materialize_correlated_projection_subquery_predicates(
 fn materialize_correlated_subquery_predicates(
     predicate: &mut ParsedPredicate,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
         | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
-                materialize_in_subquery_for_outer_row(subquery, outer_row)
+                materialize_in_subquery_for_outer_row(subquery, outer_row, source_format_override)
             } else {
-                materialize_in_subquery(subquery)
+                materialize_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
-                materialize_row_value_in_subquery_for_outer_row(subquery, outer_row)
+                materialize_row_value_in_subquery_for_outer_row(
+                    subquery,
+                    outer_row,
+                    source_format_override,
+                )
             } else {
-                materialize_row_value_in_subquery(subquery)
+                materialize_row_value_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
             if subquery.uses_outer_correlation() {
-                materialize_exists_subquery_for_outer_row(subquery, outer_row)
+                materialize_exists_subquery_for_outer_row(
+                    subquery,
+                    outer_row,
+                    source_format_override,
+                )
             } else {
-                materialize_exists_subquery(subquery)
+                materialize_exists_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::Logical { left, right, .. } => {
-            materialize_correlated_subquery_predicates(left, outer_row)?;
-            materialize_correlated_subquery_predicates(right, outer_row)
+            materialize_correlated_subquery_predicates(left, outer_row, source_format_override)?;
+            materialize_correlated_subquery_predicates(right, outer_row, source_format_override)
         }
         ParsedPredicate::Not { inner } => {
-            materialize_correlated_subquery_predicates(inner, outer_row)
+            materialize_correlated_subquery_predicates(inner, outer_row, source_format_override)
         }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
@@ -8868,6 +8908,7 @@ fn materialize_correlated_subquery_predicates(
 fn materialize_in_subquery_for_outer_row(
     subquery: &mut ParsedInSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8880,7 +8921,7 @@ fn materialize_in_subquery_for_outer_row(
     scoped.input_row_count = 0;
     scoped.filtered_row_count = 0;
     scoped.values.clear();
-    materialize_in_subquery(&mut scoped)?;
+    materialize_in_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -8888,6 +8929,7 @@ fn materialize_in_subquery_for_outer_row(
 fn materialize_row_value_in_subquery_for_outer_row(
     subquery: &mut ParsedRowValueInSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8900,7 +8942,7 @@ fn materialize_row_value_in_subquery_for_outer_row(
     scoped.input_row_count = 0;
     scoped.filtered_row_count = 0;
     scoped.tuples.clear();
-    materialize_row_value_in_subquery(&mut scoped)?;
+    materialize_row_value_in_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -8908,6 +8950,7 @@ fn materialize_row_value_in_subquery_for_outer_row(
 fn materialize_exists_subquery_for_outer_row(
     subquery: &mut ParsedExistsSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8921,7 +8964,7 @@ fn materialize_exists_subquery_for_outer_row(
     scoped.filtered_row_count = 0;
     scoped.bounded_row_count = 0;
     scoped.exists = false;
-    materialize_exists_subquery(&mut scoped)?;
+    materialize_exists_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -9096,19 +9139,26 @@ fn outer_correlation_ref_column(column: &str) -> Option<String> {
     (qualified.alias == OUTER_CORRELATION_ALIAS).then_some(qualified.column)
 }
 
-fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardLoomError> {
+fn materialize_in_subquery(
+    subquery: &mut ParsedInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
+) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_in_subquery(subquery);
+        return materialize_projected_in_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         in_subquery_required_columns(subquery),
         "in_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_in_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9148,13 +9198,14 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
 
 fn materialize_projected_in_subquery(
     subquery: &mut ParsedInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "projected scalar IN subquery materializer called without a projected plan".to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan, None)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9201,19 +9252,24 @@ fn materialize_projected_in_subquery(
 
 fn materialize_row_value_in_subquery(
     subquery: &mut ParsedRowValueInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_row_value_in_subquery(subquery);
+        return materialize_projected_row_value_in_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         row_value_in_subquery_required_columns(subquery),
         "row_value_in_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_row_value_in_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9258,6 +9314,7 @@ fn materialize_row_value_in_subquery(
 
 fn materialize_projected_row_value_in_subquery(
     subquery: &mut ParsedRowValueInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
@@ -9265,7 +9322,7 @@ fn materialize_projected_row_value_in_subquery(
                 .to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan, None)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9301,19 +9358,26 @@ fn materialize_projected_row_value_in_subquery(
     Ok(())
 }
 
-fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<(), ShardLoomError> {
+fn materialize_exists_subquery(
+    subquery: &mut ParsedExistsSubquery,
+    source_format_override: Option<LocalSourceFormat>,
+) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_exists_subquery(subquery);
+        return materialize_projected_exists_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         exists_subquery_required_columns(subquery),
         "exists_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_exists_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9334,13 +9398,14 @@ fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<()
 
 fn materialize_projected_exists_subquery(
     subquery: &mut ParsedExistsSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "projected EXISTS subquery materializer called without a projected plan".to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan, None)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9806,11 +9871,13 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
 fn selected_row_indexes(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     selected_predicate_row_indexes(
         &parsed.predicate,
         &source.rows,
         "SQL local-source predicate evaluation failed",
+        source_format_override,
     )
 }
 
@@ -9818,12 +9885,18 @@ fn selected_predicate_row_indexes(
     predicate: &ParsedPredicate,
     rows: &[ExpressionInputRow],
     diagnostic_context: &str,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     if predicate.is_all() {
         return Ok((0..rows.len()).collect());
     }
     if predicate.uses_outer_correlation() {
-        return selected_correlated_predicate_row_indexes(predicate, rows, diagnostic_context);
+        return selected_correlated_predicate_row_indexes(
+            predicate,
+            rows,
+            diagnostic_context,
+            source_format_override,
+        );
     }
     let predicate_expression = predicate.to_expression()?;
     let filter = evaluate_filter(&predicate_expression, rows);
@@ -9847,11 +9920,16 @@ fn selected_correlated_predicate_row_indexes(
     predicate: &ParsedPredicate,
     rows: &[ExpressionInputRow],
     diagnostic_context: &str,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     let mut selected = Vec::new();
     for (row_index, row) in rows.iter().enumerate() {
         let mut row_predicate = predicate.clone();
-        materialize_correlated_subquery_predicates(&mut row_predicate, row)?;
+        materialize_correlated_subquery_predicates(
+            &mut row_predicate,
+            row,
+            source_format_override,
+        )?;
         let predicate_expression = row_predicate.to_expression()?;
         let filter = evaluate_filter(&predicate_expression, std::slice::from_ref(row));
         if filter.has_errors() {
@@ -9918,6 +9996,7 @@ fn evaluate_projection_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(ProjectionEvaluationOutput {
@@ -9940,8 +10019,13 @@ fn evaluate_projection_output(
         if parsed.has_correlated_projection_predicate() {
             correlated_projection_outer_row_evaluation_count += 1;
         }
-        let output_row =
-            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
+        let output_row = evaluate_sql_projection_row(
+            parsed,
+            source,
+            projection_expressions.as_deref(),
+            row,
+            source_format_override,
+        )?;
         if parsed.has_distinct_projection() && !distinct_keys.insert(row_distinct_key(&output_row))
         {
             continue;
@@ -9961,6 +10045,7 @@ fn evaluate_computed_projection_ordered_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     let order_by = parsed.order_by.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
@@ -9982,8 +10067,13 @@ fn evaluate_computed_projection_ordered_output(
         if parsed.has_correlated_projection_predicate() {
             correlated_projection_outer_row_evaluation_count += 1;
         }
-        let output_row =
-            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
+        let output_row = evaluate_sql_projection_row(
+            parsed,
+            source,
+            projection_expressions.as_deref(),
+            row,
+            source_format_override,
+        )?;
         let output_index = projected_rows.len();
         let values = sort_values_for_projected_or_source_row(row, &output_row, order_by)?;
         projected_rows.push(output_row);
@@ -10375,12 +10465,17 @@ fn evaluate_sql_projection_row(
     source: &CsvSourceData,
     prebuilt_projection_expressions: Option<&[Expression]>,
     row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     if let Some(projection_expressions) = prebuilt_projection_expressions {
         return evaluate_projection_row(projection_expressions, row);
     }
     let mut scoped = parsed.clone();
-    materialize_correlated_projection_subquery_predicates(&mut scoped, row)?;
+    materialize_correlated_projection_subquery_predicates(
+        &mut scoped,
+        row,
+        source_format_override,
+    )?;
     let projection_expressions = projection_expressions(&scoped, source)?;
     evaluate_projection_row(&projection_expressions, row)
 }
@@ -11084,6 +11179,7 @@ fn evaluate_join_output(
     parsed: &ParsedSqlLocalSource,
     left_source: &CsvSourceData,
     right_source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<JoinEvaluationOutput, ShardLoomError> {
     let join = parsed.join.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("join evaluation requested without join plan".to_string())
@@ -11138,7 +11234,12 @@ fn evaluate_join_output(
         having_input_row_count,
         having_selected_row_count,
         distinct_projection_input_row_count,
-    ) = evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
+    ) = evaluate_join_selected_output_rows(
+        parsed,
+        &projection_expressions,
+        &accumulator.rows,
+        source_format_override,
+    )?;
 
     Ok(JoinEvaluationOutput {
         joined_row_count: accumulator.joined_row_count,
@@ -11413,10 +11514,15 @@ fn evaluate_join_selected_output_rows(
     parsed: &ParsedSqlLocalSource,
     projection_expressions: &[Expression],
     selected_join_rows: &[ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(SqlOutputRows, usize, usize, usize), ShardLoomError> {
     let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
     if parsed.is_grouped_aggregate() {
-        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
+        let aggregate = evaluate_grouped_aggregate_output(
+            parsed,
+            &selected_join_row_refs,
+            source_format_override,
+        )?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
@@ -11427,7 +11533,11 @@ fn evaluate_join_selected_output_rows(
         ));
     }
     if parsed.is_aggregate() {
-        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
+        let aggregate = evaluate_scalar_aggregate_output(
+            parsed,
+            &selected_join_row_refs,
+            source_format_override,
+        )?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
@@ -12694,6 +12804,7 @@ fn qualified_join_right_only_row(
 fn evaluate_scalar_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(AggregateEvaluationOutput {
@@ -12707,7 +12818,7 @@ fn evaluate_scalar_aggregate_output(
     append_aggregate_values(&mut row, &parsed.aggregates, rows, &row_indexes)?;
     append_aggregate_values(&mut row, &parsed.having_aggregates, rows, &row_indexes)?;
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
-        apply_having_filter(parsed, vec![row])?;
+        apply_having_filter(parsed, vec![row], source_format_override)?;
     strip_having_aggregate_columns(parsed, &mut output_rows);
     if !parsed.has_distinct_projection() {
         output_rows.truncate(parsed.limit);
@@ -12722,6 +12833,7 @@ fn evaluate_scalar_aggregate_output(
 fn evaluate_grouped_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(AggregateEvaluationOutput {
@@ -12765,7 +12877,7 @@ fn evaluate_grouped_aggregate_output(
         output_rows.push(row);
     }
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
-        apply_having_filter(parsed, output_rows)?;
+        apply_having_filter(parsed, output_rows, source_format_override)?;
     strip_having_aggregate_columns(parsed, &mut output_rows);
     if let Some(order_by) = parsed.order_by.as_ref() {
         let ordered_indexes =
@@ -12793,6 +12905,7 @@ fn evaluate_grouped_aggregate_output(
 fn apply_having_filter(
     parsed: &ParsedSqlLocalSource,
     output_rows: SqlOutputRows,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(usize, usize, SqlOutputRows), ShardLoomError> {
     let input_row_count = output_rows.len();
     if !parsed.has_having() {
@@ -12806,6 +12919,7 @@ fn apply_having_filter(
         &parsed.having,
         &expression_rows,
         "SQL local-source HAVING evaluation failed",
+        source_format_override,
     )?;
     let mut selected_rows = Vec::with_capacity(selected_row_indexes.len());
     for row_index in selected_row_indexes {
@@ -27960,13 +28074,6 @@ impl SqlLocalSourceReport {
             self.parsed.claim_gate_reason_suffix()
         )
     }
-}
-
-fn read_local_source_with_plan(
-    path: &Path,
-    read_plan: &LocalSourceReadPlan,
-) -> Result<CsvSourceData, ShardLoomError> {
-    read_local_source_with_plan_and_format(path, read_plan, None)
 }
 
 fn read_local_source_with_plan_and_format(
@@ -45792,6 +45899,61 @@ mod tests {
 
         fs::remove_file(&source_path).expect("remove source csv");
         fs::remove_file(&allowed_path).expect("remove allowed csv");
+    }
+
+    #[test]
+    fn runs_projected_subquery_on_declared_extensionless_csv_sources_without_fallback() {
+        let source_path =
+            sql_local_source_extensionless_test_path("predicate-projection-declared-source");
+        let allowed_path =
+            sql_local_source_extensionless_test_path("predicate-projection-declared-allowed");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write extensionless source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,9\n3,true,8\n4,false,7\n",
+        )
+        .expect("write extensionless allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT id,id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) AS matched FROM '{}' ORDER BY id ASC LIMIT 4",
+                allowed_path.display(),
+                source_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run declared-format projected subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"matched\":true}\n{\"id\":2,\"matched\":false}\n{\"id\":3,\"matched\":true}\n{\"id\":4,\"matched\":false}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv");
+        assert_field_eq(&fields, "source_format_inferred", "false");
+        assert_field_eq(&fields, "predicate_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "predicate_projection_predicate_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove extensionless source csv");
+        fs::remove_file(&allowed_path).expect("remove extensionless allowed csv");
     }
 
     #[test]
