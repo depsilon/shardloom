@@ -316,15 +316,18 @@ Each item below uses the same sub-checklist shape:
     - [x] Scoped feature-gated local structured source decoding admits Arrow
       list/large-list/fixed-size-list and struct arrays into ShardLoom `List` / `Struct` scalar
       values through JSONL and CSV JSON-text result boundaries, with Arrow IPC CLI smoke evidence
-      and all-null nested structured-sink blockers.
-    - [x] Scoped feature-gated typed nested compatibility sinks admit inferable `List` / `Struct`
-      result columns through Parquet, Arrow IPC, Avro, and local Vortex, with Arrow IPC-to-Parquet
-      CLI smoke, shared Parquet/Arrow IPC/Avro writer/readback proof, and local Vortex
-      `ArrayRef::from_arrow(RecordBatch)` writer/reopen proof.
+      and deterministic all-null nested structured-sink blockers when no child schema is available.
+    - [x] Scoped feature-gated typed nested compatibility sinks admit inferable or
+      source-schema-backed `List` / `Struct` result columns through Parquet, Arrow IPC, Avro, and
+      local Vortex, with Arrow IPC-to-Parquet CLI smoke, all-null Arrow IPC source-schema
+      projection to Parquet/Arrow IPC/Avro/Vortex proof, shared Parquet/Arrow IPC/Avro
+      writer/readback proof, and local Vortex `ArrayRef::from_arrow(RecordBatch)` writer/reopen
+      proof.
     - [x] All-null typed nested sink columns without child-schema evidence now fail closed at
       OutputPlan conversion with `typed_complex_child_schema_not_admitted`; JSONL/CSV remain logical
-      result/text boundaries, while Parquet/Arrow IPC/Avro/ORC/Vortex structured writers require
-      non-null nested values or source-schema child-field evidence.
+      result/text boundaries, while Parquet/Arrow IPC/Avro/Vortex structured writers require
+      non-null nested values or source-schema child-field evidence and ORC nested output remains
+      blocked.
     - [ ] Remaining: ORC nested output and all-null typed nested Vortex output without child-schema
       evidence remain deterministic blockers.
     - [x] Variant/union dtype shapes, non-binary-source-to-binary-literal comparisons,

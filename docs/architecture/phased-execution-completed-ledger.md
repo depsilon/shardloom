@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D source-schema all-null typed nested output
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-6d-source-schema-nested-output` / local branch, PR not opened.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` typed structured sink row in
+      `docs/architecture/phased-execution-plan.md`.
+    - Vortex-first provider check for preserving Arrow child-schema evidence through the existing
+      compatibility reader -> ShardLoom scalar row -> Arrow `RecordBatch` -> Vortex writer bridge.
+  - Scope:
+    - Added canonicalized Arrow child-schema hints to feature-gated local structured source reads
+      and preserved those hints through raw SQL projections and `SELECT *`.
+    - Admitted all-null raw nested source projections for Parquet, Arrow IPC, Avro, and scoped
+      local Vortex typed nested outputs when source-schema child-field evidence is present.
+    - Preserved deterministic `typed_complex_child_schema_not_admitted` blockers for all-null
+      computed nested columns or coarse-only list/struct dtype hints without child schema.
+    - Kept ORC nested output blocked with `typed_complex_preservation_not_admitted`.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features universal-format-io` passed.
+    - `cargo check -p shardloom-cli --features universal-format-io` passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io all_null_complex_sink -- --nocapture`
+      passed with the no-schema blocker and child-schema positive unit tests.
+    - `cargo test -p shardloom-cli all_null_typed_nested_sink -- --nocapture` passed with the
+      no-schema blocker and child-schema structured-sink admission unit tests.
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sinks_without_fallback -- --nocapture`
+      passed for Parquet, Arrow IPC, and Avro.
+    - `cargo test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without_fallback -- --nocapture`
+      passed for scoped local Vortex.
+  - Claim boundary:
+    - Scoped local structured source-schema child-field evidence only. This does not admit ORC
+      nested output, all-null computed nested child-schema inference, nested accessors/casts,
+      complex subquery membership, broad nested ordering, complex-key joins, production SQL nested
+      parity, package/release claims, or performance claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped local Vortex typed nested output
   - Date: 2026-06-06
   - Branch/PR: `codex/compute-engine-6d-sql-vortex-nested-output` / PR pending.
@@ -870,7 +906,9 @@ phase plan first.
       `ScalarValue::List` / `ScalarValue::Struct` result columns in the shared
       `shardloom-vortex` compatibility writer.
     - Admitted scoped feature-gated Parquet, Arrow IPC, and Avro typed nested compatibility sinks
-      when one stable nested Arrow dtype can be inferred from non-null result values.
+      when one stable nested Arrow dtype can be inferred from non-null result values; the later
+      source-schema follow-up extends this to source-child-schema-backed all-null projections and
+      scoped local Vortex output while keeping no-schema all-null nested values blocked.
     - Kept all-null complex columns without child-schema evidence blocked before writer conversion
       with `output_plan_conversion_blocker=typed_complex_child_schema_not_admitted`.
     - Kept ORC and local Vortex nested outputs blocked before provider conversion with explicit

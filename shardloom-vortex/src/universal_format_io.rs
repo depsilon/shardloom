@@ -39,6 +39,11 @@ pub struct FlatLocalSourceTable {
     /// Source-schema dtype hints aligned with `header` for scoped compatibility
     /// output preservation.
     pub column_dtypes: Vec<Option<LogicalDType>>,
+    /// Source-schema Arrow dtype hints aligned with `header` for scoped typed
+    /// nested output preservation. These hints are canonicalized to the
+    /// ShardLoom scalar materialization families rather than claimed as exact
+    /// source layout preservation.
+    pub column_arrow_dtypes: Vec<Option<DataType>>,
     /// Column order requested from the underlying local reader.
     pub reader_projection_columns: Vec<String>,
     /// Source rows converted to `ShardLoom` scalar values. Projection-capable
@@ -55,6 +60,11 @@ pub struct FlatLocalColumnarSource {
     /// Source-schema dtype hints aligned with `header` for scoped compatibility
     /// output preservation.
     pub column_dtypes: Vec<Option<LogicalDType>>,
+    /// Source-schema Arrow dtype hints aligned with `header` for scoped typed
+    /// nested output preservation. These hints are canonicalized to the
+    /// ShardLoom scalar materialization families rather than claimed as exact
+    /// source layout preservation.
+    pub column_arrow_dtypes: Vec<Option<DataType>>,
     /// Column order materialized for the caller.
     pub materialized_columns: Vec<String>,
     /// Column order requested from the underlying local reader.
@@ -149,6 +159,7 @@ pub fn read_flat_parquet_columnar_source_with_projection(
     let schema = builder.schema();
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
+    let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let projection = parquet::arrow::ProjectionMask::roots(
@@ -173,6 +184,7 @@ pub fn read_flat_parquet_columnar_source_with_projection(
         max_rows,
         header,
         column_dtypes,
+        column_arrow_dtypes,
         &projected_header,
     )
 }
@@ -253,6 +265,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
     let schema = full_reader.schema();
     let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
+    let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     drop(full_reader);
@@ -273,6 +286,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
         max_rows,
         header,
         column_dtypes,
+        column_arrow_dtypes,
         &projected_header,
     )
 }
@@ -355,6 +369,7 @@ pub fn read_flat_avro_columnar_source_with_projection(
     let schema = full_reader.schema();
     let header = source_schema_header(path, "Avro", schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
+    let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let (reader_projection_indices, reader_projection_columns) = if projection_indices.is_empty() {
@@ -384,6 +399,7 @@ pub fn read_flat_avro_columnar_source_with_projection(
         FlatColumnarReadSchema {
             header,
             column_dtypes,
+            column_arrow_dtypes,
             materialized_columns: projected_header,
             reader_projection_columns,
         },
@@ -465,6 +481,7 @@ pub fn read_flat_orc_columnar_source_with_projection(
     let schema = builder.schema();
     let header = source_schema_header(path, "ORC", schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
+    let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
     let projection_indices = projection_indices_for_header(&header, required_columns);
     let projected_header = projection_header(&header, &projection_indices);
     let projection = orc_rust::projection::ProjectionMask::named_roots(
@@ -483,6 +500,7 @@ pub fn read_flat_orc_columnar_source_with_projection(
         max_rows,
         header,
         column_dtypes,
+        column_arrow_dtypes,
         &projected_header,
     )
 }
@@ -499,6 +517,7 @@ where
     let schema = reader.schema();
     let header = source_schema_header(path, source_label, schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
+    let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
     let projected_header = header.clone();
     read_flat_record_batch_reader_columnar_with_header(
         reader,
@@ -507,6 +526,7 @@ where
         max_rows,
         header,
         column_dtypes,
+        column_arrow_dtypes,
         &projected_header,
     )
 }
@@ -518,6 +538,7 @@ fn read_flat_record_batch_reader_columnar_with_header<R>(
     max_rows: usize,
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
     projected_header: &[String],
 ) -> Result<FlatLocalColumnarSource>
 where
@@ -526,6 +547,7 @@ where
     let schema = FlatColumnarReadSchema {
         header,
         column_dtypes,
+        column_arrow_dtypes,
         materialized_columns: projected_header.to_owned(),
         reader_projection_columns: projected_header.to_owned(),
     };
@@ -553,6 +575,14 @@ where
             "local {source_label} source '{}' produced {} source dtype hints for {} schema columns",
             path.display(),
             schema.column_dtypes.len(),
+            schema.header.len()
+        )));
+    }
+    if schema.column_arrow_dtypes.len() != schema.header.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local {source_label} source '{}' produced {} source Arrow dtype hints for {} schema columns",
+            path.display(),
+            schema.column_arrow_dtypes.len(),
             schema.header.len()
         )));
     }
@@ -589,6 +619,7 @@ where
     Ok(FlatLocalColumnarSource {
         header: schema.header,
         column_dtypes: schema.column_dtypes,
+        column_arrow_dtypes: schema.column_arrow_dtypes,
         materialized_columns: schema.materialized_columns,
         reader_projection_columns: schema.reader_projection_columns,
         batches,
@@ -642,6 +673,7 @@ pub fn materialize_flat_columnar_source_to_scalar_table(
     Ok(FlatLocalSourceTable {
         header: source.header.clone(),
         column_dtypes: source.column_dtypes.clone(),
+        column_arrow_dtypes: source.column_arrow_dtypes.clone(),
         reader_projection_columns: source.reader_projection_columns.clone(),
         rows,
     })
@@ -698,6 +730,14 @@ fn source_schema_column_dtypes(schema: &Schema) -> Vec<Option<LogicalDType>> {
         .collect()
 }
 
+fn source_schema_column_arrow_dtypes(schema: &Schema) -> Vec<Option<DataType>> {
+    schema
+        .fields()
+        .iter()
+        .map(|field| source_schema_arrow_dtype_hint(field.data_type()))
+        .collect()
+}
+
 fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
     match data_type {
         DataType::Binary
@@ -717,9 +757,53 @@ fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
     }
 }
 
+fn source_schema_arrow_dtype_hint(data_type: &DataType) -> Option<DataType> {
+    match data_type {
+        DataType::Boolean => Some(DataType::Boolean),
+        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+            Some(DataType::Int64)
+        }
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            Some(DataType::UInt64)
+        }
+        DataType::Float16 | DataType::Float32 | DataType::Float64 => Some(DataType::Float64),
+        DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => Some(DataType::Utf8),
+        DataType::Binary
+        | DataType::LargeBinary
+        | DataType::FixedSizeBinary(_)
+        | DataType::BinaryView => Some(DataType::Binary),
+        DataType::Date32 => Some(DataType::Date32),
+        DataType::Timestamp(TimeUnit::Microsecond, None) => {
+            Some(DataType::Timestamp(TimeUnit::Microsecond, None))
+        }
+        DataType::Decimal128(precision, scale) => {
+            let scale_u8 = u8::try_from(*scale).ok()?;
+            (scale_u8 <= *precision).then_some(DataType::Decimal128(*precision, *scale))
+        }
+        DataType::List(field) | DataType::LargeList(field) => {
+            let child = source_schema_arrow_dtype_hint(field.data_type())?;
+            Some(DataType::List(Arc::new(Field::new_list_field(child, true))))
+        }
+        DataType::FixedSizeList(field, _) => {
+            let child = source_schema_arrow_dtype_hint(field.data_type())?;
+            Some(DataType::List(Arc::new(Field::new_list_field(child, true))))
+        }
+        DataType::Struct(fields) => fields
+            .iter()
+            .map(|field| {
+                let dtype = source_schema_arrow_dtype_hint(field.data_type())?;
+                Some(Field::new(field.name(), dtype, true))
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|fields| DataType::Struct(Fields::from(fields))),
+        _ => None,
+    }
+}
+
 struct FlatColumnarReadSchema {
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    column_arrow_dtypes: Vec<Option<DataType>>,
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
 }
@@ -767,9 +851,26 @@ pub fn encode_flat_parquet_rows_with_dtypes(
     column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
+    let column_arrow_dtypes = vec![None; columns.len()];
+    encode_flat_parquet_rows_with_arrow_dtypes(columns, column_dtypes, &column_arrow_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local Parquet bytes with optional logical and
+/// Arrow dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_parquet_rows_with_arrow_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch_with_dtypes(
         columns,
         column_dtypes,
+        column_arrow_dtypes,
         rows,
         "local Parquet output",
     )?;
@@ -819,9 +920,26 @@ pub fn encode_flat_arrow_ipc_rows_with_dtypes(
     column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
+    let column_arrow_dtypes = vec![None; columns.len()];
+    encode_flat_arrow_ipc_rows_with_arrow_dtypes(columns, column_dtypes, &column_arrow_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local Arrow IPC bytes with optional logical and
+/// Arrow dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_arrow_ipc_rows_with_arrow_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
     let batch = flat_rows_to_record_batch_with_dtypes(
         columns,
         column_dtypes,
+        column_arrow_dtypes,
         rows,
         "local Arrow IPC output",
     )?;
@@ -871,8 +989,29 @@ pub fn encode_flat_avro_rows_with_dtypes(
     column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
-    let batch =
-        flat_rows_to_record_batch_with_dtypes(columns, column_dtypes, rows, "local Avro output")?;
+    let column_arrow_dtypes = vec![None; columns.len()];
+    encode_flat_avro_rows_with_arrow_dtypes(columns, column_dtypes, &column_arrow_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local Avro bytes with optional logical and Arrow
+/// dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns or an admitted typed sink cannot preserve the hinted dtype.
+pub fn encode_flat_avro_rows_with_arrow_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch_with_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+        "local Avro output",
+    )?;
     let mut writer =
         arrow_avro::writer::AvroWriter::new(Vec::new(), batch.schema().as_ref().clone()).map_err(
             |error| {
@@ -918,8 +1057,30 @@ pub fn encode_flat_orc_rows_with_dtypes(
     column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
-    let batch =
-        flat_rows_to_record_batch_with_dtypes(columns, column_dtypes, rows, "local ORC output")?;
+    let column_arrow_dtypes = vec![None; columns.len()];
+    encode_flat_orc_rows_with_arrow_dtypes(columns, column_dtypes, &column_arrow_dtypes, rows)
+}
+
+/// Encode flat scalar rows into local ORC bytes with optional logical and Arrow
+/// dtype hints.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when hints do not match the
+/// declared columns, an admitted typed sink cannot preserve the hinted dtype, or
+/// the scoped ORC writer path has not admitted the hinted type.
+pub fn encode_flat_orc_rows_with_arrow_dtypes(
+    columns: &[String],
+    column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch_with_dtypes(
+        columns,
+        column_dtypes,
+        column_arrow_dtypes,
+        rows,
+        "local ORC output",
+    )?;
     validate_orc_record_batch_supported(&batch)?;
     let buffer = SharedBufferWriter::default();
     let retained_buffer = buffer.clone();
@@ -952,7 +1113,13 @@ fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
                 field.name()
             )));
         }
-        if matches!(field.data_type(), DataType::List(_) | DataType::Struct(_)) {
+        if matches!(
+            field.data_type(),
+            DataType::List(_)
+                | DataType::LargeList(_)
+                | DataType::FixedSizeList(_, _)
+                | DataType::Struct(_)
+        ) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local ORC output does not yet admit typed nested preservation for column '{}'; scoped typed nested compatibility sinks are admitted through Parquet/Arrow IPC/Avro after Arrow schema inference, while ORC remains blocked before provider conversion until writer/readback evidence is added; no fallback execution was attempted",
                 field.name()
@@ -968,12 +1135,20 @@ fn flat_rows_to_record_batch(
     context: &str,
 ) -> Result<RecordBatch> {
     let column_dtypes = vec![None; columns.len()];
-    flat_rows_to_record_batch_with_dtypes(columns, &column_dtypes, rows, context)
+    let column_arrow_dtypes = vec![None; columns.len()];
+    flat_rows_to_record_batch_with_dtypes(
+        columns,
+        &column_dtypes,
+        &column_arrow_dtypes,
+        rows,
+        context,
+    )
 }
 
 pub(crate) fn flat_rows_to_record_batch_with_dtypes(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
+    column_arrow_dtypes: &[Option<DataType>],
     rows: &[Vec<(String, ScalarValue)>],
     context: &str,
 ) -> Result<RecordBatch> {
@@ -985,6 +1160,13 @@ pub(crate) fn flat_rows_to_record_batch_with_dtypes(
             columns.len()
         )));
     }
+    if column_arrow_dtypes.len() != columns.len() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} declared {} column Arrow dtype hints for {} columns",
+            column_arrow_dtypes.len(),
+            columns.len()
+        )));
+    }
     let fields_and_arrays = columns
         .iter()
         .enumerate()
@@ -993,6 +1175,7 @@ pub(crate) fn flat_rows_to_record_batch_with_dtypes(
                 column,
                 column_index,
                 column_dtypes[column_index].as_ref(),
+                column_arrow_dtypes[column_index].as_ref(),
                 rows,
                 context,
             )
@@ -1063,6 +1246,7 @@ fn flat_output_column_array(
     column: &str,
     column_index: usize,
     column_dtype: Option<&LogicalDType>,
+    column_arrow_dtype: Option<&DataType>,
     rows: &[Vec<(String, ScalarValue)>],
     context: &str,
 ) -> Result<(Field, ArrayRef)> {
@@ -1092,6 +1276,8 @@ fn flat_output_column_array(
         LogicalDType::Struct => Some("struct"),
         _ => None,
     });
+    let declared_complex_arrow_dtype = column_arrow_dtype
+        .and_then(|dtype| complex_arrow_dtype_kind(dtype).map(|kind| (kind, dtype)));
     let inferred_kind = values
         .iter()
         .filter(|value| !matches!(value, ScalarValue::Null))
@@ -1107,6 +1293,21 @@ fn flat_output_column_array(
         .iter()
         .any(|value| matches!(value, ScalarValue::Null));
     if let Some(complex_kind) = declared_complex {
+        if let Some((arrow_kind, arrow_dtype)) = declared_complex_arrow_dtype {
+            if arrow_kind != complex_kind {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' is declared {complex_kind} but has Arrow child-schema hint {:?}; scoped typed complex sinks require matching logical and Arrow complex families",
+                    arrow_dtype
+                )));
+            }
+            return nested_arrow_column_with_data_type(
+                column,
+                &values,
+                nullable,
+                arrow_dtype,
+                context,
+            );
+        }
         match inferred_kind {
             Some(kind) if kind == complex_kind => {
                 return nested_arrow_column(column, &values, nullable, context);
@@ -1124,6 +1325,21 @@ fn flat_output_column_array(
         }
     }
     if matches!(inferred_kind, Some("list" | "struct")) {
+        if let Some((arrow_kind, arrow_dtype)) = declared_complex_arrow_dtype {
+            if Some(arrow_kind) != inferred_kind {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' inferred {:?} but has Arrow child-schema hint {:?}; scoped typed complex sinks require matching logical and Arrow complex families",
+                    inferred_kind, arrow_dtype
+                )));
+            }
+            return nested_arrow_column_with_data_type(
+                column,
+                &values,
+                nullable,
+                arrow_dtype,
+                context,
+            );
+        }
         return nested_arrow_column(column, &values, nullable, context);
     }
     let kind = match (declared_decimal, declared_binary, inferred_kind) {
@@ -1465,11 +1681,32 @@ fn nested_arrow_column(
     context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let data_type = infer_arrow_dtype_from_scalar_values(column, values, context)?;
-    let mut builder = make_builder(&data_type, values.len());
+    nested_arrow_column_with_data_type(column, values, nullable, &data_type, context)
+}
+
+fn nested_arrow_column_with_data_type(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+    data_type: &DataType,
+    context: &str,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = make_builder(data_type, values.len());
     for value in values {
-        append_scalar_to_arrow_builder(builder.as_mut(), &data_type, value, column, context)?;
+        append_scalar_to_arrow_builder(builder.as_mut(), data_type, value, column, context)?;
     }
-    Ok((Field::new(column, data_type, nullable), builder.finish()))
+    Ok((
+        Field::new(column, data_type.clone(), nullable),
+        builder.finish(),
+    ))
+}
+
+fn complex_arrow_dtype_kind(data_type: &DataType) -> Option<&'static str> {
+    match data_type {
+        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => Some("list"),
+        DataType::Struct(_) => Some("struct"),
+        _ => None,
+    }
 }
 
 fn infer_arrow_dtype_from_scalar_values(
@@ -2152,6 +2389,7 @@ mod tests {
         FlatLocalColumnarSource {
             header: vec![column.to_string()],
             column_dtypes: vec![Some(LogicalDType::Binary)],
+            column_arrow_dtypes: vec![Some(DataType::Binary)],
             materialized_columns: vec![column.to_string()],
             reader_projection_columns: vec![column.to_string()],
             row_count: batch.num_rows(),
@@ -2237,6 +2475,7 @@ mod tests {
             column_dtypes: vec![Some(LogicalDType::Extension(
                 "decimal128(10,2)".to_string(),
             ))],
+            column_arrow_dtypes: vec![Some(DataType::Decimal128(10, 2))],
             materialized_columns: vec!["amount".to_string()],
             reader_projection_columns: vec!["amount".to_string()],
             row_count: batch.num_rows(),
@@ -2294,10 +2533,12 @@ mod tests {
             Field::new("values", values.data_type().clone(), true),
             Field::new("payload", payload.data_type().clone(), true),
         ]));
+        let column_arrow_dtypes = source_schema_column_arrow_dtypes(schema.as_ref());
         let batch = RecordBatch::try_new(schema, vec![values, payload]).expect("record batch");
         let source = FlatLocalColumnarSource {
             header: vec!["values".to_string(), "payload".to_string()],
             column_dtypes: vec![Some(LogicalDType::List), Some(LogicalDType::Struct)],
+            column_arrow_dtypes,
             materialized_columns: vec!["values".to_string(), "payload".to_string()],
             reader_projection_columns: vec!["values".to_string(), "payload".to_string()],
             row_count: batch.num_rows(),
@@ -2550,6 +2791,7 @@ mod tests {
         let error = flat_rows_to_record_batch_with_dtypes(
             &columns,
             &dtypes,
+            &[None],
             &rows,
             "nested dtype hint output",
         )
@@ -2569,6 +2811,46 @@ mod tests {
     }
 
     #[test]
+    fn all_null_complex_sink_with_child_schema_builds_record_batch() {
+        let columns = vec!["values".to_string(), "payload".to_string()];
+        let dtypes = vec![Some(LogicalDType::List), Some(LogicalDType::Struct)];
+        let arrow_dtypes = vec![
+            Some(DataType::List(Arc::new(Field::new_list_field(
+                DataType::Int64,
+                true,
+            )))),
+            Some(DataType::Struct(Fields::from(vec![
+                Field::new("label", DataType::Utf8, true),
+                Field::new("amount", DataType::Int64, true),
+            ]))),
+        ];
+        let rows = vec![vec![
+            ("values".to_string(), ScalarValue::Null),
+            ("payload".to_string(), ScalarValue::Null),
+        ]];
+
+        let batch = flat_rows_to_record_batch_with_dtypes(
+            &columns,
+            &dtypes,
+            &arrow_dtypes,
+            &rows,
+            "nested source schema hint output",
+        )
+        .expect("source child schema evidence builds all-null typed nested batch");
+
+        assert_eq!(
+            batch.schema().field(0).data_type(),
+            arrow_dtypes[0].as_ref().unwrap()
+        );
+        assert_eq!(
+            batch.schema().field(1).data_type(),
+            arrow_dtypes[1].as_ref().unwrap()
+        );
+        assert!(batch.column(0).is_null(0));
+        assert!(batch.column(1).is_null(0));
+    }
+
+    #[test]
     fn binary_dtype_hint_builds_binary_array_for_all_null_sink_column() {
         let columns = vec!["payload".to_string()];
         let dtypes = vec![Some(LogicalDType::Binary)];
@@ -2577,6 +2859,7 @@ mod tests {
         let batch = flat_rows_to_record_batch_with_dtypes(
             &columns,
             &dtypes,
+            &[None],
             &rows,
             "binary dtype hint output",
         )
@@ -2594,8 +2877,9 @@ mod tests {
         ))];
         let rows = vec![vec![("amount".to_string(), ScalarValue::Null)]];
 
-        let error = flat_rows_to_record_batch_with_dtypes(&columns, &dtypes, &rows, "test output")
-            .expect_err("invalid decimal hint should fail before Arrow output");
+        let error =
+            flat_rows_to_record_batch_with_dtypes(&columns, &dtypes, &[None], &rows, "test output")
+                .expect_err("invalid decimal hint should fail before Arrow output");
 
         assert!(
             error.to_string().contains(

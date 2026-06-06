@@ -2409,9 +2409,95 @@ fn sql_local_source_smoke_writes_arrow_ipc_nested_source_to_typed_parquet_withou
 
 #[cfg(feature = "universal-format-io")]
 #[test]
-fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_fallback() {
-    let source_path = unique_path("sql-local-source-nested-blocked", "arrow");
-    let output_path = unique_path("sql-local-source-nested-blocked", "parquet");
+fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_structured_sinks_without_fallback()
+ {
+    let source_path = unique_path("sql-local-source-nested-all-null-schema", "arrow");
+    write_nested_arrow_ipc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT values FROM '{}' WHERE id = 2 LIMIT 1",
+        source_path.display()
+    );
+    for (format, extension) in [
+        ("parquet", "parquet"),
+        ("arrow_ipc", "arrow"),
+        ("avro", "avro"),
+    ] {
+        let output_path = unique_path(
+            &format!("sql-local-source-nested-all-null-schema-{format}"),
+            extension,
+        );
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "sql-local-source-smoke",
+                &statement,
+                "--output-format",
+                format,
+                "--output",
+                &output_path.display().to_string(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+
+        assert!(
+            output.status.success(),
+            "format={format} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "format={format} stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+        assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
+        assert!(stdout.contains(&field("output_format", format)), "{stdout}");
+        assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+        assert!(stdout.contains(&field(
+            "typed_nested_child_schema_evidence_status",
+            "present_from_source_schema_child_fields_for_all_null_typed_nested_column"
+        )));
+        assert!(stdout.contains(&field("typed_nested_child_schema_blocker", "none")));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(
+            output_path.exists(),
+            "structured sink should write all-null nested output at {}",
+            output_path.display()
+        );
+
+        let table = match format {
+            "parquet" => shardloom_vortex::read_flat_parquet_source(&output_path, 10),
+            "arrow_ipc" => shardloom_vortex::read_flat_arrow_ipc_source(&output_path, 10),
+            "avro" => shardloom_vortex::read_flat_avro_source(&output_path, 10),
+            _ => unreachable!("covered formats"),
+        }
+        .expect("read all-null nested output");
+        assert_eq!(
+            table.column_dtypes,
+            vec![Some(shardloom_core::LogicalDType::List)]
+        );
+        assert_eq!(table.rows.len(), 1);
+        assert_eq!(
+            table.rows[0].get("values"),
+            Some(&shardloom_core::ScalarValue::Null)
+        );
+        fs::remove_file(output_path).expect("remove all-null nested structured output");
+    }
+
+    fs::remove_file(source_path).expect("remove nested source arrow ipc");
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_writes_all_null_nested_source_schema_to_vortex_without_fallback() {
+    let source_path = unique_path("sql-local-source-nested-all-null-schema-vortex", "arrow");
+    let output_path = unique_path("sql-local-source-nested-all-null-schema-vortex", "vortex");
     write_nested_arrow_ipc_smoke_source(&source_path);
 
     let statement = format!(
@@ -2423,7 +2509,7 @@ fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_
             "sql-local-source-smoke",
             &statement,
             "--output-format",
-            "parquet",
+            "vortex",
             "--output",
             &output_path.display().to_string(),
             "--format",
@@ -2433,7 +2519,7 @@ fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_
         .expect("sql-local-source-smoke command runs");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -2446,21 +2532,29 @@ fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
-    assert!(stdout.contains("\"status\":\"error\""), "{stdout}");
-    assert!(stdout.contains("\"code\":\"SL_INVALID_INPUT\""), "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""), "{stdout}");
     assert!(
-        stdout.contains("output_plan_conversion_blocker=typed_complex_child_schema_not_admitted")
+        stdout.contains(&field("output_format", "vortex")),
+        "{stdout}"
     );
-    assert!(stdout.contains("all-null typed nested sink columns without child-schema evidence"));
-    assert!(stdout.contains("\"attempted\":false"));
-    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field(
+        "typed_nested_child_schema_evidence_status",
+        "present_from_source_schema_child_fields_for_all_null_typed_nested_column"
+    )));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "true")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("vortex_output_column_families", "values:list")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(
-        !output_path.exists(),
-        "blocked structured sink must not write {}",
+        output_path.exists(),
+        "Vortex sink should write all-null nested output at {}",
         output_path.display()
     );
 
     fs::remove_file(source_path).expect("remove nested source arrow ipc");
+    fs::remove_file(output_path).expect("remove all-null nested vortex output");
 }
 
 #[cfg(feature = "universal-format-io")]

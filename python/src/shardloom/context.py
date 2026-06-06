@@ -4539,9 +4539,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Scoped SQL, Python, and DataFrame-style ARRAY/STRUCT projection workflows can write "
-            "inferable typed nested compatibility output through feature-gated Parquet, Arrow IPC, "
-            "Avro, and local Vortex sinks. This does not admit all-null nested columns without child-schema "
-            "evidence, ORC nested output, nested accessors/casts, broad "
+            "inferable or source-schema-backed typed nested compatibility output through "
+            "feature-gated Parquet, Arrow IPC, Avro, and local Vortex sinks. This does not admit "
+            "all-null computed nested columns without child-schema evidence, ORC nested output, "
+            "nested accessors/casts, broad "
             "nested ordering, complex-key joins, production SQL nested parity, or benchmarked "
             "performance equivalence."
         ),

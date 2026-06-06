@@ -21,6 +21,7 @@ shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
 shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
 shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
 shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
+arrow-schema = "58.3.0"
 regex = "1.12.3"
 rusqlite = { version = "0.40.0", default-features = false, features = ["bundled"] }
 
@@ -39,7 +40,6 @@ vortex-traditional-analytics-benchmark = [
 arrow-array = "58.3.0"
 arrow-avro = { version = "58.3.0", default-features = false, features = ["deflate", "snappy"] }
 arrow-ipc = "58.3.0"
-arrow-schema = "58.3.0"
 orc-rust = { version = "0.8.0", default-features = false }
 parquet = "58.3.0"
 
