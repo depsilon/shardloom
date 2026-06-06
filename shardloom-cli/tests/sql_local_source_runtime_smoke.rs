@@ -25,6 +25,19 @@ fn unique_path(name: &str, extension: &str) -> PathBuf {
 }
 
 #[cfg(feature = "vortex-write")]
+fn unique_extensionless_path(name: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock after unix epoch")
+        .as_nanos();
+    let counter = UNIQUE_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "shardloom-{name}-{}-{counter}-{nanos}",
+        std::process::id(),
+    ))
+}
+
+#[cfg(feature = "vortex-write")]
 fn unique_dir(name: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -715,6 +728,86 @@ fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
 
     fs::remove_file(source_path).expect("remove base source csv");
     fs::remove_file(delta_source_path).expect("remove delta source csv");
+    fs::remove_file(target_path).expect("remove base vortex");
+    fs::remove_file(delta_target_path).expect("remove delta vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_preserves_declared_input_format_for_extensionless_delta() {
+    let source_path = unique_extensionless_path("vortex-ingest-delta-extensionless-base");
+    let delta_source_path = unique_extensionless_path("vortex-ingest-delta-extensionless-change");
+    let target_path = unique_path("vortex-ingest-delta-extensionless-base-target", "vortex");
+    let delta_target_path =
+        unique_path("vortex-ingest-delta-extensionless-change-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n")
+        .expect("write extensionless base source csv");
+    fs::write(&delta_source_path, "id,label,amount\n3,gamma,21\n")
+        .expect("write extensionless delta source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--input-format",
+            "csv",
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &delta_target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "csv")));
+    assert!(stdout.contains(&field("source_format_inferred", "false")));
+    assert!(stdout.contains(&field(
+        "source_format_inference_kind",
+        "declared_input_format"
+    )));
+    assert!(stdout.contains(&field(
+        "source_format_inference_extension",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_status",
+        "admitted_append_only_delta_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_delta_row_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_fallback_attempted",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_external_engine_invoked",
+        "false"
+    )));
+    assert!(target_path.exists());
+    assert!(delta_target_path.exists());
+
+    fs::remove_file(source_path).expect("remove extensionless base source csv");
+    fs::remove_file(delta_source_path).expect("remove extensionless delta source csv");
     fs::remove_file(target_path).expect("remove base vortex");
     fs::remove_file(delta_target_path).expect("remove delta vortex");
 }

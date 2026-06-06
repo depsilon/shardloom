@@ -4117,7 +4117,7 @@ fn run_vortex_ingest_smoke(
         })?;
         let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
             source_path: delta.source_path.clone(),
-            source_format_override: None,
+            source_format_override: base_report.request.source_format_override,
             target_path: delta.target_path.clone(),
             allow_overwrite: base_report.request.allow_overwrite,
             certification_level: base_report.request.certification_level,
@@ -4368,7 +4368,7 @@ fn run_vortex_ingest_prepare_once_with_adapter(
             return run_columnar_vortex_ingest_smoke(request, source_adapter);
         }
     }
-    run_scalar_vortex_ingest_smoke(request)
+    run_scalar_vortex_ingest_smoke(request, source_adapter)
 }
 
 fn vortex_ingest_prepared_state_reuse_request(
@@ -5121,9 +5121,14 @@ fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
 
 fn run_scalar_vortex_ingest_smoke(
     request: VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let prepare_start = Instant::now();
-    let source = read_local_source(&request.source_path)?;
+    let source = read_local_source_with_plan_and_adapter(
+        &request.source_path,
+        &LocalSourceReadPlan::full("full_vortex_ingest_source_state"),
+        source_adapter,
+    )?;
     let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
     let source_schema_digest = fnv64_digest(&source_evidence.header.join(","));
     let source_state_id = source_state_id_for_source(&source_evidence);
@@ -7473,7 +7478,7 @@ fn vortex_ingest_scout_blocked_request(
         if let Some(delta) = request.delta.as_ref() {
             return VortexIngestRequest {
                 source_path: delta.source_path.clone(),
-                source_format_override: None,
+                source_format_override: request.source_format_override,
                 target_path: delta.target_path.clone(),
                 allow_overwrite: request.allow_overwrite,
                 certification_level: request.certification_level,
@@ -8148,7 +8153,13 @@ fn prepare_sql_local_source_evaluation(
     let mut right_source = parsed
         .join
         .as_ref()
-        .map(|join| read_local_source(&join.right_source_path))
+        .map(|join| {
+            read_local_source_with_plan_and_format(
+                &join.right_source_path,
+                &LocalSourceReadPlan::full("full_right_source_state_join"),
+                source_format_override,
+            )
+        })
         .transpose()?;
     bind_sql_local_source(
         &parsed,
@@ -25090,7 +25101,9 @@ impl SqlLocalSourceReport {
                 "right_source_format_inferred".to_string(),
                 self.right_source
                     .as_ref()
-                    .map_or_else(String::new, |_source| "true".to_string()),
+                    .map_or_else(String::new, |source| {
+                        source.source_adapter.source_format_inferred().to_string()
+                    }),
             ),
             (
                 "right_source_format_inference_extension".to_string(),
@@ -27948,13 +27961,6 @@ impl SqlLocalSourceReport {
     }
 }
 
-fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
-    read_local_source_with_plan(
-        path,
-        &LocalSourceReadPlan::full("full_source_state_default"),
-    )
-}
-
 fn read_local_source_with_plan(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -27967,8 +27973,16 @@ fn read_local_source_with_plan_and_format(
     read_plan: &LocalSourceReadPlan,
     source_format_override: Option<LocalSourceFormat>,
 ) -> Result<CsvSourceData, ShardLoomError> {
-    reject_remote_source_path(path)?;
     let source_adapter = LocalInputAdapterSelection::select(path, source_format_override)?;
+    read_local_source_with_plan_and_adapter(path, read_plan, source_adapter)
+}
+
+fn read_local_source_with_plan_and_adapter(
+    path: &Path,
+    read_plan: &LocalSourceReadPlan,
+    source_adapter: LocalInputAdapterSelection,
+) -> Result<CsvSourceData, ShardLoomError> {
+    reject_remote_source_path(path)?;
     let source_format = source_adapter.source_format;
     let read_start = Instant::now();
     let bytes = fs::read(path).map_err(|error| {
@@ -37156,6 +37170,21 @@ mod tests {
             SQL_LOCAL_SOURCE_TEST_PATH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         path.push(format!(
             "shardloom-sql-local-source-{}-{nanos}-{counter}.{extension}",
+            std::process::id(),
+        ));
+        path
+    }
+
+    fn sql_local_source_extensionless_test_path(label: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let counter =
+            SQL_LOCAL_SOURCE_TEST_PATH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        path.push(format!(
+            "shardloom-sql-local-source-{label}-{}-{nanos}-{counter}",
             std::process::id(),
         ));
         path
@@ -47500,6 +47529,61 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "inner-expression-join-limit"
         );
+    }
+
+    #[test]
+    fn runs_scoped_join_on_declared_extensionless_csv_sources_without_fallback() {
+        let fact_path = sql_local_source_extensionless_test_path("join-declared-format-fact");
+        let dim_path = sql_local_source_extensionless_test_path("join-declared-format-dim");
+        fs::write(
+            &fact_path,
+            "id,customer_id,amount\n1,10,8\n2,20,15\n3,30,21\n",
+        )
+        .expect("write extensionless fact source");
+        fs::write(&dim_path, "customer_id,segment\n20,gold\n30,platinum\n")
+            .expect("write extensionless dim source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run declared-format join smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"f.id\":2,\"d.segment\":\"gold\"}\n{\"f.id\":3,\"d.segment\":\"platinum\"}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv");
+        assert_field_eq(&fields, "source_format_inferred", "false");
+        assert_field_eq(
+            &fields,
+            "source_format_inference_kind",
+            "declared_input_format",
+        );
+        assert_field_eq(&fields, "right_source_format", "csv");
+        assert_field_eq(&fields, "right_source_format_inferred", "false");
+        assert_field_eq(
+            &fields,
+            "right_source_format_inference_extension",
+            "not_applicable",
+        );
+        assert_field_eq(&fields, "join_source_formats", "csv,csv");
+        assert_field_eq(&fields, "join_runtime_execution", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(fact_path).expect("remove extensionless fact source");
+        fs::remove_file(dim_path).expect("remove extensionless dim source");
     }
 
     #[test]
