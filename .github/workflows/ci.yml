@@ -92,6 +92,18 @@ jobs:
           name: python-package-smoke-evidence
           path: |
             python/dist
+            target/debug/shardloom
+            target/release-dry-run-proof
+            target/release-provenance-dry-run
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-local-smoke-evidence
+          path: |
+            python/dist
+            target/debug/shardloom
             target/release-dry-run-proof
             target/release-provenance-dry-run
           if-no-files-found: ignore
@@ -132,47 +144,102 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  release-readiness:
-    name: Release readiness reports
+  release-runtime-core:
+    name: Release runtime core evidence
     runs-on: ubuntu-latest
-    needs:
-      - dependency-security
-      - ci-gate-matrix
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Install release tooling
-        run: python -m pip install --upgrade pip build
-      - name: Reuse dependency/security evidence
-        uses: actions/download-artifact@v7
-        with:
-          name: dependency-security-evidence
-          path: target
-      - name: Reuse CI gate matrix evidence
-        uses: actions/download-artifact@v7
-        with:
-          name: ci-gate-matrix-report
-          path: target
-      - name: Package smoke and provenance evidence
-        run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
-      - name: Contribution governance
-        run: python scripts/check_contribution_governance.py
-      - name: Package-channel readiness
-        run: python scripts/check_package_channel_readiness.py --require-local-evidence
       - name: Golden workflow validator
         run: python scripts/check_golden_workflows.py
       - name: Admitted semantics matrix
         run: python scripts/check_admitted_semantics_matrix.py
       - name: Architecture tracker
         run: python scripts/check_release_architecture_tracker.py --allow-blocked
-      - name: Final release rehearsal
-        run: python scripts/final_release_rehearsal.py --allow-blocked
-      - name: Website readiness
-        run: python scripts/check_website_readiness.py
-      - name: Production usability gate
-        run: python scripts/check_production_usability_gate.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-runtime-core-evidence
+          path: |
+            target/golden-workflow-report.json
+            target/golden-workflows
+            target/admitted-semantics-matrix-report.json
+            target/admitted-semantics-matrix
+            target/release-architecture-tracker-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-package-governance:
+    name: Release package and governance evidence
+    runs-on: ubuntu-latest
+    needs:
+      - dependency-security
+      - python-package
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Reuse dependency/security evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: dependency-security-evidence
+          path: target/downloads/dependency-security-evidence
+      - name: Reuse local package smoke evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-local-smoke-evidence
+          path: target/downloads/release-local-smoke-evidence
+      - name: Merge package/governance input evidence
+        run: |
+          python scripts/merge_release_evidence_artifacts.py \
+            --artifact target/downloads/dependency-security-evidence \
+            --artifact target/downloads/release-local-smoke-evidence
+          test -f target/dependency-audit-report.json
+          test -f target/release-dry-run-proof/transcript.json
+          test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
+          python - <<'PY'
+          from pathlib import Path
+          assert Path("target/debug/shardloom").is_file()
+          assert list(Path("python/dist").glob("shardloom-*.whl"))
+          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
+          PY
+      - name: Contribution governance
+        run: python scripts/check_contribution_governance.py
+      - name: Package-channel readiness
+        run: python scripts/check_package_channel_readiness.py --require-local-evidence
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-package-governance-evidence
+          path: |
+            target/contribution-governance-report.json
+            target/package-channel-readiness-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-user-surface:
+    name: Release user-surface evidence
+    runs-on: ubuntu-latest
+    needs:
+      - python-package
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Reuse local package smoke evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-local-smoke-evidence
+          path: target/downloads/release-local-smoke-evidence
+      - name: Merge local package smoke evidence
+        run: |
+          python scripts/merge_release_evidence_artifacts.py \
+            --artifact target/downloads/release-local-smoke-evidence
+          test -f target/release-dry-run-proof/transcript.json
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate
@@ -185,11 +252,146 @@ jobs:
         run: python scripts/check_runtime_gap_family_burn_down.py
       - name: User route capability report
         run: python scripts/check_user_route_capability_report.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-user-surface-evidence
+          path: |
+            target/python-user-surface-completion-gate.json
+            target/sql-python-dataframe-parity-gate.json
+            target/user-surface-runtime-gap-inventory.json
+            target/user-surface-graduation-matrix.json
+            target/runtime-gap-family-burn-down.json
+            target/user-route-capability-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-benchmark-claim:
+    name: Release benchmark claim evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
       - name: Pre-5J dependency freshness gate
         run: python scripts/check_pre_5j_dependency_freshness.py --require-live-github
       - name: Benchmark publication claim gate
         continue-on-error: true
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-benchmark-claim-evidence
+          path: |
+            target/pre-5j-dependency-freshness-gate.json
+            target/benchmark-publication-claim-gate-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-readiness:
+    name: Release readiness reports
+    runs-on: ubuntu-latest
+    needs:
+      - ci-gate-matrix
+      - dependency-security
+      - python-package
+      - release-runtime-core
+      - release-package-governance
+      - release-user-surface
+      - release-benchmark-claim
+      - website-docs
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Reuse CI gate matrix evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: ci-gate-matrix-report
+          path: target/downloads/ci-gate-matrix-report
+      - name: Reuse dependency/security evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: dependency-security-evidence
+          path: target/downloads/dependency-security-evidence
+      - name: Reuse local package smoke evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-local-smoke-evidence
+          path: target/downloads/release-local-smoke-evidence
+      - name: Reuse runtime core evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-runtime-core-evidence
+          path: target/downloads/release-runtime-core-evidence
+      - name: Reuse package/governance evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-package-governance-evidence
+          path: target/downloads/release-package-governance-evidence
+      - name: Reuse user-surface evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-user-surface-evidence
+          path: target/downloads/release-user-surface-evidence
+      - name: Reuse benchmark claim evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: release-benchmark-claim-evidence
+          path: target/downloads/release-benchmark-claim-evidence
+      - name: Reuse website/docs evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: website-docs-evidence
+          path: target/downloads/website-docs-evidence
+      - name: Merge downloaded release evidence
+        run: |
+          python scripts/merge_release_evidence_artifacts.py \
+            --artifact target/downloads/ci-gate-matrix-report \
+            --artifact target/downloads/dependency-security-evidence \
+            --artifact target/downloads/release-local-smoke-evidence \
+            --artifact target/downloads/release-runtime-core-evidence \
+            --artifact target/downloads/release-package-governance-evidence \
+            --artifact target/downloads/release-user-surface-evidence \
+            --artifact target/downloads/release-benchmark-claim-evidence \
+            --artifact target/downloads/website-docs-evidence
+      - name: Verify downloaded release evidence
+        run: |
+          test -f target/ci-gate-matrix-report.json
+          test -f target/dependency-audit-report.json
+          test -f target/security-posture-report.json
+          test -f target/release-dry-run-proof/transcript.json
+          test -f target/release-provenance-dry-run/manifest.json
+          test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
+          python - <<'PY'
+          from pathlib import Path
+          assert Path("target/debug/shardloom").is_file()
+          assert list(Path("python/dist").glob("shardloom-*.whl"))
+          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
+          PY
+          test -f target/release-security-gate-report.json
+          test -f target/golden-workflow-report.json
+          test -d target/golden-workflows
+          test -f target/admitted-semantics-matrix-report.json
+          test -d target/admitted-semantics-matrix
+          test -f target/release-architecture-tracker-report.json
+          test -f target/contribution-governance-report.json
+          test -f target/package-channel-readiness-report.json
+          test -f target/python-user-surface-completion-gate.json
+          test -f target/sql-python-dataframe-parity-gate.json
+          test -f target/user-surface-runtime-gap-inventory.json
+          test -f target/user-surface-graduation-matrix.json
+          test -f target/runtime-gap-family-burn-down.json
+          test -f target/user-route-capability-report.json
+          test -f target/pre-5j-dependency-freshness-gate.json
+          test -f target/benchmark-publication-claim-gate-report.json
+          test -f target/website-readiness-report.json
+      - name: Final release rehearsal
+        run: python scripts/final_release_rehearsal.py --allow-blocked
+      - name: Production usability gate
+        run: python scripts/check_production_usability_gate.py
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
@@ -252,6 +454,13 @@ jobs:
         run: python scripts/check_website_readiness.py
       - name: Static asset validation
         run: node website/validate_static_assets.js
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: website-docs-evidence
+          path: target/website-readiness-report.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   ci-gate-matrix:
     name: CI gate matrix contract

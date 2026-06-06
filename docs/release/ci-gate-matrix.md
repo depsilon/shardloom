@@ -27,14 +27,22 @@ skipped_gate=real_publication
 
 ## Required Lanes
 
+The release evidence path is intentionally split. Producer jobs run independent checks in
+parallel; `release-readiness` downloads their artifacts and runs only the final aggregate gates.
+This keeps the hard gate strict without making every PR wait for a single serial evidence stack.
+
 | Lane id | GitHub job | Commands | Artifacts | Release blocker refs |
 | --- | --- | --- | --- | --- |
 | `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests |
 | `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes`<br>`cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | none | workspace feature/build matrix |
-| `python_package_smoke` | `python-package` | `python -m unittest discover -s python/tests`<br>`python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`<br>`python -m build python`<br>`python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda` | `python/dist`<br>`target/release-dry-run-proof`<br>`target/release-provenance-dry-run` | Python tests; package/install smoke; local provenance dry run |
+| `python_package_smoke` | `python-package` | `python -m unittest discover -s python/tests`<br>`python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`<br>`python -m build python`<br>`python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda` | `python/dist`<br>`target/debug/shardloom`<br>`target/release-dry-run-proof`<br>`target/release-provenance-dry-run`<br>`release-local-smoke-evidence` | Python tests; package/install smoke; local provenance dry run |
 | `dependency_security` | `dependency-security` | `python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json`<br>`python scripts/check_security_posture.py`<br>`python scripts/release_provenance_dry_run.py`<br>`python scripts/check_release_security_gate.py` | `target/dependency-audit-report.json`<br>`target/security-posture-report.json`<br>`target/release-provenance-dry-run`<br>`target/release-security-gate-report.json` | dependency/license audit; security posture; release security gate |
-| `release_readiness_reports` | `release-readiness` | `python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`<br>`python scripts/check_contribution_governance.py`<br>`python scripts/check_package_channel_readiness.py --require-local-evidence`<br>`python scripts/check_golden_workflows.py`<br>`python scripts/check_admitted_semantics_matrix.py`<br>`python scripts/check_release_architecture_tracker.py --allow-blocked`<br>`python scripts/final_release_rehearsal.py --allow-blocked`<br>`python scripts/check_website_readiness.py`<br>`python scripts/check_production_usability_gate.py`<br>`python scripts/check_python_user_surface_completion.py`<br>`python scripts/check_sql_python_dataframe_parity.py`<br>`python scripts/check_user_surface_runtime_gap_inventory.py`<br>`python scripts/check_user_surface_graduation_matrix.py`<br>`python scripts/check_runtime_gap_family_burn_down.py`<br>`python scripts/check_user_route_capability_report.py`<br>`python scripts/check_pre_5j_dependency_freshness.py`<br>`python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`<br>`python scripts/check_release_readiness.py` | `target/dependency-audit-report.json`<br>`target/security-posture-report.json`<br>`target/release-dry-run-proof`<br>`target/release-provenance-dry-run`<br>`target/release-security-gate-report.json`<br>`target/contribution-governance-report.json`<br>`target/package-channel-readiness-report.json`<br>`target/golden-workflow-report.json`<br>`target/golden-workflows`<br>`target/admitted-semantics-matrix-report.json`<br>`target/admitted-semantics-matrix`<br>`target/release-architecture-tracker-report.json`<br>`target/final-release-rehearsal`<br>`target/website-readiness-report.json`<br>`target/production-usability-gate.json`<br>`target/python-user-surface-completion-gate.json`<br>`target/sql-python-dataframe-parity-gate.json`<br>`target/user-surface-runtime-gap-inventory.json`<br>`target/user-surface-graduation-matrix.json`<br>`target/runtime-gap-family-burn-down.json`<br>`target/user-route-capability-report.json`<br>`target/pre-5j-dependency-freshness-gate.json`<br>`target/benchmark-publication-claim-gate-report.json`<br>`target/ci-gate-matrix-report.json`<br>`target/hard-release-readiness-gate.json` | release readiness scripts; contribution governance; package channel matrix; golden workflow validator; admitted semantics matrix; final rehearsal; production usability gate; Python user-surface completion gate; SQL/Python/DataFrame parity gate; user-surface runtime gap inventory; user-surface graduation matrix; runtime gap family burn-down; user route capability report; pre-5J dependency freshness gate; benchmark publication claim gate |
-| `website_docs_validation` | `website-docs` | `npm run build`<br>`npm run check`<br>`python scripts/check_website_readiness.py`<br>`node website/validate_static_assets.js` | generated static website under `website/` | website build; docs/status generated assets |
+| `release_runtime_core_evidence` | `release-runtime-core` | `python scripts/check_golden_workflows.py`<br>`python scripts/check_admitted_semantics_matrix.py`<br>`python scripts/check_release_architecture_tracker.py --allow-blocked` | `target/golden-workflow-report.json`<br>`target/golden-workflows`<br>`target/admitted-semantics-matrix-report.json`<br>`target/admitted-semantics-matrix`<br>`target/release-architecture-tracker-report.json` | golden workflow validator; admitted semantics matrix; release architecture tracker |
+| `release_package_governance_evidence` | `release-package-governance` | `python scripts/merge_release_evidence_artifacts.py`<br>`python scripts/check_contribution_governance.py`<br>`python scripts/check_package_channel_readiness.py --require-local-evidence` | `target/contribution-governance-report.json`<br>`target/package-channel-readiness-report.json` | contribution governance; package channel matrix |
+| `release_user_surface_evidence` | `release-user-surface` | `python scripts/check_python_user_surface_completion.py`<br>`python scripts/check_sql_python_dataframe_parity.py`<br>`python scripts/check_user_surface_runtime_gap_inventory.py`<br>`python scripts/check_user_surface_graduation_matrix.py`<br>`python scripts/check_runtime_gap_family_burn_down.py`<br>`python scripts/check_user_route_capability_report.py` | `target/python-user-surface-completion-gate.json`<br>`target/sql-python-dataframe-parity-gate.json`<br>`target/user-surface-runtime-gap-inventory.json`<br>`target/user-surface-graduation-matrix.json`<br>`target/runtime-gap-family-burn-down.json`<br>`target/user-route-capability-report.json` | Python user-surface completion gate; SQL/Python/DataFrame parity gate; user-surface runtime gap inventory; user-surface graduation matrix; runtime gap family burn-down; user route capability report |
+| `release_benchmark_claim_evidence` | `release-benchmark-claim` | `python scripts/check_pre_5j_dependency_freshness.py`<br>`python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json` | `target/pre-5j-dependency-freshness-gate.json`<br>`target/benchmark-publication-claim-gate-report.json` | pre-5J dependency freshness gate; benchmark publication claim gate |
+| `release_readiness_reports` | `release-readiness` | `python scripts/merge_release_evidence_artifacts.py`<br>`python scripts/final_release_rehearsal.py --allow-blocked`<br>`python scripts/check_production_usability_gate.py`<br>`python scripts/check_release_readiness.py` | `target/dependency-audit-report.json`<br>`target/security-posture-report.json`<br>`target/release-dry-run-proof`<br>`target/release-provenance-dry-run`<br>`target/debug/shardloom`<br>`python/dist`<br>`target/release-security-gate-report.json`<br>`target/contribution-governance-report.json`<br>`target/package-channel-readiness-report.json`<br>`target/golden-workflow-report.json`<br>`target/golden-workflows`<br>`target/admitted-semantics-matrix-report.json`<br>`target/admitted-semantics-matrix`<br>`target/release-architecture-tracker-report.json`<br>`target/final-release-rehearsal`<br>`target/website-readiness-report.json`<br>`target/production-usability-gate.json`<br>`target/python-user-surface-completion-gate.json`<br>`target/sql-python-dataframe-parity-gate.json`<br>`target/user-surface-runtime-gap-inventory.json`<br>`target/user-surface-graduation-matrix.json`<br>`target/runtime-gap-family-burn-down.json`<br>`target/user-route-capability-report.json`<br>`target/pre-5j-dependency-freshness-gate.json`<br>`target/benchmark-publication-claim-gate-report.json`<br>`target/ci-gate-matrix-report.json`<br>`target/hard-release-readiness-gate.json` | final rehearsal; production usability gate; hard release readiness gate; release readiness artifact aggregation |
+| `website_docs_validation` | `website-docs` | `npm run build`<br>`npm run check`<br>`python scripts/check_website_readiness.py`<br>`node website/validate_static_assets.js` | `target/website-readiness-report.json` | website build; docs/status generated assets |
 | `ci_gate_matrix_contract` | `ci-gate-matrix` | `python scripts/check_ci_gate_matrix.py` | `target/ci-gate-matrix-report.json` | CI matrix drift contract |
 
 ## Failure Policy
@@ -53,11 +61,39 @@ scripts report a coherent blocked state with
 `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
 `fallback_attempted=false`, and `external_engine_invoked=false`.
 
-The `release-readiness` job has `needs:` entries for `dependency-security` and `ci-gate-matrix` so
-it can reuse already-generated dependency/security and CI-matrix evidence instead of rerunning those
-validators in the slow release-readiness tail. It downloads that evidence with
-`actions/download-artifact@v7` from `dependency-security-evidence` and `ci-gate-matrix-report` using
-`path: target`, because the producer artifacts are rooted at `target/`.
+The release hard-gate stack is split into parallel producers and a short final aggregate:
+
+- `python-package` emits `release-local-smoke-evidence` with the dry-run transcript, local
+  provenance, `target/debug/shardloom`, and `python/dist` so the release path does not rerun
+  `release_dry_run_proof.py` and downstream provenance refs resolve in fresh jobs.
+- `release-runtime-core` emits `release-runtime-core-evidence` for golden workflow, admitted
+  semantics, and architecture tracker reports.
+- `release-package-governance` has `needs:` entries for `dependency-security` and `python-package`,
+  downloads `dependency-security-evidence` and `release-local-smoke-evidence` into
+  `target/downloads`, runs `Merge package/governance input evidence` through
+  `python scripts/merge_release_evidence_artifacts.py`, then emits
+  `release-package-governance-evidence`.
+- `release-user-surface` has a `needs:` entry for `python-package`, downloads
+  `release-local-smoke-evidence` under `target/downloads`, runs
+  `Merge local package smoke evidence`, then emits `release-user-surface-evidence` for Python,
+  SQL/DataFrame, runtime gap, graduation, burn-down, and route-capability reports.
+- `release-benchmark-claim` emits `release-benchmark-claim-evidence`; its benchmark publication
+  claim step stays `continue-on-error: true` while public performance claims remain gated.
+- `website-docs` emits `website-docs-evidence` with `target/website-readiness-report.json`.
+- `release-readiness` has `needs:` entries for `ci-gate-matrix`, `dependency-security`,
+  `python-package`, `release-runtime-core`, `release-package-governance`,
+  `release-user-surface`, `release-benchmark-claim`, and `website-docs`. It downloads
+  `ci-gate-matrix-report`, `dependency-security-evidence`, `release-local-smoke-evidence`,
+  `release-runtime-core-evidence`, `release-package-governance-evidence`,
+  `release-user-surface-evidence`, `release-benchmark-claim-evidence`, and
+  `website-docs-evidence` with `actions/download-artifact@v7` under `target/downloads`, runs
+  `Merge downloaded release evidence` through `python scripts/merge_release_evidence_artifacts.py`,
+  then runs `Verify downloaded release evidence` before the aggregate gates.
+
+These explicit artifacts keep the final `release-readiness` job focused on final rehearsal,
+production usability, hard release readiness, and release readiness artifact aggregation instead of
+serially regenerating every upstream report. The strict existence check makes artifact wiring a
+fast failure without adding another long producer command to the final job.
 
 The following gates remain skipped by design until maintainers explicitly enter a real release
 process:

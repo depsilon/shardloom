@@ -22,6 +22,40 @@ The script writes:
 target/hard-release-readiness-gate.json
 ```
 
+## CI Execution Shape
+
+The hard release gate is an artifact aggregation step in CI. Upstream evidence is produced in
+parallel where possible, then the final `release-readiness` job downloads those reports into
+`target/downloads`, runs `Merge downloaded release evidence`, and copies the normalized files into
+`target/` before running the final rehearsal, production usability gate, and this hard aggregate.
+
+Producer evidence artifacts:
+
+- `release-local-smoke-evidence`: local package smoke, dry-run transcript, local provenance,
+  `target/debug/shardloom`, and `python/dist` from `python-package`; this carries every local
+  artifact path referenced by the provenance report.
+- `dependency-security-evidence`: dependency audit, security posture, provenance dry run, and
+  release security gate from `dependency-security`.
+- `release-runtime-core-evidence`: golden workflow, admitted semantics, and release architecture
+  tracker reports.
+- `release-package-governance-evidence`: contribution governance and package-channel readiness.
+- `release-user-surface-evidence`: Python user-surface, SQL/DataFrame parity, runtime-gap,
+  graduation, burn-down, and route-capability reports; produced after reusing the local dry-run
+  transcript from `release-local-smoke-evidence`.
+- `release-benchmark-claim-evidence`: pre-5J dependency freshness and benchmark publication claim
+  gate reports.
+- `website-docs-evidence`: website readiness report.
+- `ci-gate-matrix-report`: CI matrix drift contract.
+
+This split reduces PR wall-clock time without weakening the hard gate. The final report still
+requires the same JSON evidence files, keeps public release/package claims blocked until their
+own gates pass, and preserves `fallback_attempted=false` and `external_engine_invoked=false`.
+Downloaded artifacts are normalized through `python scripts/merge_release_evidence_artifacts.py`
+before downstream validators run, so artifact-root differences cannot hide missing package or
+provenance files. The final job also runs a strict downloaded-evidence existence check before
+aggregate gates so a missing producer artifact fails quickly instead of being obscured by a later
+blocker report.
+
 ## Gate Coverage
 
 The gate aggregates:

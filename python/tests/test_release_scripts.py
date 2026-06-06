@@ -4638,6 +4638,61 @@ jobs:
         )
         self.assertIn("continue-on-error: true", release_lane.workflow_markers)
 
+    def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:
+        module = self._load_script_module(
+            "merge_release_evidence_artifacts.py",
+            "merge_release_evidence_artifacts_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            artifact = repo_root / "target" / "downloads" / "release-local-smoke-evidence"
+            (artifact / "release-dry-run-proof").mkdir(parents=True)
+            (artifact / "release-dry-run-proof" / "transcript.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            (artifact / "release-provenance-dry-run").mkdir()
+            provenance = (
+                artifact
+                / "release-provenance-dry-run"
+                / "supply-chain-release-evidence.json"
+            )
+            provenance.write_text("{}\n", encoding="utf-8")
+            (artifact / "debug").mkdir()
+            (artifact / "debug" / "shardloom").write_text("binary\n", encoding="utf-8")
+            (artifact / "dist").mkdir()
+            (artifact / "dist" / "shardloom-0.1.0.dev0-py3-none-any.whl").write_text(
+                "wheel\n", encoding="utf-8"
+            )
+            (artifact / "dist" / "shardloom-0.1.0.dev0.tar.gz").write_text(
+                "sdist\n", encoding="utf-8"
+            )
+
+            report = module.merge_artifact(repo_root, artifact)
+
+            self.assertEqual(report["status"], "passed", report["blockers"])
+            transcript = repo_root / "target" / "release-dry-run-proof" / "transcript.json"
+            self.assertTrue(transcript.is_file())
+            self.assertTrue(
+                (
+                    repo_root
+                    / "target"
+                    / "release-provenance-dry-run"
+                    / "supply-chain-release-evidence.json"
+                ).is_file()
+            )
+            self.assertTrue((repo_root / "target" / "debug" / "shardloom").is_file())
+            self.assertTrue(
+                (
+                    repo_root
+                    / "python"
+                    / "dist"
+                    / "shardloom-0.1.0.dev0-py3-none-any.whl"
+                ).is_file()
+            )
+            sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.dev0.tar.gz"
+            self.assertTrue(sdist.is_file())
+
     def test_local_python_smoke_runs_user_surface_quickstart(self) -> None:
         module = self._load_module_from_path(
             REPO_ROOT / "examples" / "local-python-smoke" / "run.py",
