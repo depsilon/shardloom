@@ -87,6 +87,8 @@ VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1"
 )
 ROUTE_SHARE_AMDAHL_SCHEMA_VERSION = "shardloom.traditional_analytics.route_share_amdahl.v1"
+ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION = "shardloom.route_timing_instrument.v1"
+OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS = 10.0
 COMMON_RUN_TIMING_DRIFT_SCHEMA_VERSION = (
     "shardloom.website.common_run_timing_drift.v1"
 )
@@ -282,6 +284,22 @@ WEBSITE_ROW_KEYS = (
     "route_timing_stage_inclusion_timing_scopes",
     "route_timing_stage_inclusion_skip_reasons",
     "route_timing_stage_inclusion_claim_boundary",
+    "route_timing_instrument_schema_version",
+    "route_timing_instrument_status",
+    "route_timing_instrument_stage_ids",
+    "route_timing_instrument_stage_parent_stages",
+    "route_timing_instrument_stage_groups",
+    "route_timing_instrument_stage_owners",
+    "route_timing_instrument_inclusion_classes",
+    "route_timing_instrument_timing_scopes",
+    "route_timing_instrument_evidence_levels",
+    "route_timing_instrument_residual_treatments",
+    "route_timing_instrument_substage_fields",
+    "route_timing_instrument_missing_substage_attribution",
+    "route_timing_instrument_expensive_stage_threshold_ms",
+    "route_timing_instrument_expensive_stage_ids",
+    "route_timing_instrument_not_ready_stage_ids",
+    "route_timing_instrument_claim_boundary",
     "exclusive_stage_timing_schema_version",
     "exclusive_stage_timing_status",
     "exclusive_stage_timing_scope",
@@ -795,6 +813,108 @@ STAGE_OWNER_BY_ID = {
     "result_sink_write": "shardloom_result_sink",
     "evidence_render": "shardloom_evidence_renderer",
     "cli_process_wall": "benchmark_harness",
+}
+STAGE_PARENT_STAGE_BY_ID = {
+    "source_admission": "source_admission",
+    "source_read": "compatibility_import",
+    "source_parse_or_decode": "compatibility_import",
+    "source_to_vortex_array": "vortex_prepare",
+    "vortex_write": "vortex_prepare",
+    "vortex_digest": "vortex_prepare",
+    "vortex_reopen_verify": "vortex_prepare",
+    "prepared_state_lookup_or_create": "prepared_state",
+    "vortex_scan": "query_runtime",
+    "operator_compute": "query_runtime",
+    "result_sink_write": "result_sink",
+    "evidence_render": "publication_evidence",
+    "cli_process_wall": "process_harness",
+}
+STAGE_SUBSTAGE_FIELDS_BY_ID = {
+    "source_admission": (
+        "source_admission_policy_micros",
+        "source_stat_micros",
+        "source_state_metadata_snapshot_micros",
+        "source_state_digest_micros",
+        "prepared_manifest_read_micros",
+        "prepared_manifest_match_micros",
+    ),
+    "source_read": (
+        "source_read_header_scout_ms",
+        "source_read_byte_acquisition_ms",
+        "source_read_full_body_ms",
+        "source_read_typed_decode_ms",
+        "source_read_row_assembly_ms",
+        "source_read_columnar_handoff_ms",
+        "source_read_scout_residual_ms",
+        "source_open_count",
+        "source_bytes_read",
+    ),
+    "source_parse_or_decode": (
+        "source_read_decode_status",
+        "source_read_decoded_columns",
+        "source_read_skipped_columns",
+        "source_read_typed_decode_ms",
+        "source_read_row_assembly_ms",
+    ),
+    "source_to_vortex_array": (
+        "source_to_vortex_array_guard_status",
+        "source_to_vortex_array_guard_exclusive_stage_field",
+        "source_to_vortex_array_guard_record_batch_count",
+    ),
+    "vortex_write": (
+        "vortex_write_plan_status",
+        "vortex_write_plan_context_open_ms",
+        "vortex_write_plan_segment_write_ms",
+        "vortex_write_plan_workspace_stage_ms",
+        "vortex_write_plan_digest_ms",
+        "vortex_write_plan_verification_ms",
+    ),
+    "vortex_digest": (
+        "vortex_write_plan_digest_ms",
+        "vortex_write_plan_digest_status",
+    ),
+    "vortex_reopen_verify": (
+        "vortex_reopen_verify_split_status",
+        "vortex_open_footer_micros",
+        "scan_open_micros",
+        "vortex_write_plan_verification_ms",
+    ),
+    "prepared_state_lookup_or_create": (
+        "prepared_manifest_read_micros",
+        "prepared_manifest_match_micros",
+        "prepare_batch_prepared_state_optimization_manifest_lookup_ms",
+        "prepare_batch_prepared_state_optimization_manifest_match_ms",
+        "prepare_batch_prepared_state_optimization_cache_miss_create_ms",
+        "prepare_batch_prepared_state_optimization_artifact_write_ms",
+    ),
+    "vortex_scan": (
+        "vortex_open_footer_micros",
+        "scan_open_micros",
+        "scan_chunk_iter_micros",
+        "vortex_projected_field_extract_micros",
+    ),
+    "operator_compute": (
+        "operator_kernel_micros",
+        "operator_finalize_micros",
+        "result_assembly_micros",
+        "vortex_encoded_kernel_evidence_micros",
+    ),
+    "result_sink_write": (
+        "result_sink_plan_micros",
+        "result_sink_write_micros",
+        "result_sink_replay_micros",
+    ),
+    "evidence_render": (
+        "human_evidence_render_micros",
+        "json_envelope_emit_micros",
+        "report_fields_build_micros",
+        "certificate_link_ms",
+    ),
+    "cli_process_wall": (
+        "cli_process_wall_micros",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
 }
 ROUTE_IDENTITY_KEYS = (
     "route_lane_id",
@@ -3552,6 +3672,19 @@ def pack_stage_map(values: dict[str, str]) -> str:
     )
 
 
+def unpack_stage_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, str):
+        return {}
+    result: dict[str, str] = {}
+    for token in value.split(";"):
+        if ":" not in token:
+            continue
+        stage_id, stage_value = token.split(":", 1)
+        if stage_id.strip():
+            result[stage_id.strip()] = stage_value.strip()
+    return result
+
+
 def route_timing_stage_inclusion_fields_for_row(
     row: dict[str, Any],
     stage_fields: dict[str, Any],
@@ -3652,6 +3785,217 @@ def route_timing_stage_inclusion_fields_for_row(
             "diagnostic-only evidence; route totals remain authoritative and no performance, "
             "production, SQL/DataFrame, object-store/lakehouse, Foundry, package, release, "
             "or Spark-displacement claim is authorized"
+        ),
+    }
+
+
+def stage_value_for_readiness(
+    stage_id: str,
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+) -> float | None:
+    if stage_id == "cli_process_wall":
+        runtime_fields = runtime_validation_field_map(row)
+        return first_numeric_stage_millis(
+            runtime_fields,
+            millis_keys=(
+                "cli_process_wall_millis",
+                "batch_cli_process_wall_millis",
+                "preparation_cli_process_wall_millis",
+            ),
+            micros_keys=(
+                "cli_process_wall_micros",
+                "batch_cli_process_wall_micros",
+                "preparation_cli_process_wall_micros",
+            ),
+        )
+    return numeric_value(stage_fields.get(STAGE_VALUE_FIELD_BY_ID[stage_id]))
+
+
+def meaningful_substage_value(value: Any) -> bool:
+    if numeric_value(value) is not None:
+        return True
+    text = str(value or "").strip().lower()
+    return text not in {
+        "",
+        "none",
+        "missing",
+        "null",
+        "not_reported",
+        "not_reported_by_engine",
+        "not_applicable",
+        "not_applicable_non_cold_route",
+        "external_baseline_only",
+    }
+
+
+def stage_has_substage_attribution(
+    stage_id: str,
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+) -> bool:
+    runtime_fields = runtime_validation_field_map(row)
+    combined = {**runtime_fields, **stage_fields, **row}
+    return any(
+        meaningful_substage_value(combined.get(field))
+        for field in STAGE_SUBSTAGE_FIELDS_BY_ID[stage_id]
+    )
+
+
+def stage_readiness_group(stage_id: str, stage_class: str) -> str:
+    if stage_class.startswith("included"):
+        if stage_id == "result_sink_write":
+            return "route_total_output_sink"
+        if stage_id == "evidence_render":
+            return "route_total_publication_evidence"
+        return "route_total_stage"
+    if stage_class == "excluded_shared_preparation":
+        return "shared_preparation"
+    if stage_class == "excluded_harness":
+        return "harness"
+    if stage_id == "result_sink_write":
+        return "output_sink"
+    if stage_id == "evidence_render":
+        return "publication_evidence"
+    return "excluded_diagnostic_child"
+
+
+def stage_residual_treatment(
+    stage_class: str,
+    *,
+    not_ready: bool,
+) -> str:
+    if not_ready:
+        return "not_optimization_ready_missing_substage_attribution"
+    if stage_class.startswith("included"):
+        return "included_in_route_total_with_exclusive_residual_audited"
+    if stage_class == "excluded_shared_preparation":
+        return "excluded_shared_preparation_not_route_total"
+    if stage_class == "excluded_harness":
+        return "excluded_harness_process_wall_not_route_total"
+    return "diagnostic_only_not_additive_route_timing"
+
+
+def route_timing_instrument_fields_for_row(
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+    stage_inclusion_fields: dict[str, Any],
+) -> dict[str, Any]:
+    engine = str(row.get("engine") or "")
+    if not is_shardloom_engine(engine):
+        external = "external_baseline_only"
+        return {
+            "route_timing_instrument_schema_version": (
+                ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION
+            ),
+            "route_timing_instrument_status": external,
+            "route_timing_instrument_stage_ids": ",".join(
+                CANONICAL_ROUTE_TIMING_STAGES
+            ),
+            "route_timing_instrument_stage_parent_stages": external,
+            "route_timing_instrument_stage_groups": external,
+            "route_timing_instrument_stage_owners": external,
+            "route_timing_instrument_inclusion_classes": external,
+            "route_timing_instrument_timing_scopes": external,
+            "route_timing_instrument_evidence_levels": external,
+            "route_timing_instrument_residual_treatments": external,
+            "route_timing_instrument_substage_fields": external,
+            "route_timing_instrument_missing_substage_attribution": "none",
+            "route_timing_instrument_expensive_stage_threshold_ms": (
+                OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS
+            ),
+            "route_timing_instrument_expensive_stage_ids": "none",
+            "route_timing_instrument_not_ready_stage_ids": "none",
+            "route_timing_instrument_claim_boundary": (
+                "external baseline rows are comparison-only and cannot satisfy "
+                "ShardLoom timing-instrument readiness"
+            ),
+        }
+
+    classes = unpack_stage_map(
+        stage_inclusion_fields.get("route_timing_stage_inclusion_classes")
+    )
+    scopes = unpack_stage_map(
+        stage_inclusion_fields.get("route_timing_stage_inclusion_timing_scopes")
+    )
+    evidence_level = str(
+        row.get("actual_evidence_tier")
+        or row.get("timing_surface_evidence_tier")
+        or "unknown"
+    )
+    parents: dict[str, str] = {}
+    groups: dict[str, str] = {}
+    owners: dict[str, str] = {}
+    inclusion_classes: dict[str, str] = {}
+    timing_scopes: dict[str, str] = {}
+    evidence_levels: dict[str, str] = {}
+    residual_treatments: dict[str, str] = {}
+    substage_fields: dict[str, str] = {}
+    expensive: list[str] = []
+    not_ready: list[str] = []
+    missing_substage: list[str] = []
+    for stage_id in CANONICAL_ROUTE_TIMING_STAGES:
+        stage_class = classes.get(stage_id, "missing")
+        value = stage_value_for_readiness(stage_id, row, stage_fields)
+        is_expensive = (
+            value is not None
+            and value > OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS
+        )
+        has_substage = stage_has_substage_attribution(stage_id, row, stage_fields)
+        stage_not_ready = is_expensive and not has_substage
+        if is_expensive:
+            expensive.append(stage_id)
+        if stage_not_ready:
+            not_ready.append(stage_id)
+            missing_substage.append(stage_id)
+        parents[stage_id] = STAGE_PARENT_STAGE_BY_ID[stage_id]
+        groups[stage_id] = stage_readiness_group(stage_id, stage_class)
+        owners[stage_id] = STAGE_OWNER_BY_ID[stage_id]
+        inclusion_classes[stage_id] = stage_class
+        timing_scopes[stage_id] = scopes.get(stage_id, "missing")
+        evidence_levels[stage_id] = evidence_level
+        residual_treatments[stage_id] = stage_residual_treatment(
+            stage_class,
+            not_ready=stage_not_ready,
+        )
+        substage_fields[stage_id] = ",".join(STAGE_SUBSTAGE_FIELDS_BY_ID[stage_id])
+    if row.get("status") != "success":
+        status = "not_executed"
+    elif not_ready:
+        status = "not_optimization_ready"
+    else:
+        status = "optimization_ready"
+    return {
+        "route_timing_instrument_schema_version": ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION,
+        "route_timing_instrument_status": status,
+        "route_timing_instrument_stage_ids": ",".join(CANONICAL_ROUTE_TIMING_STAGES),
+        "route_timing_instrument_stage_parent_stages": pack_stage_map(parents),
+        "route_timing_instrument_stage_groups": pack_stage_map(groups),
+        "route_timing_instrument_stage_owners": pack_stage_map(owners),
+        "route_timing_instrument_inclusion_classes": pack_stage_map(inclusion_classes),
+        "route_timing_instrument_timing_scopes": pack_stage_map(timing_scopes),
+        "route_timing_instrument_evidence_levels": pack_stage_map(evidence_levels),
+        "route_timing_instrument_residual_treatments": pack_stage_map(
+            residual_treatments
+        ),
+        "route_timing_instrument_substage_fields": pack_stage_map(substage_fields),
+        "route_timing_instrument_missing_substage_attribution": (
+            ",".join(missing_substage) if missing_substage else "none"
+        ),
+        "route_timing_instrument_expensive_stage_threshold_ms": (
+            OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS
+        ),
+        "route_timing_instrument_expensive_stage_ids": (
+            ",".join(expensive) if expensive else "none"
+        ),
+        "route_timing_instrument_not_ready_stage_ids": (
+            ",".join(not_ready) if not_ready else "none"
+        ),
+        "route_timing_instrument_claim_boundary": (
+            "timing-instrument readiness only says whether a measured stage is scoped "
+            "well enough to select as an optimization target. It does not authorize a "
+            "performance, production, SQL/DataFrame, object-store/lakehouse, Foundry, "
+            "package, release, or Spark-displacement claim."
         ),
     }
 
@@ -4167,6 +4511,19 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
         )
         prepared_timing_ledger = route_timing_ledger_fields_for_row(row, prepared, prepared)
         prepared.update(prepared_timing_ledger)
+        prepared_stage_inclusion_fields = route_timing_stage_inclusion_fields_for_row(
+            prepared,
+            prepared,
+            prepared_timing_ledger,
+        )
+        prepared.update(prepared_stage_inclusion_fields)
+        prepared.update(
+            route_timing_instrument_fields_for_row(
+                prepared,
+                prepared,
+                prepared_stage_inclusion_fields,
+            )
+        )
         prepared_fast_path_fields = route_fast_path_attribution_fields_for_row(
             row,
             prepared,
@@ -5073,6 +5430,129 @@ def stage_inclusion_contract_table(rows: list[dict[str, Any]]) -> dict[str, Any]
     }
 
 
+def route_timing_instrument_readiness_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        key = (
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown"),
+            str(row.get("timing_surface") or "unknown"),
+        )
+        groups[key].append(row)
+
+    rendered_rows: list[list[Any]] = []
+    for (display_name, timing_surface), group_rows in groups.items():
+        statuses = Counter(
+            str(row.get("route_timing_instrument_status") or "missing")
+            for row in group_rows
+        )
+        expensive: set[str] = set()
+        not_ready: set[str] = set()
+        missing_substage: set[str] = set()
+        by_group: dict[str, set[str]] = defaultdict(set)
+        residuals: Counter[str] = Counter()
+        for row in group_rows:
+            expensive.update(
+                stage
+                for stage in str(
+                    row.get("route_timing_instrument_expensive_stage_ids") or ""
+                ).split(",")
+                if stage and stage != "none"
+            )
+            not_ready.update(
+                stage
+                for stage in str(
+                    row.get("route_timing_instrument_not_ready_stage_ids") or ""
+                ).split(",")
+                if stage and stage != "none"
+            )
+            missing_substage.update(
+                stage
+                for stage in str(
+                    row.get("route_timing_instrument_missing_substage_attribution")
+                    or ""
+                ).split(",")
+                if stage and stage != "none"
+            )
+            stage_groups = unpack_stage_map(
+                row.get("route_timing_instrument_stage_groups")
+            )
+            for stage_id, group in stage_groups.items():
+                by_group[group].add(stage_id)
+            residuals.update(
+                unpack_stage_map(
+                    row.get("route_timing_instrument_residual_treatments")
+                ).values()
+            )
+        readiness = (
+            "not_optimization_ready"
+            if not_ready or statuses.get("not_optimization_ready", 0)
+            else "optimization_ready"
+        )
+
+        def fmt_stages(stage_ids: set[str]) -> str:
+            return ", ".join(sorted(stage_ids)) if stage_ids else "none"
+
+        rendered_rows.append(
+            [
+                display_name,
+                timing_surface,
+                len(group_rows),
+                readiness,
+                "; ".join(
+                    f"{status}={count}" for status, count in sorted(statuses.items())
+                ),
+                fmt_stages(expensive),
+                fmt_stages(not_ready),
+                fmt_stages(missing_substage),
+                fmt_stages(by_group.get("route_total_stage", set())),
+                fmt_stages(by_group.get("excluded_diagnostic_child", set())),
+                fmt_stages(by_group.get("shared_preparation", set())),
+                fmt_stages(
+                    by_group.get("route_total_output_sink", set())
+                    | by_group.get("output_sink", set())
+                ),
+                fmt_stages(
+                    by_group.get("route_total_publication_evidence", set())
+                    | by_group.get("publication_evidence", set())
+                ),
+                fmt_stages(by_group.get("harness", set())),
+                "; ".join(
+                    f"{status}={count}" for status, count in sorted(residuals.items())
+                ),
+            ]
+        )
+    return {
+        "heading": "Route Timing Instrument Readiness",
+        "headers": [
+            "Route",
+            "Timing surface",
+            "Rows",
+            "Optimization readiness",
+            "Readiness status counts",
+            ">10 ms stages",
+            "Not-ready stages",
+            "Missing substage attribution",
+            "Route-total stages",
+            "Excluded diagnostic children",
+            "Shared preparation",
+            "Output/sink",
+            "Publication evidence",
+            "Harness",
+            "Residual treatment counts",
+        ],
+        "rows": rendered_rows,
+        "schema_version": ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION,
+        "threshold_ms": OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS,
+        "claim_boundary": (
+            "optimization readiness is an instrumentation-quality gate for choosing "
+            "next work. Rows marked not_optimization_ready remain visible and do not "
+            "authorize performance, production, or Spark-displacement claims."
+        ),
+    }
+
+
 def source_admission_digest_policy_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
@@ -5371,6 +5851,27 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             str(row.get("exclusive_stage_timing_status") or "missing")
             for row in group_rows
         )
+        readiness_statuses = Counter(
+            str(row.get("route_timing_instrument_status") or "missing")
+            for row in surface_rows
+        )
+        readiness_status = (
+            "not_optimization_ready"
+            if readiness_statuses.get("not_optimization_ready", 0)
+            else "optimization_ready"
+            if surface_rows
+            else "hot_runtime_row_missing"
+        )
+        not_ready_stage_ids = sorted(
+            {
+                stage_id
+                for row in surface_rows
+                for stage_id in str(
+                    row.get("route_timing_instrument_not_ready_stage_ids") or ""
+                ).split(",")
+                if stage_id and stage_id != "none"
+            }
+        )
         rendered_rows.append(
             [
                 display_name,
@@ -5381,6 +5882,8 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 fmt_ms(dominant_ms),
                 fmt_percent(share * 100.0 if share is not None else None),
                 next_step,
+                readiness_status,
+                ", ".join(not_ready_stage_ids) if not_ready_stage_ids else "none",
                 "; ".join(f"{status}={count}" for status, count in sorted(statuses.items())),
             ]
         )
@@ -5395,6 +5898,8 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "Dominant stage geomean",
             "Dominant route share",
             "Next optimization target",
+            "Optimization readiness",
+            "Not-ready stages",
             "Exclusive timing status",
         ],
         "rows": rendered_rows,
@@ -7414,6 +7919,21 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_stage_fields,
             route_timing_ledger,
         )
+        instrument_input_row = {
+            **adjusted_row,
+            **route_stage_fields,
+            **source_read_scout_fields,
+            **prepared_state_optimization_fields,
+            **vortex_reopen_scan_fields,
+            **route_timing_ledger,
+            **timing_normalization_fields,
+            **stage_inclusion_fields,
+        }
+        route_timing_instrument_fields = route_timing_instrument_fields_for_row(
+            instrument_input_row,
+            route_stage_fields,
+            stage_inclusion_fields,
+        )
         fast_path_fields = route_fast_path_attribution_fields_for_row(
             adjusted_row,
             route_identity,
@@ -7464,6 +7984,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_timing_ledger)
         rendered_row.update(timing_normalization_fields)
         rendered_row.update(stage_inclusion_fields)
+        rendered_row.update(route_timing_instrument_fields)
         rendered_row.update(fast_path_fields)
         rendered_row.update(evidence_render_proof_fields)
         rendered_row.update(cold_lane_fields)
@@ -7526,11 +8047,17 @@ def published_rows_with_current_route_timing_ledger(
         updated.update(timing_ledger)
         updated.update(timing_normalization_fields_for_row(updated, route_stage_fields))
         updated.pop("vortex_chunk_iteration_micros", None)
+        stage_inclusion_fields = route_timing_stage_inclusion_fields_for_row(
+            updated,
+            route_stage_fields,
+            timing_ledger,
+        )
+        updated.update(stage_inclusion_fields)
         updated.update(
-            route_timing_stage_inclusion_fields_for_row(
+            route_timing_instrument_fields_for_row(
                 updated,
                 route_stage_fields,
-                timing_ledger,
+                stage_inclusion_fields,
             )
         )
         fast_path_fields = route_fast_path_attribution_fields_for_row(
@@ -7610,6 +8137,9 @@ def comparative_summary(
         ),
         "stage_attribution": stage_attribution_table(claim_adjusted_rows),
         "stage_inclusion_contract": stage_inclusion_contract_table(claim_adjusted_rows),
+        "route_timing_instrument_readiness": route_timing_instrument_readiness_table(
+            claim_adjusted_rows
+        ),
         "source_admission_digest_policy": source_admission_digest_policy_table(
             claim_adjusted_rows
         ),
@@ -7678,6 +8208,18 @@ def manifest_for_artifact(
         "html": None,
     }
     runtime_validation = runtime_validation_override or runtime_validation_table(rows)
+    readiness_counts = Counter(
+        str(row.get("route_timing_instrument_status") or "missing")
+        for row in rows
+        if is_shardloom_engine(str(row.get("engine") or ""))
+    )
+    route_timing_instrument_status = (
+        "not_optimization_ready"
+        if readiness_counts.get("not_optimization_ready", 0)
+        else "optimization_ready"
+        if readiness_counts
+        else "not_reported"
+    )
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": artifact.get("generated_at_utc")
@@ -7710,6 +8252,14 @@ def manifest_for_artifact(
         ],
         "route_runtime_status_schema_version": ROUTE_RUNTIME_STATUS_SCHEMA_VERSION,
         "route_runtime_status_vocabulary": sorted(ROUTE_RUNTIME_STATUSES),
+        "route_timing_instrument_schema_version": ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION,
+        "route_timing_instrument_threshold_ms": (
+            OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS
+        ),
+        "route_timing_instrument_status": route_timing_instrument_status,
+        "route_timing_instrument_status_counts": dict(
+            sorted(readiness_counts.items())
+        ),
         "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
         "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
         "benchmark_constitution_required_field_order": [

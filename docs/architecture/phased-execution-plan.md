@@ -190,6 +190,9 @@ Current autonomous execution order:
    `docs/architecture/phased-execution-completed-ledger.md`. The current promoted artifact is
    timing-surface aware: `hot_runtime` metadata-sink rows drive the primary route grid, while
    `publication_proof` rows remain separate and include result-sink plus human evidence timing.
+   The route timing instrument and optimization-readiness gate slice is complete and recorded in
+   `docs/architecture/phased-execution-completed-ledger.md`; the benchmark dashboard now reports
+   timing-surface instrumentation quality without starting the deferred clean-slate page overhaul.
    Current hot route geomeans are Native Vortex Query 0.56 ms, Warm Prepared Query 0.53 ms,
    Prepare-Once Batch 3.64 ms, Prepare-Once First Query 3.64 ms, and Cold Certified Route
    8.00 ms. The artifact still has `performance_claim_allowed=false`; benchmark rows remain
@@ -206,16 +209,15 @@ Remaining work snapshot:
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
 | 1 | `PERF-INNOV-5` | Reduce remaining startup/process harness, fresh compatibility-import, and public benchmark freshness gaps. |
-| 2 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
-| 3 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
-| 4 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
-| 5 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
-| 6 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
-| 7 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
-| 8 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
-| 9 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
-| 10 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
-| 11 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
+| 2 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
+| 3 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
+| 4 | `6D:last_order.object_store_lakehouse_runtime` | Promote the next credential-safe object-store/table fixture or keep it explicitly gated. |
+| 5 | `6D:last_order.generated_output_platform_runtime` | Promote the next generated-output platform route only with effect, credential, output, and replay evidence. |
+| 6 | `6D:last_order.data_quality_quarantine_profile_runtime` | Add the next bounded data-quality/profile/quarantine runtime proof. |
+| 7 | `6D:last_order.effectful_operations` | Admit one effect family through explicit policy, capability, sandbox, and no-fallback evidence. |
+| 8 | `6D:last_order.live_hybrid_runtime` | Promote one bounded live/hybrid state transition with freshness, retry/cancellation, and cleanup proof. |
+| 9 | `6D:last_order.distributed_spill_oom_runtime` | Add the next deterministic memory/spill/OOM guard or admitted spill proof. |
+| 10 | `6D:last_order.front_door_performance_benchmark_publication` | Publish claim-grade front-door equivalence evidence only after route parity and benchmark safety gates pass. |
 | Backstop | `GAR-RUNTIME-IMPL-4/6A` | Burn down residual compute-engine completion blockers after the active 6D queue. |
 
 Closed 6E, 6F, 6C, 6D, and related runtime-control burn-down details are recorded in
@@ -427,69 +429,6 @@ completed base slice, while unchecked rows define the remaining optimization wor
     support a performance claim.
   - Fallback boundary: no external scan, query, or kernel engine may execute unsupported ShardLoom
     work.
-  - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
-    completed ledger.
-
-- [ ] PERF-INNOV-6 route timing instrument model and optimization-readiness gate:
-  - Source: `scripts/promote_benchmark_artifact.py`,
-    `scripts/check_benchmark_artifact_completeness.py`,
-    `website-src/src/components/BenchmarkDashboard.astro`, benchmark route timing rows, and
-    `docs/architecture/performance-attribution-and-execution-structure.md`.
-  - Current state:
-    - [x] `PERF-SPLIT-7` makes the website answer the current top optimization target from
-      promoted route-share rows.
-    - [x] Route stage inclusion classification now respects the authoritative ledger: measured
-      detail child stages listed in `route_timing_excluded_stage_ids` are diagnostic-only instead
-      of being advertised as directly included in `total_route_ms`.
-    - [x] The publication claim gate now records ShardLoom lane-version provenance and blocks
-      current publication when ShardLoom lane versions are dirty or embed a short SHA that does not
-      match the manifest `shardloom_git_sha`.
-    - [x] Benchmark re-promotion preserves existing writer-context millisecond timing cells and
-      does not auto-upgrade legacy rows to replay/publication tiers unless result-sink replay timing
-      is present.
-    - [x] Promoted rows now expose `timing_surface` metadata derived from the actual evidence tier:
-      `metadata_sink` maps to `hot_runtime`, `full_vortex_replay` maps to
-      `full_replay_proof`, and `publication_full` maps to `publication_proof`. The route dashboard
-      groups primary route geomeans by the default `hot_runtime` surface and reports "hot runtime
-      row missing" rather than substituting publication-proof rows.
-    - [ ] Remaining: require every hot stage field to declare owner, parent stage, inclusion class,
-      timing scope, evidence level, and residual treatment before optimization work begins; extend
-      dashboard grouping so route-total stages, excluded diagnostic children, shared preparation,
-      sink/evidence, harness, dirty-provenance blockers, and `not_optimization_ready` cells are
-      visually distinct.
-  - Runtime enablement: benchmark artifact promotion -> timing-field metadata model ->
-    optimization-readiness validator -> website route critical-path grouping.
-  - Objective: make every performance optimization target traceable to a correctly scoped timer
-    before work begins.
-  - Implementation scope: require every stage field to declare owner, parent stage, inclusion
-    class, timing scope, evidence level, and residual treatment. Add dashboard grouping for route
-    critical path, excluded diagnostic child stages, shared preparation, output/sink, evidence, and
-    harness. Add a validator mode that blocks optimization-readiness when a `>10 ms` stage lacks
-    substage attribution.
-  - User-visible surface: benchmark dashboard, benchmark manifest, artifact completeness validator,
-    publication claim gate, and generated static website pages.
-  - Evidence required: route critical path grouping, excluded diagnostic child-stage grouping,
-    shared-preparation/output/sink/evidence/harness grouping, missing-substage diagnostics,
-    `not_optimization_ready` markers, no-fallback fields, and claim-boundary wording.
-  - Acceptance: the benchmark page can answer what makes up each `>10 ms` cell and whether it is in
-    the route total. Rows with missing writer/decode/sink/scan subfields remain visible but marked
-    `not_optimization_ready`. Current publication gates fail closed on dirty or SHA-mismatched
-    ShardLoom lane versions; historical inspection mode may still read stale artifacts while
-    reporting that provenance as not enforced.
-  - Verification:
-    ```powershell
-    python scripts\promote_benchmark_artifact.py
-    python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json
-    python scripts\check_benchmark_publication_claim_gate.py --manifest website\assets\benchmarks\latest\manifest.json
-    node website\validate_static_assets.js
-    git diff --check
-    ```
-  - Non-goals: no superiority claim, no route relabeling that hides cold costs, no treating
-    diagnostic child stages as additive route timing unless the formula says so.
-  - Claim boundary: optimization-readiness and instrumentation quality only; no benchmark
-    superiority claim.
-  - Fallback boundary: timing instrumentation cannot hide fallback; ShardLoom rows must keep
-    `fallback_attempted=false` and `external_engine_invoked=false`.
   - Ledger rule: after merge, move completed details, artifact refs, and validator evidence to the
     completed ledger.
 

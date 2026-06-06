@@ -21,6 +21,9 @@ const stageAttributionHeaders = Array.isArray(stageAttributionTable.headers) ? s
 const stageInclusionTable = dashboard.stage_inclusion_contract ?? {};
 const stageInclusionRows = Array.isArray(stageInclusionTable.rows) ? stageInclusionTable.rows : [];
 const stageInclusionHeaders = Array.isArray(stageInclusionTable.headers) ? stageInclusionTable.headers : [];
+const timingInstrumentTable = dashboard.route_timing_instrument_readiness ?? {};
+const timingInstrumentRows = Array.isArray(timingInstrumentTable.rows) ? timingInstrumentTable.rows : [];
+const timingInstrumentHeaders = Array.isArray(timingInstrumentTable.headers) ? timingInstrumentTable.headers : [];
 const sourceAdmissionPolicyTable = dashboard.source_admission_digest_policy ?? {};
 const sourceAdmissionPolicyRows = Array.isArray(sourceAdmissionPolicyTable.rows) ? sourceAdmissionPolicyTable.rows : [];
 const sourceAdmissionPolicyHeaders = Array.isArray(sourceAdmissionPolicyTable.headers) ? sourceAdmissionPolicyTable.headers : [];
@@ -413,6 +416,8 @@ const optimizationTargets = routeShareObjects
       dominantShare: textValue(row["Dominant route share"]),
       share,
       nextTarget: textValue(row["Next optimization target"]),
+      optimizationReadiness: textValue(row["Optimization readiness"]),
+      notReadyStages: textValue(row["Not-ready stages"], "none"),
       exclusiveStatus: textValue(row["Exclusive timing status"]),
       priorityScore: dominantStageMs ?? routeMs ?? 0,
     };
@@ -476,12 +481,17 @@ const artifactFreshnessRows = [
         <span>Public timing claim</span>
         <div><span class="claim-chip">performance_claim_allowed={String(manifestAny.performance_claim_allowed ?? false)}</span></div>
       </div>
+      <div>
+        <span>Instrument readiness</span>
+        <div><span class:list={["status-chip", statusClass(manifestAny.route_timing_instrument_status)]}>{textValue(manifestAny.route_timing_instrument_status)}</span></div>
+      </div>
     </div>
     <div class="route-card-grid compact-route-grid">
       {optimizationTargets.slice(0, 5).map((target) => (
         <article class="route-summary-card">
           <div class="route-card-topline">
             <span class="badge">{target.dominantStage}</span>
+            <span class:list={["status-chip", statusClass(target.optimizationReadiness)]}>{target.optimizationReadiness}</span>
             <span class="compare-chip compare-chip-muted">{target.exclusiveStatus}</span>
           </div>
           <h3>{target.route}</h3>
@@ -493,6 +503,7 @@ const artifactFreshnessRows = [
           </div>
           <dl class="route-card-facts">
             <div><dt>Next target</dt><dd>{target.nextTarget}</dd></div>
+            <div><dt>Not-ready stages</dt><dd>{target.notReadyStages}</dd></div>
           </dl>
         </article>
       ))}
@@ -769,6 +780,17 @@ const artifactFreshnessRows = [
       </table>
     </div>
     <div class="table-wrap compact-table secondary-table">
+      <p class="table-note"><strong>{timingInstrumentTable.heading ?? "Route Timing Instrument Readiness"}</strong></p>
+      <table>
+        <thead><tr>{(timingInstrumentHeaders.length ? timingInstrumentHeaders : ["Route", "Timing surface", "Rows", "Optimization readiness", "Readiness status counts", ">10 ms stages", "Not-ready stages", "Missing substage attribution", "Route-total stages", "Excluded diagnostic children", "Shared preparation", "Output/sink", "Publication evidence", "Harness", "Residual treatment counts"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {timingInstrumentRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap compact-table secondary-table">
       <p class="table-note"><strong>{sourceAdmissionPolicyTable.heading ?? "Source Admission Digest Policy"}</strong></p>
       <table>
         <thead><tr>{(sourceAdmissionPolicyHeaders.length ? sourceAdmissionPolicyHeaders : ["Route", "Rows", "Policy status", "Full digest requested rows", "Admission policy geomean", "Manifest read geomean", "Source-state open geomean", "Family build geomean"]).map((header: string) => <th>{header}</th>)}</tr></thead>
@@ -792,6 +814,7 @@ const artifactFreshnessRows = [
     </div>
     <p class="table-note">Schema: {stageAttributionTable.schema_version ?? "not reported"}. Boundary: {stageAttributionTable.claim_boundary ?? "not reported"}.</p>
     <p class="table-note">Inclusion schema: {stageInclusionTable.schema_version ?? "not reported"}. Boundary: {stageInclusionTable.claim_boundary ?? "not reported"}.</p>
+    <p class="table-note">Instrument schema: {timingInstrumentTable.schema_version ?? "not reported"}. Threshold: {timingInstrumentTable.threshold_ms ?? "not reported"} ms. Boundary: {timingInstrumentTable.claim_boundary ?? "not reported"}.</p>
     <p class="table-note">Digest policy schema: {sourceAdmissionPolicyTable.schema_version ?? "not reported"}. Boundary: {sourceAdmissionPolicyTable.claim_boundary ?? "not reported"}.</p>
     <p class="table-note">Lazy family schema: {sourceStateLazyFamilyTable.schema_version ?? "not reported"}. Boundary: {sourceStateLazyFamilyTable.claim_boundary ?? "not reported"}.</p>
   </div>
@@ -809,7 +832,7 @@ const artifactFreshnessRows = [
     <p class="table-note">Artifact table: <strong>{routeShareTable.heading ?? "Route-Share Amdahl Attribution"}</strong>.</p>
     <div class="table-wrap compact-table">
       <table>
-        <thead><tr>{(routeShareHeaders.length ? routeShareHeaders : ["Route", "Timing surface", "Rows", "Hot route geomean", "Dominant stage", "Dominant stage geomean", "Dominant route share", "Next optimization target", "Exclusive timing status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
+        <thead><tr>{(routeShareHeaders.length ? routeShareHeaders : ["Route", "Timing surface", "Rows", "Hot route geomean", "Dominant stage", "Dominant stage geomean", "Dominant route share", "Next optimization target", "Optimization readiness", "Not-ready stages", "Exclusive timing status"]).map((header: string) => <th>{header}</th>)}</tr></thead>
         <tbody>
           {routeShareRows.map((row: unknown[]) => (
             <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>

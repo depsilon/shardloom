@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-6 route timing instrument readiness gate
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-instrument-readiness-gate` / PR pending.
+  - Source:
+    - Active `PERF-INNOV-6` phase-plan slice.
+    - `scripts/promote_benchmark_artifact.py`,
+      `scripts/check_benchmark_artifact_completeness.py`,
+      `scripts/check_website_readiness.py`,
+      `website-src/src/components/BenchmarkDashboard.astro`,
+      `website-public/validate_static_assets.js`,
+      `website/validate_static_assets.js`, and `python/tests/test_release_scripts.py`.
+    - Current promoted benchmark artifacts under `website/assets/benchmarks/latest` and
+      `website-public/assets/benchmarks/latest`.
+  - Scope:
+    - Added `shardloom.route_timing_instrument.v1` row metadata for route timing instrument stage
+      owner, parent stage, readiness group, inclusion class, timing scope, evidence level, residual
+      treatment, and substage field declarations.
+    - Added an optimization-readiness gate that marks ShardLoom rows `not_optimization_ready` when
+      a measured `>10 ms` stage lacks meaningful substage attribution while keeping those cells
+      visible for triage.
+    - Recomputed timing-stage inclusion and instrument readiness fields for promoted synthetic
+      route-ledger rows so prepare-once rows cannot inherit stale source-row instrumentation.
+    - Extended artifact completeness validation to require the instrument metadata, recompute
+      expensive-stage and missing-substage diagnostics independently, and require external
+      baseline rows to stay `external_baseline_only`.
+    - Added dashboard readiness surfacing for route-total stages, diagnostic child stages, shared
+      preparation, output/sink, publication evidence, harness, and residual treatment groups
+      without starting the deferred clean-slate benchmark-page overhaul.
+  - Evidence:
+    - The promoted `full_local` artifact has 1,350 published rows, including 630 ShardLoom rows:
+      30 `hot_runtime` metadata-sink rows and 600 `publication_proof` publication-full rows.
+    - Manifest timing-instrument summary reports schema
+      `shardloom.route_timing_instrument.v1`, threshold `10.0 ms`,
+      `route_timing_instrument_status=not_optimization_ready`, and status counts:
+      `optimization_ready=548`, `not_optimization_ready=82`.
+    - Row chunks preserve `external_baseline_only=720` for external engine baseline rows; ShardLoom
+      instrument rows report `optimization_ready=548` and `not_optimization_ready=82`.
+    - Local validation passed:
+      `python3 -m py_compile scripts/promote_benchmark_artifact.py scripts/check_benchmark_artifact_completeness.py scripts/check_website_readiness.py`,
+      `python3 -m unittest python.tests.test_release_scripts`,
+      `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`,
+      `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`,
+      `python3 scripts/check_runtime_execution_envelopes.py --benchmark-artifact website/assets/benchmarks/latest/benchmark-results.json`,
+      `astro check`, `astro build`, `node scripts/postbuild-static.mjs`,
+      `node website/validate_static_assets.js`, `python3 scripts/check_website_readiness.py`,
+      duplicate-suffix artifact checks, and `git diff --check`.
+  - Benchmark boundary:
+    - This slice classifies timing-instrument readiness for the current artifact. It does not rerun
+      the broad benchmark suite, does not claim route-total improvement, and does not convert
+      metadata-sink hot-runtime rows into claim-grade publication proof.
+  - Claim boundary:
+    - Claim is limited to timing-stage metadata, validator fail-closed behavior, dashboard
+      readiness surfacing, and benchmark artifact clarity. No superiority, Spark-displacement,
+      production-readiness, package-release, or public benchmark performance claim is made.
+  - Fallback boundary:
+    - The instrumentation gate does not change execution providers and preserves ShardLoom
+      no-fallback evidence: ShardLoom rows remain `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines remain baselines only.
+
 - [x] Session label: PERF-INNOV-5 clean hot-runtime metadata provenance refresh
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-clean-hot-runtime-provenance` / PR pending.

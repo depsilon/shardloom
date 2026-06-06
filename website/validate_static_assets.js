@@ -72,6 +72,8 @@ const statusVocabulary = new Set([
   "not reported",
   "stale_or_dirty",
   "stale or dirty",
+  "optimization_ready",
+  "not_optimization_ready",
 ]);
 
 function assert(condition, message) {
