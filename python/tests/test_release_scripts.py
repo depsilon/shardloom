@@ -2629,6 +2629,175 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(warmed.global_startup_warmup_millis, 400.0)
 
+    def test_benchmark_result_rows_do_not_allocate_global_startup_prime(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = benchmark_run.DatasetPaths(
+                root=root,
+                fact_csv=root / "fact.csv",
+                dim_csv=root / "dim.csv",
+                fact_jsonl=root / "fact.jsonl",
+                dim_jsonl=root / "dim.jsonl",
+                fact_parquet=root / "fact.parquet",
+                dim_parquet=root / "dim.parquet",
+                fact_arrow_ipc=root / "fact.arrow",
+                dim_arrow_ipc=root / "dim.arrow",
+                fact_avro=root / "fact.avro",
+                dim_avro=root / "dim.avro",
+                fact_orc=root / "fact.orc",
+                dim_orc=root / "dim.orc",
+                rows=1,
+                dim_rows=1,
+            )
+            runner = benchmark_run.EngineRunner(
+                "shardloom-vortex",
+                "test",
+                {},
+                startup_time_millis=21.0,
+                startup_warmup_scope=(
+                    "per_lane_cli_status_warmup_after_global_prime"
+                ),
+                global_startup_warmup_millis=400.0,
+                global_startup_warmup_scope=(
+                    "one_time_cli_binary_prime_shared_across_shardloom_lanes"
+                ),
+            )
+            result = benchmark_run.successful_result_from_iterations(
+                runner,
+                paths,
+                "selective filter",
+                "parquet",
+                1,
+                [{"row_count": 1, "metric_sum": 2.0}],
+                [
+                    {
+                        "selected_execution_mode": "native_vortex",
+                        "scenario_compute_micros": "100",
+                        "operator_compute_micros": "50",
+                        "total_runtime_micros": "100",
+                        "source_bytes_read": "10",
+                        "rows_materialized": "1",
+                        "data_decoded": "false",
+                        "data_materialized": "false",
+                        "row_read": "false",
+                        "object_store_io": "false",
+                        "write_io": "false",
+                        "spill_io_performed": "false",
+                        "fallback_attempted": "false",
+                        "external_engine_invoked": "false",
+                        "runtime_fallback_attempted": "false",
+                        "runtime_external_query_engine_invoked": "false",
+                        "persistent_runner_status": (
+                            benchmark_run.PERSISTENT_RUNNER_STATUS
+                        ),
+                    }
+                ],
+                [0.1],
+                [],
+            )
+
+        metrics = result["metrics"]
+        self.assertEqual(metrics["startup_warmup_millis"], 21.0)
+        self.assertIsNone(metrics["global_startup_warmup_millis"])
+        self.assertEqual(
+            metrics["global_startup_warmup_row_allocation_status"],
+            "shared_global_cli_prime_reported_in_engine_versions_not_row_allocated",
+        )
+
+    def test_shared_prepared_artifact_cache_hit_zeroes_fresh_import_timing(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fact = root / "fact.vortex"
+            dim = root / "dim.vortex"
+            fact.write_bytes(b"fact")
+            dim.write_bytes(b"dim")
+            entry = {
+                "fact": fact,
+                "dim": dim,
+                "preparation_millis": 12.5,
+                "prepared_state_lookup_or_create_millis": 12.5,
+                "prepare_route_total_millis": 14.0,
+                "prepare_cli_wall_millis": 22.0,
+                "preparation_cli_process_wall_millis": 22.0,
+                "compatibility_to_vortex_import_micros": "12345",
+                "source_read_micros": "6789",
+                "vortex_write_micros": "3456",
+                "fact_digest": "sha256:fact",
+                "dim_digest": "sha256:dim",
+                "benchmark_harness_prepared_artifact_cache_creator_engine": (
+                    "shardloom-vortex"
+                ),
+            }
+
+            self.assertTrue(
+                benchmark_run.shared_prepared_artifact_entry_is_valid(entry)
+            )
+            reused = benchmark_run.shared_prepared_artifact_cache_hit_entry(
+                entry,
+                "shardloom-prepared-vortex",
+            )
+
+        self.assertEqual(reused["preparation_millis"], 0.0)
+        self.assertEqual(reused["prepared_state_lookup_or_create_millis"], 0.0)
+        self.assertEqual(reused["prepare_route_total_millis"], 0.0)
+        self.assertEqual(reused["preparation_cli_process_wall_millis"], 0.0)
+        self.assertEqual(reused["compatibility_to_vortex_import_micros"], "0")
+        self.assertEqual(reused["source_read_micros"], "0")
+        self.assertEqual(reused["vortex_write_micros"], "0")
+        self.assertEqual(
+            reused["shared_prepared_artifact_original_preparation_millis"],
+            "12.5",
+        )
+        self.assertEqual(
+            reused[
+                "shared_prepared_artifact_original_compatibility_to_vortex_import_micros"
+            ],
+            "12345",
+        )
+        self.assertEqual(
+            reused["benchmark_harness_prepared_artifact_cache_status"],
+            "cache_hit_reused_in_process",
+        )
+        self.assertEqual(
+            reused["benchmark_harness_prepared_artifact_cache_creator_engine"],
+            "shardloom-vortex",
+        )
+        self.assertEqual(
+            reused["benchmark_harness_prepared_artifact_cache_consumer_engine"],
+            "shardloom-prepared-vortex",
+        )
+        self.assertEqual(reused["prepared_state_reuse_hit"], "true")
+        self.assertEqual(
+            reused["prepared_state_reuse_reason"],
+            "same_process_cache_hit_artifact_paths_verified",
+        )
+        self.assertEqual(
+            reused["prepared_state_reuse_scope"],
+            "benchmark_harness_shared_prepared_vortex_artifact_in_process",
+        )
+
+    def test_batch_cli_process_wall_is_amortized_per_scenario(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        self.assertEqual(
+            benchmark_run.amortized_batch_cli_process_wall_millis(34.0, 4),
+            8.5,
+        )
+        self.assertEqual(
+            benchmark_run.amortized_batch_cli_process_wall_millis("33.3333", 3),
+            11.1111,
+        )
+        self.assertIsNone(
+            benchmark_run.amortized_batch_cli_process_wall_millis("not_measured", 4)
+        )
+        self.assertIsNone(
+            benchmark_run.amortized_batch_cli_process_wall_millis(34.0, 0)
+        )
+
     def test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
 
