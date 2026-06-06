@@ -1,18 +1,45 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
 import RouteConsole from "../components/RouteConsole.astro";
-import { routeMetrics } from "../lib/data";
+import { benchmark, manifest, routeMetrics } from "../lib/data";
 
 const metrics = routeMetrics();
+const dashboard = (benchmark as any).comparative_dashboard ?? {};
+const routeSurface = dashboard.route_timing_surface_comparison ?? {};
+const surfaceHeaders = Array.isArray(routeSurface.headers) ? routeSurface.headers : [];
+const surfaceRows = Array.isArray(routeSurface.rows) ? routeSurface.rows : [];
+
+function tableObject(row: unknown[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  surfaceHeaders.forEach((header: string, index: number) => {
+    result[header] = row[index];
+  });
+  return result;
+}
+
+function value(row: Record<string, unknown>, key: string, fallback = "not reported"): string {
+  const raw = row[key];
+  return raw === null || raw === undefined || raw === "" ? fallback : String(raw);
+}
+
+const hotShardLoomRows: Record<string, unknown>[] = surfaceRows
+  .map((row: unknown[]) => tableObject(row))
+  .filter((row: Record<string, unknown>) =>
+    value(row, "Route").startsWith("ShardLoom") && value(row, "Timing surface") === "hot_runtime"
+  );
+const firstHotRows: Record<string, unknown>[] = hotShardLoomRows
+  .filter((row: Record<string, unknown>) => ["ShardLoom Warm Prepared Query", "ShardLoom Native Vortex Query", "ShardLoom Cold Certified Route"].includes(value(row, "Route")))
+  .sort((left: Record<string, unknown>, right: Record<string, unknown>) => value(left, "Surface route geomean").localeCompare(value(right, "Surface route geomean")));
+const manifestAny = manifest as any;
 ---
 
-<SiteLayout title="ShardLoom" description="Evidence-gated compute over Vortex-prepared data." path="/" active="home">
+<SiteLayout title="ShardLoom" description="Evidence-gated compute over Vortex-native routes, explicit outputs, and claim-safe benchmark proof." path="/" active="home">
   <section class="hero">
     <div class="hero-copy">
       <p class="eyebrow">Technical preview</p>
-      <h1>Evidence-gated compute over Vortex-prepared data.</h1>
+      <h1>ShardLoom</h1>
       <p class="lede">
-        ShardLoom prepares admitted inputs, runs prepared/native workflows, writes outputs, and emits evidence proving what happened.
+        A standalone encoded-columnar engine for Vortex-native routes, explicit output plans, and benchmark evidence that says what was timed.
       </p>
       <div class="actions">
         <a class="button primary" href="/start">Start local proof</a>
@@ -20,7 +47,7 @@ const metrics = routeMetrics();
         <a class="button ghost" href="/benchmarks">View benchmark evidence</a>
       </div>
       <div class="status-chips" aria-label="Current posture">
-        <span>technical preview</span><span>no fallback</span><span>Vortex-first</span><span>claim-gated</span><span>local-first</span><span>not production claim</span>
+        <span>technical preview</span><span>no fallback</span><span>Vortex-first</span><span>hot_runtime separated</span><span>claim-gated</span><span>not production claim</span>
       </div>
     </div>
     <RouteConsole />
@@ -29,31 +56,57 @@ const metrics = routeMetrics();
   <section>
     <div class="strip">
       <div class="metric"><strong>{metrics.routeRows}</strong><span>ShardLoom evidence rows rendered</span></div>
-      <div class="metric"><strong>{metrics.availableLanes}</strong><span>available benchmark lanes</span></div>
-      <div class="metric"><strong>{metrics.missingLanes}</strong><span>missing lanes disclosed</span></div>
+      <div class="metric"><strong>{hotShardLoomRows.length}</strong><span>hot runtime route surfaces</span></div>
+      <div class="metric"><strong>{manifestAny.performance_claim_allowed === false ? "false" : String(manifestAny.performance_claim_allowed)}</strong><span>performance_claim_allowed</span></div>
+      <div class="metric"><strong>{metrics.availableLanes}/{metrics.expectedLanes}</strong><span>available benchmark lanes</span></div>
       <div class="metric"><strong>false</strong><span>fallback/external engine for ShardLoom rows</span></div>
     </div>
   </section>
 
   <section class="section-grid">
     <div>
-      <p class="eyebrow">Why it exists</p>
+      <p class="eyebrow">Current promoted benchmark</p>
+      <h2>Hot runtime is not publication proof.</h2>
+      <p class="narrow">The public artifact separates <code>hot_runtime</code> rows from publication-proof rows that include result-sink and human evidence rendering. Local PERF-INNOV-5 optimization artifacts remain phase-plan evidence until a new public artifact is promoted.</p>
+    </div>
+    <div class="route-card-grid compact-route-grid">
+      {firstHotRows.map((row) => (
+        <article class="route-summary-card">
+          <div class="route-card-topline">
+            <span class="badge">{value(row, "Timing surface")}</span>
+            <span class="claim-chip">{value(row, "Evidence tiers")}</span>
+          </div>
+          <h3>{value(row, "Route")}</h3>
+          <div class="route-card-metrics">
+            <div><span>Hot route geomean</span><strong>{value(row, "Surface route geomean")}</strong></div>
+            <div><span>Sink included</span><strong>{value(row, "Sink included")}</strong></div>
+            <div><span>Evidence render</span><strong>{value(row, "Evidence render included")}</strong></div>
+          </div>
+          <p>{value(row, "Formula")}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">Route contract</p>
       <h2>Compute routes should be inspectable.</h2>
       <p class="narrow">ShardLoom keeps source admission, Vortex preparation, execution, output, and evidence separate so unsupported work blocks deterministically.</p>
     </div>
     <div class="card-grid">
-      <article class="card"><span class="badge">Evidence</span><h3>Normal engines hide what happened.</h3><p>ShardLoom emits evidence fields such as fallback_attempted, external_engine_invoked, and claim_gate_status.</p></article>
-      <article class="card"><span class="badge">Timing</span><h3>Benchmarks separate route work.</h3><p>Certified cold routes are not presented as pure query speed; prepared warm routes start after preparation.</p></article>
+      <article class="card"><span class="badge">Evidence</span><h3>Rows carry proof fields.</h3><p>ShardLoom emits <code>fallback_attempted</code>, <code>external_engine_invoked</code>, timing surface, evidence tier, and claim gate fields.</p></article>
+      <article class="card"><span class="badge">Timing</span><h3>Route totals name their surface.</h3><p>Certified cold, prepare-once, warm prepared, native Vortex, baseline, and publication proof are labeled separately.</p></article>
+      <article class="card"><span class="badge">Output</span><h3>Sinks are explicit route work.</h3><p>OutputPlan and SinkArtifact keep native output, compatibility fanout, replay, and evidence render separate from hot runtime.</p></article>
       <article class="card"><span class="badge">No fallback</span><h3>Unsupported paths fail closed.</h3><p>External engines are baselines only, never fallback execution for ShardLoom rows.</p></article>
-      <article class="card"><span class="badge">Output</span><h3>Outputs are planned separately.</h3><p>OutputPlan and SinkArtifact keep output and fanout distinct from source input format.</p></article>
     </div>
   </section>
 
   <section class="section-grid">
     <div>
       <p class="eyebrow">Try it</p>
-      <h2>Start with a supported local proof.</h2>
-      <p class="narrow">The public site shows runnable local posture without implying package publication or production support.</p>
+      <h2>Start with a source-checkout proof.</h2>
+      <p class="narrow">The public site shows runnable local posture without implying package publication, production support, or broad SQL/DataFrame readiness.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python surface shape</div>

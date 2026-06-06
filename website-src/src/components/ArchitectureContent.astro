@@ -14,9 +14,9 @@ const markdown = flowMarkdown();
 <SiteLayout title="Architecture" description="Human-readable ShardLoom route architecture from UniversalIngress to claim gates." path={path} active="architecture">
   <section class="page-hero">
     <p class="eyebrow">Architecture</p>
-    <h1>SQL and Python are front doors.</h1>
+    <h1>ShardLoom routes are evidence contracts.</h1>
     <p class="lede">
-      The route is source admission, SourceState, vortex_ingest, VortexPreparedState, prepared_vortex or native_vortex execution, OutputPlan, SinkArtifact, evidence, and claim gate.
+      SQL and Python are front doors. The route is source admission, SourceState, vortex_ingest, VortexPreparedState, prepared_vortex or native_vortex execution, OutputPlan, SinkArtifact, evidence, and claim gate.
     </p>
   </section>
   <section>
@@ -31,14 +31,15 @@ const markdown = flowMarkdown();
   </section>
   <section class="section-grid">
     <div>
-      <p class="eyebrow">What must never happen</p>
+      <p class="eyebrow">Boundaries</p>
       <h2>What must never happen</h2>
-      <p class="narrow">The website must not imply production support, Spark displacement, external fallback execution, object-store/lakehouse runtime, Foundry production support, or package publication.</p>
+      <p class="narrow">The website must not imply production support, Spark displacement, external fallback execution, object-store/lakehouse runtime, Foundry production support, package publication, or benchmark performance claims without a promoted claim-grade artifact.</p>
     </div>
     <ul class="boundary-list as-list">
       <li>External engines are baseline-only.</li>
       <li>Blocked and report-only paths remain visible.</li>
       <li>Benchmark timing remains evidence, not a leaderboard.</li>
+      <li>Hot runtime, replay proof, and publication proof are separate timing surfaces.</li>
     </ul>
   </section>
   <section>

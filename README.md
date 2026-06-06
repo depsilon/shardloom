@@ -38,17 +38,32 @@ UniversalIngress / InputAdapter
 database rows, object-store objects, or generated rows directly. Compatibility import is the
 certified cold ingest/stage route, not a pure query-speed route.
 
-Public benchmark and evidence surfaces use two views:
+Public benchmark and evidence surfaces use three related views:
 
 | View | Meaning |
 | --- | --- |
 | Route lanes | What users compare end to end: raw source to result, prepare-once to result, warm prepared query, native Vortex query, direct transient route, or external baseline. |
+| Timing surfaces | Which route total is being interpreted: `hot_runtime`, `full_replay_proof`, `publication_proof`, or external baseline context. |
 | Stage pieces | Why a route took that time: admission, read, parse/decode, SourceState build, Vortex array build/write/reopen, prepared-state lookup, scan, operator compute, sink write, and evidence render. |
 
 The primary local non-Vortex route is `ShardLoom Prepare-Once First Query`: raw compatibility input
 is admitted into `SourceState`, prepared once into `VortexPreparedState`, queried, and written with
 evidence. `ShardLoom Warm Prepared Query` starts after that prepared state already exists, so it is
 useful runtime evidence but not a raw-source end-to-end comparison by itself.
+
+`hot_runtime` is the default route surface for runtime interpretation. It must not be replaced by
+`publication_proof` rows. Publication-proof rows remain visible because they include result-sink
+replay and human evidence rendering, but those proof costs are labeled as publication proof instead
+of silently redefining hot route timing. The current public website mirrors the promoted benchmark
+artifact and reports `performance_claim_allowed=false` unless the committed manifest says
+otherwise. Scoped PERF-INNOV-5 local artifacts remain phase-plan evidence until promoted through the
+benchmark publication gate.
+
+For public orientation, use:
+
+- [About](https://shardloom.io/about) for the short claim-safe project overview.
+- [Benchmarks](https://shardloom.io/benchmarks) for promoted route timing surfaces and claim gates.
+- [Compute flow](https://shardloom.io/compute-engine-flow) for the rendered route/evidence diagram.
 
 ## What Is Usable Today
 

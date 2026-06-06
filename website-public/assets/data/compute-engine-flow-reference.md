@@ -178,9 +178,10 @@ flowchart LR
     MODE["4. Explicit modes<br/>execution mode + engine mode"]
     PROVIDER["5. Provider path<br/>Vortex / ShardLoom kernel / diagnostic"]
     OUTPUT["6. Output path<br/>result ref / sink artifact / unsupported status"]
-    EVIDENCE["7. Evidence and claim gate<br/>certificates + no-fallback + claim status"]
+    TIMING["7. Timing surface<br/>hot_runtime / replay proof / publication proof"]
+    EVIDENCE["8. Evidence and claim gate<br/>certificates + no-fallback + claim status"]
 
-    ACCESS --> REQUEST --> ADMISSION --> MODE --> PROVIDER --> OUTPUT --> EVIDENCE
+    ACCESS --> REQUEST --> ADMISSION --> MODE --> PROVIDER --> OUTPUT --> TIMING --> EVIDENCE
 ```
 
 Keep these labels separate:
@@ -190,7 +191,19 @@ Keep these labels separate:
 | Execution mode | Which source/preparation lane ran? | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | Performance, production, SQL/DataFrame, or object-store support. |
 | Engine mode | What workload semantics were admitted? | `batch`, `live`, `hybrid`, `auto` | Hidden fallback, broker-backed live runtime, or production hybrid support. |
 | Evidence level | How much proof was emitted? | `minimal_runtime`, `certified`, `full_replay` | A faster mode or a claim-grade result by itself. |
+| Timing surface | Which route total is being interpreted? | `hot_runtime`, `full_replay_proof`, `publication_proof` | That proof-heavy output/replay/render timing is hot query runtime. |
 | Scale class | What resource envelope was proven? | `local_smoke`, `local_claim_grade`, planned split/object-store/distributed classes | Literal any-volume support or Spark-displacement support. |
+
+Timing surfaces are publication boundaries, not new execution engines:
+
+| Timing surface | Included route work | Excluded from that total | Use in public pages |
+| --- | --- | --- | --- |
+| `hot_runtime` | Query/runtime work plus any compact metadata-sink work explicitly declared by the route formula. | Result-sink replay and human evidence rendering unless the formula explicitly declares them. | Default performance and perf-split route grid. |
+| `full_replay_proof` | Runtime plus machine replay proof and result-sink timing when the row declares it. | Human publication render. | Proof/replay route view. |
+| `publication_proof` | Preparation/runtime plus result-sink replay and human evidence render when the row declares it. | Nothing silently hidden from the publication-proof route total. | Publication-proof view, not the primary hot route grid. |
+
+If no `hot_runtime` row exists for a ShardLoom route, the public benchmark page must say the hot
+runtime row is missing. It must not substitute a `publication_proof` row.
 
 Use friendlier route labels in user-facing prose while keeping the canonical fields in evidence:
 

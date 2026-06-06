@@ -43,6 +43,7 @@ export default defineConfig({
           label: "Public Pages",
           items: [
             { label: "Home", link: "/" },
+            { label: "About", link: "/about" },
             { label: "Start", link: "/start" },
             { label: "Use Cases", link: "/use-cases" },
             { label: "Benchmarks", link: "/benchmarks" },

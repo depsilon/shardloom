@@ -13,6 +13,7 @@ Build shape:
 Public surface:
 
 - `/`: route/evidence console overview.
+- `/about`: concise claim-safe project overview and evidence pointers.
 - `/start`: first local proof entry point.
 - `/field-guide`: compact technical vocabulary atlas.
 - `/use-cases`: filterable use-case browser.

@@ -927,6 +927,71 @@ p {
   font-size: 0.88rem;
 }
 
+.surface-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.compact-surface-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.surface-card {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(6, 169, 214, 0.055), transparent 150px),
+    #fff;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.04);
+  overflow-wrap: anywhere;
+}
+
+.surface-card p {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.proof-card {
+  background:
+    linear-gradient(180deg, rgba(91, 66, 232, 0.055), transparent 150px),
+    #fff;
+}
+
+.surface-value {
+  color: var(--navy);
+  font-size: 1.6rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.surface-bar {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6eef3;
+}
+
+.surface-bar span {
+  display: block;
+  width: var(--bar-width, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--cyan));
+}
+
+.proof-bar span {
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+}
+
 .badge-fixture {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1523,6 +1588,7 @@ tr:last-child td {
   .route,
   .compact-route,
   .route-card-grid,
+  .surface-grid,
   .badge-fixture,
   .check-list,
   .route-dashboard,
@@ -1584,6 +1650,7 @@ tr:last-child td {
   .compact-route,
   .route-card-grid,
   .route-card-metrics,
+  .surface-grid,
   .evidence-grid,
   .benchmark-preview,
   .badge-fixture,
