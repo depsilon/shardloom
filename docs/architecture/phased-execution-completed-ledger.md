@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5 Vortex writer-strategy preparation optimization
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-vortex-write-strategy` / PR #1133 merged.
+  - Source:
+    - Clean post-#1132 scoped artifact `target/codex-perf-postmerge-prep-attribution.json` on
+      `4df62456`.
+    - Direct parquet preparation probe `target/codex-direct-prep-probe-parquet` identifying
+      upstream Vortex segment write as the remaining fresh-preparation hotspot.
+    - Dirty writer-strategy evidence artifact `target/codex-perf-flat-strategy-evidence.json`.
+    - Direct writer-strategy probe `target/codex-direct-prep-probe-strategy-fields.json`.
+    - Clean post-#1133 scoped artifact `target/codex-perf-post1133-clean.json` on `b3575bd3`.
+    - `shardloom-vortex/src/traditional_analytics.rs`,
+      `benchmarks/traditional_analytics/run.py`, and `python/tests/test_release_scripts.py`.
+  - Scope:
+    - Changed traditional benchmark compatibility preparation writes to use an explicit upstream
+      Vortex `TableStrategy<FlatLayoutStrategy>` writer policy for this local preparation-latency
+      route.
+    - Added `vortex_write_strategy_*` evidence fields so the upstream provider surface,
+      compression/payload tradeoff, metadata-preservation status, fallback boundary, and external
+      engine boundary are auditable in preparation-stage evidence.
+    - Preserved warm query/operator/scan route timings as the primary runtime comparison surface
+      while reducing the cold compatibility preparation hotspot exposed by the previous attribution
+      slice.
+  - Evidence:
+    - Clean post-#1132 baseline artifact on `4df62456` reported
+      `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans around
+      `30.8653 ms`/`24.5313 ms`, Vortex write geomeans around `23.7962 ms`/`20.0162 ms`, and
+      sub-ms warm query/operator/scan timings.
+    - Dirty writer-strategy artifact `target/codex-perf-flat-strategy-evidence.json` reduced
+      `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans to about
+      `14.0587 ms`/`7.9630 ms` and Vortex write geomeans to about `4.8597 ms`/`3.6534 ms`, while
+      warm query/operator/scan remained sub-ms.
+    - Direct CLI strategy evidence emitted
+      `vortex_write_strategy_schema_version=shardloom.traditional_analytics.vortex_write_strategy.v1`,
+      `vortex_write_strategy=upstream_vortex_table_flat_leaf_strategy`,
+      `vortex_write_strategy_fallback_attempted=false`, and
+      `vortex_write_strategy_external_engine_invoked=false`.
+    - Clean post-#1133 scoped rerun `target/codex-perf-post1133-clean.json` on `b3575bd3`
+      reported `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans around
+      `12.0626 ms`/`7.5698 ms`, compatibility import geomeans around `10.8370 ms`/`7.1019 ms`,
+      Vortex write geomeans around `4.5262 ms`/`3.2373 ms`, and query/operator geomeans around
+      `0.5824 ms`/`0.3162 ms` and `0.5859 ms`/`0.3178 ms`.
+    - The clean post-#1133 artifact has
+      `performance_claim_allowed=false`; it is local optimization evidence, not public
+      claim-grade benchmark evidence.
+    - Local validation passed:
+      `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`,
+      focused Vortex writer-strategy timing tests, Python release-script tests, Python unittest
+      discovery, Python package build, benchmark artifact completeness, benchmark publication claim
+      gate with explicit dirty/stale allowances, and `git diff --check`.
+    - Remote PR #1133 validation completed with 19/19 green check-runs, no review threads, and a
+      successful Cloudflare Workers deployment before squash merge `b3575bd3`.
+  - Benchmark boundary:
+    - The clean post-#1133 rerun confirms the optimization on merged main, but it is still scoped
+      local evidence. Public benchmark updates and performance claims remain blocked until the
+      artifact is promoted through the claim gates with matching lane and manifest provenance.
+  - Claim boundary:
+    - Claim is limited to the local preparation-route writer-policy optimization and auditable
+      fallback/external-engine evidence. Performance superiority, Spark-displacement, production
+      readiness, package-release, and public benchmark publication claims remain blocked until a
+      clean post-merge artifact is generated, promoted, and passed through claim gates.
+  - Fallback boundary:
+    - The writer policy uses upstream Vortex layout strategy APIs inside the ShardLoom-native
+      Vortex preparation boundary. It does not use Vortex query-engine integrations or any Spark,
+      DataFusion, DuckDB, Polars, Velox, or other external execution fallback.
+
 - [x] Session label: PERF-INNOV-5 post-merge preparation attribution and optimization triage
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-preparation-attribution` / PR #1132 merged.
