@@ -386,14 +386,21 @@ completed base slice, while unchecked rows define the remaining optimization wor
       `0.50 ms` and `0.10 ms`; batch row `cli_process_wall_millis` is amortized to about
       `8.6-8.9 ms` while full shared `batch_cli_process_wall_millis` remains diagnostic at about
       `34-37 ms`.
+    - [x] Current branch `codex/perf-innov-5-reuse-freshness` adds a benchmark-harness workspace
+      prepared-artifact reuse manifest beside fresh local Vortex artifacts and propagates manifest
+      path, digest, scope, policy, artifact count, write timing, and no-fallback fields into
+      prepared/native row metrics. Scoped artifact `target/perf-innov5-workspace-manifest.json`
+      shows all successful prepared/native rows carrying
+      `workspace_manifest_local_vortex_artifacts` evidence; cache-hit rows verify the manifest and
+      report `0` fresh manifest-write micros while preserving sub-ms scan/operator timings.
     - [ ] Remaining: reduce or explicitly attribute the residual above-10 ms cells: cold certified
       `shardloom` route query/process wall, first-creator native Vortex fresh parquet/jsonl
-      compatibility import, and the lack of a durable native workspace reuse manifest outside the
-      in-process benchmark cache. Warm scan/operator execution is no longer the current hot target
-      in the scoped matrix. Current checked-in hot-runtime rows still cannot support a performance
-      claim because they are non-claim `metadata_sink` evidence and only cover the targeted
-      tiny-smoke selective-filter refresh; broader claim-grade publication proof and clean
-      full-suite evidence remain separate requirements before any performance claim is made.
+      compatibility import, and durable workspace-manifest promotion into the checked-in public
+      artifact. Warm scan/operator execution is no longer the current hot target in the scoped
+      matrix. Current checked-in hot-runtime rows still cannot support a performance claim because
+      they are non-claim `metadata_sink` evidence and only cover the targeted tiny-smoke
+      selective-filter refresh; broader claim-grade publication proof and clean full-suite evidence
+      remain separate requirements before any performance claim is made.
   - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
     import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
     public artifact freshness gates.

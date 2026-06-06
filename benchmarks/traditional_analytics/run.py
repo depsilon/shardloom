@@ -817,6 +817,18 @@ SHARED_PREPARED_ARTIFACT_CACHE_SCOPE = (
 SHARED_PREPARED_ARTIFACT_CACHE_POLICY = (
     "benchmark_harness_shared_prepared_vortex_artifact_reuse.v1"
 )
+SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCHEMA_VERSION = (
+    "shardloom.benchmark_harness.prepared_artifact_workspace_manifest.v1"
+)
+SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCOPE = (
+    "workspace_manifest_local_vortex_artifacts"
+)
+SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_POLICY = (
+    "benchmark_harness_workspace_prepared_vortex_artifact_manifest.v1"
+)
+SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_RELATIVE_PATH = (
+    ".shardloom/prepared-vortex-reuse-manifest.json"
+)
 SHARED_PREPARED_ARTIFACT_CACHE: dict[
     tuple[str, str, str, str, str, str], dict[str, Path | float | str]
 ] = {}
@@ -842,6 +854,7 @@ SHARED_PREPARED_ARTIFACT_ZERO_MICROS_FIELDS = (
     "exclusive_stage_sum_micros",
     "exclusive_stage_residual_micros",
     "exclusive_stage_total_delta_micros",
+    "benchmark_harness_prepared_artifact_workspace_manifest_write_micros",
 )
 SHARED_PREPARED_ARTIFACT_ZERO_MILLIS_FIELDS = (
     "preparation_millis",
@@ -868,6 +881,16 @@ SHARED_PREPARED_ARTIFACT_EVIDENCE_FIELDS = (
     "shared_prepared_artifact_original_source_read_micros",
     "shared_prepared_artifact_original_vortex_write_micros",
     "global_startup_warmup_row_allocation_status",
+    "benchmark_harness_prepared_artifact_workspace_manifest_schema_version",
+    "benchmark_harness_prepared_artifact_workspace_manifest_status",
+    "benchmark_harness_prepared_artifact_workspace_manifest_scope",
+    "benchmark_harness_prepared_artifact_workspace_manifest_policy",
+    "benchmark_harness_prepared_artifact_workspace_manifest_path",
+    "benchmark_harness_prepared_artifact_workspace_manifest_digest",
+    "benchmark_harness_prepared_artifact_workspace_manifest_artifact_count",
+    "benchmark_harness_prepared_artifact_workspace_manifest_write_micros",
+    "benchmark_harness_prepared_artifact_workspace_manifest_fallback_attempted",
+    "benchmark_harness_prepared_artifact_workspace_manifest_external_engine_invoked",
 )
 BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES = {
     "batch_shared_pre_scenario",
@@ -4574,6 +4597,16 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             **capillary_preparation_fields(fields),
             **shared_prepared_artifact_cache_miss_fields(engine_name),
         }
+        prepared.update(
+            write_shared_prepared_artifact_workspace_manifest(
+                paths=paths,
+                data_format=data_format,
+                workspace=workspace,
+                binary=binary,
+                prepared=prepared,
+                fields=fields,
+            )
+        )
         prepared_paths[data_format] = prepared
         register_shared_prepared_artifact(cache_key, prepared)
 
@@ -6247,6 +6280,139 @@ def shared_prepared_artifact_cache_key(
     )
 
 
+def shared_prepared_artifact_workspace_manifest_path(workspace: Path) -> Path:
+    return workspace / SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_RELATIVE_PATH
+
+
+def write_shared_prepared_artifact_workspace_manifest(
+    *,
+    paths: DatasetPaths,
+    data_format: str,
+    workspace: Path,
+    binary: Path,
+    prepared: dict[str, Path | float | str],
+    fields: dict[str, str],
+) -> dict[str, str]:
+    manifest_path = shared_prepared_artifact_workspace_manifest_path(workspace)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    fact = Path(prepared["fact"])
+    dim = Path(prepared["dim"])
+    payload = {
+        "schema_version": SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCHEMA_VERSION,
+        "status": "workspace_manifest_written",
+        "scope": SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCOPE,
+        "policy": SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_POLICY,
+        "dataset_profile": paths.dataset_profile,
+        "data_format": data_format,
+        "build_profile": SHARDLOOM_BUILD_PROFILE,
+        "binary": str(binary.resolve()),
+        "source_fact_path": str(fact_path(paths, data_format).resolve()),
+        "source_dim_path": str(dim_path(paths, data_format).resolve()),
+        "prepared_fact_path": str(fact.resolve()),
+        "prepared_dim_path": str(dim.resolve()),
+        "prepared_fact_digest": str(prepared.get("fact_digest", "")),
+        "prepared_dim_digest": str(prepared.get("dim_digest", "")),
+        "source_state_id": fields.get("source_state_id", ""),
+        "source_state_digest": fields.get("source_state_digest", ""),
+        "prepared_state_id": fields.get("prepared_state_id", ""),
+        "prepared_state_digest": fields.get("prepared_state_digest", ""),
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_gate_status": "not_claim_grade",
+        "claim_boundary": (
+            "Benchmark harness workspace manifest records local prepared Vortex artifact "
+            "identity and digest evidence only; it is not a hidden persistent cache, "
+            "performance claim, production support, object-store/lakehouse support, or "
+            "external engine fallback."
+        ),
+    }
+    manifest_digest = canonical_digest(payload)
+    payload["manifest_digest"] = manifest_digest
+    started = time.perf_counter()
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    write_micros = int(round((time.perf_counter() - started) * 1_000_000.0))
+    return {
+        "benchmark_harness_prepared_artifact_workspace_manifest_schema_version": (
+            SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCHEMA_VERSION
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_status": (
+            "workspace_manifest_written"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_scope": (
+            SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCOPE
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_policy": (
+            SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_POLICY
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_path": (
+            str(manifest_path)
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_digest": manifest_digest,
+        "benchmark_harness_prepared_artifact_workspace_manifest_artifact_count": "2",
+        "benchmark_harness_prepared_artifact_workspace_manifest_write_micros": (
+            str(write_micros)
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_fallback_attempted": "false",
+        "benchmark_harness_prepared_artifact_workspace_manifest_external_engine_invoked": "false",
+    }
+
+
+def shared_prepared_artifact_workspace_manifest_metrics(
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "benchmark_harness_prepared_artifact_workspace_manifest_schema_version": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_schema_version"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_status": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_status"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_scope": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_scope"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_policy": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_policy"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_path": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_path"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_digest": evidence.get(
+            "benchmark_harness_prepared_artifact_workspace_manifest_digest"
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_artifact_count": (
+            parse_optional_int(
+                evidence.get(
+                    "benchmark_harness_prepared_artifact_workspace_manifest_artifact_count"
+                )
+            )
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_write_micros": (
+            parse_optional_int(
+                evidence.get(
+                    "benchmark_harness_prepared_artifact_workspace_manifest_write_micros"
+                )
+            )
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get(
+                    "benchmark_harness_prepared_artifact_workspace_manifest_fallback_attempted"
+                )
+            )
+        ),
+        "benchmark_harness_prepared_artifact_workspace_manifest_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get(
+                    "benchmark_harness_prepared_artifact_workspace_manifest_external_engine_invoked"
+                )
+            )
+        ),
+    }
+
+
 def shared_prepared_artifact_entry_is_valid(
     entry: dict[str, Path | float | str],
 ) -> bool:
@@ -6307,6 +6473,14 @@ def shared_prepared_artifact_cache_hit_entry(
         if field in reused:
             reused[f"shared_prepared_artifact_original_{field}"] = str(reused[field])
         reused[field] = 0.0
+    workspace_manifest_path = str(
+        reused.get("benchmark_harness_prepared_artifact_workspace_manifest_path", "")
+    )
+    workspace_manifest_status = (
+        "workspace_manifest_verified_same_process_cache_hit"
+        if workspace_manifest_path and Path(workspace_manifest_path).exists()
+        else "workspace_manifest_missing_same_process_cache_hit"
+    )
     reused.update(
         {
             "benchmark_harness_prepared_artifact_cache_schema_version": (
@@ -6344,6 +6518,9 @@ def shared_prepared_artifact_cache_hit_entry(
             ),
             "prepared_state_invalidation_reason": (
                 "not_applicable_same_process_cache_fingerprints_match"
+            ),
+            "benchmark_harness_prepared_artifact_workspace_manifest_status": (
+                workspace_manifest_status
             ),
             "compatibility_to_vortex_import_timing_scope": (
                 "benchmark_harness_shared_prepared_artifact_reuse_skips_compatibility_import"
@@ -20584,6 +20761,7 @@ def successful_result_from_iterations(
         )
     )
     metrics.update(prepared_native_vortex_lifecycle_metrics(evidence))
+    metrics.update(shared_prepared_artifact_workspace_manifest_metrics(evidence))
     metrics.update(
         source_state_contract_metadata(
             runner.name,
