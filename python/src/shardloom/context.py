@@ -2567,76 +2567,79 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "rename",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="rename",
-        blocker_id="cg21.workflow.rename.schema_rewrite_unsupported",
+        "dataframe_transform",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
-            "schema_rewrite_semantics",
+            "declared_schema_projection_rewrite",
             "projection_alias_contract",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Column rename is a deterministic unsupported report until schema rewrite "
-            "semantics, projection aliasing, and runtime evidence are certified. No "
-            "pandas/Polars backend, external engine, fallback, or production DataFrame claim."
+            "Schema-declared local-source column rename lowers to an admitted ShardLoom SQL "
+            "projection alias route when collected or written. Inferred-schema, aggregate, join, "
+            "window, expression, and broad production DataFrame rename semantics remain outside "
+            "this scoped route and fail closed without pandas/Polars or external fallback."
         ),
     ),
     _df_method(
         "rename_columns",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="rename",
-        blocker_id="cg21.workflow.rename.schema_rewrite_unsupported",
+        "dataframe_transform",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
-            "schema_rewrite_semantics",
+            "declared_schema_projection_rewrite",
             "projection_alias_contract",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Alias for rename(...), preserving the same deterministic unsupported schema "
-            "rewrite diagnostic and no-fallback boundary."
+            "Alias for rename(...), preserving the same declared-schema projection rewrite and "
+            "no-fallback boundary."
         ),
     ),
     _df_method(
         "drop",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="drop",
-        blocker_id="cg21.workflow.drop.schema_projection_unsupported",
+        "dataframe_transform",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
-            "schema_discovery",
+            "declared_schema_projection_rewrite",
             "projection_rewrite_semantics",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Column drop is a deterministic unsupported report until schema-aware "
-            "projection rewrite evidence exists. No hidden all-column schema read, "
-            "pandas/Polars backend, external engine, fallback, or production DataFrame claim."
+            "Schema-declared local-source column drop lowers to an admitted ShardLoom SQL "
+            "projection route when collected or written. Inferred-schema, aggregate, join, "
+            "window, expression, and broad production DataFrame drop semantics remain outside "
+            "this scoped route and fail closed without hidden all-column reads or external "
+            "fallback."
         ),
     ),
     _df_method(
         "drop_columns",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="drop",
-        blocker_id="cg21.workflow.drop.schema_projection_unsupported",
+        "dataframe_transform",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
-            "schema_discovery",
+            "declared_schema_projection_rewrite",
             "projection_rewrite_semantics",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Alias for drop(...), preserving the same deterministic unsupported "
-            "schema-aware projection diagnostic and no-fallback boundary."
+            "Alias for drop(...), preserving the same declared-schema projection rewrite and "
+            "no-fallback boundary."
         ),
     ),
     _df_method(
@@ -2681,10 +2684,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "merge",
-        "dataframe_combine_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="merge",
-        blocker_id="cg21.workflow.merge.join_alias_unsupported",
+        "dataframe_combine",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "join_alias_semantics",
             "key_resolution_contract",
@@ -2694,29 +2697,30 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Pandas-style merge is a deterministic unsupported report until broad "
-            "join aliasing, key inference, suffix handling, and runtime evidence are "
-            "certified. Scoped join(...) evidence does not imply broad merge support."
+            "Scoped merge(on=..., how=...) lowers to the admitted ShardLoom join route for "
+            "explicit local-source equi-keys. Implicit key inference, left_on/right_on, suffix "
+            "handling, right-side operations, pandas/Polars backends, production merge, and broad "
+            "DataFrame parity remain outside this route and fail closed."
         ),
     ),
     _df_method(
         "concat",
-        "dataframe_combine_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="concat",
-        blocker_id="cg21.workflow.concat.union_alignment_unsupported",
+        "dataframe_combine",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "schema_alignment_contract",
             "set_operation_semantics",
-            "axis_semantics",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Concat is a deterministic unsupported report until axis, schema alignment, "
-            "union, and column-combine semantics are certified without pandas/Polars "
-            "or external execution fallback."
+            "Scoped row-wise concat lowers to UNION ALL only for two local-source branches with "
+            "explicit matching projected columns. Schema union/alignment, axis=1, multi-branch, "
+            "column-combine, pandas/Polars backend, production concat, and broad DataFrame parity "
+            "remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -2829,10 +2833,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "nunique",
-        "dataframe_summary_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="nunique",
-        blocker_id="cg21.workflow.nunique.distinct_count_semantics_unsupported",
+        "dataframe_summary",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "distinct_count_semantics",
             "dropna_policy",
@@ -2841,17 +2845,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Pandas-style nunique is a deterministic unsupported report until axis/dropna and "
-            "result-shape semantics are certified. Scoped count_distinct(...) aggregates remain "
-            "available where explicit SQL runtime evidence exists."
+            "Scoped one-column nunique(dropna=True) lowers to ShardLoom count(DISTINCT column) "
+            "over admitted local-source workflows. Multi-column, dropna=False, axis/result-shape "
+            "pandas parity, production summary claims, and unsafe plan shapes remain outside this "
+            "route and fail closed."
         ),
     ),
     _df_method(
         "value_counts",
-        "dataframe_summary_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="value_counts",
-        blocker_id="cg21.workflow.value_counts.grouped_count_semantics_unsupported",
+        "dataframe_summary",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "grouped_count_semantics",
             "dropna_policy",
@@ -2860,17 +2865,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Pandas-style value_counts is a deterministic unsupported report until grouped-count, "
-            "null/dropna, ordering, and result-shape evidence are certified. Scoped "
-            "group_by(...).count() evidence does not imply broad value_counts support."
+            "Scoped local-source value_counts lowers to ShardLoom group_by(...).count(rows) with "
+            "optional IS NOT NULL filtering for dropna and rows-desc ordering. Multi-backend "
+            "pandas parity, normalize/bin/axis behavior, production summary claims, and unsafe "
+            "plan shapes remain outside this route and fail closed."
         ),
     ),
     _df_method(
         "fillna",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="fillna",
-        blocker_id="cg21.workflow.fillna.null_fill_semantics_unsupported",
+        "dataframe_null_cleanup",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "null_fill_semantics",
             "dtype_coercion_policy",
@@ -2879,16 +2885,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "DataFrame-wide fillna is a deterministic unsupported report until null-fill, dtype "
-            "coercion, and schema/projection rewrite semantics are certified."
+            "Schema-declared local-source fillna lowers to ShardLoom COALESCE projection rewrites "
+            "for scalar or per-column literal fill values. Inferred-schema, aggregate, join, "
+            "window, expression, method/limit/axis, unsupported literal, and broad pandas "
+            "DataFrame-wide null-fill semantics remain outside this scoped route and fail closed."
         ),
     ),
     _df_method(
         "fill_null",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="fillna",
-        blocker_id="cg21.workflow.fillna.null_fill_semantics_unsupported",
+        "dataframe_null_cleanup",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "null_fill_semantics",
             "dtype_coercion_policy",
@@ -2897,16 +2905,16 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Alias for fillna(...), preserving the same deterministic null-fill blocker and "
+            "Alias for fillna(...), preserving the same scoped COALESCE projection rewrite and "
             "no-fallback boundary."
         ),
     ),
     _df_method(
         "isna",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="isna",
-        blocker_id="cg21.workflow.isna.null_mask_semantics_unsupported",
+        "dataframe_null_mask",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "null_mask_semantics",
             "three_valued_logic_policy",
@@ -2915,16 +2923,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "DataFrame-wide isna masks are deterministic unsupported reports until null-mask "
-            "semantics and result-shape evidence are certified."
+            "Schema-declared local-source isna lowers to ShardLoom IS NULL boolean projection "
+            "rewrites over explicit or declared columns. Inferred-schema, aggregate, join, window, "
+            "expression, and broad pandas result-shape semantics remain outside this scoped route "
+            "and fail closed."
         ),
     ),
     _df_method(
         "isnull",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="isna",
-        blocker_id="cg21.workflow.isna.null_mask_semantics_unsupported",
+        "dataframe_null_mask",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "null_mask_semantics",
             "three_valued_logic_policy",
@@ -2933,16 +2943,16 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Alias for isna(...), preserving the same deterministic null-mask blocker and "
+            "Alias for isna(...), preserving the same scoped IS NULL projection rewrite and "
             "no-fallback boundary."
         ),
     ),
     _df_method(
         "notna",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="notna",
-        blocker_id="cg21.workflow.notna.null_mask_semantics_unsupported",
+        "dataframe_null_mask",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "not_null_mask_semantics",
             "three_valued_logic_policy",
@@ -2951,16 +2961,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "DataFrame-wide notna masks are deterministic unsupported reports until non-null mask "
-            "semantics and result-shape evidence are certified."
+            "Schema-declared local-source notna lowers to ShardLoom IS NOT NULL boolean projection "
+            "rewrites over explicit or declared columns. Inferred-schema, aggregate, join, window, "
+            "expression, and broad pandas result-shape semantics remain outside this scoped route "
+            "and fail closed."
         ),
     ),
     _df_method(
         "notnull",
-        "dataframe_null_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="notna",
-        blocker_id="cg21.workflow.notna.null_mask_semantics_unsupported",
+        "dataframe_null_mask",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
         required_evidence=(
             "not_null_mask_semantics",
             "three_valued_logic_policy",
@@ -2969,7 +2981,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Alias for notna(...), preserving the same deterministic non-null-mask blocker and "
+            "Alias for notna(...), preserving the same scoped IS NOT NULL projection rewrite and "
             "no-fallback boundary."
         ),
     ),

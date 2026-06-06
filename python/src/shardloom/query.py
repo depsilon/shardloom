@@ -3477,10 +3477,12 @@ class LazyFrame:
         *,
         check: bool = False,
         **named_columns: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad DataFrame column renames."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a bounded schema-declared projection alias rewrite when admitted."""
 
         items = _normalize_rename_items("rename", columns, named_columns)
+        if projection := self._schema_declared_rename_projection(items):
+            return self._with_rewritten_projection(projection)
         target_ref = ",".join(f"{source}={target}" for source, target in items)
         return self._unsupported_operation("rename", target_ref, check=check)
 
@@ -3490,7 +3492,7 @@ class LazyFrame:
         *,
         check: bool = False,
         **named_columns: object,
-    ) -> UnsupportedWorkflowOperationReport:
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `rename(...)` using explicit column-transform naming."""
 
         return self.rename(columns, check=check, **named_columns)
@@ -3500,17 +3502,20 @@ class LazyFrame:
         *labels: object,
         columns: object | None = None,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad DataFrame column drops."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a bounded schema-declared projection drop rewrite when admitted."""
 
-        target_ref = ",".join(_normalize_drop_columns(labels, columns))
+        target_columns = _normalize_drop_columns(labels, columns)
+        if projection := self._schema_declared_drop_projection(target_columns):
+            return self._with_rewritten_projection(projection)
+        target_ref = ",".join(target_columns)
         return self._unsupported_operation("drop", target_ref, check=check)
 
     def drop_columns(
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `drop(...)` using explicit column-transform naming."""
 
         return self.drop(*columns, check=check)
@@ -3548,8 +3553,8 @@ class LazyFrame:
         how: str = "inner",
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad pandas-style merge semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped explicit-key merge alias when admitted."""
 
         target_ref = _normalize_merge_target(
             other,
@@ -3559,6 +3564,16 @@ class LazyFrame:
             how=how,
             kwargs=kwargs,
         )
+        if (
+            not kwargs
+            and on is not None
+            and left_on is None
+            and right_on is None
+            and self._can_lower_merge_to_join(other, on=on, how=how)
+        ):
+            joined = self.join(other, on=on, how=how, check=check)
+            if isinstance(joined, LazyFrame):
+                return joined
         return self._unsupported_operation("merge", target_ref, check=check)
 
     def concat(
@@ -3569,10 +3584,29 @@ class LazyFrame:
         join: str = "outer",
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad DataFrame concatenation."""
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        """Return a scoped row-wise concat over matching projected local-source branches."""
 
         target_ref = _normalize_concat_target(others, axis=axis, join=join, kwargs=kwargs)
+        other = _single_lazyframe_target(others)
+        projection = self._explicit_set_operation_projection_columns()
+        other_projection = (
+            other._explicit_set_operation_projection_columns() if other is not None else None
+        )
+        if (
+            axis == 0
+            and not kwargs
+            and other is not None
+            and projection == other_projection
+            and projection is not None
+        ):
+            left = self._sql_local_source_union_branch_statement()
+            right = other._sql_local_source_union_branch_statement()
+            if left is not None and right is not None:
+                return SqlWorkflow(
+                    statement=f"{left} UNION ALL {right}",
+                    client=self.client,
+                )
         return self._unsupported_operation("concat", target_ref, check=check)
 
     def pivot(
@@ -3683,14 +3717,22 @@ class LazyFrame:
         dropna: bool = True,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for pandas-style distinct counts."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped one-column count-distinct aggregate when admitted."""
 
         target_ref = _normalize_distinct_count_target(
             columns,
             dropna=dropna,
             kwargs=kwargs,
         )
+        normalized_columns = _normalize_columns(columns)
+        if (
+            not kwargs
+            and dropna is True
+            and len(normalized_columns) == 1
+            and self._can_append_nunique(normalized_columns[0])
+        ):
+            return self.agg(unique_count=count_distinct(normalized_columns[0]))
         return self._unsupported_operation("nunique", target_ref, check=check)
 
     def value_counts(
@@ -3700,8 +3742,8 @@ class LazyFrame:
         dropna: bool = True,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for pandas-style value-count summaries."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped grouped `count(*)` workflow when admitted."""
 
         target_ref = _normalize_value_counts_target(
             columns,
@@ -3709,6 +3751,18 @@ class LazyFrame:
             dropna=dropna,
             kwargs=kwargs,
         )
+        normalized_columns = _normalize_columns(columns)
+        if not kwargs and self._can_append_value_counts(normalized_columns):
+            frame = self
+            if dropna:
+                frame = self._with_combined_filter_condition(
+                    " AND ".join(
+                        f"{column} IS NOT NULL" for column in normalized_columns
+                    )
+                )
+            grouped = frame.group_by(*normalized_columns).count(alias="rows")
+            if isinstance(grouped, LazyFrame):
+                return grouped.sort("rows", descending=True) if sort else grouped
         return self._unsupported_operation("value-counts", target_ref, check=check)
 
     def fillna(
@@ -3717,10 +3771,12 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad DataFrame null filling."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a bounded schema-declared null-fill projection when admitted."""
 
         target_ref = _normalize_fillna_target(value, kwargs)
+        if not kwargs and (projection := self._schema_declared_fillna_projection(value)):
+            return self._with_rewritten_projection(projection)
         return self._unsupported_operation("fillna", target_ref, check=check)
 
     def fill_null(
@@ -3729,7 +3785,7 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `fillna(...)` using expression-engine null terminology."""
 
         return self.fillna(value, check=check, **kwargs)
@@ -3738,17 +3794,19 @@ class LazyFrame:
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame null-mask construction."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a bounded schema-declared `IS NULL` mask projection when admitted."""
 
         target_ref = _normalize_null_mask_target(columns)
+        if projection := self._schema_declared_null_mask_projection(columns, is_not=False):
+            return self._with_rewritten_projection(projection)
         return self._unsupported_operation("isna", target_ref, check=check)
 
     def isnull(
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `isna(...)` using pandas-style naming."""
 
         return self.isna(*columns, check=check)
@@ -3757,17 +3815,19 @@ class LazyFrame:
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame non-null-mask construction."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a bounded schema-declared `IS NOT NULL` mask projection when admitted."""
 
         target_ref = _normalize_null_mask_target(columns)
+        if projection := self._schema_declared_null_mask_projection(columns, is_not=True):
+            return self._with_rewritten_projection(projection)
         return self._unsupported_operation("notna", target_ref, check=check)
 
     def notnull(
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `notna(...)` using pandas-style naming."""
 
         return self.notna(*columns, check=check)
@@ -5054,6 +5114,40 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
+    def _with_rewritten_projection(self, projection: tuple[str, ...]) -> "LazyFrame":
+        operations = tuple(
+            operation for operation in self.operations if operation.kind != "select"
+        )
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=(*operations, WorkflowOperation("select", projection)),
+            engine_mode=self.engine_mode,
+        )
+
+    def _with_combined_filter_condition(self, predicate: str) -> "LazyFrame":
+        operations: list[WorkflowOperation] = []
+        filter_seen = False
+        for operation in self.operations:
+            if operation.kind != "filter":
+                operations.append(operation)
+                continue
+            filter_seen = True
+            operations.append(
+                WorkflowOperation(
+                    "filter",
+                    (f"({operation.values[0]}) AND ({predicate})",),
+                )
+            )
+        if not filter_seen:
+            operations.append(WorkflowOperation("filter", (predicate,)))
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=tuple(operations),
+            engine_mode=self.engine_mode,
+        )
+
     def _union(
         self,
         other: "LazyFrame",
@@ -5238,6 +5332,37 @@ class LazyFrame:
             for operation in self.operations
         )
 
+    def _can_append_value_counts(self, columns: tuple[str, ...]) -> bool:
+        if not _is_query_builder_local_source(self.source):
+            return False
+        if not columns or any(not _is_sql_identifier(column) for column in columns):
+            return False
+        filter_count = sum(1 for operation in self.operations if operation.kind == "filter")
+        return filter_count <= 1 and all(
+            operation.kind == "filter" for operation in self.operations
+        )
+
+    def _can_append_nunique(self, column: str) -> bool:
+        if not _is_query_builder_local_source(self.source) or not _is_sql_identifier(column):
+            return False
+        filter_count = sum(1 for operation in self.operations if operation.kind == "filter")
+        return filter_count <= 1 and all(
+            operation.kind == "filter" for operation in self.operations
+        )
+
+    def _explicit_set_operation_projection_columns(self) -> tuple[str, ...] | None:
+        projection: tuple[str, ...] | None = None
+        for operation in self.operations:
+            if operation.kind == "filter":
+                continue
+            if operation.kind == "select" and projection is None:
+                if any(not _is_sql_identifier(column) for column in operation.values):
+                    return None
+                projection = operation.values
+                continue
+            return None
+        return projection
+
     def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
         if not _is_query_builder_local_source(self.source) or not columns:
             return False
@@ -5294,6 +5419,152 @@ class LazyFrame:
         if saw_join and not saw_projection:
             return False
         return True
+
+    def _can_lower_merge_to_join(
+        self,
+        other: "LazyFrame | str",
+        *,
+        on: object,
+        how: str,
+    ) -> bool:
+        if not _is_query_builder_local_source(self.source):
+            return False
+        try:
+            normalized_how = _normalize_join_how(how)
+            normalized_columns = tuple(
+                _normalize_output_column_name(column)
+                for column in _normalize_columns((on,))
+            )
+        except (TypeError, ValueError):
+            return False
+        if not normalized_columns:
+            return False
+        if isinstance(other, LazyFrame):
+            return (
+                _is_query_builder_local_source(other.source)
+                and not other.operations
+            )
+        return _source_format_for_local_source_ref(str(other)) is not None
+
+    def _schema_declared_projection_columns(self) -> tuple[str, ...] | None:
+        if not _is_query_builder_local_source(self.source) or not self.source.schema:
+            return None
+        declared_columns = tuple(name for name, _dtype in self.source.schema)
+        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
+            return None
+        projection_columns = declared_columns
+        for operation in self.operations:
+            if operation.kind == "select":
+                if any(not _is_sql_identifier(value) for value in operation.values):
+                    return None
+                projection_columns = operation.values
+            elif operation.kind in {"filter", "limit"}:
+                continue
+            else:
+                return None
+        return projection_columns
+
+    def _schema_declared_rename_projection(
+        self,
+        items: tuple[tuple[str, str], ...],
+    ) -> tuple[str, ...] | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None:
+            return None
+        rename_map = dict(items)
+        if any(not _is_sql_identifier(source) for source in rename_map):
+            raise ValueError("rename source column names admit only bare SQL identifiers")
+        missing = tuple(source for source in rename_map if source not in projection_columns)
+        if missing:
+            raise ValueError(
+                "rename referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        output_names = tuple(rename_map.get(column, column) for column in projection_columns)
+        if len(set(output_names)) != len(output_names):
+            raise ValueError("rename output column names must be unique")
+        return tuple(
+            column if column == output_name else f"{column} AS {output_name}"
+            for column, output_name in zip(projection_columns, output_names)
+        )
+
+    def _schema_declared_drop_projection(
+        self,
+        columns: tuple[str, ...],
+    ) -> tuple[str, ...] | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None:
+            return None
+        if any(not _is_sql_identifier(column) for column in columns):
+            return None
+        missing = tuple(column for column in columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "drop referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        remaining = tuple(column for column in projection_columns if column not in set(columns))
+        if not remaining:
+            raise ValueError("drop must leave at least one projected column")
+        return remaining
+
+    def _schema_declared_fillna_projection(
+        self,
+        value: object | None,
+    ) -> tuple[str, ...] | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None or value is None:
+            return None
+        if isinstance(value, Mapping):
+            if not value:
+                return None
+            fill_values: dict[str, str] = {}
+            for raw_column, raw_value in value.items():
+                column = _require_non_empty("fillna column", raw_column)
+                if not _is_sql_identifier(column):
+                    raise ValueError("fillna column names admit only bare SQL identifiers")
+                fill_literal = _sql_fillna_literal(raw_value)
+                if fill_literal is None:
+                    return None
+                fill_values[column] = fill_literal
+            missing = tuple(column for column in fill_values if column not in projection_columns)
+            if missing:
+                raise ValueError(
+                    "fillna referenced unknown declared/projection column(s): "
+                    + ", ".join(missing)
+                )
+        else:
+            fill_literal = _sql_fillna_literal(value)
+            if fill_literal is None:
+                return None
+            fill_values = {column: fill_literal for column in projection_columns}
+        return tuple(
+            f"COALESCE({column}, {fill_values[column]}) AS {column}"
+            if column in fill_values
+            else column
+            for column in projection_columns
+        )
+
+    def _schema_declared_null_mask_projection(
+        self,
+        columns: tuple[object, ...],
+        *,
+        is_not: bool,
+    ) -> tuple[str, ...] | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None:
+            return None
+        target_columns = _normalize_columns(columns) or projection_columns
+        if any(not _is_sql_identifier(column) for column in target_columns):
+            return None
+        missing = tuple(column for column in target_columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "null-mask referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        null_operator = "IS NOT NULL" if is_not else "IS NULL"
+        return tuple(f"{column} {null_operator} AS {column}" for column in target_columns)
 
     def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
         statement = self._sql_local_source_statement(default_limit=100)
@@ -7576,6 +7847,15 @@ def _normalize_null_mask_target(columns: Sequence[object]) -> str:
     return f"columns={_optional_columns_for_target(columns or None)}"
 
 
+def _sql_fillna_literal(value: object) -> str | None:
+    if value is None:
+        return None
+    try:
+        return _sql_literal(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalize_callable_transform_target(
     context: str,
     function: object,
@@ -7640,6 +7920,16 @@ def _normalize_workflow_targets(
     if not targets:
         raise ValueError("concat others must not be empty")
     return targets
+
+
+def _single_lazyframe_target(
+    value: "LazyFrame | str | Sequence[LazyFrame | str]",
+) -> LazyFrame | None:
+    if isinstance(value, LazyFrame):
+        return value
+    if _is_non_string_sequence(value) and len(value) == 1 and isinstance(value[0], LazyFrame):
+        return value[0]
+    return None
 
 
 def _workflow_target_summary(value: "LazyFrame | str | os.PathLike[str]") -> str:

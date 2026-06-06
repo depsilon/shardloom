@@ -5798,18 +5798,26 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("foundry_generated_output", dataframe_methods.unsupported_methods)
         self.assertNotIn("sql", dataframe_methods.unsupported_methods)
         self.assertNotIn("from_pandas", dataframe_methods.unsupported_methods)
-        self.assertIn("rename", dataframe_methods.unsupported_methods)
-        self.assertIn("rename_columns", dataframe_methods.unsupported_methods)
-        self.assertIn("drop", dataframe_methods.unsupported_methods)
-        self.assertIn("drop_columns", dataframe_methods.unsupported_methods)
+        self.assertNotIn("rename", dataframe_methods.unsupported_methods)
+        self.assertNotIn("rename_columns", dataframe_methods.unsupported_methods)
+        self.assertNotIn("drop", dataframe_methods.unsupported_methods)
+        self.assertNotIn("drop_columns", dataframe_methods.unsupported_methods)
         self.assertIn("sample", dataframe_methods.unsupported_methods)
         self.assertIn("explode", dataframe_methods.unsupported_methods)
-        self.assertIn("merge", dataframe_methods.unsupported_methods)
-        self.assertIn("concat", dataframe_methods.unsupported_methods)
+        self.assertNotIn("merge", dataframe_methods.unsupported_methods)
+        self.assertNotIn("concat", dataframe_methods.unsupported_methods)
         self.assertIn("pivot", dataframe_methods.unsupported_methods)
         self.assertIn("pivot_table", dataframe_methods.unsupported_methods)
         self.assertIn("melt", dataframe_methods.unsupported_methods)
         self.assertIn("rolling", dataframe_methods.unsupported_methods)
+        self.assertNotIn("nunique", dataframe_methods.unsupported_methods)
+        self.assertNotIn("value_counts", dataframe_methods.unsupported_methods)
+        self.assertNotIn("fillna", dataframe_methods.unsupported_methods)
+        self.assertNotIn("fill_null", dataframe_methods.unsupported_methods)
+        self.assertNotIn("isna", dataframe_methods.unsupported_methods)
+        self.assertNotIn("isnull", dataframe_methods.unsupported_methods)
+        self.assertNotIn("notna", dataframe_methods.unsupported_methods)
+        self.assertNotIn("notnull", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
             "source_declaration_supported",
@@ -5935,38 +5943,148 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("rename").support_status,
-            "deterministic_unsupported_diagnostic",
+            "fixture_smoke_supported",
         )
-        self.assertEqual(
-            dataframe_methods.row("rename").diagnostic_operation,
-            "rename",
-        )
-        self.assertEqual(
-            dataframe_methods.row("rename").blocker_id,
-            "cg21.workflow.rename.schema_rewrite_unsupported",
-        )
-        self.assertFalse(dataframe_methods.row("rename").runtime_execution)
+        self.assertTrue(dataframe_methods.row("rename").runtime_execution)
+        self.assertTrue(dataframe_methods.row("rename").data_read)
+        self.assertIsNone(dataframe_methods.row("rename").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("rename").blocker_id)
         self.assertIn(
-            "schema_rewrite_semantics",
+            "declared_schema_projection_rewrite",
             dataframe_methods.row("rename").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("rename_columns").diagnostic_operation,
-            "rename",
-        )
-        self.assertEqual(
             dataframe_methods.row("drop").support_status,
-            "deterministic_unsupported_diagnostic",
+            "fixture_smoke_supported",
         )
-        self.assertEqual(
-            dataframe_methods.row("drop").blocker_id,
-            "cg21.workflow.drop.schema_projection_unsupported",
-        )
-        self.assertFalse(dataframe_methods.row("drop").data_read)
+        self.assertTrue(dataframe_methods.row("drop").runtime_execution)
+        self.assertTrue(dataframe_methods.row("drop").data_read)
+        self.assertIsNone(dataframe_methods.row("drop").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("drop").blocker_id)
         self.assertIn("projection_rewrite_semantics", dataframe_methods.row("drop").required_evidence)
         self.assertEqual(
-            dataframe_methods.row("drop_columns").diagnostic_operation,
-            "drop",
+            dataframe_methods.row("rename_columns").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("drop_columns").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("value_counts").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("value_counts").runtime_execution)
+        self.assertTrue(dataframe_methods.row("value_counts").data_read)
+        self.assertIsNone(dataframe_methods.row("value_counts").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("value_counts").blocker_id)
+        self.assertIn(
+            "grouped_count_semantics",
+            dataframe_methods.row("value_counts").required_evidence,
+        )
+        self.assertIn(
+            "ordering_contract",
+            dataframe_methods.row("value_counts").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("nunique").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("nunique").runtime_execution)
+        self.assertTrue(dataframe_methods.row("nunique").data_read)
+        self.assertIsNone(dataframe_methods.row("nunique").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("nunique").blocker_id)
+        self.assertIn(
+            "distinct_count_semantics",
+            dataframe_methods.row("nunique").required_evidence,
+        )
+        self.assertIn(
+            "dropna_policy",
+            dataframe_methods.row("nunique").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("concat").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("concat").runtime_execution)
+        self.assertTrue(dataframe_methods.row("concat").data_read)
+        self.assertIsNone(dataframe_methods.row("concat").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("concat").blocker_id)
+        self.assertIn(
+            "schema_alignment_contract",
+            dataframe_methods.row("concat").required_evidence,
+        )
+        self.assertIn(
+            "set_operation_semantics",
+            dataframe_methods.row("concat").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("merge").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("merge").runtime_execution)
+        self.assertTrue(dataframe_methods.row("merge").data_read)
+        self.assertIsNone(dataframe_methods.row("merge").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("merge").blocker_id)
+        self.assertIn(
+            "join_alias_semantics",
+            dataframe_methods.row("merge").required_evidence,
+        )
+        self.assertIn(
+            "join_operator_capability",
+            dataframe_methods.row("merge").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("fillna").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("fillna").runtime_execution)
+        self.assertTrue(dataframe_methods.row("fillna").data_read)
+        self.assertIsNone(dataframe_methods.row("fillna").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("fillna").blocker_id)
+        self.assertIn(
+            "null_fill_semantics",
+            dataframe_methods.row("fillna").required_evidence,
+        )
+        self.assertIn(
+            "projection_rewrite_semantics",
+            dataframe_methods.row("fillna").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("fill_null").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("isna").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("isna").runtime_execution)
+        self.assertTrue(dataframe_methods.row("isna").data_read)
+        self.assertIsNone(dataframe_methods.row("isna").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("isna").blocker_id)
+        self.assertIn(
+            "null_mask_semantics",
+            dataframe_methods.row("isna").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("isnull").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("notna").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("notna").runtime_execution)
+        self.assertTrue(dataframe_methods.row("notna").data_read)
+        self.assertIsNone(dataframe_methods.row("notna").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("notna").blocker_id)
+        self.assertIn(
+            "not_null_mask_semantics",
+            dataframe_methods.row("notna").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("notnull").support_status,
+            "fixture_smoke_supported",
         )
         self.assertEqual(
             dataframe_methods.row("sample").blocker_id,
@@ -5984,24 +6102,6 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "list_expansion_operator",
             dataframe_methods.row("explode").required_evidence,
-        )
-        self.assertEqual(
-            dataframe_methods.row("merge").blocker_id,
-            "cg21.workflow.merge.join_alias_unsupported",
-        )
-        self.assertFalse(dataframe_methods.row("merge").runtime_execution)
-        self.assertIn(
-            "join_alias_semantics",
-            dataframe_methods.row("merge").required_evidence,
-        )
-        self.assertEqual(
-            dataframe_methods.row("concat").blocker_id,
-            "cg21.workflow.concat.union_alignment_unsupported",
-        )
-        self.assertFalse(dataframe_methods.row("concat").data_read)
-        self.assertIn(
-            "schema_alignment_contract",
-            dataframe_methods.row("concat").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("pivot").blocker_id,

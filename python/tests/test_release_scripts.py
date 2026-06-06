@@ -5487,6 +5487,14 @@ jobs:
         self.assertIn("explode", by_method)
         self.assertIn("merge", by_method)
         self.assertIn("concat", by_method)
+        self.assertIn("nunique", by_method)
+        self.assertIn("value_counts", by_method)
+        self.assertIn("fillna", by_method)
+        self.assertIn("fill_null", by_method)
+        self.assertIn("isna", by_method)
+        self.assertIn("isnull", by_method)
+        self.assertIn("notna", by_method)
+        self.assertIn("notnull", by_method)
         self.assertIn("pivot", by_method)
         self.assertIn("pivot_table", by_method)
         self.assertIn("melt", by_method)
@@ -5499,12 +5507,20 @@ jobs:
         )
         self.assertEqual(
             by_method["rename"]["support_status"],
-            "deterministic_unsupported_diagnostic",
+            "fixture_smoke_supported",
         )
-        self.assertEqual(by_method["rename"]["diagnostic_operation"], "rename")
+        self.assertIsNone(by_method["rename"]["diagnostic_operation"])
+        self.assertIn(
+            "declared_schema_projection_rewrite",
+            by_method["rename"]["required_evidence"],
+        )
         self.assertEqual(
-            by_method["drop"]["blocker_id"],
-            "cg21.workflow.drop.schema_projection_unsupported",
+            by_method["drop"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "projection_rewrite_semantics",
+            by_method["drop"]["required_evidence"],
         )
         self.assertIn(
             "deterministic_seed_policy",
@@ -5512,12 +5528,57 @@ jobs:
         )
         self.assertFalse(by_method["explode"]["runtime_execution"])
         self.assertEqual(
-            by_method["merge"]["blocker_id"],
-            "cg21.workflow.merge.join_alias_unsupported",
+            by_method["merge"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn("join_operator_capability", by_method["merge"]["required_evidence"])
+        self.assertEqual(
+            by_method["concat"]["support_status"],
+            "fixture_smoke_supported",
         )
         self.assertIn(
             "schema_alignment_contract",
             by_method["concat"]["required_evidence"],
+        )
+        self.assertEqual(
+            by_method["nunique"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn("distinct_count_semantics", by_method["nunique"]["required_evidence"])
+        self.assertEqual(
+            by_method["value_counts"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "grouped_count_semantics",
+            by_method["value_counts"]["required_evidence"],
+        )
+        self.assertEqual(
+            by_method["fillna"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn("null_fill_semantics", by_method["fillna"]["required_evidence"])
+        self.assertEqual(
+            by_method["fill_null"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            by_method["isna"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn("null_mask_semantics", by_method["isna"]["required_evidence"])
+        self.assertEqual(
+            by_method["isnull"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            by_method["notna"]["support_status"],
+            "fixture_smoke_supported",
+        )
+        self.assertIn("not_null_mask_semantics", by_method["notna"]["required_evidence"])
+        self.assertEqual(
+            by_method["notnull"]["support_status"],
+            "fixture_smoke_supported",
         )
         self.assertEqual(
             by_method["pivot"]["support_status"],

@@ -6051,6 +6051,66 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_nunique_lowers_to_count_distinct(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT count(DISTINCT customer_id) AS unique_count FROM 'target/input.csv' WHERE amount >= 8 LIMIT 1",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source nunique",
+                    "human_text": "sql local source nunique",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"unique_count\\":2}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_aggregate_filter_limit"},
+                        {"key": "nunique_runtime_execution", "value": "true"},
+                        {"key": "nunique_column", "value": "customer_id"},
+                        {"key": "nunique_dropna_policy", "value": "sql_count_distinct_ignores_nulls"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "scalar_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(DISTINCT customer_id)"},
+                        {"key": "aggregate_output_columns", "value": "unique_count"},
+                        {"key": "distinct_aggregate_runtime_execution", "value": "true"},
+                        {"key": "distinct_aggregate_function", "value": "count(DISTINCT customer_id)"},
+                        {"key": "distinct_aggregate_column", "value": "customer_id"},
+                        {"key": "distinct_aggregate_null_semantics", "value": "sql_count_distinct_ignores_nulls"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/input.csv").filter(sl.col("amount") >= 8)
+        nunique = workflow.nunique("customer_id")
+        self.assertIsInstance(nunique, LazyFrame)
+        report = nunique.collect(limit=1)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("nunique_runtime_execution"), "true")
+        self.assertEqual(report.aggregate_functions, ("count(DISTINCT customer_id)",))
+        self.assertEqual(report.aggregate_output_columns, ("unique_count",))
+        self.assertTrue(report.distinct_aggregate_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_distinct_projection_invokes_sql_smoke(
         self,
     ) -> None:
@@ -6185,6 +6245,61 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.sql_union_null_semantics,
             "not_applicable_union_all_preserves_rows",
         )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_concat_lowers_to_union_all(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/left.csv' UNION ALL SELECT id,label FROM 'target/right.csv' LIMIT 4",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source concat union all",
+                    "human_text": "sql local source concat union all",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n{\\"id\\":4,\\"label\\":\\"delta\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_union_all_limit"},
+                        {"key": "concat_runtime_execution", "value": "true"},
+                        {"key": "concat_axis", "value": "0"},
+                        {"key": "concat_schema_alignment", "value": "explicit_matching_projection"},
+                        {"key": "sql_union_runtime_execution", "value": "true"},
+                        {"key": "sql_union_mode", "value": "all"},
+                        {"key": "sql_union_branch_count", "value": "2"},
+                        {"key": "output_row_count", "value": "4"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/left.csv").select("id", "label").concat(
+            [ctx.read_csv("target/right.csv").select("id", "label")]
+        )
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        report = workflow.collect(limit=4)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("concat_runtime_execution"), "true")
+        self.assertTrue(report.sql_union_runtime_execution)
+        self.assertEqual(report.sql_union_mode, "all")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -6780,6 +6895,129 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_schema_declared_dataframe_rename_lowers_to_projection_alias(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,amount AS order_amount,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source projection alias",
+                    "human_text": "sql local source projection alias",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"order_amount\\":19,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_projection_filter_limit"},
+                        {"key": "projection_alias_runtime_execution", "value": "true"},
+                        {"key": "projection_alias_source_columns", "value": "amount"},
+                        {"key": "projection_alias_output_columns", "value": "order_amount"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "amount": "int64", "label": "utf8"},
+        ).rename({"amount": "order_amount"})
+        self.assertIsInstance(workflow, LazyFrame)
+        report = workflow.filter(sl.col("amount") >= 10).collect(limit=2)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("projection_alias_runtime_execution"), "true")
+        self.assertEqual(report.envelope.field("projection_alias_output_columns"), "order_amount")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_schema_declared_dataframe_drop_lowers_to_projection_rewrite(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,amount FROM 'target/input.csv' LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source projection rewrite",
+                    "human_text": "sql local source projection rewrite",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount\\":8}\\n{\\"id\\":2,\\"amount\\":19}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_projection_limit"},
+                        {"key": "projection_rewrite_runtime_execution", "value": "true"},
+                        {"key": "projection_rewrite_dropped_columns", "value": "debug"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "amount": "int64", "debug": "utf8"},
+        ).drop("debug")
+        self.assertIsInstance(workflow, LazyFrame)
+        report = workflow.collect(limit=3)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("projection_rewrite_runtime_execution"), "true")
+        self.assertEqual(report.envelope.field("projection_rewrite_dropped_columns"), "debug")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_schema_declared_dataframe_projection_rewrites_fail_closed(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=self.fake_cli("")))
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "amount": "int64"},
+        )
+
+        with self.assertRaisesRegex(ValueError, "rename output column names must be unique"):
+            workflow.rename({"amount": "id"})
+        with self.assertRaisesRegex(ValueError, "rename referenced unknown"):
+            workflow.rename({"missing": "renamed"})
+        with self.assertRaisesRegex(ValueError, "drop referenced unknown"):
+            workflow.drop("missing")
+        with self.assertRaisesRegex(ValueError, "drop must leave at least one"):
+            workflow.drop("id", "amount")
+        with self.assertRaisesRegex(ValueError, "fillna referenced unknown"):
+            workflow.fillna({"missing": 0})
+        with self.assertRaisesRegex(ValueError, "null-mask referenced unknown"):
+            workflow.isna("missing")
+
     def test_local_csv_query_builder_with_columns_assign_aliases_invoke_sql_smoke(
         self,
     ) -> None:
@@ -6996,6 +7234,194 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.sort_direction, "desc")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_value_counts_lowers_to_grouped_count(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT label,count(*) AS rows FROM 'target/input.csv' WHERE (amount >= 8) AND (label IS NOT NULL) GROUP BY label ORDER BY rows DESC LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source value counts",
+                    "human_text": "sql local source value counts",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"label\\":\\"alpha\\",\\"rows\\":3}\\n{\\"label\\":\\"beta\\",\\"rows\\":2}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_order_by_topn_filter_limit"},
+                        {"key": "value_counts_runtime_execution", "value": "true"},
+                        {"key": "value_counts_group_columns", "value": "label"},
+                        {"key": "value_counts_dropna_filter", "value": "label IS NOT NULL"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*)"},
+                        {"key": "aggregate_output_columns", "value": "rows"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "label"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "sort_keys", "value": "rows"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "top_n_limit", "value": "3"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/input.csv").filter(sl.col("amount") >= 8)
+        value_counts = workflow.value_counts("label")
+        self.assertIsInstance(value_counts, LazyFrame)
+        report = value_counts.collect(limit=3)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("value_counts_runtime_execution"), "true")
+        self.assertEqual(report.aggregate_functions, ("count(*)",))
+        self.assertEqual(report.aggregate_output_columns, ("rows",))
+        self.assertEqual(report.envelope.field("value_counts_group_columns"), "label")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_schema_declared_dataframe_fillna_lowers_to_coalesce_projection(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,COALESCE(amount, 0) AS amount,COALESCE(label, 'unknown') AS label FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source dataframe fillna",
+                    "human_text": "sql local source dataframe fillna",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount\\":0,\\"label\\":\\"unknown\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_coalesce_projection_filter_limit"},
+                        {"key": "fillna_runtime_execution", "value": "true"},
+                        {"key": "fillna_lowering", "value": "coalesce_projection"},
+                        {"key": "null_coalesce_projection_runtime_execution", "value": "true"},
+                        {"key": "null_coalesce_projection_source_column", "value": "amount,label"},
+                        {"key": "null_coalesce_projection_output_column", "value": "amount,label"},
+                        {"key": "null_coalesce_projection_fallback_dtype", "value": "int64,utf8"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "amount": "int64", "label": "utf8"},
+        ).fillna({"amount": 0, "label": "unknown"})
+        self.assertIsInstance(workflow, LazyFrame)
+        report = workflow.filter(sl.col("id") >= 1).collect(limit=2)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("fillna_runtime_execution"), "true")
+        self.assertTrue(report.null_coalesce_projection_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_schema_declared_dataframe_null_masks_lower_to_boolean_projections(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[0] == "sql-local-source-smoke", args
+                assert args[2:] == ["--output-format", "inline-jsonl", "--format", "json"], args
+                statement = args[1]
+                if statement == "SELECT label IS NULL AS label,closed_at IS NULL AS closed_at FROM 'target/input.csv' LIMIT 3":
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"label\\":false,\\"closed_at\\":true}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_null_mask_projection_limit"},
+                        {"key": "isna_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_predicate_family", "value": "null_predicate,null_predicate"},
+                        {"key": "predicate_projection_source_column", "value": "label,closed_at"},
+                        {"key": "predicate_projection_output_column", "value": "label,closed_at"},
+                        {"key": "predicate_projection_null_semantics", "value": "sql_is_null_is_not_null"},
+                    ]
+                elif statement == "SELECT label IS NOT NULL AS label FROM 'target/input.csv' LIMIT 3":
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"label\\":true}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_not_null_mask_projection_limit"},
+                        {"key": "notna_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_predicate_family", "value": "null_predicate"},
+                        {"key": "predicate_projection_source_column", "value": "label"},
+                        {"key": "predicate_projection_output_column", "value": "label"},
+                        {"key": "predicate_projection_null_semantics", "value": "sql_is_null_is_not_null"},
+                    ]
+                else:
+                    raise AssertionError(statement)
+                fields.extend([
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                ])
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source null mask projection",
+                    "human_text": "sql local source null mask projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        source = ctx.read_csv(
+            "target/input.csv",
+            schema={"label": "utf8", "closed_at": "timestamp"},
+        )
+
+        isna_workflow = source.isnull("label", "closed_at")
+        self.assertIsInstance(isna_workflow, LazyFrame)
+        isna_report = isna_workflow.collect(limit=3)
+        self.assertEqual(isna_report.envelope.field("isna_runtime_execution"), "true")
+        self.assertTrue(isna_report.predicate_projection_runtime_execution)
+        self.assertFalse(isna_report.fallback_attempted)
+
+        notna_workflow = source.notnull("label")
+        self.assertIsInstance(notna_workflow, LazyFrame)
+        notna_report = notna_workflow.collect(limit=3)
+        self.assertEqual(notna_report.envelope.field("notna_runtime_execution"), "true")
+        self.assertTrue(notna_report.predicate_projection_runtime_execution)
+        self.assertFalse(notna_report.external_engine_invoked)
 
     def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -7506,6 +7932,65 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.join_unmatched_left_row_count, 1)
         self.assertEqual(report.join_unmatched_right_row_count, 0)
         self.assertEqual(report.join_rows_output, 4)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_merge_lowers_to_join(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f LEFT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source merge alias",
+                    "human_text": "sql local source merge alias",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"consumer\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_left_outer_equi_join_filter_limit"},
+                        {"key": "merge_runtime_execution", "value": "true"},
+                        {"key": "merge_lowering", "value": "join"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "left_outer_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id"},
+                        {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_matched_row_count", "value": "2"},
+                        {"key": "join_rows_output", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.read_csv("target/fact.csv").merge(
+            ctx.read_csv("target/dim.csv"),
+            on="customer_id",
+            how="left",
+        )
+        self.assertIsInstance(workflow, LazyFrame)
+        report = workflow.select("f.id", "d.segment").filter("f.amount >= 10").limit(10).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("merge_runtime_execution"), "true")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "left_outer_equi")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -14059,7 +14544,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.explode("items"),
             workflow.merge(
                 sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
-                on="id",
                 how="left",
             ),
             workflow.concat([sl.read_csv("other.csv", client=ShardLoomClient(binary=binary))]),
@@ -14194,7 +14678,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
         self.assertEqual(
             by_operation["merge"].envelope.field("target_ref"),
-            "how=left;on=id;read_csv(other.csv)",
+            "how=left;on=implicit_common_columns;read_csv(other.csv)",
         )
         self.assertEqual(
             by_operation["concat"].envelope.field("target_ref"),

@@ -229,10 +229,18 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   blocker. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
   the bounded expression-join route, including Python `LazyFrame.join(condition=...)` predicate
   objects and logical `OR` over admitted qualified scalar leaves; complex-key and broader
-  non-scalar join predicates remain deterministic blockers. Common DataFrame inspection, summary,
-  null-handling, and Python-callable methods now fail closed through `workflow-unsupported-plan`
-  instead of missing Python attributes or hidden pandas/Polars execution. Arbitrary
-  expression/DataFrame breadth remains pending until its runtime evidence lands.
+  non-scalar join predicates remain deterministic blockers. Schema-declared local-source
+  `rename`/`rename_columns` and `drop`/`drop_columns` lower to projection alias/rewrite runtime
+  routes; inferred-schema and unsafe transform shapes still fail closed. Scoped local-source
+  `value_counts` lowers to the grouped `count(*) AS rows` route with optional `IS NOT NULL`
+  dropna filtering and rows-desc ordering; broader pandas summary semantics remain gated. Scoped
+  row-wise `concat` lowers to `UNION ALL` only for two local-source branches with explicit matching
+  projected columns; schema union/alignment, multi-branch, and axis=1 concat remain gated. Scoped
+  explicit-key `merge(on=..., how=...)` lowers to the admitted join route; implicit key inference,
+  suffix handling, and sided-key pandas merge remain gated. Scoped one-column
+  `nunique(..., dropna=True)` lowers to `count(DISTINCT column)` with SQL null semantics; broad
+  pandas result-shape semantics remain gated. Scoped schema-declared `fillna`/`fill_null` lowers to `COALESCE` projection rewrites, and scoped schema-declared `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean projection rewrites; inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
+  DataFrame inspection, summary, and Python-callable methods now fail closed through `workflow-unsupported-plan` diagnostics instead of missing attributes or hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

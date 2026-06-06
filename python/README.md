@@ -1327,6 +1327,11 @@ Joined workflows also admit scoped computed projections over qualified columns p
 scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
 lower through the same runtime, may filter aggregate output rows with `HAVING`, and may order by
 numeric aggregate output aliases or UTF-8 group keys before a bounded `limit(...)`.
+Schema-declared local-source `fillna(...)` / `fill_null(...)` now rewrite selected or declared
+columns to scoped `COALESCE(column, literal)` projections, and schema-declared
+`isna(...)` / `isnull(...)` / `notna(...)` / `notnull(...)` rewrite explicit or declared columns to
+`IS NULL` / `IS NOT NULL` boolean projections. Broad pandas null-fill options, inferred schemas,
+unsafe expression/join/aggregate/window shapes, and full mask result-shape parity remain gated.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate and
@@ -1602,7 +1607,12 @@ JSONL/result-boundary complex projection, and scoped ranking-window shapes descr
 Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`,
 `sort_values`, `distinct`, `drop_duplicates`, and `unique` are included in the matrix so wrappers
 and agents can distinguish familiar method names that lower to existing runtime evidence from
-genuinely unsupported DataFrame requests.
+genuinely unsupported DataFrame requests. Schema-declared local-source `rename` /
+`rename_columns` and `drop` / `drop_columns` are also fixture-smoke-supported: they rewrite the
+declared projection to ShardLoom SQL aliases or column exclusion before an admitted terminal
+collect/write route runs. Inferred-schema, join, aggregate, window, expression, unknown-column,
+duplicate-output, and drop-all-column shapes still fail closed without invoking pandas, Polars, or
+another DataFrame backend.
 `ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
 collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
 parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still
@@ -1614,10 +1624,26 @@ It does not use DataFrame libraries as execution engines, invoke external engine
 DataFrame/notebook support to claim-grade status. Other lazy source, `filter`, `select`/`project`,
 `limit`, and `group_by`/`groupby` helpers remain side-effect-free declarations unless an admitted
 terminal method is called. Joins, aggregations, windows, schema/data-quality helpers, bounded
-runtime profile, scoped local-source quarantine, bounded Python-object materialization, optional
-pandas/Arrow/NumPy conversion, and notebook preview remain fixture-scoped; broad unbounded
-materialization, production observability, production quarantine governance, and production notebook
-display remain deterministic unsupported surfaces unless later evidence-backed slices promote them.
+runtime profile, scoped local-source quarantine, scoped `value_counts` grouped-count lowering,
+scoped row-wise `concat` over two explicitly matching projected local-source branches, bounded
+explicit-key `merge` over the admitted join route, scoped one-column `nunique` over
+`count(DISTINCT ...)`, bounded Python-object materialization, optional pandas/Arrow/NumPy
+conversion, and notebook preview remain fixture-scoped; broad pandas summary parity,
+implicit/suffix merge, schema-union concat, axis=1 concat, unbounded materialization, production
+observability, production quarantine governance, and production notebook display remain
+deterministic unsupported surfaces unless later evidence-backed slices promote them.
+`value_counts(...)` is supported only as a local-source `group_by(...).count(rows)` rewrite with
+optional `IS NOT NULL` dropna filtering and rows-desc ordering; normalize/bin/axis behavior and
+unsafe plan shapes remain blockers.
+`concat(...)` is supported only as row-wise `UNION ALL` for two local-source branches that already
+project the same bare columns explicitly; implicit schema alignment, path targets, multi-branch
+concat, and column-wise concat remain blockers.
+`merge(...)` is supported only as an explicit `on=...` alias to the admitted ShardLoom `join(...)`
+route; implicit key inference, `left_on`/`right_on`, suffix handling, and right-side operations
+remain blockers.
+`nunique(...)` is supported only as one bare column with `dropna=True`, lowering to SQL
+`count(DISTINCT column)`; multi-column result shapes, `dropna=False`, and axis semantics remain
+blockers.
 `schema_contract(...)` is supported as the exact bounded `validate_schema(...)` contract over the
 same admitted local-source rows; it is not a broad schema registry, table constraint manager, or
 object-store/lakehouse enforcement surface.
