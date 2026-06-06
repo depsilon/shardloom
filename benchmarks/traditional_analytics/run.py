@@ -797,11 +797,78 @@ PREPARED_NATIVE_VORTEX_LIFECYCLE_INT_FIELDS = {
 PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
+BATCH_PROCESS_STARTUP_AMORTIZED_ATTRIBUTION = (
+    "per_scenario_amortized_batch_cli_wall_from_shared_single_process_batch"
+)
 BATCH_HARNESS_OVERHEAD_STATUS = "batch_outer_harness_wall_minus_cli_process_wall_not_row_allocated"
 SHARDLOOM_GLOBAL_STARTUP_WARMUP_SCOPE = "one_time_cli_binary_prime_shared_across_shardloom_lanes"
 SHARDLOOM_LANE_STARTUP_WARMUP_SCOPE = "per_lane_cli_status_warmup_after_global_prime"
 SHARDLOOM_GLOBAL_PRIME_STARTUP_WARMUP_SCOPE = "covered_by_global_cli_binary_prime"
 SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY: dict[str, float] = {}
+SHARDLOOM_GLOBAL_STARTUP_WARMUP_ROW_ALLOCATION_STATUS = (
+    "shared_global_cli_prime_reported_in_engine_versions_not_row_allocated"
+)
+SHARED_PREPARED_ARTIFACT_CACHE_SCHEMA_VERSION = (
+    "shardloom.benchmark_harness.shared_prepared_artifact_cache.v1"
+)
+SHARED_PREPARED_ARTIFACT_CACHE_SCOPE = (
+    "benchmark_harness_shared_prepared_vortex_artifact_in_process"
+)
+SHARED_PREPARED_ARTIFACT_CACHE_POLICY = (
+    "benchmark_harness_shared_prepared_vortex_artifact_reuse.v1"
+)
+SHARED_PREPARED_ARTIFACT_CACHE: dict[
+    tuple[str, str, str, str, str, str], dict[str, Path | float | str]
+] = {}
+SHARED_PREPARED_ARTIFACT_ZERO_MICROS_FIELDS = (
+    "source_stat_micros",
+    "source_read_micros",
+    "source_parse_micros",
+    "compatibility_parse_micros",
+    "source_to_columnar_micros",
+    "compatibility_to_vortex_import_micros",
+    "inclusive_compatibility_to_vortex_import_micros",
+    "vortex_array_build_micros",
+    "vortex_write_micros",
+    "vortex_digest_micros",
+    "vortex_reopen_verify_micros",
+    "exclusive_source_admission_micros",
+    "exclusive_source_read_micros",
+    "exclusive_source_parse_or_decode_micros",
+    "exclusive_source_to_vortex_array_micros",
+    "exclusive_vortex_write_micros",
+    "exclusive_vortex_digest_micros",
+    "exclusive_vortex_reopen_verify_micros",
+    "exclusive_stage_sum_micros",
+    "exclusive_stage_residual_micros",
+    "exclusive_stage_total_delta_micros",
+)
+SHARED_PREPARED_ARTIFACT_ZERO_MILLIS_FIELDS = (
+    "preparation_millis",
+    "prepared_state_lookup_or_create_millis",
+    "prepare_route_total_millis",
+    "prepare_cli_wall_millis",
+    "preparation_cli_process_wall_millis",
+)
+SHARED_PREPARED_ARTIFACT_EVIDENCE_FIELDS = (
+    "benchmark_harness_prepared_artifact_cache_schema_version",
+    "benchmark_harness_prepared_artifact_cache_status",
+    "benchmark_harness_prepared_artifact_cache_scope",
+    "benchmark_harness_prepared_artifact_cache_policy",
+    "benchmark_harness_prepared_artifact_cache_hit",
+    "benchmark_harness_prepared_artifact_cache_creator_engine",
+    "benchmark_harness_prepared_artifact_cache_consumer_engine",
+    "benchmark_harness_prepared_artifact_cache_reuse_reason",
+    "benchmark_harness_prepared_artifact_cache_fallback_attempted",
+    "benchmark_harness_prepared_artifact_cache_external_engine_invoked",
+    "shared_prepared_artifact_original_preparation_millis",
+    "shared_prepared_artifact_original_prepare_route_total_millis",
+    "shared_prepared_artifact_original_preparation_cli_process_wall_millis",
+    "shared_prepared_artifact_original_compatibility_to_vortex_import_micros",
+    "shared_prepared_artifact_original_source_read_micros",
+    "shared_prepared_artifact_original_vortex_write_micros",
+    "global_startup_warmup_row_allocation_status",
+)
 BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES = {
     "batch_shared_pre_scenario",
     "batch_shared_session_open_only_deferred_family_build_reported_separately",
@@ -816,6 +883,7 @@ PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "startup_warmup_scope",
     "global_startup_warmup_millis",
     "global_startup_warmup_scope",
+    "global_startup_warmup_row_allocation_status",
     "build_time_millis",
     "build_time_excluded",
     "preparation_millis",
@@ -826,6 +894,7 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "batch_runner_kind",
     "batch_scenario_count",
     "batch_cli_process_wall_millis",
+    "batch_cli_process_wall_amortized_millis",
     "batch_process_wall_shared",
     "batch_process_startup_attribution",
     "source_state_reuse_status",
@@ -4418,8 +4487,25 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             if key.startswith("vortex_capillary_preparation_"):
                 fields.setdefault(key, str(value))
 
+    def attach_shared_prepared_artifact_cache_fields(
+        fields: dict[str, str], prepared: dict[str, Path | float | str]
+    ) -> None:
+        for key, value in prepared.items():
+            if key in SHARED_PREPARED_ARTIFACT_EVIDENCE_FIELDS or key.startswith(
+                "shared_prepared_artifact_original_"
+            ):
+                fields.setdefault(key, str(value))
+
     def prepare_format(paths: DatasetPaths, data_format: str) -> None:
         if data_format in prepared_paths:
+            return
+        cache_key = shared_prepared_artifact_cache_key(paths, data_format, binary)
+        cached = SHARED_PREPARED_ARTIFACT_CACHE.get(cache_key)
+        if cached and shared_prepared_artifact_entry_is_valid(cached):
+            prepared_paths[data_format] = shared_prepared_artifact_cache_hit_entry(
+                cached,
+                engine_name,
+            )
             return
         workspace = paths.root / "shardloom_native_vortex_inputs" / data_format
         command = [
@@ -4468,7 +4554,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         prepare_cli_wall_millis = completed.get(
             "process_wall_millis", preparation_wall_millis
         )
-        prepared_paths[data_format] = {
+        prepared = {
             "fact": fact_vortex,
             "dim": dim_vortex,
             "preparation_millis": prepared_state_lookup_or_create_millis,
@@ -4486,7 +4572,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             ),
             **preparation_stage_timing_fields(fields),
             **capillary_preparation_fields(fields),
+            **shared_prepared_artifact_cache_miss_fields(engine_name),
         }
+        prepared_paths[data_format] = prepared
+        register_shared_prepared_artifact(cache_key, prepared)
 
     def prepare_cdc_delta_format(paths: DatasetPaths, data_format: str) -> None:
         prepare_format(paths, data_format)
@@ -4550,6 +4639,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 **capillary_preparation_fields(fields),
             }
+        )
+        register_shared_prepared_artifact(
+            shared_prepared_artifact_cache_key(paths, data_format, binary),
+            prepared,
         )
 
     def prepare(paths: DatasetPaths, report_formats: tuple[str, ...]) -> None:
@@ -4801,6 +4894,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         for key, value in preparation_stage_timing_fields(prepared).items():
             fields.setdefault(key, value)
         attach_prepared_capillary_fields(fields, prepared)
+        attach_shared_prepared_artifact_cache_fields(fields, prepared)
         return {
             "__benchmark_result": json.loads(result_json),
             "__shardloom_evidence": fields,
@@ -4852,6 +4946,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "source_native_io_certificate_id": fields.get(
                 "prepare_batch_source_native_io_certificate_id", ""
             ),
+            **shared_prepared_artifact_cache_miss_fields(engine_name),
         }
         prepare_batch_prefix = "prepare_batch_vortex_capillary_preparation_"
         for key, value in fields.items():
@@ -5033,6 +5128,13 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             )
         prepared_ref, prepared_digest = prepared_refs_for_batch(prepared)
         batch_wall = completed.get("process_wall_millis", "not_measured")
+        batch_scenario_count = (
+            parse_optional_int(batch_fields.get("scenario_count")) or len(scenarios)
+        )
+        batch_wall_amortized = amortized_batch_cli_process_wall_millis(
+            batch_wall,
+            batch_scenario_count,
+        )
         fields.update(
             {
                 "requested_execution_mode": vortex_execution_mode,
@@ -5076,10 +5178,19 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "vortex_write_reopen_included": "false",
                 "direct_transient_execution": "false",
                 "persistent_runner_status": BATCH_RUNNER_STATUS,
-                "process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
+                "process_startup_attribution": (
+                    BATCH_PROCESS_STARTUP_AMORTIZED_ATTRIBUTION
+                ),
                 "python_harness_overhead_status": BATCH_HARNESS_OVERHEAD_STATUS,
-                "cli_process_wall_millis": str(batch_wall),
+                "cli_process_wall_millis": str(
+                    batch_wall_amortized if batch_wall_amortized is not None else batch_wall
+                ),
                 "batch_cli_process_wall_millis": str(batch_wall),
+                "batch_cli_process_wall_amortized_millis": str(
+                    batch_wall_amortized
+                    if batch_wall_amortized is not None
+                    else "not_measured"
+                ),
                 "batch_process_wall_shared": "true",
                 "batch_process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
                 "batch_runner_kind": batch_fields.get(
@@ -5611,6 +5722,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         for key, value in preparation_stage_timing_fields(prepared).items():
             fields.setdefault(key, value)
         attach_prepared_capillary_fields(fields, prepared)
+        attach_shared_prepared_artifact_cache_fields(fields, prepared)
         for prepare_key, value in batch_fields.items():
             if prepare_key.startswith("prepare_batch_"):
                 fields.setdefault(prepare_key, value)
@@ -5853,6 +5965,10 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom prepare/batch child rows reported external engine invocation"
             )
         prepared = prepared_from_prepare_batch_fields(fields)
+        register_shared_prepared_artifact(
+            shared_prepared_artifact_cache_key(paths, data_format, binary),
+            prepared,
+        )
         return {
             scenario: extract_batch_scenario_output(scenario, fields, prepared, completed)
             for scenario in scenarios
@@ -6116,6 +6232,143 @@ def shardloom_cli_attributed_warmup(
         ],
         "global_startup_warmup_scope": SHARDLOOM_GLOBAL_STARTUP_WARMUP_SCOPE,
     }
+
+
+def shared_prepared_artifact_cache_key(
+    paths: DatasetPaths, data_format: str, binary: Path
+) -> tuple[str, str, str, str, str, str]:
+    return (
+        str(paths.root.resolve()),
+        data_format,
+        str(fact_path(paths, data_format).resolve()),
+        str(dim_path(paths, data_format).resolve()),
+        str(binary.resolve()),
+        SHARDLOOM_BUILD_PROFILE,
+    )
+
+
+def shared_prepared_artifact_entry_is_valid(
+    entry: dict[str, Path | float | str],
+) -> bool:
+    for key in ("fact", "dim"):
+        value = entry.get(key)
+        if value in (None, "", "none"):
+            return False
+        if not Path(value).exists():
+            return False
+    return True
+
+
+def register_shared_prepared_artifact(
+    key: tuple[str, str, str, str, str, str],
+    entry: dict[str, Path | float | str],
+) -> None:
+    if shared_prepared_artifact_entry_is_valid(entry):
+        SHARED_PREPARED_ARTIFACT_CACHE[key] = dict(entry)
+
+
+def shared_prepared_artifact_cache_miss_fields(
+    engine_name: str,
+) -> dict[str, str]:
+    return {
+        "benchmark_harness_prepared_artifact_cache_schema_version": (
+            SHARED_PREPARED_ARTIFACT_CACHE_SCHEMA_VERSION
+        ),
+        "benchmark_harness_prepared_artifact_cache_status": (
+            "cache_miss_created_and_registered"
+        ),
+        "benchmark_harness_prepared_artifact_cache_scope": (
+            SHARED_PREPARED_ARTIFACT_CACHE_SCOPE
+        ),
+        "benchmark_harness_prepared_artifact_cache_policy": (
+            SHARED_PREPARED_ARTIFACT_CACHE_POLICY
+        ),
+        "benchmark_harness_prepared_artifact_cache_hit": "false",
+        "benchmark_harness_prepared_artifact_cache_creator_engine": engine_name,
+        "benchmark_harness_prepared_artifact_cache_consumer_engine": engine_name,
+        "benchmark_harness_prepared_artifact_cache_reuse_reason": (
+            "first_consumer_created_certified_prepared_vortex_artifacts"
+        ),
+        "benchmark_harness_prepared_artifact_cache_fallback_attempted": "false",
+        "benchmark_harness_prepared_artifact_cache_external_engine_invoked": "false",
+    }
+
+
+def shared_prepared_artifact_cache_hit_entry(
+    entry: dict[str, Path | float | str],
+    consumer_engine: str,
+) -> dict[str, Path | float | str]:
+    reused = dict(entry)
+    for field in SHARED_PREPARED_ARTIFACT_ZERO_MICROS_FIELDS:
+        if field in reused:
+            reused[f"shared_prepared_artifact_original_{field}"] = str(reused[field])
+        reused[field] = "0"
+    for field in SHARED_PREPARED_ARTIFACT_ZERO_MILLIS_FIELDS:
+        if field in reused:
+            reused[f"shared_prepared_artifact_original_{field}"] = str(reused[field])
+        reused[field] = 0.0
+    reused.update(
+        {
+            "benchmark_harness_prepared_artifact_cache_schema_version": (
+                SHARED_PREPARED_ARTIFACT_CACHE_SCHEMA_VERSION
+            ),
+            "benchmark_harness_prepared_artifact_cache_status": (
+                "cache_hit_reused_in_process"
+            ),
+            "benchmark_harness_prepared_artifact_cache_scope": (
+                SHARED_PREPARED_ARTIFACT_CACHE_SCOPE
+            ),
+            "benchmark_harness_prepared_artifact_cache_policy": (
+                SHARED_PREPARED_ARTIFACT_CACHE_POLICY
+            ),
+            "benchmark_harness_prepared_artifact_cache_hit": "true",
+            "benchmark_harness_prepared_artifact_cache_creator_engine": str(
+                entry.get(
+                    "benchmark_harness_prepared_artifact_cache_creator_engine",
+                    "unknown",
+                )
+            ),
+            "benchmark_harness_prepared_artifact_cache_consumer_engine": consumer_engine,
+            "benchmark_harness_prepared_artifact_cache_reuse_reason": (
+                "same_process_cache_hit_artifact_paths_verified"
+            ),
+            "benchmark_harness_prepared_artifact_cache_fallback_attempted": "false",
+            "benchmark_harness_prepared_artifact_cache_external_engine_invoked": "false",
+            "prepared_state_reused": "true",
+            "prepared_state_reuse_hit": "true",
+            "prepared_state_reuse_scope": SHARED_PREPARED_ARTIFACT_CACHE_SCOPE,
+            "prepared_state_reuse_manifest_path": "not_required_same_process_cache",
+            "prepared_state_reuse_policy": SHARED_PREPARED_ARTIFACT_CACHE_POLICY,
+            "prepared_state_reuse_reason": (
+                "same_process_cache_hit_artifact_paths_verified"
+            ),
+            "prepared_state_invalidation_reason": (
+                "not_applicable_same_process_cache_fingerprints_match"
+            ),
+            "compatibility_to_vortex_import_timing_scope": (
+                "benchmark_harness_shared_prepared_artifact_reuse_skips_compatibility_import"
+            ),
+            "inclusive_compatibility_to_vortex_import_timing_scope": (
+                "benchmark_harness_shared_prepared_artifact_reuse_skips_compatibility_import"
+            ),
+            "exclusive_stage_timing_scope": (
+                "benchmark_harness_shared_prepared_artifact_reuse_no_fresh_import"
+            ),
+            "exclusive_stage_timing_status": "complete",
+            "exclusive_stage_included_stage_ids": "none",
+        }
+    )
+    return reused
+
+
+def amortized_batch_cli_process_wall_millis(
+    batch_wall_millis: Any,
+    scenario_count: int | None,
+) -> float | None:
+    wall = parse_optional_float(batch_wall_millis)
+    if wall is None or scenario_count is None or scenario_count <= 0:
+        return None
+    return round(wall / scenario_count, 4)
 
 
 PREPARATION_STAGE_TIMING_FIELDS = (
@@ -15333,8 +15586,24 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                     "ShardLoom batch row omitted batch-runner fields: "
                     + ", ".join(missing_batch_fields)
                 )
-            if metrics.get("process_startup_attribution") != BATCH_PROCESS_STARTUP_ATTRIBUTION:
-                raise RuntimeError("ShardLoom batch row must attribute shared batch CLI wall time")
+            if (
+                metrics.get("process_startup_attribution")
+                != BATCH_PROCESS_STARTUP_AMORTIZED_ATTRIBUTION
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch row must attribute amortized batch CLI wall time"
+                )
+            if (
+                metrics.get("batch_process_startup_attribution")
+                != BATCH_PROCESS_STARTUP_ATTRIBUTION
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch row must retain shared batch CLI wall attribution"
+                )
+            if metrics.get("batch_cli_process_wall_amortized_millis") is None:
+                raise RuntimeError(
+                    "ShardLoom batch row must preserve amortized batch CLI wall timing"
+                )
             if metrics.get("python_harness_overhead_status") != BATCH_HARNESS_OVERHEAD_STATUS:
                 raise RuntimeError("ShardLoom batch row must explain shared batch overhead")
             if metrics.get("batch_process_wall_shared") is not True:
@@ -19224,6 +19493,7 @@ def failed_result(
         "startup_warmup_scope": None,
         "global_startup_warmup_millis": None,
         "global_startup_warmup_scope": None,
+        "global_startup_warmup_row_allocation_status": "not_executed",
         "build_time_millis": None,
         "preparation_millis": None,
         "preparation_cli_process_wall_millis": None,
@@ -19866,8 +20136,13 @@ def successful_result_from_iterations(
         "computed_result_sink_bytes": computed_result_sink_bytes,
         "startup_warmup_millis": runner.startup_time_millis,
         "startup_warmup_scope": runner.startup_warmup_scope,
-        "global_startup_warmup_millis": runner.global_startup_warmup_millis,
+        "global_startup_warmup_millis": None,
         "global_startup_warmup_scope": runner.global_startup_warmup_scope,
+        "global_startup_warmup_row_allocation_status": (
+            SHARDLOOM_GLOBAL_STARTUP_WARMUP_ROW_ALLOCATION_STATUS
+            if runner.global_startup_warmup_millis is not None
+            else "not_applicable_no_shared_global_prime"
+        ),
         "build_time_millis": runner.build_time_millis,
         "prepare_batch_schema_version": evidence.get(
             "prepare_batch_schema_version", "not_applicable"
@@ -20515,6 +20790,9 @@ def successful_result_from_iterations(
                 "batch_cli_process_wall_millis": parse_optional_float(
                     evidence.get("batch_cli_process_wall_millis")
                 ),
+                "batch_cli_process_wall_amortized_millis": parse_optional_float(
+                    evidence.get("batch_cli_process_wall_amortized_millis")
+                ),
                 "batch_process_wall_shared": parse_optional_bool(
                     evidence.get("batch_process_wall_shared")
                 ),
@@ -20600,6 +20878,9 @@ def successful_result_from_iterations(
     ):
         if field in evidence:
             metrics[field] = parse_optional_int(evidence.get(field))
+    for field in SHARED_PREPARED_ARTIFACT_EVIDENCE_FIELDS:
+        if field in evidence:
+            metrics[field] = evidence[field]
     result = {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,

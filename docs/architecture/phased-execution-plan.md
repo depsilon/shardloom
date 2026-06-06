@@ -382,13 +382,23 @@ completed base slice, while unchecked rows define the remaining optimization wor
       `dirty_shardloom_lanes=[]`, no lane SHA mismatches, benchmark SHA `c22b371f`, and hot route
       geomeans of about 0.56 ms native, 0.53 ms warm prepared, 3.64 ms prepare-once, and 8.00 ms
       cold certified route.
-    - [ ] Remaining: continue reducing any remaining above-10 ms startup/process harness and
-      fresh compatibility-import rows, especially `shardloom-vortex` parquet/jsonl preparation and
-      per-command `cli_process_wall_millis`. Warm scan/operator execution is no longer the current
-      hot target in the scoped clean matrix. Current checked-in hot-runtime rows still cannot
-      support a performance claim because they are non-claim `metadata_sink` evidence and only cover
-      the targeted tiny-smoke selective-filter refresh; broader claim-grade publication proof and
-      clean full-suite evidence remain separate requirements before any performance claim is made.
+    - [x] A dirty scoped current-branch rerun on `149d1a73`
+      (`target/perf-remaining-hotpath-shared-cache-amortized.json`) added process-local
+      benchmark-harness prepared-artifact reuse plus row-amortized shared batch CLI wall timing.
+      `shardloom-prepared-vortex` cache-hit rows now report `0 ms` fresh preparation/import/
+      source-read/write and `cache_hit_reused_in_process` prepared-artifact cache status;
+      prepared/native/batch query and operator geomeans remain about
+      `0.50 ms` and `0.10 ms`; batch row `cli_process_wall_millis` is amortized to about
+      `8.6-8.9 ms` while full shared `batch_cli_process_wall_millis` remains diagnostic at about
+      `34-37 ms`.
+    - [ ] Remaining: reduce or explicitly attribute the residual above-10 ms cells: cold certified
+      `shardloom` route query/process wall, first-creator native Vortex fresh parquet/jsonl
+      compatibility import, and the lack of a durable native workspace reuse manifest outside the
+      in-process benchmark cache. Warm scan/operator execution is no longer the current hot target
+      in the scoped matrix. Current checked-in hot-runtime rows still cannot support a performance
+      claim because they are non-claim `metadata_sink` evidence and only cover the targeted
+      tiny-smoke selective-filter refresh; broader claim-grade publication proof and clean
+      full-suite evidence remain separate requirements before any performance claim is made.
   - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
     import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
     public artifact freshness gates.
