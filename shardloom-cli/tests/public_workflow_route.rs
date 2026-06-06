@@ -150,6 +150,47 @@ fn public_run_executes_local_sql_with_attached_route_envelope() {
 }
 
 #[test]
+fn public_run_forwards_declared_input_format_for_extensionless_sql_source() {
+    let workspace = std::path::Path::new("target/public-workflow-extensionless-source");
+    std::fs::create_dir_all(workspace).expect("create test workspace");
+    let input = workspace.join("fact");
+    std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write extensionless csv");
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 1", input.display());
+    let stdout = run_route(&[
+        "run",
+        "sql",
+        "--sql",
+        &statement,
+        "--input-format",
+        "csv",
+        "--request",
+        "collect",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "local_file_direct_query"
+    )));
+    assert!(stdout.contains(&field("source_format", "csv")));
+    assert!(stdout.contains(&field("source_format_inferred", "false")));
+    assert!(stdout.contains(&field(
+        "source_format_inference_kind",
+        "declared_input_format"
+    )));
+    assert!(stdout.contains(&field(
+        "source_format_inference_extension",
+        "not_applicable"
+    )));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_run_forwards_local_write_output_and_overwrite_intent() {
     let workspace = std::path::Path::new("target/public-workflow-write-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");

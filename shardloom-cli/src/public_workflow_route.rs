@@ -346,9 +346,15 @@ pub(crate) fn handle_public_workflow_prepare(
         return emit_blocked_facade("prepare", format, &request, &blocked);
     }
 
+    let mut runtime_args = vec![input_uri, output_ref];
+    append_declared_local_input_format_args(&mut runtime_args, &request);
+    if request.allow_overwrite {
+        runtime_args.push("--allow-overwrite".to_string());
+    }
+
     let extra_fields = execution_attachment_fields("prepare", &request, &plan);
     sql_local_source_runtime::handle_vortex_ingest_smoke_with_facade(
-        [input_uri, output_ref].into_iter(),
+        runtime_args.into_iter(),
         format,
         "prepare",
         &extra_fields,
@@ -522,8 +528,18 @@ impl PublicWorkflowRouteRequest {
 }
 
 fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
+    if matches!(request.requested_output.as_str(), "collect") && !request.fanout_outputs.is_empty()
+    {
+        return collect_fanout_blocked_route();
+    }
     if matches!(request.requested_output.as_str(), "collect") && !request.bounded {
         return unbounded_collect_blocked_route();
+    }
+
+    if request.execution_policy == "native_vortex"
+        && request.input_format.as_deref() != Some("vortex")
+    {
+        return native_vortex_input_required_route();
     }
 
     if is_native_vortex_route(request) {
@@ -553,8 +569,28 @@ fn unbounded_collect_blocked_route() -> PublicWorkflowRoutePlan {
     )
 }
 
+fn collect_fanout_blocked_route() -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.collect_fanout_blocked",
+        "collect routes cannot carry fanout output payloads",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            "public collect routes do not admit fanout outputs".to_string(),
+            Some("public_workflow_route.fanout_outputs".to_string()),
+            Some("fanout outputs require an explicit write request".to_string()),
+            Some(
+                "use --request write_jsonl/write_csv/etc. with --output and --fanout-output"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
 fn is_native_vortex_route(request: &PublicWorkflowRouteRequest) -> bool {
-    request.input_format.as_deref() == Some("vortex") || request.execution_policy == "native_vortex"
+    request.input_format.as_deref() == Some("vortex")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -626,6 +662,12 @@ impl PublicVortexPrimitive {
 fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
     if request.input_uri.is_none() {
         return input_not_declared_route();
+    }
+    if is_write_request(request)
+        || request.output_ref.is_some()
+        || !request.fanout_outputs.is_empty()
+    {
+        return native_vortex_output_blocked_route();
     }
     let Some(primitive) = normalized_vortex_primitive(request) else {
         if request.vortex_primitive.is_some() {
@@ -700,6 +742,40 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
         "native_vortex",
         false,
         true,
+    )
+}
+
+fn native_vortex_input_required_route() -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.native_vortex_input_required",
+        "native Vortex execution policy requires declared Vortex input",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            "native Vortex public routes require input_format=vortex".to_string(),
+            Some("public_workflow_route.input_format".to_string()),
+            Some("execution_policy=native_vortex was requested for a non-Vortex input".to_string()),
+            Some("prepare compatibility input first or use a direct compatibility route without native_vortex policy".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn native_vortex_output_blocked_route() -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.native_vortex_output_not_admitted",
+        "native Vortex primitive facade does not admit write or fanout outputs yet",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            "native Vortex public primitive route cannot execute output payloads".to_string(),
+            Some("public_workflow_route.output".to_string()),
+            Some("output_ref, write requests, and fanout outputs are not wired to native Vortex primitive wrappers".to_string()),
+            Some("use collect for admitted native Vortex primitives or an explicit compatibility sink route".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ),
     )
 }
 
@@ -1526,6 +1602,7 @@ fn sql_local_source_runtime_args(
     statement: String,
 ) -> Result<Vec<String>, ShardLoomError> {
     let mut args = vec![statement];
+    append_declared_local_input_format_args(&mut args, request);
     if let Some(output_ref) = request.output_ref.as_ref() {
         args.extend([
             "--output".to_string(),
@@ -1539,6 +1616,19 @@ fn sql_local_source_runtime_args(
         args.push("--allow-overwrite".to_string());
     }
     Ok(args)
+}
+
+fn append_declared_local_input_format_args(
+    args: &mut Vec<String>,
+    request: &PublicWorkflowRouteRequest,
+) {
+    if let Some(input_format) = request
+        .input_format
+        .as_deref()
+        .filter(|format| is_local_file_format(format))
+    {
+        args.extend(["--input-format".to_string(), input_format.to_string()]);
+    }
 }
 
 fn generated_source_runtime_args(
@@ -1954,51 +2044,29 @@ fn infer_input_format_from_ref(value: &str) -> Option<&'static str> {
 }
 
 fn extract_first_quoted_source_ref(statement: &str) -> Option<String> {
-    let mut quote_char: Option<char> = None;
-    let mut start = 0usize;
-    for (index, char) in statement.char_indices() {
-        if char == '\'' || char == '"' {
-            if quote_char == Some(char) {
-                let candidate = statement[start..index].trim();
+    for keyword in ["FROM", "JOIN"] {
+        let mut search_start = 0usize;
+        while search_start < statement.len() {
+            let Some(relative_index) =
+                find_sql_keyword_outside_quotes_and_parens(&statement[search_start..], keyword)
+            else {
+                break;
+            };
+            let index = search_start + relative_index + keyword.len();
+            if let Some(candidate) = leading_quoted_sql_literal(&statement[index..]) {
+                let candidate = candidate.trim();
                 if infer_input_format_from_ref(candidate).is_some() {
                     return Some(candidate.to_string());
                 }
-                quote_char = None;
-            } else if quote_char.is_none() {
-                quote_char = Some(char);
-                start = index + char.len_utf8();
             }
+            search_start = index;
         }
     }
     None
 }
 
 fn sql_statement_has_limit(statement: &str) -> bool {
-    let mut token = String::new();
-    let mut quote_char: Option<char> = None;
-    for char in statement.chars() {
-        if char == '\'' || char == '"' {
-            if quote_char == Some(char) {
-                quote_char = None;
-            } else if quote_char.is_none() {
-                quote_char = Some(char);
-            }
-            token.clear();
-            continue;
-        }
-        if quote_char.is_some() {
-            continue;
-        }
-        if char.is_ascii_alphanumeric() || char == '_' {
-            token.push(char.to_ascii_lowercase());
-            continue;
-        }
-        if token == "limit" {
-            return true;
-        }
-        token.clear();
-    }
-    token == "limit"
+    find_sql_keyword_outside_quotes_and_parens(statement, "LIMIT").is_some()
 }
 
 fn plan_summary_has_limit(summary: &str) -> bool {
@@ -2042,7 +2110,7 @@ fn trim_sql_tail_clauses(raw: &str) -> &str {
 }
 
 fn sql_keyword_prefix(raw: &str, keyword: &str) -> bool {
-    let trimmed = raw.trim_start();
+    let trimmed = trim_sql_leading_comments_and_whitespace(raw);
     let Some(prefix) = trimmed.get(..keyword.len()) else {
         return false;
     };
@@ -2060,6 +2128,24 @@ fn find_sql_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Optio
     let mut paren_depth = 0usize;
     let mut index = 0usize;
     while index < bytes.len() {
+        if quote_char.is_none() {
+            if bytes[index] == b'-' && bytes.get(index + 1) == Some(&b'-') {
+                index += 2;
+                while index < bytes.len() && bytes[index] != b'\n' {
+                    index += 1;
+                }
+                continue;
+            }
+            if bytes[index] == b'/' && bytes.get(index + 1) == Some(&b'*') {
+                index += 2;
+                while index + 1 < bytes.len() && !(bytes[index] == b'*' && bytes[index + 1] == b'/')
+                {
+                    index += 1;
+                }
+                index = (index + 2).min(bytes.len());
+                continue;
+            }
+        }
         match bytes[index] {
             b'\'' | b'"' => {
                 let byte = bytes[index];
@@ -2093,6 +2179,51 @@ fn find_sql_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Optio
             _ => {}
         }
         index += 1;
+    }
+    None
+}
+
+fn trim_sql_leading_comments_and_whitespace(mut raw: &str) -> &str {
+    loop {
+        let trimmed = raw.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("--") {
+            let next_line = rest.find('\n').map_or("", |index| &rest[index + 1..]);
+            raw = next_line;
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("/*") {
+            let after_comment = rest.find("*/").map_or("", |index| &rest[index + 2..]);
+            raw = after_comment;
+            continue;
+        }
+        return trimmed;
+    }
+}
+
+fn leading_quoted_sql_literal(raw: &str) -> Option<String> {
+    let raw = trim_sql_leading_comments_and_whitespace(raw);
+    let mut chars = raw.char_indices();
+    let (_, quote_char) = chars.next()?;
+    if quote_char != '\'' && quote_char != '"' {
+        return None;
+    }
+    let mut literal = String::new();
+    let mut last_index = quote_char.len_utf8();
+    while last_index < raw.len() {
+        let mut iter = raw[last_index..].char_indices();
+        let (relative_index, char) = iter.next()?;
+        let index = last_index + relative_index;
+        if char == quote_char {
+            let next_index = index + char.len_utf8();
+            if quote_char == '\'' && raw[next_index..].starts_with('\'') {
+                literal.push('\'');
+                last_index = next_index + 1;
+                continue;
+            }
+            return Some(literal);
+        }
+        literal.push(char);
+        last_index = index + char.len_utf8();
     }
     None
 }
@@ -2217,6 +2348,194 @@ mod tests {
             "local_file_direct_query"
         );
         assert_eq!(plan_public_workflow_route(&blocked).route_id, "blocked");
+    }
+
+    #[test]
+    fn route_planner_does_not_infer_scalar_path_literals_as_sources() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT 'target/input.csv' AS label LIMIT 1",
+                "--request",
+                "collect",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("scalar literal route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(request.input_uri, None);
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.blocker_id, "cg21.route.input_not_declared");
+    }
+
+    #[test]
+    fn route_planner_ignores_limit_inside_sql_comments() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT id FROM 'target/input.csv' -- LIMIT 1\nWHERE id > 0",
+                "--request",
+                "collect",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("commented limit route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(request.input_uri.as_deref(), Some("target/input.csv"));
+        assert!(!request.bounded);
+        assert_eq!(plan.blocker_id, "cg21.route.unbounded_collect_blocked");
+    }
+
+    #[test]
+    fn route_planner_blocks_newline_from_source_without_declared_input() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT *\nFROM events",
+                "--request",
+                "write_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("newline from route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.blocker_id, "cg21.route.input_not_declared");
+    }
+
+    #[test]
+    fn route_planner_requires_vortex_input_for_native_vortex_policy() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "cli",
+                "--input",
+                "target/input.csv",
+                "--input-format",
+                "csv",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native policy route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.blocker_id, "cg21.route.native_vortex_input_required");
+    }
+
+    #[test]
+    fn route_planner_blocks_collect_fanout_payloads() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "target/input.csv",
+                "--input-format",
+                "csv",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--fanout-output",
+                "csv=target/out.csv",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("collect fanout route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.blocker_id, "cg21.route.collect_fanout_blocked");
+    }
+
+    #[test]
+    fn route_planner_blocks_native_vortex_output_payloads() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "cli",
+                "--input",
+                "target/input.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "write_jsonl",
+                "--output",
+                "target/out.jsonl",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--vortex-primitive",
+                "count",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native output route request");
+
+        let plan = plan_public_workflow_route(&request);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "cg21.route.native_vortex_output_not_admitted"
+        );
+    }
+
+    #[test]
+    fn runtime_args_forward_declared_local_input_format() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT id FROM 'target/input' LIMIT 1",
+                "--input-format",
+                "csv",
+                "--request",
+                "collect",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("declared input format route request");
+        let args = sql_local_source_runtime_args(
+            &request,
+            request
+                .sql_statement
+                .clone()
+                .expect("request carries SQL statement"),
+        )
+        .expect("runtime args");
+
+        assert_eq!(
+            args,
+            vec![
+                "SELECT id FROM 'target/input' LIMIT 1".to_string(),
+                "--input-format".to_string(),
+                "csv".to_string(),
+            ]
+        );
     }
 
     #[test]

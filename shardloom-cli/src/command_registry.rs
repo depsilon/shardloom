@@ -863,8 +863,12 @@ fn command_usage_fragment(command: &str) -> String {
         "generated-source-sql-smoke" => {
             format!("{command} <local-output-path> <sql-statement>")
         }
-        "sql-local-source-smoke" => format!("{command} <sql-statement>"),
-        "vortex-ingest-smoke" => format!("{command} <local-source-path> <target.vortex>"),
+        "sql-local-source-smoke" => {
+            format!("{command} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
+        }
+        "vortex-ingest-smoke" => {
+            format!("{command} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
+        }
         "sqlite-local-import-export-smoke" => {
             format!(
                 "{command} <db.sqlite> --table <table> --export-jsonl <path> --roundtrip-db <path> [--order-by <column>] [--allow-overwrite]"
