@@ -44,7 +44,7 @@ phase note. They are not active queue state and do not override `phased-executio
   Vortex query-engine integrations and external baselines.
 - Source/Split admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
-  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.73`,
+  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.74`,
   `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
   field-mask and predicate-ordering blockers, execution/Native I/O refs, and
   `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
@@ -93,9 +93,9 @@ phase note. They are not active queue state and do not override `phased-executio
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan,
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
-- Upstream 0.73 intake: Vortex `0.73.0` is the active optional `vortex = "0.73"` dependency after
-  the Dependabot dependency intake. No 0.73 API is admitted until the relevant runtime
-  slice adds provider admission, certificates, no-fallback evidence, and tests.
+- Historical upstream 0.73 intake: Vortex `0.73.0` remains historical dependency intake material
+  superseded by the `0.74` snapshot below. Historical API notes do not admit current runtime
+  behavior without provider admission, certificates, no-fallback evidence, and tests.
 - TurboQuant posture: upstream Vortex exposes TurboQuant as a vector quantization extension family,
   but ShardLoom now exposes only a blocked capability row for
   `vortex_turboquant_vector_encoding`. No vector quantization, ANN, similarity search, GPU, or
@@ -117,47 +117,49 @@ phase note. They are not active queue state and do not override `phased-executio
 
 ## Dependency Snapshot
 - Crate: `vortex`
-- Version: `0.73`
+- Version: `0.74`
 - License: Apache-2.0 (per dependency review)
 - ShardLoom crate using it: `shardloom-vortex`
 - Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated
   local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
 
-## Upstream Vortex 0.73 Dependency Update
+## Upstream Vortex 0.74 Dependency Update
 
-This section records the `vortex = "0.73"` dependency compatibility update. It does not authorize
+This section records the `vortex = "0.74"` dependency compatibility update. It does not authorize
 new Vortex runtime APIs, vector execution, GPU execution, object-store/table execution, SQL/DataFrame
 production support, or performance claims.
 
 Source evidence:
 
-- Dependabot PR: <https://github.com/depsilon/shardloom/pull/979>.
-- Crates.io version: <https://crates.io/crates/vortex/0.73.0>.
-- Versioned docs: <https://docs.rs/vortex/0.73.0>.
-- `cargo info vortex@0.73.0`: license `Apache-2.0`, Rust version `1.91.0`, repository
+- Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.
+- Crates.io version: <https://crates.io/crates/vortex/0.74.0>.
+- Versioned docs: <https://docs.rs/vortex/0.74.0>.
+- `cargo info vortex@0.74.0`: license `Apache-2.0`, Rust version `1.91.0`, repository
   <https://github.com/spiraldb/vortex>.
 
 Dependency update:
 
-- `shardloom-vortex` now requires optional `vortex = "0.73"`.
-- `Cargo.lock` now resolves the upstream Vortex crate family to `0.73.0`.
+- `shardloom-vortex` now requires optional `vortex = "0.74"`.
+- `Cargo.lock` now resolves the upstream Vortex crate family to `0.74.0`.
 - Default ShardLoom builds still do not enable upstream Vortex.
-- Existing provider-version evidence has been refreshed from `0.72` to `0.73` for current Vortex
+- Existing provider-version evidence has been refreshed from `0.73` to `0.74` for current Vortex
   compatibility, compute-provider, source/split, source-backed, local primitive, and preparation
   spine reports.
+- The upstream FFI `vx_file` scan removal in 0.74.0 is outside ShardLoom's admitted runtime
+  boundary.
 - No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
   dependency is introduced.
 
 Claim boundary:
 
-- Vortex `0.73.0` compatibility is a dependency/build compatibility claim only.
+- Vortex `0.74.0` compatibility is a dependency/build compatibility claim only.
 - No new runtime behavior, vector quantization support, vector search support, GPU support,
   object-store support, SQL/DataFrame support, package readiness, or performance claim is added.
 
 ## Upstream Vortex 0.72 Dependency Update And TurboQuant Gate
 
-Historical note; superseded by the Vortex 0.73 dependency update above for current dependency status.
+Historical note; superseded by the Vortex 0.74 dependency update above for current dependency status.
 
 This section records the `vortex = "0.72"` dependency compatibility update and the TurboQuant
 capability review. It does not authorize new Vortex runtime APIs, vector execution, GPU execution,
@@ -383,7 +385,7 @@ Required blockers before any 0.71 item becomes executable:
   `vortex_ingest` array-build provider admission from already-preserved flat Arrow
   `RecordBatch` SourceState, and behind `vortex-traditional-analytics-benchmark` for scoped local
   benchmark compatibility-import artifact creation.
-- Stability: acceptable only for this narrow provider path under Vortex `0.73`; revalidate before
+- Stability: acceptable only for this narrow provider path under Vortex `0.74`; revalidate before
   broadening to nested, nullable, object-store, table/catalog, or execution surfaces.
 - Adapter support: scoped local prepare-once artifact creation for flat Parquet/Arrow IPC/Avro/ORC
   SourceState batches. The local preparation spine reports source/sink/split refs and admits

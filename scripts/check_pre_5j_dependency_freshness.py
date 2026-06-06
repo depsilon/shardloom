@@ -38,31 +38,72 @@ DEFAULT_OUTPUT = Path("target/pre-5j-dependency-freshness-gate.json")
 GITHUB_PULLS_URL = "https://api.github.com/repos/depsilon/shardloom/pulls?state=open&per_page=100"
 
 ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
-    979: {
+    1149: {
+        "kind": "github_action",
+        "dependency": "actions/download-artifact",
+        "expected_workflow": ".github/workflows/ci.yml",
+        "required_markers": ["actions/download-artifact@v8"],
+        "forbidden_markers": ["actions/download-artifact@v7"],
+        "expected_marker_counts": {"actions/download-artifact@v8": 11},
+        "review_doc": "docs/dependencies/github-actions-dependency-review.md",
+        "review_markers": [
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1149>",
+            "actions/download-artifact@v8",
+            "digest-mismatch default is error",
+            "fallback execution",
+        ],
+    },
+    1150: {
         "dependency": "vortex",
         "expected_manifest": "shardloom-vortex/Cargo.toml",
-        "expected_manifest_version": "0.73",
-        "expected_lock_versions": {"vortex": "0.73.0"},
+        "expected_manifest_version": "0.74",
+        "expected_lock_versions": {"vortex": "0.74.0"},
         "review_doc": "docs/dependencies/vortex-upstream-review.md",
         "review_markers": [
-            "Dependabot PR: <https://github.com/depsilon/shardloom/pull/979>.",
-            "vortex = 0.73",
-            "`Cargo.lock` records the upstream Vortex crate family at `0.73.0`",
+            "Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.",
+            "vortex = 0.74",
+            "`Cargo.lock` records the upstream Vortex crate family at `0.74.0`",
             "Vortex query-engine integrations remain prohibited",
         ],
     },
-    980: {
+    1151: {
+        "dependency": "serde_json",
+        "expected_manifest": "shardloom-vortex/Cargo.toml",
+        "expected_manifest_version": "1.0",
+        "expected_lock_versions": {"serde_json": "1.0.150"},
+        "review_doc": "docs/dependencies/json-digest-dependency-review.md",
+        "review_markers": [
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1151>",
+            "serde_json = 1.0.150",
+            "MIT OR Apache-2.0",
+            "fallback execution",
+        ],
+    },
+    1152: {
+        "dependency": "sha2",
+        "expected_manifest": "shardloom-vortex/Cargo.toml",
+        "expected_manifest_version": "0.11",
+        "expected_lock_versions": {"sha2": "0.11.0", "digest": "0.11.3"},
+        "review_doc": "docs/dependencies/json-digest-dependency-review.md",
+        "review_markers": [
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1152>",
+            "sha2 = 0.11.0",
+            "MIT OR Apache-2.0",
+            "fallback execution",
+        ],
+    },
+    1153: {
         "dependency": "rusqlite",
         "expected_manifest": "shardloom-cli/Cargo.toml",
-        "expected_manifest_version": "0.40.0",
+        "expected_manifest_version": "0.40.1",
         "expected_lock_versions": {
-            "rusqlite": "0.40.0",
-            "libsqlite3-sys": "0.38.0",
+            "rusqlite": "0.40.1",
+            "libsqlite3-sys": "0.38.1",
         },
         "review_doc": "docs/dependencies/sqlite-rusqlite-dependency-review.md",
         "review_markers": [
-            "Dependabot PR <https://github.com/depsilon/shardloom/pull/980>",
-            "rusqlite = 0.40.0",
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1153>",
+            "rusqlite = 0.40.1",
             "default-features = false",
             "features = [\"bundled\"]",
             "fallback execution",
@@ -74,10 +115,11 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {
         "path": "benchmarks/traditional_analytics/run.py",
         "required_markers": [
-            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"',
+            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"',
             'SHARDLOOM_VORTEX_PROVIDER_VERSION = (',
         ],
         "forbidden_markers": [
+            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"',
             '"0.72" if admitted',
             "vortex=0.72",
             "provider_version, \"0.72\"",
@@ -86,10 +128,13 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {
         "path": "python/tests/test_cli_client.py",
         "required_markers": [
-            '"provider_version", "value": "0.73"',
-            'provider_version, "0.73"',
+            '"provider_version", "value": "0.74"',
+            'provider_version, "0.74"',
         ],
         "forbidden_markers": [
+            '"provider_version", "value": "0.73"',
+            'provider_version, "0.73"',
+            '"evidence_slot_provider_version_refs", "value": "0.73"',
             '"provider_version", "value": "0.72"',
             'provider_version, "0.72"',
             '"evidence_slot_provider_version_refs", "value": "0.72"',
@@ -370,6 +415,36 @@ def load_open_prs(
 
 def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
+    kind = str(spec.get("kind", "cargo_dependency"))
+    if kind == "github_action":
+        workflow = str(spec["expected_workflow"])
+        workflow_text = read_text(repo_root / workflow)
+        if not workflow_text:
+            blockers.append(f"PR #{pr_number}: missing workflow {workflow}")
+        for marker in spec.get("required_markers", []):
+            if str(marker) not in workflow_text:
+                blockers.append(f"PR #{pr_number}: {workflow} missing marker: {marker}")
+        for marker in spec.get("forbidden_markers", []):
+            if str(marker) in workflow_text:
+                blockers.append(f"PR #{pr_number}: {workflow} contains stale marker: {marker}")
+        for marker, expected_count in dict(spec.get("expected_marker_counts", {})).items():
+            observed_count = workflow_text.count(str(marker))
+            if observed_count != expected_count:
+                blockers.append(
+                    f"PR #{pr_number}: {workflow} marker {marker!r} count={observed_count}, "
+                    f"expected {expected_count}"
+                )
+        review_doc = str(spec["review_doc"])
+        review_text = read_text(repo_root / review_doc)
+        if not review_text:
+            blockers.append(f"PR #{pr_number}: missing dependency review doc {review_doc}")
+        for marker in spec["review_markers"]:
+            if str(marker) not in review_text:
+                blockers.append(f"PR #{pr_number}: {review_doc} missing marker: {marker}")
+        return blockers
+    if kind != "cargo_dependency":
+        return [f"PR #{pr_number}: unknown admitted dependency spec kind {kind!r}"]
+
     dependency = str(spec["dependency"])
     manifest = str(spec["expected_manifest"])
     row = manifest_dependency(repo_root, manifest, dependency)
@@ -384,9 +459,9 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
             blockers.append(f"PR #{pr_number}: vortex dependency must remain optional")
         if dependency == "rusqlite":
             if row.get("default-features") is not False:
-                blockers.append("PR #980: rusqlite default-features must be false")
+                blockers.append(f"PR #{pr_number}: rusqlite default-features must be false")
             if row.get("features") != ["bundled"]:
-                blockers.append("PR #980: rusqlite features must be [\"bundled\"]")
+                blockers.append(f"PR #{pr_number}: rusqlite features must be [\"bundled\"]")
 
     lock_versions = cargo_lock_versions(repo_root)
     for package, expected in dict(spec["expected_lock_versions"]).items():
@@ -423,7 +498,7 @@ def validate_vortex_provider_version_surfaces(repo_root: Path) -> list[dict[str,
             {
                 "path": path.as_posix(),
                 "status": "passed" if not blockers else "blocked",
-                "expected_provider_version": "0.73",
+                "expected_provider_version": "0.74",
                 "blockers": blockers,
             }
         )

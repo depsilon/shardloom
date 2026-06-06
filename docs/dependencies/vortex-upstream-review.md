@@ -14,10 +14,12 @@ executable support from older PR-specific sections that say "this PR" or
 ## Current support snapshot
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked direct dependency is `vortex = 0.73`.
-- Vortex `0.73.0` is the current optional dependency family after the dependency compatibility
+- The tracked direct dependency is `vortex = 0.74`.
+- Vortex `0.74.0` is the current optional dependency family after the dependency compatibility
   update recorded in `docs/architecture/vortex-public-api-inventory.md` and
   `docs/dependencies/vortex-dependency-footprint.md`.
+- Vortex `0.73.0` remains historical intake material in this review and
+  `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.72.0` remains historical intake material in this review and
   `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.71.0` remains historical intake material in
@@ -34,7 +36,28 @@ executable support from older PR-specific sections that say "this PR" or
   ShardLoom residual work.
 - Fallback execution remains disabled.
 
+## Vortex 0.74 compatibility update
+
+- Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.
+- `cargo info vortex@0.74.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
+  at <https://docs.rs/vortex/0.74.0>, repository <https://github.com/spiraldb/vortex>, and crates.io
+  version <https://crates.io/crates/vortex/0.74.0>.
+- `shardloom-vortex` now requests optional `vortex = 0.74`.
+- `Cargo.lock` records the upstream Vortex crate family at `0.74.0`.
+- Existing ShardLoom provider-version evidence was refreshed to `0.74` so certificates, capability
+  rows, scan/source admission rows, capillary/preparation spine evidence, and compatibility reports
+  do not claim the stale `0.73` provider line.
+- The upstream release note calls out removal of an FFI `vx_file` scan surface; ShardLoom does not
+  use that FFI surface in its approved runtime boundary.
+- The update is a dependency/build compatibility admission only. It does not by itself admit new
+  Vortex runtime behavior, object-store/table support, SQL/DataFrame production support,
+  performance claims, package publication, or fallback execution.
+- Vortex query-engine integrations remain prohibited as ShardLoom runtime helpers.
+
 ## Vortex 0.73 compatibility update
+
+Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
+status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/979>.
 - `cargo info vortex@0.73.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
@@ -52,7 +75,7 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Vortex 0.72 compatibility update
 
-Historical note; superseded by the Vortex 0.73 compatibility update above for current dependency
+Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
 status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.72`.
@@ -66,7 +89,7 @@ status.
 
 ## Vortex 0.71 bump update
 
-Historical note; superseded by the Vortex 0.72 compatibility update above for current dependency
+Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
 status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.71`.

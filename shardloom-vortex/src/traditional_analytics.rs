@@ -68,6 +68,20 @@ const TRADITIONAL_PREPARED_NATIVE_SESSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_session.v1";
 const TRADITIONAL_EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.exclusive_stage_timing.v1";
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn sha256_digest_string(digest: impl AsRef<[u8]>) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    let bytes = digest.as_ref();
+    let mut encoded = String::with_capacity("sha256:".len() + bytes.len() * 2);
+    encoded.push_str("sha256:");
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
 const ROUTE_SHAPE_STRATIFICATION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.route_shape_stratification.v1";
 const SOURCE_TO_VORTEX_ARRAY_GUARD_SCHEMA_VERSION: &str =
@@ -17545,7 +17559,7 @@ fn directory_reuse_fingerprint(
     Ok(DirectoryReuseFingerprint {
         size_bytes: total_size,
         mtime_ns: max_mtime_ns,
-        content_digest: format!("sha256:{:x}", digest.finalize()),
+        content_digest: sha256_digest_string(digest.finalize()),
     })
 }
 
@@ -23840,7 +23854,7 @@ fn file_sha256_digest(path: &std::path::Path, label: &str) -> Result<String> {
         }
         digest.update(&buffer[..read]);
     }
-    Ok(format!("sha256:{:x}", digest.finalize()))
+    Ok(sha256_digest_string(digest.finalize()))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -23881,7 +23895,7 @@ fn file_sha256_prefix_digest(path: &std::path::Path, bytes: u64, label: &str) ->
             ))
         })?);
     }
-    Ok(format!("sha256:{:x}", digest.finalize()))
+    Ok(sha256_digest_string(digest.finalize()))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -23914,7 +23928,7 @@ fn byte_at_file_offset(path: &std::path::Path, offset: u64, label: &str) -> Resu
 fn sha256_digest(bytes: &[u8]) -> String {
     let mut digest = sha2::Sha256::new();
     digest.update(bytes);
-    format!("sha256:{:x}", digest.finalize())
+    sha256_digest_string(digest.finalize())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
