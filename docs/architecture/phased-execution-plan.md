@@ -203,7 +203,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| 1 | `PERF-INNOV-5` | Decompose and reduce warm/native scan and operator outliers above 10 ms. |
+| 1 | `PERF-INNOV-5` | Reduce remaining startup/process harness, fresh compatibility-import, and public benchmark freshness gaps. |
 | 2 | `PERF-INNOV-6` | Add route timing instrument metadata and optimization-readiness gates for every hot target. |
 | 3 | `6D:last_order.broad_sql_grammar` | Promote the next admitted SQL grammar family or add deterministic unsupported diagnostics. |
 | 4 | `6D:last_order.python_dataframe_api_breadth` | Promote the next Python/DataFrame alias family that lowers to admitted ShardLoom runtime evidence. |
@@ -293,7 +293,7 @@ This queue runs after `PERF-SPLIT-7` through `PERF-SPLIT-9` are merged. Some ite
 extend already-landed PERF-SPLIT foundations; their checked current-state rows point to the
 completed base slice, while unchecked rows define the remaining optimization work.
 
-- [ ] PERF-INNOV-5 warm/native scan and operator outlier decomposition:
+- [ ] PERF-INNOV-5 startup/import and public benchmark freshness optimization:
   - Source: `scan_fact_vortex_projected_with_encoded_inputs` and scenario execution paths in
     `shardloom-vortex/src/traditional_analytics.rs`, route-share benchmark rows, and website
     optimization triage.
@@ -351,40 +351,53 @@ completed base slice, while unchecked rows define the remaining optimization wor
       upstream Vortex segment write accounted for about `23.206 ms`, while ShardLoom workspace-safe
       staging accounted for about `0.526 ms`; `fallback_attempted=false` and
       `external_engine_invoked=false`.
-    - [ ] Active branch `codex/perf-vortex-write-strategy` changes the traditional benchmark
+    - [x] Merged PR #1133 (`codex/perf-vortex-write-strategy`) changes the traditional benchmark
       preparation writer to an explicit upstream Vortex `TableStrategy<FlatLayoutStrategy>` policy
       and emits writer-strategy evidence. Dirty scoped artifact
       `target/codex-perf-flat-strategy-evidence.json`
-      reduces `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans to about
+      reduced `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans to about
       `14.0587 ms`/`7.9630 ms` and Vortex write geomeans to about `4.8597 ms`/`3.6534 ms`, while
-      warm query/operator/scan remains sub-ms. This evidence is dirty optimization evidence only
-      until the branch is validated, merged with green checks, and rerun clean.
-    - [ ] Remaining: after the writer-strategy optimization merges, rerun a clean non-dirty
-      benchmark artifact, compare against the pre-`PERF-INNOV-5` baseline, and continue reducing
-      remaining above-10 ms startup/process harness, preparation, or operator-kernel rows. Current
-      checked-in evidence still cannot support a performance claim because the latest published
-      artifact records dirty ShardLoom lane versions and mismatched lane/manifest SHAs.
-  - Runtime enablement: prepared/native Vortex scan route -> file/source metadata reuse decision ->
-    scan/chunk/operator/finalization substage evidence -> benchmark optimization readiness.
-  - Objective: explain and then reduce per-row scan/operator outliers above 10 ms without
-    overreacting to sub-ms geomean paths.
-  - Implementation scope: split scan/operator timing into Vortex file open, footer/metadata verify,
-    scan open, chunk iteration, projected-field extraction, encoded-kernel evidence construction,
-    operator kernel work, aggregation/finalization, and result assembly. Reduce proven operator
-    outliers by removing avoidable decode/allocation/evidence overhead before adding new kernels.
-    Reuse session-owned Vortex source/file metadata where legal. Use cache-aware chunk sizing and
-    statistics-first routing before adding new kernels.
-  - User-visible surface: benchmark stage rows, website route-share/outlier tables, and runtime
-    evidence fields for native/prepared query routes.
-  - Evidence required: scan open/setup timing, metadata verification timing, chunk iteration
-    timing, projection extraction timing, kernel/evidence/finalization timing, inclusion status,
-    no-fallback fields, and correctness digest/replay evidence.
-  - Acceptance: `vortex_scan_ms` and `operator_compute_ms` no longer mirror the same scenario timer
-    when substage evidence is available. Outlier rows identify whether the cost is open/setup,
-    chunk iteration, evidence construction, kernel work, finalization, result assembly, or
-    benchmark/provenance contamination. A clean post-fix artifact must not carry dirty
-    `lane_versions` or ShardLoom lane SHAs that disagree with the manifest SHA before any
-    route-total improvement/regression claim is made.
+      warm query/operator/scan remained sub-ms. PR #1133 merged only after 19/19 remote check-runs
+      were green, Cloudflare Workers deployment succeeded, and the PR had no review threads.
+    - [x] Clean post-#1133 scoped rerun on `b3575bd3`
+      (`target/codex-perf-post1133-clean.json`) confirmed the writer-strategy reduction on merged
+      main: `shardloom-vortex`/`shardloom-prepared-vortex` preparation geomeans were about
+      `12.0626 ms`/`7.5698 ms`, compatibility import geomeans about
+      `10.8370 ms`/`7.1019 ms`, Vortex write geomeans about `4.5262 ms`/`3.2373 ms`, and
+      query/operator geomeans remained sub-ms at about `0.5824 ms`/`0.3162 ms` and
+      `0.5859 ms`/`0.3178 ms`.
+    - [ ] Remaining: continue reducing any remaining above-10 ms startup/process harness and
+      fresh compatibility-import rows, especially `shardloom-vortex` parquet/jsonl preparation and
+      per-command `cli_process_wall_millis`. Warm scan/operator execution is no longer the current
+      hot target in the scoped clean matrix. Current checked-in evidence still cannot support a
+      performance claim because the clean post-#1133 artifact has `performance_claim_allowed=false`
+      and has not been promoted through public claim gates with matching lane/manifest provenance.
+  - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
+    import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
+    public artifact freshness gates.
+  - Objective: explain and then reduce remaining above-10 ms startup/process harness and fresh
+    compatibility-import rows without regressing the already-sub-ms warm query, scan, and operator
+    paths.
+  - Implementation scope: decompose and reduce source read, compatibility import, process startup,
+    per-command CLI wall, and reusable preparation state costs before adding new operator kernels.
+    Reuse session-owned source/file metadata and prepared artifacts where legal, make any
+    process-harness exclusion explicit, and keep website/public benchmark artifacts from presenting
+    stale or dirty ShardLoom lane versions as current results.
+  - User-visible surface: benchmark stage rows, website route-share/outlier tables, runtime
+    preparation evidence fields, manifest lane-version provenance, and public benchmark freshness
+    diagnostics.
+  - Evidence required: source read timing, compatibility import timing, Vortex write timing,
+    preparation process-wall timing, startup timing, warm query/operator/scan preservation,
+    lane-version/manifest SHA freshness status, no-fallback fields, and correctness digest/replay
+    evidence where claim gates require it.
+  - Acceptance: scoped clean artifacts identify any remaining above-10 ms cells as startup,
+    process-wall, source-read, compatibility-import, Vortex-write, or public-artifact freshness
+    costs. Warm scan/operator rows remain sub-ms in the scoped matrix. Website/public benchmark
+    surfaces either point at a fresh promoted artifact whose ShardLoom lane versions match the
+    manifest SHA or clearly report that the current local optimization artifact is not claim-grade
+    and has not been promoted. A clean post-fix artifact must not carry dirty `lane_versions` or
+    ShardLoom lane SHAs that disagree with the manifest SHA before any route-total improvement or
+    regression claim is made.
   - Verification:
     ```powershell
     cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state
