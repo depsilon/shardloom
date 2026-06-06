@@ -7073,6 +7073,7 @@ def published_rows_with_current_route_timing_ledger(
             updated, route_identity, route_stage_fields
         )
         updated.update(timing_ledger)
+        updated.pop("vortex_chunk_iteration_micros", None)
         updated.update(timing_normalization_fields_for_row(updated, route_stage_fields))
         updated.update(
             route_timing_stage_inclusion_fields_for_row(

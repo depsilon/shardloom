@@ -1785,6 +1785,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "storage_format": "vortex",
             "fallback_attempted": False,
             "external_engine_invoked": False,
+            "vortex_chunk_iteration_micros": 20_000,
             "metrics": {
                 "query_runtime_millis": 1.0,
                 "total_runtime_millis": 1.0,
@@ -1807,6 +1808,9 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(normalized["scan_chunk_iter_micros"], 20_000)
         self.assertNotIn("vortex_chunk_iteration_micros", normalized)
         self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+        self.assertEqual(published["scan_chunk_iter_micros"], 20_000)
+        self.assertNotIn("vortex_chunk_iteration_micros", published)
 
     def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
         module = self._load_script_module(
