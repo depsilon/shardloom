@@ -313,6 +313,10 @@ completed base slice, while unchecked rows define the remaining optimization wor
       evidence-key construction from residual-native grouping/distinct/dirty-input paths by using
       borrowed Vortex bytes, scoped string interning, typed dictionary evidence keys, and
       deterministic result assembly.
+    - [x] A bounded fresh hot-operator rerun over Arrow IPC/Parquet group-by, multi-key group-by,
+      and clean/cast/filter/write routes did not reproduce the stale public artifact's 30 ms
+      operator rows: successful warm/native group-by operator kernels were below 0.8 ms, scan was
+      below 0.5 ms, and the remaining visible cost was process/harness wall time around 15-18 ms.
     - [ ] Remaining: rerun a clean benchmark artifact from a non-dirty workspace, compare against
       the pre-`PERF-INNOV-5` baseline, and continue reducing any refreshed warm/native route
       totals or operator-kernel rows still above 10 ms. Current checked-in evidence cannot support
@@ -370,6 +374,9 @@ completed base slice, while unchecked rows define the remaining optimization wor
     - [x] The publication claim gate now records ShardLoom lane-version provenance and blocks
       current publication when ShardLoom lane versions are dirty or embed a short SHA that does not
       match the manifest `shardloom_git_sha`.
+    - [x] Benchmark re-promotion preserves existing writer-context millisecond timing cells and
+      does not auto-upgrade legacy rows to replay/publication tiers unless result-sink replay timing
+      is present.
     - [ ] Remaining: require every hot stage field to declare owner, parent stage, inclusion class,
       timing scope, evidence level, and residual treatment before optimization work begins; extend
       dashboard grouping so route-total stages, excluded diagnostic children, shared preparation,

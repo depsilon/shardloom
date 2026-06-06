@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5/6 promoter preservation and bounded hot-operator triage
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - Unresolved Codex review sweep for PRs `#1090` through `#1128`.
+    - PR `#1121` benchmark writer-context promotion comments.
+    - PR `#1124` replay-tier promotion comment.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `python/tests/test_release_scripts.py`.
+    - Bounded local artifact `target/codex-perf-hot-operator.json`.
+  - Scope:
+    - Fixed benchmark re-promotion so already-promoted writer-context `*_ms` fields are preserved
+      instead of being dropped when raw `*_micros` fields are absent.
+    - Required numeric result-sink replay timing before auto-selecting or preserving auto-derived
+      `full_vortex_replay` or `publication_full` evidence tiers.
+    - Added release-script regressions for both re-promotion contracts.
+    - Ran a bounded fresh hot-operator rerun for Arrow IPC/Parquet group-by, multi-key group-by,
+      and clean/cast/filter/write routes across `shardloom-vortex` and
+      `shardloom-prepared-vortex`.
+  - Evidence:
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_repromotion_preserves_writer_context_ms_fields python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_repromotion_requires_replay_timing_for_replay_tier`
+      passed with 2 tests.
+    - `python3 -m unittest python.tests.test_release_scripts` passed with 75 tests and 2 skipped.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `python3 -m unittest discover -s python/tests` passed with 442 tests and 2 skipped.
+    - `python3 -m build python` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed while still reporting dirty/mismatched ShardLoom lane provenance as unenforced.
+    - The first attempt to run the bounded hot-operator benchmark with system `python3` failed
+      because `pyarrow` was unavailable; rerunning with the bundled workspace Python succeeded and
+      wrote `target/codex-perf-hot-operator.json`.
+    - In the bounded rerun, successful Arrow IPC/Parquet group-by operator kernels were about
+      0.77-0.80 ms, scan timing was below 0.5 ms, and route query totals were about 1.3 ms for
+      group-by; the stale public artifact's 30 ms warm/native operator outliers did not reproduce.
+  - Benchmark boundary:
+    - The bounded artifact is optimization triage evidence only. It is not a clean full-local
+      publication rerun and does not update checked-in benchmark rows.
+    - Temp re-promotion of the current public artifact showed writer-context timing cells are now
+      preserved on re-promotion, but it does not create new nonzero writer-context evidence.
+  - Claim boundary:
+    - Claim is limited to preserving benchmark timing evidence on re-promotion and narrowing the
+      reported slowdown to stale/public-artifact attribution versus fresh bounded hot-route timing.
+      Performance superiority, Spark-displacement, production readiness, package-release, and
+      public benchmark publication claims remain blocked.
+  - Fallback boundary:
+    - Benchmark runs used ShardLoom native/prepared Vortex lanes only. No external engine or Vortex
+      query-engine integration executed unsupported ShardLoom work as fallback.
+
 - [x] Session label: PERF-INNOV-5/6 follow-up timing, low-cardinality group-by, and reuse P1 closeout
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
