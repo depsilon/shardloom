@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary helper predicate SQL/Python runtime slice
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-6d-binary-helper-predicates` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar`.
+    - Follow-up to the scoped binary helper projection row: `UNHEX(<utf8-column>)` and
+      `FROM_BASE64(<utf8-column>)` projections were executable, while helper predicates still
+      lacked separate runtime evidence and Python bytes-literal lowering.
+  - Scope:
+    - Promoted scoped `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` predicates comparing
+      decoded bytes against explicit `X'<hex>'`, `BINARY '<utf8>'`, or `BLOB '<utf8>'` literals
+      through the ShardLoom local-source SQL runtime and core expression evaluator.
+    - Added helper-predicate evidence fields for runtime execution, helper operator, comparison
+      operator, source column, literal hex payload, and null-filter semantics.
+    - Added Python query-builder bytes/bytearray literal lowering to `X'<hex>'` plus typed
+      `binary_helper_predicate_*` report accessors.
+    - Updated the admitted semantics matrix, admitted-semantics validator fixture, phase docs, and
+      global architecture review summary while keeping broader binary execution/preservation
+      outside the claim boundary.
+  - Evidence:
+    - `cargo check -p shardloom-cli --features universal-format-io` passed.
+    - `cargo test -p shardloom-cli binary_helper -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_binary_helper_projection_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_binary_helper_predicate_invokes_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py scripts/check_python_user_surface_completion.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-binary-helper-predicate.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-binary-helper-predicate.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-binary-helper-predicate.json` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped SQL/Python/DataFrame binary helper predicate runtime evidence for direct
+      UTF-8 source-column `UNHEX` and `FROM_BASE64` decoding against explicit binary literals only.
+      It does not claim direct binary source dtype decoding beyond existing scoped rows, nested
+      helper expressions, broad binary execution/preservation, production SQL/DataFrame
+      completeness, performance equivalence, object-store/table SQL, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime and core expression evaluator. The
+      positive route and deterministic invalid-input diagnostics report or append
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D source-schema all-null typed nested output
   - Date: 2026-06-06
   - Branch/PR: `codex/compute-engine-6d-source-schema-nested-output` / local branch, PR not opened.

@@ -1756,6 +1756,14 @@ struct ParsedBinaryHelperProjection {
     op: BinaryHelperOp,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedBinaryHelperPredicate {
+    column: String,
+    op: BinaryHelperOp,
+    comparison: ComparisonOp,
+    value: Vec<u8>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedStringFunctionCall {
     expression: Expression,
@@ -2388,6 +2396,7 @@ enum ParsedPredicate {
         source_columns: Vec<String>,
         literal_count: usize,
     },
+    BinaryHelperCompare(ParsedBinaryHelperPredicate),
     Logical {
         op: LogicalPredicateOp,
         left: Box<ParsedPredicate>,
@@ -8950,6 +8959,7 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::StringMatch { .. }
         | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
 }
@@ -9052,6 +9062,7 @@ fn materialize_correlated_subquery_predicates(
         | ParsedPredicate::RowValueInList { .. }
         | ParsedPredicate::StringMatch { .. }
         | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
 }
@@ -9917,7 +9928,8 @@ fn apply_in_subquery_date_literal_column_coercions(
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
-        | ParsedPredicate::StringMatch { .. } => Ok(()),
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
     }
 }
 
@@ -10015,7 +10027,8 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
-        | ParsedPredicate::StringMatch { .. } => Ok(()),
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
     }
 }
 
@@ -12354,7 +12367,8 @@ fn apply_temporal_difference_predicate_coercions(
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
-        | ParsedPredicate::StringMatch { .. } => Ok(()),
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
     }
 }
 
@@ -12479,7 +12493,8 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
-        | ParsedPredicate::StringMatch { .. } => Ok(()),
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
     }
 }
 
@@ -12614,7 +12629,8 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
-        | ParsedPredicate::StringMatch { .. } => Ok(()),
+        | ParsedPredicate::StringMatch { .. }
+        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
     }
 }
 
@@ -18709,6 +18725,7 @@ impl ParsedPredicate {
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
             | Self::StringMatch { column, .. } => is_outer_correlation_ref(column),
+            Self::BinaryHelperCompare(predicate) => is_outer_correlation_ref(&predicate.column),
             Self::ColumnCompare {
                 left_column,
                 right_column,
@@ -18797,6 +18814,7 @@ impl ParsedPredicate {
             | Self::InSubquery { column, .. }
             | Self::QuantifiedSubquery { column, .. }
             | Self::StringMatch { column, .. } => columns.push(column),
+            Self::BinaryHelperCompare(predicate) => columns.push(&predicate.column),
             Self::RowValueInList {
                 columns: row_columns,
                 ..
@@ -18881,6 +18899,7 @@ impl ParsedPredicate {
             Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. } => self.string_compare_expression(),
+            Self::BinaryHelperCompare(predicate) => binary_helper_compare_expression(predicate),
             Self::TimestampExtractCompare {
                 column,
                 op,
@@ -18959,6 +18978,10 @@ impl ParsedPredicate {
                 value,
                 ..
             } => string_function_compare_expression(expression, *comparison, value),
+            Self::BinaryHelperCompare(_) => Err(ShardLoomError::InvalidOperation(
+                "internal error: binary helper predicate cannot lower through string expression"
+                    .to_string(),
+            )),
             _ => Err(ShardLoomError::InvalidOperation(
                 "internal error: non-string predicate cannot lower through string expression"
                     .to_string(),
@@ -19017,6 +19040,7 @@ impl ParsedPredicate {
             Self::BooleanPredicate { .. } => "boolean_predicate",
             Self::StringTransformCompare { .. } => "string_transform",
             Self::StringFunctionCompare { .. } => "string_function",
+            Self::BinaryHelperCompare(_) => "binary_helper_predicate",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
             Self::RowValueInList { .. } => "row_value_in_predicate",
@@ -19115,6 +19139,91 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_binary_helper_predicate(&self) -> bool {
+        let mut predicates = Vec::new();
+        self.push_binary_helper_predicates(&mut predicates);
+        !predicates.is_empty()
+    }
+
+    fn binary_helper_predicate_operators(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_helper_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| predicate.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_predicate_comparison_operators(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_helper_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| comparison_op_label(predicate.comparison))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_predicate_source_columns(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_helper_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| predicate.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_predicate_literal_hex_values(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_helper_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| bytes_to_hex(&predicate.value))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_helper_predicate_null_semantics(&self) -> &'static str {
+        if self.uses_binary_helper_predicate() {
+            "null_propagating_utf8_decode_then_sql_where_true_only"
+        } else {
+            "not_applicable"
+        }
+    }
+
+    fn push_binary_helper_predicates<'a>(
+        &'a self,
+        predicates: &mut Vec<&'a ParsedBinaryHelperPredicate>,
+    ) {
+        match self {
+            Self::BinaryHelperCompare(predicate) => predicates.push(predicate),
+            Self::Logical { left, right, .. } => {
+                left.push_binary_helper_predicates(predicates);
+                right.push_binary_helper_predicates(predicates);
+            }
+            Self::Not { inner } => inner.push_binary_helper_predicates(predicates),
+            _ => {}
+        }
+    }
+
     fn uses_null_predicate(&self) -> bool {
         match self {
             Self::IsNull { .. } | Self::IsNotNull { .. } => true,
@@ -19144,7 +19253,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19189,7 +19299,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19233,7 +19344,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19267,7 +19379,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19331,7 +19444,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19376,7 +19490,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19437,7 +19552,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19471,7 +19587,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::ExistsSubquery { .. } => false,
+            | Self::ExistsSubquery { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19516,7 +19633,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::ExistsSubquery { .. } => {}
+            | Self::ExistsSubquery { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19554,7 +19672,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19607,7 +19726,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19641,7 +19761,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19686,7 +19807,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19733,7 +19855,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19767,7 +19890,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19814,7 +19938,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19861,7 +19986,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19895,7 +20021,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -19940,7 +20067,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -19987,7 +20115,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20034,7 +20163,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20081,7 +20211,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20115,7 +20246,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20160,7 +20292,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20205,7 +20338,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20252,7 +20386,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20286,7 +20421,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20331,7 +20467,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20378,7 +20515,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20412,7 +20550,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20457,7 +20596,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20502,7 +20642,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20549,7 +20690,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20583,7 +20725,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20630,7 +20773,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20679,7 +20823,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20717,7 +20862,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -20764,7 +20910,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20825,7 +20972,8 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20857,7 +21005,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20893,7 +21042,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -20934,7 +21084,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -20997,7 +21148,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -21090,7 +21242,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -21126,7 +21279,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => "not_applicable",
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => "not_applicable",
         }
     }
 
@@ -21160,7 +21314,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => 1,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 1,
         }
     }
 
@@ -21192,7 +21347,8 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21226,7 +21382,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21276,7 +21433,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21309,7 +21467,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21360,7 +21519,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -21406,7 +21566,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -21441,7 +21602,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21475,7 +21637,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21518,7 +21681,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21552,7 +21716,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21595,7 +21760,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21629,7 +21795,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21663,7 +21830,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -21702,7 +21870,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21737,7 +21906,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21772,7 +21942,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21806,7 +21977,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -21859,7 +22031,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -22042,7 +22215,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -22077,7 +22251,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -22114,7 +22289,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -22151,7 +22327,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => 0,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => 0,
         }
     }
 
@@ -22185,7 +22362,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -22427,7 +22605,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -22474,7 +22653,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22525,7 +22705,8 @@ impl ParsedPredicate {
             | Self::RowValueInSubquery { .. }
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22690,7 +22871,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22747,7 +22929,8 @@ impl ParsedPredicate {
             | Self::RowValueInList { .. }
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22782,7 +22965,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -22882,7 +23066,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22938,7 +23123,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::RowValueInList { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -22972,7 +23158,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -23017,7 +23204,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23062,7 +23250,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23123,7 +23312,8 @@ impl ParsedPredicate {
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -23157,7 +23347,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -23202,7 +23393,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23247,7 +23439,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23281,7 +23474,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -23326,7 +23520,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23373,7 +23568,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23418,7 +23614,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23452,7 +23649,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => false,
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
         }
     }
 
@@ -23497,7 +23695,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23542,7 +23741,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 
@@ -23587,7 +23787,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::StringMatch { .. } => {}
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => {}
         }
     }
 }
@@ -23836,6 +24037,31 @@ fn string_function_compare_expression(
             right: Box::new(Expression::literal(
                 ExprId::new("where.string_function.literal")?,
                 value.clone(),
+            )),
+        },
+    ))
+}
+
+fn binary_helper_compare_expression(
+    predicate: &ParsedBinaryHelperPredicate,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.binary_helper_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.binary_helper.{}", predicate.column))?,
+                ExpressionKind::FunctionCall {
+                    name: predicate.op.function_name().to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{}", predicate.column))?,
+                        ColumnRef::new(predicate.column.clone())?,
+                    )],
+                },
+            )),
+            op: predicate.comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.binary_helper.literal")?,
+                ScalarValue::Binary(predicate.value.clone()),
             )),
         },
     ))
@@ -26075,6 +26301,42 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .predicate
                     .binary_source_predicate_null_semantics()
+                    .to_string(),
+            ),
+            (
+                "binary_helper_predicate_runtime_execution".to_string(),
+                self.parsed
+                    .predicate
+                    .uses_binary_helper_predicate()
+                    .to_string(),
+            ),
+            (
+                "binary_helper_predicate_operator".to_string(),
+                self.parsed.predicate.binary_helper_predicate_operators(),
+            ),
+            (
+                "binary_helper_predicate_comparison_operator".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_helper_predicate_comparison_operators(),
+            ),
+            (
+                "binary_helper_predicate_source_column".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_helper_predicate_source_columns(),
+            ),
+            (
+                "binary_helper_predicate_literal_hex_value".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_helper_predicate_literal_hex_values(),
+            ),
+            (
+                "binary_helper_predicate_null_semantics".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_helper_predicate_null_semantics()
                     .to_string(),
             ),
             (
@@ -32378,6 +32640,71 @@ fn parse_binary_helper_function_prefix(raw: &str) -> Option<(BinaryHelperOp, usi
     None
 }
 
+fn parse_binary_helper_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((op, open_index)) = parse_binary_helper_function_prefix(trimmed) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "binary helper predicates must use UNHEX(<column>) <op> X'<hex>' or FROM_BASE64(<column>) <op> X'<hex>'",
+        )
+    })?;
+    let args = split_sql_csv(trimmed[open_index + 1..close_index].trim())?;
+    let [column] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "binary helper predicates require exactly one source column argument",
+        ));
+    };
+    validate_sql_column_ref(column)?;
+    let tail = trimmed[close_index + 1..].trim();
+    if tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary helper predicates require a comparison operator and explicit binary literal",
+        ));
+    }
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let (comparison_raw, value) = match tokens.as_slice() {
+        [comparison_raw, literal_raw] => (
+            comparison_raw,
+            parse_binary_helper_predicate_literal(literal_raw)?,
+        ),
+        [comparison_raw, binary_keyword, literal_raw] => {
+            let bytes = parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?.ok_or_else(
+                || {
+                    unsupported_sql_error(
+                        "binary helper predicates admit X'<hex>', BINARY '<utf8>', or BLOB '<utf8>' literals only",
+                    )
+                },
+            )?;
+            (comparison_raw, bytes)
+        }
+        _ => {
+            return Err(unsupported_sql_error(
+                "binary helper predicates admit UNHEX(<column>) <op> X'<hex>' or FROM_BASE64(<column>) <op> BINARY/BLOB '<utf8>' only",
+            ));
+        }
+    };
+    Ok(Some(ParsedPredicate::BinaryHelperCompare(
+        ParsedBinaryHelperPredicate {
+            column: column.clone(),
+            op,
+            comparison: parse_comparison_op(comparison_raw)?,
+            value,
+        },
+    )))
+}
+
+fn parse_binary_helper_predicate_literal(raw: &str) -> Result<Vec<u8>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if is_sql_binary_hex_literal(trimmed) {
+        return parse_sql_binary_hex_literal(trimmed);
+    }
+    Err(unsupported_sql_error(
+        "binary helper predicates admit X'<hex>', BINARY '<utf8>', or BLOB '<utf8>' literals only",
+    ))
+}
+
 fn parse_string_function_call_expression(
     raw: &str,
     id_prefix: &str,
@@ -33231,6 +33558,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         return Ok(predicate);
     }
     if let Some(predicate) = parse_string_function_predicate(raw)? {
+        return Ok(predicate);
+    }
+    if let Some(predicate) = parse_binary_helper_predicate(raw)? {
         return Ok(predicate);
     }
     if let Some(predicate) = parse_regex_function_predicate(raw)? {
@@ -38580,6 +38910,67 @@ mod tests {
     }
 
     #[test]
+    fn binary_helper_predicates_are_admitted() {
+        for (statement, expected_op, expected_comparison, expected_value) in [
+            (
+                "SELECT id FROM 'target/input.csv' WHERE UNHEX(hex_payload) = X'00ff10' LIMIT 5",
+                BinaryHelperOp::Unhex,
+                ComparisonOp::Eq,
+                vec![0x00, 0xff, 0x10],
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE FROM_BASE64(b64_payload) >= BINARY 'alpha' LIMIT 5",
+                BinaryHelperOp::FromBase64,
+                ComparisonOp::GtEq,
+                b"alpha".to_vec(),
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE FROM_BASE64(b64_payload) < BLOB 'raw' LIMIT 5",
+                BinaryHelperOp::FromBase64,
+                ComparisonOp::Lt,
+                b"raw".to_vec(),
+            ),
+        ] {
+            let parsed = parse_sql_local_source_statement(statement)
+                .expect("binary helper predicate parses");
+
+            assert!(
+                matches!(
+                    &parsed.predicate,
+                    ParsedPredicate::BinaryHelperCompare(ParsedBinaryHelperPredicate {
+                        column,
+                        op,
+                        comparison,
+                        value,
+                    }) if column == if expected_op == BinaryHelperOp::Unhex {
+                        "hex_payload"
+                    } else {
+                        "b64_payload"
+                    }
+                        && *op == expected_op
+                        && *comparison == expected_comparison
+                        && value.as_slice() == expected_value.as_slice()
+                ),
+                "unexpected helper predicate for {statement}: {:?}",
+                parsed.predicate
+            );
+            assert!(parsed.predicate.uses_binary_helper_predicate());
+        }
+
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE UNHEX(hex_payload) = NULL LIMIT 5",
+        )
+        .expect_err("NULL helper predicate literal remains blocked");
+        assert!(
+            error
+                .to_string()
+                .contains("binary helper predicates admit X'<hex>'"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
     fn parses_scoped_complex_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
@@ -42255,6 +42646,95 @@ mod tests {
             assert!(error.to_string().contains("external_engine_invoked=false"));
             fs::remove_file(&path).expect("remove csv source");
         }
+    }
+
+    #[test]
+    fn runs_scoped_binary_helper_predicate_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,hex_payload,b64_payload\n1,00ff10,AP8Q\n2,616c706861,YWxwaGE=\n3,,\n4,726177ff,cmF3\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id FROM '{}' WHERE UNHEX(hex_payload) = X'00ff10' OR FROM_BASE64(b64_payload) = BINARY 'alpha' ORDER BY id ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run binary helper predicate smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(report.result_jsonl, "{\"id\":1}\n{\"id\":2}\n");
+        assert_field_eq(&fields, "predicate_operator_family", "logical_predicate");
+        assert_field_eq(&fields, "logical_predicate_runtime_execution", "true");
+        assert_field_eq(&fields, "binary_helper_predicate_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_operator",
+            "unhex,from_base64",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_comparison_operator",
+            "eq,eq",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_source_column",
+            "hex_payload,b64_payload",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_literal_hex_value",
+            "00ff10,616c706861",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_null_semantics",
+            "null_propagating_utf8_decode_then_sql_where_true_only",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn binary_helper_predicate_blocks_invalid_source_values_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,hex_payload\n1,00xz\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id FROM '{}' WHERE UNHEX(hex_payload) = X'00ff' LIMIT 5",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error = run_sql_local_source_smoke_single(&request)
+            .expect_err("invalid binary helper predicate input remains deterministic");
+
+        assert!(
+            error
+                .to_string()
+                .contains("UNHEX admits hexadecimal digits only"),
+            "{error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+
+        fs::remove_file(&path).expect("remove csv source");
     }
 
     #[test]

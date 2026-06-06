@@ -4505,6 +4505,60 @@ class SqlLocalSourceSmokeReport:
         return value
 
     @property
+    def binary_helper_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted binary helper predicate."""
+
+        return (
+            self.envelope.field_bool("binary_helper_predicate_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def binary_helper_predicate_operator(self) -> tuple[str, ...]:
+        """Return binary helper predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("binary_helper_predicate_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_predicate_comparison_operator(self) -> tuple[str, ...]:
+        """Return comparison operators used by binary helper predicates."""
+
+        value = self.envelope.field("binary_helper_predicate_comparison_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_predicate_source_columns(self) -> tuple[str, ...]:
+        """Return source columns decoded by binary helper predicates."""
+
+        value = self.envelope.field("binary_helper_predicate_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_predicate_literal_hex_values(self) -> tuple[str, ...]:
+        """Return hex payloads used by binary helper predicate literals."""
+
+        value = self.envelope.field("binary_helper_predicate_literal_hex_value", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_helper_predicate_null_semantics(self) -> str | None:
+        """Return null-semantics evidence for binary helper predicates."""
+
+        value = self.envelope.field("binary_helper_predicate_null_semantics")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
     def date_extract_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted Date32 extract projection."""
 

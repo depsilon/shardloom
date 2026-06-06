@@ -959,6 +959,39 @@ def binary_helper_projection_case() -> SqlFixtureCase:
     )
 
 
+def binary_helper_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_helper_predicate",
+        source_name="binary-helper-predicate.csv",
+        source_text=(
+            "id,hex_payload,b64_payload\n"
+            "1,00ff10,AP8Q\n"
+            "2,616c706861,YWxwaGE=\n"
+            "3,726177ff,cmF3/w==\n"
+            "4,,\n"
+        ),
+        statement_template=(
+            "SELECT id FROM '{source}' WHERE FROM_BASE64(b64_payload) = X'00ff10' "
+            "OR UNHEX(hex_payload) != BINARY 'alpha' LIMIT 10"
+        ),
+        expected_jsonl='{"id":1}\n{"id":3}\n',
+        expected_fields={
+            "predicate_operator_family": "logical_predicate",
+            "filter_runtime_execution": "true",
+            "binary_helper_predicate_runtime_execution": "true",
+            "binary_helper_predicate_operator": "from_base64,unhex",
+            "binary_helper_predicate_comparison_operator": "eq,not_eq",
+            "binary_helper_predicate_source_column": "b64_payload,hex_payload",
+            "binary_helper_predicate_literal_hex_value": "00ff10,616c706861",
+            "binary_helper_predicate_null_semantics": (
+                "null_propagating_utf8_decode_then_sql_where_true_only"
+            ),
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_predicate_literal_null_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_predicate_literal_null_semantics",
@@ -4464,6 +4497,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         decimal_cast_projection_predicate_case(),
         decimal_arithmetic_projection_case(),
         binary_helper_projection_case(),
+        binary_helper_predicate_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),

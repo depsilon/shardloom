@@ -653,10 +653,12 @@ plan before coding.
   projection/predicate/order evidence, and scoped Parquet/Arrow IPC/Avro/ORC flat scalar binary
   sink preservation plus local Vortex known flat scalar sink preservation for boolean, int64,
   uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/
-  all-null rows when dtype/family evidence is present, while unknown or unsupported NULL-bearing
-  Vortex output batches block before writer conversion, and broader binary sinks, broader binary
-  execution, and non-binary source columns compared to binary literals remain deterministic
-  blockers.
+  all-null rows when dtype/family evidence is present. Later scoped 6D evidence also admits
+  `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` binary helper predicates against
+  explicit binary literals through ShardLoom-owned local-source runtime fields. Unknown or
+  unsupported NULL-bearing Vortex output batches still block before writer conversion, and broader
+  binary sinks, broader binary execution beyond admitted helper/cast/source routes, and non-binary
+  source columns compared directly to binary literals remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,
   timezone database blockers, interval arithmetic outside scoped temporal helpers, and
