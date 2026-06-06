@@ -24,8 +24,9 @@ syncs that artifact into the build and the generated `website/` mirror.
 - Performance claim posture: `performance_claim_allowed=false`.
 - Claim gate posture: benchmark evidence is `not_claim_grade` for public performance, production,
   and replacement claims unless the manifest says otherwise.
-- PERF-INNOV-5 scoped local optimization artifacts remain phase-plan evidence until a new public
-  artifact is promoted through the benchmark publication gate.
+- PERF-INNOV-5 hot-runtime metadata rows and full-local publication-proof rows are represented in
+  the promoted public benchmark bundle. Future scoped optimization artifacts remain phase-plan
+  evidence until they are promoted through the benchmark publication gate.
 
 ## Public Routes
 

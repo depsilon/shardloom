@@ -393,14 +393,23 @@ completed base slice, while unchecked rows define the remaining optimization wor
       shows all successful prepared/native rows carrying
       `workspace_manifest_local_vortex_artifacts` evidence; cache-hit rows verify the manifest and
       report `0` fresh manifest-write micros while preserving sub-ms scan/operator timings.
+    - [x] Current branch `codex/perf-innov-5-public-refresh` refreshes the checked-in public
+      benchmark bundle on merged main `cf23c7e6` with a full-local claim-readiness artifact
+      (`target/benchmark-artifacts/traditional-full-local.json`) plus merged full-local
+      `metadata_sink` hot-runtime rows regenerated from a clean worktree
+      (`target/perf-innov5-hot-runtime-full-local-clean.json`). The promoted bundle has 1,920
+      published rows, including five ShardLoom `hot_runtime` surfaces and five ShardLoom
+      `publication_proof` surfaces, each showing `120/120`; all ShardLoom rows preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`, prepared/native rows carry
+      workspace-manifest evidence, and the ShardLoom lane versions no longer carry dirty suffixes.
     - [ ] Remaining: reduce or explicitly attribute the residual above-10 ms cells: cold certified
       `shardloom` route query/process wall, first-creator native Vortex fresh parquet/jsonl
-      compatibility import, and durable workspace-manifest promotion into the checked-in public
-      artifact. Warm scan/operator execution is no longer the current hot target in the scoped
-      matrix. Current checked-in hot-runtime rows still cannot support a performance claim because
-      they are non-claim `metadata_sink` evidence and only cover the targeted tiny-smoke
-      selective-filter refresh; broader claim-grade publication proof and clean full-suite evidence
-      remain separate requirements before any performance claim is made.
+      compatibility import, and publication-proof sink/evidence rendering. Warm scan/operator
+      execution is no longer the current hot target in the scoped matrix. Current checked-in
+      hot-runtime rows are fresh but still cannot support a performance claim because they are
+      non-claim `metadata_sink` evidence over the full-local tiny-smoke scenario/format matrix;
+      broader claim-grade publication proof remains separate and correctly slower because it
+      includes proof/output work.
   - Runtime enablement: prepared/native Vortex preparation route -> source read/compatibility
     import/Vortex write/source-state reuse attribution -> benchmark optimization readiness and
     public artifact freshness gates.
@@ -422,11 +431,11 @@ completed base slice, while unchecked rows define the remaining optimization wor
   - Acceptance: scoped clean artifacts identify any remaining above-10 ms cells as startup,
     process-wall, source-read, compatibility-import, Vortex-write, or public-artifact freshness
     costs. Warm scan/operator rows remain sub-ms in the scoped matrix. Website/public benchmark
-    surfaces either point at a fresh promoted artifact whose ShardLoom lane versions match the
-    manifest SHA or clearly report that the current local optimization artifact is not claim-grade
-    and has not been promoted. A clean post-fix artifact must not carry dirty `lane_versions` or
-    ShardLoom lane SHAs that disagree with the manifest SHA before any route-total improvement or
-    regression claim is made.
+    surfaces point at a fresh promoted artifact whose ShardLoom lane versions match the manifest
+    SHA, while any future unpromoted local optimization artifact is clearly marked as phase-plan
+    evidence only. A clean post-fix artifact must not carry dirty `lane_versions` or ShardLoom lane
+    SHAs that disagree with the manifest SHA before any route-total improvement or regression claim
+    is made.
   - Verification:
     ```powershell
     cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state
