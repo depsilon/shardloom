@@ -1812,6 +1812,27 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["scan_chunk_iter_micros"], 20_000)
         self.assertNotIn("vortex_chunk_iteration_micros", published)
 
+        legacy_only_row = {
+            **row,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "total_runtime_millis": 1.0,
+                "result_sink_write_millis": 0.0,
+                "evidence_render_millis": 0.0,
+                "vortex_scan_open_micros": 10_000,
+                "vortex_projected_field_extract_micros": 5_000,
+                "vortex_encoded_kernel_evidence_micros": 15_000,
+                "operator_kernel_micros": 75_000,
+                "operator_finalize_micros": 0,
+                "result_assembly_micros": 0,
+            },
+        }
+        [legacy_published] = module.published_rows_with_current_route_timing_ledger(
+            [legacy_only_row]
+        )
+        self.assertEqual(legacy_published["scan_chunk_iter_micros"], 20_000)
+        self.assertNotIn("vortex_chunk_iteration_micros", legacy_published)
+
     def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
