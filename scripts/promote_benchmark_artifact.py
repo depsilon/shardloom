@@ -7919,8 +7919,18 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_stage_fields,
             route_timing_ledger,
         )
+        instrument_input_row = {
+            **adjusted_row,
+            **route_stage_fields,
+            **source_read_scout_fields,
+            **prepared_state_optimization_fields,
+            **vortex_reopen_scan_fields,
+            **route_timing_ledger,
+            **timing_normalization_fields,
+            **stage_inclusion_fields,
+        }
         route_timing_instrument_fields = route_timing_instrument_fields_for_row(
-            adjusted_row,
+            instrument_input_row,
             route_stage_fields,
             stage_inclusion_fields,
         )

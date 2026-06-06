@@ -1612,6 +1612,43 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(ready["route_timing_instrument_status"], "optimization_ready")
         self.assertEqual(ready["route_timing_instrument_not_ready_stage_ids"], "none")
 
+    def test_benchmark_promoter_uses_derived_substages_for_readiness(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_published_route_instrument_readiness_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "status": "success",
+            "actual_evidence_tier": "metadata_sink",
+            "timing_surface": "hot_runtime",
+            "claim_gate_status": "not_claim_grade",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "metrics": {
+                "query_runtime_millis": 12.0,
+                "operator_compute_millis": 12.0,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["operator_compute_ms"], 12.0)
+        self.assertEqual(published["operator_kernel_micros"], 12_000)
+        self.assertEqual(
+            published["route_timing_instrument_expensive_stage_ids"],
+            "operator_compute",
+        )
+        self.assertEqual(
+            published["route_timing_instrument_missing_substage_attribution"],
+            "none",
+        )
+        self.assertEqual(
+            published["route_timing_instrument_status"],
+            "optimization_ready",
+        )
+
     def test_benchmark_promoter_merges_hot_rows_without_replacing_publication_rows(
         self,
     ) -> None:
