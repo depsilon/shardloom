@@ -2715,6 +2715,9 @@ class ReleaseScriptTests(unittest.TestCase):
             dim = root / "dim.vortex"
             fact.write_bytes(b"fact")
             dim.write_bytes(b"dim")
+            manifest = root / ".shardloom" / "prepared-vortex-reuse-manifest.json"
+            manifest.parent.mkdir()
+            manifest.write_text("{}\n", encoding="utf-8")
             entry = {
                 "fact": fact,
                 "dim": dim,
@@ -2730,6 +2733,15 @@ class ReleaseScriptTests(unittest.TestCase):
                 "dim_digest": "sha256:dim",
                 "benchmark_harness_prepared_artifact_cache_creator_engine": (
                     "shardloom-vortex"
+                ),
+                "benchmark_harness_prepared_artifact_workspace_manifest_path": str(
+                    manifest
+                ),
+                "benchmark_harness_prepared_artifact_workspace_manifest_status": (
+                    "workspace_manifest_written"
+                ),
+                "benchmark_harness_prepared_artifact_workspace_manifest_write_micros": (
+                    "42"
                 ),
             }
 
@@ -2778,6 +2790,108 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             reused["prepared_state_reuse_scope"],
             "benchmark_harness_shared_prepared_vortex_artifact_in_process",
+        )
+        self.assertEqual(
+            reused["benchmark_harness_prepared_artifact_workspace_manifest_status"],
+            "workspace_manifest_verified_same_process_cache_hit",
+        )
+        self.assertEqual(
+            reused[
+                "shared_prepared_artifact_original_benchmark_harness_prepared_artifact_workspace_manifest_write_micros"
+            ],
+            "42",
+        )
+        self.assertEqual(
+            reused["benchmark_harness_prepared_artifact_workspace_manifest_write_micros"],
+            "0",
+        )
+
+    def test_prepared_artifact_workspace_manifest_records_local_artifacts(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in [
+                "fact.csv",
+                "dim.csv",
+                "fact.jsonl",
+                "dim.jsonl",
+                "fact.parquet",
+                "dim.parquet",
+                "fact.arrow",
+                "dim.arrow",
+                "fact.avro",
+                "dim.avro",
+                "fact.orc",
+                "dim.orc",
+            ]:
+                (root / name).write_text("fixture\n", encoding="utf-8")
+            fact_vortex = root / "workspace" / "fact.vortex"
+            dim_vortex = root / "workspace" / "dim.vortex"
+            fact_vortex.parent.mkdir()
+            fact_vortex.write_bytes(b"fact-vortex")
+            dim_vortex.write_bytes(b"dim-vortex")
+            paths = benchmark_run.DatasetPaths(
+                root=root,
+                fact_csv=root / "fact.csv",
+                dim_csv=root / "dim.csv",
+                fact_jsonl=root / "fact.jsonl",
+                dim_jsonl=root / "dim.jsonl",
+                fact_parquet=root / "fact.parquet",
+                dim_parquet=root / "dim.parquet",
+                fact_arrow_ipc=root / "fact.arrow",
+                dim_arrow_ipc=root / "dim.arrow",
+                fact_avro=root / "fact.avro",
+                dim_avro=root / "dim.avro",
+                fact_orc=root / "fact.orc",
+                dim_orc=root / "dim.orc",
+                rows=2,
+                dim_rows=1,
+                dataset_profile="tiny_smoke",
+            )
+            fields = {
+                "source_state_id": "source-state://test",
+                "source_state_digest": "fnv1a64:source",
+                "prepared_state_id": "prepared-state://test",
+                "prepared_state_digest": "fnv1a64:prepared",
+            }
+            prepared = {
+                "fact": fact_vortex,
+                "dim": dim_vortex,
+                "fact_digest": "fnv1a64:fact",
+                "dim_digest": "fnv1a64:dim",
+            }
+
+            manifest_fields = (
+                benchmark_run.write_shared_prepared_artifact_workspace_manifest(
+                    paths=paths,
+                    data_format="parquet",
+                    workspace=root / "workspace",
+                    binary=root / "target" / "debug" / "shardloom",
+                    prepared=prepared,
+                    fields=fields,
+                )
+            )
+            manifest_path = Path(
+                manifest_fields[
+                    "benchmark_harness_prepared_artifact_workspace_manifest_path"
+                ]
+            )
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            payload["schema_version"],
+            benchmark_run.SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCHEMA_VERSION,
+        )
+        self.assertEqual(payload["scope"], "workspace_manifest_local_vortex_artifacts")
+        self.assertEqual(payload["prepared_fact_digest"], "fnv1a64:fact")
+        self.assertEqual(payload["prepared_dim_digest"], "fnv1a64:dim")
+        self.assertFalse(payload["fallback_attempted"])
+        self.assertFalse(payload["external_engine_invoked"])
+        self.assertTrue(
+            manifest_fields[
+                "benchmark_harness_prepared_artifact_workspace_manifest_digest"
+            ]
         )
 
     def test_batch_cli_process_wall_is_amortized_per_scenario(self) -> None:
